@@ -188,9 +188,10 @@ func (m *mockCmix) RemoveHealthCallback(healthID uint64) {
 	delete(m.healthCBs, healthID)
 }
 
-func (m *mockCmix) HasNode(*id.ID) bool            { panic("implement me") }
-func (m *mockCmix) NumRegisteredNodes() int        { panic("implement me") }
-func (m *mockCmix) TriggerNodeRegistration(*id.ID) { panic("implement me") }
+func (m *mockCmix) HasNode(*id.ID) bool                    { panic("implement me") }
+func (m *mockCmix) NumRegisteredNodes() int                { panic("implement me") }
+func (m *mockCmix) TriggerNodeRegistration(*id.ID)         { panic("implement me") }
+func (m *mockCmix) PauseNodeRegistration() (resume func()) { panic("implement me") }
 
 func (m *mockCmix) GetRoundResults(_ time.Duration,
 	roundCallback cmix.RoundEventCallback, _ ...id.Round) {

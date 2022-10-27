@@ -351,3 +351,7 @@ func (m *mockNetManager) GetInstance() *network2.Instance {
 func (m *mockNetManager) GetVerboseRounds() string {
 	return ""
 }
+
+func (m *mockNetManager) PauseNodeRegistration() func() {
+	return nil
+}

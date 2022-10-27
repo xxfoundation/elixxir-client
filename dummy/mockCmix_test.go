@@ -131,7 +131,6 @@ func (m mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppa
 	panic("implement me")
 }
 
-
 func (m mockCmix) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
 	//TODO implement me
 	panic("implement me")
@@ -238,6 +237,11 @@ func (m mockCmix) GetInstance() *network.Instance {
 }
 
 func (m mockCmix) GetVerboseRounds() string {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockCmix) PauseNodeRegistration() func() {
 	//TODO implement me
 	panic("implement me")
 }

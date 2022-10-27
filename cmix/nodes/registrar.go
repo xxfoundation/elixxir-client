@@ -51,6 +51,11 @@ type registrar struct {
 	// operator at a time, as a result this is a map of ID -> int
 	attempts sync.Map
 
+	// the read lock is taken at the start of every registration
+	// thread, so registration will stop as long as the write
+	// lock is taken
+	regPauser sync.RWMutex
+
 	c chan network.NodeGateway
 }
 
@@ -99,7 +104,8 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
 
-		go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts)
+		go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts,
+			&r.regPauser)
 		multi.Add(stop)
 	}
 
@@ -115,12 +121,25 @@ func (r *registrar) IncreaseParallelNodeRegistration(numParallel int) func() (st
 		for i := uint(0); i < uint(numParallel); i++ {
 			stop := stoppable.NewSingle("NodeRegistration Increase" + strconv.Itoa(int(i)))
 
-			go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts)
+			go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts, &r.regPauser)
 			multi.Add(stop)
 		}
 
 		return multi, nil
 	}
+}
+
+// PauseNodeRegistration stops node registration until resume is called.
+// It will block until registration is paused.
+// The follower will not stop while node registration is paused
+func (r *registrar) PauseNodeRegistration() (resume func()) {
+	r.regPauser.Lock()
+	jww.INFO.Println("Node Registration Paused")
+	resume = func() {
+		r.regPauser.Unlock()
+		jww.INFO.Println("Node Registration Resumed")
+	}
+	return resume
 }
 
 // GetNodeKeys returns a MixCypher for the topology and a list of nodes it did

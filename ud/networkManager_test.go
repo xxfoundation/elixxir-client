@@ -115,7 +115,9 @@ func (tnm *testNetworkManager) AddService(clientID *id.ID,
 	return
 }
 
-func (tnm *testNetworkManager) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {return nil}
+func (tnm *testNetworkManager) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
 
 func (tnm *testNetworkManager) CheckInProgressMessages() {
 	return
@@ -127,6 +129,10 @@ func (tnm *testNetworkManager) GetMaxMessageLength() int {
 
 func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
 	return
+}
+
+func (tnm *testNetworkManager) PauseNodeRegistration() func() {
+	return nil
 }
 
 func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {

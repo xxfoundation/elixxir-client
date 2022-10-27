@@ -270,6 +270,7 @@ func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) 
 func (m *mockCmix) UnregisterAddressSpaceNotification(string) { panic("implement me") }
 func (m *mockCmix) GetInstance() *network.Instance            { panic("implement me") }
 func (m *mockCmix) GetVerboseRounds() string                  { panic("implement me") }
+func (m *mockCmix) PauseNodeRegistration() func()             { panic("implement me") }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Storage Session                                                       //

@@ -224,3 +224,7 @@ func (t *testNetworkManagerGeneric) TriggerNodeRegistration(nid *id.ID) {}
 func (t *testNetworkManagerGeneric) UnregisterAddressSpaceNotification(
 	tag string) {
 }
+
+func (t *testNetworkManagerGeneric) PauseNodeRegistration() (resume func()) {
+	return nil
+}

@@ -1,3 +1,3 @@
 package cmix
 
-const defaultParallelNodeRegistration = 2
+const defaultParallelNodeRegistration = 10

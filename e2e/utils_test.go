@@ -270,6 +270,7 @@ func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) 
 func (m *mockCmix) UnregisterAddressSpaceNotification(string)                   { return }
 func (m *mockCmix) GetInstance() *network.Instance                              { return m.instance }
 func (m *mockCmix) GetVerboseRounds() string                                    { return "" }
+func (m *mockCmix) PauseNodeRegistration() func()                               { return nil }
 
 ////////////////////////////////////////////////////////////////////////////////
 // NDF                                                                        //

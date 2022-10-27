@@ -11,7 +11,6 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
 	"sync"
 	"time"
 
@@ -228,6 +227,13 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
+	// fixme: remove this, make it called by the javascript
+	// hack to get to release late at night
+	// pause node registrations do it doesn't interfere with creation
+	// of the channel manager
+	resume := user.api.GetCmix().PauseNodeRegistration()
+	time.Sleep(1 * time.Second)
+
 	// Construct new channels manager
 	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
 		user.api.GetCmix(), user.api.GetRng(), goEventBuilder)
@@ -238,11 +244,8 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity []byte,
 	// fixme: remove this, make it called by the javascript
 	// hack to get to release late at night
 	go func() {
-		time.Sleep(3 * time.Second)
-		localErr := user.IncreaseParallelNodeRegistration(13)
-		if localErr != nil {
-			jww.ERROR.Printf(localErr.Error())
-		}
+		time.Sleep(1 * time.Second)
+		resume()
 	}()
 
 	// Add channel to singleton and return
@@ -271,6 +274,13 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 		return nil, err
 	}
 
+	// fixme: remove this, make it called by the javascript
+	// hack to get to release late at night
+	// pause node registrations do it doesn't interfere with creation
+	// of the channel manager
+	resume := user.api.GetCmix().PauseNodeRegistration()
+	time.Sleep(1 * time.Second)
+
 	// Construct new channels manager
 	m, err := channels.LoadManager(storageTag, user.api.GetStorage().GetKV(),
 		user.api.GetCmix(), user.api.GetRng(), goEventBuilder)
@@ -281,11 +291,8 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	// fixme: remove this, make it called by the javascript
 	// hack to get to release late at night
 	go func() {
-		time.Sleep(3 * time.Second)
-		localErr := user.IncreaseParallelNodeRegistration(13)
-		if localErr != nil {
-			jww.ERROR.Printf(localErr.Error())
-		}
+		time.Sleep(1 * time.Second)
+		resume()
 	}()
 
 	// Add channel to singleton and return

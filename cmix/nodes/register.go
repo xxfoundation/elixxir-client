@@ -31,11 +31,12 @@ import (
 // before an interruption and how many registration attempts have
 // been attempted.
 func registerNodes(r *registrar, s session, stop *stoppable.Single,
-	inProgress, attempts *sync.Map) {
+	inProgress, attempts *sync.Map, pauser *sync.RWMutex) {
 
 	interval := time.Duration(500) * time.Millisecond
 	t := time.NewTicker(interval)
 	for {
+		pauser.RLock()
 		select {
 		case <-stop.Quit():
 			// On a stop signal, close the thread
@@ -109,6 +110,7 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 			rng.Close()
 		case <-t.C:
 		}
+		pauser.RUnlock()
 	}
 }
 

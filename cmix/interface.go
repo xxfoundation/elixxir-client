@@ -195,6 +195,11 @@ type Client interface {
 	// registrations by num
 	IncreaseParallelNodeRegistration(num int) func() (stoppable.Stoppable, error)
 
+	// PauseNodeRegistration stops node registration until resume is called.
+	// It will block until registration is paused.
+	// The follower will not stop while node registration is paused
+	PauseNodeRegistration() (resume func())
+
 	// DeleteService deletes a message service. If only a single response is
 	// associated with the preimage, the entire preimage is removed. If there is
 	// more than one response, only the given response is removed. If nil is

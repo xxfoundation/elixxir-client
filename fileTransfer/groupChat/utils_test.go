@@ -155,9 +155,11 @@ func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	m.handler.Unlock()
 }
 
-func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          { panic("implement me") }
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    { panic("implement me") }
-func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {panic("implement me")}
+func (m *mockCmix) DeleteClientFingerprints(*id.ID)                       { panic("implement me") }
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor) { panic("implement me") }
+func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	panic("implement me")
+}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
@@ -183,9 +185,10 @@ func (m *mockCmix) RemoveHealthCallback(healthID uint64) {
 	delete(m.healthCBs, healthID)
 }
 
-func (m *mockCmix) HasNode(*id.ID) bool            { panic("implement me") }
-func (m *mockCmix) NumRegisteredNodes() int        { panic("implement me") }
-func (m *mockCmix) TriggerNodeRegistration(*id.ID) { panic("implement me") }
+func (m *mockCmix) HasNode(*id.ID) bool                    { panic("implement me") }
+func (m *mockCmix) NumRegisteredNodes() int                { panic("implement me") }
+func (m *mockCmix) TriggerNodeRegistration(*id.ID)         { panic("implement me") }
+func (m *mockCmix) PauseNodeRegistration() (resume func()) { panic("implement me") }
 
 func (m *mockCmix) GetRoundResults(_ time.Duration,
 	roundCallback cmix.RoundEventCallback, _ ...id.Round) {

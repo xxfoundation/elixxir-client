@@ -31,6 +31,11 @@ type Registrar interface {
 	// registrations by num
 	IncreaseParallelNodeRegistration(num int) func() (stoppable.Stoppable, error)
 
+	// PauseNodeRegistration stops node registration until resume is called.
+	// It will block until registration is paused.
+	// The follower will not stop while node registration is paused
+	PauseNodeRegistration() (resume func())
+
 	// GetNodeKeys returns a MixCypher for the topology and a list of nodes it did
 	// not have a key for. If there are missing keys, then returns nil.
 	GetNodeKeys(topology *connect.Circuit) (MixCypher, error)

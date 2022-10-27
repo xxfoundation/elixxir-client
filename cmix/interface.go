@@ -191,8 +191,9 @@ type Client interface {
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 
-	// ChangeParallelNodeRegistration .
-	ChangeParallelNodeRegistration(num int) func() (stoppable.Stoppable, error)
+	// IncreaseParallelNodeRegistration increases the number of parallel node
+	// registrations by num
+	IncreaseParallelNodeRegistration(num int) func() (stoppable.Stoppable, error)
 
 	// DeleteService deletes a message service. If only a single response is
 	// associated with the preimage, the entire preimage is removed. If there is

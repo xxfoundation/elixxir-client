@@ -115,8 +115,6 @@ func (tnm *testNetworkManager) AddService(clientID *id.ID,
 	return
 }
 
-func (tnm *testNetworkManager) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {return nil}
-
 func (tnm *testNetworkManager) CheckInProgressMessages() {
 	return
 }
@@ -270,4 +268,9 @@ func (tnm *testNetworkManager) RegisterAddressSpaceNotification(tag string) (cha
 func (tnm *testNetworkManager) UnregisterAddressSpaceNotification(tag string) {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (tnm *testNetworkManager) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (tnm *testNetworkManager) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
 }

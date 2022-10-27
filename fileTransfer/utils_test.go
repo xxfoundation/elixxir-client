@@ -267,9 +267,13 @@ func (m *mockCmix) GetAddressSpace() uint8            { panic("implement me") }
 func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) {
 	panic("implement me")
 }
-func (m *mockCmix) UnregisterAddressSpaceNotification(string) { panic("implement me") }
-func (m *mockCmix) GetInstance() *network.Instance            { panic("implement me") }
-func (m *mockCmix) GetVerboseRounds() string                  { panic("implement me") }
+func (m *mockCmix) UnregisterAddressSpaceNotification(string)          { panic("implement me") }
+func (m *mockCmix) GetInstance() *network.Instance                     { panic("implement me") }
+func (m *mockCmix) GetVerboseRounds() string                           { panic("implement me") }
+func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Storage Session                                                       //

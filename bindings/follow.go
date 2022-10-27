@@ -115,33 +115,6 @@ type IsReadyInfo struct {
 	HowClose float64
 }
 
-// IsReady returns true if at least percentReady of node registrations has
-// completed. If not all have completed, then it returns false and howClose will
-// be a percent (0-1) of node registrations completed.
-//
-// Parameters:
-//  - percentReady - The percentage of nodes required to be registered with to
-//    be ready. This is a number between 0 and 1.
-//
-// Returns:
-//  - JSON of [IsReadyInfo].
-func (c *Cmix) IsReady(percentReady float64) ([]byte, error) {
-	// Check if the network is currently healthy
-	if !c.api.GetCmix().IsHealthy() {
-		return json.Marshal(&IsReadyInfo{false, 0})
-	}
-
-	numReg, numNodes, err := c.api.GetNodeRegistrationStatus()
-	if err != nil {
-		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
-	}
-
-	isReady := (float64(numReg) / float64(numNodes)) >= percentReady
-	howClose := float64(numReg) / (float64(numNodes) * percentReady)
-
-	return json.Marshal(&IsReadyInfo{isReady, howClose})
-}
-
 // NetworkFollowerStatus gets the state of the network follower. It returns a
 // status with the following values:
 //  Stopped  - 0
@@ -178,6 +151,21 @@ func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 	}
 
 	return json.Marshal(nodeRegReport)
+}
+
+// IsReady returns true if at least percentReady of node registrations has
+// completed. If not all have completed, then it returns false and howClose will
+// be a percent (0-1) of node registrations completed.
+//
+// Parameters:
+//  - percentReady - The percentage of nodes required to be registered with to
+//    be ready. This is a number between 0 and 1.
+//
+// Returns:
+//  - JSON of [IsReadyInfo].
+func (c *Cmix) IsReady(percentReady float64) ([]byte, error) {
+	isReady, howClose := c.api.IsReady(percentReady)
+	return json.Marshal(&IsReadyInfo{isReady, howClose})
 }
 
 // PauseNodeRegistrations stops all node registrations and returns a function to

@@ -5,46 +5,36 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// This file is compiled for all architectures except WebAssembly.
-//go:build !js || !wasm
-
 package utility
 
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/netTime"
+	"os"
+	"syscall/js"
 )
 
-const currentNDFVersion = 0
+const NdfStorageKeyNamePrefix = "ndfStorageKey/"
 
-func LoadNDF(kv *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
-	vo, err := kv.Get(key, currentNDFVersion)
-	if err != nil {
-		return nil, err
+var localStorage = js.Global().Get("localStorage")
+
+func LoadNDF(_ *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
+	keyValue := localStorage.Call("getItem", NdfStorageKeyNamePrefix+key)
+	if keyValue.IsNull() {
+		return nil, os.ErrNotExist
 	}
 
-	netDef, err := ndf.Unmarshal(vo.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	return netDef, err
+	return ndf.Unmarshal([]byte(keyValue.String()))
 }
 
-func SaveNDF(kv *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
+func SaveNDF(_ *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 	marshaled, err := ndf.Marshal()
 	if err != nil {
 		return err
 	}
 
-	now := netTime.Now()
+	localStorage.Call("setItem",
+		NdfStorageKeyNamePrefix+key, string(marshaled))
 
-	obj := versioned.Object{
-		Version:   currentNDFVersion,
-		Timestamp: now,
-		Data:      marshaled,
-	}
-
-	return kv.Set(key, &obj)
+	return nil
 }

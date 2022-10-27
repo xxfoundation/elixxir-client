@@ -192,7 +192,7 @@ type Client interface {
 		response message.Processor)
 
 	// ChangeParallelNodeRegistration .
-	ChangeParallelNodeRegistration(num int) stoppable.Single
+	ChangeParallelNodeRegistration(num int) func() (stoppable.Stoppable, error)
 
 	// DeleteService deletes a message service. If only a single response is
 	// associated with the preimage, the entire preimage is removed. If there is

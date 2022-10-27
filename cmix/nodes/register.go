@@ -32,7 +32,7 @@ import (
 // before an interruption and how many registration attempts have
 // been attempted.
 func registerNodes(r *registrar, s session, stop *stoppable.Single,
-	inProgress, attempts *sync.Map) {
+	inProgress, attempts *sync.Map, index int) {
 
 	atomic.AddInt64(r.numberRunning, 1)
 
@@ -116,6 +116,13 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 				}
 			}
 			rng.Close()
+		}
+		if index >= 2 {
+			if float64(r.NumRegisteredNodes()) > (float64(r.numnodesGetter()) * .7) {
+				<-stop.Quit()
+				stop.ToStopped()
+				return
+			}
 		}
 	}
 }

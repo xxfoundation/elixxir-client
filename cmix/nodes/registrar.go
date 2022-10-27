@@ -25,7 +25,7 @@ import (
 )
 
 const InputChanLen = 1000
-const maxAttempts = 2
+const maxAttempts = 5
 
 // Backoff for attempting to register with a cMix node.
 var delayTable = [5]time.Duration{
@@ -59,6 +59,8 @@ type registrar struct {
 
 	runnerLock sync.Mutex
 
+	numnodesGetter func() int
+
 	c chan network.NodeGateway
 }
 
@@ -66,17 +68,18 @@ type registrar struct {
 // exist.
 func LoadRegistrar(session session, sender gateway.Sender,
 	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
-	c chan network.NodeGateway) (Registrar, error) {
+	c chan network.NodeGateway, numNodesGetter func() int) (Registrar, error) {
 
 	running := int64(0)
 
 	kv := session.GetKV().Prefix(prefix)
 	r := &registrar{
-		nodes:         make(map[id.ID]*key),
-		kv:            kv,
-		pauser:        make(chan interface{}),
-		resumer:       make(chan interface{}),
-		numberRunning: &running,
+		nodes:          make(map[id.ID]*key),
+		kv:             kv,
+		pauser:         make(chan interface{}),
+		resumer:        make(chan interface{}),
+		numberRunning:  &running,
+		numnodesGetter: numNodesGetter,
 	}
 
 	obj, err := kv.Get(storeKey, currentKeyVersion)
@@ -116,7 +119,7 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
 
-		go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts)
+		go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts, int(i))
 		multi.Add(stop)
 	}
 
@@ -135,13 +138,10 @@ func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 	for i := int64(0); i < numRegistrations; i++ {
 		select {
 		case r.pauser <- struct{}{}:
-			jww.INFO.Printf("PauseNodeRegistrations() - paused node %d", i)
 		case <-timer.C:
 			return errors.Errorf("Timed out on pausing node registration on %d", i)
 		}
 	}
-
-	jww.INFO.Printf("PauseNodeRegistrations() - Paused all nodes")
 
 	return nil
 }

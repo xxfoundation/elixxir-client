@@ -27,6 +27,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -257,6 +258,15 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			jww.ERROR.Printf("Unable to update partial NDF: %+v", err)
 			return
 		}
+
+		//set the number of nodes
+		numNodes := uint64(0)
+		for _, n := range c.instance.GetPartialNdf().Get().Nodes {
+			if n.Status != ndf.Stale {
+				numNodes++
+			}
+		}
+		atomic.StoreUint64(c.numNodes, numNodes)
 
 		// update gateway connections
 		c.UpdateNdf(c.GetInstance().GetPartialNdf().Get())

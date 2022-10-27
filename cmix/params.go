@@ -106,7 +106,7 @@ func GetDefaultParams() Params {
 		VerboseRoundTracking:      false,
 		RealtimeOnly:              false,
 		ReplayRequests:            true,
-		MaxParallelIdentityTracks: 20,
+		MaxParallelIdentityTracks: 5,
 		ClockSkewClamp:            50 * time.Millisecond,
 	}
 	n.Rounds = rounds.GetDefaultParams()

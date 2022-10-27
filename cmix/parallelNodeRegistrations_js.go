@@ -1,3 +1,3 @@
-package rounds
+package cmix
 
 const defaultParallelNodeRegistration = 2

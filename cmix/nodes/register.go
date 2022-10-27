@@ -13,6 +13,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -33,14 +34,28 @@ import (
 func registerNodes(r *registrar, s session, stop *stoppable.Single,
 	inProgress, attempts *sync.Map) {
 
+	atomic.AddInt64(r.numberRunning, 1)
+
 	interval := time.Duration(500) * time.Millisecond
 	t := time.NewTicker(interval)
 	for {
 		select {
+		case <-r.pauser:
+			atomic.AddInt64(r.numberRunning, -1)
+			select {
+			case <-stop.Quit():
+				// On a stop signal, close the thread
+				t.Stop()
+				stop.ToStopped()
+				return
+			case <-r.resumer:
+				atomic.AddInt64(r.numberRunning, 1)
+			}
 		case <-stop.Quit():
 			// On a stop signal, close the thread
 			t.Stop()
 			stop.ToStopped()
+			atomic.AddInt64(r.numberRunning, -1)
 			return
 
 		case gw := <-r.c:

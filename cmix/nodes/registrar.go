@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -51,6 +52,11 @@ type registrar struct {
 	// operator at a time, as a result this is a map of ID -> int
 	attempts sync.Map
 
+	pauser        chan interface{}
+	resumer       chan interface{}
+	numberRunning *int64
+	maxRunning    int
+
 	c chan network.NodeGateway
 }
 
@@ -60,10 +66,15 @@ func LoadRegistrar(session session, sender gateway.Sender,
 	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
 	c chan network.NodeGateway) (Registrar, error) {
 
+	running := int64(0)
+
 	kv := session.GetKV().Prefix(prefix)
 	r := &registrar{
-		nodes: make(map[id.ID]*key),
-		kv:    kv,
+		nodes:         make(map[id.ID]*key),
+		kv:            kv,
+		pauser:        make(chan interface{}),
+		resumer:       make(chan interface{}),
+		numberRunning: &running,
 	}
 
 	obj, err := kv.Get(storeKey, currentKeyVersion)
@@ -95,6 +106,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 // to register with nodes.
 func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	multi := stoppable.NewMulti("NodeRegistrations")
+	r.maxRunning = int(numParallel)
 
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
@@ -106,21 +118,56 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	return multi
 }
 
-// IncreaseParallelNodeRegistration increases the number of parallel node
-// registrations by num
-func (r *registrar) IncreaseParallelNodeRegistration(numParallel int) func() (stoppable.Stoppable, error) {
-	return func() (stoppable.Stoppable, error) {
-		multi := stoppable.NewMulti("NodeRegistrationsIncrease")
-
-		for i := uint(0); i < uint(numParallel); i++ {
-			stop := stoppable.NewSingle("NodeRegistration Increase" + strconv.Itoa(int(i)))
-
-			go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts)
-			multi.Add(stop)
+//PauseNodeRegistrations stops all node registrations
+//and returns a function to resume them
+func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	numRegistrations := atomic.LoadInt64(r.numberRunning)
+	for i := int64(0); i < numRegistrations; i++ {
+		select {
+		case r.pauser <- struct{}{}:
+		case <-timer.C:
+			return errors.New("Timed out on pausing node registration")
 		}
-
-		return multi, nil
 	}
+	return nil
+}
+
+// ChangeNumberOfNodeRegistrations changes the number of parallel node
+// registrations up to the initialized maximum
+func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
+	timeout time.Duration) error {
+	numRunning := int(atomic.LoadInt64(r.numberRunning))
+
+	if toRun+numRunning > r.maxRunning {
+		return errors.Errorf("Cannot change number of " +
+			"running node registration to number greater than the max")
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	if numRunning < toRun {
+		jww.INFO.Printf("ChangeNumberOfNodeRegistrations(%d) Reducing number "+
+			"of node registrations from %d to %d", numRunning, toRun)
+		for i := 0; i < toRun-numRunning; i++ {
+			select {
+			case r.pauser <- struct{}{}:
+			case <-timer.C:
+				return errors.New("Timed out on reducing node registration")
+			}
+		}
+	} else if numRunning > toRun {
+		jww.INFO.Printf("ChangeNumberOfNodeRegistrations(%d) Increasing number "+
+			"of node registrations from %d to %d", numRunning, toRun)
+		for i := 0; i < toRun-numRunning; i++ {
+			select {
+			case r.resumer <- struct{}{}:
+			case <-timer.C:
+				return errors.New("Timed out on increasing node registration")
+			}
+		}
+	}
+	return nil
 }
 
 // GetNodeKeys returns a MixCypher for the topology and a list of nodes it did

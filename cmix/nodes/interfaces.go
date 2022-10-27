@@ -27,9 +27,13 @@ type Registrar interface {
 	// to register with nodes.
 	StartProcesses(numParallel uint) stoppable.Stoppable
 
-	// IncreaseParallelNodeRegistration increases the number of parallel node
-	// registrations by num
-	IncreaseParallelNodeRegistration(num int) func() (stoppable.Stoppable, error)
+	//PauseNodeRegistrations stops all node registrations
+	//and returns a function to resume them
+	PauseNodeRegistrations(timeout time.Duration) error
+
+	// ChangeNumberOfNodeRegistrations changes the number of parallel node
+	// registrations up to the initialized maximum
+	ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error
 
 	// GetNodeKeys returns a MixCypher for the topology and a list of nodes it did
 	// not have a key for. If there are missing keys, then returns nil.

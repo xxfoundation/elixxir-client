@@ -11,7 +11,6 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
 	"sync"
 	"time"
 
@@ -235,16 +234,6 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	// fixme: remove this, make it called by the javascript
-	// hack to get to release late at night
-	go func() {
-		time.Sleep(3 * time.Second)
-		localErr := user.IncreaseParallelNodeRegistration(13)
-		if localErr != nil {
-			jww.ERROR.Printf(localErr.Error())
-		}
-	}()
-
 	// Add channel to singleton and return
 	return channelManagerTrackerSingleton.make(m), nil
 }
@@ -277,16 +266,6 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	if err != nil {
 		return nil, err
 	}
-
-	// fixme: remove this, make it called by the javascript
-	// hack to get to release late at night
-	go func() {
-		time.Sleep(3 * time.Second)
-		localErr := user.IncreaseParallelNodeRegistration(13)
-		if localErr != nil {
-			jww.ERROR.Printf(localErr.Error())
-		}
-	}()
 
 	// Add channel to singleton and return
 	return channelManagerTrackerSingleton.make(m), nil

@@ -100,7 +100,7 @@ func GetDefaultParams() Params {
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
 		NetworkHealthTimeout:      15 * time.Second,
-		ParallelNodeRegistrations: 20,
+		ParallelNodeRegistrations: 2,
 		KnownRoundsThreshold:      1500, // 5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,
 		VerboseRoundTracking:      false,

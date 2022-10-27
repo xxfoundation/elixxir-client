@@ -131,6 +131,7 @@ func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	numRegistrations := atomic.LoadInt64(r.numberRunning)
+	jww.INFO.Printf("Stopping %d registration", numRegistrations)
 	for i := int64(0); i < numRegistrations; i++ {
 		select {
 		case r.pauser <- struct{}{}:
@@ -148,7 +149,7 @@ func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
 	r.runnerLock.Lock()
 	defer r.runnerLock.Unlock()
 	numRunning := int(atomic.LoadInt64(r.numberRunning))
-
+	jww.INFO.Printf("Stopping %d registration", numRunning)
 	if toRun+numRunning > r.maxRunning {
 		return errors.Errorf("Cannot change number of " +
 			"running node registration to number greater than the max")

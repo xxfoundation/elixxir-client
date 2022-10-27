@@ -188,6 +188,12 @@ func (c *Cmix) AddHealthCallback(nhc NetworkHealthCallback) int64 {
 	return int64(c.api.GetCmix().AddHealthCallback(nhc.Callback))
 }
 
+// IncreaseParallelNodeRegistration increases the number of parallel node
+// registrations by num
+func (c *Cmix) IncreaseParallelNodeRegistration(num int) error {
+	return c.api.IncreaseParallelNodeRegistration(num)
+}
+
 // RemoveHealthCallback removes a health callback using its registration ID.
 func (c *Cmix) RemoveHealthCallback(funcID int64) {
 	c.api.GetCmix().RemoveHealthCallback(uint64(funcID))

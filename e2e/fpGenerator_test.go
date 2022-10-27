@@ -159,8 +159,11 @@ func (m *mockFpgCmix) DeleteFingerprint(uid *id.ID, fp format.Fingerprint) {
 	}
 }
 
-func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                          {}
-func (m *mockFpgCmix) AddService(*id.ID, message.Service, message.Processor)    {}
+func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                       {}
+func (m *mockFpgCmix) AddService(*id.ID, message.Service, message.Processor) {}
+func (m *mockFpgCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
 func (m *mockFpgCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockFpgCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockFpgCmix) TrackServices(message.ServicesTracker)                    {}

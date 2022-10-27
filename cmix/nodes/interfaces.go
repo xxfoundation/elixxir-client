@@ -27,6 +27,10 @@ type Registrar interface {
 	// to register with nodes.
 	StartProcesses(numParallel uint) stoppable.Stoppable
 
+	// IncreaseParallelNodeRegistration increases the number of parallel node
+	// registrations by num
+	IncreaseParallelNodeRegistration(num int) func() (stoppable.Stoppable, error)
+
 	// GetNodeKeys returns a MixCypher for the topology and a list of nodes it did
 	// not have a key for. If there are missing keys, then returns nil.
 	GetNodeKeys(topology *connect.Circuit) (MixCypher, error)

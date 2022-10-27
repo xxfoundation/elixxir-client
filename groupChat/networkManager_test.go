@@ -66,7 +66,10 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ c
 	return rounds.Round{}, nil, nil
 }
 
-func (*testNetworkManager) AddService(*id.ID, message.Service, message.Processor)    {}
+func (*testNetworkManager) AddService(*id.ID, message.Service, message.Processor) {}
+func (*testNetworkManager) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
 func (*testNetworkManager) DeleteService(*id.ID, message.Service, message.Processor) {}
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -74,159 +77,159 @@ func (*testNetworkManager) DeleteService(*id.ID, message.Service, message.Proces
 /////////////////////////////////////////////////////////////////////////////////////
 
 func (tnm *testNetworkManager) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID,
 	assembler cmix.MessageAssembler, cmixParams cmix.CMIXParams) (rounds.Round,
 	ephemeral.Id, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) RemoveIdentity(id *id.ID) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint, mp message.Processor) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) DeleteClientFingerprints(identity *id.ID) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) DeleteClientService(clientID *id.ID) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) TrackServices(tracker message.ServicesTracker) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) CheckInProgressMessages() {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) IsHealthy() bool {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) WasHealthy() bool {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) AddHealthCallback(f func(bool)) uint64 {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) RemoveHealthCallback(u uint64) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) HasNode(nid *id.ID) bool {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) NumRegisteredNodes() int {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) TriggerNodeRegistration(nid *id.ID) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) LookupHistoricalRound(rid id.Round, callback rounds.RoundResultCallback) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc, stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) SetGatewayFilter(f gateway.Filter) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) GetHostParams() connect.HostParams {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) GetAddressSpace() uint8 {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) RegisterAddressSpaceNotification(tag string) (chan uint8, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) UnregisterAddressSpaceNotification(tag string) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) GetInstance() *network.Instance {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) GetVerboseRounds() string {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

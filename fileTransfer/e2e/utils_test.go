@@ -160,8 +160,11 @@ func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	m.handler.Unlock()
 }
 
-func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          { panic("implement me") }
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    { panic("implement me") }
+func (m *mockCmix) DeleteClientFingerprints(*id.ID)                       { panic("implement me") }
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor) { panic("implement me") }
+func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	panic("implement me")
+}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }

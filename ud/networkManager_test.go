@@ -115,6 +115,8 @@ func (tnm *testNetworkManager) AddService(clientID *id.ID,
 	return
 }
 
+func (tnm *testNetworkManager) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {return nil}
+
 func (tnm *testNetworkManager) CheckInProgressMessages() {
 	return
 }

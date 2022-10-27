@@ -99,11 +99,27 @@ func (c *Cmix) ReadyToSend() bool {
 		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
 	}
 
-	// FIXME: This is a fix put in place because not all nodes in the NDF are
-	//  online. This should be fixed.
-	total = 340
-
 	return numReg >= total*7/10
+}
+
+// IsReady returns true if at least percentReady of node registrations has
+// completed. If not all have completed, then it returns false and howClose will
+// be a percent (0-1) of node registrations completed.
+func (c *Cmix) IsReady(percentReady float64) (isReady bool, howClose float64) {
+	// Check if the network is currently healthy
+	if !c.api.GetCmix().IsHealthy() {
+		return false, 0
+	}
+
+	numReg, numNodes, err := c.api.GetNodeRegistrationStatus()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
+	}
+
+	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
+	howClose = float64(numNodes) / (float64(numReg) * percentReady)
+
+	return isReady, howClose
 }
 
 // NetworkFollowerStatus gets the state of the network follower. It returns a
@@ -142,6 +158,27 @@ func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 	}
 
 	return json.Marshal(nodeRegReport)
+}
+
+// PauseNodeRegistrations stops all node registrations and returns a function to
+// resume them.
+//
+// Parameters:
+//  - timeoutMS - The timeout, in milliseconds, to wait when stopping threads.
+func (c *Cmix) PauseNodeRegistrations(timeoutMS int) error {
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	return c.api.PauseNodeRegistrations(timeout)
+}
+
+// ChangeNumberOfNodeRegistrations changes the number of parallel node
+// registrations up to the initialized maximum.
+//
+// Parameters:
+//  - toRun - The number of parallel node registrations.
+//  - timeoutMS - The timeout, in milliseconds, to wait when changing node
+//    registrations.
+func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return c.api.ChangeNumberOfNodeRegistrations(toRun, timeout)
 }
 
 // HasRunningProcessies checks if any background threads are running and returns
@@ -186,12 +223,6 @@ type NetworkHealthCallback interface {
 // health changes. Returns a registration ID that can be used to unregister.
 func (c *Cmix) AddHealthCallback(nhc NetworkHealthCallback) int64 {
 	return int64(c.api.GetCmix().AddHealthCallback(nhc.Callback))
-}
-
-// IncreaseParallelNodeRegistration increases the number of parallel node
-// registrations by num
-func (c *Cmix) IncreaseParallelNodeRegistration(num int) error {
-	return c.api.IncreaseParallelNodeRegistration(num)
 }
 
 // RemoveHealthCallback removes a health callback using its registration ID.

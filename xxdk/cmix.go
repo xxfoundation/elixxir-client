@@ -182,7 +182,7 @@ func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 	storageSess.SetRegistrationTimestamp(protoUser.RegistrationTimestamp)
 
 	// Move the registration state to indicate registered with registration on
-	// roto client
+	// proto client
 	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
 		return err
@@ -484,12 +484,16 @@ func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes) - numStale, nil
 }
 
-// IncreaseParallelNodeRegistration increases the number of parallel node
-// registrations by num
-func (c *Cmix) IncreaseParallelNodeRegistration(num int) error {
-	jww.INFO.Printf("IncreaseParallelNodeRegistration(%d)", num)
-	svc := c.network.IncreaseParallelNodeRegistration(num)
-	return c.followerServices.add(svc)
+// PauseNodeRegistrations stops all node registrations and returns a function to
+// resume them.
+func (c *Cmix) PauseNodeRegistrations(timeout time.Duration) error {
+	return c.network.PauseNodeRegistrations(timeout)
+}
+
+// ChangeNumberOfNodeRegistrations changes the number of parallel node
+// registrations up to the initialized maximum.
+func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return c.network.ChangeNumberOfNodeRegistrations(toRun, timeout)
 }
 
 // GetPreferredBins returns the geographic bin or bins that the provided two

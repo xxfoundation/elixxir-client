@@ -191,3 +191,7 @@ func (m *mockFpgCmix) RegisterAddressSpaceNotification(string) (chan uint8, erro
 func (m *mockFpgCmix) UnregisterAddressSpaceNotification(string)                   {}
 func (m *mockFpgCmix) GetInstance() *network.Instance                              { return nil }
 func (m *mockFpgCmix) GetVerboseRounds() string                                    { return "" }
+func (m *mockFpgCmix) PauseNodeRegistrations(timeout time.Duration) error          { return nil }
+func (m *mockFpgCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}

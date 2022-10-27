@@ -220,6 +220,11 @@ func (m *mockCmix) UnregisterAddressSpaceNotification(string) { panic("implement
 func (m *mockCmix) GetInstance() *network.Instance            { panic("implement me") }
 func (m *mockCmix) GetVerboseRounds() string                  { panic("implement me") }
 
+func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Mock E2E Handler                                                           //
 ////////////////////////////////////////////////////////////////////////////////

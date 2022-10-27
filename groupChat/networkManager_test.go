@@ -236,3 +236,8 @@ func (tnm *testNetworkManager) GetVerboseRounds() string {
 func (tnm *testNetworkManager) GetMaxMessageLength() int {
 	return format.NewMessage(tnm.grp.GetP().ByteLen()).ContentsSize()
 }
+
+func (tnm *testNetworkManager) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (tnm *testNetworkManager) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}

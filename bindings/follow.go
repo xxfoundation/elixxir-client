@@ -137,7 +137,7 @@ func (c *Cmix) IsReady(percentReady float64) ([]byte, error) {
 	}
 
 	isReady := (float64(numReg) / float64(numNodes)) >= percentReady
-	howClose := float64(numNodes) / (float64(numReg) * percentReady)
+	howClose := float64(numReg) / (float64(numNodes) * percentReady)
 
 	return json.Marshal(&IsReadyInfo{isReady, howClose})
 }

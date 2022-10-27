@@ -108,11 +108,11 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 
 // IncreaseParallelNodeRegistration increases the number of parallel node
 // registrations by num
-func (r *registrar) IncreaseParallelNodeRegistration(numParallel uint) func() (stoppable.Stoppable, error) {
+func (r *registrar) IncreaseParallelNodeRegistration(numParallel int) func() (stoppable.Stoppable, error) {
 	return func() (stoppable.Stoppable, error) {
 		multi := stoppable.NewMulti("NodeRegistrationsIncrease")
 
-		for i := uint(0); i < numParallel; i++ {
+		for i := uint(0); i < uint(numParallel); i++ {
 			stop := stoppable.NewSingle("NodeRegistration Increase" + strconv.Itoa(int(i)))
 
 			go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts)

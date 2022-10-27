@@ -184,7 +184,8 @@ func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 // resume them.
 //
 // Parameters:
-//  - timeoutMS - The timeout, in milliseconds, to wait when stopping threads.
+//  - timeoutMS - The timeout, in milliseconds, to wait when stopping threads
+//    before failing.
 func (c *Cmix) PauseNodeRegistrations(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.PauseNodeRegistrations(timeout)
@@ -196,7 +197,7 @@ func (c *Cmix) PauseNodeRegistrations(timeoutMS int) error {
 // Parameters:
 //  - toRun - The number of parallel node registrations.
 //  - timeoutMS - The timeout, in milliseconds, to wait when changing node
-//    registrations.
+//    registrations before failing.
 func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun, timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.ChangeNumberOfNodeRegistrations(toRun, timeout)

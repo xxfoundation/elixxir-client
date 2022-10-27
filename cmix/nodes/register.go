@@ -36,24 +36,18 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 	atomic.AddInt64(r.numberRunning, 1)
 
-	interval := time.Duration(500) * time.Millisecond
-	t := time.NewTicker(interval)
 	for {
 		select {
 		case <-r.pauser:
 			atomic.AddInt64(r.numberRunning, -1)
 			select {
 			case <-stop.Quit():
-				// On a stop signal, close the thread
-				t.Stop()
 				stop.ToStopped()
 				return
 			case <-r.resumer:
 				atomic.AddInt64(r.numberRunning, 1)
 			}
 		case <-stop.Quit():
-			// On a stop signal, close the thread
-			t.Stop()
 			stop.ToStopped()
 			atomic.AddInt64(r.numberRunning, -1)
 			return
@@ -122,7 +116,6 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 				}
 			}
 			rng.Close()
-		case <-t.C:
 		}
 	}
 }

@@ -57,6 +57,8 @@ type registrar struct {
 	numberRunning *int64
 	maxRunning    int
 
+	runnerLock sync.Mutex
+
 	c chan network.NodeGateway
 }
 
@@ -105,6 +107,9 @@ func LoadRegistrar(session session, sender gateway.Sender,
 // StartProcesses initiates numParallel amount of threads
 // to register with nodes.
 func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
+	r.runnerLock.Lock()
+	defer r.runnerLock.Unlock()
+
 	multi := stoppable.NewMulti("NodeRegistrations")
 	r.maxRunning = int(numParallel)
 
@@ -121,6 +126,8 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 //PauseNodeRegistrations stops all node registrations
 //and returns a function to resume them
 func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
+	r.runnerLock.Lock()
+	defer r.runnerLock.Unlock()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	numRegistrations := atomic.LoadInt64(r.numberRunning)
@@ -128,7 +135,7 @@ func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 		select {
 		case r.pauser <- struct{}{}:
 		case <-timer.C:
-			return errors.New("Timed out on pausing node registration")
+			return errors.Errorf("Timed out on pausing node registration on %d", i)
 		}
 	}
 	return nil
@@ -138,6 +145,8 @@ func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 // registrations up to the initialized maximum
 func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
 	timeout time.Duration) error {
+	r.runnerLock.Lock()
+	defer r.runnerLock.Unlock()
 	numRunning := int(atomic.LoadInt64(r.numberRunning))
 
 	if toRun+numRunning > r.maxRunning {

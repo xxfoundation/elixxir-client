@@ -168,6 +168,10 @@ func (t *testNetworkManagerGeneric) RemoveIdentity(id *id.ID) {}
 func (t *testNetworkManagerGeneric) AddService(clientID *id.ID,
 	newService message.Service, response message.Processor) {
 }
+func (t *testNetworkManagerGeneric) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
+
 func (t *testNetworkManagerGeneric) DeleteService(clientID *id.ID,
 	toDelete message.Service, processor message.Processor) {
 }

@@ -239,7 +239,9 @@ func (m *mockCmix) AddService(myId *id.ID, srv message.Service, proc message.Pro
 	m.handler.Unlock()
 
 }
-
+func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
 func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          {}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockCmix) DeleteClientService(*id.ID)                               {}

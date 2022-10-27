@@ -180,21 +180,22 @@ func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) {
 	return identity.TrackedID{Creation: netTime.Now().Add(-time.Minute)}, nil
 }
 
-func (m *mockCmix) AddFingerprint(*id.ID, format.Fingerprint, message.Processor) error { return nil }
-func (m *mockCmix) DeleteFingerprint(*id.ID, format.Fingerprint)                       {}
-func (m *mockCmix) DeleteClientFingerprints(*id.ID)                                    {}
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)              {}
-func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor)           {}
-func (m *mockCmix) DeleteClientService(*id.ID)                                         {}
-func (m *mockCmix) TrackServices(message.ServicesTracker)                              {}
-func (m *mockCmix) CheckInProgressMessages()                                           {}
-func (m *mockCmix) IsHealthy() bool                                                    { return true }
-func (m *mockCmix) WasHealthy() bool                                                   { return true }
-func (m *mockCmix) AddHealthCallback(func(bool)) uint64                                { return 0 }
-func (m *mockCmix) RemoveHealthCallback(uint64)                                        {}
-func (m *mockCmix) HasNode(*id.ID) bool                                                { return true }
-func (m *mockCmix) NumRegisteredNodes() int                                            { return 24 }
-func (m *mockCmix) TriggerNodeRegistration(*id.ID)                                     {}
+func (m *mockCmix) AddFingerprint(*id.ID, format.Fingerprint, message.Processor) error       { return nil }
+func (m *mockCmix) DeleteFingerprint(*id.ID, format.Fingerprint)                             {}
+func (m *mockCmix) DeleteClientFingerprints(*id.ID)                                          {}
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)                    {}
+func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {return nil}
+func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor)                 {}
+func (m *mockCmix) DeleteClientService(*id.ID)                                               {}
+func (m *mockCmix) TrackServices(message.ServicesTracker)                                    {}
+func (m *mockCmix) CheckInProgressMessages()                                                 {}
+func (m *mockCmix) IsHealthy() bool                                                          { return true }
+func (m *mockCmix) WasHealthy() bool                                                         { return true }
+func (m *mockCmix) AddHealthCallback(func(bool)) uint64                                      { return 0 }
+func (m *mockCmix) RemoveHealthCallback(uint64)                                              {}
+func (m *mockCmix) HasNode(*id.ID) bool                                                      { return true }
+func (m *mockCmix) NumRegisteredNodes() int                                                  { return 24 }
+func (m *mockCmix) TriggerNodeRegistration(*id.ID)                                           {}
 
 func (m *mockCmix) GetRoundResults(_ time.Duration, roundCallback cmix.RoundEventCallback, _ ...id.Round) {
 	roundCallback(true, false, nil)

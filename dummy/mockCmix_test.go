@@ -126,6 +126,12 @@ func (m mockCmix) AddService(clientID *id.ID, newService message.Service, respon
 	panic("implement me")
 }
 
+func (m mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+
 func (m mockCmix) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
 	//TODO implement me
 	panic("implement me")

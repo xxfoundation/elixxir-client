@@ -191,6 +191,9 @@ type Client interface {
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 
+	// ChangeParallelNodeRegistration .
+	ChangeParallelNodeRegistration(num int) stoppable.Single
+
 	// DeleteService deletes a message service. If only a single response is
 	// associated with the preimage, the entire preimage is removed. If there is
 	// more than one response, only the given response is removed. If nil is

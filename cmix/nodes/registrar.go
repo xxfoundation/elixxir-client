@@ -47,6 +47,9 @@ type registrar struct {
 	comms   RegisterNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
 
+	bufferSize uint32
+	batchDelay uint32
+
 	c  chan network.NodeGateway
 	rc chan registrationResponsePart
 }
@@ -57,11 +60,16 @@ func LoadRegistrar(session session, sender gateway.Sender,
 	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
 	c chan network.NodeGateway) (Registrar, error) {
 
+	bufferSize := uint32(25)
+	batchDelay := uint32(200)
+
 	kv := session.GetKV().Prefix(prefix)
 	r := &registrar{
-		nodes: make(map[id.ID]*key),
-		kv:    kv,
-		rc:    make(chan registrationResponsePart, 25),
+		nodes:      make(map[id.ID]*key),
+		kv:         kv,
+		rc:         make(chan registrationResponsePart, bufferSize),
+		bufferSize: bufferSize,
+		batchDelay: batchDelay,
 	}
 
 	obj, err := kv.Get(storeKey, currentKeyVersion)

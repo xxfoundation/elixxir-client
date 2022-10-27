@@ -20,7 +20,7 @@ import (
 )
 
 // Unit test for registerWithNode
-func TestRegisterWithNode(t *testing.T) {
+func TestRegisterWithNodes(t *testing.T) {
 	// Generate a stoppable
 	stop := stoppable.NewSingle("test")
 	defer stop.Quit()
@@ -83,7 +83,7 @@ func TestRegisterWithNode(t *testing.T) {
 
 	// Call registerWithNode
 	err = registerWithNodes([]network.NodeGateway{ngw},
-		mockSession, r, stream, stop)
+		mockSession, r, stop)
 	if err != nil {
 		t.Fatalf("registerWithNode error: %+v", err)
 	}

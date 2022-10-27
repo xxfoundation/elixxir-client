@@ -14,7 +14,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -31,13 +30,14 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// requestKey is a helper function which constructs a ClientKeyRequest message.
-// This message is sent to the passed gateway. It will further handle the
-// request from the gateway.
-func requestKeys(sender gateway.Sender, comms RegisterNodeCommsInterface,
-	ngws []network.NodeGateway, s session, r *registrar,
-	rng io.Reader,
+// requestKeys is a helper function which constructs a
+// SignedClientBatchKeyRequest message.  This message is sent via the passed
+// gateway Sender. It will further handle the request from the gateway.
+// Responses are sent to a channel for processing by worker threads
+func requestKeys(ngws []network.NodeGateway, s session, r *registrar,
 	stop *stoppable.Single) error {
+	rng := r.rng.GetStream()
+	defer rng.Close()
 
 	// Generate a Diffie-Hellman keypair
 	grp := r.session.GetCmixGroup()
@@ -74,9 +74,9 @@ func requestKeys(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		"gateways %+v, setup took %s", gwIds, time.Since(start))
 
 	start = time.Now()
-	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+	result, err := r.sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 		startInternal := time.Now()
-		keyResponse, err2 := comms.BatchNodeRegistration(host, signedBatchKeyReq)
+		keyResponse, err2 := r.comms.BatchNodeRegistration(host, signedBatchKeyReq)
 		if err2 != nil {
 			return nil, errors.WithMessagef(err2,
 				"Register: Failed requesting client key from gateways %+v", gwIds)
@@ -86,7 +86,6 @@ func requestKeys(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		return keyResponse, nil
 	}, stop)
 	jww.TRACE.Printf("full reg request took %s", time.Since(start))
-
 	if err != nil {
 		return err
 	}
@@ -94,8 +93,10 @@ func requestKeys(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	// Cast the response
 	signedKeyResponses := result.(*pb.SignedBatchKeyResponse)
 	if len(ngws) != len(signedKeyResponses.SignedKeys) {
-		jww.ERROR.Printf("Should have received same number of response slots back")
+		return errors.Errorf("Should have received %d slots, only received %d", len(ngws), len(signedKeyResponses.SignedKeys))
 	}
+
+	// Send responses to channel for processing
 	for i, ngw := range ngws {
 		r.rc <- registrationResponsePart{
 			ngw:      ngw,
@@ -104,7 +105,6 @@ func requestKeys(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		}
 	}
 
-	// Process the server's response
 	return nil
 }
 

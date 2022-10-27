@@ -102,13 +102,33 @@ func (c *Cmix) ReadyToSend() bool {
 	return numReg >= total*7/10
 }
 
+// IsReadyInfo contains information on if the network is ready and how close it
+// is to being ready.
+//
+// Example JSON:
+//  {
+//    "IsReady": true,
+//    "HowClose": 0.534
+//  }
+type IsReadyInfo struct {
+	IsReady  bool
+	HowClose float64
+}
+
 // IsReady returns true if at least percentReady of node registrations has
 // completed. If not all have completed, then it returns false and howClose will
 // be a percent (0-1) of node registrations completed.
-func (c *Cmix) IsReady(percentReady float64) (isReady bool, howClose float64) {
+//
+// Parameters:
+//  - percentReady - The percentage of nodes required to be registered with to
+//    be ready. This is a number between 0 and 1.
+//
+// Returns:
+//  - JSON of [IsReadyInfo].
+func (c *Cmix) IsReady(percentReady float64) ([]byte, error) {
 	// Check if the network is currently healthy
 	if !c.api.GetCmix().IsHealthy() {
-		return false, 0
+		return json.Marshal(&IsReadyInfo{false, 0})
 	}
 
 	numReg, numNodes, err := c.api.GetNodeRegistrationStatus()
@@ -116,10 +136,10 @@ func (c *Cmix) IsReady(percentReady float64) (isReady bool, howClose float64) {
 		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
 	}
 
-	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
-	howClose = float64(numNodes) / (float64(numReg) * percentReady)
+	isReady := (float64(numReg) / float64(numNodes)) >= percentReady
+	howClose := float64(numNodes) / (float64(numReg) * percentReady)
 
-	return isReady, howClose
+	return json.Marshal(&IsReadyInfo{isReady, howClose})
 }
 
 // NetworkFollowerStatus gets the state of the network follower. It returns a
@@ -177,7 +197,8 @@ func (c *Cmix) PauseNodeRegistrations(timeoutMS int) error {
 //  - toRun - The number of parallel node registrations.
 //  - timeoutMS - The timeout, in milliseconds, to wait when changing node
 //    registrations.
-func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun, timeoutMS int) error {
+	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.ChangeNumberOfNodeRegistrations(toRun, timeout)
 }
 

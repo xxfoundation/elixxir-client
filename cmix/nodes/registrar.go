@@ -148,7 +148,7 @@ func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
 	defer timer.Stop()
 	if numRunning < toRun {
 		jww.INFO.Printf("ChangeNumberOfNodeRegistrations(%d) Reducing number "+
-			"of node registrations from %d to %d", numRunning, toRun)
+			"of node registrations from %d to %d", toRun, numRunning, toRun)
 		for i := 0; i < toRun-numRunning; i++ {
 			select {
 			case r.pauser <- struct{}{}:
@@ -158,7 +158,7 @@ func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
 		}
 	} else if numRunning > toRun {
 		jww.INFO.Printf("ChangeNumberOfNodeRegistrations(%d) Increasing number "+
-			"of node registrations from %d to %d", numRunning, toRun)
+			"of node registrations from %d to %d", toRun, numRunning, toRun)
 		for i := 0; i < toRun-numRunning; i++ {
 			select {
 			case r.resumer <- struct{}{}:

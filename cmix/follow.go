@@ -27,6 +27,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -258,6 +259,15 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			return
 		}
 
+		//set the number of nodes
+		numNodes := uint64(0)
+		for _, n := range c.instance.GetPartialNdf().Get().Nodes {
+			if n.Status != ndf.Stale {
+				numNodes++
+			}
+		}
+		atomic.StoreUint64(c.numNodes, numNodes)
+
 		// update gateway connections
 		c.UpdateNdf(c.GetInstance().GetPartialNdf().Get())
 		c.session.SetNDF(c.GetInstance().GetPartialNdf().Get())
@@ -336,7 +346,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.WARN.Printf("No filters found for the passed ID %d (%s), "+
+		jww.TRACE.Printf("No filters found for the passed ID %d (%s), "+
 			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}

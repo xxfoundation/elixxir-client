@@ -101,7 +101,7 @@ func makeTestRegistrar(mockComms *MockClientComms, t *testing.T) *registrar {
 	nodeChan := make(chan commNetwork.NodeGateway, InputChanLen)
 
 	r, err := LoadRegistrar(
-		session, sender, mockComms, rngGen, nodeChan)
+		session, sender, mockComms, rngGen, nodeChan, func() int { return 100 })
 	if err != nil {
 		t.Fatalf("Failed to create new registrar: %+v", err)
 	}

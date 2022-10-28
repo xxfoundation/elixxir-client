@@ -122,13 +122,13 @@ func TestReceived_AddTransfer(t *testing.T) {
 // Tests that Received.AddTransfer returns an error when adding a transfer ID
 // that already exists.
 func TestReceived_AddTransfer_TransferAlreadyExists(t *testing.T) {
-	tid := ftCrypto.TransferID{0}
+	tid := &ftCrypto.TransferID{0}
 	r := &Received{
-		transfers: map[ftCrypto.TransferID]*ReceivedTransfer{tid: nil},
+		transfers: map[ftCrypto.TransferID]*ReceivedTransfer{*tid: nil},
 	}
 
 	expectedErr := fmt.Sprintf(errAddExistingReceivedTransfer, tid)
-	_, err := r.AddTransfer(nil, &tid, "", nil, 0, 0, 0)
+	_, err := r.AddTransfer(nil, tid, "", nil, 0, 0, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)

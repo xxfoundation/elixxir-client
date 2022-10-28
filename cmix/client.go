@@ -92,6 +92,8 @@ type client struct {
 
 	// Storage of the max message length
 	maxMsgLen int
+
+	numNodes *uint64
 }
 
 // NewClient builds a new reception client object using inputted key fields.
@@ -102,6 +104,8 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	tracker := uint64(0)
 	earliest := uint64(0)
+
+	numNodes := uint64(0)
 
 	netTime.SetTimeSource(localTime{})
 
@@ -117,6 +121,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		maxMsgLen:      tmpMsg.ContentsSize(),
 		skewTracker:    clockSkew.New(params.ClockSkewClamp),
 		attemptTracker: attempts.NewSendAttempts(),
+		numNodes:       &numNodes,
 	}
 
 	if params.VerboseRoundTracking {
@@ -134,10 +139,20 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 // initialize turns on network handlers, initializing a host pool and
 // network health monitors. This should be called before
 // network Follow command is called.
-func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
+func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
+
+	//set the number of nodes
+	numNodes := uint64(0)
+	for _, n := range ndfile.Nodes {
+		if n.Status != ndf.Stale {
+			numNodes++
+		}
+	}
+	atomic.StoreUint64(c.numNodes, numNodes)
+
 	// Start network instance
 	instance, err := commNetwork.NewInstance(
-		c.comms.ProtoComms, ndf, nil, nil, commNetwork.None,
+		c.comms.ProtoComms, ndfile, nil, nil, commNetwork.None,
 		c.param.FastPolling)
 	if err != nil {
 		return errors.WithMessage(
@@ -145,7 +160,7 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	}
 	c.instance = instance
 
-	addrSize := ndf.AddressSpace[len(ndf.AddressSpace)-1].Size
+	addrSize := ndfile.AddressSpace[len(ndfile.AddressSpace)-1].Size
 	c.Space = address.NewAddressSpace(addrSize)
 
 	/* Set up modules */
@@ -165,7 +180,7 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
 	poolParams.ForceConnection = true
-	sender, err := gateway.NewSender(poolParams, c.rng, ndf, c.comms,
+	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
 		c.session, nodeChan)
 	if err != nil {
 		return err
@@ -174,7 +189,9 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 
 	// Set up the node registrar
 	c.Registrar, err = nodes.LoadRegistrar(
-		c.session, c.Sender, c.comms, c.rng, nodeChan)
+		c.session, c.Sender, c.comms, c.rng, nodeChan, func() int {
+			return int(atomic.LoadUint64(c.numNodes))
+		})
 	if err != nil {
 		return err
 	}

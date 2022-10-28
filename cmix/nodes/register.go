@@ -13,6 +13,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -31,14 +32,25 @@ import (
 // before an interruption and how many registration attempts have
 // been attempted.
 func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
-	inProgress, attempts *sync.Map) {
+	inProgress, attempts *sync.Map, index int) {
 	timerCh := make(<-chan time.Time)
 	var registerRequests []network.NodeGateway
+
+	atomic.AddInt64(r.numberRunning, 1)
 
 	for {
 		shouldProcess := false
 
 		select {
+		case <-r.pauser:
+			atomic.AddInt64(r.numberRunning, -1)
+			select {
+			case <-stop.Quit():
+				stop.ToStopped()
+				return
+			case <-r.resumer:
+				atomic.AddInt64(r.numberRunning, 1)
+			}
 		case <-stop.Quit():
 			// On a stop signal re-add all requests in batch & close the thread
 			for _, req := range registerRequests {
@@ -49,6 +61,7 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 			}
 
 			stop.ToStopped()
+			atomic.AddInt64(r.numberRunning, -1)
 			return
 		case <-timerCh:
 			// If timer elapses and any register requests exist, process them
@@ -131,6 +144,13 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 			jww.ERROR.Printf("Failed to register with batch of nodes %+v: %+v", registerRequests, err)
 		}
 		registerRequests = []network.NodeGateway{}
+		if index >= 2 {
+			if float64(r.NumRegisteredNodes()) > (float64(r.numnodesGetter()) * .7) {
+				<-stop.Quit()
+				stop.ToStopped()
+				return
+			}
+		}
 	}
 }
 

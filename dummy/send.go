@@ -21,7 +21,12 @@ import (
 
 // Error messages for the Manager.sendThread and its helper functions.
 const (
-	numMsgsRngErr = "failed to generate random number of messages to send: %+v"
+	numMsgsRngErr          = "failed to generate random number of messages to send: %+v"
+	overrideAvgSendDelta   = 10 * time.Minute
+	overrideRandomRange    = 8 * time.Minute
+	overrideMaxNumMessages = 2
+
+	numSendsToOverride = 20
 )
 
 // sendThread is a thread that sends the dummy messages at random intervals.
@@ -32,6 +37,13 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 	nextSendChanPtr := &(nextSendChan)
 
 	for {
+
+		if numSent := atomic.LoadUint64(m.totalSent); numSent > numSendsToOverride {
+			m.avgSendDelta = overrideAvgSendDelta
+			m.randomRange = overrideRandomRange
+			m.maxNumMessages = overrideMaxNumMessages
+		}
+
 		select {
 		case status := <-m.statusChan:
 			if status {
@@ -71,6 +83,8 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 				err := m.sendMessages()
 				if err != nil {
 					jww.ERROR.Printf("Failed to send dummy messages: %+v", err)
+				} else {
+					atomic.AddUint64(m.totalSent, 1)
 				}
 			}()
 		case <-stop.Quit():

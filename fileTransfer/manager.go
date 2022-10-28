@@ -170,7 +170,6 @@ type Storage interface {
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
 func NewManager(params Params, user FtE2e) (FileTransfer, error) {
-
 	kv := user.GetStorage().GetKV()
 
 	// Create a new list of sent file transfers or load one if it exists

@@ -1,4 +1,4 @@
-module gitlab.com/elixxir/client/v4
+module gitlab.com/elixxir/client
 
 go 1.17
 

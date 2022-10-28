@@ -19,7 +19,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -108,19 +107,16 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	// operator at a time, as a result this is a map of ID -> int
 	attempts := &sync.Map{}
 
+	stop := stoppable.NewSingle("NodeRegistration")
+
+	go processNodeRegistration(r, r.session, stop, inProgress, attempts)
+	multi.Add(stop)
+
 	for i := uint(0); i < numParallel; i++ {
-		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
+		respStop := stoppable.NewSingle(fmt.Sprintf("NodeRegistrationResponseHandler%d", i))
+		go processNodeRegistrationResponses(r, inProgress, attempts, respStop)
+		multi.Add(respStop)
 
-		go processNodeRegistration(r, r.session, stop, inProgress, attempts)
-		multi.Add(stop)
-
-		workerCount := 4 // TODO parametrize me
-		for j := 0; j < workerCount; j++ {
-			respStop := stoppable.NewSingle(fmt.Sprintf("NodeRegistrationResponseHandler%d", j))
-			go processNodeRegistrationResponses(r, inProgress, attempts, respStop)
-			multi.Add(respStop)
-
-		}
 	}
 
 	return multi

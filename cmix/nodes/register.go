@@ -23,9 +23,11 @@ import (
 )
 
 // registerNodes is a manager thread which waits on a channel for nodes
-// to register with. On reception, it tries to register with that node.
-// This thread is interrupted by the stoppable.Single passed in.
-// The sync.Map's keep track of the node(s) that were in progress
+// to register with. On reception, nodes are added to a batch pending
+// registration.  When either the batch is full, or enough time has elapsed
+// since the first node was added to the batch, the request is sent to a
+// gateway for processing. This thread is interrupted by the stoppable.Single
+// passed in. The sync.Map's keep track of the node(s) that were in progress
 // before an interruption and how many registration attempts have
 // been attempted.
 func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
@@ -38,6 +40,7 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 
 		select {
 		case <-stop.Quit():
+			// On a stop signal re-add all requests in batch & close the thread
 			for _, req := range registerRequests {
 				select {
 				case r.c <- req:
@@ -45,7 +48,6 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 				}
 			}
 
-			// On a stop signal, close the thread
 			stop.ToStopped()
 			return
 		case <-timerCh:
@@ -64,7 +66,7 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 				continue
 			}
 
-			jww.INFO.Printf("Received request to register with %s", nidStr)
+			jww.DEBUG.Printf("Received request to register with %s", nidStr)
 
 			// Check if the registrar has this node already
 			if r.HasNode(nid) {
@@ -85,9 +87,12 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 					"Skipping registration with stale nodes %s", nidStr)
 				continue
 			}
+
+			// Add nodegateway to batch for processing
 			registerRequests = append(registerRequests, gw)
 
-			if len(registerRequests) > int(r.bufferSize) {
+			if len(registerRequests) >= int(r.bufferSize) {
+				// Mark for processing if batch is full
 				shouldProcess = true
 			} else if len(registerRequests) == 1 { // TODO this was != 0 in historical rounds, am i missing something?
 				// If this is the first round, start the timeout
@@ -125,6 +130,7 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 			}
 			jww.ERROR.Printf("Failed to register with batch of nodes %+v: %+v", registerRequests, err)
 		}
+		registerRequests = []network.NodeGateway{}
 	}
 }
 
@@ -146,9 +152,6 @@ func registerWithNodes(ngws []network.NodeGateway, s session, r *registrar, stop
 			continue
 		}
 
-		jww.INFO.Printf("registerWithNode begin registration with node: %s",
-			nodeID)
-
 		var transmissionKey *cyclic.Int
 		var validUntil uint64
 		var keyId []byte
@@ -167,7 +170,6 @@ func registerWithNodes(ngws []network.NodeGateway, s session, r *registrar, stop
 		} else {
 			toRegister = append(toRegister, ngw)
 		}
-		jww.INFO.Printf("Adding node %s to registration batch", nodeID.String())
 	}
 	return requestKeys(toRegister, s, r, stop)
 }
@@ -192,7 +194,6 @@ func processNodeRegistrationResponses(r *registrar, inProgress, attempts *sync.M
 		case respPart := <-r.rc:
 			resp := respPart.response
 			ngw := respPart.ngw
-			jww.INFO.Println(resp)
 
 			nidStr := hex.EncodeToString(ngw.Node.ID)
 			nid, err := ngw.Node.GetNodeId()
@@ -201,21 +202,13 @@ func processNodeRegistrationResponses(r *registrar, inProgress, attempts *sync.M
 					"Could not process node ID for registration: %s", err)
 				continue
 			}
+			jww.DEBUG.Printf("Processing registration response from %s", nid)
 
-			// Keep track of how many times registering with this node
-			// has been attempted
 			numAttempts := uint(1)
-			if numAttemptsInterface, hasValue := attempts.LoadOrStore(
-				nidStr, numAttempts); hasValue {
-				numAttempts = numAttemptsInterface.(uint)
-				attempts.Store(nidStr, numAttempts+1)
-			}
-
 			var retry = func() {
 				// If we have not reached the attempt limit for this gateway,
 				// then send it back into the channel to retry
 				if numAttempts < maxAttempts {
-					jww.INFO.Printf("%s will be retried", nidStr)
 					go func() {
 						// Delay the send operation for a backoff
 						time.Sleep(delayTable[numAttempts-1])
@@ -224,11 +217,29 @@ func processNodeRegistrationResponses(r *registrar, inProgress, attempts *sync.M
 				}
 			}
 
+			// Gateway did not have contact with target
+			if resp == nil {
+				numAttemptsInterface, ok := attempts.Load(nidStr)
+				if ok {
+					numAttempts = numAttemptsInterface.(uint)
+				}
+				retry()
+				continue
+			}
+
+			// Keep track of how many times registering with this node
+			// has been attempted
+			if numAttemptsInterface, hasValue := attempts.LoadOrStore(
+				nidStr, numAttempts); hasValue {
+				numAttempts = numAttemptsInterface.(uint)
+				attempts.Store(nidStr, numAttempts+1)
+			}
+
 			// Remove from in progress immediately (success or failure)
 			inProgress.Delete(nidStr)
 
-			if resp.Error != "" {
-				jww.ERROR.Printf("Failed to register node: %s", err.Error())
+			if resp.GetError() != "" {
+				jww.ERROR.Printf("Failed to register node: %s", resp.GetError())
 				retry()
 				continue
 			}

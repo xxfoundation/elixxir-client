@@ -70,7 +70,7 @@ func requestKeys(ngws []network.NodeGateway, s session, r *registrar,
 	}
 
 	// Request nonce message from gateway
-	jww.INFO.Printf("Register: Requesting client key from "+
+	jww.DEBUG.Printf("Register: Requesting client key from "+
 		"gateways %+v, setup took %s", gwIds, time.Since(start))
 
 	start = time.Now()
@@ -109,7 +109,7 @@ func requestKeys(ngws []network.NodeGateway, s session, r *registrar,
 }
 
 // makeSignedKeyRequest is a helper function which constructs a
-// pb.SignedClientKeyRequest to send to the node/gateway pair the
+// pb.SignedClientBatchKeyRequest to send to the node/gateway pairs the
 // user is trying to register with.
 func makeSignedKeyRequest(s session, rng io.Reader,
 	targets []*id.ID, dhPub *cyclic.Int) (*pb.SignedClientBatchKeyRequest, error) {
@@ -184,12 +184,12 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 
 	// Hash the response
 	h.Reset()
-	h.Write(signedKeyResponse.KeyResponse)
+	h.Write(signedKeyResponse.GetKeyResponse())
 	hashedResponse := h.Sum(nil)
 
 	// Verify the response signature
 	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, opts.Hash, hashedResponse,
-		signedKeyResponse.KeyResponseSignedByGateway.Signature, opts)
+		signedKeyResponse.GetKeyResponseSignedByGateway().GetSignature(), opts)
 	if err != nil {
 		return nil, nil, 0,
 			errors.Errorf("Could not verify nodes's signature: %v", err)
@@ -197,14 +197,14 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 
 	// Unmarshal the response
 	keyResponse := &pb.ClientKeyResponse{}
-	err = proto.Unmarshal(signedKeyResponse.KeyResponse, keyResponse)
+	err = proto.Unmarshal(signedKeyResponse.GetKeyResponse(), keyResponse)
 	if err != nil {
 		return nil, nil, 0,
 			errors.WithMessagef(err, "Failed to unmarshal client key response")
 	}
 
 	// Convert Node DH Public key to a cyclic.Int
-	nodeDHPub := grp.NewIntFromBytes(keyResponse.NodeDHPubKey)
+	nodeDHPub := grp.NewIntFromBytes(keyResponse.GetNodeDHPubKey())
 
 	start := time.Now()
 	// Construct the session key
@@ -216,14 +216,14 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 
 	// Verify the HMAC
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(),
-		keyResponse.EncryptedClientKey, opts.Hash.New,
-		keyResponse.EncryptedClientKeyHMAC) {
+		keyResponse.GetEncryptedClientKey(), opts.Hash.New,
+		keyResponse.GetEncryptedClientKeyHMAC()) {
 		return nil, nil, 0, errors.New("Failed to verify client HMAC")
 	}
 
 	// Decrypt the client key
 	clientKey, err := chacha.Decrypt(
-		sessionKey.Bytes(), keyResponse.EncryptedClientKey)
+		sessionKey.Bytes(), keyResponse.GetEncryptedClientKey())
 	if err != nil {
 		return nil, nil, 0,
 			errors.WithMessagef(err, "Failed to decrypt client key")
@@ -233,5 +233,5 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	transmissionKey := grp.NewIntFromBytes(clientKey)
 
 	// Use Cmix keypair to sign Server nonce
-	return transmissionKey, keyResponse.KeyID, keyResponse.ValidUntil, nil
+	return transmissionKey, keyResponse.GetKeyID(), keyResponse.GetValidUntil(), nil
 }

@@ -8,11 +8,12 @@
 package dummy
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/xx_network/crypto/csprng"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/xx_network/crypto/csprng"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -21,13 +22,15 @@ import (
 
 // Error messages for the Manager.sendThread and its helper functions.
 const (
-	numMsgsRngErr          = "failed to generate random number of messages to send: %+v"
-	overrideAvgSendDelta   = 10 * time.Minute
-	overrideRandomRange    = 8 * time.Minute
-	overrideMaxNumMessages = 2
-
-	numSendsToOverride = 20
+	numMsgsRngErr = "failed to generate random number of messages to send: %+v"
 )
+
+// SendEvent is used to count "application message send events",
+// so that we calculate the send rate and use this to inform
+// the dummy send scheduler.
+func (m *Manager) SendEvent() {
+	m.counter.Incr(1)
+}
 
 // sendThread is a thread that sends the dummy messages at random intervals.
 func (m *Manager) sendThread(stop *stoppable.Single) {
@@ -37,20 +40,14 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 	nextSendChanPtr := &(nextSendChan)
 
 	for {
-
-		if numSent := atomic.LoadUint64(m.totalSent); numSent > numSendsToOverride {
-			m.avgSendDelta = overrideAvgSendDelta
-			m.randomRange = overrideRandomRange
-			m.maxNumMessages = overrideMaxNumMessages
-		}
-
 		select {
 		case status := <-m.statusChan:
 			if status {
 				atomic.StoreUint32(&m.status, running)
 				// Generate random duration
 				rng := m.rng.GetStream()
-				duration, err := randomDuration(m.avgSendDelta, m.randomRange, rng)
+				base := m.limiter.Reserve().DelayFrom(time.Now())
+				duration, err := randomDuration(base, m.randomRange, rng)
 				if err != nil {
 					rng.Close()
 					jww.FATAL.Panicf("Failed to generate random sending interval: %+v", err)
@@ -68,7 +65,8 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 		case <-*nextSendChanPtr:
 			// Generate random duration
 			rng := m.rng.GetStream()
-			duration, err := randomDuration(m.avgSendDelta, m.randomRange, rng)
+			base := m.limiter.Reserve().DelayFrom(time.Now())
+			duration, err := randomDuration(base, m.randomRange, rng)
 			if err != nil {
 				rng.Close()
 				jww.FATAL.Panicf("Failed to generate random sending interval: %+v", err)
@@ -103,7 +101,10 @@ func (m *Manager) sendMessages() error {
 	// Randomly generate amount of messages to send
 	rng := m.rng.GetStream()
 	defer rng.Close()
-	numMessages, err := randomInt(m.maxNumMessages+1, rng)
+
+	tokens := int(m.limiter.Tokens())
+	// XXX FIXME: use an exponential distribution skewed to our rate
+	numMessages, err := randomInt(m.burst+1+tokens, rng)
 	if err != nil {
 		return errors.Errorf(numMsgsRngErr, err)
 	}
@@ -113,7 +114,7 @@ func (m *Manager) sendMessages() error {
 		go func(localIndex, totalMessages int) {
 			defer wg.Done()
 
-			err = m.sendMessage(localIndex, totalMessages, rng)
+			err = m.sendMessage(rng)
 			if err != nil {
 				jww.ERROR.Printf("Failed to send message %d/%d: %+v",
 					localIndex, numMessages, err)
@@ -125,12 +126,13 @@ func (m *Manager) sendMessages() error {
 
 	wg.Wait()
 	jww.INFO.Printf("Sent %d/%d dummy messages.", sent, numMessages)
+
 	return nil
 }
 
 // sendMessage is a helper function which generates a sends a single random format.Message
 // to a random recipient.
-func (m *Manager) sendMessage(index, totalMessages int, rng csprng.Source) error {
+func (m *Manager) sendMessage(rng csprng.Source) error {
 	// Generate message data
 	recipient, fp, service, payload, mac, err := m.newRandomCmixMessage(rng)
 	if err != nil {

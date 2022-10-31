@@ -11,14 +11,18 @@
 package dummy
 
 import (
+	"sync/atomic"
+	"time"
+
+	"github.com/paulbellamy/ratecounter"
 	"github.com/pkg/errors"
+	"golang.org/x/time/rate"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"sync/atomic"
-	"time"
 )
 
 // Manager related thread handling constants.
@@ -46,8 +50,13 @@ const (
 
 // Manager manages the sending of dummy messages.
 type Manager struct {
-	// The maximum number of messages to send each send
-	maxNumMessages int
+	// Burst, the maximum number of messages beyond the rate limit.
+	burst int
+
+	// It's a rate counter like the name says.
+	counter *ratecounter.RateCounter
+
+	limiter *rate.Limiter
 
 	// Average duration to wait between message sends
 	avgSendDelta time.Duration
@@ -79,36 +88,45 @@ type Manager struct {
 // given parameters below.
 //
 // Params:
-//  - maxNumMessages - the upper bound of the random number of messages sent
-//    each sending cycle.
-//  - avgSendDeltaMS - the average duration, in milliseconds, to wait
-//    between sends.
-//  - randomRangeMS - the upper bound of the interval between sending cycles,
-//    in milliseconds. Sends occur every avgSendDeltaMS +/- a random duration
-//    with an upper bound of randomRangeMS.
-func NewManager(maxNumMessages int,
+//   - maxNumMessages - the upper bound of the random number of messages sent
+//     each sending cycle.
+//   - avgSendDeltaMS - the average duration, in milliseconds, to wait
+//     between sends.
+//   - randomRangeMS - the upper bound of the interval between sending cycles,
+//     in milliseconds. Sends occur every avgSendDeltaMS +/- a random duration
+//     with an upper bound of randomRangeMS.
+func NewManager(burst int,
 	avgSendDelta, randomRange time.Duration,
 	net *xxdk.Cmix) *Manager {
 
-	return newManager(maxNumMessages, avgSendDelta, randomRange, net.GetCmix(),
+	return newManager(burst, avgSendDelta, randomRange, net.GetCmix(),
 		net.GetStorage(), net.GetRng())
 }
 
 // newManager builds a new dummy Manager from fields explicitly passed in. This
 // function is a helper function for NewManager.
-func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
+func newManager(burst int, avgSendDelta, randomRange time.Duration,
 	net cmix.Client, store storage.Session, rng *fastRNG.StreamGenerator) *Manager {
+
+	// XXX FIXME: pass in initial rate and burst
+
+	// once per minute
+	limit := rate.Every(time.Minute)
+	limiter := rate.NewLimiter(limit, burst)
+
 	numSent := uint64(8)
 	return &Manager{
-		maxNumMessages: maxNumMessages,
-		avgSendDelta:   avgSendDelta,
-		randomRange:    randomRange,
-		status:         notStarted,
-		statusChan:     make(chan bool, statusChanLen),
-		net:            net,
-		store:          store,
-		rng:            rng,
-		totalSent:      &numSent,
+		burst:        burst,
+		avgSendDelta: avgSendDelta,
+		randomRange:  randomRange,
+		counter:      ratecounter.NewRateCounter(time.Minute), // per minute rates
+		limiter:      limiter,
+		status:       notStarted,
+		statusChan:   make(chan bool, statusChanLen),
+		net:          net,
+		store:        store,
+		rng:          rng,
+		totalSent:    &numSent,
 	}
 }
 
@@ -129,11 +147,12 @@ func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 // operation has completed.
 //
 // Params:
-//  - boolean - Input should be true if you want to send dummy messages.
-//  			Input should be false if you want to pause dummy messages.
+//   - boolean - Input should be true if you want to send dummy messages.
+//     Input should be false if you want to pause dummy messages.
+//
 // Returns:
-//  - error - if the Manager.SetStatus is called too frequently, causing the
-//    internal status channel to fill.
+//   - error - if the Manager.SetStatus is called too frequently, causing the
+//     internal status channel to fill.
 func (m *Manager) SetStatus(status bool) error {
 	select {
 	case m.statusChan <- status:
@@ -151,8 +170,8 @@ func (m *Manager) SetStatus(status bool) error {
 //
 // Returns:
 //   - boolean - Returns true if sending thread is sending dummy messages.
-//  	         Returns false if sending thread is paused/stopped and is
-// 	             not sending dummy messages.
+//     Returns false if sending thread is paused/stopped and is
+//     not sending dummy messages.
 func (m *Manager) GetStatus() bool {
 	switch atomic.LoadUint32(&m.status) {
 	case running:

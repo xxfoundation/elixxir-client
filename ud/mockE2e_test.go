@@ -46,6 +46,10 @@ type mockE2e struct {
 	key       *rsa.PrivateKey
 }
 
+func (m mockE2e) GetBackupContainer() *xxdk.Container {
+	return &xxdk.Container{}
+}
+
 func (m mockE2e) GetE2E() e2e.Handler {
 	return mockE2eHandler{}
 }

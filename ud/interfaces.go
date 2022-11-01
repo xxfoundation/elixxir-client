@@ -39,6 +39,7 @@ type udE2e interface {
 	GetRng() *fastRNG.StreamGenerator
 	GetStorage() storage.Session
 	GetTransmissionIdentity() xxdk.TransmissionIdentity
+	GetBackupContainer() *xxdk.Container
 }
 
 // udNetworkStatus is an interface for the xxdk.Cmix's

@@ -50,6 +50,7 @@ const (
 // startSendingWorkerPool initialises a worker pool of file part sending
 // threads.
 func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
+	jww.INFO.Printf("[FT] Starting %d sending worker threads.", workerPoolThreads)
 	// Set up cMix sending parameters
 	m.params.Cmix.SendTimeout = m.params.SendTimeout
 	m.params.Cmix.ExcludedRounds =
@@ -70,6 +71,7 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 
 // sendingThread sends part packets that become available oin the send queue.
 func (m *manager) sendingThread(stop *stoppable.Single) {
+	jww.INFO.Printf("[FT] Starting sending worker thread %s.", stop.Name())
 	healthChan := make(chan bool, 10)
 	healthChanID := m.cmix.AddHealthCallback(func(b bool) { healthChan <- b })
 	for {

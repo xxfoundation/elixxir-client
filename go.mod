@@ -1,6 +1,6 @@
 module gitlab.com/elixxir/client
 
-go 1.17
+go 1.19
 
 require (
 	github.com/cloudflare/circl v1.2.0

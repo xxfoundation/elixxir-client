@@ -118,6 +118,7 @@ func (w *Wrapper) addEndMessageToCallback(
 	if !w.p.NotifyUponCompletion {
 		return progressCB
 	}
+
 	return func(completed bool, arrived, total uint16,
 		st ft.SentTransfer, t ft.FilePartTracker, err error) {
 

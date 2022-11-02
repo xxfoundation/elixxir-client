@@ -49,7 +49,6 @@ func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
 
 // Tests the happy path.
 func TestAdminListener_Listen(t *testing.T) {
-
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -149,10 +148,9 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 
 	// Check the results
 	if dummy.gotData {
-		t.Fatalf("payload handled when it should have failed due to " +
-			"a round issue")
+		t.Fatal(
+			"Payload handled when it should have failed due to a round issue.")
 	}
-
 }
 
 // Tests that the message is rejected when the channel message is malformed.
@@ -186,7 +184,6 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 		t.Fatalf("payload handled when it should have failed due to " +
 			"a malformed channel message")
 	}
-
 }
 
 // Tests that the message is rejected when the sized broadcast message is

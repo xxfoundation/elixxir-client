@@ -48,9 +48,9 @@ func TestMutateTimestampDeltaAverage(t *testing.T) {
 	}
 
 	avg := sum / int64(samples)
-	diff := abs(avg - 2502865)
-	if diff > 30000 {
-		t.Fatal()
+	diff := abs(avg - 2_502_865)
+	if diff > 30_000 {
+		t.Fatalf("Difference %d is greater than %d", diff, 30_000)
 	}
 }
 

@@ -144,7 +144,6 @@ func (m *mockNameService) ValidateChannelMessage(
 }
 
 func TestSendGeneric(t *testing.T) {
-
 	nameService := new(mockNameService)
 	nameService.validChMsg = true
 
@@ -152,7 +151,7 @@ func TestSendGeneric(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -194,35 +193,28 @@ func TestSendGeneric(t *testing.T) {
 		broadcast: mbc,
 	}
 
-	messageId, roundId, ephemeralId, err := m.SendGeneric(
-		channelID,
-		messageType,
-		msg,
-		validUntil,
-		*params)
+	messageId, _, _, err :=
+		m.SendGeneric(channelID, messageType, msg, validUntil, *params)
 	if err != nil {
-		t.Logf("ERROR %v", err)
-		t.Fail()
+		t.Fatalf("SendGeneric error: %+v", err)
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v",
-		messageId, roundId, ephemeralId)
 
 	// Verify the message was handled correctly
 
 	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
-		t.Fatalf("Failed to decode the user message: %s", err)
+		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
 
 	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
-		t.Errorf("The message IDs do not match. %s vs %s ",
+		t.Errorf("The message IDs do not match. %s vs %s",
 			umi.messageID, messageId)
 	}
 
 	if !bytes.Equal(umi.GetChannelMessage().Payload, msg) {
-		t.Errorf("The payload does not match. %s vs %s ",
+		t.Errorf("The payload does not match. %s vs %s",
 			umi.GetChannelMessage().Payload, msg)
 	}
 
@@ -235,16 +227,14 @@ func TestSendGeneric(t *testing.T) {
 		t.Errorf("The returned round is incorrect, %d vs %d",
 			umi.GetChannelMessage().RoundID, returnedRound)
 	}
-
 }
 
 func TestAdminGeneric(t *testing.T) {
-
 	prng := rand.New(rand.NewSource(64))
 
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -290,29 +280,25 @@ func TestAdminGeneric(t *testing.T) {
 		broadcast: mbc,
 	}
 
-	messageId, roundId, ephemeralId, err := m.SendAdminGeneric(priv,
-		ch.ReceptionID, messageType, msg, validUntil,
-		cmix.GetDefaultCMIXParams())
+	messageId, _, _, err :=
+		m.SendAdminGeneric(priv, ch.ReceptionID, messageType, msg, validUntil,
+			cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Fatalf("Failed to SendAdminGeneric: %v", err)
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v",
-		messageId, roundId, ephemeralId)
 
 	// Verify the message was handled correctly
 
 	msgID := cryptoChannel.MakeMessageID(mbc.payload, ch.ReceptionID)
 
 	if !msgID.Equals(messageId) {
-		t.Errorf("The message IDs do not match. %s vs %s ",
-			msgID, messageId)
+		t.Errorf("The message IDs do not match. %s vs %s", msgID, messageId)
 	}
 
 	// Decode the channel message
 	chMgs := &ChannelMessage{}
-	err = proto.Unmarshal(mbc.payload, chMgs)
-	if err != nil {
-		t.Fatalf("Failed to decode the channel message: %s", err)
+	if err = proto.Unmarshal(mbc.payload, chMgs); err != nil {
+		t.Fatalf("Failed to decode the channel message: %+v", err)
 	}
 
 	if !bytes.Equal(chMgs.Payload, msg) {
@@ -331,7 +317,6 @@ func TestAdminGeneric(t *testing.T) {
 }
 
 func TestSendMessage(t *testing.T) {
-
 	nameService := new(mockNameService)
 	nameService.validChMsg = true
 
@@ -339,7 +324,7 @@ func TestSendMessage(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -380,29 +365,22 @@ func TestSendMessage(t *testing.T) {
 		broadcast: mbc,
 	}
 
-	messageId, roundId, ephemeralId, err := m.SendMessage(
-		channelID,
-		msg,
-		validUntil,
-		*params)
+	messageId, _, _, err := m.SendMessage(channelID, msg, validUntil, *params)
 	if err != nil {
-		t.Logf("ERROR %v", err)
-		t.Fail()
+		t.Fatalf("SendMessage error: %+v", err)
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v",
-		messageId, roundId, ephemeralId)
 
 	// Verify the message was handled correctly
 
 	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
-		t.Fatalf("Failed to decode the user message: %s", err)
+		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
 
 	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
-		t.Errorf("The message IDs do not match. %s vs %s ",
+		t.Errorf("The message IDs do not match. %s vs %s",
 			umi.messageID, messageId)
 	}
 
@@ -420,7 +398,7 @@ func TestSendMessage(t *testing.T) {
 	txt := &CMIXChannelText{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {
-		t.Fatalf("Could not decode cmix channel text: %s", err)
+		t.Fatalf("Could not decode cmix channel text: %+v", err)
 	}
 
 	if txt.Text != msg {
@@ -433,12 +411,11 @@ func TestSendMessage(t *testing.T) {
 }
 
 func TestSendReply(t *testing.T) {
-
 	prng := rand.New(rand.NewSource(64))
 
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -482,26 +459,22 @@ func TestSendReply(t *testing.T) {
 		broadcast: mbc,
 	}
 
-	messageId, roundId, ephemeralId, err := m.SendReply(
-		channelID, msg, replyMsgID, validUntil, *params)
+	messageId, _, _, err :=
+		m.SendReply(channelID, msg, replyMsgID, validUntil, *params)
 	if err != nil {
-		t.Logf("ERROR %v", err)
-		t.Fail()
+		t.Fatalf("SendReply error: %+v", err)
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v",
-		messageId, roundId, ephemeralId)
-
 	// Verify the message was handled correctly
 
 	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
-		t.Fatalf("Failed to decode the user message: %s", err)
+		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
 
 	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
-		t.Errorf("The message IDs do not match. %s vs %s ",
+		t.Errorf("The message IDs do not match. %s vs %s",
 			umi.messageID, messageId)
 	}
 
@@ -519,7 +492,7 @@ func TestSendReply(t *testing.T) {
 	txt := &CMIXChannelText{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {
-		t.Fatalf("Could not decode cmix channel text: %s", err)
+		t.Fatalf("Could not decode cmix channel text: %+v", err)
 	}
 
 	if txt.Text != msg {
@@ -532,12 +505,11 @@ func TestSendReply(t *testing.T) {
 }
 
 func TestSendReaction(t *testing.T) {
-
 	prng := rand.New(rand.NewSource(64))
 
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -580,26 +552,22 @@ func TestSendReaction(t *testing.T) {
 		broadcast: mbc,
 	}
 
-	messageId, roundId, ephemeralId, err := m.SendReaction(
-		channelID, msg, replyMsgID, *params)
+	messageId, _, _, err := m.SendReaction(channelID, msg, replyMsgID, *params)
 	if err != nil {
-		t.Logf("ERROR %v", err)
-		t.Fail()
+		t.Fatalf("SendReaction error: %+v", err)
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v",
-		messageId, roundId, ephemeralId)
 
 	// Verify the message was handled correctly
 
 	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
-		t.Fatalf("Failed to decode the user message: %s", err)
+		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
 
 	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
-		t.Errorf("The message IDs do not match. %s vs %s ",
+		t.Errorf("The message IDs do not match. %s vs %s",
 			umi.messageID, messageId)
 	}
 
@@ -617,7 +585,7 @@ func TestSendReaction(t *testing.T) {
 	txt := &CMIXChannelReaction{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {
-		t.Fatalf("Could not decode cmix channel text: %s", err)
+		t.Fatalf("Could not decode cmix channel text: %+v", err)
 	}
 
 	if txt.Reaction != msg {

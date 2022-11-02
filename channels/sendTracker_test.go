@@ -167,7 +167,6 @@ func TestSendTracker_failedSend(t *testing.T) {
 		if s != Failed {
 			t.Fatalf("Did not receive failed from failed message")
 		}
-		t.Log("Received over trigger chan")
 	case <-timeout.C:
 		t.Fatal("Timed out waiting for trigger chan")
 	}
@@ -240,7 +239,6 @@ func TestSendTracker_send(t *testing.T) {
 	timeout := time.NewTicker(time.Second * 5)
 	select {
 	case <-triggerCh:
-		t.Log("Received over trigger chan")
 	case <-timeout.C:
 		t.Fatal("Timed out waiting for trigger chan")
 	}
@@ -341,7 +339,6 @@ func TestRoundResult_callback(t *testing.T) {
 	timeout := time.NewTicker(time.Second * 5)
 	select {
 	case <-triggerCh:
-		t.Log("Received trigger")
 	case <-timeout.C:
 		t.Fatal("Did not receive update")
 	}

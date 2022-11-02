@@ -105,5 +105,4 @@ func TestNicknameManager_DeleteNickname(t *testing.T) {
 				"that are not set.")
 		}
 	}
-
 }

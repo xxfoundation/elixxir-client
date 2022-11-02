@@ -27,9 +27,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// Many tests trigger WARN prints;, set the out threshold so the WARN prints
+	// Many tests trigger WARN prints; set the out threshold so the WARN prints
 	// can be seen in the logs
 	jww.SetStdoutThreshold(jww.LevelWarn)
+
 	os.Exit(m.Run())
 }
 
@@ -60,7 +61,7 @@ func TestManager_JoinChannel(t *testing.T) {
 
 	err = m.JoinChannel(ch)
 	if err != nil {
-		t.Fatalf("Join Channel Errored: %s", err)
+		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
 	if _, exists := m.channels[*ch.ReceptionID]; !exists {
@@ -70,8 +71,8 @@ func TestManager_JoinChannel(t *testing.T) {
 	// Wait because the event model is called in another thread
 	time.Sleep(1 * time.Second)
 
-	if mem.joinedCh == nil {
-		t.Errorf("the channel join call was not propogated to the event model")
+	if mem.getJoinedCh() == nil {
+		t.Error("The channel join call was not propagated to the event model.")
 	}
 }
 
@@ -103,12 +104,12 @@ func TestManager_LeaveChannel(t *testing.T) {
 
 	err = m.JoinChannel(ch)
 	if err != nil {
-		t.Fatalf("Join Channel Errored: %s", err)
+		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
 	err = m.LeaveChannel(ch.ReceptionID)
 	if err != nil {
-		t.Fatalf("Leave Channel Errored: %s", err)
+		t.Fatalf("Leave Channel Errored: %+v", err)
 	}
 
 	if _, exists := m.channels[*ch.ReceptionID]; exists {
@@ -118,9 +119,8 @@ func TestManager_LeaveChannel(t *testing.T) {
 	// Wait because the event model is called in another thread
 	time.Sleep(1 * time.Second)
 
-	if mem.leftCh == nil {
-		t.Errorf("the channel join call was not propogated to the event " +
-			"model")
+	if mem.getLeftCh() == nil {
+		t.Error("The channel join call was not propagated to the event model.")
 	}
 }
 

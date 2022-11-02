@@ -98,10 +98,9 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 		rngSrc:       rngSource,
 	}
 
-	/*if err := st.load(); !kv.Exists(err){
-		jww.FATAL.Panicf("failed to load sent tracker: %+v", err)
-	}*/
-	st.load()
+	if err := st.load(); err != nil && kv.Exists(err) {
+		jww.FATAL.Panicf("Failed to load channels sent tracker: %+v", err)
+	}
 
 	// Denote all unsent messages as failed and clear
 	for uuid, t := range st.unsent {

@@ -56,7 +56,8 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 		}
 		expected := "nickname#" + strconv.Itoa(i)
 		if nick != expected {
-			t.Fatalf("Nickname %d not found, expected: %s, received: %s ", i, expected, nick)
+			t.Fatalf("Nickname %d not found, expected: %s, received: %s ",
+				i, expected, nick)
 		}
 	}
 }

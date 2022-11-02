@@ -24,6 +24,8 @@ type broadcastClient struct {
 	rng     *fastRNG.StreamGenerator
 }
 
+// NewBroadcastChannelFunc creates a broadcast Channel. Used so that it can be
+// replaced in tests.
 type NewBroadcastChannelFunc func(channel *crypto.Channel, net Client,
 	rng *fastRNG.StreamGenerator) (Channel, error)
 
@@ -52,7 +54,8 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 }
 
 // RegisterListener registers a listener for broadcast messages.
-func (bc *broadcastClient) RegisterListener(listenerCb ListenerFunc, method Method) error {
+func (bc *broadcastClient) RegisterListener(
+	listenerCb ListenerFunc, method Method) error {
 	var tag string
 	switch method {
 	case Symmetric:

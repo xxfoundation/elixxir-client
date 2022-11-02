@@ -102,7 +102,6 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 
 func (m *MockEvent) UpdateSentStatus(uint64, cryptoChannel.MessageID,
 	time.Time, rounds.Round, SentStatus) {
-	// TODO implement me
 	panic("implement me")
 }
 
@@ -248,7 +247,8 @@ func TestEvents_triggerEvents(t *testing.T) {
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	// call the trigger
-	_, err = e.triggerEvent(chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err = e.triggerEvent(
+		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -319,7 +319,8 @@ func TestEvents_triggerEvents_noChannel(t *testing.T) {
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	// call the trigger
-	_, err := e.triggerEvent(chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err := e.triggerEvent(
+		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -357,8 +358,8 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
-		Delivered)
+	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
+		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -432,8 +433,8 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// call the trigger
-	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
-		Delivered)
+	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
+		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

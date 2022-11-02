@@ -67,12 +67,11 @@ func TestManager_JoinChannel(t *testing.T) {
 		t.Errorf("Channel %s not added to channel map.", ch.Name)
 	}
 
-	//wait because the event model is called in another thread
+	// Wait because the event model is called in another thread
 	time.Sleep(1 * time.Second)
 
 	if mem.joinedCh == nil {
-		t.Errorf("the channel join call was not propogated to the event " +
-			"model")
+		t.Errorf("the channel join call was not propogated to the event model")
 	}
 }
 
@@ -116,7 +115,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 		t.Errorf("Channel %s still in map.", ch.Name)
 	}
 
-	//wait because the event model is called in another thread
+	// Wait because the event model is called in another thread
 	time.Sleep(1 * time.Second)
 
 	if mem.leftCh == nil {
@@ -133,12 +132,12 @@ func TestManager_GetChannels(t *testing.T) {
 
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-	numtests := 10
+	n := 10
 
 	chList := make(map[id.ID]interface{})
 
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("testChannel_%d", numtests)
+		name := fmt.Sprintf("testChannel_%d", n)
 		s := rng.GetStream()
 		tc, _, err := newTestChannel(name, "blarg", s, broadcast2.Public)
 		s.Close()
@@ -170,12 +169,12 @@ func TestManager_GetChannel(t *testing.T) {
 
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-	numtests := 10
+	n := 10
 
-	chList := make([]*id.ID, 0, numtests)
+	chList := make([]*id.ID, 0, n)
 
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("testChannel_%d", numtests)
+		name := fmt.Sprintf("testChannel_%d", n)
 		s := rng.GetStream()
 		tc, _, err := newTestChannel(name, "blarg", s, broadcast2.Public)
 		s.Close()
@@ -206,9 +205,9 @@ func TestManager_GetChannel_BadChannel(t *testing.T) {
 		mux:      sync.RWMutex{},
 	}
 
-	numtests := 10
+	n := 10
 
-	chList := make([]*id.ID, 0, numtests)
+	chList := make([]*id.ID, 0, n)
 
 	for i := 0; i < 10; i++ {
 		chId := &id.ID{}
@@ -219,7 +218,7 @@ func TestManager_GetChannel_BadChannel(t *testing.T) {
 	for i, receivedCh := range chList {
 		_, err := m.GetChannel(receivedCh)
 		if err == nil {
-			t.Errorf("Channel %d returned when it doesnt exist", i)
+			t.Errorf("Channel %d returned when it does not exist", i)
 		}
 	}
 }

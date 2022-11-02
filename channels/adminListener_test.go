@@ -33,9 +33,9 @@ type triggerAdminEventDummy struct {
 }
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
-	cm *ChannelMessage, ts time.Time, messageID cryptoChannel.MessageID,
+	cm *ChannelMessage, _ time.Time, messageID cryptoChannel.MessageID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) (uint64, error) {
+	_ SentStatus) (uint64, error) {
 	taed.gotData = true
 
 	taed.chID = chID
@@ -75,9 +75,11 @@ func TestAdminListener_Listen(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:      chID,
-		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		trigger: dummy.triggerAdminEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
 	// Call the listener
@@ -111,8 +113,7 @@ func TestAdminListener_Listen(t *testing.T) {
 // Tests that the message is rejected when the round it came on doesn't match
 // the round in the channel message.
 func TestAdminListener_Listen_BadRound(t *testing.T) {
-
-	// build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -136,15 +137,17 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:      chID,
-		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		trigger: dummy.triggerAdminEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
 	// Call the listener
 	al.Listen(cmSerial, receptionID.EphemeralIdentity{}, r)
 
-	// check the results
+	// Check the results
 	if dummy.gotData {
 		t.Fatalf("payload handled when it should have failed due to " +
 			"a round issue")
@@ -168,9 +171,11 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:      chID,
-		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		trigger: dummy.triggerAdminEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
 	// Call the listener
@@ -187,8 +192,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 // Tests that the message is rejected when the sized broadcast message is
 // malformed.
 func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
-
-	// build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -215,9 +219,11 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:      chID,
-		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		trigger: dummy.triggerAdminEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
 	// Call the listener

@@ -59,8 +59,8 @@ func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel {
 	return m.crypto
 }
 
-func (m *mockBroadcastChannel) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
-	rounds.Round, ephemeral.Id, error) {
+func (m *mockBroadcastChannel) Broadcast(payload []byte,
+	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 
 	m.hasRun = true
 
@@ -70,7 +70,8 @@ func (m *mockBroadcastChannel) Broadcast(payload []byte, cMixParams cmix.CMIXPar
 	return rounds.Round{ID: 123}, ephemeral.Id{}, nil
 }
 
-func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assembler, cMixParams cmix.CMIXParams) (
+func (m *mockBroadcastChannel) BroadcastWithAssembler(
+	assembler broadcast.Assembler, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 
@@ -82,8 +83,9 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assemb
 	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte,
-	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
+	payload []byte, cMixParams cmix.CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 
 	m.payload = payload
@@ -109,12 +111,11 @@ func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
 	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) RegisterListener(listenerCb broadcast.ListenerFunc, method broadcast.Method) error {
+func (m *mockBroadcastChannel) RegisterListener(
+	broadcast.ListenerFunc, broadcast.Method) error {
 	return nil
 }
-
-func (m *mockBroadcastChannel) Stop() {
-}
+func (m *mockBroadcastChannel) Stop() {}
 
 type mockNameService struct {
 	validChMsg bool
@@ -124,7 +125,8 @@ func (m *mockNameService) GetUsername() string {
 	return "Alice"
 }
 
-func (m *mockNameService) GetChannelValidationSignature() (signature []byte, lease time.Time) {
+func (m *mockNameService) GetChannelValidationSignature() (
+	signature []byte, lease time.Time) {
 	return []byte("fake validation sig"), netTime.Now()
 }
 
@@ -132,12 +134,12 @@ func (m *mockNameService) GetChannelPubkey() ed25519.PublicKey {
 	return []byte("fake pubkey")
 }
 
-func (m *mockNameService) SignChannelMessage(message []byte) (signature []byte, err error) {
+func (m *mockNameService) SignChannelMessage([]byte) (signature []byte, err error) {
 	return []byte("fake sig"), nil
 }
 
-func (m *mockNameService) ValidateChannelMessage(username string, lease time.Time,
-	pubKey ed25519.PublicKey, authorIDSignature []byte) bool {
+func (m *mockNameService) ValidateChannelMessage(
+	string, time.Time, ed25519.PublicKey, []byte) bool {
 	return m.validChMsg
 }
 
@@ -171,8 +173,9 @@ func TestSendGeneric(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) (uint64, error) {
+				messageID cryptoChannel.MessageID,
+				receptionID receptionID.EphemeralIdentity, round rounds.Round,
+				status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
@@ -201,17 +204,18 @@ func TestSendGeneric(t *testing.T) {
 		t.Logf("ERROR %v", err)
 		t.Fail()
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+	t.Logf("messageId %v, roundId %v, ephemeralId %v",
+		messageId, roundId, ephemeralId)
 
-	// verify the message was handled correctly
+	// Verify the message was handled correctly
 
-	// decode the user message
+	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
 
-	// do checks of the data
+	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
 		t.Errorf("The message IDs do not match. %s vs %s ",
 			umi.messageID, messageId)
@@ -260,8 +264,9 @@ func TestAdminGeneric(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) (uint64, error) {
+				messageID cryptoChannel.MessageID,
+				receptionID receptionID.EphemeralIdentity, round rounds.Round,
+				status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
@@ -291,9 +296,10 @@ func TestAdminGeneric(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to SendAdminGeneric: %v", err)
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+	t.Logf("messageId %v, roundId %v, ephemeralId %v",
+		messageId, roundId, ephemeralId)
 
-	// verify the message was handled correctly
+	// Verify the message was handled correctly
 
 	msgID := cryptoChannel.MakeMessageID(mbc.payload, ch.ReceptionID)
 
@@ -302,7 +308,7 @@ func TestAdminGeneric(t *testing.T) {
 			msgID, messageId)
 	}
 
-	// decode the channel message
+	// Decode the channel message
 	chMgs := &ChannelMessage{}
 	err = proto.Unmarshal(mbc.payload, chMgs)
 	if err != nil {
@@ -353,8 +359,9 @@ func TestSendMessage(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) (uint64, error) {
+				messageID cryptoChannel.MessageID,
+				receptionID receptionID.EphemeralIdentity, round rounds.Round,
+				status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
@@ -382,17 +389,18 @@ func TestSendMessage(t *testing.T) {
 		t.Logf("ERROR %v", err)
 		t.Fail()
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+	t.Logf("messageId %v, roundId %v, ephemeralId %v",
+		messageId, roundId, ephemeralId)
 
-	// verify the message was handled correctly
+	// Verify the message was handled correctly
 
-	// decode the user message
+	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
 
-	// do checks of the data
+	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
 		t.Errorf("The message IDs do not match. %s vs %s ",
 			umi.messageID, messageId)
@@ -408,7 +416,7 @@ func TestSendMessage(t *testing.T) {
 			umi.GetChannelMessage().RoundID, returnedRound)
 	}
 
-	// decode the text message
+	// Decode the text message
 	txt := &CMIXChannelText{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {
@@ -450,8 +458,9 @@ func TestSendReply(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) (uint64, error) {
+				messageID cryptoChannel.MessageID,
+				receptionID receptionID.EphemeralIdentity, round rounds.Round,
+				status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
@@ -479,17 +488,18 @@ func TestSendReply(t *testing.T) {
 		t.Logf("ERROR %v", err)
 		t.Fail()
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+	t.Logf("messageId %v, roundId %v, ephemeralId %v",
+		messageId, roundId, ephemeralId)
 
-	// verify the message was handled correctly
+	// Verify the message was handled correctly
 
-	// decode the user message
+	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
 
-	// do checks of the data
+	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
 		t.Errorf("The message IDs do not match. %s vs %s ",
 			umi.messageID, messageId)
@@ -505,7 +515,7 @@ func TestSendReply(t *testing.T) {
 			umi.GetChannelMessage().RoundID, returnedRound)
 	}
 
-	// decode the text message
+	// Decode the text message
 	txt := &CMIXChannelText{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {
@@ -547,8 +557,9 @@ func TestSendReaction(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) (uint64, error) {
+				messageID cryptoChannel.MessageID,
+				receptionID receptionID.EphemeralIdentity, round rounds.Round,
+				status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
@@ -575,17 +586,18 @@ func TestSendReaction(t *testing.T) {
 		t.Logf("ERROR %v", err)
 		t.Fail()
 	}
-	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+	t.Logf("messageId %v, roundId %v, ephemeralId %v",
+		messageId, roundId, ephemeralId)
 
-	// verify the message was handled correctly
+	// Verify the message was handled correctly
 
-	// decode the user message
+	// Decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
 
-	// do checks of the data
+	// Do checks of the data
 	if !umi.GetMessageID().Equals(messageId) {
 		t.Errorf("The message IDs do not match. %s vs %s ",
 			umi.messageID, messageId)
@@ -601,7 +613,7 @@ func TestSendReaction(t *testing.T) {
 			umi.GetChannelMessage().RoundID, returnedRound)
 	}
 
-	// decode the text message
+	// Decode the text message
 	txt := &CMIXChannelReaction{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {

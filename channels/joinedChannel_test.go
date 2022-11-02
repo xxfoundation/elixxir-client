@@ -103,7 +103,8 @@ func Test_manager_loadChannels(t *testing.T) {
 
 	for i := range expected {
 		ch, _, err := newTestChannel(
-			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i), m.rng.GetStream(), cryptoBroadcast.Public)
+			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i),
+			m.rng.GetStream(), cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
@@ -423,7 +424,8 @@ func Test_manager_getChannels(t *testing.T) {
 
 	for i := range expected {
 		ch, _, err := newTestChannel(
-			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i), m.rng.GetStream(), cryptoBroadcast.Public)
+			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i),
+			m.rng.GetStream(), cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
@@ -511,9 +513,8 @@ func Test_loadJoinedChannel(t *testing.T) {
 	}
 
 	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
-		m.events, m.broadcastMaker, func(messageID cryptoChannel.MessageID, r rounds.Round) bool {
-			return false
-		})
+		m.events, m.broadcastMaker,
+		func(cryptoChannel.MessageID, rounds.Round) bool { return false })
 	if err != nil {
 		t.Errorf("Failed to load joinedChannel: %+v", err)
 	}
@@ -618,13 +619,12 @@ func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
 
-func (m *mockBroadcastClient) IsHealthy() bool                     { return true }
-func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockBroadcastClient) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
-}
-func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
-func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
-func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
+func (m *mockBroadcastClient) IsHealthy() bool                                           { return true }
+func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool)                       {}
+func (m *mockBroadcastClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) {}
+func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor)     {}
+func (m *mockBroadcastClient) DeleteClientService(*id.ID)                                {}
+func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                     {}
 func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
 }
 func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
@@ -667,6 +667,5 @@ func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
 
 func (m *mockEventModel) UpdateSentStatus(uint64, cryptoChannel.MessageID,
 	time.Time, rounds.Round, SentStatus) {
-	// TODO implement me
 	panic("implement me")
 }

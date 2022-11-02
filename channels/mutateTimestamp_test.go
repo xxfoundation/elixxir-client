@@ -56,8 +56,8 @@ func TestMutateTimestampDeltaAverage(t *testing.T) {
 
 const generationRange = beforeGrace + afterGrace
 
-// TestVetTimestamp_Happy tests that when the localTS is within
-// the allowed range, it is unmodified
+// TestVetTimestamp_Happy tests that when the localTS is within the allowed
+// range, it is unmodified.
 func TestVetTimestamp_Happy(t *testing.T) {
 	samples := 10000
 
@@ -67,7 +67,8 @@ func TestVetTimestamp_Happy(t *testing.T) {
 
 		now := time.Now()
 
-		tested := now.Add(-beforeGrace).Add(time.Duration(rng.Int63()) % generationRange)
+		tested := now.Add(-beforeGrace).Add(
+			time.Duration(rng.Int63()) % generationRange)
 
 		var msgID channel.MessageID
 		rng.Read(msgID[:])
@@ -80,8 +81,8 @@ func TestVetTimestamp_Happy(t *testing.T) {
 	}
 }
 
-// TestVetTimestamp_Happy tests that when the localTS is less than
-// the allowed time period it is replaced
+// TestVetTimestamp_Happy tests that when the localTS is less than the allowed
+// time period it is replaced.
 func TestVetTimestamp_BeforePeriod(t *testing.T) {
 	samples := 10000
 
@@ -91,7 +92,8 @@ func TestVetTimestamp_BeforePeriod(t *testing.T) {
 
 		now := time.Now()
 
-		tested := now.Add(-beforeGrace).Add(-time.Duration(rng.Int63()) % (100000 * time.Hour))
+		tested := now.Add(-beforeGrace).Add(
+			-time.Duration(rng.Int63()) % (100000 * time.Hour))
 
 		var msgID channel.MessageID
 		rng.Read(msgID[:])
@@ -104,8 +106,8 @@ func TestVetTimestamp_BeforePeriod(t *testing.T) {
 	}
 }
 
-// TestVetTimestamp_Happy tests that when the localTS is greater than
-// the allowed time period it is replaced
+// TestVetTimestamp_Happy tests that when the localTS is greater than the
+// allowed time period it is replaced
 func TestVetTimestamp_AfterPeriod(t *testing.T) {
 	samples := 10000
 
@@ -115,7 +117,8 @@ func TestVetTimestamp_AfterPeriod(t *testing.T) {
 
 		now := time.Now()
 
-		tested := now.Add(afterGrace).Add(-time.Duration(rng.Int63()) % (100000 * time.Hour))
+		tested := now.Add(afterGrace).Add(
+			-time.Duration(rng.Int63()) % (100000 * time.Hour))
 
 		var msgID channel.MessageID
 		rng.Read(msgID[:])

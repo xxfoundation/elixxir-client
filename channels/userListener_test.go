@@ -35,8 +35,8 @@ type triggerEventDummy struct {
 }
 
 func (ted *triggerEventDummy) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	ts time.Time, receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	sent SentStatus) (uint64, error) {
+	_ time.Time, receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	_ SentStatus) (uint64, error) {
 	ted.gotData = true
 
 	ted.chID = chID
@@ -48,10 +48,10 @@ func (ted *triggerEventDummy) triggerEvent(chID *id.ID, umi *userMessageInternal
 	return 0, nil
 }
 
-// Tests the happy path
+// Tests the happy path.
 func TestUserListener_Listen(t *testing.T) {
 
-	//build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -92,20 +92,22 @@ func TestUserListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerEventDummy{}
 
 	al := userListener{
-		chID:      chID,
-		name:      ns,
-		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		name:    ns,
+		trigger: dummy.triggerEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if !dummy.gotData {
 		t.Fatalf("No data returned after valid listen")
 	}
@@ -130,10 +132,9 @@ func TestUserListener_Listen(t *testing.T) {
 	}
 }
 
-//tests that the message is rejected when the user signature is invalid
+// Tests that the message is rejected when the user signature is invalid.
 func TestUserListener_Listen_BadUserSig(t *testing.T) {
-
-	//build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -158,12 +159,12 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	_, badpriv, err := ed25519.GenerateKey(rng)
+	_, badPrivKey, err := ed25519.GenerateKey(rng)
 	if err != nil {
 		t.Fatalf("failed to generate ed25519 keypair, cant run test")
 	}
 
-	sig := ed25519.Sign(badpriv, cmSerial)
+	sig := ed25519.Sign(badPrivKey, cmSerial)
 	ns := &mockNameService{validChMsg: true}
 
 	um := &UserMessage{
@@ -177,30 +178,31 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerEventDummy{}
 
 	al := userListener{
-		chID:      chID,
-		name:      ns,
-		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		name:    ns,
+		trigger: dummy.triggerEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if dummy.gotData {
 		t.Fatalf("Data returned after invalid listen")
 	}
 }
 
-//tests that the message is rejected when the round in the message does not
-//match the round passed in
+// Tests that the message is rejected when the round in the message does not
+// match the round passed in.
 func TestUserListener_Listen_BadRound(t *testing.T) {
-
-	//build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -214,9 +216,8 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 	}
 
 	cm := &ChannelMessage{
-		Lease: int64(time.Hour),
-		//make the round not match
-		RoundID:     69,
+		Lease:       int64(time.Hour),
+		RoundID:     69, // Make the round not match
 		PayloadType: 42,
 		Payload:     []byte("blarg"),
 	}
@@ -240,29 +241,30 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerEventDummy{}
 
 	al := userListener{
-		chID:      chID,
-		name:      ns,
-		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		name:    ns,
+		trigger: dummy.triggerEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if dummy.gotData {
 		t.Fatalf("Data returned after invalid listen")
 	}
 }
 
-//tests that the message is rejected when the user message is malformed
+// Tests that the message is rejected when the user message is malformed.
 func TestUserListener_Listen_BadMessage(t *testing.T) {
-
-	//build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -273,29 +275,30 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 
 	umSerial := []byte("malformed")
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerEventDummy{}
 
 	al := userListener{
-		chID:      chID,
-		name:      ns,
-		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		name:    ns,
+		trigger: dummy.triggerEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if dummy.gotData {
 		t.Fatalf("Data returned after invalid listen")
 	}
 }
 
-//tests that the message is rejected when the sized broadcast is malformed
+// Tests that the message is rejected when the sized broadcast is malformed.
 func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
-
-	//build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -309,9 +312,8 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	cm := &ChannelMessage{
-		Lease: int64(time.Hour),
-		//make the round not match
-		RoundID:     69,
+		Lease:       int64(time.Hour),
+		RoundID:     69, // Make the round not match
 		PayloadType: 42,
 		Payload:     []byte("blarg"),
 	}
@@ -335,23 +337,25 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	//remove half the sized broadcast to make it malformed
+	// Remove half the sized broadcast to make it malformed
 	umSerial = umSerial[:len(umSerial)/2]
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerEventDummy{}
 
 	al := userListener{
-		chID:      chID,
-		name:      ns,
-		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
+		chID:    chID,
+		name:    ns,
+		trigger: dummy.triggerEvent,
+		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+			return false
+		},
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if dummy.gotData {
 		t.Fatalf("Data returned after invalid listen")
 	}

@@ -28,7 +28,7 @@ const (
 )
 
 // CMIXChannelText is the payload for sending normal text messages to channels
-// the replyMessageID is nil when it is not a reply
+// the replyMessageID is nil when it is not a reply.
 type CMIXChannelText struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -94,7 +94,7 @@ func (x *CMIXChannelText) GetReplyMessageID() []byte {
 
 // CMIXChannelReaction is the payload for reactions. The reaction must be a
 // single emoji and the reactionMessageID must be non nil and a real message
-// in the channel
+// in the channel.
 type CMIXChannelReaction struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

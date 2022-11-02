@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
@@ -143,11 +144,16 @@ func NewMultiStateVector(numKeys uint16, numStates uint8, stateMap [][]bool,
 }
 
 // Get returns the state of the key.
-func (msv *MultiStateVector) Get(keyNum uint16) (uint8, error) {
+func (msv *MultiStateVector) Get(keyNum uint16) uint8 {
 	msv.mux.RLock()
 	defer msv.mux.RUnlock()
 
-	return msv.get(keyNum)
+	state, err := msv.get(keyNum)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get key state: %+v", err)
+	}
+
+	return state
 }
 
 // get returns the state of the specified key. This function is not thread-safe.
@@ -167,12 +173,20 @@ func (msv *MultiStateVector) get(keyNum uint16) (uint8, error) {
 	return uint8((msv.vect[block] >> shift) & bitMask), nil
 }
 
-// Set marks the key with the given state. Returns an error for an invalid state
-// or if the state change is not allowed.
-func (msv *MultiStateVector) Set(keyNum uint16, state uint8) error {
+// Set marks the key with the given state.
+func (msv *MultiStateVector) Set(keyNum uint16, state uint8) {
 	msv.mux.Lock()
 	defer msv.mux.Unlock()
 
+	err := msv.setAndSave(keyNum, state)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to set key state: %+v", err)
+	}
+}
+
+// setAndSave marks the key with the given state and saves the state to storage.
+// This function is not thread-safe.
+func (msv *MultiStateVector) setAndSave(keyNum uint16, state uint8) error {
 	// Set state of the key
 	err := msv.set(keyNum, state)
 	if err != nil {
@@ -190,15 +204,26 @@ func (msv *MultiStateVector) Set(keyNum uint16, state uint8) error {
 
 // SetMany marks each of the keys with the given state. Returns an error for an
 // invalid state or if the state change is not allowed.
-func (msv *MultiStateVector) SetMany(keyNums []uint16, state uint8) error {
+func (msv *MultiStateVector) SetMany(keyNums []uint16, state uint8) {
 	msv.mux.Lock()
 	defer msv.mux.Unlock()
 
+	err := msv.setMany(keyNums, state)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to set state of multiple keys: %+v", err)
+	}
+}
+
+// setMany marks each of the keys with the given state. Returns an error for an
+// invalid state or if the state change is not allowed.  This function is not
+// thread-safe.
+func (msv *MultiStateVector) setMany(keyNums []uint16, state uint8) error {
 	// Set state of each key
 	for i, keyNum := range keyNums {
 		err := msv.set(keyNum, state)
 		if err != nil {
-			return errors.Errorf(setManyStateErr, keyNum, i+1, len(keyNums), err)
+			return errors.Errorf(
+				setManyStateErr, keyNum, i+1, len(keyNums), err)
 		}
 	}
 
@@ -211,9 +236,9 @@ func (msv *MultiStateVector) SetMany(keyNums []uint16, state uint8) error {
 	return nil
 }
 
-// set sets the specified key to the specified state. An error is returned if
-// the given state is invalid or the state change is not allowed by the state
-// map.
+// set transitions the specified key to the specified state. An error is
+// returned if the given state is invalid or the state change is not allowed by
+// the state map.
 func (msv *MultiStateVector) set(keyNum uint16, state uint8) error {
 	// Return an error if the key number is greater than the number of keys
 	if keyNum > msv.numKeys-1 {
@@ -257,6 +282,54 @@ func (msv *MultiStateVector) set(keyNum uint16, state uint8) error {
 	return nil
 }
 
+// CompareAndSwap compares the state of the key to the old state and, if they
+// match, swaps its state with the new state. Returns true if the swap occurs
+// and false otherwise.
+func (msv *MultiStateVector) CompareAndSwap(keyNum uint16, old, new uint8) bool {
+	msv.mux.Lock()
+	defer msv.mux.Unlock()
+
+	state, err := msv.get(keyNum)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get key state: %+v", err)
+	}
+
+	if state == old {
+		err = msv.setAndSave(keyNum, new)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to set key state: %+v", err)
+		}
+
+		return true
+	}
+
+	return false
+}
+
+// CompareNotAndSwap compares the state of the key to the old state and, if they
+// DO NOT match, swaps its state with the new state. Returns true if the swap
+// occurs and false otherwise.
+func (msv *MultiStateVector) CompareNotAndSwap(keyNum uint16, old, new uint8) bool {
+	msv.mux.Lock()
+	defer msv.mux.Unlock()
+
+	state, err := msv.get(keyNum)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get key state: %+v", err)
+	}
+
+	if state != old {
+		err = msv.setAndSave(keyNum, new)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to set key state: %+v", err)
+		}
+
+		return true
+	}
+
+	return false
+}
+
 // GetNumKeys returns the total number of keys.
 func (msv *MultiStateVector) GetNumKeys() uint16 {
 	msv.mux.RLock()
@@ -265,10 +338,21 @@ func (msv *MultiStateVector) GetNumKeys() uint16 {
 }
 
 // GetCount returns the number of keys with the given state.
-func (msv *MultiStateVector) GetCount(state uint8) (uint16, error) {
+func (msv *MultiStateVector) GetCount(state uint8) uint16 {
 	msv.mux.RLock()
 	defer msv.mux.RUnlock()
 
+	count, err := msv.getCount(state)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get count for state %d: %+v", state, err)
+	}
+
+	return count
+}
+
+// getCount returns the number of keys with the given state. Returns an error
+// for an invalid state. This function is not thread-safe.
+func (msv *MultiStateVector) getCount(state uint8) (uint16, error) {
 	// Return an error if the state is larger than the max states
 	if int(state) >= len(msv.stateUseCount) {
 		return 0, errors.Errorf(stateMaxErr, state, msv.numStates-1)
@@ -278,10 +362,22 @@ func (msv *MultiStateVector) GetCount(state uint8) (uint16, error) {
 }
 
 // GetKeys returns a list of all keys with the specified status.
-func (msv *MultiStateVector) GetKeys(state uint8) ([]uint16, error) {
+func (msv *MultiStateVector) GetKeys(state uint8) []uint16 {
 	msv.mux.RLock()
 	defer msv.mux.RUnlock()
 
+	keys, err := msv.getKeys(state)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get keys for state %d: %+v", state, err)
+	}
+
+	return keys
+}
+
+// getKeys returns a list of all keys with the specified status. Returns an
+// error for in invalid state or if getting a key fails. This function is not
+// thread-safe.
+func (msv *MultiStateVector) getKeys(state uint8) ([]uint16, error) {
 	// Return an error if the state is larger than the max states
 	if state > msv.numStates-1 {
 		return nil, errors.Errorf(stateMaxErr, state, msv.numStates-1)

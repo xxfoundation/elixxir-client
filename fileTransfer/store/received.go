@@ -73,7 +73,7 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 		tid := tidList[i]
 		s.transfers[tid], err = loadReceivedTransfer(&tid, s.kv)
 		if err != nil {
-			jww.WARN.Print(warnLoadReceivedTransfer, i, len(tidList), tid, err)
+			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(tidList), tid, err)
 			errCount++
 		}
 

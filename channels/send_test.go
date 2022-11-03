@@ -176,8 +176,9 @@ func TestSendGeneric(t *testing.T) {
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
-				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}, func(uuid uint64, messageID *cryptoChannel.MessageID,
+				timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+				status *SentStatus) {
 			}, crng),
 	}
 
@@ -258,8 +259,9 @@ func TestAdminGeneric(t *testing.T) {
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
-				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}, func(uuid uint64, messageID *cryptoChannel.MessageID,
+				timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+				status *SentStatus) {
 			}, crng),
 	}
 
@@ -348,8 +350,9 @@ func TestSendMessage(t *testing.T) {
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
-				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}, func(uuid uint64, messageID *cryptoChannel.MessageID,
+				timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+				status *SentStatus) {
 			}, crng),
 	}
 
@@ -439,8 +442,9 @@ func TestSendReply(t *testing.T) {
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
-				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}, func(uuid uint64, messageID *cryptoChannel.MessageID,
+				timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+				status *SentStatus) {
 			}, crng),
 	}
 
@@ -533,8 +537,9 @@ func TestSendReaction(t *testing.T) {
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
-				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}, func(uuid uint64, messageID *cryptoChannel.MessageID,
+				timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+				status *SentStatus) {
 			}, crng),
 	}
 

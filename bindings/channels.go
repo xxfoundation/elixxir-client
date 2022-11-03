@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"sync"
 	"time"
 
@@ -1372,22 +1373,50 @@ type EventModel interface {
 	// changed.
 	//
 	// Parameters:
-	//  - messageID - The bytes of the [channel.MessageID] of the received
-	//    message.
-	//  - status - the [channels.SentStatus] of the message.
-	//
-	// Statuses will be enumerated as such:
-	//  Sent      =  0
-	//  Delivered =  1
-	//  Failed    =  2
-	UpdateSentStatus(
-		uuid int64, messageID []byte, timestamp, roundID, status int64)
+	//  - uuid - The unique identifier of the message in the database.
+	//  - messageUpdateInfoJSON - JSON of [MessageUpdateInfo].
+	UpdateSentStatus(uuid int64, messageUpdateInfoJSON []byte)
+
+	// GetMessage returns the message with the given [channel.MessageID].
+	GetMessage(messageID []byte) []byte
 
 	// unimplemented
 	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 	// PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
 	// UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+}
+
+// MessageUpdateInfo contains the updated information for a channel message.
+// Only update fields that have their set field set as true.
+type MessageUpdateInfo struct {
+	// MessageID is the bytes of the [channel.MessageID] of the received
+	// message.
+	MessageID    []byte
+	MessageIDSet bool
+
+	// Timestamp, in milliseconds, when the message was sent.
+	Timestamp    int64
+	TimestampSet bool
+
+	// RoundID is the [id.Round] the message was sent on.
+	RoundID    int64
+	RoundIDSet bool
+
+	// Pinned is true if the message is pinned.
+	Pinned    bool
+	PinnedSet bool
+
+	// Hidden is true if the message is hidden
+	Hidden    bool
+	HiddenSet bool
+
+	// Status is the [channels.SentStatus] of the message.
+	//  Sent      =  1
+	//  Delivered =  2
+	//  Failed    =  3
+	Status    int64
+	StatusSet bool
 }
 
 // toEventModel is a wrapper which wraps an existing channels.EventModel object.
@@ -1463,14 +1492,53 @@ func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChann
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.
 func (tem *toEventModel) UpdateSentStatus(uuid uint64,
-	messageID cryptoChannel.MessageID, timestamp time.Time, round rounds.Round,
-	status channels.SentStatus) {
-	tem.em.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
-		int64(round.ID), int64(status))
+	messageID *cryptoChannel.MessageID, timestamp *time.Time,
+	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) {
+	var mui MessageUpdateInfo
+
+	if messageID != nil {
+		mui.MessageID = messageID.Bytes()
+		mui.MessageIDSet = true
+	}
+	if timestamp != nil {
+		mui.Timestamp = timestamp.UnixNano()
+		mui.TimestampSet = true
+	}
+	if round != nil {
+		mui.RoundID = int64(round.ID)
+		mui.RoundIDSet = true
+	}
+	if pinned != nil {
+		mui.Pinned = *pinned
+		mui.PinnedSet = true
+	}
+	if hidden != nil {
+		mui.Hidden = *hidden
+		mui.HiddenSet = true
+	}
+	if status != nil {
+		mui.Status = int64(*status)
+		mui.StatusSet = true
+	}
+
+	muiJSON, err := json.Marshal(mui)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal MessageUpdateInfo: %+v", err)
+	}
+
+	tem.em.UpdateSentStatus(int64(uuid), muiJSON)
+}
+
+// GetMessage returns the message with the given [channel.MessageID].
+func (tem *toEventModel) GetMessage(
+	messageID cryptoChannel.MessageID) (channels.ModelMessage, error) {
+	msgJSON := tem.em.GetMessage(messageID.Bytes())
+	var msg channels.ModelMessage
+	return msg, json.Unmarshal(msgJSON, &msg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Channel ChannelDbCipher                                                             //
+// Channel ChannelDbCipher                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 
 // ChannelDbCipher is the bindings layer representation of the [channel.Cipher].

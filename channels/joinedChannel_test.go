@@ -689,7 +689,12 @@ func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
 	return 0
 }
 
-func (m *mockEventModel) UpdateSentStatus(uint64, cryptoChannel.MessageID,
-	time.Time, rounds.Round, SentStatus) {
+func (m *mockEventModel) UpdateSentStatus(uint64, *cryptoChannel.MessageID,
+	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) {
+	panic("implement me")
+}
+
+func (m *mockEventModel) GetMessage(
+	cryptoChannel.MessageID) (ModelMessage, error) {
 	panic("implement me")
 }

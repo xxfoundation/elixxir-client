@@ -104,7 +104,8 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 
 	// Denote all unsent messages as failed and clear
 	for uuid, t := range st.unsent {
-		updateStatus(uuid, t.MsgID, time.Time{}, rounds.Round{}, Failed)
+		status := Failed
+		updateStatus(uuid, &t.MsgID, nil, nil, nil, nil, &status)
 	}
 	st.unsent = make(map[uint64]*tracked)
 
@@ -303,7 +304,8 @@ func (st *sendTracker) send(
 	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
 
 	// Update the message in the UI
-	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
+	status := Sent
+	go st.updateStatus(t.UUID, &msgID, &ts, &round, nil, nil, &status)
 	return nil
 }
 
@@ -316,8 +318,8 @@ func (st *sendTracker) failedSend(uuid uint64) error {
 	}
 
 	// Update the message in the UI
-	go st.updateStatus(
-		t.UUID, cryptoChannel.MessageID{}, time.Time{}, rounds.Round{}, Failed)
+	status := Failed
+	go st.updateStatus(t.UUID, nil, nil, nil, nil, nil, &status)
 	return nil
 }
 
@@ -432,8 +434,8 @@ func (st *sendTracker) MessageReceive(
 	}
 
 	ts := mutateTimestamp(round.Timestamps[states.QUEUED], messageID)
-	go st.updateStatus(msgData.UUID, messageID, ts,
-		round, Delivered)
+	status := Delivered
+	go st.updateStatus(msgData.UUID, &messageID, &ts, &round, nil, nil, &status)
 
 	if err := st.storeSent(); err != nil {
 		jww.FATAL.Panicf("failed to store the updated sent list: %+v", err)
@@ -498,8 +500,9 @@ func (rr *roundResults) callback(
 	if status == Failed {
 		for i := range registered.List {
 			round := results[rr.round].Round
+			status = Failed
 			go rr.st.updateStatus(registered.List[i].UUID,
-				registered.List[i].MsgID, time.Time{}, round, Failed)
+				&registered.List[i].MsgID, nil, &round, nil, nil, &status)
 		}
 	}
 }

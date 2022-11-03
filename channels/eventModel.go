@@ -151,17 +151,40 @@ type EventModel interface {
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
 	//
-	// messageID, timestamp, and round are all nillable and may be updated based
-	// upon the UUID at a later date. A time of time.Time{} will be passed for a
-	// nilled timestamp. If a nil value is passed, make no update.
-	UpdateSentStatus(uuid uint64, messageID cryptoChannel.MessageID,
-		timestamp time.Time, round rounds.Round, status SentStatus)
+	// messageID, timestamp, round, pinned, and hidden are all nillable and may
+	// be updated based upon the UUID at a later date. If a nil value is passed,
+	// then make no update.
+	UpdateSentStatus(uuid uint64, messageID *cryptoChannel.MessageID,
+		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+		status *SentStatus)
+
+	// GetMessage returns the message with the given [channel.MessageID].
+	GetMessage(messageID cryptoChannel.MessageID) (ModelMessage, error)
 
 	// unimplemented
 	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 	// PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
 	// UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+}
+
+// ModelMessage contains a message and all of its information.
+type ModelMessage struct {
+	UUID            uint64
+	Nickname        string
+	MessageID       cryptoChannel.MessageID
+	ChannelID       *id.ID
+	ParentMessageID cryptoChannel.MessageID
+	Timestamp       time.Time
+	Lease           time.Duration
+	Status          SentStatus
+	Hidden          bool
+	Pinned          bool
+	Content         []byte
+	Type            MessageType
+	Round           id.Round
+	PubKey          ed25519.PublicKey
+	CodesetVersion  uint8
 }
 
 // MessageTypeReceiveMessage defines handlers for messages of various message
@@ -180,8 +203,9 @@ type MessageTypeReceiveMessage func(channelID *id.ID,
 
 // updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
 // be mocked for testing where used.
-type updateStatusFunc func(uuid uint64, messageID cryptoChannel.MessageID,
-	timestamp time.Time, round rounds.Round, status SentStatus)
+type updateStatusFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
+	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+	status *SentStatus)
 
 // events is an internal structure that processes events and stores the handlers
 // for those events.

@@ -98,15 +98,17 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 	return m.getUUID()
 }
 
-func (m *MockEvent) UpdateSentStatus(uint64, cryptoChannel.MessageID,
-	time.Time, rounds.Round, SentStatus) {
+func (m *MockEvent) UpdateSentStatus(uint64, *cryptoChannel.MessageID,
+	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) {
+	panic("implement me")
+}
+
+func (m *MockEvent) GetMessage(cryptoChannel.MessageID) (ModelMessage, error) {
 	panic("implement me")
 }
 
 func Test_initEvents(t *testing.T) {
-
 	me := &MockEvent{}
-
 	e := initEvents(me)
 
 	// verify the model is registered

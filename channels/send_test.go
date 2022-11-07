@@ -155,8 +155,9 @@ func TestSendGeneric(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
-
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	m := &manager{
+		kv:       kv,
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
 		mux:      sync.RWMutex{},
@@ -328,8 +329,10 @@ func TestSendMessage(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	m := &manager{
+		kv:       kv,
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
 		nicknameManager: &nicknameManager{
@@ -419,8 +422,10 @@ func TestSendReply(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	m := &manager{
+		kv:       kv,
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
 		nicknameManager: &nicknameManager{
@@ -513,8 +518,10 @@ func TestSendReaction(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	m := &manager{
+		kv: kv,
 		me: pi,
 		nicknameManager: &nicknameManager{
 			byChannel: make(map[id.ID]string),

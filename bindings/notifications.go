@@ -17,23 +17,24 @@ import (
 // via GetNotificationsReport as a JSON marshalled byte data.
 //
 // Example JSON:
-//  [
-//    {
-//      "ForMe": true,                                           // boolean
-//      "Type": "e2e",                                           // string
-//      "Source": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD" // bytes of id.ID encoded as base64 string
-//    },
-//    {
-//      "ForMe": true,
-//      "Type": "e2e",
-//      "Source": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//    },
-//    {
-//      "ForMe": true,
-//      "Type": "e2e",
-//      "Source": "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//    }
-//  ]
+//
+//	[
+//	  {
+//	    "ForMe": true,                                           // boolean
+//	    "Type": "e2e",                                           // string
+//	    "Source": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD" // bytes of id.ID encoded as base64 string
+//	  },
+//	  {
+//	    "ForMe": true,
+//	    "Type": "e2e",
+//	    "Source": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//	  },
+//	  {
+//	    "ForMe": true,
+//	    "Type": "e2e",
+//	    "Source": "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//	  }
+//	]
 type NotificationReports []NotificationReport
 
 //  TODO: The table in the docstring below needs to be checked for completeness
@@ -44,27 +45,28 @@ type NotificationReports []NotificationReport
 // this user.
 //
 // Example NotificationReport JSON:
-//  {
-//    "ForMe": true,
-//    "Type": "e2e",
-//    "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-//  }
+//
+//	{
+//	  "ForMe": true,
+//	  "Type": "e2e",
+//	  "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+//	}
 //
 // Given the Type, the Source value will have specific contextual meanings.
 // Below is a table that will define the contextual meaning of the Source field
 // given all possible Type fields.
 //
-//   TYPE     |     SOURCE         |    DESCRIPTION
-//  ----------+--------------------+--------------------------------------------------------
-//  "default" |  recipient user ID |  A message with no association.
-//  "request" |  sender user ID    |  A channel request has been received, from Source.
-//  "reset"   |  sender user ID    |  A channel reset has been received.
-//  "confirm" |  sender user ID    |  A channel request has been accepted.
-//  "silent"  |  sender user ID    |  A message where the user should not be notified.
-//  "e2e"     |  sender user ID    |  A reception of an E2E message.
-//  "group"   |  group ID          |  A reception of a group chat message.
-//  "endFT"   |  sender user ID    |  The last message sent confirming end of file transfer.
-//  "groupRQ" |  sender user ID    |  A request from Source to join a group chat.
+//	 TYPE     |     SOURCE         |    DESCRIPTION
+//	----------+--------------------+--------------------------------------------------------
+//	"default" |  recipient user ID |  A message with no association.
+//	"request" |  sender user ID    |  A channel request has been received, from Source.
+//	"reset"   |  sender user ID    |  A channel reset has been received.
+//	"confirm" |  sender user ID    |  A channel request has been accepted.
+//	"silent"  |  sender user ID    |  A message where the user should not be notified.
+//	"e2e"     |  sender user ID    |  A reception of an E2E message.
+//	"group"   |  group ID          |  A reception of a group chat message.
+//	"endFT"   |  sender user ID    |  The last message sent confirming end of file transfer.
+//	"groupRQ" |  sender user ID    |  A request from Source to join a group chat.
 type NotificationReport struct {
 	// ForMe determines whether this value is for the user. If it is
 	// false, this report may be ignored.
@@ -80,16 +82,17 @@ type NotificationReport struct {
 // NotificationReports.
 //
 // Parameters:
-//  - e2eID - e2e object ID in the tracker
-//  - notificationCSV - the notification data received from the
-//    notifications' server.
-//  - marshalledServices - the JSON-marshalled list of services the backend
-//    keeps track of. Refer to Cmix.TrackServices for information about this.
+//   - e2eID - e2e object ID in the tracker
+//   - notificationCSV - the notification data received from the
+//     notifications' server.
+//   - marshalledServices - the JSON-marshalled list of services the backend
+//     keeps track of. Refer to Cmix.TrackServices for information about this. This
+//     is the equivalent to preimages in APIv0.
 //
 // Returns:
-//  - []byte - A JSON marshalled NotificationReports. Some NotificationReport's
-//    within in this structure may have their NotificationReport.ForMe
-//    set to false. These may be ignored.
+//   - []byte - A JSON marshalled NotificationReports. Some NotificationReport's
+//     within in this structure may have their NotificationReport.ForMe
+//     set to false. These may be ignored.
 func GetNotificationsReport(e2eId int, notificationCSV string,
 	marshalledServices []byte) ([]byte, error) {
 	// Retrieve user
@@ -147,7 +150,7 @@ func GetNotificationsReport(e2eId int, notificationCSV string,
 // The token is a firebase messaging token.
 //
 // Parameters:
-//  - e2eId - ID of the E2E object in the E2E tracker
+//   - e2eId - ID of the E2E object in the E2E tracker
 func RegisterForNotifications(e2eId int, token string) error {
 	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
@@ -160,7 +163,7 @@ func RegisterForNotifications(e2eId int, token string) error {
 // UnregisterForNotifications turns off notifications for this client.
 //
 // Parameters:
-//  - e2eId - ID of the E2E object in the E2E tracker
+//   - e2eId - ID of the E2E object in the E2E tracker
 func UnregisterForNotifications(e2eId int) error {
 	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {

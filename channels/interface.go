@@ -49,6 +49,14 @@ type Manager interface {
 	// channel was not previously joined.
 	LeaveChannel(channelID *id.ID) error
 
+	// EnableDirectMessageToken enables the token for direct messaging for this
+	// channel.
+	EnableDirectMessageToken(chId *id.ID) error
+
+	// DisableDirectMessageToken removes the token for direct messaging for a
+	// given channel.
+	DisableDirectMessageToken(chId *id.ID) error
+
 	// SendGeneric is used to send a raw message over a channel. In general, it
 	// should be wrapped in a function that defines the wire protocol.
 	//

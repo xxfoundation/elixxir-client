@@ -42,6 +42,8 @@ message ChannelMessage{
     // round it sent on is queued, then a random mutation on the queued time
     // (+/- 200ms) will be used by local clients instead.
     int64 LocalTimestamp = 7;
+
+    bytes DMToken = 8;  // hash of private key
 }
 
 // UserMessage is a message sent by a user who is a member within the channel.

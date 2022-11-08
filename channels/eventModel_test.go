@@ -98,8 +98,13 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 	return m.getUUID()
 }
 
-func (m *MockEvent) UpdateSentStatus(uint64, *cryptoChannel.MessageID,
+func (m *MockEvent) UpdateFromUUID(uint64, *cryptoChannel.MessageID,
 	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) {
+	panic("implement me")
+}
+
+func (m *MockEvent) UpdateFromMessageID(cryptoChannel.MessageID, *time.Time,
+	*rounds.Round, *bool, *bool, *SentStatus) uint64 {
 	panic("implement me")
 }
 

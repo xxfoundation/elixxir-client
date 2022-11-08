@@ -148,15 +148,26 @@ type EventModel interface {
 		lease time.Duration, round rounds.Round, mType MessageType,
 		status SentStatus) uint64
 
-	// UpdateSentStatus is called whenever the sent status of a message has
-	// changed.
+	// UpdateFromUUID is called whenever a message at the UUID is modified.
 	//
 	// messageID, timestamp, round, pinned, and hidden are all nillable and may
 	// be updated based upon the UUID at a later date. If a nil value is passed,
 	// then make no update.
-	UpdateSentStatus(uuid uint64, messageID *cryptoChannel.MessageID,
+	UpdateFromUUID(uuid uint64, messageID *cryptoChannel.MessageID,
 		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 		status *SentStatus)
+
+	// UpdateFromMessageID is called whenever a message with the message ID is
+	// modified.
+	//
+	// The API needs to return the UUID of the modified message that can be
+	// referenced at a later time.
+	//
+	// timestamp, round, pinned, and hidden are all nillable and may be updated
+	// based upon the UUID at a later date. If a nil value is passed, then make
+	// no update.
+	UpdateFromMessageID(messageID cryptoChannel.MessageID, timestamp *time.Time,
+		round *rounds.Round, pinned, hidden *bool, status *SentStatus) uint64
 
 	// GetMessage returns the message with the given [channel.MessageID].
 	GetMessage(messageID cryptoChannel.MessageID) (ModelMessage, error)
@@ -191,7 +202,7 @@ type ModelMessage struct {
 // types. Default ones for Text, Reaction, and AdminText.
 //
 // A unique UUID must be returned by which the message can be referenced later
-// via [EventModel.UpdateSentStatus].
+// via [EventModel.UpdateFromUUID].
 //
 // It must return a unique UUID for the message by which it can be referenced
 // later.
@@ -201,9 +212,9 @@ type MessageTypeReceiveMessage func(channelID *id.ID,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64
 
-// updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
+// UpdateFromUuidFunc is a function type for EventModel.UpdateFromUUID so it can
 // be mocked for testing where used.
-type updateStatusFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
+type UpdateFromUuidFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 	status *SentStatus)
 

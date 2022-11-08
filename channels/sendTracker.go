@@ -66,7 +66,7 @@ type sendTracker struct {
 
 	trigger      triggerEventFunc
 	adminTrigger triggerAdminEventFunc
-	updateStatus updateStatusFunc
+	updateStatus UpdateFromUuidFunc
 
 	net Client
 
@@ -84,7 +84,7 @@ type messageReceiveFunc func(
 // function with the cmix client, delayed on when the network goes healthy,
 // which will attempt to discover the status of all rounds that are outstanding.
 func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
-	adminTrigger triggerAdminEventFunc, updateStatus updateStatusFunc,
+	adminTrigger triggerAdminEventFunc, updateStatus UpdateFromUuidFunc,
 	rngSource *fastRNG.StreamGenerator) *sendTracker {
 	st := &sendTracker{
 		byRound:      make(map[id.Round]trackedList),

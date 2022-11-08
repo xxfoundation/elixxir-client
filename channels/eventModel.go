@@ -8,13 +8,14 @@
 package channels
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
-	"errors"
-	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"strconv"
 	"sync"
 	"time"
@@ -148,15 +149,26 @@ type EventModel interface {
 		lease time.Duration, round rounds.Round, mType MessageType,
 		status SentStatus) uint64
 
-	// UpdateSentStatus is called whenever the sent status of a message has
-	// changed.
+	// UpdateFromUUID is called whenever a message at the UUID is modified.
 	//
 	// messageID, timestamp, round, pinned, and hidden are all nillable and may
 	// be updated based upon the UUID at a later date. If a nil value is passed,
 	// then make no update.
-	UpdateSentStatus(uuid uint64, messageID *cryptoChannel.MessageID,
+	UpdateFromUUID(uuid uint64, messageID *cryptoChannel.MessageID,
 		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 		status *SentStatus)
+
+	// UpdateFromMessageID is called whenever a message with the message ID is
+	// modified.
+	//
+	// The API needs to return the UUID of the modified message that can be
+	// referenced at a later time.
+	//
+	// timestamp, round, pinned, and hidden are all nillable and may be updated
+	// based upon the UUID at a later date. If a nil value is passed, then make
+	// no update.
+	UpdateFromMessageID(messageID cryptoChannel.MessageID, timestamp *time.Time,
+		round *rounds.Round, pinned, hidden *bool, status *SentStatus) uint64
 
 	// GetMessage returns the message with the given [channel.MessageID].
 	GetMessage(messageID cryptoChannel.MessageID) (ModelMessage, error)
@@ -191,19 +203,19 @@ type ModelMessage struct {
 // types. Default ones for Text, Reaction, and AdminText.
 //
 // A unique UUID must be returned by which the message can be referenced later
-// via [EventModel.UpdateSentStatus].
+// via [EventModel.UpdateFromUUID].
 //
-// It must return a unique UUID for the message by which it can be referenced
-// later.
+// If fromAdmin is true, then the message has been verifies to come from the
+// channel admin.
 type MessageTypeReceiveMessage func(channelID *id.ID,
-	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
+	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
+	content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) uint64
+	status SentStatus, fromAdmin bool) uint64
 
-// updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
+// UpdateFromUuidFunc is a function type for EventModel.UpdateFromUUID so it can
 // be mocked for testing where used.
-type updateStatusFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
+type UpdateFromUuidFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 	status *SentStatus)
 
@@ -212,22 +224,34 @@ type updateStatusFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
 type events struct {
 	model      EventModel
 	registered map[MessageType]MessageTypeReceiveMessage
+	leases     *actionLeaseList
 	mux        sync.RWMutex
 }
 
 // initEvents initializes the event model and registers default message type
 // handlers.
-func initEvents(model EventModel) *events {
+func initEvents(model EventModel, kv *versioned.KV) *events {
 	e := &events{
 		model:      model,
 		registered: make(map[MessageType]MessageTypeReceiveMessage),
 		mux:        sync.RWMutex{},
 	}
 
+	var err error
+	e.leases, err = newOrLoadActionLeaseList(e.triggerActionEvent, kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to initialise lease list: %+v", err)
+	}
+
+	// TODO: start processes
+
 	// set up default message types
 	e.registered[Text] = e.receiveTextMessage
 	e.registered[AdminText] = e.receiveTextMessage
 	e.registered[Reaction] = e.receiveReaction
+	e.registered[Delete] = e.receiveDelete
+	e.registered[Pinned] = e.receivePinned
+	e.registered[Mute] = e.receiveMute
 	return e
 }
 
@@ -260,7 +284,9 @@ type triggerEventFunc func(chID *id.ID, umi *userMessageInternal, ts time.Time,
 // triggerEvent is an internal function that is used to trigger message
 // reception on a message received from a user (symmetric encryption).
 //
-// It will call the appropriate MessageTypeHandler assuming one exists.
+// It will call the appropriate MessageTypeReceiveMessage, assuming one exists.
+//
+// This function adheres to the triggerEventFunc type.
 func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 	ts time.Time, _ receptionID.EphemeralIdentity, round rounds.Round,
 	status SentStatus) (uint64, error) {
@@ -273,19 +299,19 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 	listener, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
-		errStr := fmt.Sprintf("Received message from %x on channel %s in "+
-			"round %d which could not be handled due to unregistered message "+
+		err := errors.Errorf("Received message from %x on channel %s in "+
+			"round %d that could not be handled due to unregistered message "+
 			"type %s; Contents: %v",
 			um.ECCPublicKey, chID, round.ID, messageType, cm.Payload)
-		jww.WARN.Printf(errStr)
-		return 0, errors.New(errStr)
+		jww.WARN.Print(err)
+		return 0, err
 	}
 
 	// Call the listener. This is already in an instanced event; no new thread
 	// is needed.
 	uuid := listener(
 		chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload,
-		um.ECCPublicKey, 0, ts, time.Duration(cm.Lease), round, status)
+		um.ECCPublicKey, 0, ts, time.Duration(cm.Lease), round, status, false)
 	return uuid, nil
 }
 
@@ -296,7 +322,9 @@ type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 // triggerAdminEvent is an internal function that is used to trigger message
 // reception on a message received from the admin (asymmetric encryption).
 //
-// It will call the appropriate MessageTypeHandler assuming one exists.
+// It will call the appropriate MessageTypeReceiveMessage, assuming one exists.
+//
+// This function adheres to the triggerAdminEventFunc type.
 func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	ts time.Time, messageID cryptoChannel.MessageID,
 	_ receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (
@@ -308,20 +336,56 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	listener, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
-		errStr := fmt.Sprintf("Received Admin message from %s on channel %s "+
-			"in round %d which could not be handled due to unregistered "+
-			"message type %s; Contents: %v",
+		err := errors.Errorf("Received Admin message from %s on channel %s in "+
+			"round %d that could not be handled due to unregistered message "+
+			"type %s; Contents: %v",
 			AdminUsername, chID, round.ID, messageType, cm.Payload)
-		jww.WARN.Printf(errStr)
-		return 0, errors.New(errStr)
+		jww.WARN.Print(err)
+		return 0, err
 	}
 
 	// Call the listener. This is already in an instanced event; no new thread
 	// is needed.
 	uuid := listener(
 		chID, messageID, messageType, AdminUsername, cm.Payload,
-		AdminFakePubKey, 0, ts, time.Duration(cm.Lease), round, status)
+		AdminFakePubKey, 0, ts, time.Duration(cm.Lease), round, status, true)
 	return uuid, nil
+}
+
+type triggerActionEventFunc func(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
+	payload []byte, timestamp time.Time, lease time.Duration,
+	round rounds.Round, status SentStatus, fromAdmin bool) (uint64, error)
+
+// triggerActionEvent is an internal function that is used to trigger an action
+// on a message.
+//
+// It will call the appropriate MessageTypeReceiveMessage, assuming one exists.
+//
+// This function adheres to the triggerActionEventFunc type.
+func (e *events) triggerActionEvent(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
+	payload []byte, timestamp time.Time, lease time.Duration,
+	round rounds.Round, status SentStatus, fromAdmin bool) (uint64, error) {
+
+	// Check if the type is already registered
+	e.mux.RLock()
+	listener, exists := e.registered[messageType]
+	e.mux.RUnlock()
+	if !exists {
+		err := errors.Errorf("Received action trigger message %s from %s on "+
+			"channel %s in round %d that could not be handled due to "+
+			"unregistered message type %s; Contents: %v",
+			messageID, nickname, channelID, round.ID, messageType, payload)
+		jww.WARN.Print(err)
+		return 0, err
+	}
+
+	// Call the listener. This is already in an instanced event; no new thread
+	// is needed.
+	return listener(
+		channelID, messageID, messageType, nickname, payload, AdminFakePubKey,
+		0, timestamp, lease, round, status, fromAdmin), nil
 }
 
 // receiveTextMessage is the internal function that handles the reception of
@@ -334,7 +398,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) uint64 {
+	status SentStatus, _ bool) uint64 {
 	txt := &CMIXChannelText{}
 
 	if err := proto.Unmarshal(content, txt); err != nil {
@@ -389,7 +453,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) uint64 {
+	status SentStatus, _ bool) uint64 {
 	react := &CMIXChannelReaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %x on "+
@@ -431,4 +495,259 @@ func (e *events) receiveReaction(channelID *id.ID,
 			lease, round.ID)
 	}
 	return 0
+}
+
+// receiveDelete is the internal function that handles the reception of deleted
+// messages.
+//
+// This function adheres to the MessageTypeReceiveMessage type.
+func (e *events) receiveDelete(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
+	content []byte, pubKey ed25519.PublicKey, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus, fromAdmin bool) uint64 {
+
+	deleteMsg := &CMIXChannelDelete{}
+	if err := proto.Unmarshal(content, deleteMsg); err != nil {
+		jww.ERROR.Printf("Failed to text unmarshal %T message %s from %x "+
+			"(codeset %d) on channel %s {type:%s timestamp:%s lease:%s "+
+			"round:%d}: %+v", deleteMsg, messageID, pubKey, codeset, channelID,
+			messageType, timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	v := deleteVerb(deleteMsg.UndoAction)
+	pinnedMessageID, err := cryptoChannel.UnmarshalMessageID(deleteMsg.MessageID)
+	if err != nil {
+		jww.ERROR.Printf("Ignoring message %s due to failure to unmarshal "+
+			"target message ID from delete message %s from %x (codeset %d) on "+
+			"channel %s {type:%s timestamp:%s lease:%s round:%d}: %+v",
+			v, messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	tag := makeChaDebugTag(channelID, pubKey, content, SendDeleteTag)
+	jww.INFO.Printf("[%s]Channels - "+
+		"Received message %s from %x to channel %s to %s message %s",
+		tag, messageID, pubKey, channelID, v, pinnedMessageID)
+
+	targetMsgID, err := cryptoChannel.UnmarshalMessageID(deleteMsg.MessageID)
+	if err != nil {
+		jww.ERROR.Printf("Failed to unmarshal target message ID from message "+
+			"%s from %x (codeset %d) on channel %s {type:%s timestamp:%s "+
+			"lease:%s round:%d}: %+v",
+			messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+	targetMsg, err := e.model.GetMessage(targetMsgID)
+	if err != nil {
+		jww.ERROR.Printf("Failed to find target message %s from message %s "+
+			"from %x (codeset %d) on channel %s {type:%s timestamp:%s "+
+			"lease:%s round:%d}: %+v",
+			targetMsgID, messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	// Reject the message deletion if not from original sender or admin
+	if !bytes.Equal(targetMsg.PubKey, pubKey) || fromAdmin {
+		jww.ERROR.Printf("Received delete message %s from %x (codeset %d) who "+
+			"is not the target message owner or admin on channel %s {type:%s "+
+			"timestamp:%s lease:%s round:%d}",
+			messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID)
+		return 0
+	}
+
+	deleteMsg.UndoAction = true
+	payload, err := proto.Marshal(deleteMsg)
+	if err != nil {
+		jww.ERROR.Printf("Failed to marshal %T from message %s from %x "+
+			"(codeset %d) on channel %s {type:%s timestamp:%s lease:%s "+
+			"round:%d}: %+v",
+			deleteMsg, messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	if deleteMsg.UndoAction {
+		e.leases.removeMessage(channelID, messageType, payload)
+		deleted := false
+		return e.model.UpdateFromMessageID(
+			messageID, nil, nil, &deleted, nil, nil)
+	}
+
+	e.leases.addMessage(channelID, messageID, messageType, nickname, payload,
+		timestamp, lease, round, status)
+
+	deleted := true
+	return e.model.UpdateFromMessageID(messageID, nil, nil, &deleted, nil, nil)
+}
+
+// receivePinned is the internal function that handles the reception of pinned
+// messages.
+//
+// This function adheres to the MessageTypeReceiveMessage type.
+func (e *events) receivePinned(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
+	content []byte, pubKey ed25519.PublicKey, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus, fromAdmin bool) uint64 {
+
+	// Reject the message pin if it is not from the admin
+	if !fromAdmin {
+		jww.ERROR.Printf("Received non-admin pin message %s from %x (codeset "+
+			"%d) on channel %s {type:%s timestamp:%s lease:%s round:%d}",
+			messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID)
+		return 0
+	}
+
+	pinnedMsg := &CMIXChannelPinned{}
+	if err := proto.Unmarshal(content, pinnedMsg); err != nil {
+		jww.ERROR.Printf("Failed to text unmarshal %T message %s from %x "+
+			"(codeset %d) on channel %s {type:%s timestamp:%s lease:%s "+
+			"round:%d}: %+v", pinnedMsg, messageID, pubKey, codeset, channelID,
+			messageType, timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	v := pinnedVerb(pinnedMsg.UndoAction)
+	pinnedMessageID, err := cryptoChannel.UnmarshalMessageID(pinnedMsg.MessageID)
+	if err != nil {
+		jww.ERROR.Printf("Ignoring message %s due to failure to unmarshal "+
+			"target message ID from pinned message %s from %x (codeset %d) on "+
+			"channel %s {type:%s timestamp:%s lease:%s round:%d}: %+v",
+			v, messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	tag := makeChaDebugTag(channelID, pubKey, content, SendPinnedTag)
+	jww.INFO.Printf("[%s]Channels - "+
+		"Received message %s from %x to channel %s to %s message %s",
+		tag, messageID, pubKey, channelID, v, pinnedMessageID)
+
+	pinnedMsg.UndoAction = true
+	payload, err := proto.Marshal(pinnedMsg)
+	if err != nil {
+		jww.ERROR.Printf("Failed to marshal %T from message %s from %x "+
+			"(codeset %d) on channel %s {type:%s timestamp:%s lease:%s "+
+			"round:%d}: %+v",
+			pinnedMsg, messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	if pinnedMsg.UndoAction {
+		e.leases.removeMessage(channelID, messageType, payload)
+		pinned := false
+		return e.model.UpdateFromMessageID(messageID, nil, nil, &pinned, nil, nil)
+	} else {
+		e.leases.addMessage(channelID, messageID, messageType, nickname, payload,
+			timestamp, lease, round, status)
+
+		pinned := true
+		return e.model.UpdateFromMessageID(messageID, nil, nil, &pinned, nil, nil)
+	}
+}
+
+// receiveMute is the internal function that handles the reception of muted
+// users.
+//
+// This function adheres to the MessageTypeReceiveMessage type.
+func (e *events) receiveMute(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
+	content []byte, pubKey ed25519.PublicKey, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus, fromAdmin bool) uint64 {
+
+	// Reject the message pin if it is not from the admin
+	if !fromAdmin {
+		jww.ERROR.Printf("Received non-admin mute message %s from %x (codeset "+
+			"%d) on channel %s {type:%s timestamp:%s lease:%s round:%d}",
+			messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID)
+		return 0
+	}
+
+	muteMsg := &CMIXChannelMute{}
+	if err := proto.Unmarshal(content, muteMsg); err != nil {
+		jww.ERROR.Printf("Failed to text unmarshal %T message %s from %x "+
+			"(codeset %d) on channel %s {type:%s timestamp:%s lease:%s "+
+			"round:%d}: %+v", muteMsg, messageID, pubKey, codeset, channelID,
+			messageType, timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	v := muteVerb(muteMsg.UndoAction)
+	if len(muteMsg.PubKey) != ed25519.PublicKeySize {
+		jww.ERROR.Printf("Failed to unmarshal public key in message %s from %x "+
+			"(codeset %d) on channel %s {type:%s timestamp:%s lease:%s "+
+			"round:%d}: length of %d bytes required, received %d bytes",
+			messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, ed25519.PublicKeySize,
+			len(muteMsg.PubKey))
+		return 0
+	}
+
+	var mutedUser ed25519.PublicKey
+	copy(mutedUser[:], muteMsg.PubKey)
+
+	tag := makeChaDebugTag(channelID, pubKey, content, SendPinnedTag)
+	jww.INFO.Printf("[%s]Channels - "+
+		"Received message %s from %x to channel %s to %s user %x",
+		tag, messageID, pubKey, channelID, v, mutedUser)
+
+	muteMsg.UndoAction = true
+	payload, err := proto.Marshal(muteMsg)
+	if err != nil {
+		jww.ERROR.Printf("Failed to marshal %T from message %s from %x "+
+			"(codeset %d) on channel %s {type:%s timestamp:%s lease:%s "+
+			"round:%d}: %+v",
+			muteMsg, messageID, pubKey, codeset, channelID, messageType,
+			timestamp.Round(0), lease, round.ID, err)
+		return 0
+	}
+
+	if muteMsg.UndoAction {
+		e.leases.removeMessage(channelID, messageType, payload)
+		muted := false
+		return e.model.UpdateFromMessageID(messageID, nil, nil, &muted, nil, nil)
+	}
+
+	e.leases.addMessage(channelID, messageID, messageType, nickname, payload,
+		timestamp, lease, round, status)
+
+	// muted := true
+	return 0
+}
+
+// deleteVerb returns the correct verb for the delete action to use for logging
+// and debugging.
+func deleteVerb(b bool) string {
+	if b {
+		return "delete"
+	}
+	return "un-delete"
+}
+
+// pinnedVerb returns the correct verb for the pinned action to use for logging
+// and debugging.
+func pinnedVerb(b bool) string {
+	if b {
+		return "pin"
+	}
+	return "unpin"
+}
+
+// muteVerb returns the correct verb for the mute action to use for logging and
+// debugging.
+func muteVerb(b bool) string {
+	if b {
+		return "mute"
+	}
+	return "unmute"
 }

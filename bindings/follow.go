@@ -297,13 +297,38 @@ type TrackServicesCallback interface {
 	Callback(marshalData []byte, err error)
 }
 
+// TrackServicesWithIdentity will return via a callback the list of services the
+// backend keeps track of for the provided identity. This may be passed into
+// other bindings call which may need context on the available services for this
+// single identity. This will only return services for the given identity.
+//
+// Parameters:
+//   - e2eID - e2e object ID in the tracker.
+//   - cb - A TrackServicesCallback, which will be passed the marshalled
+//     message.ServiceList.
+func (c *Cmix) TrackServicesWithIdentity(e2eId int,
+	cb TrackServicesCallback) error {
+	// Retrieve the user from the tracker
+	user, err := e2eTrackerSingleton.get(e2eId)
+	if err != nil {
+		return err
+	}
+
+	receptionId := user.api.GetReceptionIdentity().ID
+	c.api.GetCmix().TrackServices(func(list message.ServiceList) {
+		res := make(message.ServiceList)
+		res[*receptionId] = list[*receptionId]
+		cb.Callback(json.Marshal(res))
+	})
+
+	return nil
+}
+
 // TrackServices will return via a callback the list of services the
 // backend keeps track of, which is formally referred to as a
 // [message.ServiceList]. This may be passed into other bindings call which
-// may need context on the available services for this client. This is the equivalent
-// of GetPreimages in APIv0. The callback will be called every time a new service
-// is added or an existing service is deleted. This serves as a way for
-// the caller to have the most up-to-date list of existing services.
+// may need context on the available services for this client. This will
+// provide services for all identities that the client tracks.
 //
 // Parameters:
 //   - cb - A TrackServicesCallback, which will be passed the marshalled

@@ -82,33 +82,26 @@ type NotificationReport struct {
 // NotificationReports.
 //
 // Parameters:
-//   - e2eID - e2e object ID in the tracker
 //   - notificationCSV - the notification data received from the
 //     notifications' server.
 //   - marshalledServices - the JSON-marshalled list of services the backend
-//     keeps track of. Refer to Cmix.TrackServices for information about this. This
-//     is the equivalent to preimages in APIv0.
+//     keeps track of. Refer to Cmix.TrackServices or
+//     Cmix.TrackServicesWithIdentity for information about this.
 //
 // Returns:
 //   - []byte - A JSON marshalled NotificationReports. Some NotificationReport's
 //     within in this structure may have their NotificationReport.ForMe
 //     set to false. These may be ignored.
-func GetNotificationsReport(e2eId int, notificationCSV string,
+func GetNotificationsReport(notificationCSV string,
 	marshalledServices []byte) ([]byte, error) {
-	// Retrieve user
-	user, err := e2eTrackerSingleton.get(e2eId)
-	if err != nil {
-		return nil, err
-	}
 
+	// If services are retrieved using TrackServicesWithIdentity, this
+	// should return a single list.
 	serviceList := message.ServiceList{}
-	err = json.Unmarshal(marshalledServices, &serviceList)
+	err := json.Unmarshal(marshalledServices, &serviceList)
 	if err != nil {
 		return nil, err
 	}
-
-	// Retrieve the services for this user
-	services := serviceList[*user.api.GetReceptionIdentity().ID]
 
 	// Decode notifications' server data
 	notificationList, err := notifications.DecodeNotificationsCSV(notificationCSV)
@@ -120,24 +113,26 @@ func GetNotificationsReport(e2eId int, notificationCSV string,
 	reportList := make([]*NotificationReport, len(notificationList))
 
 	// Iterate over data provided by server
-	for i := range notificationList {
-		notifData := notificationList[i]
+	for _, services := range serviceList {
+		for i := range notificationList {
+			notifData := notificationList[i]
 
-		// Iterate over all services
-		for j := range services {
-			// Pull data from services and from notification data
-			service := services[j]
-			messageHash := notifData.MessageHash
-			hash := service.HashFromMessageHash(notifData.MessageHash)
+			// Iterate over all services
+			for j := range services {
+				// Pull data from services and from notification data
+				service := services[j]
+				messageHash := notifData.MessageHash
+				hash := service.HashFromMessageHash(notifData.MessageHash)
 
-			// Check if this notification data is recognized by
-			// this service, ie "ForMe"
-			if service.ForMeFromMessageHash(messageHash, hash) {
-				// Fill report list with service data
-				reportList[i] = &NotificationReport{
-					ForMe:  true,
-					Type:   service.Tag,
-					Source: service.Identifier,
+				// Check if this notification data is recognized by
+				// this service, ie "ForMe"
+				if service.ForMeFromMessageHash(messageHash, hash) {
+					// Fill report list with service data
+					reportList[i] = &NotificationReport{
+						ForMe:  true,
+						Type:   service.Tag,
+						Source: service.Identifier,
+					}
 				}
 			}
 		}

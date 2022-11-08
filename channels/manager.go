@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -82,12 +83,18 @@ type Client interface {
 // EventModelBuilder initialises the event model using the given path.
 type EventModelBuilder func(path string) (EventModel, error)
 
+// AddServiceFn adds a service to be controlled by the client thread control.
+// These will be started and stopped with the network follower.
+//
+// This type must match [Cmix.AddService].
+type AddServiceFn func(sp xxdk.Service) error
+
 // NewManager creates a new channel Manager from a [channel.PrivateIdentity]. It
 // prefixes the KV with a tag derived from the public key that can be retried
 // for reloading using [Manager.GetStorageTag].
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
-	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (
-	Manager, error) {
+	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
+	addService AddServiceFn) (Manager, error) {
 
 	// Prefix the kv with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
@@ -106,7 +113,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m := setupManager(identity, kv, net, rng, model)
 
-	return m, nil
+	return m, addService(m.leases.StartProcesses)
 }
 
 // LoadManager restores a channel Manager from disk stored at the given storage
@@ -146,7 +153,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 		broadcastMaker: broadcast.NewBroadcastChannel,
 	}
 
-	m.events = initEvents(model)
+	m.events = initEvents(model, kv)
 
 	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
 		m.events.triggerAdminEvent, model.UpdateFromUUID, rng)

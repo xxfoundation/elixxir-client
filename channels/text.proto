@@ -27,3 +27,28 @@ message CMIXChannelReaction {
     string reaction = 2;
     bytes  reactionMessageID = 3;
 }
+
+// CMIXChannelDelete is the payload for a Delete MessageType. It hides a
+// specific message from the user's view.
+message CMIXChannelDelete {
+    uint32 version = 1;
+    bytes  messageID = 2;  // The [channel.MessageID] of the message to delete
+    bool   undoAction = 4; // If true, the message is unhidden
+}
+
+// CMIXChannelPinned is the payload for a Pinned MessageType. It pins a specific
+// message to a channel.
+message CMIXChannelPinned {
+    uint32 version = 1;
+    bytes  messageID = 2;  // The [channel.MessageID] of the message to pin
+    bool   undoAction = 4; // If true, the message is unpinned
+}
+
+// CMIXChannelMute is the payload for a Mute MessageType. It mutes a specific
+// user so all current and future messages will be hidden from the user's view.
+// It also prevents the user from sending messages.
+message CMIXChannelMute {
+    uint32 version = 1;
+    bytes  pubKey = 2;     // The [ed25519.PublicKey] of the user to mute
+    bool   undoAction = 4; // If true, the user is un-muted
+}

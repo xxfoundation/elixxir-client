@@ -41,6 +41,14 @@ const (
 	// SendReactionTag is the base tag used when generating a debug tag for
 	// sending a reaction.
 	SendReactionTag = "ChReaction"
+
+	// SendDeleteTag is the base tag used when generating a debug tag for a
+	// delete message.
+	SendDeleteTag = "ChDelete"
+
+	// SendPinnedTag is the base tag used when generating a debug tag for a
+	// pinned message.
+	SendPinnedTag = "ChPinned"
 )
 
 // The size of the nonce used in the message ID.

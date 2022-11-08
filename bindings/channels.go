@@ -229,8 +229,9 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity []byte,
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
-		user.api.GetCmix(), user.api.GetRng(), goEventBuilder)
+	m, err := channels.NewManager(
+		pi, user.api.GetStorage().GetKV(), user.api.GetCmix(),
+		user.api.GetRng(), goEventBuilder, user.api.AddService)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +307,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 
 	// Construct new channels manager
 	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
-		user.api.GetCmix(), user.api.GetRng(), eb)
+		user.api.GetCmix(), user.api.GetRng(), eb, user.api.AddService)
 	if err != nil {
 		return nil, err
 	}
@@ -1228,11 +1229,11 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 
 	// Wrap callback around backend interface
 	cb := channels.MessageTypeReceiveMessage(
-		func(channelID *id.ID,
-			messageID cryptoChannel.MessageID, messageType channels.MessageType,
-			nickname string, content []byte, pubKey ed25519.PublicKey,
-			codeset uint8, timestamp time.Time, lease time.Duration,
-			round rounds.Round, status channels.SentStatus) uint64 {
+		func(channelID *id.ID, messageID cryptoChannel.MessageID,
+			messageType channels.MessageType, nickname string, content []byte,
+			pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
+			lease time.Duration, round rounds.Round, status channels.SentStatus,
+			fromAdmin bool) uint64 {
 
 			rcm := ReceivedChannelMessageReport{
 				ChannelId:   channelID.Marshal(),

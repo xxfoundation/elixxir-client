@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -34,6 +35,11 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+var mockAddServiceFn = func(sp xxdk.Service) error {
+	_, err := sp()
+	return err
+}
+
 func TestManager_JoinChannel(t *testing.T) {
 	rng := rand.New(rand.NewSource(64))
 
@@ -45,7 +51,7 @@ func TestManager_JoinChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -88,7 +94,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

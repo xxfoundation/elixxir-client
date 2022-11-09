@@ -102,7 +102,7 @@ func (m *Manager) queryUsernameValidationSignature(
 
 	// Store request
 	// fixme: need to pull release for the KV API update
-	err = m.getKv().Set(usernameValidationStore, 0,
+	err = m.getKv().Set(usernameValidationStore,
 		&versioned.Object{
 			Version:   usernameValidationVersion,
 			Timestamp: netTime.Now(),

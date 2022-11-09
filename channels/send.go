@@ -73,6 +73,11 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 
 	var msgId cryptoChannel.MessageID
 
+	// Retrieve token.
+	// Note that this may be nil if DM token have not been enabled,
+	// which is OK.
+	dmToken := m.getDmToken(channelID)
+
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
 		PayloadType:    uint32(messageType),
@@ -80,6 +85,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		Nickname:       nickname,
 		Nonce:          make([]byte, messageNonceSize),
 		LocalTimestamp: netTime.Now().UnixNano(),
+		DMToken:        dmToken,
 	}
 
 	// Generate random nonce to be used for message ID generation. This makes it

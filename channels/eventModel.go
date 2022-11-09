@@ -92,9 +92,9 @@ type EventModel interface {
 	// Message type is included in the call; it will always be Text (1) for this
 	// call, but it may be required in downstream databases.
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-		nickname, text string, pubKey ed25519.PublicKey, codeset uint8,
-		timestamp time.Time, lease time.Duration, round rounds.Round,
-		mType MessageType, status SentStatus) uint64
+		nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
+		codeset uint8, timestamp time.Time, lease time.Duration,
+		round rounds.Round, mType MessageType, status SentStatus) uint64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
 	// a given channel. It may be called multiple times on the same message. It
@@ -118,9 +118,9 @@ type EventModel interface {
 	// call, but it may be required in downstream databases.
 	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, text string,
-		pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-		lease time.Duration, round rounds.Round, mType MessageType,
-		status SentStatus) uint64
+		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		timestamp time.Time, lease time.Duration, round rounds.Round,
+		mType MessageType, status SentStatus) uint64
 
 	// ReceiveReaction is called whenever a reaction to a message is received on
 	// a given channel. It may be called multiple times on the same reaction. It
@@ -144,9 +144,9 @@ type EventModel interface {
 	// call, but it may be required in downstream databases.
 	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, reaction string,
-		pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-		lease time.Duration, round rounds.Round, mType MessageType,
-		status SentStatus) uint64
+		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		timestamp time.Time, lease time.Duration, round rounds.Round,
+		mType MessageType, status SentStatus) uint64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
@@ -174,9 +174,9 @@ type EventModel interface {
 // later.
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) uint64
+	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken []byte,
+	codeset uint8, timestamp time.Time, lease time.Duration,
+	round rounds.Round, status SentStatus) uint64
 
 // updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
 // be mocked for testing where used.
@@ -261,7 +261,8 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 	// is needed.
 	uuid := listener(
 		chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload,
-		um.ECCPublicKey, 0, ts, time.Duration(cm.Lease), round, status)
+		um.ECCPublicKey, cm.DMToken, 0, ts, time.Duration(cm.Lease), round,
+		status)
 	return uuid, nil
 }
 
@@ -296,7 +297,8 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	// is needed.
 	uuid := listener(
 		chID, messageID, messageType, AdminUsername, cm.Payload,
-		AdminFakePubKey, 0, ts, time.Duration(cm.Lease), round, status)
+		AdminFakePubKey, cm.DMToken, 0, ts, time.Duration(cm.Lease), round,
+		status)
 	return uuid, nil
 }
 
@@ -308,8 +310,8 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 // write to the log.
 func (e *events) receiveTextMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
+	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken []byte,
+	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
 	txt := &CMIXChannelText{}
 
@@ -332,7 +334,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 				base64.StdEncoding.EncodeToString(txt.ReplyMessageID),
 				channelID)
 			return e.model.ReceiveReply(channelID, messageID, replyTo, nickname,
-				txt.Text, pubKey, codeset, timestamp, lease, round, Text, status)
+				txt.Text, pubKey, dmToken, codeset, timestamp, lease, round,
+				Text, status)
 
 		} else {
 			jww.ERROR.Printf("Failed process reply to for message %s from "+
@@ -351,7 +354,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 		base64.StdEncoding.EncodeToString(txt.ReplyMessageID), channelID)
 
 	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text,
-		pubKey, codeset, timestamp, lease, round, Text, status)
+		pubKey, dmToken, codeset, timestamp, lease, round, Text, status)
 }
 
 // receiveReaction is the internal function that handles the reception of
@@ -363,8 +366,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 // reaction is dropped.
 func (e *events) receiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
+	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken []byte,
+	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
 	react := &CMIXChannelReaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
@@ -397,7 +400,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 			channelID)
 
 		return e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
-			react.Reaction, pubKey, codeset, timestamp, lease, round, Reaction,
+			react.Reaction, pubKey, dmToken, codeset, timestamp, lease, round, Reaction,
 			status)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from public key %v "+

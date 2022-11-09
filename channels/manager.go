@@ -186,6 +186,22 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 	return nil
 }
 
+// EnableDirectMessageToken enables the token for direct messaging for this
+// channel.
+func (m *manager) EnableDirectMessageToken(chId *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.enableDirectMessageToken(chId)
+}
+
+// DisableDirectMessageToken removes the token for direct messaging for a
+// given channel.
+func (m *manager) DisableDirectMessageToken(chId *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.disableDirectMessageToken(chId)
+}
+
 // GetChannels returns the IDs of all channels that have been joined. Use
 // getChannelsUnsafe if you already have taken the mux.
 func (m *manager) GetChannels() []*id.ID {

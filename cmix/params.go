@@ -52,9 +52,6 @@ type Params struct {
 	// for debugging.
 	VerboseRoundTracking bool
 
-	// RealtimeOnly disables all attempts to pick up dropped or missed messages.
-	RealtimeOnly bool
-
 	// ReplayRequests Resends auth requests up the stack if received multiple
 	// times.
 	ReplayRequests bool
@@ -104,7 +101,6 @@ func GetDefaultParams() Params {
 		KnownRoundsThreshold:      1500, // 5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,
 		VerboseRoundTracking:      false,
-		RealtimeOnly:              false,
 		ReplayRequests:            true,
 		MaxParallelIdentityTracks: 5,
 		ClockSkewClamp:            50 * time.Millisecond,
@@ -141,7 +137,6 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		KnownRoundsThreshold:      p.KnownRoundsThreshold,
 		FastPolling:               p.FastPolling,
 		VerboseRoundTracking:      p.VerboseRoundTracking,
-		RealtimeOnly:              p.RealtimeOnly,
 		ReplayRequests:            p.ReplayRequests,
 		Rounds:                    p.Rounds,
 		Pickup:                    p.Pickup,
@@ -170,7 +165,6 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		KnownRoundsThreshold:      pDisk.KnownRoundsThreshold,
 		FastPolling:               pDisk.FastPolling,
 		VerboseRoundTracking:      pDisk.VerboseRoundTracking,
-		RealtimeOnly:              pDisk.RealtimeOnly,
 		ReplayRequests:            pDisk.ReplayRequests,
 		Rounds:                    pDisk.Rounds,
 		Pickup:                    pDisk.Pickup,

@@ -417,7 +417,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown :=
 		gwRoundsState.RangeUnchecked(
-			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker, 100)
+			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker)
 
 	jww.DEBUG.Printf("Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
@@ -436,16 +436,15 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	var roundsWithMessages2 []id.Round
 
-	if !c.param.RealtimeOnly {
-		roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
-			if gwRoundsState.Checked(rid) {
-				return Checker(rid, filterList, identity.CR)
-			}
-			return false
-		}, roundsUnknown, abandon)
-	}
+	roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
+		if gwRoundsState.Checked(rid) {
+			return Checker(rid, filterList, identity.CR)
+		}
+		return false
+	}, roundsUnknown, abandon)
 
-	for _, rid := range roundsWithMessages {
+	for i := len(roundsWithMessages) - 1; i >= 0; i-- {
+		rid := roundsWithMessages[i]
 		// Denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
 			c.GetMessagesFromRound(rid, identity.EphemeralIdentity)

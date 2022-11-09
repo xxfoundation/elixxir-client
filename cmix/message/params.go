@@ -35,7 +35,7 @@ type paramsDisk struct {
 func GetDefaultParams() Params {
 	return Params{
 		MessageReceptionBuffLen:        500,
-		MessageReceptionWorkerPoolSize: 1,
+		MessageReceptionWorkerPoolSize: 4,
 		MaxChecksInProcessMessage:      10,
 		InProcessMessageWait:           15 * time.Minute,
 		RealtimeOnly:                   false,

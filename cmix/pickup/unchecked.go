@@ -46,41 +46,40 @@ func (m *pickup) processUncheckedRounds(checkInterval time.Duration,
 	ticker := time.NewTicker(checkInterval)
 	uncheckedRoundStore := m.unchecked
 	for {
+		iterator := func(rid id.Round, rnd store.UncheckedRound) {
+			jww.DEBUG.Printf(
+				"Checking if round %d is due for a message lookup.", rid)
+			// If this round is due for a round check, send the round over
+			// to the retrieval thread. If not due, then check next round.
+			if !isRoundCheckDue(rnd.NumChecks, rnd.LastCheck, backoffTable) {
+				return
+			}
+
+			jww.INFO.Printf(
+				"Round %d due for a message lookup, retrying...", rid)
+
+			// Check if it needs to be processed by historical Rounds
+			m.GetMessagesFromRound(rid, receptionID.EphemeralIdentity{
+				EphId:  rnd.EpdId,
+				Source: rnd.Source,
+			})
+
+			// Update the state of the round for next look-up (if needed)
+			err := uncheckedRoundStore.IncrementCheck(rid, rnd.Source, rnd.EpdId)
+			if err != nil {
+				jww.ERROR.Printf("processUncheckedRounds error: Could not "+
+					"increment check attempts for round %d: %v", rid, err)
+			}
+		}
+
+		// Pull and iterate through uncheckedRound list
+		m.unchecked.IterateOverList(iterator)
 		select {
 		case <-stop.Quit():
 			ticker.Stop()
 			stop.ToStopped()
 			return
-
 		case <-ticker.C:
-			iterator := func(rid id.Round, rnd store.UncheckedRound) {
-				jww.DEBUG.Printf(
-					"Checking if round %d is due for a message lookup.", rid)
-				// If this round is due for a round check, send the round over
-				// to the retrieval thread. If not due, then check next round.
-				if !isRoundCheckDue(rnd.NumChecks, rnd.LastCheck, backoffTable) {
-					return
-				}
-
-				jww.INFO.Printf(
-					"Round %d due for a message lookup, retrying...", rid)
-
-				// Check if it needs to be processed by historical Rounds
-				m.GetMessagesFromRound(rid, receptionID.EphemeralIdentity{
-					EphId:  rnd.EpdId,
-					Source: rnd.Source,
-				})
-
-				// Update the state of the round for next look-up (if needed)
-				err := uncheckedRoundStore.IncrementCheck(rid, rnd.Source, rnd.EpdId)
-				if err != nil {
-					jww.ERROR.Printf("processUncheckedRounds error: Could not "+
-						"increment check attempts for round %d: %v", rid, err)
-				}
-			}
-
-			// Pull and iterate through uncheckedRound list
-			m.unchecked.IterateOverList(iterator)
 		}
 	}
 }

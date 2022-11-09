@@ -217,6 +217,11 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 			if err != nil {
 				jww.ERROR.Printf("Failed to remove round %d: %+v", roundID, err)
 			}
+		} else {
+			err = m.unchecked.EndCheck(roundID, identity.Source, identity.EphId)
+			if err != nil {
+				jww.ERROR.Printf("Failed to end the check for the round round %d: %+v", roundID, err)
+			}
 		}
 
 		return message.Bundle{}, nil

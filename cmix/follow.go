@@ -417,7 +417,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown :=
 		gwRoundsState.RangeUnchecked(
-			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker)
+			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker, 1000)
 
 	jww.DEBUG.Printf("Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+

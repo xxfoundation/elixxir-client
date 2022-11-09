@@ -20,7 +20,8 @@ type userMessageInternal struct {
 	messageID      channel.MessageID
 }
 
-func newUserMessageInternal(ursMsg *UserMessage, chid *id.ID) (*userMessageInternal, error) {
+func newUserMessageInternal(
+	ursMsg *UserMessage, chID *id.ID) (*userMessageInternal, error) {
 	chanMessage := &ChannelMessage{}
 	err := proto.Unmarshal(ursMsg.Message, chanMessage)
 	if err != nil {
@@ -31,11 +32,12 @@ func newUserMessageInternal(ursMsg *UserMessage, chid *id.ID) (*userMessageInter
 	return &userMessageInternal{
 		userMessage:    ursMsg,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(ursMsg.Message, chid),
+		messageID:      channel.MakeMessageID(ursMsg.Message, chID),
 	}, nil
 }
 
-func unmarshalUserMessageInternal(usrMsg []byte, chid *id.ID) (*userMessageInternal, error) {
+func unmarshalUserMessageInternal(
+	usrMsg []byte, chID *id.ID) (*userMessageInternal, error) {
 
 	um := &UserMessage{}
 	if err := proto.Unmarshal(usrMsg, um); err != nil {
@@ -53,7 +55,7 @@ func unmarshalUserMessageInternal(usrMsg []byte, chid *id.ID) (*userMessageInter
 	return &userMessageInternal{
 		userMessage:    um,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(um.Message, chid),
+		messageID:      channel.MakeMessageID(um.Message, chID),
 	}, nil
 }
 

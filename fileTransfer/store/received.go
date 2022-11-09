@@ -30,7 +30,7 @@ const (
 	errLoadReceived            = "error loading received transfer list from storage: %+v"
 	errUnmarshalReceived       = "could not unmarshal received transfer list: %+v"
 	warnLoadReceivedTransfer   = "[FT] failed to load received transfer %d of %d with ID %s: %+v"
-	errLoadAllReceivedTransfer = "failed to load all %d transfers"
+	errLoadAllReceivedTransfer = "failed to load all %d received transfers"
 
 	// Received.AddTransfer
 	errAddExistingReceivedTransfer = "received transfer with ID %s already exists in map."
@@ -73,7 +73,7 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 		tid := tidList[i]
 		s.transfers[tid], err = loadReceivedTransfer(&tid, s.kv)
 		if err != nil {
-			jww.WARN.Print(warnLoadReceivedTransfer, i, len(tidList), tid, err)
+			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(tidList), tid, err)
 			errCount++
 		}
 
@@ -83,7 +83,7 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 	}
 
 	// Return an error if all transfers failed to load
-	if errCount == len(tidList) {
+	if len(tidList) > 0 && errCount == len(tidList) {
 		return nil, nil, errors.Errorf(errLoadAllReceivedTransfer, len(tidList))
 	}
 

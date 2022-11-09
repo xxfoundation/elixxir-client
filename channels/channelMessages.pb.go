@@ -44,17 +44,17 @@ type ChannelMessage struct {
 	// Payload is the actual message payload. It will be processed differently
 	// based on the PayloadType.
 	Payload []byte `protobuf:"bytes,4,opt,name=Payload,proto3" json:"Payload,omitempty"`
-	// nickname is the name which the user is using for this message
-	// it will not be longer than 24 characters
+	// nickname is the name which the user is using for this message it will not
+	// be longer than 24 characters.
 	Nickname string `protobuf:"bytes,5,opt,name=Nickname,proto3" json:"Nickname,omitempty"`
 	// Nonce is 32 bits of randomness to ensure that two messages in the same
 	// round with that have the same nickname, payload, and lease will not have
 	// the same message ID.
 	Nonce []byte `protobuf:"bytes,6,opt,name=Nonce,proto3" json:"Nonce,omitempty"`
-	// LocalTimestamp is the timestamp when the "send call" is made based upon the
-	// local clock. If this differs by more than 5 seconds +/- from when the round
-	// it sent on is queued, then a random mutation on the queued time (+/- 200ms)
-	// will be used by local clients instead
+	// LocalTimestamp is the timestamp when the "send call" is made based upon
+	// the local clock. If this differs by more than 5 seconds +/- from when the
+	// round it sent on is queued, then a random mutation on the queued time
+	// (+/- 200ms) will be used by local clients instead.
 	LocalTimestamp int64 `protobuf:"varint,7,opt,name=LocalTimestamp,proto3" json:"LocalTimestamp,omitempty"`
 }
 

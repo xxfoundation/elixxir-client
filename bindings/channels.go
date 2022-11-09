@@ -906,6 +906,9 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(rsaPrivKey,
 		chanId, msgTy, message, time.Duration(leaseTimeMS),
 		params.CMIX)
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct send report
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)

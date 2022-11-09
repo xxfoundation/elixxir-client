@@ -49,6 +49,7 @@ var errorsList = []string{
 	grpc.ErrClientConnClosing.Error(),
 	connect.TooManyProxyError,
 	"Failed to fetch",
+	"NetworkError when attempting to fetch resource.",
 }
 
 // HostManager Interface allowing storage and retrieval of Host objects

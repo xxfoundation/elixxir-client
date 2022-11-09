@@ -120,10 +120,10 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 	}
 }
 
-// Ensures the serialization hasn't changed, changing the message IDs. The
-// protocol is tolerant of this because only the sender seralizes, but
-// it would be good to know when this changes. If this test breaks, report it,
-// but it should be safe to update the expected
+// Ensures the serialization has not changed, changing the message IDs. The
+// protocol is tolerant of this because only the sender serializes, but it would
+// be good to know when this changes. If this test breaks, report it, but it
+// should be safe to update the expected.
 func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
 	expected := "ChMsgID-LrGYLFCaPamZk44X+c/b08qtmJIorgNnoE68v1HYrf8="
 
@@ -138,7 +138,8 @@ func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
 	}
 }
 
-func builtTestUMI(t *testing.T, mt MessageType) (*userMessageInternal, *UserMessage, *ChannelMessage) {
+func builtTestUMI(t *testing.T, mt MessageType) (
+	*userMessageInternal, *UserMessage, *ChannelMessage) {
 	channelMsg := &ChannelMessage{
 		Lease:       69,
 		RoundID:     42,

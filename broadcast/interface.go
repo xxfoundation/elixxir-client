@@ -83,7 +83,7 @@ type Channel interface {
 	Stop()
 }
 
-// Assembler is a function which allows a bre
+// Assembler is a function which allows a bre.
 type Assembler func(rid id.Round) (payload []byte, err error)
 
 // Client contains the methods from [cmix.Client] that are required by
@@ -92,7 +92,8 @@ type Client interface {
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
-	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
+	AddIdentityWithHistory(
+		id *id.ID, validUntil, beginning time.Time, persistent bool)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)

@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package single
 
 import (
@@ -97,11 +104,11 @@ func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 
 			jww.DEBUG.Printf("[SU] Sent single-use response cMix message part "+
 				"%d of %d on round %d to %s (eph ID %d) (%s).",
-				i, len(parts), round, r.sender, ephID.Int64(), r.tag)
-			rounds[i] = round
+				i, len(parts), round.ID, r.sender, ephID.Int64(), r.tag)
+			rounds[i] = round.ID
 
 			r.net.GetInstance().GetRoundEvents().AddRoundEventChan(
-				round, sendResults, timeout, states.COMPLETED, states.FAILED)
+				round.ID, sendResults, timeout, states.COMPLETED, states.FAILED)
 		}(i, parts[i].Marshal())
 	}
 

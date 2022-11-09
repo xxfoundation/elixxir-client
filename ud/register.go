@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -88,6 +95,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 		m.getEventReporter().Report(1, "UserDiscovery", "Registration",
 			fmt.Sprintf("User Registered with UD: %+v",
 				username))
+		m.user.GetBackupContainer().TriggerBackup("User registered with UD")
 	}
 
 	return err

@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package connect
@@ -55,7 +56,7 @@ func respond(response *restlike.Message, conn connect.Connection) error {
 	}
 
 	// TODO: Parameterize params
-	_, _, _, err = conn.SendE2E(catalog.XxMessage, payload, e2e.GetDefaultParams())
+	_, err = conn.SendE2E(catalog.XxMessage, payload, e2e.GetDefaultParams())
 	if err != nil {
 		return errors.Errorf("unable to send restlike response message: %+v", err)
 	}

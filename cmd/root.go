@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Package cmd initializes the CLI and config parsers as well as the logger.
 package cmd
@@ -17,6 +17,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 
 	"github.com/pkg/profile"
 
@@ -75,8 +77,13 @@ var rootCmd = &cobra.Command{
 
 		cmixParams, e2eParams := initParams()
 
-		authCbs := makeAuthCallbacks(
-			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		autoConfirm := viper.GetBool(unsafeChannelCreationFlag)
+		acceptChannels := viper.GetBool(acceptChannelFlag)
+		if acceptChannels {
+			autoConfirm = false
+		}
+
+		authCbs := makeAuthCallbacks(autoConfirm, e2eParams)
 		user := initE2e(cmixParams, e2eParams, authCbs)
 
 		jww.INFO.Printf("Client Initialized...")
@@ -95,12 +102,14 @@ var rootCmd = &cobra.Command{
 			recipientContact = readContact(destFile)
 			recipientID = recipientContact.ID
 		} else if destId == "0" || sendId == destId {
-			jww.INFO.Printf("Sending message to self")
+			jww.INFO.Printf("Sending message to self, " +
+				"this will timeout unless authrequest is sent")
 			recipientID = receptionIdentity.ID
 			recipientContact = receptionIdentity.GetContact()
 		} else {
 			recipientID = parseRecipient(destId)
-			jww.INFO.Printf("destId: %v\nrecipientId: %v", destId, recipientID)
+			jww.INFO.Printf("destId: %v\nrecipientId: %v", destId,
+				recipientID)
 
 		}
 		isPrecanPartner := isPrecanID(recipientID)
@@ -150,11 +159,42 @@ var rootCmd = &cobra.Command{
 
 		// Send Messages
 		msgBody := viper.GetString(messageFlag)
+		hasMsgs := true
+		if msgBody == "" {
+			hasMsgs = false
+		}
 		time.Sleep(10 * time.Second)
 
 		// Accept auth request for this recipient
+		authSecs := viper.GetUint(authTimeoutFlag)
 		authConfirmed := false
-		if viper.GetBool(acceptChannelFlag) {
+		jww.INFO.Printf("Preexisting E2e partners: %+v", user.GetE2E().GetAllPartnerIDs())
+		if user.GetE2E().HasAuthenticatedChannel(recipientID) {
+			jww.INFO.Printf("Authenticated channel already in "+
+				"place for %s", recipientID)
+			authConfirmed = true
+		} else {
+			jww.INFO.Printf("No authenticated channel in "+
+				"place for %s", recipientID)
+		}
+
+		if acceptChannels && !authConfirmed {
+			for reqDone := false; !reqDone; {
+				select {
+				case reqID := <-authCbs.reqCh:
+					if recipientID.Cmp(reqID) {
+						reqDone = true
+					} else {
+						fmt.Printf(
+							"unexpected request:"+
+								" %s", reqID)
+					}
+				case <-time.After(time.Duration(authSecs) *
+					time.Second):
+					fmt.Print("timed out on auth request")
+					reqDone = true
+				}
+			}
 			// Verify that the confirmation message makes it to the
 			// original sender
 			if viper.GetBool(verifySendFlag) {
@@ -168,16 +208,6 @@ var rootCmd = &cobra.Command{
 			// Do not wait for channel confirmations if we
 			// accepted one
 			authConfirmed = true
-		}
-
-		jww.INFO.Printf("Preexisting E2e partners: %+v", user.GetE2E().GetAllPartnerIDs())
-		if user.GetE2E().HasAuthenticatedChannel(recipientID) {
-			jww.INFO.Printf("Authenticated channel already in "+
-				"place for %s", recipientID)
-			authConfirmed = true
-		} else {
-			jww.INFO.Printf("No authenticated channel in "+
-				"place for %s", recipientID)
 		}
 
 		// Send unsafe messages or not?
@@ -199,7 +229,7 @@ var rootCmd = &cobra.Command{
 			authConfirmed = false
 		}
 
-		if !unsafe && !authConfirmed {
+		if !unsafe && !authConfirmed && hasMsgs {
 			// Signal for authConfirm callback in a separate thread
 			go func() {
 				for {
@@ -215,16 +245,15 @@ var rootCmd = &cobra.Command{
 			scnt := uint(0)
 
 			// Wait until authConfirmed
-			waitSecs := viper.GetUint(authTimeoutFlag)
-			for !authConfirmed && scnt < waitSecs {
+			for !authConfirmed && scnt < authSecs {
 				time.Sleep(1 * time.Second)
 				scnt++
 			}
-			if scnt == waitSecs {
+			if scnt == authSecs {
 				jww.FATAL.Panicf("Could not confirm "+
 					"authentication channel for %s, "+
 					"waited %d seconds.", recipientID,
-					waitSecs)
+					authSecs)
 			}
 			jww.INFO.Printf("Authentication channel confirmation"+
 				" took %d seconds", scnt)
@@ -277,6 +306,13 @@ var rootCmd = &cobra.Command{
 
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint(sendCountFlag))
+		if !hasMsgs && sendCnt != 0 {
+			msg := "No message to send, please set your message" +
+				"or set sendCount to 0 to suppress this warning"
+			jww.WARN.Printf(msg)
+			fmt.Print(msg)
+			sendCnt = 0
+		}
 		wg.Add(sendCnt)
 		go func() {
 			sendDelay := time.Duration(viper.GetUint(sendDelayFlag))
@@ -294,8 +330,10 @@ var rootCmd = &cobra.Command{
 								e2eParams.Base)
 						} else {
 							e2eParams.Base.DebugTag = "cmd.E2E"
-							roundIDs, _, _, err = user.GetE2E().SendE2E(mt,
+							var sendReport cryptoE2e.SendReport
+							sendReport, err = user.GetE2E().SendE2E(mt,
 								recipient, payload, e2eParams.Base)
+							roundIDs = sendReport.RoundList
 						}
 						if err != nil {
 							jww.FATAL.Panicf("%+v", err)
@@ -553,7 +591,7 @@ func addAuthenticatedChannel(user *xxdk.E2e, recipientID *id.ID,
 	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
 		recipientID)
 	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
+	fmt.Print(msg)
 
 	recipientContact := recipient
 
@@ -633,14 +671,8 @@ func acceptChannelVerified(user *xxdk.E2e, recipientID *id.ID,
 		rid := acceptChannel(user, recipientID)
 
 		// Monitor rounds for results
-		err := user.GetCmix().GetRoundResults(roundTimeout,
+		user.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done), rid)
-		if err != nil {
-			jww.DEBUG.Printf("Could not verify "+
-				"confirmation message for relationship with %s were sent "+
-				"successfully, resending messages...", recipientID)
-			continue
-		}
 
 		select {
 		case <-retryChan:
@@ -674,14 +706,9 @@ func requestChannelVerified(user *xxdk.E2e,
 		}
 
 		// Monitor rounds for results
-		err = user.GetCmix().GetRoundResults(roundTimeout,
+		user.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done),
 			rid)
-		if err != nil {
-			jww.DEBUG.Printf("Could not verify auth request was sent " +
-				"successfully, resending...")
-			continue
-		}
 
 		select {
 		case <-retryChan:
@@ -713,14 +740,9 @@ func resetChannelVerified(user *xxdk.E2e, recipientContact contact.Contact,
 		}
 
 		// Monitor rounds for results
-		err = user.GetCmix().GetRoundResults(roundTimeout,
+		user.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done),
 			rid)
-		if err != nil {
-			jww.DEBUG.Printf("Could not verify auth request was sent " +
-				"successfully, resending...")
-			continue
-		}
 
 		select {
 		case <-retryChan:

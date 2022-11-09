@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package receptionID
 
 import (
@@ -41,6 +48,11 @@ type Identity struct {
 
 	// Makes the identity not store on disk
 	Ephemeral bool
+
+	// When this identity expired, it will auto add processNext to the identity list
+	// to be processed. In practice this is a reverse ordered list and is added whenever
+	// many identities are added at once in order to pick up sequentially
+	ProcessNext *Identity
 }
 
 func loadIdentity(kv *versioned.KV) (Identity, error) {
@@ -73,7 +85,7 @@ func (i Identity) store(kv *versioned.KV) error {
 	}
 
 	// Store the data
-	err = kv.Set(identityStorageKey, identityStorageVersion, obj)
+	err = kv.Set(identityStorageKey, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store Identity")
 	}

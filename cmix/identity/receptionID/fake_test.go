@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package receptionID
 
 import (
@@ -24,7 +31,7 @@ func Test_generateFakeIdentity(t *testing.T) {
 		`"End":` + string(end) + `,"ExtraChecks":0,` +
 		`"StartValid":` + string(startValid) + `,` +
 		`"EndValid":` + string(endValid) + `,` +
-		`"Ephemeral":true,` +
+		`"Ephemeral":true,"ProcessNext":null,` +
 		`"Fake":true,"UR":null,"ER":null,"CR":null}`
 
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)

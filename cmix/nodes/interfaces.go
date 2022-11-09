@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package nodes
 
@@ -26,6 +26,14 @@ type Registrar interface {
 	// StartProcesses initiates numParallel amount of threads
 	// to register with nodes.
 	StartProcesses(numParallel uint) stoppable.Stoppable
+
+	//PauseNodeRegistrations stops all node registrations
+	//and returns a function to resume them
+	PauseNodeRegistrations(timeout time.Duration) error
+
+	// ChangeNumberOfNodeRegistrations changes the number of parallel node
+	// registrations up to the initialized maximum
+	ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error
 
 	// GetNodeKeys returns a MixCypher for the topology and a list of nodes it did
 	// not have a key for. If there are missing keys, then returns nil.

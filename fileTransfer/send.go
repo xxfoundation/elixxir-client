@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package fileTransfer
@@ -50,6 +50,7 @@ const (
 // startSendingWorkerPool initialises a worker pool of file part sending
 // threads.
 func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
+	jww.INFO.Printf("[FT] Starting %d sending worker threads.", workerPoolThreads)
 	// Set up cMix sending parameters
 	m.params.Cmix.SendTimeout = m.params.SendTimeout
 	m.params.Cmix.ExcludedRounds =
@@ -62,27 +63,57 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 
 	for i := 0; i < workerPoolThreads; i++ {
 		stop := stoppable.NewSingle(sendThreadStoppableName + strconv.Itoa(i))
-		multiStop.Add(stop)
 		go m.sendingThread(stop)
+		multiStop.Add(stop)
 	}
+
 }
 
 // sendingThread sends part packets that become available oin the send queue.
 func (m *manager) sendingThread(stop *stoppable.Single) {
+	jww.INFO.Printf("[FT] Starting sending worker thread %s.", stop.Name())
 	healthChan := make(chan bool, 10)
 	healthChanID := m.cmix.AddHealthCallback(func(b bool) { healthChan <- b })
 	for {
 		select {
+		// A quit signal has been sent by the user. Typically, this is a result
+		// of a user-level shutdown of the client.
 		case <-stop.Quit():
-			jww.DEBUG.Printf("[FT] Stopping file part sending thread: " +
-				"stoppable triggered.")
+			jww.DEBUG.Printf("[FT] Stopping file part sending thread (%s): "+
+				"stoppable triggered.", stop.Name())
 			m.cmix.RemoveHealthCallback(healthChanID)
 			stop.ToStopped()
 			return
+
+		// If the network becomes unhealthy, we will cease sending files until
+		// it is resolved.
 		case healthy := <-healthChan:
+			// There exists an edge case where an unhealthy signal is received
+			// due to a user-level shutdown, meaning the health tracker has
+			// ceased operation. If the health tracker is shutdown, a healthy
+			// signal will never be received, and this for loop will run
+			// infinitely. If we are caught in this loop, the stop's Quit()
+			// signal will never be received in case statement above, and this
+			// sender thread will run indefinitely. To avoid lingering threads
+			// in the case of a shutdown, we must actively listen for either the
+			// Quit() signal or a network health update here.
 			for !healthy {
-				healthy = <-healthChan
+				select {
+				case <-stop.Quit():
+					// Listen for a quit signal if the network becomes unhealthy
+					// before a user-level shutdown.
+					jww.DEBUG.Printf("[FT] Stopping file part sending "+
+						"thread (%s): stoppable triggered.", stop.Name())
+					m.cmix.RemoveHealthCallback(healthChanID)
+					stop.ToStopped()
+					return
+
+				// Wait for a healthy signal before continuing to send files.
+				case healthy = <-healthChan:
+				}
 			}
+		// A file part has been sent through the queue and must be sent by
+		// this thread.
 		case packet := <-m.sendQueue:
 			m.sendCmix(packet)
 		}
@@ -134,13 +165,14 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 	}
 
-	err = m.cmix.GetRoundResults(
-		roundResultsTimeout, m.roundResultsCallback(validParts), rid)
+	m.cmix.GetRoundResults(
+		roundResultsTimeout, m.roundResultsCallback(validParts), rid.ID)
 }
 
 // roundResultsCallback generates a network.RoundEventCallback that handles
 // all parts in the packet once the round succeeds or fails.
-func (m *manager) roundResultsCallback(packet []store.Part) cmix.RoundEventCallback {
+func (m *manager) roundResultsCallback(
+	packet []store.Part) cmix.RoundEventCallback {
 	// Group file parts by transfer
 	grouped := map[ftCrypto.TransferID][]store.Part{}
 	for _, p := range packet {

@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package pickup
@@ -57,7 +57,7 @@ type paramsDisk struct {
 // GetDefaultParams returns a default set of Params.
 func GetDefaultParams() Params {
 	return Params{
-		NumMessageRetrievalWorkers: 8,
+		NumMessageRetrievalWorkers: 4,
 		LookupRoundsBufferLen:      2000,
 		MaxHistoricalRoundsRetries: 3,
 		UncheckRoundPeriod:         20 * time.Second,

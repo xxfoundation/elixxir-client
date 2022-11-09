@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partition
 
@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -39,13 +40,25 @@ func TestNewOrLoad(t *testing.T) {
 func TestStore_AddFirst(t *testing.T) {
 	part := []byte("Test message.")
 	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
+	b := make([]byte, e2e.KeyResidueLength)
+	kr, err := e2e.UnmarshalKeyResidue(b)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal key residue: %+v", err)
+	}
 
-	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
+	msg, receivedKr, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
 		catalog.XxMessage, 5, 0, 1, netTime.Now(), netTime.Now(), part,
-		[]byte{0})
+		[]byte{0}, kr)
 
 	if !complete {
 		t.Errorf("AddFirst returned that the message was not complete.")
+	}
+
+	if !bytes.Equal(receivedKr[:], kr[:]) {
+		t.Fatalf("Key residue returned from complete partition did not "+
+			"match first key signature."+
+			"\nExpected: %v"+
+			"\nReceived: %v", kr, receivedKr)
 	}
 
 	if !bytes.Equal(part, msg.Payload) {
@@ -59,19 +72,31 @@ func TestStore_Add(t *testing.T) {
 	part1 := []byte("Test message.")
 	part2 := []byte("Second Sentence.")
 	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
+	b := make([]byte, e2e.KeyResidueLength)
+	kr, err := e2e.UnmarshalKeyResidue(b)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal key residue: %+v", err)
+	}
 
-	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
+	msg, _, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
 		catalog.XxMessage, 5, 0, 2, netTime.Now(), netTime.Now(), part1,
-		[]byte{0})
+		[]byte{0}, kr)
 
 	if complete {
 		t.Errorf("AddFirst returned that the message was complete.")
 	}
 
-	msg, complete = s.Add(id.NewIdFromString("User", id.User, t),
+	msg, receivedKr, complete := s.Add(id.NewIdFromString("User", id.User, t),
 		5, 1, part2, []byte{0})
 	if !complete {
 		t.Errorf("AddFirst returned that the message was not complete.")
+	}
+
+	if !bytes.Equal(receivedKr[:], kr[:]) {
+		t.Fatalf("Key residue returned from complete partition did not "+
+			"match first key signature."+
+			"\nExpected: %v"+
+			"\nReceived: %v", kr, receivedKr)
 	}
 
 	part := append(part1, part2...)
@@ -92,10 +117,15 @@ func TestStore_prune(t *testing.T) {
 	partner1 := id.NewIdFromString("User", id.User, t)
 	messageId1 := uint64(5)
 	oldTimestamp := netTime.Now().Add(-2 * clearPartitionThreshold)
+	b := make([]byte, e2e.KeyResidueLength)
+	kr, err := e2e.UnmarshalKeyResidue(b)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal key residue: %+v", err)
+	}
 	s.AddFirst(partner1,
 		catalog.XxMessage, messageId1, 0, 2, netTime.Now(),
 		oldTimestamp, part1,
-		[]byte{0})
+		[]byte{0}, kr)
 	s.Add(partner1, messageId1, 1, part2, []byte{0})
 
 	partner2 := id.NewIdFromString("User1", id.User, t)
@@ -103,7 +133,7 @@ func TestStore_prune(t *testing.T) {
 	newTimestamp := netTime.Now()
 	s.AddFirst(partner2, catalog.XxMessage, messageId2, 0, 2, netTime.Now(),
 		newTimestamp, part1,
-		[]byte{0})
+		[]byte{0}, kr)
 
 	// Call clear messages
 	s.prune()

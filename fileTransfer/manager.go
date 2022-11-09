@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package fileTransfer
@@ -13,6 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/fileTransfer/callbackTracker"
 	"gitlab.com/elixxir/client/fileTransfer/store"
@@ -145,7 +146,7 @@ type FtE2e interface {
 // transfer manager for easier testing.
 type Cmix interface {
 	GetMaxMessageLength() int
-	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round,
+	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round,
 		[]ephemeral.Id, error)
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error
@@ -155,7 +156,7 @@ type Cmix interface {
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
 	GetRoundResults(timeout time.Duration,
-		roundCallback cmix.RoundEventCallback, roundList ...id.Round) error
+		roundCallback cmix.RoundEventCallback, roundList ...id.Round)
 }
 
 // Storage interface matches a subset of the storage.Session methods used by the
@@ -169,7 +170,6 @@ type Storage interface {
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
 func NewManager(params Params, user FtE2e) (FileTransfer, error) {
-
 	kv := user.GetStorage().GetKV()
 
 	// Create a new list of sent file transfers or load one if it exists
@@ -209,22 +209,33 @@ func NewManager(params Params, user FtE2e) (FileTransfer, error) {
 		m.addFingerprints(rt)
 	}
 
+	jww.INFO.Printf(
+		"[FT] Created new file transfer manager with parameters: %+v"+
+			"\nAdding %d unsent parts to be sent."+
+			"\nQueueing %d incomplete received transfers.",
+		params, len(unsentParts), len(incompleteTransfers))
+
 	return m, nil
 }
 
 // StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
-	multiStop := stoppable.NewMulti(workerPoolStoppable)
+	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
+	senderPoolStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
 
 	// Start sending threads
-	go m.startSendingWorkerPool(multiStop)
 	go m.batchBuilderThread(batchBuilderStop)
 
+	// Note that the startSendingWorkerPool already creates thread for every
+	// worker. As a result, there is no need to run it asynchronously. In fact,
+	// running this asynchronously could result in a race condition where
+	// some worker threads are not added to senderPoolStop before that stoppable
+	// is added to the multiStoppable.
+	m.startSendingWorkerPool(senderPoolStop)
+
 	// Create a multi stoppable
-	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
-	multiStoppable.Add(multiStop)
 	multiStoppable.Add(batchBuilderStop)
 
 	return multiStoppable, nil
@@ -314,6 +325,7 @@ func (m *manager) Send(recipient *id.ID, fileName, fileType string,
 	if err != nil {
 		return nil, errors.Errorf(errMarshalInfo, err)
 	}
+
 	err = sendNew(transferInfo)
 	if err != nil {
 		return nil, errors.Errorf(errSendNewMsg, err)
@@ -328,6 +340,10 @@ func (m *manager) Send(recipient *id.ID, fileName, fileType string,
 	if err != nil {
 		return nil, errors.Errorf(errAddSentTransfer, err)
 	}
+
+	jww.DEBUG.Printf("[FT] Created new sent file transfer %s for %q "+
+		"(type %s, size %d bytes, %d parts, retry %f)",
+		st.TransferID(), fileName, fileType, fileSize, numParts, retry)
 
 	// Add all parts to the send queue
 	for _, p := range st.GetUnsentParts() {

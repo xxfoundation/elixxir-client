@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package backup
@@ -93,6 +93,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
 	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
+
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
 		container:      container,

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package rekey
 
@@ -127,7 +127,8 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	params := cmix.GetDefaultCMIXParams()
 	params.Critical = true
 	//ignore results, the passed sender interface makes it a critical message
-	_, _, _, _ = sender(param.Confirm, request.Sender, payload,
+	// fixme: should this ignore the error as well?
+	_, _ = sender(param.Confirm, request.Sender, payload,
 		params)
 
 	return nil

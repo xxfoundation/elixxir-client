@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package user
 
@@ -120,7 +120,7 @@ func TestUser_loadUsername(t *testing.T) {
 
 	u1 := "zezima"
 
-	err = u.kv.Set(usernameKey, currentUsernameVersion, &versioned.Object{
+	err = u.kv.Set(usernameKey, &versioned.Object{
 		Version:   currentUsernameVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte(u1),

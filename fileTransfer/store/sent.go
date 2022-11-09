@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package store
@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -32,7 +31,7 @@ const (
 	errLoadSent            = "error loading sent transfer list from storage: %+v"
 	errUnmarshalSent       = "could not unmarshal sent transfer list: %+v"
 	warnLoadSentTransfer   = "[FT] Failed to load sent transfer %d of %d with ID %s: %+v"
-	errLoadAllSentTransfer = "failed to load all %d transfers"
+	errLoadAllSentTransfer = "failed to load all %d sent transfers"
 
 	// Sent.AddTransfer
 	errAddExistingSentTransfer = "sent transfer with ID %s already exists in map."
@@ -58,7 +57,7 @@ func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
 
 	obj, err := s.kv.Get(sentTransfersStoreKey, sentTransfersStoreVersion)
 	if err != nil {
-		if !ekv.Exists(err) {
+		if !kv.Exists(err) {
 			// Return the new Sent if none exists in storage
 			return s, nil, nil
 		} else {
@@ -92,7 +91,7 @@ func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
 	}
 
 	// Return an error if all transfers failed to load
-	if errCount == len(tidList) {
+	if len(tidList) > 0 && errCount == len(tidList) {
 		return nil, nil, errors.Errorf(errLoadAllSentTransfer, len(tidList))
 	}
 
@@ -165,7 +164,7 @@ func (s *Sent) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(sentTransfersStoreKey, sentTransfersStoreVersion, obj)
+	return s.kv.Set(sentTransfersStoreKey, obj)
 }
 
 // marshalSentTransfersMap serialises the list of transfer IDs from a

@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package e2e
@@ -21,8 +21,8 @@ const (
 // Name of listener (used for debugging)
 const listenerName = "NewFileTransferListener-E2E"
 
-// listener waits for a message indicating a new file transfer is starting.
-// Adheres to the receive.Listener interface.
+// listener waits for a message indicating a new file transfer is starting. This
+// structure adheres to the [receive.Listener] interface.
 type listener struct {
 	m *Wrapper
 }

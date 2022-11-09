@@ -1,13 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package rekey
 
 import (
+	"gitlab.com/elixxir/crypto/e2e"
 	"math/rand"
 	"testing"
 	"time"
@@ -27,7 +28,6 @@ import (
 	network2 "gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
@@ -73,7 +73,8 @@ func genSidhKeys() (*sidh.PrivateKey, *sidh.PublicKey, *sidh.PrivateKey, *sidh.P
 }
 
 func testSendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, cmixParams cmix.CMIXParams) ([]id.Round, e2e.MessageID, time.Time, error) {
+	payload []byte, cmixParams cmix.CMIXParams) (
+	e2e.SendReport, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	alicePartner, err := r.GetPartner(aliceID)
 	if err != nil {
@@ -109,7 +110,9 @@ func testSendE2E(mt catalog.MessageType, recipient *id.ID,
 
 	bobSwitchboard.Speak(confirmMessage)
 
-	return rounds, e2e.MessageID{}, time.Time{}, nil
+	return e2e.SendReport{
+		RoundList: rounds,
+	}, nil
 }
 
 var pub = "-----BEGIN CERTIFICATE-----\n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\n-----END CERTIFICATE-----\n"
@@ -219,7 +222,7 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 type mockNetManager struct{}
 
 func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -233,16 +236,24 @@ func (m *mockNetManager) GetMaxMessageLength() int {
 
 func (m *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
-	return id.Round(0), ephemeral.Id{}, nil
+	rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+
+func (m *mockNetManager) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
-	id.Round, []ephemeral.Id, error) {
-	return id.Round(0), nil, nil
+	rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
 }
 
 func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
+
+func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+}
 
 func (m *mockNetManager) RemoveIdentity(id *id.ID) {}
 
@@ -257,6 +268,11 @@ func (m *mockNetManager) DeleteClientFingerprints(identity *id.ID) {}
 
 func (m *mockNetManager) AddService(clientID *id.ID, newService message.Service,
 	response message.Processor) {
+}
+
+func (m *mockNetManager) IncreaseParallelNodeRegistration(
+	int) func() (stoppable.Stoppable, error) {
+	return nil
 }
 
 func (m *mockNetManager) DeleteService(clientID *id.ID, toDelete message.Service,
@@ -294,8 +310,7 @@ func (m *mockNetManager) NumRegisteredNodes() int {
 func (m *mockNetManager) TriggerNodeRegistration(nid *id.ID) {}
 
 func (m *mockNetManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-	roundList ...id.Round) error {
-	return nil
+	roundList ...id.Round) {
 }
 
 func (m *mockNetManager) LookupHistoricalRound(
@@ -335,4 +350,9 @@ func (m *mockNetManager) GetInstance() *network2.Instance {
 
 func (m *mockNetManager) GetVerboseRounds() string {
 	return ""
+}
+
+func (m *mockNetManager) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (m *mockNetManager) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
 }

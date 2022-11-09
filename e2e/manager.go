@@ -1,13 +1,19 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"sync"
-	"time"
-
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/crypto/e2e"
+	"sync"
 
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -23,7 +29,6 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -70,7 +75,7 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	if err != nil {
 		return errors.WithMessage(err, "Failed to marshal rekeyParams")
 	}
-	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
+	err = kv.Set(e2eRekeyParamsKey, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
@@ -123,7 +128,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	}
 
 	// Store the rekey params to disk/memory
-	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
+	err = kv.Set(e2eRekeyParamsKey, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
@@ -131,7 +136,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	if err != nil {
 		return nil, err
 	}
-	err = kv.Set(legacyE2EKey, e2eRekeyParamsVer, &versioned.Object{
+	err = kv.Set(legacyE2EKey, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      []byte{1},
@@ -214,8 +219,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	rekeySendFunc := func(mt catalog.MessageType,
 		recipient *id.ID, payload []byte,
-		cmixParams cmix.CMIXParams) (
-		[]id.Round, e2e.MessageID, time.Time, error) {
+		cmixParams cmix.CMIXParams) (e2e.SendReport, error) {
 		// FIXME: we should have access to the e2e params here...
 		par := GetDefaultParams()
 		par.CMIXParams = cmixParams
@@ -284,14 +288,15 @@ func (m *manager) DeletePartnerNotify(partnerId *id.ID, params Params) error {
 	m.DeletePartnerCallbacks(partnerId)
 
 	// Send closing E2E message
-	rounds, msgID, timestamp, err := sendFunc()
+
+	sendReport, err := sendFunc()
 	if err != nil {
 		jww.ERROR.Printf("Failed to send %s E2E message to %s: %+v",
 			catalog.E2eClose, partnerId, err)
 	} else {
 		jww.INFO.Printf(
 			"Sent %s E2E message to %s on rounds %v with message ID %s at %s",
-			catalog.E2eClose, partnerId, rounds, msgID, timestamp)
+			catalog.E2eClose, partnerId, sendReport.RoundList, sendReport.MessageId, sendReport.SentTime)
 	}
 
 	return nil

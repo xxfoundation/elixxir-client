@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package cmd
@@ -486,7 +486,7 @@ func miscConnectionFunctions(user *xxdk.E2e, conn connect.Connection) {
 			conn.GetPartner().PartnerId())
 		payload := []byte(msgBody)
 		for {
-			roundIDs, _, _, err := conn.SendE2E(catalog.XxMessage, payload,
+			sendReport, err := conn.SendE2E(catalog.XxMessage, payload,
 				paramsE2E)
 			if err != nil {
 				jww.FATAL.Panicf("[CONN] Failed to send E2E message: %v", err)
@@ -494,7 +494,7 @@ func miscConnectionFunctions(user *xxdk.E2e, conn connect.Connection) {
 
 			// Verify message sends were successful when verifySendFlag is present
 			if viper.GetBool(verifySendFlag) {
-				if !verifySendSuccess(user, paramsE2E, roundIDs,
+				if !verifySendSuccess(user, paramsE2E, sendReport.RoundList,
 					conn.GetPartner().PartnerId(), payload) {
 					continue
 				}

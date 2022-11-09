@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package dummy
@@ -40,6 +40,7 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 	t *testing.T) *Manager {
 	store := storage.InitTestingSession(t)
 	payloadSize := store.GetCmixGroup().GetP().ByteLen()
+	n := uint64(0)
 	m := &Manager{
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
@@ -48,6 +49,7 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		store:          store,
 		net:            newMockCmix(payloadSize),
 		rng:            fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+		totalSent:      &n,
 	}
 
 	return m

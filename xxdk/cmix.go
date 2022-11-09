@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package xxdk
 
@@ -182,7 +182,7 @@ func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 	storageSess.SetRegistrationTimestamp(protoUser.RegistrationTimestamp)
 
 	// Move the registration state to indicate registered with registration on
-	// roto client
+	// proto client
 	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
 		return err
@@ -340,29 +340,28 @@ func (c *Cmix) GetErrorsChannel() <-chan interfaces.ClientError {
 // they are stopped if there is no internet access.
 //
 // Threads Started:
-//   - Network Follower (/network/follow.go)
-//     tracks the network events and hands them off to workers for handling.
-//   - Historical Round Retrieval (/network/rounds/historical.go)
-// 	   retrieves data about rounds that are too old to be stored by the client.
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//	   requests all messages in a given round from the gateway of the last
-//	   nodes.
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//	   decrypts and partitions messages when signals via the Switchboard.
-//	 - Health Tracker (/network/health),
-//	   via the network instance, tracks the state of the network.
-//	 - Garbled Messages (/network/message/garbled.go)
-//	   can be signaled to check all recent messages that could be decoded. It
-//	   uses a message store on disk for persistence.
-//	 - Critical Messages (/network/message/critical.go)
-//	   ensures all protocol layer mandatory messages are sent. It uses a
-//	   message store on disk for persistence.
-//	 - KeyExchange Trigger (/keyExchange/trigger.go)
-//	   responds to sent rekeys and executes them.
-//   - KeyExchange Confirm (/keyExchange/confirm.go)
-//	   responds to confirmations of successful rekey operations.
-//   - Auth Callback (/auth/callback.go)
-//     handles both auth confirm and requests.
+//  - Network Follower (/network/follow.go)
+//    tracks the network events and hands them off to workers for handling.
+//  - Historical Round Retrieval (/network/rounds/historical.go)
+//    retrieves data about rounds that are too old to be stored by the client.
+//  - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//	  requests all messages in a given round from the gateway of the last nodes.
+//  - Message Handling Worker Group (/network/message/handle.go)
+//	  decrypts and partitions messages when signals via the Switchboard.
+//	- Health Tracker (/network/health),
+//	  via the network instance, tracks the state of the network.
+//  - Garbled Messages (/network/message/garbled.go)
+//	  can be signaled to check all recent messages that could be decoded. It
+//	  uses a message store on disk for persistence.
+//	- Critical Messages (/network/message/critical.go)
+//	  ensures all protocol layer mandatory messages are sent. It uses a message
+//	  store on disk for persistence.
+//	- KeyExchange Trigger (/keyExchange/trigger.go)
+//	  responds to sent rekeys and executes them.
+//  - KeyExchange Confirm (/keyExchange/confirm.go)
+//	  responds to confirmations of successful rekey operations.
+//  - Auth Callback (/auth/callback.go)
+//    handles both auth confirm and requests.
 func (c *Cmix) StartNetworkFollower(timeout time.Duration) error {
 	jww.INFO.Printf(
 		"StartNetworkFollower() \n\tTransmissionID: %s \n\tReceptionID: %s",
@@ -396,6 +395,13 @@ func (c *Cmix) NetworkFollowerStatus() Status {
 // true if one or more are.
 func (c *Cmix) HasRunningProcessies() bool {
 	return !c.followerServices.stoppable.IsStopped()
+}
+
+// GetRunningProcesses returns the names of all running processes at the time
+// of this call. Note that this list may change and is subject to race
+// conditions if multiple threads are in the process of starting or stopping.
+func (c *Cmix) GetRunningProcesses() []string {
+	return c.followerServices.stoppable.GetRunningProcesses()
 }
 
 // GetRoundEvents registers a callback for round events.
@@ -476,6 +482,41 @@ func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 
 	// Get the number of in progress nodes registrations
 	return numRegistered, len(nodes) - numStale, nil
+}
+
+// IsReady returns true if at least percentReady of node registrations has
+// completed. If not all have completed, then it returns false and howClose will
+// be a percent (0-1) of node registrations completed.
+func (c *Cmix) IsReady(percentReady float64) (isReady bool, howClose float64) {
+	// Check if the network is currently healthy
+	if !c.network.IsHealthy() {
+		return false, 0
+	}
+
+	numReg, numNodes, err := c.GetNodeRegistrationStatus()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
+	}
+
+	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
+	howClose = float64(numReg) / (float64(numNodes) * percentReady)
+	if howClose > 1 {
+		howClose = 1
+	}
+
+	return isReady, howClose
+}
+
+// PauseNodeRegistrations stops all node registrations and returns a function to
+// resume them.
+func (c *Cmix) PauseNodeRegistrations(timeout time.Duration) error {
+	return c.network.PauseNodeRegistrations(timeout)
+}
+
+// ChangeNumberOfNodeRegistrations changes the number of parallel node
+// registrations up to the initialized maximum.
+func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return c.network.ChangeNumberOfNodeRegistrations(toRun, timeout)
 }
 
 // GetPreferredBins returns the geographic bin or bins that the provided two

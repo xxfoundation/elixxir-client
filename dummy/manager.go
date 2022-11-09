@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 // Package dummy allows for the sending of dummy messages to dummy recipients
@@ -61,6 +61,8 @@ type Manager struct {
 	// Pauses/Resumes the dummy send thread when triggered
 	statusChan chan bool
 
+	totalSent *uint64
+
 	// Interfaces
 	net   cmix.Client
 	store storage.Session
@@ -96,6 +98,7 @@ func NewManager(maxNumMessages int,
 // function is a helper function for NewManager.
 func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 	net cmix.Client, store storage.Session, rng *fastRNG.StreamGenerator) *Manager {
+	numSent := uint64(8)
 	return &Manager{
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
@@ -105,6 +108,7 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		net:            net,
 		store:          store,
 		rng:            rng,
+		totalSent:      &numSent,
 	}
 }
 

@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package nodes
@@ -38,7 +38,7 @@ func TestLoadRegistrar_New(t *testing.T) {
 	nodeChan := make(chan commNetwork.NodeGateway, InputChanLen)
 
 	r, err := LoadRegistrar(session, sender, &MockClientComms{},
-		rngGen, nodeChan)
+		rngGen, nodeChan, func() int { return 100 })
 	if err != nil {
 		t.Fatalf("Failed to create new registrar: %+v", err)
 	}
@@ -71,7 +71,7 @@ func TestLoadRegistrar_Load(t *testing.T) {
 
 	// Load the store and check its attributes
 	r, err := LoadRegistrar(
-		testR.session, testR.sender, testR.comms, testR.rng, testR.c)
+		testR.session, testR.sender, testR.comms, testR.rng, testR.c, func() int { return 100 })
 	if err != nil {
 		t.Fatalf("Unable to load store: %+v", err)
 	}

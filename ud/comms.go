@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -42,6 +49,8 @@ type Comms interface {
 	// mixmessages.UsernameValidation.
 	SendUsernameValidation(host *connect.Host,
 		message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error)
+
+	channelLeaseComms
 }
 
 // removeFactComms is a sub-interface of the Comms interface for the
@@ -79,4 +88,8 @@ type addFactComms interface {
 type userValidationComms interface {
 	SendUsernameValidation(host *connect.Host,
 		message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error)
+}
+
+type channelLeaseComms interface {
+	SendChannelLeaseRequest(host *connect.Host, message *pb.ChannelLeaseRequest) (*pb.ChannelLeaseResponse, error)
 }

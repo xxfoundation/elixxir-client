@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package dummy
@@ -35,6 +35,7 @@ func Test_newManager(t *testing.T) {
 			statusChanLen, cap(received.statusChan))
 	}
 	received.statusChan = expected.statusChan
+	received.totalSent = nil
 
 	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("New manager does not match expected."+

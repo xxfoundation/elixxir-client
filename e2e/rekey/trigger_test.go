@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package rekey
 
@@ -119,7 +119,8 @@ func TestHandleTrigger(t *testing.T) {
 	rekeyParams := GetDefaultParams()
 	stop := stoppable.NewSingle("stoppable")
 	rekeyParams.RoundTimeout = 0 * time.Second
-	err = handleTrigger(r, testSendE2E, &mockNetManager{}, grp, receiveMsg, rekeyParams, stop)
+	err = handleTrigger(r, testSendE2E, &mockNetManager{}, grp, receiveMsg,
+		rekeyParams, stop)
 	if err != nil {
 		t.Errorf("Handle trigger error: %v", err)
 	}

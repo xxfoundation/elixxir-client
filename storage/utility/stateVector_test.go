@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package utility
@@ -563,7 +563,7 @@ func TestLoadStateVector_GetError(t *testing.T) {
 	expectedErr := "object not found"
 
 	_, err := LoadStateVector(kv, key)
-	if err == nil || err.Error() != expectedErr {
+	if err == nil || kv.Exists(err) {
 		t.Fatalf("LoadStateVector did not return the expected error when no "+
 			"object exists in storage.\nexpected: %s\nreceived: %+v",
 			expectedErr, err)
@@ -582,7 +582,7 @@ func TestLoadStateVector_UnmarshalError(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("invalidStateVector"),
 	}
-	err := kv.Set(makeStateVectorKey(key), currentStateVectorVersion, &obj)
+	err := kv.Set(makeStateVectorKey(key), &obj)
 	if err != nil {
 		t.Errorf("Failed to save invalid StateVector to storage: %+v", err)
 	}

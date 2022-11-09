@@ -1,26 +1,13 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package broadcast
 
-import (
-	"bytes"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	crypto "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/elixxir/crypto/cmix"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
-)
-
+/*
 // Tests that process.Process properly decrypts the payload and passes it to the
 // callback.
 func Test_processor_Process(t *testing.T) {
@@ -37,7 +24,7 @@ func Test_processor_Process(t *testing.T) {
 		RsaPubKey:   rsaPrivKey.GetPublic(),
 	}
 
-	cbChan := make(chan []byte)
+	cbChan := make(chan []byte, 1)
 	cb := func(payload []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 		cbChan <- payload
 	}
@@ -67,4 +54,4 @@ func Test_processor_Process(t *testing.T) {
 	case <-time.After(15 * time.Millisecond):
 		t.Error("Timed out waiting for listener channel to be called.")
 	}
-}
+}*/

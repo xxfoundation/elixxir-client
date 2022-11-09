@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package nodes
@@ -101,7 +101,7 @@ func makeTestRegistrar(mockComms *MockClientComms, t *testing.T) *registrar {
 	nodeChan := make(chan commNetwork.NodeGateway, InputChanLen)
 
 	r, err := LoadRegistrar(
-		session, sender, mockComms, rngGen, nodeChan)
+		session, sender, mockComms, rngGen, nodeChan, func() int { return 100 })
 	if err != nil {
 		t.Fatalf("Failed to create new registrar: %+v", err)
 	}

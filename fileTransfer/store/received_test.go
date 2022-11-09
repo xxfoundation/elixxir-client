@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package store
@@ -122,13 +122,13 @@ func TestReceived_AddTransfer(t *testing.T) {
 // Tests that Received.AddTransfer returns an error when adding a transfer ID
 // that already exists.
 func TestReceived_AddTransfer_TransferAlreadyExists(t *testing.T) {
-	tid := ftCrypto.TransferID{0}
+	tid := &ftCrypto.TransferID{0}
 	r := &Received{
-		transfers: map[ftCrypto.TransferID]*ReceivedTransfer{tid: nil},
+		transfers: map[ftCrypto.TransferID]*ReceivedTransfer{*tid: nil},
 	}
 
 	expectedErr := fmt.Sprintf(errAddExistingReceivedTransfer, tid)
-	_, err := r.AddTransfer(nil, &tid, "", nil, 0, 0, 0)
+	_, err := r.AddTransfer(nil, tid, "", nil, 0, 0, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -204,8 +204,8 @@ func TestReceived_save(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
 	r.transfers = map[ftCrypto.TransferID]*ReceivedTransfer{
-		ftCrypto.TransferID{0}: nil, ftCrypto.TransferID{1}: nil,
-		ftCrypto.TransferID{2}: nil, ftCrypto.TransferID{3}: nil,
+		{0}: nil, {1}: nil,
+		{2}: nil, {3}: nil,
 	}
 
 	err := r.save()

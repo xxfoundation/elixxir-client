@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -85,7 +85,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 //  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
 //    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
-	rounds, mid, ts, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
+	sendReport, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
 		c.params.Base)
 
 	if err != nil {
@@ -93,9 +93,11 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	}
 
 	sr := E2ESendReport{
-		RoundsList: makeRoundsList(rounds...),
-		MessageID:  mid.Marshal(),
-		Timestamp:  ts.UnixNano(),
+		RoundsList: makeRoundsList(sendReport.RoundList...),
+		RoundURL:   getRoundURL(sendReport.RoundList[0]),
+		MessageID:  sendReport.MessageId.Marshal(),
+		Timestamp:  sendReport.SentTime.UnixNano(),
+		KeyResidue: sendReport.KeyResidue.Marshal(),
 	}
 
 	return json.Marshal(&sr)

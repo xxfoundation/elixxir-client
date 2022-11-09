@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package cmix
 
@@ -65,19 +65,19 @@ type RoundEventCallback func(allRoundsSucceeded, timedOut bool, rounds map[id.Ro
 // GetRoundResults adjudicates on the rounds requested. Checks if they are
 // older rounds or in progress rounds.
 func (c *client) GetRoundResults(timeout time.Duration,
-	roundCallback RoundEventCallback, roundList ...id.Round) error {
+	roundCallback RoundEventCallback, roundList ...id.Round) {
 
 	jww.INFO.Printf("GetRoundResults(%v, %s)", roundList, timeout)
 
 	sendResults := make(chan ds.EventReturn, len(roundList))
 
-	return c.getRoundResults(roundList, timeout, roundCallback,
+	c.getRoundResults(roundList, timeout, roundCallback,
 		sendResults)
 }
 
 // Helper function which does all the logic for GetRoundResults
 func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
-	roundCallback RoundEventCallback, sendResults chan ds.EventReturn) error {
+	roundCallback RoundEventCallback, sendResults chan ds.EventReturn) {
 
 	networkInstance := c.GetInstance()
 
@@ -221,6 +221,4 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 		}
 	}()
-
-	return nil
 }

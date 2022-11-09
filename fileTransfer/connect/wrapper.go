@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package connect
@@ -13,9 +13,8 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer"
-	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -36,12 +35,12 @@ type Wrapper struct {
 	conn connection
 }
 
-// connection interface matches a subset of the connect.Connection methods used
-// by the Wrapper for easier testing.
+// connection interface matches a subset of the [connect.Connection] methods
+// used by the Wrapper for easier testing.
 type connection interface {
 	GetPartner() partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params e2e.Params) (
-		[]id.Round, e2eCrypto.MessageID, time.Time, error)
+		cryptoE2e.SendReport, error)
 	RegisterListener(messageType catalog.MessageType,
 		newListener receive.Listener) (receive.ListenerID, error)
 }
@@ -119,7 +118,8 @@ func (w *Wrapper) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 // addEndMessageToCallback adds the sending of a connection E2E message when
 // the transfer completed to the callback. If NotifyUponCompletion is not set,
 // then the message is not sent.
-func (w *Wrapper) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft.SentProgressCallback {
+func (w *Wrapper) addEndMessageToCallback(
+	progressCB ft.SentProgressCallback) ft.SentProgressCallback {
 	if !w.p.NotifyUponCompletion {
 		return progressCB
 	}

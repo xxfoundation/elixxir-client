@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupChat
 
@@ -120,13 +120,13 @@ func (m *manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, erro
 	p.LastServiceTag = catalog.GroupRq
 	p.DebugTag = "group.Request"
 
-	rounds, _, _, err := m.getE2eHandler().SendE2E(
+	sendReport, err := m.getE2eHandler().SendE2E(
 		catalog.GroupCreationRequest, memberID, request, p)
 	if err != nil {
 		return nil, errors.Errorf(sendE2eErr, memberID, err)
 	}
 
-	return rounds, nil
+	return sendReport.RoundList, nil
 }
 
 // roundIdMap2List converts the map of round IDs to a list of round IDs.

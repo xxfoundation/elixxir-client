@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2021 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 // Contains gateway message sending wrappers
@@ -76,11 +77,11 @@ func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 					"with error %s", proxies[proxy].GetId(), err.Error())
 			} else {
 				if checkReplaceErr != nil {
-					jww.WARN.Printf("Unable to SendToAny via %s: %s."+
+					jww.WARN.Printf("Unable to SendToAny via %s: %s. "+
 						"Unable to replace host: %+v",
 						proxies[proxy].GetId(), err.Error(), checkReplaceErr)
 				} else {
-					jww.WARN.Printf("Unable to SendToAny via %s: %s."+
+					jww.WARN.Printf("Unable to SendToAny via %s: %s. "+
 						"Did not replace host.",
 						proxies[proxy].GetId(), err.Error())
 				}

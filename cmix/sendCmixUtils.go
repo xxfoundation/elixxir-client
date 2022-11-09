@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package cmix
 
@@ -41,7 +41,7 @@ type SendCmixCommsInterface interface {
 }
 
 // How much in the future a round needs to be to send to it
-const sendTimeBuffer = 1000 * time.Millisecond
+const sendTimeBuffer = 150 * time.Millisecond
 const unrecoverableError = "failed with an unrecoverable error"
 
 // handlePutMessageError handles errors received from a PutMessage or a

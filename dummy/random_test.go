@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package dummy
@@ -75,16 +75,16 @@ func Test_durationRng_Consistency(t *testing.T) {
 // when using a PRNG and that the result is not larger than the max payload.
 func Test_newRandomPayload_Consistency(t *testing.T) {
 	expectedPayloads := []string{
-		"l7ufS7Ry6J9bFITyUgnJ",
-		"Ut/Xm012Qpthegyfnw07pVsMwNYUTIiFNQ==",
-		"CD9h",
-		"GSnh",
-		"joE=",
-		"uoQ+6NY+jE/+HOvqVG2PrBPdGqwEzi6ih3xVec+ix44bC6+uiBuCpw==",
-		"qkNGWnhiBhaXiu0M48bE8657w+BJW1cS/v2+DBAoh+EA2s0tiF9pLLYH2gChHBxwcec=",
-		"suEpcF4nPwXJIyaCjisFbg==",
-		"R/3zREEO1MEWAj+o41drb+0n/4l0usDK/ZrQVpKxNhnnOJZN/ceejVNDc2Yc/WbXTw==",
-		"bkt1IQ==",
+		"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVLf15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWA==",
+		"CD9h03W8ArQd9PkZKeGP2p5vguVOdI6B555LvW/jTNy6hD7o1j6MT/4c6+pUbY+sE90arATOLqKHfFV5z6LHjg==",
+		"GwuvrogbgqdREIpC7TyQPKpDRlp4YgYWl4rtDOPGxPOue8PgSVtXEv79vgwQKIfhANrNLYhfaSy2B9oAoRwccA==",
+		"ceeWotwtwlpbdLLhKXBeJz8FySMmgo4rBW44F2WOEGFJiUf980RBDtTBFgI/qONXa2/tJ/+JdLrAyv2a0FaSsQ==",
+		"NhnnOJZN/ceejVNDc2Yc/WbXT+weG4lJGrcjbkt1IWKQzyvrQsPKJzKFYPGqwGfOpui/RtSrK0aAQCxfsoIOiA==",
+		"XTJg8d6XgoPUoJo2+WwglBdG4+1NpkaprotPp7T8OiC6+hp17TJ6hriww5rxz9KztRIZ6nlTOr9EjSxHnTJgdQ==",
+		"M5BZFMjMHPCdo54Okp0CSry8sWk5e7c05+8KbgHxhU3rX+Qk/vesIQiR9ZdeKSqiuKoEfGHNszNz6+csJ6CYwA==",
+		"IZfa5rcyw1HfZo+HTiyfHOCcqGAX5+IXSDA/9BwbI+EcSO0XU51oX3byp5i8ZN4OXbKGSyrTwmzmOCNCdloT1g==",
+		"luUt92D2w0ZeKaDcpGrDoNVwEzvCFXH19UpkMQVRP9hCmxlK4bqfKoOGrnKzZh/oLCrGTb9GFRgk4jBTEmN8mQ==",
+		"wrh9bfDdXvKDZxkHLWcvYfqgvob0V5Iew3wORgzw1wPQfcX1ZhpFATNAmnEramar17plIkyiaXjZpc5i/rEagw==",
 	}
 
 	prng := NewPrng(42)

@@ -1,13 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package parse
 
 import (
+	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
 	"github.com/pkg/errors"
@@ -78,7 +79,8 @@ func (p *Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 }
 
 func (p *Partitioner) HandlePartition(sender *id.ID,
-	contents []byte, relationshipFingerprint []byte) (receive.Message, bool) {
+	contents []byte, relationshipFingerprint []byte,
+	residue e2e.KeyResidue) (receive.Message, e2e.KeyResidue, bool) {
 
 	if isFirst(contents) {
 		// If it is the first message in a set, then handle it as so
@@ -92,7 +94,7 @@ func (p *Partitioner) HandlePartition(sender *id.ID,
 		storageTimestamp := netTime.Now()
 		return p.partition.AddFirst(sender, fm.getType(), messageID,
 			fm.getPart(), fm.getNumParts(), fm.getTimestamp(), storageTimestamp,
-			fm.getSizedContents(), relationshipFingerprint)
+			fm.getSizedContents(), relationshipFingerprint, residue)
 	} else {
 		// If it is a subsequent message part, handle it as so
 		mp := messagePartFromBytes(contents)

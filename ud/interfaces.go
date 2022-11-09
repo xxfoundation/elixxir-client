@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -32,6 +39,7 @@ type udE2e interface {
 	GetRng() *fastRNG.StreamGenerator
 	GetStorage() storage.Session
 	GetTransmissionIdentity() xxdk.TransmissionIdentity
+	GetBackupContainer() *xxdk.Container
 }
 
 // udNetworkStatus is an interface for the xxdk.Cmix's

@@ -1,40 +1,28 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package broadcast
 
 import (
+	"sync"
+	"time"
+
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
-// newRsaPubKey generates a new random RSA public key for testing.
-func newRsaPubKey(seed int64, t *testing.T) *rsa.PublicKey {
-	prng := rand.New(rand.NewSource(seed))
-	privKey, err := rsa.GenerateKey(prng, 64)
-	if err != nil {
-		t.Errorf("Failed to generate new RSA key: %+v", err)
-	}
-
-	return privKey.GetPublic()
-}
-
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix                                                           //
+// Mock cMix                                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockCmixHandler struct {
@@ -56,7 +44,7 @@ type mockCmix struct {
 
 func newMockCmix(handler *mockCmixHandler) *mockCmix {
 	return &mockCmix{
-		numPrimeBytes: 4096,
+		numPrimeBytes: 4096 / 8,
 		health:        true,
 		handler:       handler,
 	}
@@ -64,6 +52,30 @@ func newMockCmix(handler *mockCmixHandler) *mockCmix {
 
 func (m *mockCmix) GetMaxMessageLength() int {
 	return format.NewMessage(m.numPrimeBytes).ContentsSize()
+}
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID,
+	assembler cmix.MessageAssembler, _ cmix.CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
+
+	fingerprint, service, payload, mac, err := assembler(42)
+	if err != nil {
+		panic(err)
+	}
+
+	msg := format.NewMessage(m.numPrimeBytes)
+	msg.SetContents(payload)
+	msg.SetMac(mac)
+	msg.SetKeyFP(fingerprint)
+
+	m.handler.Lock()
+	defer m.handler.Unlock()
+
+	for _, p := range m.handler.processorMap[*recipient][service.Tag] {
+		p.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	}
+
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
@@ -88,6 +100,17 @@ func (m *mockCmix) IsHealthy() bool {
 }
 
 func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool) {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+
+	if _, exists := m.handler.processorMap[*id]; exists {
+		return
+	}
+
+	m.handler.processorMap[*id] = make(map[string][]message.Processor)
+}
+
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, _, _ time.Time, _ bool) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 

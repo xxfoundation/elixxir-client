@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package connect
@@ -26,7 +26,7 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
-	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -38,7 +38,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"testing"
 	"time"
@@ -116,12 +115,12 @@ func (m *mockCmix) GetMaxMessageLength() int {
 }
 
 func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
-	[]byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 
 func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
-	_ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
@@ -133,12 +132,18 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 			rounds.Round{ID: 42})
 	}
 	m.handler.Unlock()
-	return 42, []ephemeral.Id{}, nil
+	return rounds.Round{ID: 42}, []ephemeral.Id{}, nil
 }
 
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            { panic("implement me") }
-func (m *mockCmix) RemoveIdentity(*id.ID)                          { panic("implement me") }
-func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { panic("implement me") }
+func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
+	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)                       { panic("implement me") }
+func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) { panic("implement me") }
+func (m *mockCmix) RemoveIdentity(*id.ID)                                     { panic("implement me") }
+func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error)            { panic("implement me") }
 
 func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
 	m.Lock()
@@ -153,8 +158,11 @@ func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	m.handler.Unlock()
 }
 
-func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          { panic("implement me") }
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    { panic("implement me") }
+func (m *mockCmix) DeleteClientFingerprints(*id.ID)                       { panic("implement me") }
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor) { panic("implement me") }
+func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	panic("implement me")
+}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
@@ -185,18 +193,19 @@ func (m *mockCmix) NumRegisteredNodes() int        { panic("implement me") }
 func (m *mockCmix) TriggerNodeRegistration(*id.ID) { panic("implement me") }
 
 func (m *mockCmix) GetRoundResults(_ time.Duration,
-	roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
+	roundCallback cmix.RoundEventCallback, _ ...id.Round) {
 	go roundCallback(true, false, map[id.Round]cmix.RoundResult{42: {}})
-	return nil
 }
 
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error {
 	panic("implement me")
 }
-func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {
+func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error),
+	*stoppable.Single) (interface{}, error) {
 	panic("implement me")
 }
-func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc, *stoppable.Single, time.Duration) (interface{}, error) {
+func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc,
+	*stoppable.Single, time.Duration) (interface{}, error) {
 	panic("implement me")
 }
 func (m *mockCmix) SetGatewayFilter(gateway.Filter)   { panic("implement me") }
@@ -205,9 +214,13 @@ func (m *mockCmix) GetAddressSpace() uint8            { panic("implement me") }
 func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) {
 	panic("implement me")
 }
-func (m *mockCmix) UnregisterAddressSpaceNotification(string) { panic("implement me") }
-func (m *mockCmix) GetInstance() *network.Instance            { panic("implement me") }
-func (m *mockCmix) GetVerboseRounds() string                  { panic("implement me") }
+func (m *mockCmix) UnregisterAddressSpaceNotification(string)          { panic("implement me") }
+func (m *mockCmix) GetInstance() *network.Instance                     { panic("implement me") }
+func (m *mockCmix) GetVerboseRounds() string                           { panic("implement me") }
+func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Connection Handler                                                    //
@@ -268,7 +281,7 @@ func (m *mockConnection) GetPartner() partner.Manager {
 
 // SendE2E adds the message to the e2e handler map.
 func (m *mockConnection) SendE2E(mt catalog.MessageType, payload []byte,
-	_ e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error) {
+	_ e2e.Params) (cryptoE2e.SendReport, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
@@ -278,7 +291,7 @@ func (m *mockConnection) SendE2E(mt catalog.MessageType, payload []byte,
 		Sender:      m.myID,
 	})
 
-	return []id.Round{42}, e2eCrypto.MessageID{}, netTime.Now(), nil
+	return cryptoE2e.SendReport{RoundList: []id.Round{42}}, nil
 }
 
 func (m *mockConnection) RegisterListener(mt catalog.MessageType,

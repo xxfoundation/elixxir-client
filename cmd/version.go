@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Handles command-line version functionality
 
@@ -18,10 +18,10 @@ import (
 )
 
 // Change this value to set the version for this build
-const currentVersion = "4.2.0"
+const currentVersion = "4.3.3"
 
 func Version() string {
-	out := fmt.Sprintf("Elixxir Cmix v%s -- %s\n\n", xxdk.SEMVER,
+	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", xxdk.SEMVER,
 		xxdk.GITVERSION)
 	out += fmt.Sprintf("Dependencies:\n\n%s\n", xxdk.DEPENDENCIES)
 	return out

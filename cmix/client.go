@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package cmix
 
@@ -11,6 +11,9 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	"gitlab.com/elixxir/client/cmix/attempts"
+	"gitlab.com/elixxir/client/cmix/clockSkew"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strconv"
 	"sync/atomic"
@@ -57,6 +60,8 @@ type client struct {
 	comms *commClient.Comms
 	// Contains the network instance
 	instance *commNetwork.Instance
+	//contains the clock skew tracker
+	skewTracker clockSkew.Tracker
 
 	// Parameters of the network
 	param Params
@@ -70,7 +75,8 @@ type client struct {
 	address.Space
 	identity.Tracker
 	health.Monitor
-	crit *critical
+	crit           *critical
+	attemptTracker attempts.SendAttemptTracker
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -86,6 +92,8 @@ type client struct {
 
 	// Storage of the max message length
 	maxMsgLen int
+
+	numNodes *uint64
 }
 
 // NewClient builds a new reception client object using inputted key fields.
@@ -97,16 +105,23 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	tracker := uint64(0)
 	earliest := uint64(0)
 
+	numNodes := uint64(0)
+
+	netTime.SetTimeSource(localTime{})
+
 	// Create client object
 	c := &client{
-		param:         params,
-		tracker:       &tracker,
-		events:        events,
-		earliestRound: &earliest,
-		session:       session,
-		rng:           rng,
-		comms:         comms,
-		maxMsgLen:     tmpMsg.ContentsSize(),
+		param:          params,
+		tracker:        &tracker,
+		events:         events,
+		earliestRound:  &earliest,
+		session:        session,
+		rng:            rng,
+		comms:          comms,
+		maxMsgLen:      tmpMsg.ContentsSize(),
+		skewTracker:    clockSkew.New(params.ClockSkewClamp),
+		attemptTracker: attempts.NewSendAttempts(),
+		numNodes:       &numNodes,
 	}
 
 	if params.VerboseRoundTracking {
@@ -124,10 +139,20 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 // initialize turns on network handlers, initializing a host pool and
 // network health monitors. This should be called before
 // network Follow command is called.
-func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
+func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
+
+	//set the number of nodes
+	numNodes := uint64(0)
+	for _, n := range ndfile.Nodes {
+		if n.Status != ndf.Stale {
+			numNodes++
+		}
+	}
+	atomic.StoreUint64(c.numNodes, numNodes)
+
 	// Start network instance
 	instance, err := commNetwork.NewInstance(
-		c.comms.ProtoComms, ndf, nil, nil, commNetwork.None,
+		c.comms.ProtoComms, ndfile, nil, nil, commNetwork.None,
 		c.param.FastPolling)
 	if err != nil {
 		return errors.WithMessage(
@@ -135,7 +160,7 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	}
 	c.instance = instance
 
-	addrSize := ndf.AddressSpace[len(ndf.AddressSpace)-1].Size
+	addrSize := ndfile.AddressSpace[len(ndfile.AddressSpace)-1].Size
 	c.Space = address.NewAddressSpace(addrSize)
 
 	/* Set up modules */
@@ -155,7 +180,7 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
 	poolParams.ForceConnection = true
-	sender, err := gateway.NewSender(poolParams, c.rng, ndf, c.comms,
+	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
 		c.session, nodeChan)
 	if err != nil {
 		return err
@@ -164,7 +189,9 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 
 	// Set up the node registrar
 	c.Registrar, err = nodes.LoadRegistrar(
-		c.session, c.Sender, c.comms, c.rng, nodeChan)
+		c.session, c.Sender, c.comms, c.rng, nodeChan, func() int {
+			return int(atomic.LoadUint64(c.numNodes))
+		})
 	if err != nil {
 		return err
 	}
@@ -188,10 +215,15 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 
 	// Set up critical message tracking (sendCmix only)
 	critSender := func(msg format.Message, recipient *id.ID, params CMIXParams,
-	) (id.Round, ephemeral.Id, error) {
-		return sendCmixHelper(c.Sender, msg, recipient, params, c.instance,
+	) (rounds.Round, ephemeral.Id, error) {
+		compiler := func(round id.Round) (format.Message, error) {
+			return msg, nil
+		}
+		r, eid, _, sendErr := sendCmixHelper(c.Sender, compiler, recipient, params, c.instance,
 			c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
-			c.session.GetTransmissionID(), c.comms)
+			c.session.GetTransmissionID(), c.comms, c.attemptTracker)
+		return r, eid, sendErr
+
 	}
 
 	c.crit = newCritical(c.session.GetKV(), c.Monitor,

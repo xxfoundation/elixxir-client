@@ -1,0 +1,29 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+
+option go_package = "gitlab.com/elixxir/client/channels";
+
+package channels;
+
+// CMIXChannelText is the payload for sending normal text messages to channels
+// the replyMessageID is nil when it is not a reply.
+message CMIXChannelText {
+    uint32 version = 1;
+    string text = 2;
+    bytes  replyMessageID = 3;
+}
+
+// CMIXChannelReaction is the payload for reactions. The reaction must be a
+// single emoji and the reactionMessageID must be non nil and a real message
+// in the channel.
+message CMIXChannelReaction {
+    uint32 version = 1;
+    string reaction = 2;
+    bytes  reactionMessageID = 3;
+}

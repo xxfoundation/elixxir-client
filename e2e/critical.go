@@ -1,6 +1,14 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
+	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -9,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
@@ -29,7 +36,7 @@ type roundEventRegistrar interface {
 // anonymous function to include the structures from manager that critical is
 // not aware of.
 type criticalSender func(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error)
+	payload []byte, params Params) (e2e.SendReport, error)
 
 // critical is a structure that allows the auto resending of messages that must
 // be received.
@@ -138,11 +145,11 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 				format.DigestContents(payload))
 
 			// Send the message
-			round, _, _, err := c.send(mt, recipient, payload,
+			sendReport, err := c.send(mt, recipient, payload,
 				params)
 
 			// Pass to the handler
-			c.handle(mt, recipient, payload, round, err)
+			c.handle(mt, recipient, payload, sendReport.RoundList, err)
 		}(mt, recipient, payload, params)
 	}
 

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package auth
 
@@ -82,6 +82,11 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	historicalDHPub := diffieHellman.GeneratePublicKey(historicalDHPriv,
 		dhGrp)
 
+	if !dhGrp.Inside(partner.DhPubKey.GetLargeInt()) {
+		return 0, errors.Errorf("partner's DH public key is not in the E2E "+
+			"group; E2E group fingerprint is %d and DH key has %d",
+			dhGrp.GetFingerprint(), partner.DhPubKey.GetGroupFingerprint())
+	}
 	ownership := cAuth.MakeOwnershipProof(historicalDHPriv,
 		partner.DhPubKey, dhGrp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
@@ -159,10 +164,10 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	}
 
 	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
-		" on round %d", partner.ID, format.DigestContents(contents), round)
+		" on round %d", partner.ID, format.DigestContents(contents), round.ID)
 	jww.INFO.Print(em)
 	s.event.Report(1, "Auth", "RequestSent", em)
-	return round, nil
+	return round.ID, nil
 
 }
 

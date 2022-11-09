@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package e2e
@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -106,7 +107,7 @@ func Test_manager_SendE2E_Smoke(t *testing.T) {
 
 	payload := []byte("My Payload")
 	p := GetDefaultParams()
-	_, _, _, err = m1.SendE2E(catalog.NoType, partnerID, payload, p)
+	_, err = m1.SendE2E(catalog.NoType, partnerID, payload, p)
 	if err != nil {
 		t.Errorf("SendE2E failed: %+v", err)
 	}
@@ -221,11 +222,15 @@ type mockWaitForKeyCypher struct {
 	cypherNum int
 }
 
-func (m *mockWaitForKeyCypher) GetSession() *session.Session           { return nil }
-func (m *mockWaitForKeyCypher) Fingerprint() format.Fingerprint        { return format.Fingerprint{} }
-func (m *mockWaitForKeyCypher) Encrypt([]byte) ([]byte, []byte)        { return nil, nil }
-func (m *mockWaitForKeyCypher) Decrypt(format.Message) ([]byte, error) { return nil, nil }
-func (m *mockWaitForKeyCypher) Use()                                   {}
+func (m *mockWaitForKeyCypher) GetSession() *session.Session    { return nil }
+func (m *mockWaitForKeyCypher) Fingerprint() format.Fingerprint { return format.Fingerprint{} }
+func (m *mockWaitForKeyCypher) Encrypt([]byte) ([]byte, []byte, e2e.KeyResidue) {
+	return nil, nil, e2e.KeyResidue{}
+}
+func (m *mockWaitForKeyCypher) Decrypt(format.Message) ([]byte, e2e.KeyResidue, error) {
+	return nil, e2e.KeyResidue{}, nil
+}
+func (m *mockWaitForKeyCypher) Use() {}
 
 // Tests that getSendErrors returns all the errors on the channel.
 func Test_getSendErrors(t *testing.T) {

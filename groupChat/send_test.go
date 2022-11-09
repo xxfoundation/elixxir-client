@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupChat
 
@@ -56,7 +56,7 @@ func Test_manager_Send(t *testing.T) {
 		reception.Process(msg, receptionID.EphemeralIdentity{
 			EphId: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},
 		},
-			rounds.Round{ID: roundId, Timestamps: timestamps})
+			rounds.Round{ID: roundId.ID, Timestamps: timestamps})
 		select {
 		case result := <-msgChan:
 			if !result.SenderID.Cmp(m.getReceptionIdentity().ID) {
@@ -78,9 +78,9 @@ func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	_, err := newCmixMsg(
-		gs.Group{ID: id.NewIdFromString("test", id.User, t)}, "",
-		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""),
-		m.getReceptionIdentity().ID, m.getCMix().GetMaxMessageLength())
+		gs.Group{ID: id.NewIdFromString("test", id.User, t)},
+		"", time.Time{}, group.Member{}, strings.NewReader(""),
+		m.getCMix().GetMaxMessageLength(), []byte("internal Message"))
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -97,36 +97,12 @@ func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 
 	// Create test parameters
 	testMsg := make([]byte, 1500)
-	mem := group.Member{ID: id.NewIdFromString("memberID", id.User, t)}
 
 	// Create cMix message
 	prng = rand.New(rand.NewSource(42))
-	_, err := newCmixMsg(g, "", testMsg, netTime.Now(), mem, prng,
-		m.getReceptionIdentity().ID, m.getCMix().GetMaxMessageLength())
+	_, _, err := m.newMessages(g, "", testMsg, netTime.Now())
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg failed to return the expected error"+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: payload size too small to fit publicMsg.
-func Test_newMessageParts_PublicMsgSizeErr(t *testing.T) {
-	expectedErr := strings.SplitN(newPublicMsgErr, "%", 2)[0]
-
-	_, _, err := newMessageParts(publicMinLen - 1)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newMessageParts did not return the expected error."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: payload size too small to fit internalMsg.
-func Test_newMessageParts_InternalMsgSizeErr(t *testing.T) {
-	expectedErr := strings.SplitN(newInternalMsgErr, "%", 2)[0]
-
-	_, _, err := newMessageParts(publicMinLen)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newMessageParts did not return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }

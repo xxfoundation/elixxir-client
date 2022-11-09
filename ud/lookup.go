@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -35,30 +42,6 @@ func Lookup(user udE2e,
 
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, p.Timeout)
 	return lookup(net, rng, uid, grp, udContact, callback, p)
-}
-
-// BatchLookup performs a Lookup operation on a list of user IDs.
-// The lookup performs a callback on each lookup on the returned contact object
-// constructed from the response.
-func BatchLookup(udContact contact.Contact,
-	net udCmix, callback lookupCallback,
-	rng csprng.Source,
-	uids []*id.ID, grp *cyclic.Group,
-	p single.RequestParams) {
-	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, p.Timeout)
-
-	for _, uid := range uids {
-		go func(localUid *id.ID) {
-			_, _, err := lookup(net, rng, localUid, grp,
-				udContact, callback, p)
-			if err != nil {
-				jww.WARN.Printf("Failed batch lookup on user %s: %v",
-					localUid, err)
-			}
-		}(uid)
-	}
-
-	return
 }
 
 // lookup is a helper function which sends a lookup request to the user discovery

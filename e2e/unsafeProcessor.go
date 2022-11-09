@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
@@ -33,8 +40,9 @@ func (up *UnsafeProcessor) Process(ecrMsg format.Message,
 	}
 
 	//Parse
-	message, done := up.m.partitioner.HandlePartition(sender,
-		ecrMsg.GetContents(), nil)
+	// todo: handle residue here
+	message, _, done := up.m.partitioner.HandlePartition(sender,
+		ecrMsg.GetContents(), nil, e2e.KeyResidue{})
 
 	if done {
 		message.RecipientID = receptionID.Source

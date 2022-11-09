@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package backup
@@ -91,6 +92,7 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 			phone = f
 		}
 	}
+
 	err = ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
 	return backUp.Contacts.Identities, backUp.JSONParams, err
 }

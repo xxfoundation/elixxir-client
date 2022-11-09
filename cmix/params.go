@@ -96,7 +96,7 @@ type paramsDisk struct {
 // default parameters.
 func GetDefaultParams() Params {
 	n := Params{
-		TrackNetworkPeriod:        100 * time.Millisecond,
+		TrackNetworkPeriod:        1000 * time.Millisecond,
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
 		NetworkHealthTimeout:      15 * time.Second,

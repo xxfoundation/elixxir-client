@@ -55,17 +55,20 @@ type UncheckedRound struct {
 	LastCheck time.Time
 	// Number of times a round has been checked
 	NumChecks uint64
+
+	stored bool
 }
 
 // marshal serializes UncheckedRound r into a byte slice.
 func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	// Store teh round info
-	if r.Info != nil {
+	if r.Info != nil && !r.stored {
 		if err := storeRoundInfo(kv, r.Info, r.Source, r.EpdId); err != nil {
 			return nil, errors.WithMessagef(err,
 				"failed to marshal unchecked rounds")
 		}
+		r.stored = true
 	}
 
 	// Marshal the round ID
@@ -126,6 +129,7 @@ func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
 	r.NumChecks = binary.LittleEndian.Uint64(buff.Next(uint64Size))
 
 	r.Info, _ = loadRoundInfo(kv, r.Id, r.Source, r.EpdId)
+	r.stored = true
 
 	return nil
 }

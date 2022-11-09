@@ -58,7 +58,7 @@ type paramsDisk struct {
 func GetDefaultParams() Params {
 	return Params{
 		NumMessageRetrievalWorkers: 1,
-		LookupRoundsBufferLen:      2000,
+		LookupRoundsBufferLen:      100000,
 		MaxHistoricalRoundsRetries: 1,
 		UncheckRoundPeriod:         20 * time.Second,
 		ForceMessagePickupRetry:    false,

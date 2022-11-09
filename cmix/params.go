@@ -182,13 +182,6 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (p Params) SetRealtimeOnlyAll() Params {
-	p.RealtimeOnly = true
-	p.Pickup.RealtimeOnly = true
-	p.Message.RealtimeOnly = true
-	return p
-}
-
 const DefaultDebugTag = "External"
 
 type CMIXParams struct {

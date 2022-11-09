@@ -59,13 +59,11 @@ func (m *pickup) GetMessagesFromRound(
 			identity.Source)
 
 		// store the round as an un-retrieved round
-		if !m.params.RealtimeOnly {
-			err = m.unchecked.AddRound(roundID, ri,
-				identity.Source, identity.EphId)
-			if err != nil {
-				jww.FATAL.Panicf(
-					"Failed to denote Unchecked Round for round %d", roundID)
-			}
+		err = m.unchecked.AddRound(roundID, ri,
+			identity.Source, identity.EphId)
+		if err != nil {
+			jww.FATAL.Panicf(
+				"Failed to denote Unchecked Round for round %d", roundID)
 		}
 
 		// If found, send to Message Retrieval Workers

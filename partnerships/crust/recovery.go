@@ -37,8 +37,8 @@ type RecoveryResponse struct {
 // RecoverBackup retrieves the backup file uploaded to the distributed file
 // server. The user must have called UploadBackup successfully for a proper
 // file recover.
-func RecoverBackup(usernameHsh string) ([]byte, error) {
-	cidResp, err := requestCid(usernameHsh)
+func RecoverBackup(usernameHash string) ([]byte, error) {
+	cidResp, err := requestCid(usernameHash)
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve CID: %+v", err)
 	}

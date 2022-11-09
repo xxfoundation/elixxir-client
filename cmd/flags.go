@@ -12,8 +12,9 @@ package cmd
 // flags for any existing or new subcommands should be listed and organized
 // here. Pulling flags using Viper should use the constants defined here.
 // todo: fill this with all existing flags, replace hardcoded references with
-//  these constants. This makes renaming them easier, as well as having
-//  a consolidated place in code for these flags.
+//
+//	these constants. This makes renaming them easier, as well as having
+//	a consolidated place in code for these flags.
 const (
 	//////////////// Root flags ///////////////////////////////////////////////
 
@@ -102,6 +103,12 @@ const (
 	connectionServerTimeoutFlag = "serverTimeout"
 	connectionAuthenticatedFlag = "authenticated"
 	connectionEphemeralFlag     = "ephemeral"
+
+	///////////////// Connection subcommand flags /////////////////////////////
+	crustFlag    = "crust"
+	crustFile    = "file"
+	crustUpload  = "upload"
+	crustRecover = "recover"
 
 	///////////////// File Transfer subcommand flags //////////////////////////
 	fileSendFlag          = "sendFile"

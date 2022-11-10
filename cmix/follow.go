@@ -26,13 +26,12 @@ import (
 	"crypto/hmac"
 	"encoding/binary"
 	"fmt"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/xx_network/primitives/ndf"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID/store"

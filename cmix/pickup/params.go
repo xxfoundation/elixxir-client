@@ -57,7 +57,7 @@ type paramsDisk struct {
 // GetDefaultParams returns a default set of Params.
 func GetDefaultParams() Params {
 	return Params{
-		NumMessageRetrievalWorkers: 8,
+		NumMessageRetrievalWorkers: 4,
 		LookupRoundsBufferLen:      2000,
 		MaxHistoricalRoundsRetries: 3,
 		UncheckRoundPeriod:         20 * time.Second,

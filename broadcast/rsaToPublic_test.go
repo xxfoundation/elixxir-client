@@ -158,7 +158,8 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	}
 
 	// Broadcast payload
-	_, _, err := clients[0].BroadcastRSAtoPublic(pk, payload, cmix.GetDefaultCMIXParams())
+	_, _, err := clients[0].BroadcastRSAtoPublic(
+		pk, payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Errorf("Cmix 0 failed to send broadcast: %+v", err)
 	}

@@ -269,3 +269,8 @@ func (tnm *testNetworkManager) UnregisterAddressSpaceNotification(tag string) {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (tnm *testNetworkManager) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (tnm *testNetworkManager) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}

@@ -155,8 +155,11 @@ func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	m.handler.Unlock()
 }
 
-func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          { panic("implement me") }
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    { panic("implement me") }
+func (m *mockCmix) DeleteClientFingerprints(*id.ID)                       { panic("implement me") }
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor) { panic("implement me") }
+func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	panic("implement me")
+}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
@@ -208,9 +211,13 @@ func (m *mockCmix) GetAddressSpace() uint8            { panic("implement me") }
 func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) {
 	panic("implement me")
 }
-func (m *mockCmix) UnregisterAddressSpaceNotification(string) { panic("implement me") }
-func (m *mockCmix) GetInstance() *network.Instance            { panic("implement me") }
-func (m *mockCmix) GetVerboseRounds() string                  { panic("implement me") }
+func (m *mockCmix) UnregisterAddressSpaceNotification(string)          { panic("implement me") }
+func (m *mockCmix) GetInstance() *network.Instance                     { panic("implement me") }
+func (m *mockCmix) GetVerboseRounds() string                           { panic("implement me") }
+func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Group Chat Manager                                                    //

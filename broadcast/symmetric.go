@@ -20,9 +20,8 @@ import (
 // Error messages.
 const (
 	// broadcastClient.Broadcast
-	errNetworkHealth       = "cannot send broadcast when the network is not healthy"
-	errPayloadSize         = "size of payload %d must be less than %d"
-	errBroadcastMethodType = "cannot call %s broadcast using %s channel"
+	errNetworkHealth = "cannot send broadcast when the network is not healthy"
+	errPayloadSize   = "size of payload %d must be less than %d"
 )
 
 // Tags.
@@ -50,7 +49,8 @@ func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams)
 // The payload must be of the size [Channel.MaxPayloadSize] or smaller.
 //
 // The network must be healthy to send.
-func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
+func (bc *broadcastClient) BroadcastWithAssembler(
+	assembler Assembler, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	if !bc.net.IsHealthy() {
 		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
@@ -59,7 +59,7 @@ func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParam
 	assemble := func(rid id.Round) (fp format.Fingerprint,
 		service message.Service, encryptedPayload, mac []byte, err error) {
 
-		//assemble the passed payload
+		// Assemble the passed payload
 		payload, err := assembler(rid)
 		if err != nil {
 			return format.Fingerprint{}, message.Service{}, nil, nil, err
@@ -93,6 +93,6 @@ func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParam
 		return
 	}
 
-	return bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble,
-		cMixParams)
+	return bc.net.SendWithAssembler(
+		bc.channel.ReceptionID, assemble, cMixParams)
 }

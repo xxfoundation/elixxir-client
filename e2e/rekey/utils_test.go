@@ -222,7 +222,7 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 type mockNetManager struct{}
 
 func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -268,6 +268,11 @@ func (m *mockNetManager) DeleteClientFingerprints(identity *id.ID) {}
 
 func (m *mockNetManager) AddService(clientID *id.ID, newService message.Service,
 	response message.Processor) {
+}
+
+func (m *mockNetManager) IncreaseParallelNodeRegistration(
+	int) func() (stoppable.Stoppable, error) {
+	return nil
 }
 
 func (m *mockNetManager) DeleteService(clientID *id.ID, toDelete message.Service,
@@ -345,4 +350,9 @@ func (m *mockNetManager) GetInstance() *network2.Instance {
 
 func (m *mockNetManager) GetVerboseRounds() string {
 	return ""
+}
+
+func (m *mockNetManager) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (m *mockNetManager) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
 }

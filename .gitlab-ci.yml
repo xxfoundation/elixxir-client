@@ -17,6 +17,7 @@ stages:
   - test
   - build
   - trigger_integration
+  - version_check
 
 test:
   stage: test
@@ -72,8 +73,19 @@ tag:
     image: $DOCKER_IMAGE
     script:
         - git remote add origin_tags git@$GITLAB_SERVER:elixxir/client.git || true
-        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
-        - git push origin_tags -f --tags
+        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
+        - git push origin_tags --tags
+
+version_check:
+    stage: version_check
+    only:
+        - master
+        - release
+    image: $DOCKER_IMAGE
+    script:
+        - GITTAG=$(git describe --tags)
+        - CODEVERS=$(release/client.darwin64 version | grep "Elixxir Client v"| cut -d ' ' -f3) 
+        - if [[ $GITTAG != $CODEVERS ]]; then echo "VERSION NUMBER BAD $GITTAG != $CODEVER"; exit -1; fi
 
 bindings-ios:
   stage: build

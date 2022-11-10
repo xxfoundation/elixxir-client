@@ -36,11 +36,8 @@ func TestStoreLoadIdentity(t *testing.T) {
 	}
 
 	if !bytes.Equal(loadedIdentity.Marshal(), privIdentity.Marshal()) {
-		t.Fatalf("Failed to load private identity."+
-			"\nExpected: %s"+
-			"\nReceived: %s",
+		t.Fatalf("Failed to load private identity.\nexpected: %s\nreceived: %s",
 			base64.StdEncoding.EncodeToString(privIdentity.Marshal()),
 			base64.StdEncoding.EncodeToString(loadedIdentity.Marshal()))
 	}
-
 }

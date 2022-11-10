@@ -21,7 +21,7 @@ const (
 	errDecrypt = "[BCAST] Failed to decrypt payload for broadcast %s (%q): %+v"
 )
 
-// processor struct for message handling
+// processor struct for message handling.
 type processor struct {
 	c      *crypto.Channel
 	cb     ListenerFunc
@@ -36,16 +36,19 @@ func (p *processor) Process(msg format.Message,
 	var err error
 	switch p.method {
 	case RSAToPublic:
-		decodedMessage, decryptErr := p.c.DecryptRSAToPublic(msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
+		decodedMessage, decryptErr := p.c.DecryptRSAToPublic(
+			msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
 		if decryptErr != nil {
 			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, decryptErr)
 			return
 		}
-		size := binary.BigEndian.Uint16(decodedMessage[:internalPayloadSizeLength])
+		size := binary.BigEndian.Uint16(
+			decodedMessage[:internalPayloadSizeLength])
 		payload = decodedMessage[internalPayloadSizeLength : size+internalPayloadSizeLength]
 
 	case Symmetric:
-		payload, err = p.c.DecryptSymmetric(msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
+		payload, err = p.c.DecryptSymmetric(
+			msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
 		if err != nil {
 			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
 			return
@@ -57,7 +60,8 @@ func (p *processor) Process(msg format.Message,
 	p.cb(payload, receptionID, round)
 }
 
-// String returns a string identifying the symmetricProcessor for debugging purposes.
+// String returns a string identifying the symmetricProcessor for debugging
+// purposes.
 func (p *processor) String() string {
 	return "broadcastChannel-" + p.c.Name
 }

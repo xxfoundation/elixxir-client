@@ -191,6 +191,14 @@ type Client interface {
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 
+	// PauseNodeRegistrations stops all node registrations and returns a
+	// function to resume them.
+	PauseNodeRegistrations(timeout time.Duration) error
+
+	// ChangeNumberOfNodeRegistrations changes the number of parallel node
+	// registrations up to the initialized maximum.
+	ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error
+
 	// DeleteService deletes a message service. If only a single response is
 	// associated with the preimage, the entire preimage is removed. If there is
 	// more than one response, only the given response is removed. If nil is

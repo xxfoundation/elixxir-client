@@ -67,7 +67,8 @@ type Client interface {
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
-	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
+	AddIdentityWithHistory(
+		id *id.ID, validUntil, beginning time.Time, persistent bool)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)
@@ -194,7 +195,8 @@ func (m *manager) GetChannels() []*id.ID {
 	return m.getChannelsUnsafe()
 }
 
-// GetChannel returns the underlying cryptographic structure for a given channel.
+// GetChannel returns the underlying cryptographic structure for a given
+// channel.
 func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
 	jww.INFO.Printf("GetChannel(%s)", chID)
 	jc, err := m.getChannel(chID)
@@ -207,9 +209,9 @@ func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
 }
 
 // ReplayChannel replays all messages from the channel within the network's
-// memory (~3 weeks) over the event model. It does this by wiping the
-// underlying state tracking for message pickup for the channel, causing all
-// messages to be re-retrieved from the network
+// memory (~3 weeks) over the event model. It does this by wiping the underlying
+// state tracking for message pickup for the channel, causing all messages to be
+// re-retrieved from the network.
 func (m *manager) ReplayChannel(chID *id.ID) error {
 	jww.INFO.Printf("ReplayChannel(%s)", chID)
 	m.mux.RLock()
@@ -238,13 +240,7 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 
 }
 
-// GetStorageTag returns the tag at which this manager is store for loading
-// it is derived from the public key
-func (m *manager) GetStorageTag() string {
-	return getStorageTag(m.me.PubKey)
-}
-
-// GetIdentity returns the public identity associated with this channel manager
+// GetIdentity returns the public identity associated with this channel manager.
 func (m *manager) GetIdentity() cryptoChannel.Identity {
 	return m.me.Identity
 }
@@ -258,6 +254,13 @@ func (m *manager) ExportPrivateIdentity(password string) ([]byte, error) {
 	return m.me.Export(password, rng)
 }
 
+// GetStorageTag returns the tag at where this manager is stored. To be used
+// when loading the manager. The storage tag is derived from the public key.
+func (m *manager) GetStorageTag() string {
+	return getStorageTag(m.me.PubKey)
+}
+
+// getStorageTag generates a storage tag from an Ed25519 public key.
 func getStorageTag(pub ed25519.PublicKey) string {
 	return fmt.Sprintf(storageTagFormat, base64.StdEncoding.EncodeToString(pub))
 }

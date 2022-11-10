@@ -159,8 +159,11 @@ func (m *mockFpgCmix) DeleteFingerprint(uid *id.ID, fp format.Fingerprint) {
 	}
 }
 
-func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                          {}
-func (m *mockFpgCmix) AddService(*id.ID, message.Service, message.Processor)    {}
+func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                       {}
+func (m *mockFpgCmix) AddService(*id.ID, message.Service, message.Processor) {}
+func (m *mockFpgCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
 func (m *mockFpgCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockFpgCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockFpgCmix) TrackServices(message.ServicesTracker)                    {}
@@ -188,3 +191,7 @@ func (m *mockFpgCmix) RegisterAddressSpaceNotification(string) (chan uint8, erro
 func (m *mockFpgCmix) UnregisterAddressSpaceNotification(string)                   {}
 func (m *mockFpgCmix) GetInstance() *network.Instance                              { return nil }
 func (m *mockFpgCmix) GetVerboseRounds() string                                    { return "" }
+func (m *mockFpgCmix) PauseNodeRegistrations(timeout time.Duration) error          { return nil }
+func (m *mockFpgCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}

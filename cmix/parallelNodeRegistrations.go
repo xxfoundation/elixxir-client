@@ -5,26 +5,9 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcast
+// This file is compiled for all architectures except WebAssembly.
+//go:build !js || !wasm
 
-// Method enum for broadcast type.
-type Method uint8
+package cmix
 
-const (
-	Symmetric Method = iota
-	RSAToPublic
-	RSAToPrivate
-)
-
-func (m Method) String() string {
-	switch m {
-	case Symmetric:
-		return "Symmetric"
-	case RSAToPublic:
-		return "RSAToPublic"
-	case RSAToPrivate:
-		return "RSAToPrivate"
-	default:
-		return "Unknown"
-	}
-}
+const defaultParallelNodeRegistration = 20

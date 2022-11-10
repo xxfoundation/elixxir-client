@@ -1,6 +1,6 @@
 module gitlab.com/elixxir/client
 
-go 1.17
+go 1.19
 
 require (
 	github.com/cloudflare/circl v1.2.0
@@ -14,13 +14,13 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20221025202829-c33bbe4d8838
-	gitlab.com/elixxir/crypto v0.0.7-0.20221025180839-3d8948607447
-	gitlab.com/elixxir/ekv v0.2.2-0.20221026202359-21e3e77f69a3
-	gitlab.com/elixxir/primitives v0.0.3-0.20221025020430-f5d2eb330fbc
-	gitlab.com/xx_network/comms v0.0.4-0.20221025202603-3043ba10b2a2
-	gitlab.com/xx_network/crypto v0.0.5-0.20221025020316-517fa8f91d2c
-	gitlab.com/xx_network/primitives v0.0.4-0.20221025020003-cbec15a71b8f
+	gitlab.com/elixxir/comms v0.0.4-0.20221108183306-7c473bca3cd6
+	gitlab.com/elixxir/crypto v0.0.7-0.20221108183134-3f4a29c68e97
+	gitlab.com/elixxir/ekv v0.2.1
+	gitlab.com/elixxir/primitives v0.0.3-0.20221108183049-7bdff545bf8e
+	gitlab.com/xx_network/comms v0.0.4-0.20221108183032-8732b403e506
+	gitlab.com/xx_network/crypto v0.0.5-0.20221108182939-05998dc093e9
+	gitlab.com/xx_network/primitives v0.0.4-0.20221104175439-f0d440beacd9
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c
@@ -29,7 +29,7 @@ require (
 )
 
 require (
-	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20220908170150-ef04339ffe65 // indirect
+	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20221102223039-dc1f37d94e70 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -38,7 +38,6 @@ require (
 	github.com/elliotchance/orderedmap v1.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/hack-pad/go-indexeddb v0.2.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect

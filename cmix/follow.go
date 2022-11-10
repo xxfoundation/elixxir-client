@@ -443,7 +443,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		return false
 	}, roundsUnknown, abandon)
 
-	for i := len(roundsWithMessages) - 1; i >= 0; i-- {
+	for i := 0; i < len(roundsWithMessages); i++ {
 		rid := roundsWithMessages[i]
 		// Denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {

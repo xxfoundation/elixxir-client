@@ -53,14 +53,12 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 			ri := rl.Round
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
 
-			if !m.params.RealtimeOnly {
-				err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
-					rl.Identity.Source, rl.Identity.EphId)
-				if err != nil {
-					jww.FATAL.Panicf(
-						"Failed to denote Unchecked Round for round %d",
-						id.Round(ri.ID))
-				}
+			err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
+				rl.Identity.Source, rl.Identity.EphId)
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to denote Unchecked Round for round %d",
+					id.Round(ri.ID))
 			}
 
 			// Convert gateways in round to proper ID format
@@ -80,7 +78,7 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 			// first, randomize other members of the team
 			var rndBytes [32]byte
 			stream := m.rng.GetStream()
-			_, err := stream.Read(rndBytes[:])
+			_, err = stream.Read(rndBytes[:])
 			stream.Close()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
@@ -142,13 +140,11 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 				m.messageBundles <- bundle
 
 				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
-				if !m.params.RealtimeOnly {
-					err = m.unchecked.Remove(
-						id.Round(ri.ID), rl.Identity.Source, rl.Identity.EphId)
-					if err != nil {
-						jww.ERROR.Printf("Could not remove round %d from "+
-							"unchecked rounds store: %v", ri.ID, err)
-					}
+				err = m.unchecked.Remove(
+					id.Round(ri.ID), rl.Identity.Source, rl.Identity.EphId)
+				if err != nil {
+					jww.ERROR.Printf("Could not remove round %d from "+
+						"unchecked rounds store: %v", ri.ID, err)
 				}
 
 			}
@@ -212,11 +208,10 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicative of a problem if it is consistent",
 			identity.Source, roundID)
-		if m.params.RealtimeOnly {
-			err = m.unchecked.Remove(roundID, identity.Source, identity.EphId)
-			if err != nil {
-				jww.ERROR.Printf("Failed to remove round %d: %+v", roundID, err)
-			}
+
+		err = m.unchecked.EndCheck(roundID, identity.Source, identity.EphId)
+		if err != nil {
+			jww.ERROR.Printf("Failed to end the check for the round round %d: %+v", roundID, err)
 		}
 
 		return message.Bundle{}, nil

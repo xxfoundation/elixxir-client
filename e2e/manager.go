@@ -8,12 +8,13 @@
 package e2e
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"encoding/base64"
 	"encoding/json"
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/e2e"
-	"sync"
 
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -315,7 +316,7 @@ func (m *manager) closeE2eListener(item receive.Message) {
 	// Check the connection fingerprint to verify that the message is
 	// from the expected E2E relationship (refer to the comment in
 	// DeletePartner for more details)
-	if !bytes.Equal(p.ConnectionFingerprint().Bytes(), item.Payload) {
+	if !hmac.Equal(p.ConnectionFingerprint().Bytes(), item.Payload) {
 		jww.ERROR.Printf("Received %s message from %s with incorrect "+
 			"connection fingerprint %s.", catalog.E2eClose, item.Sender,
 			base64.StdEncoding.EncodeToString(item.Payload))

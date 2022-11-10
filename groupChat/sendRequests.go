@@ -13,9 +13,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/catalog"
-	"gitlab.com/elixxir/client/v5/e2e"
-	gs "gitlab.com/elixxir/client/v5/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/e2e"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 )

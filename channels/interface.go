@@ -11,8 +11,8 @@ import (
 	"math"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/cmix"
-	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/rsa"

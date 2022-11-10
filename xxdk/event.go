@@ -8,7 +8,7 @@
 package xxdk
 
 import (
-	"gitlab.com/elixxir/client/v5/event"
+	"gitlab.com/elixxir/client/v4/event"
 )
 
 // ReportEvent reports an event from the client to api users, providing a

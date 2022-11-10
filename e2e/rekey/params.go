@@ -9,7 +9,7 @@ package rekey
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/v5/catalog"
+	"gitlab.com/elixxir/client/v4/catalog"
 	"time"
 )
 

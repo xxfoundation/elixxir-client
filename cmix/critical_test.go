@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/stoppable"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"

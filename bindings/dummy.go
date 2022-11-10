@@ -8,7 +8,7 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/v5/dummy"
+	"gitlab.com/elixxir/client/v4/dummy"
 	"time"
 )
 

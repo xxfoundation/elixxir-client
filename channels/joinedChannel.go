@@ -10,8 +10,8 @@ package channels
 import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/broadcast"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"

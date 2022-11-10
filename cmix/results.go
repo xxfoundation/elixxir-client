@@ -9,7 +9,7 @@ package cmix
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"

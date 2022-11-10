@@ -9,9 +9,9 @@ package pickup
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v5/cmix/pickup/store"
-	"gitlab.com/elixxir/client/v5/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/pickup/store"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"

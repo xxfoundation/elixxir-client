@@ -10,7 +10,7 @@ package store
 import (
 	"encoding/base64"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"

@@ -10,9 +10,9 @@ package nodes
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/cmix/gateway"
-	"gitlab.com/elixxir/client/v5/stoppable"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"

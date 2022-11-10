@@ -12,12 +12,12 @@ import (
 	"math/rand"
 
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner/session"
-	util "gitlab.com/elixxir/client/v5/storage/utility"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/storage"
+	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 )

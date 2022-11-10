@@ -9,8 +9,8 @@ package partner
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/v5/cmix/message"
-	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"

@@ -12,13 +12,13 @@ import (
 	"fmt"
 
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/catalog"
-	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v5/cmix/rounds"
-	"gitlab.com/elixxir/client/v5/e2e/receive"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )

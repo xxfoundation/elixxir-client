@@ -10,8 +10,8 @@ package broadcast
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/cmix/identity"
-	"gitlab.com/elixxir/client/v5/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 )

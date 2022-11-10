@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 )
 
 func TestParams_MarshalUnmarshal(t *testing.T) {

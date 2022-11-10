@@ -18,8 +18,8 @@ import (
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/cmix/rounds"
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/comms/signature"
 	"gitlab.com/xx_network/crypto/signature/ec"
 	"gitlab.com/xx_network/primitives/id"

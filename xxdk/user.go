@@ -18,7 +18,7 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"

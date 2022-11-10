@@ -10,8 +10,8 @@ package bindings
 import (
 	"encoding/json"
 
-	"gitlab.com/elixxir/client/v5/restlike"
-	"gitlab.com/elixxir/client/v5/restlike/single"
+	"gitlab.com/elixxir/client/v4/restlike"
+	"gitlab.com/elixxir/client/v4/restlike/single"
 	"gitlab.com/elixxir/crypto/contact"
 )
 

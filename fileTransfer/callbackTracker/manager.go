@@ -9,7 +9,7 @@ package callbackTracker
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"strconv"
 	"sync"

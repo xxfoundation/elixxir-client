@@ -9,7 +9,7 @@ package rounds
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/netTime"
 )

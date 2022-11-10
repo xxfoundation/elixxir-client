@@ -8,7 +8,7 @@
 package dummy
 
 import (
-	"gitlab.com/elixxir/client/v5/cmix"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/xx_network/crypto/csprng"
 	"sync"
 	"sync/atomic"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 )
 
 // Error messages for the Manager.sendThread and its helper functions.

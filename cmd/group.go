@@ -15,16 +15,16 @@ import (
 	"os"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v5/cmix/rounds"
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/primitives/format"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/v5/groupChat"
-	"gitlab.com/elixxir/client/v5/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/groupChat"
+	"gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/xx_network/primitives/id"
 )
 

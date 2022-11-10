@@ -9,8 +9,8 @@ package ratchet
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v5/cmix/message"
-	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/xx_network/primitives/id"
 )
 

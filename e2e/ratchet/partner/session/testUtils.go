@@ -13,8 +13,8 @@ import (
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
-	util "gitlab.com/elixxir/client/v5/storage/utility"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"

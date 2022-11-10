@@ -17,14 +17,14 @@ import (
 
 	"gitlab.com/elixxir/crypto/diffieHellman"
 
-	"gitlab.com/elixxir/client/v5/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/crypto/large"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/storage/clientVersion"
-	"gitlab.com/elixxir/client/v5/storage/user"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/clientVersion"
+	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"

@@ -9,11 +9,11 @@ package connect
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/auth"
-	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v5/cmix/rounds"
-	clientE2e "gitlab.com/elixxir/client/v5/e2e"
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/auth"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientE2e "gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 )
 

@@ -9,10 +9,10 @@ package nodes
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/v5/cmix/gateway"
-	"gitlab.com/elixxir/client/v5/stoppable"
-	"gitlab.com/elixxir/client/v5/storage"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"

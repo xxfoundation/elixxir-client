@@ -10,12 +10,12 @@ package cmix
 import (
 	"time"
 
-	"gitlab.com/elixxir/client/v5/cmix/gateway"
-	"gitlab.com/elixxir/client/v5/cmix/identity"
-	"gitlab.com/elixxir/client/v5/cmix/message"
-	"gitlab.com/elixxir/client/v5/cmix/nodes"
-	"gitlab.com/elixxir/client/v5/cmix/rounds"
-	"gitlab.com/elixxir/client/v5/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"

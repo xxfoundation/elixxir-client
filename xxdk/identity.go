@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/primitives/fact"
 
-	"gitlab.com/elixxir/client/v5/storage/user"
-	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"

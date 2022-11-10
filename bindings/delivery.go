@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/cmix"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/xx_network/primitives/id"
 )
 

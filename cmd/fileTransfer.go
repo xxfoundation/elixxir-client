@@ -12,13 +12,13 @@ import (
 	"io/ioutil"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	ft "gitlab.com/elixxir/client/v5/fileTransfer"
-	ftE2e "gitlab.com/elixxir/client/v5/fileTransfer/e2e"
+	ft "gitlab.com/elixxir/client/v4/fileTransfer"
+	ftE2e "gitlab.com/elixxir/client/v4/fileTransfer/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"

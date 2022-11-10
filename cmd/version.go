@@ -13,7 +13,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/primitives/utils"
 )
 

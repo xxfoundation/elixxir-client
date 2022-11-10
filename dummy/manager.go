@@ -12,10 +12,10 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v5/cmix"
-	"gitlab.com/elixxir/client/v5/stoppable"
-	"gitlab.com/elixxir/client/v5/storage"
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"sync/atomic"
 	"time"

@@ -8,12 +8,12 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/v5/cmix"
-	"gitlab.com/elixxir/client/v5/e2e"
-	"gitlab.com/elixxir/client/v5/event"
-	"gitlab.com/elixxir/client/v5/single"
-	"gitlab.com/elixxir/client/v5/storage"
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
 

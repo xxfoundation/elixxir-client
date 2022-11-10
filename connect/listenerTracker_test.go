@@ -8,7 +8,7 @@
 package connect
 
 import (
-	"gitlab.com/elixxir/client/v5/e2e/receive"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"

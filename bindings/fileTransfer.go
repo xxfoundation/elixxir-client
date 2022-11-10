@@ -14,8 +14,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/fileTransfer"
-	"gitlab.com/elixxir/client/v5/fileTransfer/e2e"
+	"gitlab.com/elixxir/client/v4/fileTransfer"
+	"gitlab.com/elixxir/client/v4/fileTransfer/e2e"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -154,7 +154,7 @@ type FileTransferReceiveProgressCallback interface {
 //  - receiveFileCallback - A callback that is called when a new file transfer
 //    is received.
 //  - e2eFileTransferParamsJson - JSON of
-//    [gitlab.com/elixxir/client/v5/fileTransfer/e2e.Params].
+//    [gitlab.com/elixxir/client/v4/fileTransfer/e2e.Params].
 //  - fileTransferParamsJson - JSON of [fileTransfer.Params].
 //
 // Returns:

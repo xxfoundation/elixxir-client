@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/cmix/gateway"
-	"gitlab.com/elixxir/client/v5/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"

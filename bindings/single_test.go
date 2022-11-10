@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"

@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/restlike"
-	"gitlab.com/elixxir/client/v5/restlike/connect"
+	"gitlab.com/elixxir/client/v4/restlike"
+	"gitlab.com/elixxir/client/v4/restlike/connect"
 )
 
 // RestlikeMessage is the bindings' representation of a restlike.Message

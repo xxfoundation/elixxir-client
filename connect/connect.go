@@ -13,16 +13,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/elixxir/client/v5/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/auth"
-	"gitlab.com/elixxir/client/v5/catalog"
-	clientE2e "gitlab.com/elixxir/client/v5/e2e"
-	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/v5/e2e/receive"
+	"gitlab.com/elixxir/client/v4/auth"
+	"gitlab.com/elixxir/client/v4/catalog"
+	clientE2e "gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/elixxir/crypto/contact"
 )
 

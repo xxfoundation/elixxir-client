@@ -14,12 +14,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v5/cmix"
-	"gitlab.com/elixxir/client/v5/e2e/ratchet"
-	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/v5/e2e/receive"
-	"gitlab.com/elixxir/client/v5/stoppable"
-	util "gitlab.com/elixxir/client/v5/storage/utility"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 )
 

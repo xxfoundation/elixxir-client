@@ -8,8 +8,8 @@
 package store
 
 import (
-	"gitlab.com/elixxir/client/v5/fileTransfer/store/cypher"
-	"gitlab.com/elixxir/client/v5/fileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store/fileMessage"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"

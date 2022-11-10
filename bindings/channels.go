@@ -1402,7 +1402,13 @@ type EventModel interface {
 	UpdateFromMessageID(messageID []byte, messageUpdateInfoJSON []byte) int64
 
 	// GetMessage returns the message with the given [channel.MessageID].
-	GetMessage(messageID []byte) []byte
+	//
+	// Parameters:
+	//  - messageID - The bytes of the [channel.MessageID] of the message.
+	//
+	// Returns:
+	//  - JSON of [channels.ModelMessage].
+	GetMessage(messageID []byte) ([]byte, error)
 
 	// unimplemented
 	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
@@ -1592,7 +1598,10 @@ func (tem *toEventModel) UpdateFromMessageID(messageID cryptoChannel.MessageID,
 // GetMessage returns the message with the given [channel.MessageID].
 func (tem *toEventModel) GetMessage(
 	messageID cryptoChannel.MessageID) (channels.ModelMessage, error) {
-	msgJSON := tem.em.GetMessage(messageID.Bytes())
+	msgJSON, err := tem.em.GetMessage(messageID.Bytes())
+	if err != nil {
+		return channels.ModelMessage{}, err
+	}
 	var msg channels.ModelMessage
 	return msg, json.Unmarshal(msgJSON, &msg)
 }

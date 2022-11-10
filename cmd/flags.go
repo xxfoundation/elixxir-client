@@ -105,7 +105,6 @@ const (
 	connectionEphemeralFlag     = "ephemeral"
 
 	///////////////// Connection subcommand flags /////////////////////////////
-	crustFlag    = "crust"
 	crustFile    = "file"
 	crustUpload  = "upload"
 	crustRecover = "recover"

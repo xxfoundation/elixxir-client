@@ -54,7 +54,7 @@ var crustCmd = &cobra.Command{
 			})
 		waitUntilConnected(connected)
 
-		jww.TRACE.Printf("[UD] Connected!")
+		jww.TRACE.Printf("[CRUST] Connected!")
 
 		// Pull the UD information
 		cert, contactFile, address, err := getUdContactInfo(user)
@@ -163,14 +163,17 @@ func init() {
 			"recovered file matches this passed in file. For the purpose of "+
 			"testing recover and upload, this should pass in the same file. "+
 			"Defaults to crustBackup.txt if not set.")
+	bindFlagHelper(crustFile, crustCmd)
 
 	crustCmd.Flags().Bool(crustRecover, false,
 		"Triggers the recovery process for Crust. Setting this and 'upload' "+
 			"is undefined behaviour and will cause a panic.")
+	bindFlagHelper(crustRecover, crustCmd)
 
 	crustCmd.Flags().Bool(crustUpload, false,
 		"Triggers the upload process for Crust. Setting this and 'recover' "+
 			"is undefined behaviour and will cause a panic.")
+	bindFlagHelper(crustUpload, crustCmd)
 
 	rootCmd.AddCommand(crustCmd)
 }

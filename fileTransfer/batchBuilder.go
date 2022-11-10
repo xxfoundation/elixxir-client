@@ -10,8 +10,8 @@ package fileTransfer
 import (
 	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/fileTransfer/store"
-	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v5/fileTransfer/store"
+	"gitlab.com/elixxir/client/v5/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"

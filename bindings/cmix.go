@@ -12,7 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/client/v5/xxdk"
 )
 
 // init sets the log level to INFO.

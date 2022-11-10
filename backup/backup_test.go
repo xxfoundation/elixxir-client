@@ -9,13 +9,13 @@ package backup
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/client/v5/xxdk"
 	"reflect"
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/storage"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 
 	"gitlab.com/elixxir/crypto/backup"

@@ -9,7 +9,7 @@ package dummy
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v5/stoppable"
 	"reflect"
 	"sync/atomic"
 	"testing"

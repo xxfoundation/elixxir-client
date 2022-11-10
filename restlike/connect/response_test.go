@@ -9,8 +9,8 @@ package connect
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/e2e/receive"
-	"gitlab.com/elixxir/client/v4/restlike"
+	"gitlab.com/elixxir/client/v5/e2e/receive"
+	"gitlab.com/elixxir/client/v5/restlike"
 	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"

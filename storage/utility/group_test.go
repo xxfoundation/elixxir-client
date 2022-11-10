@@ -8,7 +8,7 @@
 package utility
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/large"

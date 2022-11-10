@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v5/cmix/message"
 	"time"
 
 	"github.com/pkg/errors"

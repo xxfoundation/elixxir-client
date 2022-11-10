@@ -8,11 +8,11 @@
 package single
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
-	cMixMsg "gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/single/message"
+	"gitlab.com/elixxir/client/v5/cmix"
+	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
+	cMixMsg "gitlab.com/elixxir/client/v5/cmix/message"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/single/message"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"

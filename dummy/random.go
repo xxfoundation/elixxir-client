@@ -10,7 +10,7 @@ package dummy
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v5/cmix/message"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"

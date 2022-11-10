@@ -10,9 +10,9 @@ package bindings
 import (
 	"encoding/json"
 
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/single"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )

@@ -12,10 +12,10 @@ package bindings
 import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/fileTransfer"
-	e2eFileTransfer "gitlab.com/elixxir/client/v4/fileTransfer/e2e"
-	"gitlab.com/elixxir/client/v4/single"
-	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/client/v5/fileTransfer"
+	e2eFileTransfer "gitlab.com/elixxir/client/v5/fileTransfer/e2e"
+	"gitlab.com/elixxir/client/v5/single"
+	"gitlab.com/elixxir/client/v5/xxdk"
 )
 
 // GetDefaultCMixParams returns a JSON serialized object with all of the cMix

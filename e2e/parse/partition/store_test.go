@@ -9,8 +9,8 @@ package partition
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/catalog"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/catalog"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"

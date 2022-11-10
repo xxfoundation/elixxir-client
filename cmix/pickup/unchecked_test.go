@@ -8,9 +8,9 @@
 package pickup
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/gateway"
-	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v5/cmix/gateway"
+	"gitlab.com/elixxir/client/v5/cmix/message"
+	"gitlab.com/elixxir/client/v5/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"

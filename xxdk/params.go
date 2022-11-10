@@ -13,11 +13,11 @@ package xxdk
 import (
 	"encoding/json"
 
-	"gitlab.com/elixxir/client/v4/auth"
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/e2e"
-	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/v4/e2e/rekey"
+	"gitlab.com/elixxir/client/v5/auth"
+	"gitlab.com/elixxir/client/v5/cmix"
+	"gitlab.com/elixxir/client/v5/e2e"
+	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v5/e2e/rekey"
 )
 
 // CMIXParams contains the parameters for Network tracking and for specific CMIX

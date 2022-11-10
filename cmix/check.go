@@ -9,7 +9,7 @@ package cmix
 
 import (
 	"encoding/binary"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID/store"
+	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID/store"
 	"gitlab.com/xx_network/primitives/id"
 )
 

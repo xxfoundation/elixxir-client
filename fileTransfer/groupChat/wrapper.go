@@ -9,9 +9,9 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	ft "gitlab.com/elixxir/client/v4/fileTransfer"
-	"gitlab.com/elixxir/client/v4/groupChat"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	ft "gitlab.com/elixxir/client/v5/fileTransfer"
+	"gitlab.com/elixxir/client/v5/groupChat"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"

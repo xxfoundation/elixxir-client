@@ -9,7 +9,7 @@ package receive
 
 import (
 	"github.com/golang-collections/collections/set"
-	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v5/catalog"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )

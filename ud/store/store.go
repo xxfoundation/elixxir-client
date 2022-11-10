@@ -12,7 +12,7 @@ package ud
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"

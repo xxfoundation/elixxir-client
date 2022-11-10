@@ -8,7 +8,7 @@
 package fileTransfer
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v5/storage/utility"
 )
 
 // sentFilePartTracker contains utility.StateVector that tracks which parts have

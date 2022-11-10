@@ -9,11 +9,11 @@ package pickup
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/cmix/gateway"
-	ephemeral2 "gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v5/cmix/gateway"
+	ephemeral2 "gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v5/cmix/message"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/stoppable"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"

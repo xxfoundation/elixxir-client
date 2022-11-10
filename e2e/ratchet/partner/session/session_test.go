@@ -8,7 +8,7 @@
 package session
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v5/storage/utility"
 	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
 	"testing"

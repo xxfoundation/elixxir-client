@@ -9,7 +9,7 @@ package e2e
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner/session"
 )
 
 // fpGenerator is a wrapper that allows the network manager's fingerprint

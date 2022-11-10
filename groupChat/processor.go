@@ -9,8 +9,8 @@ package groupChat
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 )
 

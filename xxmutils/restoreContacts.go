@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/single"
-	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/client/v5/single"
+	"gitlab.com/elixxir/client/v5/xxdk"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strings"
@@ -21,10 +21,10 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/v4/interfaces"
-	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/client/v4/ud"
+	"gitlab.com/elixxir/client/v5/interfaces"
+	"gitlab.com/elixxir/client/v5/storage"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
+	"gitlab.com/elixxir/client/v5/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )

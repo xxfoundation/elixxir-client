@@ -10,7 +10,7 @@ package storage
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 

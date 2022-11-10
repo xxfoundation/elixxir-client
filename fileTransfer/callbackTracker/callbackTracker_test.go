@@ -9,7 +9,7 @@ package callbackTracker
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v5/stoppable"
 	"reflect"
 	"testing"
 	"time"

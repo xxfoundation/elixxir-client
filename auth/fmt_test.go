@@ -13,7 +13,7 @@ import (
 	"reflect"
 	"testing"
 
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
+	sidhinterface "gitlab.com/elixxir/client/v5/interfaces/sidh"
 	"gitlab.com/xx_network/primitives/id"
 )
 

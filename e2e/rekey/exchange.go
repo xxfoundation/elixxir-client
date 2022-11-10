@@ -8,11 +8,11 @@
 package rekey
 
 import (
-	"gitlab.com/elixxir/client/v4/catalog"
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/e2e/ratchet"
-	"gitlab.com/elixxir/client/v4/e2e/receive"
-	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v5/catalog"
+	"gitlab.com/elixxir/client/v5/cmix"
+	"gitlab.com/elixxir/client/v5/e2e/ratchet"
+	"gitlab.com/elixxir/client/v5/e2e/receive"
+	"gitlab.com/elixxir/client/v5/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"

@@ -9,9 +9,9 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/catalog"
-	"gitlab.com/elixxir/client/v4/cmix/message"
-	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v5/catalog"
+	"gitlab.com/elixxir/client/v5/cmix/message"
+	gs "gitlab.com/elixxir/client/v5/groupChat/groupStore"
 	"gitlab.com/xx_network/primitives/id"
 )
 

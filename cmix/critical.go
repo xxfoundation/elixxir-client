@@ -8,13 +8,13 @@
 package cmix
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix/health"
-	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/cmix/health"
+	"gitlab.com/elixxir/client/v5/stoppable"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"

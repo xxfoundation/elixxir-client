@@ -9,7 +9,7 @@ package e2e
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 )

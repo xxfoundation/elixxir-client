@@ -10,7 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/e2e/ratchet"
+	"gitlab.com/elixxir/client/v5/e2e/ratchet"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )

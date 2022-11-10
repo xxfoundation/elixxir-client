@@ -10,9 +10,9 @@ package groupChat
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/catalog"
-	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
-	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/client/v5/catalog"
+	gs "gitlab.com/elixxir/client/v5/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v5/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"

@@ -8,8 +8,8 @@
 package groupChat
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	gs "gitlab.com/elixxir/client/v5/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"time"

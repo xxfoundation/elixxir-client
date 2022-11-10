@@ -10,7 +10,7 @@ package backup
 import (
 	"bytes"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/xx_network/primitives/netTime"
 )

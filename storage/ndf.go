@@ -9,7 +9,7 @@ package storage
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v5/storage/utility"
 	"gitlab.com/xx_network/primitives/ndf"
 )
 

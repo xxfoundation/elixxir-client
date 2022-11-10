@@ -9,10 +9,10 @@ package connect
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/catalog"
-	"gitlab.com/elixxir/client/v4/connect"
-	"gitlab.com/elixxir/client/v4/e2e"
-	"gitlab.com/elixxir/client/v4/restlike"
+	"gitlab.com/elixxir/client/v5/catalog"
+	"gitlab.com/elixxir/client/v5/connect"
+	"gitlab.com/elixxir/client/v5/e2e"
+	"gitlab.com/elixxir/client/v5/restlike"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/csprng"
 	"google.golang.org/protobuf/proto"

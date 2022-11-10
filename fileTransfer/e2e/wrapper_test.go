@@ -9,10 +9,10 @@ package e2e
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/catalog"
-	"gitlab.com/elixxir/client/v4/e2e"
-	"gitlab.com/elixxir/client/v4/e2e/receive"
-	ft "gitlab.com/elixxir/client/v4/fileTransfer"
+	"gitlab.com/elixxir/client/v5/catalog"
+	"gitlab.com/elixxir/client/v5/e2e"
+	"gitlab.com/elixxir/client/v5/e2e/receive"
+	ft "gitlab.com/elixxir/client/v5/fileTransfer"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/crypto/csprng"

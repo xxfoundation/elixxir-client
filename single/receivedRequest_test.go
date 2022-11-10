@@ -9,10 +9,10 @@ package single
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/cmix"
-	cmixMsg "gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/single/message"
+	"gitlab.com/elixxir/client/v5/cmix"
+	cmixMsg "gitlab.com/elixxir/client/v5/cmix/message"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/single/message"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"

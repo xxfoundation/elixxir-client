@@ -11,11 +11,11 @@ import (
 	"fmt"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/fileTransfer/store"
-	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
-	"gitlab.com/elixxir/client/v4/fileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v5/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v5/cmix/rounds"
+	"gitlab.com/elixxir/client/v5/fileTransfer/store"
+	"gitlab.com/elixxir/client/v5/fileTransfer/store/cypher"
+	"gitlab.com/elixxir/client/v5/fileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/primitives/format"
 )
 

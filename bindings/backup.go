@@ -9,7 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/backup"
+	"gitlab.com/elixxir/client/v5/backup"
 	"gitlab.com/xx_network/primitives/id"
 )
 

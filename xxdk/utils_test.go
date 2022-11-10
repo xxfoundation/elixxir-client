@@ -10,7 +10,7 @@ package xxdk
 import (
 	"testing"
 
-	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v5/cmix/gateway"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"

@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
-	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v5/e2e/ratchet/partner/session"
+	util "gitlab.com/elixxir/client/v5/storage/utility"
+	"gitlab.com/elixxir/client/v5/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"

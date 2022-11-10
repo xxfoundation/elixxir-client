@@ -8,7 +8,7 @@
 package gateway
 
 import (
-	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v5/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"

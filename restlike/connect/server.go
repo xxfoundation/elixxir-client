@@ -8,10 +8,10 @@
 package connect
 
 import (
-	"gitlab.com/elixxir/client/v4/catalog"
-	"gitlab.com/elixxir/client/v4/connect"
-	"gitlab.com/elixxir/client/v4/restlike"
-	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/client/v5/catalog"
+	"gitlab.com/elixxir/client/v5/connect"
+	"gitlab.com/elixxir/client/v5/restlike"
+	"gitlab.com/elixxir/client/v5/xxdk"
 	"gitlab.com/xx_network/primitives/id"
 )
 

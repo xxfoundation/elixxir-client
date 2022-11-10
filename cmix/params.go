@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/pickup"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/pickup"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
 )

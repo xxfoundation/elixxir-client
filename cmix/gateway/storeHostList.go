@@ -10,7 +10,7 @@ package gateway
 import (
 	"bytes"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )

@@ -7,7 +7,7 @@
 
 package main
 
-import "gitlab.com/elixxir/client/cmd"
+import "gitlab.com/elixxir/client/v4/cmd"
 
 // main needs no introduction.
 func main() {

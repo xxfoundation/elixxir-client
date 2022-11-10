@@ -10,11 +10,11 @@ package e2e
 import (
 	"fmt"
 
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 )
 

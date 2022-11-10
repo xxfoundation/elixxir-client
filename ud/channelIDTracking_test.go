@@ -13,9 +13,9 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage/versioned"
-	store "gitlab.com/elixxir/client/ud/store"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	store "gitlab.com/elixxir/client/v4/ud/store"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 )

@@ -13,9 +13,9 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )

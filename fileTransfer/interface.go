@@ -8,7 +8,7 @@
 package fileTransfer
 
 import (
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"

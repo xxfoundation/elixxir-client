@@ -9,10 +9,10 @@ package connect
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/connect"
-	"gitlab.com/elixxir/client/e2e/receive"
-	ft "gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/connect"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	ft "gitlab.com/elixxir/client/v4/fileTransfer"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/crypto/csprng"

@@ -9,9 +9,9 @@ package single
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/restlike"
-	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/restlike"
+	"gitlab.com/elixxir/client/v4/single"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/csprng"

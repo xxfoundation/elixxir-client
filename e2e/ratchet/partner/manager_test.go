@@ -14,9 +14,9 @@ import (
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"

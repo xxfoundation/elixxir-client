@@ -30,12 +30,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/xx_network/primitives/ndf"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID/store"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID/store"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"

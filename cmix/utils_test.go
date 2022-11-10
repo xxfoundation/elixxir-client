@@ -8,13 +8,13 @@
 package cmix
 
 import (
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/nodes"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	commsNetwork "gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"

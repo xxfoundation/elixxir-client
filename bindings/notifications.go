@@ -9,7 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/primitives/notifications"
 )
 

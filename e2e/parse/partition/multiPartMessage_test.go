@@ -10,9 +10,9 @@ package partition
 import (
 	"bytes"
 	"encoding/json"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"

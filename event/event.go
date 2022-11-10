@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 )
 
 // ReportableEvent is used to surface events to client users.

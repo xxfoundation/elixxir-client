@@ -10,11 +10,11 @@ package connect
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/connect"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/restlike"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/connect"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/restlike"
 	"google.golang.org/protobuf/proto"
 )
 

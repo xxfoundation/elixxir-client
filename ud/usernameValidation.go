@@ -61,7 +61,7 @@ func (m *Manager) loadOrGetUsernameValidation() ([]byte, error) {
 			err = m.queryUsernameValidationSignature(m.comms)
 		if err != nil {
 			return nil, errors.Errorf("Failed to retrieve signature from "+
-				"UD: %v", err)
+				"UD: %+v", err)
 		}
 	} else {
 		// Put stored data in the object data
@@ -101,7 +101,6 @@ func (m *Manager) queryUsernameValidationSignature(
 	}
 
 	// Store request
-	// fixme: need to pull release for the KV API update
 	err = m.getKv().Set(usernameValidationStore,
 		&versioned.Object{
 			Version:   usernameValidationVersion,

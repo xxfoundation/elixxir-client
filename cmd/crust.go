@@ -86,6 +86,29 @@ var crustCmd = &cobra.Command{
 			}
 		}
 
+		if viper.IsSet("alternateUd") {
+
+			altUdCertPath := viper.GetString("altUdCert")
+			altUdAddress := viper.GetString("altUdAddress")
+			altUdContactFilePath := viper.GetString("altUdContactFile")
+
+			altUdCert, err := utils.ReadFile(altUdCertPath)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to read alternative UD cert: %+v", err)
+			}
+
+			altUdContactFile, err := utils.ReadFile(altUdContactFilePath)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to read alternative UD contact file: %+v", err)
+			}
+
+			err = userDiscoveryMgr.SetAlternativeUserDiscovery(altUdCert,
+				[]byte(altUdAddress), altUdContactFile)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to set alternate UD: %+v", err)
+			}
+		}
+
 		// Retrieve username from UD manager
 		username, err := userDiscoveryMgr.GetUsername()
 		if err != nil {

@@ -34,6 +34,13 @@ func bindFlagHelper(key string, command *cobra.Command) {
 	}
 }
 
+func bindPersistentFlag(key string, command *cobra.Command) {
+	err := viper.BindPFlag(key, command.PersistentFlags().Lookup(key))
+	if err != nil {
+		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
+	}
+}
+
 func verifySendSuccess(user *xxdk.E2e, paramsE2E e2e.Params,
 	roundIDs []id.Round, partnerId *id.ID, payload []byte) bool {
 	retryChan := make(chan struct{})

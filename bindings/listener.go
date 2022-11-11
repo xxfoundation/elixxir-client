@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
 )
 
 // Listener provides a callback to hear a message.
@@ -40,16 +40,17 @@ type listener struct {
 // Message is the bindings' representation of a receive.Message.
 //
 // JSON example:
-//  {
-//   "MessageType":1,
-//   "ID":"EB/70R5HYEw5htZ4Hg9ondrn3+cAc/lH2G0mjQMja3w=",
-//   "Payload":"7TzZKgNphT5UooNM7mDSwtVcIs8AIu4vMKm4ld6GSR8YX5GrHirixUBAejmsgdroRJyo06TkIVef7UM9FN8YfQ==",
-//   "Sender":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//   "RecipientID":"amFrZXh4MzYwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//   "EphemeralID":17,"Timestamp":1653580439357351000,
-//   "Encrypted":false,
-//   "RoundId":19
-//  }
+//
+//	{
+//	 "MessageType":1,
+//	 "ID":"EB/70R5HYEw5htZ4Hg9ondrn3+cAc/lH2G0mjQMja3w=",
+//	 "Payload":"7TzZKgNphT5UooNM7mDSwtVcIs8AIu4vMKm4ld6GSR8YX5GrHirixUBAejmsgdroRJyo06TkIVef7UM9FN8YfQ==",
+//	 "Sender":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//	 "RecipientID":"amFrZXh4MzYwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//	 "EphemeralID":17,"Timestamp":1653580439357351000,
+//	 "Encrypted":false,
+//	 "RoundId":19
+//	}
 type Message struct {
 	MessageType int
 	ID          []byte

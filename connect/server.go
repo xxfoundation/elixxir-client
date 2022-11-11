@@ -10,13 +10,13 @@ package connect
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 // authenticatedServerListenerName is the name of the client's
-//listener interface.
+// listener interface.
 const authenticatedServerListenerName = "AuthenticatedServerListener"
 
 // server is an interface that wraps receive.Listener. This handles

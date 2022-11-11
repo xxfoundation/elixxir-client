@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -29,8 +29,8 @@ var dashboardBaseURL = "https://dashboard.xx.network"
 // thread-safe, and as such should only be called on setup.
 //
 // Parameters:
-//  - newURL - A valid URL that will be used for round look up on any send
-//    report.
+//   - newURL - A valid URL that will be used for round look up on any send
+//     report.
 func SetDashboardURL(newURL string) {
 	dashboardBaseURL = newURL
 }
@@ -45,7 +45,8 @@ func getRoundURL(round id.Round) string {
 // RoundsList contains a list of round IDs.
 //
 // JSON Example:
-//  [1001,1003,1006]
+//
+//	[1001,1003,1006]
 type RoundsList struct {
 	Rounds []uint64
 }
@@ -105,11 +106,11 @@ type MessageDeliveryCallback interface {
 // the same pointer.
 //
 // Parameters:
-//  - roundList - JSON marshalled bytes of RoundsList or JSON of any send report
-//    that inherits a [bindings.RoundsList] object
-//  - mdc - callback that adheres to the MessageDeliveryCallback interface
-//  - timeoutMS - timeout when the callback will return if no state update
-//    occurs, in milliseconds
+//   - roundList - JSON marshalled bytes of RoundsList or JSON of any send report
+//     that inherits a [bindings.RoundsList] object
+//   - mdc - callback that adheres to the MessageDeliveryCallback interface
+//   - timeoutMS - timeout when the callback will return if no state update
+//     occurs, in milliseconds
 func (c *Cmix) WaitForRoundResult(
 	roundList []byte, mdc MessageDeliveryCallback, timeoutMS int) error {
 	jww.INFO.Printf("WaitForRoundResult(%s, _, %d)", roundList, timeoutMS)

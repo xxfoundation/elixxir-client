@@ -13,18 +13,19 @@ package xxdk
 import (
 	"encoding/json"
 
-	"gitlab.com/elixxir/client/auth"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/rekey"
+	"gitlab.com/elixxir/client/v4/auth"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/rekey"
 )
 
 // CMIXParams contains the parameters for Network tracking and for specific CMIX
 // messaging settings.
 //
 // FIXME: this breakdown could be cleaner and is an unfortunate side effect of
-//        several refactors of the codebase.
+//
+//	several refactors of the codebase.
 type CMIXParams struct {
 	Network cmix.Params
 	CMIX    cmix.CMIXParams

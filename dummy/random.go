@@ -10,7 +10,7 @@ package dummy
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -29,13 +29,13 @@ const (
 // newRandomCmixMessage returns random format.Message data.
 //
 // Returns in order a:
-//  - Recipient (id.ID)
-//  - Message fingerprint (format.Fingerprint)
-//  - Message service (message.Service)
-//  - Payload ([]byte)
-//  - MAC ([]byte)
-//  - Error if there was an issue randomly generating any of the above data.
-//    The error will specify which of the above failed to be randomly generated.
+//   - Recipient (id.ID)
+//   - Message fingerprint (format.Fingerprint)
+//   - Message service (message.Service)
+//   - Payload ([]byte)
+//   - MAC ([]byte)
+//   - Error if there was an issue randomly generating any of the above data.
+//     The error will specify which of the above failed to be randomly generated.
 func (m *Manager) newRandomCmixMessage(rng csprng.Source) (
 	recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service,

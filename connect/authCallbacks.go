@@ -9,11 +9,11 @@ package connect
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/auth"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	clientE2e "gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/auth"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientE2e "gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -76,7 +76,7 @@ func (a clientAuthCallback) Reset(contact.Contact,
 
 // serverAuthCallback provides callback functionality for interfacing between
 // auth.State and Connection. This is used for building new Connection
-//objects when an auth Request is received.
+// objects when an auth Request is received.
 type serverAuthCallback struct {
 	// Used for signaling confirmation of E2E partnership
 	requestCallback Callback

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -23,8 +23,8 @@ type nicknameManager struct {
 	kv *versioned.KV
 }
 
-// loadOrNewNicknameManager returns the stored nickname manager if there is
-// one or returns a new one
+// loadOrNewNicknameManager returns the stored nickname manager if there is one
+// or returns a new one.
 func loadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
 	nm := &nicknameManager{
 		byChannel: make(map[id.ID]string),
@@ -39,19 +39,19 @@ func loadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
 
 }
 
-// GetNickname returns the nickname for the given channel if it exists
-func (nm *nicknameManager) GetNickname(ch *id.ID) (
+// GetNickname returns the nickname for the given channel if it exists.
+func (nm *nicknameManager) GetNickname(chID *id.ID) (
 	nickname string, exists bool) {
 	nm.mux.RLock()
 	defer nm.mux.RUnlock()
 
-	nickname, exists = nm.byChannel[*ch]
+	nickname, exists = nm.byChannel[*chID]
 	return
 }
 
 // SetNickname sets the nickname for a channel after checking that the nickname
-// is valid using IsNicknameValid
-func (nm *nicknameManager) SetNickname(newNick string, ch *id.ID) error {
+// is valid using [IsNicknameValid].
+func (nm *nicknameManager) SetNickname(newNick string, chID *id.ID) error {
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
@@ -59,17 +59,17 @@ func (nm *nicknameManager) SetNickname(newNick string, ch *id.ID) error {
 		return err
 	}
 
-	nm.byChannel[*ch] = newNick
+	nm.byChannel[*chID] = newNick
 	return nm.save()
 }
 
 // DeleteNickname removes the nickname for a given channel, using the codename
-// for that channel instead
-func (nm *nicknameManager) DeleteNickname(ch *id.ID) error {
+// for that channel instead.
+func (nm *nicknameManager) DeleteNickname(chID *id.ID) error {
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	delete(nm.byChannel, *ch)
+	delete(nm.byChannel, *chID)
 
 	return nm.save()
 }
@@ -126,12 +126,13 @@ func (nm *nicknameManager) load() error {
 	return nil
 }
 
-// IsNicknameValid checks if a nickname is valid
+// IsNicknameValid checks if a nickname is valid.
 //
-// rules
-//   - a nickname must not be longer than 24 characters
-//   - a nickname must not be shorter than 1 character
-// todo: add character filtering
+// Rules:
+//   - A nickname must not be longer than 24 characters.
+//   - A nickname must not be shorter than 1 character.
+//
+// TODO: Add character filtering.
 func IsNicknameValid(nick string) error {
 	runeNick := []rune(nick)
 	if len(runeNick) > 24 {

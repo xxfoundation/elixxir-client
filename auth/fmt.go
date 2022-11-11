@@ -11,8 +11,8 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
-	util "gitlab.com/elixxir/client/storage/utility"
+	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -20,7 +20,7 @@ import (
 
 const requestFmtVersion = 1
 
-//Basic Format//////////////////////////////////////////////////////////////////
+// Basic Format//////////////////////////////////////////////////////////////////
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
@@ -115,7 +115,7 @@ func (f baseFormat) SetEcrPayload(ecr []byte) {
 	copy(f.ecrPayload, ecr)
 }
 
-//Encrypted Format//////////////////////////////////////////////////////////////
+// Encrypted Format//////////////////////////////////////////////////////////////
 const ownershipSize = 32
 
 type ecrFormat struct {
@@ -206,7 +206,7 @@ func (f ecrFormat) SetPayload(p []byte) {
 	copy(f.payload, p)
 }
 
-//Request Format////////////////////////////////////////////////////////////////
+// Request Format////////////////////////////////////////////////////////////////
 type requestFormat struct {
 	ecrFormat
 	id         []byte
@@ -252,7 +252,7 @@ func (rf requestFormat) GetMsgPayload() []byte {
 	return rf.msgPayload
 }
 
-//utility functions
+// utility functions
 func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	*cyclic.Int, error) {
 

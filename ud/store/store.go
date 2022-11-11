@@ -12,7 +12,7 @@ package ud
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -209,7 +209,7 @@ type unconfirmedFactDisk struct {
 }
 
 // marshalConfirmedFacts is a marshaller which serializes the data
-//// in the confirmedFacts map into a JSON.
+// // in the confirmedFacts map into a JSON.
 func (s *Store) marshalConfirmedFacts() ([]byte, error) {
 	// Flatten confirmed facts to a list
 	fStrings := s.serializeConfirmedFacts()

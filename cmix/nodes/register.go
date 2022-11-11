@@ -17,7 +17,7 @@ import (
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -201,7 +201,7 @@ type registrationResponsePart struct {
 }
 
 // processNodeRegistrationResponses is a long-running thread which handles
-//responses received over the rc channel held in registrar.  As registration
+// responses received over the rc channel held in registrar.  As registration
 // responses are received, it updates the attempts and inProgress maps &
 // adds the received data to the registrar, or returns the node to the
 // registration queue as needed

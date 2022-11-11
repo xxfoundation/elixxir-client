@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strings"
@@ -21,10 +21,10 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/v4/interfaces"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -263,11 +263,11 @@ type failure struct {
 	Err error
 }
 
-////
+// //
 // stateStore wraps a kv and stores contact state for the restoration
 // TODO: Right now, it uses 1 contact-per-key approach, but it might make sense
 // to wrap this in a mutex and load/store a whole list
-////
+// //
 const stateStoreFmt = "restoreContactsFromBackup/v1/%s"
 
 type stateStore struct {

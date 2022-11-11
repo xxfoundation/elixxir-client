@@ -10,8 +10,8 @@ package broadcast
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
@@ -24,6 +24,8 @@ type broadcastClient struct {
 	rng     *fastRNG.StreamGenerator
 }
 
+// NewBroadcastChannelFunc creates a broadcast Channel. Used so that it can be
+// replaced in tests.
 type NewBroadcastChannelFunc func(channel *crypto.Channel, net Client,
 	rng *fastRNG.StreamGenerator) (Channel, error)
 
@@ -52,7 +54,8 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 }
 
 // RegisterListener registers a listener for broadcast messages.
-func (bc *broadcastClient) RegisterListener(listenerCb ListenerFunc, method Method) error {
+func (bc *broadcastClient) RegisterListener(
+	listenerCb ListenerFunc, method Method) error {
 	var tag string
 	switch method {
 	case Symmetric:

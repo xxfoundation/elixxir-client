@@ -9,7 +9,7 @@ package receptionID
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID/store"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID/store"
 	"strconv"
 	"strings"
 )

@@ -9,13 +9,13 @@ package receive
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
 	"strings"
 )
 
-//Listener interface for a listener adhere to
+// Listener interface for a listener adhere to
 type Listener interface {
 	// the Hear function is called to exercise the listener, passing in the
 	// data as an item
@@ -67,13 +67,14 @@ func (lid ListenerID) String() string {
 
 /*internal listener implementations*/
 
-//listener based off of a function
+// listener based off of a function
 type funcListener struct {
 	listener ListenerFunc
 	name     string
 }
 
-//  newFuncListener creates a new FuncListener Adhereing to the listener interface out of the
+//	newFuncListener creates a new FuncListener Adhereing to the listener interface out of the
+//
 // passed function and name, returns a pointer to the result
 func newFuncListener(listener ListenerFunc, name string) *funcListener {
 	return &funcListener{
@@ -94,7 +95,7 @@ func (fl *funcListener) Name() string {
 	return fl.name
 }
 
-//listener based off of a channel
+// listener based off of a channel
 type chanListener struct {
 	listener chan Message
 	name     string

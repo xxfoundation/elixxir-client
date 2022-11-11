@@ -14,8 +14,8 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
@@ -164,7 +164,7 @@ func (r *relationship) save() error {
 	return r.kv.Set(relationshipKey, &obj)
 }
 
-//ekv functions
+// ekv functions
 func (r *relationship) marshal() ([]byte, error) {
 	sessions := make([]session.SessionID, len(r.sessions))
 

@@ -19,8 +19,8 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -124,7 +124,7 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 
-//NewSession - Generator which creates all keys and structures
+// NewSession - Generator which creates all keys and structures
 func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 	partnerPubKey, baseKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, trigger SessionID,
@@ -298,7 +298,7 @@ func (s *Session) GetSource() SessionID {
 	return s.partnerSource
 }
 
-//underlying definition of session id
+// underlying definition of session id
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
@@ -600,7 +600,7 @@ func (s *Session) buildChildKeys() {
 	}
 }
 
-//returns key objects for all unused keys
+// returns key objects for all unused keys
 func (s *Session) getUnusedKeys() []Cypher {
 	keyNums := s.keyState.GetUnusedKeyNums()
 
@@ -612,7 +612,7 @@ func (s *Session) getUnusedKeys() []Cypher {
 	return keys
 }
 
-//ekv functions
+// ekv functions
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 

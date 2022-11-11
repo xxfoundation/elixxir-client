@@ -13,9 +13,9 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/connect"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/connect"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -46,9 +46,9 @@ func (c *Connection) GetId() int {
 // partner.Manager is confirmed.
 //
 // Parameters:
-//  - e2eId - ID of the E2E object in the e2e tracker
-//  - recipientContact - marshalled contact.Contact object
-//  - e2eParamsJSON - JSON marshalled byte of xxdk.E2EParams object
+//   - e2eId - ID of the E2E object in the e2e tracker
+//   - recipientContact - marshalled contact.Contact object
+//   - e2eParamsJSON - JSON marshalled byte of xxdk.E2EParams object
 func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 	*Connection, error) {
 	if len(e2eParamsJSON) == 0 {
@@ -82,8 +82,8 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 // partner.Manager.
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
-//    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
+//   - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
+//     be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	sendReport, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
 		c.params.Base)

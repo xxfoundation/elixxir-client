@@ -8,11 +8,11 @@
 package backup
 
 import (
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -185,6 +185,7 @@ func (b *Backup) getKeySaltParams(password string) (
 // The passed in reason will be printed to the log when the backup is sent. It
 // should be in the past tense. For example, if a contact is deleted, the
 // reason can be "contact deleted" and the log will show:
+//
 //	Triggering backup: contact deleted
 func (b *Backup) TriggerBackup(reason string) {
 	b.mux.RLock()

@@ -9,7 +9,7 @@ package auth
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/v4/catalog"
 )
 
 // Params is are the parameters for the auth package.

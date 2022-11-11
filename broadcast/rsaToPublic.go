@@ -10,9 +10,9 @@ package broadcast
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -35,13 +35,10 @@ const (
 // or smaller and the channel [rsa.PrivateKey] must be passed in.
 //
 // The network must be healthy to send.
-func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
-	payload []byte, cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-	// Confirm network health
-
-	assemble := func(rid id.Round) ([]byte, error) {
-		return payload, nil
-	}
+func (bc *broadcastClient) BroadcastRSAtoPublic(
+	pk rsa.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
+	assemble := func(rid id.Round) ([]byte, error) { return payload, nil }
 	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, cMixParams)
 }
 
@@ -91,7 +88,7 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 					"asymmetric broadcast message")
 		}
 
-		// Create service using asymmetric broadcast service tag & channel
+		// Create service using asymmetric broadcast service tag and channel
 		// reception ID allows anybody with this info to listen for messages on
 		// this channel
 		service = message.Service{

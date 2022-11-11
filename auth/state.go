@@ -11,14 +11,14 @@ import (
 	"encoding/base64"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/auth/store"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -51,16 +51,19 @@ type state struct {
 // Bases its reception identity and keys off of what is found in e2e.
 // Uses this ID to modify the kv prefix for a unique storage path
 // Parameters:
-//   The params object passed in determines the services that will be used
-//   to pick up requests and signal notifications. These are unique to an
-//   identity, so multiple auth states with the same service tags with
-//   different identities can run simultaneously.
-//   Default parameters can be retrieved via GetDefaultParameters()
+//
+//	The params object passed in determines the services that will be used
+//	to pick up requests and signal notifications. These are unique to an
+//	identity, so multiple auth states with the same service tags with
+//	different identities can run simultaneously.
+//	Default parameters can be retrieved via GetDefaultParameters()
+//
 // Temporary:
-//   In some cases, for example client <-> server communications, connections
-//   are treated as ephemeral. To do so in auth, pass in an ephemeral e2e (made
-//   with a memory only versioned.KV) as well as a memory only versioned.KV for
-//   NewState and use GetDefaultTemporaryParams() for the parameters
+//
+//	In some cases, for example client <-> server communications, connections
+//	are treated as ephemeral. To do so in auth, pass in an ephemeral e2e (made
+//	with a memory only versioned.KV) as well as a memory only versioned.KV for
+//	NewState and use GetDefaultTemporaryParams() for the parameters
 func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,
 	sessParams session.Params, callbacks Callbacks,

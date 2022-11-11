@@ -8,7 +8,7 @@
 package receive
 
 import (
-	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
 	"testing"
@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-//Tests that register listener handles errors properly
+// Tests that register listener handles errors properly
 func TestSwitchboard_RegisterListener_Error_NilUserID(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -43,7 +43,7 @@ func TestSwitchboard_RegisterListener_Error_NilUserID(t *testing.T) {
 	t.Errorf("A nil userID should have caused an panic")
 }
 
-//Tests that register listener handles errors properly
+// Tests that register listener handles errors properly
 func TestSwitchboard_RegisterListener_Error_NilListener(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -58,7 +58,7 @@ func TestSwitchboard_RegisterListener_Error_NilListener(t *testing.T) {
 	t.Errorf("A nil listener should have caused an error")
 }
 
-//Tests that RegisterListener properly registers the listeners
+// Tests that RegisterListener properly registers the listeners
 func TestSwitchboard_RegisterListener(t *testing.T) {
 	sw := New()
 
@@ -97,7 +97,7 @@ func TestSwitchboard_RegisterListener(t *testing.T) {
 
 }
 
-//Tests that register funcListener handles errors properly
+// Tests that register funcListener handles errors properly
 func TestSwitchboard_RegisterFunc_Error_NilUserID(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -112,7 +112,7 @@ func TestSwitchboard_RegisterFunc_Error_NilUserID(t *testing.T) {
 	t.Errorf("A nil user ID should have caused an error")
 }
 
-//Tests that register funcListener handles errors properly
+// Tests that register funcListener handles errors properly
 func TestSwitchboard_RegisterFunc_Error_NilFunc(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -127,7 +127,7 @@ func TestSwitchboard_RegisterFunc_Error_NilFunc(t *testing.T) {
 	t.Errorf("A nil listener func should have caused an error")
 }
 
-//Tests that RegisterFunc properly registers the listeners
+// Tests that RegisterFunc properly registers the listeners
 func TestSwitchboard_RegisterFunc(t *testing.T) {
 	sw := New()
 
@@ -168,7 +168,7 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 	}
 }
 
-//Tests that register chanListener handles errors properly
+// Tests that register chanListener handles errors properly
 func TestSwitchboard_RegisterChan_Error_NilUser(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -183,7 +183,7 @@ func TestSwitchboard_RegisterChan_Error_NilUser(t *testing.T) {
 	t.Errorf("A nil userID should have caused an error")
 }
 
-//Tests that register chanListener handles errors properly
+// Tests that register chanListener handles errors properly
 func TestSwitchboard_RegisterChan_Error_NilChan(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -197,7 +197,7 @@ func TestSwitchboard_RegisterChan_Error_NilChan(t *testing.T) {
 	t.Errorf("A nil channel func should have caused an error")
 }
 
-//Tests that RegisterChan properly registers the listeners
+// Tests that RegisterChan properly registers the listeners
 func TestSwitchboard_RegisterChan(t *testing.T) {
 	sw := New()
 
@@ -239,7 +239,7 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 	}
 }
 
-//tests all combinations of hits and misses for speak
+// tests all combinations of hits and misses for speak
 func TestSwitchboard_Speak(t *testing.T) {
 
 	uids := []*id.ID{{}, AnyUser(), id.NewIdFromUInt(42, id.User, t), id.NewIdFromUInt(69, id.User, t)}
@@ -310,7 +310,7 @@ func TestSwitchboard_Speak(t *testing.T) {
 	}
 }
 
-//tests that Unregister removes the listener and only the listener
+// tests that Unregister removes the listener and only the listener
 func TestSwitchboard_Unregister(t *testing.T) {
 	sw := New()
 

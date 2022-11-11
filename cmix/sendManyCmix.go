@@ -9,18 +9,18 @@ package cmix
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/cmix/attempts"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/attempts"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/nodes"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cmix"
@@ -53,18 +53,20 @@ type TargetedCmixMessage struct {
 // implementing a protocol on top.
 // Due to sending multiple payloads, this leaks more metadata than a
 // standard cMix send and should be in general avoided.
-//   recipient - cMix ID of the recipient.
-//   fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
-//      fingerprint, highest order bit must be 0 (panic otherwise). If your
-//      system does not use key fingerprints, this must be random bits.
-//   service - Reception Service. The backup way for a client to identify
-//      messages on receipt via trial hashing and to identify notifications.
-//      If unused, use message.GetRandomService to fill the field with
-//      random data.
-//   payload - Contents of the message. Cannot exceed the payload size for a
-//      cMix message (panic otherwise).
-//   mac - 256-bit field to store a 255-bit mac, highest order bit must be 0
-//      (panic otherwise). If used, fill with random bits.
+//
+//	recipient - cMix ID of the recipient.
+//	fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
+//	   fingerprint, highest order bit must be 0 (panic otherwise). If your
+//	   system does not use key fingerprints, this must be random bits.
+//	service - Reception Service. The backup way for a client to identify
+//	   messages on receipt via trial hashing and to identify notifications.
+//	   If unused, use message.GetRandomService to fill the field with
+//	   random data.
+//	payload - Contents of the message. Cannot exceed the payload size for a
+//	   cMix message (panic otherwise).
+//	mac - 256-bit field to store a 255-bit mac, highest order bit must be 0
+//	   (panic otherwise). If used, fill with random bits.
+//
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful send or err.
 // WARNING: Do not roll your own crypto

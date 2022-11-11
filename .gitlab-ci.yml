@@ -17,6 +17,7 @@ stages:
   - test
   - build
   - trigger_integration
+  - version_check
 
 test:
   stage: test
@@ -72,8 +73,19 @@ tag:
     image: $DOCKER_IMAGE
     script:
         - git remote add origin_tags git@$GITLAB_SERVER:elixxir/client.git || true
-        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
-        - git push origin_tags -f --tags
+        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
+        - git push origin_tags --tags
+
+version_check:
+    stage: version_check
+    only:
+        - master
+        - release
+    image: $DOCKER_IMAGE
+    script:
+        - GITTAG=$(git describe --tags)
+        - CODEVERS=$(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) 
+        - if [[ $GITTAG != $CODEVERS ]]; then echo "VERSION NUMBER BAD $GITTAG != $CODEVER"; exit -1; fi
 
 bindings-ios:
   stage: build
@@ -90,7 +102,7 @@ bindings-ios:
     - go get golang.org/x/mobile/bind
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - gomobile init
-    - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/bindings
+    - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - ls
     - zip -r iOS.zip Bindings.xcframework
   artifacts:
@@ -114,7 +126,7 @@ bindings-android:
     - go get golang.org/x/mobile/bind
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - gomobile init
-    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/v4/bindings
   artifacts:
     paths:
       - bindings.aar

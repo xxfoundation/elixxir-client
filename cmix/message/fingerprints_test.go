@@ -9,8 +9,8 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -154,7 +154,8 @@ func TestFingerprintsManager_DeleteClientFingerprints(t *testing.T) {
 }
 
 // TODO: Consider moving this to a test utils somewhere else. Maybe in the
-//  interfaces package?
+//
+//	interfaces package?
 type MockMsgProcessor struct{}
 
 func NewMockMsgProcessor(face interface{}) *MockMsgProcessor {

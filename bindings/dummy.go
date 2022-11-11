@@ -8,7 +8,7 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/dummy"
+	"gitlab.com/elixxir/client/v4/dummy"
 	"time"
 )
 
@@ -27,14 +27,14 @@ type DummyTraffic struct {
 // parameters below.
 //
 // Parameters:
-//  - cmixId - a Cmix object ID in the tracker.
-//  - maxNumMessages - the upper bound of the random number of messages sent
-//    each sending cycle.  Suggested value: 5.
-//  - avgSendDeltaMS - the average duration, in milliseconds, to wait between
-//    sends.  Suggested value: 60000.
-//  - randomRangeMS - the upper bound of the interval between sending cycles, in
-//    milliseconds. Sends occur every avgSendDeltaMS +/- a random duration with
-//    an upper bound of randomRangeMS.  Suggested value: 1000.
+//   - cmixId - a Cmix object ID in the tracker.
+//   - maxNumMessages - the upper bound of the random number of messages sent
+//     each sending cycle.  Suggested value: 5.
+//   - avgSendDeltaMS - the average duration, in milliseconds, to wait between
+//     sends.  Suggested value: 60000.
+//   - randomRangeMS - the upper bound of the interval between sending cycles, in
+//     milliseconds. Sends occur every avgSendDeltaMS +/- a random duration with
+//     an upper bound of randomRangeMS.  Suggested value: 1000.
 func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 	randomRangeMS int) (*DummyTraffic, error) {
 
@@ -61,12 +61,12 @@ func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 // once that operation has completed.
 //
 // Parameters:
-//  - status - Input should be true if you want to send dummy messages and false
-//    if you want to pause dummy messages.
+//   - status - Input should be true if you want to send dummy messages and false
+//     if you want to pause dummy messages.
 //
 // Returns:
-//  - error - if the DummyTraffic.SetStatus is called too frequently, causing
-//    the internal status channel to fill.
+//   - error - if the DummyTraffic.SetStatus is called too frequently, causing
+//     the internal status channel to fill.
 func (dt *DummyTraffic) SetStatus(status bool) error {
 	return dt.m.SetStatus(status)
 }

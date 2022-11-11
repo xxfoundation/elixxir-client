@@ -10,10 +10,9 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"fmt"
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/primitives/states"
@@ -70,7 +69,6 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID,
 	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
 	nickname, text string, _ ed25519.PublicKey, _ uint8, timestamp time.Time,
 	lease time.Duration, round rounds.Round, _ MessageType, _ SentStatus) uint64 {
-	fmt.Println(reactionTo)
 	m.eventReceive = eventReceive{
 		channelID:  channelID,
 		messageID:  messageID,
@@ -102,7 +100,6 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 
 func (m *MockEvent) UpdateSentStatus(uint64, cryptoChannel.MessageID,
 	time.Time, rounds.Round, SentStatus) {
-	// TODO implement me
 	panic("implement me")
 }
 
@@ -248,7 +245,8 @@ func TestEvents_triggerEvents(t *testing.T) {
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	// call the trigger
-	_, err = e.triggerEvent(chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err = e.triggerEvent(
+		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -319,7 +317,8 @@ func TestEvents_triggerEvents_noChannel(t *testing.T) {
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	// call the trigger
-	_, err := e.triggerEvent(chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err := e.triggerEvent(
+		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -357,8 +356,8 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
-		Delivered)
+	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
+		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -432,8 +431,8 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// call the trigger
-	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
-		Delivered)
+	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
+		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -461,7 +460,7 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
-		t.Fatalf("failed to marshael the message proto: %+v", err)
+		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
@@ -470,7 +469,7 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
 	senderNickname := "Alice"
@@ -497,8 +496,7 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 	}
 
 	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Errorf("Reaction ID is not blank, %s",
-			me.eventReceive.reactionTo)
+		t.Errorf("Reaction ID is not blank, %s", me.eventReceive.reactionTo)
 	}
 
 	if me.eventReceive.nickname != senderNickname {
@@ -524,7 +522,6 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 
 func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 	me := &MockEvent{}
-
 	e := initEvents(me)
 
 	// craft the input for the event
@@ -541,7 +538,7 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
-		t.Fatalf("failed to marshael the message proto: %+v", err)
+		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
@@ -604,7 +601,6 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 
 func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	me := &MockEvent{}
-
 	e := initEvents(me)
 
 	// craft the input for the event
@@ -621,7 +617,7 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
-		t.Fatalf("failed to marshael the message proto: %+v", err)
+		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
@@ -657,8 +653,7 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	}
 
 	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Errorf("Reaction ID is not blank, %s",
-			me.eventReceive.reactionTo)
+		t.Errorf("Reaction ID is not blank, %s", me.eventReceive.reactionTo)
 	}
 
 	if me.eventReceive.nickname != senderUsername {
@@ -667,8 +662,8 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	}
 
 	if me.eventReceive.timestamp != ts {
-		t.Errorf("Message timestamp did not propogate correctly, "+
-			"%s vs %s", me.eventReceive.timestamp, ts)
+		t.Errorf("Message timestamp did not propogate correctly, %s vs %s",
+			me.eventReceive.timestamp, ts)
 	}
 
 	if me.eventReceive.lease != lease {
@@ -684,7 +679,6 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 
 func TestEvents_receiveReaction(t *testing.T) {
 	me := &MockEvent{}
-
 	e := initEvents(me)
 
 	// craft the input for the event
@@ -701,7 +695,7 @@ func TestEvents_receiveReaction(t *testing.T) {
 
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
-		t.Fatalf("failed to marshael the message proto: %+v", err)
+		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
@@ -737,8 +731,8 @@ func TestEvents_receiveReaction(t *testing.T) {
 	}
 
 	if !me.eventReceive.reactionTo.Equals(replyMsgId) {
-		t.Errorf("Reaction ID is not equal to what was passed in, "+
-			"%s vs %s", me.eventReceive.reactionTo, replyMsgId)
+		t.Errorf("Reaction ID is not equal to what was passed in, %s vs %s",
+			me.eventReceive.reactionTo, replyMsgId)
 	}
 
 	if me.eventReceive.nickname != senderUsername {
@@ -764,7 +758,6 @@ func TestEvents_receiveReaction(t *testing.T) {
 
 func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	me := &MockEvent{}
-
 	e := initEvents(me)
 
 	// craft the input for the event
@@ -781,7 +774,7 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
-		t.Fatalf("failed to marshael the message proto: %+v", err)
+		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
@@ -807,34 +800,28 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 
 	// check the results on the model
 	if me.eventReceive.channelID != nil {
-		t.Errorf("Channel ID did propogated correctly when the reaction " +
-			"is bad")
+		t.Error("Channel ID did propagate correctly when the reaction is bad.")
 	}
 
 	if me.eventReceive.messageID.Equals(msgID) {
-		t.Errorf("Message ID propogated correctly when the reaction is " +
-			"bad")
+		t.Errorf("Message ID propagate correctly when the reaction is bad.")
 	}
 
 	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Errorf("Reaction ID propogated correctly when the reaction " +
-			"is bad")
+		t.Errorf("Reaction ID propagate correctly when the reaction is bad.")
 	}
 
 	if me.eventReceive.nickname != "" {
-		t.Errorf("SenderID propogated correctly when the reaction " +
-			"is bad")
+		t.Errorf("SenderID propagate correctly when the reaction is bad.")
 	}
 
 	if me.eventReceive.lease != 0 {
-		t.Errorf("Message lease propogated correctly when the " +
-			"reaction is bad")
+		t.Errorf("Message lease propagate correctly when the reaction is bad.")
 	}
 }
 
 func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	me := &MockEvent{}
-
 	e := initEvents(me)
 
 	// craft the input for the event
@@ -851,7 +838,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
-		t.Fatalf("failed to marshael the message proto: %+v", err)
+		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
@@ -870,34 +857,30 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	// call the handler
+
+	// Call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,
 		textMarshaled, pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered)
 
-	// check the results on the model
+	// Check the results on the model
 	if me.eventReceive.channelID != nil {
-		t.Errorf("Channel ID did propogated correctly when the reaction " +
-			"is bad")
+		t.Error("Channel ID did propagate correctly when the reaction is bad.")
 	}
 
 	if me.eventReceive.messageID.Equals(msgID) {
-		t.Errorf("Message ID propogated correctly when the reaction is " +
-			"bad")
+		t.Error("Message ID propagate correctly when the reaction is bad.")
 	}
 
 	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Errorf("Reaction ID propogated correctly when the reaction " +
-			"is bad")
+		t.Error("Reaction ID propagate correctly when the reaction is bad.")
 	}
 
 	if me.eventReceive.nickname != "" {
-		t.Errorf("SenderID propogated correctly when the reaction " +
-			"is bad")
+		t.Error("SenderID propagate correctly when the reaction is bad.")
 	}
 
 	if me.eventReceive.lease != 0 {
-		t.Errorf("Message lease propogated correctly when the " +
-			"reaction is bad")
+		t.Error("Message lease propagate correctly when the reaction is bad.")
 	}
 }
 

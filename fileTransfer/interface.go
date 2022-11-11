@@ -8,7 +8,7 @@
 package fileTransfer
 
 import (
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
@@ -85,32 +85,32 @@ type FileTransfer interface {
 	// In-progress transfers are restored when closing and reopening; however, a
 	// SentProgressCallback must be registered again.
 	//
-	//   recipient - ID of the receiver of the file transfer. The sender must
-	//      have an E2E relationship with the recipient.
-	//   fileName - Human-readable file name. Max length defined by
-	//      MaxFileNameLen.
-	//   fileType - Shorthand that identifies the type of file. Max length
-	//      defined by MaxFileTypeLen.
-	//   fileData - File contents. Max size defined by MaxFileSize.
-	//   retry - The number of sending retries allowed on send failure (e.g.
-	//      a retry of 2.0 with 6 parts means 12 total possible sends).
-	//   preview - A preview of the file data (e.g. a thumbnail). Max size
-	//      defined by MaxPreviewSize.
-	//   progressCB - A callback that reports the progress of the file transfer.
-	//      The callback is called once on initialization, on every progress
-	//      update (or less if restricted by the period), or on fatal error.
-	//   period - A progress callback will be limited from triggering only once
-	//      per period.
-	//   sendNew - Function that sends the file transfer information to the
-	//      recipient.
+	// Parameters:
+	//  - recipient - ID of the receiver of the file transfer. The sender must
+	//    have an E2E relationship with the recipient.
+	//  - fileName - Human-readable file name. Max length defined by
+	//    MaxFileNameLen.
+	//  - fileType - Shorthand that identifies the type of file. Max length
+	//    defined by MaxFileTypeLen.
+	//  - fileData - File contents. Max size defined by MaxFileSize.
+	//  - retry - The number of sending retries allowed on send failure (e.g.
+	//    a retry of 2.0 with 6 parts means 12 total possible sends).
+	//  - preview - A preview of the file data (e.g. a thumbnail). Max size
+	//    defined by MaxPreviewSize.
+	//  - progressCB - A callback that reports the progress of the file
+	//    transfer. The callback is called once on initialization, on every
+	//    progress update (or less if restricted by the period), or on fatal
+	//    error.
+	//  - period - The progress callback will be limited from triggering only
+	//    once per period.
+	//  - sendNew - Function that sends the file transfer information to the
+	//    recipient.
 	Send(recipient *id.ID, fileName, fileType string, fileData []byte,
 		retry float32, preview []byte, progressCB SentProgressCallback,
 		period time.Duration, sendNew SendNew) (*ftCrypto.TransferID, error)
 
 	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual sent file transfer.
-	// SentProgressCallback is auto registered on Send; this function should be
-	// called when resuming clients or registering extra callbacks.
 	//
 	// The callback will be called immediately when added to report the current
 	// progress of the transfer. It will then call every time a file part
@@ -124,8 +124,8 @@ type FileTransfer interface {
 		progressCB SentProgressCallback, period time.Duration) error
 
 	// CloseSend deletes a file from the internal storage once a transfer has
-	// completed or reached the retry limit. Returns an error if the transfer
-	// has not run out of retries.
+	// completed or reached the retry limit. If neither of those condition are
+	// met, an error is returned.
 	//
 	// This function should be called once a transfer completes or errors out
 	// (as reported by the progress callback).
@@ -173,8 +173,6 @@ type FileTransfer interface {
 
 	// RegisterReceivedProgressCallback allows for the registration of a
 	// callback to track the progress of an individual received file transfer.
-	// This should be done when a new transfer is received on the
-	// ReceiveCallback.
 	//
 	// The callback will be called immediately when added to report the current
 	// progress of the transfer. It will then call every time a file part is
@@ -189,8 +187,8 @@ type FileTransfer interface {
 	RegisterReceivedProgressCallback(tid *ftCrypto.TransferID,
 		progressCB ReceivedProgressCallback, period time.Duration) error
 
-	// Receive returns the full file on the completion of the transfer.
-	// It deletes internal references to the data and unregisters any attached
+	// Receive returns the full file on the completion of the transfer. It
+	// deletes internal references to the data and unregisters any attached
 	// progress callback. Returns an error if the transfer is not complete, the
 	// full file cannot be verified, or if the transfer cannot be found.
 	//

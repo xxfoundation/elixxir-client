@@ -8,10 +8,10 @@
 package broadcast
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -83,7 +83,7 @@ type Channel interface {
 	Stop()
 }
 
-// Assembler is a function which allows a bre
+// Assembler is a function which allows a bre.
 type Assembler func(rid id.Round) (payload []byte, err error)
 
 // Client contains the methods from [cmix.Client] that are required by
@@ -92,7 +92,8 @@ type Client interface {
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
-	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
+	AddIdentityWithHistory(
+		id *id.ID, validUntil, beginning time.Time, persistent bool)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)

@@ -26,8 +26,13 @@ import (
 func (m *Manager) RemoveFact(f fact.Fact) error {
 	jww.INFO.Printf("ud.RemoveFact(%s)", f.Stringify())
 	m.factMux.Lock()
-	defer m.factMux.Unlock()
-	return m.removeFact(f, m.comms)
+	err := m.removeFact(f, m.comms)
+	m.factMux.Unlock()
+	if err != nil {
+		return err
+	}
+	m.user.GetBackupContainer().TriggerBackup("Removed fact")
+	return nil
 }
 
 // removeFact is a helper function which contacts the UD service

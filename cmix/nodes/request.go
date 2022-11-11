@@ -14,7 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -215,6 +215,10 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	jww.TRACE.Printf("DH for reg took %s", time.Since(start))
 
 	// Verify the HMAC
+	jww.TRACE.Printf("[ClientKeyHMAC] Session Key Bytes: %+v", sessionKey.Bytes())
+	jww.TRACE.Printf("[ClientKeyHMAC] EncryptedClientKey: %+v", keyResponse.EncryptedClientKey)
+	jww.TRACE.Printf("[ClientKeyHMAC] EncryptedClientKeyHMAC: %+v", keyResponse.EncryptedClientKeyHMAC)
+
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(),
 		keyResponse.GetEncryptedClientKey(), opts.Hash.New,
 		keyResponse.GetEncryptedClientKeyHMAC()) {

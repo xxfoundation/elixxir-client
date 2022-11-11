@@ -11,21 +11,22 @@ import (
 	"encoding/json"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/restlike"
-	"gitlab.com/elixxir/client/restlike/connect"
+	"gitlab.com/elixxir/client/v4/restlike"
+	"gitlab.com/elixxir/client/v4/restlike/connect"
 )
 
 // RestlikeMessage is the bindings' representation of a restlike.Message
 //
 // JSON example:
-//  {
-//   "Version":1,
-//   "Headers":"Y29udGVudHM6YXBwbGljYXRpb24vanNvbg==",
-//   "Content":"VGhpcyBpcyBhIHJlc3RsaWtlIG1lc3NhZ2U=",
-//   "Method":2,
-//   "URI":"xx://CmixRestlike/rest",
-//   "Error":""
-//  }
+//
+//	{
+//	 "Version":1,
+//	 "Headers":"Y29udGVudHM6YXBwbGljYXRpb24vanNvbg==",
+//	 "Content":"VGhpcyBpcyBhIHJlc3RsaWtlIG1lc3NhZ2U=",
+//	 "Method":2,
+//	 "URI":"xx://CmixRestlike/rest",
+//	 "Error":""
+//	}
 type RestlikeMessage struct {
 	Version uint32
 	Headers []byte
@@ -38,13 +39,13 @@ type RestlikeMessage struct {
 // RestlikeRequest performs a normal restlike request.
 //
 // Parameters:
-//  - cmixId - ID of the cMix object in the tracker
-//  - connectionID - ID of the connection in the tracker
-//  - request - JSON marshalled RestlikeMessage
-//  - e2eParamsJSON - JSON marshalled xxdk.E2EParams
+//   - cmixId - ID of the cMix object in the tracker
+//   - connectionID - ID of the connection in the tracker
+//   - request - JSON marshalled RestlikeMessage
+//   - e2eParamsJSON - JSON marshalled xxdk.E2EParams
 //
 // Returns:
-//  - []byte - JSON marshalled RestlikeMessage
+//   - []byte - JSON marshalled RestlikeMessage
 func RestlikeRequest(
 	cmixId, connectionID int, request, e2eParamsJSON []byte) ([]byte, error) {
 	if len(e2eParamsJSON) == 0 {
@@ -100,13 +101,13 @@ func RestlikeRequest(
 // RestlikeRequestAuth performs an authenticated restlike request.
 //
 // Parameters:
-//  - cmixId - ID of the cMix object in the tracker
-//  - authConnectionID - ID of the authenticated connection in the tracker
-//  - request - JSON marshalled RestlikeMessage
-//  - e2eParamsJSON - JSON marshalled xxdk.E2EParams
+//   - cmixId - ID of the cMix object in the tracker
+//   - authConnectionID - ID of the authenticated connection in the tracker
+//   - request - JSON marshalled RestlikeMessage
+//   - e2eParamsJSON - JSON marshalled xxdk.E2EParams
 //
 // Returns:
-//  - []byte - JSON marshalled RestlikeMessage
+//   - []byte - JSON marshalled RestlikeMessage
 func RestlikeRequestAuth(cmixId, authConnectionID int, request,
 	e2eParamsJSON []byte) ([]byte, error) {
 	if len(e2eParamsJSON) == 0 {

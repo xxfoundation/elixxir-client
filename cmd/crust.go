@@ -152,8 +152,6 @@ var crustCmd = &cobra.Command{
 				jww.FATAL.Panicf("Failed to retrieve private key: %+v", err)
 			}
 
-			jww.INFO.Printf("[CRUST] Uploading backup to Crust")
-
 			// Upload file to Crust
 			uploadReport, err := crust.UploadBackup(backupFile, userPrivKey,
 				userDiscoveryMgr)
@@ -170,7 +168,7 @@ var crustCmd = &cobra.Command{
 			fmt.Println("Successfully backed up file")
 		} else if triggerRecovery {
 			// Trigger recovery from Crust
-			jww.INFO.Printf("[CRUST] Recovering file!")
+			jww.INFO.Printf("[CRUST] Recovering file...")
 			usernameHash := crustCrypto.HashUsername(username)
 			recoveredFile, err := crust.RecoverBackup(string(usernameHash))
 			if err != nil {

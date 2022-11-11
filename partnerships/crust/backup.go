@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/partnerships/crust"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -145,17 +146,24 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 		FileHash:              fileHash,
 	}
 
+	jww.INFO.Printf("[CRUST] Uploading backup file to Crust...")
+
 	// Send backup file to network
 	requestBackupResponse, err := uploadBackup(file, header)
 	if err != nil {
 		return nil, errors.Errorf("failed to upload backup: %+v", err)
 	}
 
+	jww.INFO.Printf("[CRUST] Completed upload to Crust.")
+	jww.INFO.Printf("[CRUST] Requesting PIN from Crust...")
+
 	// Check on the status of the backup
 	uploadSuccess, err := requestPin(requestBackupResponse, header)
 	if err != nil {
 		return nil, errors.Errorf("failed to request PIN: %+v", err)
 	}
+
+	jww.INFO.Printf("[CRUST] Completed PIN request.")
 
 	return uploadSuccess, nil
 }

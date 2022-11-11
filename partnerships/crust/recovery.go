@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"net/http"
 )
 
@@ -39,15 +40,19 @@ type cidResponse struct {
 // server. The user must have called UploadBackup successfully for a proper
 // file recover.
 func RecoverBackup(usernameHash string) ([]byte, error) {
+	jww.INFO.Printf("[CRUST] Requesting CID from Crust...")
 	cidResp, err := requestCid(usernameHash)
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve CID: %+v", err)
 	}
 
+	jww.INFO.Printf("[CRUST] Received CID from Crust.")
+	jww.INFO.Printf("[CRUST] Recovering file from Crust...")
 	backupFile, err := requestBackupFile(cidResp)
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve backup file: %+v", err)
 	}
+	jww.INFO.Printf("[CRUST] Received file from Crust...")
 
 	return backupFile, nil
 }

@@ -9,6 +9,7 @@ package cmix
 
 import (
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -86,7 +87,18 @@ func (cmh *cmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error
 func (cmh *cmixMessageHandler) HashMessage(m interface{}) utility.MessageHash {
 	h, _ := blake2b.New256(nil)
 
-	h.Write(m.(storedMessage).Marshal())
+	receivedMsg := m.(storedMessage)
+
+	// Note: CMIXParams are not always available, so when hashing, only use
+	//       the Msg/Recipient.
+	// FIXME: Why are we doing this and not keying off msgDigest
+	//        or something?
+	hashable := &storedMessage{
+		Msg:       receivedMsg.Msg,
+		Recipient: receivedMsg.Recipient,
+	}
+
+	h.Write(hashable.Marshal())
 
 	var messageHash utility.MessageHash
 	copy(messageHash[:], h.Sum(nil))

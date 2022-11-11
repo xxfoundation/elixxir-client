@@ -112,8 +112,6 @@ var crustCmd = &cobra.Command{
 				jww.FATAL.Panicf("Failed to retrieve private key: %+v", err)
 			}
 
-			jww.INFO.Printf("[CRUST] Uploading backup to Crust")
-
 			// Upload file to Crust
 			uploadReport, err := crust.UploadBackup(backupFile, userPrivKey,
 				userDiscoveryMgr)

@@ -107,6 +107,7 @@ var crustCmd = &cobra.Command{
 			if err != nil {
 				jww.FATAL.Panicf("Failed to set alternate UD: %+v", err)
 			}
+
 		}
 
 		// Retrieve username from UD manager

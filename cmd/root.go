@@ -1230,23 +1230,24 @@ func init() {
 	viper.BindPFlag("backupIdList", rootCmd.Flags().Lookup("backupIdList"))
 
 	// Alternative UD Flags
-	rootCmd.Flags().Bool("alternateUd", false,
+	rootCmd.PersistentFlags().Bool("alternateUd", false,
 		"Sets a codepath for contacting an alternate UD.")
+	viper.BindPFlag("alternateUd", rootCmd.PersistentFlags().Lookup("alternateUd"))
 
-	rootCmd.Flags().String("altUdCert", "",
+	rootCmd.PersistentFlags().String("altUdCert", "",
 		"Path to the certificate for an alternative UD. Command must have "+
 			"--alternateUd for this flag to be read.")
-	viper.BindPFlag("altUdCert", rootCmd.Flags().Lookup("altUdCert"))
+	viper.BindPFlag("altUdCert", rootCmd.PersistentFlags().Lookup("altUdCert"))
 
-	rootCmd.Flags().String("altUdAddress", "",
+	rootCmd.PersistentFlags().String("altUdAddress", "",
 		"Address of an alternative UD. Command must have "+
 			"--alternateUd for this flag to be read.")
-	viper.BindPFlag("altUdAddress", rootCmd.Flags().Lookup("altUdAddress"))
+	viper.BindPFlag("altUdAddress", rootCmd.PersistentFlags().Lookup("altUdAddress"))
 
-	rootCmd.Flags().String("altUdContactFile", "",
+	rootCmd.PersistentFlags().String("altUdContactFile", "",
 		"Path to the contact file for an alternative UD. Command must have "+
 			"--alternateUd for this flag to be read.")
-	viper.BindPFlag("altUdContactFile", rootCmd.Flags().Lookup("altUdContactFile"))
+	viper.BindPFlag("altUdContactFile", rootCmd.PersistentFlags().Lookup("altUdContactFile"))
 
 }
 

@@ -8,6 +8,7 @@
 package crust
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -21,22 +22,38 @@ import (
 	"time"
 )
 
-// Server URLs for backing up.
+// Error constants
 const (
-	backupUploadURL = "https://crustipfs.xyz/api/v0/add"
-	pinnerURL       = "https://pin.crustcode.com/psa/pins"
+	parseFormErr = "Failed to initialize request: %v"
 )
 
-// HTTP POST headers relevant for backing up.
+// Backup/Pinning constants.
 const (
-	basicAuthHeader = "Authorization: Basic"
-	jsonHeader      = "Content-Type: application/json"
-	fileKey         = "file"
+	// URLS
+	backupUploadURL = "https://crustipfs.xyz/api/v0/add"
+	pinnerURL       = "https://pin.crustcode.com/psa/pins"
+
+	// HTTP POSTing constants
+	contentTypeHeader = "Content-Type"
+	jsonHeader        = "application/json"
+	fileKey           = "file"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 // Uploading Backup Logic                                                     //
 ////////////////////////////////////////////////////////////////////////////////
+
+// UploadSuccessReport is the response given when calling requestPin.
+type UploadSuccessReport struct {
+	// RequestId is the server returns to the user.
+	RequestId string
+
+	// Status is the status of the requestPin received from the server.
+	Status string
+
+	// Created is the timestamp that the pin was created.
+	Created time.Time
+}
 
 // uploadBackupHeader is the header that will be sent to the
 // Client's connection using Client.UploadChatHistory.
@@ -67,22 +84,6 @@ type uploadBackupHeader struct {
 	FileHash []byte
 }
 
-// serialize is a helper function which serializes the header as per spec.
-func (header uploadBackupHeader) serialize() string {
-	// NOTE: This is done per spec, and should not be changed without explicit
-	// reason, approval, and/or request from our business partner.
-	auth := []byte(fmt.Sprintf("xx-%s-%s-%s-%d-%s:%s",
-		header.UserPublicKey,
-		base64.StdEncoding.EncodeToString(header.UsernameHash),
-		base64.StdEncoding.EncodeToString(header.FileHash),
-		header.UploadTimestamp,
-		base64.StdEncoding.EncodeToString(header.UploadSignature),
-		base64.StdEncoding.EncodeToString(header.VerificationSignature),
-	))
-
-	return base64.StdEncoding.EncodeToString(auth)
-}
-
 // uploadBackupResponse is the response received from uploadBackup
 // after sending a backup file and a uploadBackupHeader.
 type uploadBackupResponse struct {
@@ -96,8 +97,8 @@ type uploadBackupResponse struct {
 }
 
 // UploadBackup will upload the file provided to the distributed file server.
-// This will return a UploadSuccessReport, which provides data on the status of the
-// upload. The file may be recovered using RecoverBackup.
+// This will return a UploadSuccessReport, which provides data on the status of
+// the upload. The file may be recovered using RecoverBackup.
 func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 	udMan *ud.Manager) (*UploadSuccessReport, error) {
 
@@ -145,13 +146,13 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 	}
 
 	// Send backup file to network
-	requestBackupResponse, err := uploadBackup(file, header.serialize())
+	requestBackupResponse, err := uploadBackup(file, header)
 	if err != nil {
 		return nil, errors.Errorf("failed to upload backup: %+v", err)
 	}
 
 	// Check on the status of the backup
-	uploadSuccess, err := requestPin(requestBackupResponse, header.serialize())
+	uploadSuccess, err := requestPin(requestBackupResponse, header)
 	if err != nil {
 		return nil, errors.Errorf("failed to request PIN: %+v", err)
 	}
@@ -161,24 +162,31 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 
 // uploadBackup is a sender function which sends the backup file
 // to a backup gateway.
-func uploadBackup(file []byte, serializedHeaderInfo string) (
+func uploadBackup(file []byte, header uploadBackupHeader) (
 	*uploadBackupResponse, error) {
 
 	// Construct upload POST request
-	req, err := http.NewRequest(http.MethodPost, backupUploadURL, nil)
+	req, err := http.NewRequest(http.MethodPost, backupUploadURL, http.NoBody)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("Failed to construct request: %v", err)
+	}
+
+	// Initialize request to fill out Form section
+	err = req.ParseForm()
+	if err != nil {
+		return nil, errors.Errorf(parseFormErr, err)
 	}
 
 	// Add file
 	req.Form.Add(fileKey, string(file))
 
-	// Add header
-	req.Header.Add(basicAuthHeader, serializedHeaderInfo)
+	// Add auth header
+	req.SetBasicAuth(header.constructBasicAuth())
 
+	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("Failed to send request: %+v", err)
 	}
 
 	// Handle valid response
@@ -191,31 +199,9 @@ func uploadBackup(file []byte, serializedHeaderInfo string) (
 	return uploadResponse, nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Pinning Backup Logic                                                       //
-////////////////////////////////////////////////////////////////////////////////
-
-// UploadSuccessReport is the response given when calling requestPin.
-type UploadSuccessReport struct {
-	// RequestId is the server returns to the user.
-	RequestId string
-
-	// Status is the status of the requestPin received from the server.
-	Status string
-
-	// Created is the timestamp that the pin was created.
-	Created time.Time
-}
-
 // requestPin pins the backup to the network.
 func requestPin(backupResponse *uploadBackupResponse,
-	serializedHeader string) (*UploadSuccessReport, error) {
-
-	// Construct pin request
-	req, err := http.NewRequest(http.MethodPost, pinnerURL, nil)
-	if err != nil {
-		return nil, err
-	}
+	header uploadBackupHeader) (*UploadSuccessReport, error) {
 
 	// Marshal backup response
 	backupJson, err := json.Marshal(backupResponse)
@@ -223,9 +209,24 @@ func requestPin(backupResponse *uploadBackupResponse,
 		return nil, err
 	}
 
-	// Add headers
-	req.Header.Add(basicAuthHeader, serializedHeader)
-	req.Header.Add(jsonHeader, string(backupJson))
+	// Construct pin request
+	req, err := http.NewRequest(http.MethodPost, pinnerURL,
+		bytes.NewBuffer(backupJson))
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize request to fill out Form section
+	err = req.ParseForm()
+	if err != nil {
+		return nil, errors.Errorf(parseFormErr, err)
+	}
+
+	// Add auth header
+	req.SetBasicAuth(header.constructBasicAuth())
+
+	// Add JSON content type header
+	req.Header.Add(contentTypeHeader, jsonHeader)
 
 	// Send request
 	responseData, err := sendRequest(req)
@@ -241,4 +242,24 @@ func requestPin(backupResponse *uploadBackupResponse,
 	}
 
 	return uploadSuccess, nil
+}
+
+// constructBasicAuth is a helper function which constructs
+// the header into a username:password format for the http.Request's
+// BasicAuth function.
+func (header uploadBackupHeader) constructBasicAuth() (
+	username, password string) {
+	username = fmt.Sprintf("xx-%s-%s-%s-%d-%s",
+		header.UserPublicKey,
+		base64.StdEncoding.EncodeToString(header.UsernameHash),
+		base64.StdEncoding.EncodeToString(header.FileHash),
+		header.UploadTimestamp,
+		base64.StdEncoding.EncodeToString(header.UploadSignature),
+	)
+
+	password = fmt.Sprintf("%s",
+		base64.StdEncoding.EncodeToString(header.VerificationSignature),
+	)
+
+	return
 }

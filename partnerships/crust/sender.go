@@ -33,8 +33,8 @@ func sendRequest(req *http.Request) ([]byte, error) {
 
 	// Handle error
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("Could not upload backup: %v",
-			handleError(responseData)))
+		return nil, errors.Errorf("Could not upload backup: %v",
+			handleError(responseData))
 	}
 
 	return responseData, nil
@@ -43,7 +43,10 @@ func sendRequest(req *http.Request) ([]byte, error) {
 // errorResponse handles any POST or GET request returning an error as a
 // response.
 type errorResponse struct {
-	Error string
+	Error struct {
+		Reason  string `json:"reason"`
+		Details string `json:"details"`
+	} `json:"error"`
 }
 
 // handleError converts the response data which contains a JSON encoded error
@@ -55,5 +58,8 @@ func handleError(responseData []byte) error {
 		return err
 	}
 
-	return errors.New(errResponse.Error)
+	errResp := fmt.Sprintf("%s: %s",
+		errResponse.Error.Reason, errResponse.Error.Details)
+
+	return errors.New(errResp)
 }

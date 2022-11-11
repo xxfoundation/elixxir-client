@@ -16,10 +16,17 @@ import (
 
 // Recovery URLs and tokens.
 const (
-	cidRequestURL     = "https://pin.crustcode.com/psa/value?key="
-	recoveryUrl       = "https://crustipfs.xyz/ipfs/"
-	recoveryAuthToken = `c3ViLTVGcXdqWW9MUXE5Z2NXSGM2azVZd3RuZHg3Q01pQ1FlS1N2THpYb2plZ3ZYY005bToweDIwZjYxODc5ODhiNjIxZjk3ZDQwNGZlZmMzZTQ5MWU5OTU0MWY5MzdjNDNiYWQyNWE3NGQ2OTRjMjA2NWYzODFkOTc5YmY0YTQzYmI3MGZlYzY1MzIwMGI2MmFhZmRiOWFjNzEwODc1YzlkMjhlYTJjNTA2ZDcyZDc1Y2RjNzA2`
+	cidRequestURL    = "https://pin.crustcode.com/psa/value?key="
+	recoveryUrl      = "https://crustipfs.xyz/ipfs/"
+	recoveryAuthUser = "sub-5FqwjYoLQq9gcWHc6k5Ywtndx7CMiCQeKSvLzXojegvXcM9m"
+	recoveryAuthPass = "0x20f6187988b621f97d404fefc3e491e99541f937c43bad25a74d694c2065f381d979bf4a43bb70fec653200b62aafdb9ac710875c9d28ea2c506d72d75cdc706"
 )
+
+// RecoveryResponse is the response from Restore.
+type RecoveryResponse struct {
+	// Value is the base64 encoded file that was backup up to the network.
+	Value string
+}
 
 // cidResponse is the response from the requestCid call to the pinner.
 type cidResponse struct {
@@ -28,17 +35,11 @@ type cidResponse struct {
 	Value string
 }
 
-// RecoveryResponse is the response from Restore.
-type RecoveryResponse struct {
-	// Value is the base64 encoded file that was backup up to the network.
-	Value string
-}
-
 // RecoverBackup retrieves the backup file uploaded to the distributed file
 // server. The user must have called UploadBackup successfully for a proper
 // file recover.
-func RecoverBackup(usernameHash []byte) ([]byte, error) {
-	cidResp, err := requestCid(string(usernameHash))
+func RecoverBackup(usernameHash string) ([]byte, error) {
+	cidResp, err := requestCid(usernameHash)
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve CID: %+v", err)
 	}
@@ -61,8 +62,14 @@ func requestCid(usernameHash string) (*cidResponse, error) {
 		return nil, err
 	}
 
-	// Add header
-	req.Header.Add(basicAuthHeader, recoveryAuthToken)
+	// Initialize request to fill out Form section
+	err = req.ParseForm()
+	if err != nil {
+		return nil, errors.Errorf(parseFormErr, err)
+	}
+
+	// Add auth header
+	req.SetBasicAuth(recoveryAuthUser, recoveryAuthPass)
 
 	// Send request
 	responseData, err := sendRequest(req)
@@ -71,13 +78,13 @@ func requestCid(usernameHash string) (*cidResponse, error) {
 	}
 
 	// Parse request
-	cidResponse := &cidResponse{}
-	err = json.Unmarshal(responseData, cidResponse)
+	cidResp := &cidResponse{}
+	err = json.Unmarshal(responseData, cidResp)
 	if err != nil {
 		return nil, err
 	}
 
-	return cidResponse, nil
+	return cidResp, nil
 }
 
 // requestBackupFile sends the CID to the network to retrieve the backed up
@@ -90,8 +97,14 @@ func requestBackupFile(cid *cidResponse) ([]byte, error) {
 		return nil, err
 	}
 
-	// Add header
-	req.Header.Add(basicAuthHeader, recoveryAuthToken)
+	// Initialize request to fill out Form section
+	err = req.ParseForm()
+	if err != nil {
+		return nil, errors.Errorf(parseFormErr, err)
+	}
+
+	// Add auth header
+	req.SetBasicAuth(recoveryAuthUser, recoveryAuthPass)
 
 	// Send request
 	responseData, err := sendRequest(req)
@@ -107,5 +120,4 @@ func requestBackupFile(cid *cidResponse) ([]byte, error) {
 	}
 
 	return base64.StdEncoding.DecodeString(recoveryResponse.Value)
-
 }

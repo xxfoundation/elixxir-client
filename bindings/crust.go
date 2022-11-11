@@ -45,5 +45,5 @@ func UploadBackup(file []byte, udManager *UserDiscovery,
 func RecoverBackup(username string) ([]byte, error) {
 	usernameHash := crust2.HashUsername(username)
 
-	return crust.RecoverBackup(usernameHash)
+	return crust.RecoverBackup(string(usernameHash))
 }

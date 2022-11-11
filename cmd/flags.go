@@ -85,6 +85,12 @@ const (
 	userIdPrefixFlag = "userid-prefix"
 	legacyFlag       = "legacy"
 
+	// Alternate UD flags
+	alternateUdFlag      = "alternateUd"
+	alternateUdCertFlag  = "altUdCert"
+	altUdAddressFlag     = "altUdAddress"
+	altUdContactFileFlag = "altUdContactFile"
+
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "name"
 	broadcastRsaPubFlag      = "rsaPub"

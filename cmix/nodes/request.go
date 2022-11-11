@@ -202,6 +202,10 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	jww.TRACE.Printf("DH for reg took %s", time.Since(start))
 
 	// Verify the HMAC
+	jww.TRACE.Printf("[ClientKeyHMAC] Session Key Bytes: %+v", sessionKey.Bytes())
+	jww.TRACE.Printf("[ClientKeyHMAC] EncryptedClientKey: %+v", keyResponse.EncryptedClientKey)
+	jww.TRACE.Printf("[ClientKeyHMAC] EncryptedClientKeyHMAC: %+v", keyResponse.EncryptedClientKeyHMAC)
+
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(),
 		keyResponse.EncryptedClientKey, opts.Hash.New,
 		keyResponse.EncryptedClientKeyHMAC) {

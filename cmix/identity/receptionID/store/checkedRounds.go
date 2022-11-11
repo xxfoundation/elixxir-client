@@ -11,8 +11,8 @@ import (
 	"container/list"
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 )
 

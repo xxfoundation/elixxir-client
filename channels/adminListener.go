@@ -10,8 +10,8 @@ package channels
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
@@ -26,7 +26,7 @@ type adminListener struct {
 	checkSent messageReceiveFunc
 }
 
-// Listen is called when a message is received for the admin listener
+// Listen is called when a message is received for the admin listener.
 func (al *adminListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	// Get the message ID
@@ -40,7 +40,7 @@ func (al *adminListener) Listen(payload []byte,
 		return
 	}
 
-	//check if we sent the message, ignore triggering if we sent
+	// Check if we sent the message, ignore triggering if we sent
 	if al.checkSent(msgID, round) {
 		return
 	}
@@ -49,14 +49,13 @@ func (al *adminListener) Listen(payload []byte,
 
 	// Check the round to ensure that the message is not a replay
 	if id.Round(cm.RoundID) != round.ID {
-		jww.WARN.Printf("The round message %s send on %s referenced "+
-			"(%d) was not the same as the round the message was found on (%d)",
+		jww.WARN.Printf("The round message %s send on %s referenced (%d) was "+
+			"not the same as the round the message was found on (%d)",
 			msgID, al.chID, cm.RoundID, round.ID)
 		return
 	}
 
-	// Replace the timestamp on the message if it is outside of the
-	// allowable range
+	// Replace the timestamp on the message if it is outside the allowable range
 	ts := vetTimestamp(time.Unix(0, cm.LocalTimestamp),
 		round.Timestamps[states.QUEUED], msgID)
 

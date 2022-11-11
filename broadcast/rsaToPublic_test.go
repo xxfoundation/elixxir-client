@@ -17,10 +17,10 @@ import (
 
 	"gitlab.com/xx_network/crypto/csprng"
 
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
@@ -158,7 +158,8 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	}
 
 	// Broadcast payload
-	_, _, err := clients[0].BroadcastRSAtoPublic(pk, payload, cmix.GetDefaultCMIXParams())
+	_, _, err := clients[0].BroadcastRSAtoPublic(
+		pk, payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Errorf("Cmix 0 failed to send broadcast: %+v", err)
 	}

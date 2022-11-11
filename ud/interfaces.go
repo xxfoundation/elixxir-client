@@ -8,12 +8,12 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
@@ -39,6 +39,7 @@ type udE2e interface {
 	GetRng() *fastRNG.StreamGenerator
 	GetStorage() storage.Session
 	GetTransmissionIdentity() xxdk.TransmissionIdentity
+	GetBackupContainer() *xxdk.Container
 }
 
 // udNetworkStatus is an interface for the xxdk.Cmix's

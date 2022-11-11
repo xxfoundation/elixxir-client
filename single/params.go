@@ -9,7 +9,7 @@ package single
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"time"
 )
 

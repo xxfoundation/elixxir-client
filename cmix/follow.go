@@ -23,18 +23,19 @@ package cmix
 //		instance
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"encoding/binary"
 	"fmt"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/xx_network/primitives/ndf"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID/store"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID/store"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"
@@ -294,7 +295,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			marshaledTid := c.session.GetTransmissionID().Marshal()
 			for _, clientErr := range update.ClientErrors {
 				// If this ClientId appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, marshaledTid) {
+				if hmac.Equal(clientErr.ClientId, marshaledTid) {
 
 					// Obtain relevant NodeGateway information
 					nid, err := id.Unmarshal(clientErr.Source)
@@ -417,7 +418,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown :=
 		gwRoundsState.RangeUnchecked(
-			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker)
+			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker, 100)
 
 	jww.DEBUG.Printf("Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
@@ -436,16 +437,15 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	var roundsWithMessages2 []id.Round
 
-	if !c.param.RealtimeOnly {
-		roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
-			if gwRoundsState.Checked(rid) {
-				return Checker(rid, filterList, identity.CR)
-			}
-			return false
-		}, roundsUnknown, abandon)
-	}
+	roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
+		if gwRoundsState.Checked(rid) {
+			return Checker(rid, filterList, identity.CR)
+		}
+		return false
+	}, roundsUnknown, abandon)
 
-	for _, rid := range roundsWithMessages {
+	for i := 0; i < len(roundsWithMessages); i++ {
+		rid := roundsWithMessages[i]
 		// Denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
 			c.GetMessagesFromRound(rid, identity.EphemeralIdentity)

@@ -14,11 +14,12 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"strconv"
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/primitives/id"
@@ -28,14 +29,39 @@ import (
 // unique users for every channel defined by the channel's private key.
 const AdminUsername = "Admin"
 
+// SentStatus represents the current status of a channel message.
 type SentStatus uint8
 
 const (
+	// Unsent is the status of a message when it is pending to be sent.
 	Unsent SentStatus = iota
+
+	// Sent is the status of a message once the round it is sent on completed.
 	Sent
+
+	// Delivered is the status of a message once is has been received.
 	Delivered
+
+	// Failed is the status of a message if it failed to send.
 	Failed
 )
+
+// String returns a human-readable version of [SentStatus], used for debugging
+// and logging. This function adheres to the [fmt.Stringer] interface.
+func (ss SentStatus) String() string {
+	switch ss {
+	case Unsent:
+		return "unsent"
+	case Sent:
+		return "sent"
+	case Delivered:
+		return "delivered"
+	case Failed:
+		return "failed"
+	default:
+		return "Invalid SentStatus: " + strconv.Itoa(int(ss))
+	}
+}
 
 var AdminFakePubKey = ed25519.PublicKey{}
 
@@ -187,8 +213,8 @@ func initEvents(model EventModel) *events {
 //
 // There can only be one handler per message type, and this will return an error
 // on a multiple registration.
-func (e *events) RegisterReceiveHandler(messageType MessageType,
-	listener MessageTypeReceiveMessage) error {
+func (e *events) RegisterReceiveHandler(
+	messageType MessageType, listener MessageTypeReceiveMessage) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -225,16 +251,17 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 	if !exists {
 		errStr := fmt.Sprintf("Received message from %x on channel %s in "+
 			"round %d which could not be handled due to unregistered message "+
-			"type %s; Contents: %v", um.ECCPublicKey, chID, round.ID, messageType,
-			cm.Payload)
+			"type %s; Contents: %v",
+			um.ECCPublicKey, chID, round.ID, messageType, cm.Payload)
 		jww.WARN.Printf(errStr)
 		return 0, errors.New(errStr)
 	}
 
-	// Call the listener. This is already in an instanced event, no new thread needed.
-	uuid := listener(chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload,
-		um.ECCPublicKey, 0, ts, time.Duration(cm.Lease),
-		round, status)
+	// Call the listener. This is already in an instanced event; no new thread
+	// is needed.
+	uuid := listener(
+		chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload,
+		um.ECCPublicKey, 0, ts, time.Duration(cm.Lease), round, status)
 	return uuid, nil
 }
 
@@ -257,18 +284,19 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	listener, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
-		errStr := fmt.Sprintf("Received Admin message from %s on channel %s in "+
-			"round %d which could not be handled due to unregistered message "+
-			"type %s; Contents: %v", AdminUsername, chID, round.ID, messageType,
-			cm.Payload)
+		errStr := fmt.Sprintf("Received Admin message from %s on channel %s "+
+			"in round %d which could not be handled due to unregistered "+
+			"message type %s; Contents: %v",
+			AdminUsername, chID, round.ID, messageType, cm.Payload)
 		jww.WARN.Printf(errStr)
 		return 0, errors.New(errStr)
 	}
 
-	// Call the listener. This is already in an instanced event, no new thread needed.
-	uuid := listener(chID, messageID, messageType, AdminUsername, cm.Payload,
-		AdminFakePubKey, 0, ts,
-		time.Duration(cm.Lease), round, status)
+	// Call the listener. This is already in an instanced event; no new thread
+	// is needed.
+	uuid := listener(
+		chID, messageID, messageType, AdminUsername, cm.Payload,
+		AdminFakePubKey, 0, ts, time.Duration(cm.Lease), round, status)
 	return uuid, nil
 }
 
@@ -303,8 +331,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 				"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
 				base64.StdEncoding.EncodeToString(txt.ReplyMessageID),
 				channelID)
-			return e.model.ReceiveReply(channelID, messageID, replyTo,
-				nickname, txt.Text, pubKey, codeset, timestamp, lease, round, Text, status)
+			return e.model.ReceiveReply(channelID, messageID, replyTo, nickname,
+				txt.Text, pubKey, codeset, timestamp, lease, round, Text, status)
 
 		} else {
 			jww.ERROR.Printf("Failed process reply to for message %s from "+
@@ -320,11 +348,10 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	tag := makeChaDebugTag(channelID, pubKey, content, SendMessageTag)
 	jww.INFO.Printf("[%s]Channels - Received message from %s "+
 		"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
-		base64.StdEncoding.EncodeToString(txt.ReplyMessageID),
-		channelID)
+		base64.StdEncoding.EncodeToString(txt.ReplyMessageID), channelID)
 
-	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, pubKey, codeset,
-		timestamp, lease, round, Text, status)
+	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text,
+		pubKey, codeset, timestamp, lease, round, Text, status)
 }
 
 // receiveReaction is the internal function that handles the reception of
@@ -358,7 +385,8 @@ func (e *events) receiveReaction(channelID *id.ID,
 		return 0
 	}
 
-	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
+	if react.ReactionMessageID != nil &&
+		len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
 
@@ -369,7 +397,8 @@ func (e *events) receiveReaction(channelID *id.ID,
 			channelID)
 
 		return e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
-			react.Reaction, pubKey, codeset, timestamp, lease, round, Reaction, status)
+			react.Reaction, pubKey, codeset, timestamp, lease, round, Reaction,
+			status)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from public key %v "+
 			"(codeset %d) on channel %s, type %s, ts: %s, lease: %s, "+

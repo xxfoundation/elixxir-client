@@ -1,11 +1,11 @@
 package channels
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -23,30 +23,23 @@ type mockClient struct{}
 func (mc *mockClient) GetMaxMessageLength() int {
 	return 2048
 }
-func (mc *mockClient) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
-	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (mc *mockClient) SendWithAssembler(*id.ID, cmix.MessageAssembler,
+	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 func (mc *mockClient) IsHealthy() bool {
 	return true
 }
-func (mc *mockClient) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
-func (mc *mockClient) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
-}
-func (mc *mockClient) AddService(clientID *id.ID, newService message.Service,
-	response message.Processor) {
-}
-func (mc *mockClient) DeleteClientService(clientID *id.ID) {}
-func (mc *mockClient) RemoveIdentity(id *id.ID)            {}
-func (mc *mockClient) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-	roundList ...id.Round) {
-}
-func (mc *mockClient) AddHealthCallback(f func(bool)) uint64 {
-	return 0
-}
-func (mc *mockClient) RemoveHealthCallback(uint64) {}
+func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool)                                 {}
+func (mc *mockClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool)           {}
+func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)               {}
+func (mc *mockClient) DeleteClientService(*id.ID)                                          {}
+func (mc *mockClient) RemoveIdentity(*id.ID)                                               {}
+func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) {}
+func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                 { return 0 }
+func (mc *mockClient) RemoveHealthCallback(uint64)                                         {}
 
-// Test MessageReceive basic logic
+// Test MessageReceive basic logic.
 func TestSendTracker_MessageReceive(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uuidNum := uint64(0)
@@ -128,8 +121,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	}
 }
 
-// Test failedSend function, confirming that data is stored appropriately
-// and callbacks are called
+// Test failedSend function, confirming that data is stored appropriately and
+// callbacks are called.
 func TestSendTracker_failedSend(t *testing.T) {
 	triggerCh := make(chan SentStatus)
 
@@ -174,7 +167,6 @@ func TestSendTracker_failedSend(t *testing.T) {
 		if s != Failed {
 			t.Fatalf("Did not receive failed from failed message")
 		}
-		t.Log("Received over trigger chan")
 	case <-timeout.C:
 		t.Fatal("Timed out waiting for trigger chan")
 	}
@@ -205,7 +197,8 @@ func TestSendTracker_send(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-		receptionID receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (uint64, error) {
+		receptionID receptionID.EphemeralIdentity, round rounds.Round,
+		status SentStatus) (uint64, error) {
 		return 0, nil
 	}
 
@@ -246,7 +239,6 @@ func TestSendTracker_send(t *testing.T) {
 	timeout := time.NewTicker(time.Second * 5)
 	select {
 	case <-triggerCh:
-		t.Log("Received over trigger chan")
 	case <-timeout.C:
 		t.Fatal("Timed out waiting for trigger chan")
 	}
@@ -271,7 +263,7 @@ func TestSendTracker_send(t *testing.T) {
 	}
 }
 
-// Test loading stored byRound map from storage
+// Test loading stored byRound map from storage.
 func TestSendTracker_load_store(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
@@ -341,15 +333,12 @@ func TestRoundResult_callback(t *testing.T) {
 		numChecks: 0,
 	}
 
-	rr.callback(true, false, map[id.Round]cmix.RoundResult{rid: {cmix.Succeeded, rounds.Round{
-		ID:    rid,
-		State: 0,
-	}}})
+	rr.callback(true, false, map[id.Round]cmix.RoundResult{
+		rid: {Status: cmix.Succeeded, Round: rounds.Round{ID: rid, State: 0}}})
 
 	timeout := time.NewTicker(time.Second * 5)
 	select {
 	case <-triggerCh:
-		t.Log("Received trigger")
 	case <-timeout.C:
 		t.Fatal("Did not receive update")
 	}

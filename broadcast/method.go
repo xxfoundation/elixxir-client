@@ -7,7 +7,7 @@
 
 package broadcast
 
-// Method enum for broadcast type
+// Method enum for broadcast type.
 type Method uint8
 
 const (

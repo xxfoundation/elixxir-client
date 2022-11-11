@@ -11,17 +11,17 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/fileTransfer/callbackTracker"
-	"gitlab.com/elixxir/client/fileTransfer/store"
-	"gitlab.com/elixxir/client/fileTransfer/store/fileMessage"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/fileTransfer/callbackTracker"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -209,6 +209,12 @@ func NewManager(params Params, user FtE2e) (FileTransfer, error) {
 		m.addFingerprints(rt)
 	}
 
+	jww.INFO.Printf(
+		"[FT] Created new file transfer manager with parameters: %+v"+
+			"\nAdding %d unsent parts to be sent."+
+			"\nQueueing %d incomplete received transfers.",
+		params, len(unsentParts), len(incompleteTransfers))
+
 	return m, nil
 }
 
@@ -319,6 +325,7 @@ func (m *manager) Send(recipient *id.ID, fileName, fileType string,
 	if err != nil {
 		return nil, errors.Errorf(errMarshalInfo, err)
 	}
+
 	err = sendNew(transferInfo)
 	if err != nil {
 		return nil, errors.Errorf(errSendNewMsg, err)
@@ -333,6 +340,10 @@ func (m *manager) Send(recipient *id.ID, fileName, fileType string,
 	if err != nil {
 		return nil, errors.Errorf(errAddSentTransfer, err)
 	}
+
+	jww.DEBUG.Printf("[FT] Created new sent file transfer %s for %q "+
+		"(type %s, size %d bytes, %d parts, retry %f)",
+		st.TransferID(), fileName, fileType, fileSize, numParts, retry)
 
 	// Add all parts to the send queue
 	for _, p := range st.GetUnsentParts() {

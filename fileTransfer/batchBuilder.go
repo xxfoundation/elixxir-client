@@ -10,8 +10,8 @@ package fileTransfer
 import (
 	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/fileTransfer/store"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
@@ -29,6 +29,7 @@ const (
 // batchBuilderThread creates batches of file parts as they become available and
 // buffer them to send. Also rate limits adding to the buffer.
 func (m *manager) batchBuilderThread(stop *stoppable.Single) {
+	jww.INFO.Printf("[FT] Starting batch builder thread.")
 	// Calculate rate and make rate limiter
 	rl := newRateLimiter(m.params.MaxThroughput, m.cmixGroup)
 

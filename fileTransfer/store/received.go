@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -31,7 +31,7 @@ const (
 	errLoadReceived            = "error loading received transfer list from storage: %+v"
 	errUnmarshalReceived       = "could not unmarshal received transfer list: %+v"
 	warnLoadReceivedTransfer   = "[FT] failed to load received transfer %d of %d with ID %s: %+v"
-	errLoadAllReceivedTransfer = "failed to load all %d transfers"
+	errLoadAllReceivedTransfer = "failed to load all %d received transfers"
 
 	// Received.AddTransfer
 	errAddExistingReceivedTransfer = "received transfer with ID %s already exists in map."
@@ -84,7 +84,7 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 	}
 
 	// Return an error if all transfers failed to load
-	if errCount == len(tidList) {
+	if len(tidList) > 0 && errCount == len(tidList) {
 		return nil, nil, errors.Errorf(errLoadAllReceivedTransfer, len(tidList))
 	}
 

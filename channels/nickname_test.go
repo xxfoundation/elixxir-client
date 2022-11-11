@@ -1,7 +1,7 @@
 package channels
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
@@ -56,7 +56,8 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 		}
 		expected := "nickname#" + strconv.Itoa(i)
 		if nick != expected {
-			t.Fatalf("Nickname %d not found, expected: %s, received: %s ", i, expected, nick)
+			t.Fatalf("Nickname %d not found, expected: %s, received: %s ",
+				i, expected, nick)
 		}
 	}
 }
@@ -104,5 +105,4 @@ func TestNicknameManager_DeleteNickname(t *testing.T) {
 				"that are not set.")
 		}
 	}
-
 }

@@ -9,12 +9,13 @@ package store
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"encoding/binary"
 	"encoding/json"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -76,7 +77,7 @@ func (s *Store) CheckIfNegotiationIsNew(partner *id.ID, negotiationFingerprint [
 	// If the partner does exist and the fingerprint exists, then make no
 	// changes to the list
 	for i, fp := range fingerprints {
-		if bytes.Equal(fp, negotiationFingerprint) {
+		if hmac.Equal(fp, negotiationFingerprint) {
 			newFingerprint = false
 
 			// Latest = true if it is the last fingerprint in the list
@@ -158,7 +159,7 @@ func marshalPreviousNegotiations(partners map[id.ID]bool) []byte {
 }
 
 // unmarshalPreviousNegotiations unmarshalls the marshalled json into a
-//// list of partner IDs.
+// // list of partner IDs.
 func unmarshalPreviousNegotiations(b []byte) (map[id.ID]bool,
 	error) {
 	unmarshal := make([]id.ID, 0)

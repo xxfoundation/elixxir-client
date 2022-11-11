@@ -24,7 +24,6 @@ func TestNewDummyNameService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDummyNameService error: %+v", err)
 	}
-
 }
 
 // Smoke test.
@@ -38,10 +37,8 @@ func TestDummyNameService_GetUsername(t *testing.T) {
 
 	if username != ns.GetUsername() {
 		t.Fatalf("GetUsername did not return expected value."+
-			"\nExpected: %s"+
-			"\nReceived: %s", username, ns.GetUsername())
+			"\nexpected: %s\nreceived: %s", username, ns.GetUsername())
 	}
-
 }
 
 // Smoke test.
@@ -57,16 +54,15 @@ func TestDummyNameService_SignChannelMessage(t *testing.T) {
 
 	signature, err := ns.SignChannelMessage(message)
 	if err != nil {
-		t.Fatalf("SignChannelMessage error: %v", err)
+		t.Fatalf("SignChannelMessage error: %+v", err)
 	}
 
 	if len(signature) != ed25519.SignatureSize {
 		t.Errorf("DummyNameService's SignChannelMessage did not return a "+
 			"signature of expected size, according to ed25519 specifications."+
-			"\nExpected: %d"+
-			"\nReceived: %d", ed25519.SignatureSize, len(signature))
+			"\nexpected: %d\nreceived: %d",
+			ed25519.SignatureSize, len(signature))
 	}
-
 }
 
 // Smoke test.
@@ -83,11 +79,9 @@ func TestDummyNameService_GetChannelValidationSignature(t *testing.T) {
 	if len(validationSig) != ed25519.SignatureSize {
 		t.Errorf("DummyNameService's GetChannelValidationSignature did not "+
 			"return a validation signature of expected size, according to "+
-			"ed25519 specifications."+
-			"\nExpected: %d"+
-			"\nReceived: %d", ed25519.SignatureSize, len(validationSig))
+			"ed25519 specifications.\nexpected: %d\nreceived: %d",
+			ed25519.SignatureSize, len(validationSig))
 	}
-
 }
 
 // Smoke test.

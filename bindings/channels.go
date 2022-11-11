@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/channels"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -906,6 +906,9 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(rsaPrivKey,
 		chanId, msgTy, message, time.Duration(leaseTimeMS),
 		params.CMIX)
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct send report
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)

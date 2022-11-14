@@ -8,8 +8,9 @@
 package cmix
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/health"
@@ -128,6 +129,7 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 		localRid := recipient.DeepCopy()
 		go func(msg format.Message, recipient *id.ID, params CMIXParams) {
 			params.Stop = stop
+			params.Critical = false
 			jww.INFO.Printf("Resending critical raw message to %s "+
 				"(msgDigest: %s)", recipient, msg.Digest())
 

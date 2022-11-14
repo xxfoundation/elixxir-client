@@ -89,16 +89,8 @@ func (cmh *cmixMessageHandler) HashMessage(m interface{}) utility.MessageHash {
 
 	receivedMsg := m.(storedMessage)
 
-	// Note: CMIXParams are not always available, so when hashing, only use
-	//       the Msg/Recipient.
-	// FIXME: Why are we doing this and not keying off msgDigest
-	//        or something?
-	hashable := &storedMessage{
-		Msg:       receivedMsg.Msg,
-		Recipient: receivedMsg.Recipient,
-	}
-
-	h.Write(hashable.Marshal())
+	h.Write(receivedMsg.Msg)
+	h.Write(receivedMsg.Recipient)
 
 	var messageHash utility.MessageHash
 	copy(messageHash[:], h.Sum(nil))
@@ -145,7 +137,7 @@ func (cmb *CmixMessageBuffer) Add(msg format.Message, recipient *id.ID,
 	}
 
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 		Params:    paramBytes,
 	}
@@ -161,7 +153,7 @@ func (cmb *CmixMessageBuffer) AddProcessing(msg format.Message, recipient *id.ID
 	}
 
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 		Params:    paramBytes,
 	}
@@ -202,7 +194,7 @@ func (cmb *CmixMessageBuffer) Next() (format.Message, *id.ID, CMIXParams, bool) 
 
 func (cmb *CmixMessageBuffer) Succeeded(msg format.Message, recipient *id.ID) {
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 	}
 
@@ -211,7 +203,7 @@ func (cmb *CmixMessageBuffer) Succeeded(msg format.Message, recipient *id.ID) {
 
 func (cmb *CmixMessageBuffer) Failed(msg format.Message, recipient *id.ID) {
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 	}
 

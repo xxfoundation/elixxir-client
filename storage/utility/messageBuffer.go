@@ -309,10 +309,10 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 				"reliability: %v", h, err)
 		}
 
-		mhash := mb.handler.HashMessage(m)
-		if mhash != h {
-			jww.ERROR.Printf("MessageHash mismatch:\n%v\n%v",
-				mhash, h)
+		if m != nil && h != mb.handler.HashMessage(m) {
+			jww.WARN.Printf("MessageHash mismatch, possible"+
+				" deserialization failure: %v != %v",
+				mb.handler.HashMessage(m), h)
 		}
 	}
 

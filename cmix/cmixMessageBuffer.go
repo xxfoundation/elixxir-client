@@ -8,6 +8,7 @@
 package cmix
 
 import (
+	"encoding/base64"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -85,15 +86,19 @@ func (cmh *cmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error
 
 // HashMessage generates a hash of the message.
 func (cmh *cmixMessageHandler) HashMessage(m interface{}) utility.MessageHash {
+	msg := m.(storedMessage)
+
 	h, _ := blake2b.New256(nil)
-
-	receivedMsg := m.(storedMessage)
-
-	h.Write(receivedMsg.Msg)
-	h.Write(receivedMsg.Recipient)
+	h.Write(msg.Recipient)
+	h.Write(msg.Msg)
+	digest := h.Sum(nil)
 
 	var messageHash utility.MessageHash
-	copy(messageHash[:], h.Sum(nil))
+	copy(messageHash[:], digest)
+
+	jww.TRACE.Printf("HashMessage Results: %s -> %s",
+		base64.StdEncoding.EncodeToString(digest),
+		base64.StdEncoding.EncodeToString(messageHash[:]))
 
 	return messageHash
 }

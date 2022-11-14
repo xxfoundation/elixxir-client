@@ -501,6 +501,8 @@ gitlab.com/elixxir/primitives v0.0.3-0.20221110181119-e83320a48b13 h1:U3tbClFN5B
 gitlab.com/elixxir/primitives v0.0.3-0.20221110181119-e83320a48b13/go.mod h1:DUnCTXYKgjpro5+6ITySKIf+qzW2vhW40IVHMimdsqw=
 gitlab.com/elixxir/primitives v0.0.3-0.20221114173357-ab37e9ac1fd4 h1:xr9RpO9lTPagdTu8xblkID4pSvOlY7L4oUpNgzHUPt4=
 gitlab.com/elixxir/primitives v0.0.3-0.20221114173357-ab37e9ac1fd4/go.mod h1:DUnCTXYKgjpro5+6ITySKIf+qzW2vhW40IVHMimdsqw=
+gitlab.com/elixxir/primitives v0.0.3-0.20221114174618-45c990fa5458 h1:6Xv7PoR+clk5ggGUDopdvmu76G0NnKgm+fbXsN89xW8=
+gitlab.com/elixxir/primitives v0.0.3-0.20221114174618-45c990fa5458/go.mod h1:DUnCTXYKgjpro5+6ITySKIf+qzW2vhW40IVHMimdsqw=
 gitlab.com/xx_network/comms v0.0.4-0.20221108183032-8732b403e506 h1:QoFyWFGuUquPvam/rHvnUEDdTQ3DzIhxn3x8WTWxXMA=
 gitlab.com/xx_network/comms v0.0.4-0.20221108183032-8732b403e506/go.mod h1:/zveWGwSqQbPhPSiGIbS3v78nga8nD5XD1oXr0vD/Zc=
 gitlab.com/xx_network/comms v0.0.4-0.20221110181111-4f0694876936 h1:eQQ4zUvGWIzCWdBJ6qlysWUMwrc2tM8GripFqdT1SAs=

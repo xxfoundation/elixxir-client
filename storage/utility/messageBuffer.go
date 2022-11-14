@@ -308,6 +308,12 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 				"this may happen on occasion due to replays to increase "+
 				"reliability: %v", h, err)
 		}
+
+		mhash := mb.handler.HashMessage(m)
+		if mhash != h {
+			jww.ERROR.Printf("MessageHash mismatch:\n%v\n%v",
+				mhash, h)
+		}
 	}
 
 	return m, m != nil

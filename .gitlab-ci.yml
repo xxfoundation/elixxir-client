@@ -104,7 +104,7 @@ bindings-ios:
     - gomobile init
     - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - ls
-    - zip -r iOS.zip Bindings.xcframework
+    - zip -r -y iOS.zip Bindings.xcframework
   artifacts:
     paths:
       - iOS.zip

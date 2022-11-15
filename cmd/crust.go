@@ -76,18 +76,7 @@ var crustCmd = &cobra.Command{
 
 		jww.TRACE.Printf("[CRUST] Connected!")
 
-		userToRegister := viper.GetString("register")
-		if userToRegister != "" {
-			err = userDiscoveryMgr.Register(userToRegister)
-			if err != nil {
-				fmt.Printf("Failed to register user %s: %s\n",
-					userToRegister, err.Error())
-				jww.FATAL.Panicf("Failed to register user %s: %+v", userToRegister, err)
-			}
-		}
-
 		if viper.IsSet("alternateUd") {
-
 			altUdCertPath := viper.GetString("altUdCert")
 			altUdAddress := viper.GetString("altUdAddress")
 			altUdContactFilePath := viper.GetString("altUdContactFile")
@@ -101,6 +90,12 @@ var crustCmd = &cobra.Command{
 			if err != nil {
 				jww.FATAL.Panicf("Failed to read alternative UD contact file: %+v", err)
 			}
+
+			jww.INFO.Printf("[CRUST] Setting alternate user discovery with: "+
+				"\n\tAddress: %s"+
+				"\n\tCert: %s"+
+				"\n\tContact File: %s",
+				altUdAddress, string(altUdCert), string(altUdContactFile))
 
 			err = userDiscoveryMgr.SetAlternativeUserDiscovery(altUdCert,
 				[]byte(altUdAddress), altUdContactFile)
@@ -156,7 +151,7 @@ var crustCmd = &cobra.Command{
 			uploadReport, err := crust.UploadBackup(backupFile, userPrivKey,
 				userDiscoveryMgr)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to upload backup to Crust: %+v", err)
+				jww.FATAL.Panicf("[CRUST] Failed to upload backup to Crust: %+v", err)
 			}
 
 			// Marshal upload report (for printing purposes)
@@ -172,13 +167,13 @@ var crustCmd = &cobra.Command{
 			usernameHash := crustCrypto.HashUsername(username)
 			recoveredFile, err := crust.RecoverBackup(string(usernameHash))
 			if err != nil {
-				jww.FATAL.Panicf("Failed to recover backup from Crust: %+v",
+				jww.FATAL.Panicf("[CRUST] Failed to recover backup from Crust: %+v",
 					err)
 			}
 
 			// Check that recovered file matches originally backed up file.
 			if !bytes.Equal(backupFile, recoveredFile) {
-				jww.FATAL.Panicf("Recovered file does not match originally "+
+				jww.FATAL.Panicf("[CRUST] Recovered file does not match originally "+
 					"backed up file!"+
 					"\n\tOriginal: %v"+
 					"\n\tReceived: %v", backupFile, recoveredFile)

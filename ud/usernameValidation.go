@@ -9,6 +9,7 @@ package ud
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/partnerships/crust"
 	"gitlab.com/xx_network/comms/connect"
@@ -55,7 +56,7 @@ func (m *Manager) getUsernameValidationSignature(
 
 	// Construct request for username validation
 	request := &pb.UsernameValidationRequest{
-		UserId: m.myID.Bytes(),
+		UserId: m.myID.Marshal(),
 	}
 
 	// Get UD host
@@ -64,11 +65,16 @@ func (m *Manager) getUsernameValidationSignature(
 		return nil, err
 	}
 
+	jww.INFO.Printf("[CRUST] Retrieving username validation from UD...")
+
 	// Send request
 	response, err := comms.SendUsernameValidation(host, request)
 	if err != nil {
+		jww.INFO.Printf("[CRUST] Received error from UsernameValidation: %+v", err)
 		return nil, err
 	}
+
+	jww.INFO.Printf("[CRUST] Retrieved username validation from UD...")
 
 	publicKey, err := rsa.LoadPublicKeyFromPem(response.ReceptionPublicKeyPem)
 	if err != nil {

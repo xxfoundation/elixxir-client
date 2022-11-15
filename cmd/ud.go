@@ -88,6 +88,34 @@ var udCmd = &cobra.Command{
 			jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
 		}
 
+		if viper.IsSet("alternateUd") {
+			altUdCertPath := viper.GetString("altUdCert")
+			altUdAddress := viper.GetString("altUdAddress")
+			altUdContactFilePath := viper.GetString("altUdContactFile")
+
+			altUdCert, err := utils.ReadFile(altUdCertPath)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to read alternative UD cert: %+v", err)
+			}
+
+			altUdContactFile, err := utils.ReadFile(altUdContactFilePath)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to read alternative UD contact file: %+v", err)
+			}
+
+			jww.INFO.Printf("[UD] Setting alternate user discovery with: "+
+				"\n\tAddress: %s"+
+				"\n\tCert: %s"+
+				"\n\tContact File: %s",
+				altUdAddress, string(altUdCert), string(altUdContactFile))
+			err = userDiscoveryMgr.SetAlternativeUserDiscovery(altUdCert,
+				[]byte(altUdAddress), altUdContactFile)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to set alternate UD: %+v", err)
+			}
+
+		}
+
 		userToRegister := viper.GetString("register")
 		if userToRegister != "" {
 			err = userDiscoveryMgr.Register(userToRegister)

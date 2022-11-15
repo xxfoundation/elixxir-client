@@ -65,7 +65,7 @@ type registrar struct {
 	numnodesGetter func() int
 
 	c  chan network.NodeGateway
-	rc chan registrationResponsePart
+	rc chan registrationResponse
 }
 
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
@@ -83,7 +83,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 	r := &registrar{
 		nodes:          make(map[id.ID]*key),
 		kv:             kv,
-		rc:             make(chan registrationResponsePart, bufferSize),
+		rc:             make(chan registrationResponse), // TODO should this be buffered
 		bufferSize:     bufferSize,
 		batchDelay:     batchDelay,
 		pauser:         make(chan interface{}),

@@ -81,10 +81,16 @@ func TestRegisterWithNodes(t *testing.T) {
 	}
 	r := makeTestRegistrar(mockComms, t)
 
+	errCh := make(chan error)
 	// Call registerWithNode
-	err = registerWithNodes([]network.NodeGateway{ngw},
-		mockSession, r, stop)
-	if err != nil {
+	go func() {
+		errCh <- registerWithNodes([]network.NodeGateway{ngw},
+			mockSession, r, stop)
+	}()
+	select {
+	case <-r.rc:
+	case err := <-errCh:
 		t.Fatalf("registerWithNode error: %+v", err)
 	}
+
 }

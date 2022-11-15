@@ -18,13 +18,11 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/chacha"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -34,22 +32,12 @@ import (
 // SignedClientBatchKeyRequest message.  This message is sent via the passed
 // gateway Sender. It will further handle the request from the gateway.
 // Responses are sent to a channel for processing by worker threads
-func requestKeys(ngws []network.NodeGateway, s session, r *registrar,
-	stop *stoppable.Single) error {
+func requestKeys(ngws []network.NodeGateway, dhPub *cyclic.Int, s session, r *registrar,
+	stop *stoppable.Single) (*pb.SignedBatchKeyResponse, error) {
 	rng := r.rng.GetStream()
 	defer rng.Close()
 
-	// Generate a Diffie-Hellman keypair
-	grp := r.session.GetCmixGroup()
-
 	start := time.Now()
-	prime := grp.GetPBytes()
-	dhPrivBytes, err := csprng.GenerateInGroup(prime, 32, rng)
-	if err != nil {
-		return err
-	}
-	dhPriv := grp.NewIntFromBytes(dhPrivBytes)
-	dhPub := diffieHellman.GeneratePublicKey(dhPriv, grp)
 
 	var gwIds []*id.ID
 	for _, ngw := range ngws {
@@ -59,14 +47,14 @@ func requestKeys(ngws []network.NodeGateway, s session, r *registrar,
 		if err != nil {
 			jww.ERROR.Printf("registerWithNode failed to decode "+
 				"gateway ID: %v", err)
-			return err
+			return nil, err
 		}
 		gwIds = append(gwIds, gatewayID)
 	}
 
 	signedBatchKeyReq, err := makeSignedKeyRequest(s, rng, gwIds, dhPub)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Request nonce message from gateway
@@ -87,25 +75,16 @@ func requestKeys(ngws []network.NodeGateway, s session, r *registrar,
 	}, stop)
 	jww.TRACE.Printf("full reg request took %s", time.Since(start))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Cast the response
 	signedKeyResponses := result.(*pb.SignedBatchKeyResponse)
 	if len(ngws) != len(signedKeyResponses.SignedKeys) {
-		return errors.Errorf("Should have received %d slots, only received %d", len(ngws), len(signedKeyResponses.SignedKeys))
+		return nil, errors.Errorf("Should have received %d slots, only received %d", len(ngws), len(signedKeyResponses.SignedKeys))
 	}
 
-	// Send responses to channel for processing
-	for i, ngw := range ngws {
-		r.rc <- registrationResponsePart{
-			ngw:      ngw,
-			response: signedKeyResponses.SignedKeys[i],
-			dhPriv:   dhPriv,
-		}
-	}
-
-	return nil
+	return signedKeyResponses, nil
 }
 
 // makeSignedKeyRequest is a helper function which constructs a

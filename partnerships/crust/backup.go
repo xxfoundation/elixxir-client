@@ -61,7 +61,7 @@ type UploadSuccessReport struct {
 type uploadBackupHeader struct {
 
 	// UserPublicKey is the user's public key PEM encoded.
-	UserPublicKey string
+	UserPublicKey []byte
 
 	// UsernameHash is the hash of the user's username. This can be obtained
 	//	// using [crust.HashUsername].
@@ -134,7 +134,7 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 	}
 
 	// Serialize the public key PEM
-	pubKeyPem := string(rsa.CreatePublicKeyPem(privateKey.GetPublic()))
+	pubKeyPem := rsa.CreatePublicKeyPem(privateKey.GetPublic())
 
 	// Construct header
 	header := uploadBackupHeader{
@@ -258,7 +258,7 @@ func requestPin(backupResponse *uploadBackupResponse,
 func (header uploadBackupHeader) constructBasicAuth() (
 	username, password string) {
 	username = fmt.Sprintf("xx-%s-%s-%s-%d-%s",
-		header.UserPublicKey,
+		base64.StdEncoding.EncodeToString(header.UserPublicKey),
 		base64.StdEncoding.EncodeToString(header.UsernameHash),
 		base64.StdEncoding.EncodeToString(header.FileHash),
 		header.UploadTimestamp,

@@ -22,8 +22,8 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/shuffle"
@@ -49,6 +49,7 @@ var errorsList = []string{
 	grpc.ErrClientConnClosing.Error(),
 	connect.TooManyProxyError,
 	"Failed to fetch",
+	"NetworkError when attempting to fetch resource.",
 }
 
 // HostManager Interface allowing storage and retrieval of Host objects

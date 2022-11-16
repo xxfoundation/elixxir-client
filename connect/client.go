@@ -10,7 +10,7 @@ package connect
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )

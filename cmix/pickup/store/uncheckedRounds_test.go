@@ -9,7 +9,7 @@ package store
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"

@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/pickup"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/pickup"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -51,9 +51,6 @@ type Params struct {
 	// tracked in memory. This is very memory intensive and is primarily used
 	// for debugging.
 	VerboseRoundTracking bool
-
-	// RealtimeOnly disables all attempts to pick up dropped or missed messages.
-	RealtimeOnly bool
 
 	// ReplayRequests Resends auth requests up the stack if received multiple
 	// times.
@@ -96,7 +93,7 @@ type paramsDisk struct {
 // default parameters.
 func GetDefaultParams() Params {
 	n := Params{
-		TrackNetworkPeriod:        100 * time.Millisecond,
+		TrackNetworkPeriod:        1000 * time.Millisecond,
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
 		NetworkHealthTimeout:      15 * time.Second,
@@ -104,7 +101,6 @@ func GetDefaultParams() Params {
 		KnownRoundsThreshold:      1500, // 5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,
 		VerboseRoundTracking:      false,
-		RealtimeOnly:              false,
 		ReplayRequests:            true,
 		MaxParallelIdentityTracks: 5,
 		ClockSkewClamp:            50 * time.Millisecond,
@@ -141,7 +137,6 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		KnownRoundsThreshold:      p.KnownRoundsThreshold,
 		FastPolling:               p.FastPolling,
 		VerboseRoundTracking:      p.VerboseRoundTracking,
-		RealtimeOnly:              p.RealtimeOnly,
 		ReplayRequests:            p.ReplayRequests,
 		Rounds:                    p.Rounds,
 		Pickup:                    p.Pickup,
@@ -170,7 +165,6 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		KnownRoundsThreshold:      pDisk.KnownRoundsThreshold,
 		FastPolling:               pDisk.FastPolling,
 		VerboseRoundTracking:      pDisk.VerboseRoundTracking,
-		RealtimeOnly:              pDisk.RealtimeOnly,
 		ReplayRequests:            pDisk.ReplayRequests,
 		Rounds:                    pDisk.Rounds,
 		Pickup:                    pDisk.Pickup,
@@ -180,13 +174,6 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
-}
-
-func (p Params) SetRealtimeOnlyAll() Params {
-	p.RealtimeOnly = true
-	p.Pickup.RealtimeOnly = true
-	p.Message.RealtimeOnly = true
-	return p
 }
 
 const DefaultDebugTag = "External"

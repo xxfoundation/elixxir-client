@@ -308,7 +308,6 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	c.SetFakeEarliestRound(earliestTrackedRound)
 	updatedEarliestRound, old, _ := identity.ER.Set(earliestTrackedRound)
-
 	// If there was no registered rounds for the identity
 	if old == 0 {
 		lastCheckedRound := gwRoundsState.GetLastChecked()
@@ -316,8 +315,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		// received on this ID by using an estimate of how many rounds the
 		// network runs per second
 		timeSinceStartValid := netTime.Now().Sub(identity.StartValid)
-		secsSinceStart := timeSinceStartValid / time.Second
-		roundsDelta := uint(secsSinceStart * estimatedRoundsPerSecond)
+		roundsDelta := uint((timeSinceStartValid / time.Second).Seconds() * estimatedRoundsPerSecond)
 		if roundsDelta < c.param.KnownRoundsThreshold {
 			roundsDelta = c.param.KnownRoundsThreshold
 		}
@@ -330,6 +328,8 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 			updatedEarliestRound = 1
 		} else {
 			updatedEarliestRound = lastCheckedRound - id.Round(roundsDelta)
+			jww.TRACE.Printf("[Follow] UpdatedEarliestRound (%d) set to %d - %d",
+				updatedEarliestRound, lastCheckedRound, id.Round(roundsDelta))
 			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
 
 			// If the network appears to be moving faster than our estimate,
@@ -338,6 +338,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 			// as long as contacted gateway has all data
 			if updatedEarliestRound > earliestFilterRound {
 				updatedEarliestRound = earliestFilterRound
+				jww.TRACE.Printf("[Follow] updatedEarliestRound set to earliestFilterRound (%d)", earliestFilterRound)
 			}
 		}
 		identity.ER.Set(updatedEarliestRound)
@@ -361,7 +362,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {
-		jww.TRACE.Printf("[Follow] External returns of RangeUnchecked: %d, %v, %v",
+		jww.DEBUG.Printf("[Follow] External returns of RangeUnchecked: %d, %v, %v",
 			earliestRemaining, roundsWithMessages, roundsUnknown)
 		jww.DEBUG.Printf("[Follow] New Earliest Remaining: %d, Gateways last checked: %d",
 			earliestRemaining, gwRoundsState.GetLastChecked())

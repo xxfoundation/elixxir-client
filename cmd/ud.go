@@ -10,13 +10,13 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/ud"
-	"gitlab.com/elixxir/client/xxmutils"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/ud"
+	"gitlab.com/elixxir/client/v4/xxmutils"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/utils"
 

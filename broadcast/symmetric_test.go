@@ -11,9 +11,9 @@ package broadcast
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 
 	"gitlab.com/elixxir/crypto/fastRNG"

@@ -8,9 +8,9 @@
 package groupChat
 
 import (
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/user"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"

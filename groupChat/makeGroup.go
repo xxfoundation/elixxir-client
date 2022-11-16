@@ -12,7 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"

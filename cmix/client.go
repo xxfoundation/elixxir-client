@@ -11,26 +11,27 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
-	"gitlab.com/elixxir/client/cmix/attempts"
-	"gitlab.com/elixxir/client/cmix/clockSkew"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strconv"
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix/attempts"
+	"gitlab.com/elixxir/client/v4/cmix/clockSkew"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/address"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/health"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/nodes"
-	"gitlab.com/elixxir/client/cmix/pickup"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/v4/cmix/address"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/health"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/cmix/pickup"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
 	commClient "gitlab.com/elixxir/comms/client"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -241,11 +242,11 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 // Started Threads are:
 //   - Network Follower (/network/follow.go)
 //   - Historical Round Retrieval (/network/rounds/historical.go)
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//	 - health tracker (/network/health)
-//	 - Garbled Messages (/network/message/inProgress.go)
-//	 - Critical Messages (/network/message/critical.go)
+//   - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//   - Message Handling Worker Group (/network/message/handle.go)
+//   - health tracker (/network/health)
+//   - Garbled Messages (/network/message/inProgress.go)
+//   - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/address/tracker.go)
 func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("networkManager")

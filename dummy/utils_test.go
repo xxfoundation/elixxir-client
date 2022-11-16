@@ -8,8 +8,8 @@
 package dummy
 
 import (
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -40,6 +40,7 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 	t *testing.T) *Manager {
 	store := storage.InitTestingSession(t)
 	payloadSize := store.GetCmixGroup().GetP().ByteLen()
+	n := uint64(0)
 	m := &Manager{
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
@@ -48,6 +49,7 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		store:          store,
 		net:            newMockCmix(payloadSize),
 		rng:            fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+		totalSent:      &n,
 	}
 
 	return m

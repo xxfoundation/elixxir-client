@@ -12,11 +12,11 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/event"
-	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/v4/auth/store"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/event"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
@@ -132,7 +132,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 
 			/*send message*/
 			if err = s.store.StoreConfirmation(partner.ID, baseFmt.Marshal(),
-				mac, fp); err == nil {
+				mac, fp); err != nil {
 				jww.WARN.Printf("Failed to store confirmation for replay "+
 					"for relationship between %s and %s, cannot be replayed: %+v",
 					partner.ID, s.e2e.GetReceptionID(), err)
@@ -171,8 +171,8 @@ func sendAuthConfirm(net cmixClient, partner *id.ID,
 	}
 
 	em := fmt.Sprintf("Confirm Request with %s (msgDigest: %s) sent on round %d",
-		partner, format.DigestContents(payload), sentRound)
+		partner, format.DigestContents(payload), sentRound.ID)
 	jww.INFO.Print(em)
 	event.Report(1, "Auth", "SendConfirm", em)
-	return sentRound, nil
+	return sentRound.ID, nil
 }

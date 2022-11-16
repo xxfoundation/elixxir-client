@@ -10,7 +10,7 @@ package dummy
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -49,7 +49,7 @@ func (m *Manager) newRandomCmixMessage(rng csprng.Source) (
 	}
 
 	// Generate random message payload
-	payloadSize := m.store.GetCmixGroup().GetP().ByteLen()
+	payloadSize := m.net.GetMaxMessageLength()
 	payload, err = newRandomPayload(payloadSize, rng)
 	if err != nil {
 		return nil, format.Fingerprint{}, message.Service{}, nil, nil,
@@ -79,13 +79,8 @@ func (m *Manager) newRandomCmixMessage(rng csprng.Source) (
 // newRandomPayload generates a random payload of a random length
 // within the maxPayloadSize.
 func newRandomPayload(maxPayloadSize int, rng csprng.Source) ([]byte, error) {
-	// Generate random payload size
-	randomPayloadSize, err := randomInt(maxPayloadSize, rng)
-	if err != nil {
-		return nil, errors.Errorf(payloadSizeRngErr, err)
-	}
 
-	randomMsg, err := csprng.Generate(randomPayloadSize, rng)
+	randomMsg, err := csprng.Generate(maxPayloadSize, rng)
 	if err != nil {
 		return nil, err
 	}

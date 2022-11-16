@@ -8,7 +8,7 @@
 package e2e
 
 import (
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"

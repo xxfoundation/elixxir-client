@@ -8,26 +8,27 @@
 package e2e
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"encoding/base64"
 	"encoding/json"
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/e2e"
-	"sync"
 
 	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e/parse"
-	"gitlab.com/elixxir/client/e2e/ratchet"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/e2e/rekey"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e/parse"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/e2e/rekey"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
@@ -315,7 +316,7 @@ func (m *manager) closeE2eListener(item receive.Message) {
 	// Check the connection fingerprint to verify that the message is
 	// from the expected E2E relationship (refer to the comment in
 	// DeletePartner for more details)
-	if !bytes.Equal(p.ConnectionFingerprint().Bytes(), item.Payload) {
+	if !hmac.Equal(p.ConnectionFingerprint().Bytes(), item.Payload) {
 		jww.ERROR.Printf("Received %s message from %s with incorrect "+
 			"connection fingerprint %s.", catalog.E2eClose, item.Sender,
 			base64.StdEncoding.EncodeToString(item.Payload))

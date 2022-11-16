@@ -10,12 +10,12 @@ package xxdk
 import (
 	"time"
 
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
@@ -109,13 +109,20 @@ func (t *testNetworkManagerGeneric) AddFingerprint(identity *id.ID, fingerprint 
 }
 
 func (t *testNetworkManagerGeneric) Send(*id.ID, format.Fingerprint,
-	message.Service, []byte, []byte, cmix.CMIXParams) (id.Round,
+	message.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round,
 	ephemeral.Id, error) {
-	return id.Round(0), ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
+
+func (t *testNetworkManagerGeneric) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+
 func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage,
-	p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	return 0, []ephemeral.Id{}, nil
+	p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, []ephemeral.Id{}, nil
 }
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 	return t.instance
@@ -153,10 +160,18 @@ func (t *testNetworkManagerGeneric) AddHealthCallback(f func(bool)) uint64 {
 func (t *testNetworkManagerGeneric) AddIdentity(id *id.ID,
 	validUntil time.Time, persistent bool) {
 }
+func (t *testNetworkManagerGeneric) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool) {
+}
+
 func (t *testNetworkManagerGeneric) RemoveIdentity(id *id.ID) {}
 func (t *testNetworkManagerGeneric) AddService(clientID *id.ID,
 	newService message.Service, response message.Processor) {
 }
+func (t *testNetworkManagerGeneric) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
+
 func (t *testNetworkManagerGeneric) DeleteService(clientID *id.ID,
 	toDelete message.Service, processor message.Processor) {
 }
@@ -176,8 +191,7 @@ func (t *testNetworkManagerGeneric) GetIdentity(get *id.ID) (
 	return identity.TrackedID{}, nil
 }
 func (t *testNetworkManagerGeneric) GetRoundResults(timeout time.Duration,
-	roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
-	return nil
+	roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 }
 func (t *testNetworkManagerGeneric) HasNode(nid *id.ID) bool { return false }
 func (t *testNetworkManagerGeneric) IsHealthy() bool         { return true }
@@ -209,4 +223,8 @@ func (t *testNetworkManagerGeneric) TrackServices(
 func (t *testNetworkManagerGeneric) TriggerNodeRegistration(nid *id.ID) {}
 func (t *testNetworkManagerGeneric) UnregisterAddressSpaceNotification(
 	tag string) {
+}
+func (t *testNetworkManagerGeneric) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (t *testNetworkManagerGeneric) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
 }

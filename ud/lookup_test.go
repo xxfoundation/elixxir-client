@@ -8,8 +8,8 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/single"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -50,7 +50,7 @@ func TestManager_Lookup(t *testing.T) {
 		DhPubKey: publicKey,
 	}
 
-	contacts := []*Contact{&Contact{
+	contacts := []*Contact{{
 		UserID: expectedContact.ID.Bytes(),
 		PubKey: expectedContact.DhPubKey.Bytes(),
 	}}

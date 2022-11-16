@@ -13,10 +13,10 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	clientE2e "gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	clientE2e "gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -138,12 +138,8 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 
 	// Track the result of the round(s) we sent the
 	// identity authentication message on
-	err = net.GetRoundResults(remainingTime,
+	net.GetRoundResults(remainingTime,
 		roundCb, sendReport.RoundList...)
-	if err != nil {
-		return nil, errors.Errorf("could not track rounds for successful " +
-			"identity confirmation message delivery")
-	}
 	// Block waiting for confirmation of the round(s) success (or timeout
 	jww.DEBUG.Printf("AuthenticatedConnection waiting for authenticated "+
 		"connection with %s to be established...", recipient.ID.String())

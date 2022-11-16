@@ -10,10 +10,12 @@ package cmix
 import (
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/health"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/health"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
@@ -35,7 +37,7 @@ type roundEventRegistrar interface {
 // anonymous function to include the structures from client that critical is
 // not aware of.
 type criticalSender func(msg format.Message, recipient *id.ID,
-	params CMIXParams) (id.Round, ephemeral.Id, error)
+	params CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 // critical is a structure that allows the auto resending of messages that must
 // be received.
@@ -87,9 +89,10 @@ func (c *critical) runCriticalMessages(stop *stoppable.Single) {
 }
 
 func (c *critical) handle(
-	msg format.Message, recipient *id.ID, rid id.Round, rtnErr error) {
+	msg format.Message, recipient *id.ID, rid id.Round, rtnErr error) bool {
 	if rtnErr != nil {
 		c.Failed(msg, recipient)
+		return false
 	} else {
 		sendResults := make(chan ds.EventReturn, 1)
 
@@ -109,13 +112,11 @@ func (c *critical) handle(
 			}
 
 			c.Failed(msg, recipient)
-			return
+			return success
 		}
 
-		jww.INFO.Printf("Successful resend of critical raw message to %s "+
-			"(msgDigest: %s) on round %d", recipient, msg.Digest(), rid)
-
 		c.Succeeded(msg, recipient)
+		return success
 	}
 
 }
@@ -127,15 +128,20 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 		localRid := recipient.DeepCopy()
 		go func(msg format.Message, recipient *id.ID, params CMIXParams) {
 			params.Stop = stop
+			params.Critical = false
 			jww.INFO.Printf("Resending critical raw message to %s "+
 				"(msgDigest: %s)", recipient, msg.Digest())
 
 			// Send the message
-			round, _, err := c.send(msg, recipient, params)
+			round, _, err := c.send(msg.Copy(), recipient, params)
 
 			// Pass to the handler
-			c.handle(msg, recipient, round, err)
+			if c.handle(msg, recipient, round.ID, err) {
+				jww.INFO.Printf("Successful resend of "+
+					"critical raw message to "+
+					"%s (msgDigest: %s) on round %d",
+					recipient, msg.Digest(), round.ID)
+			}
 		}(msg, localRid, params)
 	}
-
 }

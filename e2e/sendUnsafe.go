@@ -13,9 +13,9 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -72,13 +72,13 @@ func (m *manager) sendUnsafe(mt catalog.MessageType, recipient *id.ID,
 			jww.TRACE.Printf("sendUnsafe contents: %v, fp: %v, mac: %v",
 				payload, fp, unencryptedMAC)
 
-			var err error
-			roundIds[i], _, err = m.net.Send(recipient, fp,
+			r, _, err := m.net.Send(recipient, fp,
 				srvc, payload, unencryptedMAC,
 				params.CMIXParams)
 			if err != nil {
 				errCh <- err
 			}
+			roundIds[i] = r.ID
 			wg.Done()
 		}(i, p)
 	}

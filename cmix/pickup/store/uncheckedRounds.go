@@ -12,7 +12,7 @@ import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -55,17 +55,21 @@ type UncheckedRound struct {
 	LastCheck time.Time
 	// Number of times a round has been checked
 	NumChecks uint64
+
+	storageUpToDate bool
+	beingChecked    bool
 }
 
 // marshal serializes UncheckedRound r into a byte slice.
 func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	// Store teh round info
-	if r.Info != nil {
+	if r.Info != nil && !r.storageUpToDate {
 		if err := storeRoundInfo(kv, r.Info, r.Source, r.EpdId); err != nil {
 			return nil, errors.WithMessagef(err,
 				"failed to marshal unchecked rounds")
 		}
+		r.storageUpToDate = true
 	}
 
 	// Marshal the round ID
@@ -126,6 +130,7 @@ func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
 	r.NumChecks = binary.LittleEndian.Uint64(buff.Next(uint64Size))
 
 	r.Info, _ = loadRoundInfo(kv, r.Id, r.Source, r.EpdId)
+	r.storageUpToDate = true
 
 	return nil
 }

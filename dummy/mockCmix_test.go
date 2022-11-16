@@ -8,12 +8,12 @@
 package dummy
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
@@ -38,12 +38,26 @@ func newMockCmix(payloadSize int) cmix.Client {
 	}
 }
 
-func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.Lock()
 	defer m.Unlock()
 	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	m.Lock()
+	defer m.Unlock()
+
+	fingerprint, service, payload, mac, err := assembler(42)
+	if err != nil {
+		return rounds.Round{}, ephemeral.Id{}, err
+	}
+	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
+
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) GetMsgListLen() int {
@@ -64,11 +78,15 @@ func (m mockCmix) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, er
 }
 
 func (m mockCmix) GetMaxMessageLength() int {
+	return 100
+}
+
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -104,6 +122,11 @@ func (m mockCmix) DeleteClientFingerprints(identity *id.ID) {
 }
 
 func (m mockCmix) AddService(clientID *id.ID, newService message.Service, response message.Processor) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -163,7 +186,7 @@ func (m mockCmix) TriggerNodeRegistration(nid *id.ID) {
 	panic("implement me")
 }
 
-func (m mockCmix) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+func (m mockCmix) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -216,4 +239,8 @@ func (m mockCmix) GetInstance() *network.Instance {
 func (m mockCmix) GetVerboseRounds() string {
 	//TODO implement me
 	panic("implement me")
+}
+func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
 }

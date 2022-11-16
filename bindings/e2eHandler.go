@@ -13,9 +13,9 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -45,6 +45,19 @@ type E2ESendReport struct {
 //  - []byte - the marshalled bytes of the id.ID object.
 func (e *E2e) GetReceptionID() []byte {
 	return e.api.GetE2E().GetReceptionID().Marshal()
+}
+
+// DeleteContact removes a partner from E2e's storage.
+//
+// Parameters:
+//  - partnerID - the marshalled bytes of id.ID.
+func (e *E2e) DeleteContact(partnerID []byte) error {
+	partner, err := id.Unmarshal(partnerID)
+	if err != nil {
+		return err
+	}
+
+	return e.api.DeleteContact(partner)
 }
 
 // GetAllPartnerIDs returns a list of all partner IDs that the user has an E2E

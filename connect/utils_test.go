@@ -9,17 +9,17 @@ package connect
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -160,14 +160,21 @@ func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) {
 func (m *mockCmix) GetMaxMessageLength() int { return 4096 }
 
 func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
-	[]byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	return 0, ephemeral.Id{}, nil
+	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	return 0, []ephemeral.Id{}, nil
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockCmix) RemoveIdentity(*id.ID)               {}
+
+func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, []ephemeral.Id{}, nil
+}
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)                       {}
+func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) {}
+func (m *mockCmix) RemoveIdentity(*id.ID)                                     {}
 
 func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) {
 	return identity.TrackedID{Creation: netTime.Now().Add(-time.Minute)}, nil
@@ -177,21 +184,23 @@ func (m *mockCmix) AddFingerprint(*id.ID, format.Fingerprint, message.Processor)
 func (m *mockCmix) DeleteFingerprint(*id.ID, format.Fingerprint)                       {}
 func (m *mockCmix) DeleteClientFingerprints(*id.ID)                                    {}
 func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)              {}
-func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor)           {}
-func (m *mockCmix) DeleteClientService(*id.ID)                                         {}
-func (m *mockCmix) TrackServices(message.ServicesTracker)                              {}
-func (m *mockCmix) CheckInProgressMessages()                                           {}
-func (m *mockCmix) IsHealthy() bool                                                    { return true }
-func (m *mockCmix) WasHealthy() bool                                                   { return true }
-func (m *mockCmix) AddHealthCallback(func(bool)) uint64                                { return 0 }
-func (m *mockCmix) RemoveHealthCallback(uint64)                                        {}
-func (m *mockCmix) HasNode(*id.ID) bool                                                { return true }
-func (m *mockCmix) NumRegisteredNodes() int                                            { return 24 }
-func (m *mockCmix) TriggerNodeRegistration(*id.ID)                                     {}
-
-func (m *mockCmix) GetRoundResults(_ time.Duration, roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
-	roundCallback(true, false, nil)
+func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
 	return nil
+}
+func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
+func (m *mockCmix) DeleteClientService(*id.ID)                               {}
+func (m *mockCmix) TrackServices(message.ServicesTracker)                    {}
+func (m *mockCmix) CheckInProgressMessages()                                 {}
+func (m *mockCmix) IsHealthy() bool                                          { return true }
+func (m *mockCmix) WasHealthy() bool                                         { return true }
+func (m *mockCmix) AddHealthCallback(func(bool)) uint64                      { return 0 }
+func (m *mockCmix) RemoveHealthCallback(uint64)                              {}
+func (m *mockCmix) HasNode(*id.ID) bool                                      { return true }
+func (m *mockCmix) NumRegisteredNodes() int                                  { return 24 }
+func (m *mockCmix) TriggerNodeRegistration(*id.ID)                           {}
+
+func (m *mockCmix) GetRoundResults(_ time.Duration, roundCallback cmix.RoundEventCallback, _ ...id.Round) {
+	roundCallback(true, false, nil)
 }
 
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error { return nil }
@@ -208,6 +217,10 @@ func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) 
 func (m *mockCmix) UnregisterAddressSpaceNotification(string)                   {}
 func (m *mockCmix) GetInstance() *network.Instance                              { return m.instance }
 func (m *mockCmix) GetVerboseRounds() string                                    { return "" }
+func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error          { return nil }
+func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Misc set-up utils                                                          //

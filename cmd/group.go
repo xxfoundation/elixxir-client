@@ -15,16 +15,16 @@ import (
 	"os"
 	"time"
 
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/primitives/format"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/groupChat"
-	"gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/groupChat"
+	"gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -237,7 +237,7 @@ func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
 	}
 
 	jww.INFO.Printf("[GC] Sent to group %s on round %d at %s",
-		groupID, rid, timestamp)
+		groupID, rid.ID, timestamp)
 	fmt.Printf("Sent message %q to group.\n", msg)
 }
 

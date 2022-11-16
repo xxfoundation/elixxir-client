@@ -17,11 +17,11 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/cmix/address"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/address"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -42,14 +42,25 @@ const (
 
 	// DefaultExtraChecks is the default value for ExtraChecks
 	// on receptionID.Identity.
-	DefaultExtraChecks = 10
+	DefaultExtraChecks = 5
+
+	// NetworkRetention is how long messages are
+	// retained on the network
+	NetworkRetention = 500 * time.Hour
+
+	// GenerationDelta is how far into the past
+	// to go in order to ensure all relevant
+	// ephemeral identities are generated
+	GenerationDelta = time.Duration(ephemeral.Period) + (5 * time.Second)
 )
 
 type Tracker interface {
 	StartProcesses() stoppable.Stoppable
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
 	RemoveIdentity(id *id.ID)
-	GetEphemeralIdentity(rng io.Reader, addressSize uint8) (receptionID.IdentityUse, error)
+	ForEach(n int, rng io.Reader, addressSize uint8,
+		operator func([]receptionID.IdentityUse) error) error
 	GetIdentity(get *id.ID) (TrackedID, error)
 }
 
@@ -72,7 +83,7 @@ type TrackedID struct {
 	Creation       time.Time
 }
 
-func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager {
+func NewOrLoadTracker(session storage.Session, addrSpace address.Space) Tracker {
 	// Initialization
 	t := &manager{
 		tracked:        make([]*TrackedID, 0),
@@ -127,9 +138,32 @@ func (t *manager) StartProcesses() stoppable.Stoppable {
 
 // AddIdentity adds an identity to be tracked.
 func (t *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+	lastGeneration := netTime.Now().Add(-GenerationDelta)
 	t.newIdentity <- TrackedID{
 		NextGeneration: netTime.Now().Add(-time.Second),
-		LastGeneration: netTime.Now().Add(-time.Duration(ephemeral.Period)),
+		LastGeneration: lastGeneration,
+		Source:         id,
+		ValidUntil:     validUntil,
+		Persistent:     persistent,
+		Creation:       netTime.Now(),
+	}
+}
+
+// AddIdentityWithHistory adds an identity to be tracked which will slowly pick up history.
+func (t *manager) AddIdentityWithHistory(id *id.ID, validUntil, historicalBeginning time.Time, persistent bool) {
+	retention := netTime.Now().Add(-NetworkRetention)
+	if historicalBeginning.Before(retention) {
+		historicalBeginning = retention
+	}
+
+	if now := time.Now(); historicalBeginning.After(now) ||
+		now.Sub(historicalBeginning) < GenerationDelta {
+		historicalBeginning = now.Add(-GenerationDelta)
+	}
+
+	t.newIdentity <- TrackedID{
+		NextGeneration: netTime.Now().Add(-time.Second),
+		LastGeneration: historicalBeginning,
 		Source:         id,
 		ValidUntil:     validUntil,
 		Persistent:     persistent,
@@ -142,10 +176,14 @@ func (t *manager) RemoveIdentity(id *id.ID) {
 	t.deleteIdentity <- id
 }
 
-// GetEphemeralIdentity returns an ephemeral Identity to poll the network with.
-func (t *manager) GetEphemeralIdentity(rng io.Reader, addressSize uint8) (
-	receptionID.IdentityUse, error) {
-	return t.ephemeral.GetIdentity(rng, addressSize)
+// ForEach passes a fisher-yates shuffled list of up to 'num'
+// ephemeral identities into the operation function. It will pass a
+// fake identity if none are available
+// and less than 'num' if less than 'num' are available.
+// 'num' must be positive non-zero
+func (t *manager) ForEach(n int, rng io.Reader, addressSize uint8,
+	operator func([]receptionID.IdentityUse) error) error {
+	return t.ephemeral.ForEach(n, rng, addressSize, operator)
 }
 
 // GetIdentity returns a currently tracked identity
@@ -207,15 +245,20 @@ func (t *manager) track(stop *stoppable.Single) {
 			continue
 
 		case deleteID := <-t.deleteIdentity:
+			removed := false
 			for i := range t.tracked {
 				inQuestion := t.tracked[i]
 				if inQuestion.Source.Cmp(deleteID) {
+					removed = true
 					t.tracked = append(t.tracked[:i], t.tracked[i+1:]...)
 					t.save()
 					// Requires manual deletion in case identity is deleted before expiration
 					t.ephemeral.RemoveIdentities(deleteID)
 					break
 				}
+			}
+			if !removed {
+				jww.WARN.Printf("Identity %s failed to be removed from tracker", deleteID)
 			}
 		case <-stop.Quit():
 			t.addrSpace.UnregisterAddressSpaceNotification(addressSpaceSizeChanTag)
@@ -321,9 +364,14 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 		jww.FATAL.Panicf("Could not generate upcoming IDs: %+v", err)
 	}
 
+	identitiesToAdd := make([]receptionID.Identity, 0, len(protoIds))
+	identitiesToChain := make([]receptionID.Identity, 0, len(protoIds))
+
 	// Add identities for every address ID
 	lastIdentityEnd := time.Time{}
-	for i, eid := range protoIds {
+	var NewestIdentity receptionID.Identity
+	for i, _ := range protoIds {
+		eid := protoIds[i]
 		// Expand the grace period for both start and end
 		newIdentity := receptionID.Identity{
 			EphemeralIdentity: receptionID.EphemeralIdentity{
@@ -345,25 +393,51 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 		}
 
 		newIdentity.Ephemeral = !inQuestion.Persistent
-		if err := t.ephemeral.AddIdentity(newIdentity); err != nil {
-			jww.FATAL.Panicf("Could not insert identity: %+v", err)
+
+		// If the identity expired before the current time, we know it
+		// is no longer valid and should be added to the chain
+		if netTime.Now().After(newIdentity.EndValid) {
+			identitiesToChain = append(identitiesToChain, newIdentity)
+		} else {
+			identitiesToAdd = append(identitiesToAdd, newIdentity)
 		}
 
-		// Print debug information and set return value
-		if isLastIdentity := i == len(protoIds)-1; isLastIdentity {
-			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, "+
-				"End: %s, addrSize: %d",
-				newIdentity.EphId.Int64(),
-				newIdentity.Source,
-				newIdentity.StartValid,
-				newIdentity.EndValid,
-				addressSize)
+		if newIdentity.End.After(lastIdentityEnd) {
 			lastIdentityEnd = newIdentity.End
+			NewestIdentity = newIdentity
 		}
 	}
 
+	//link the chain
+	if len(identitiesToChain) > 0 {
+		firstLink := &identitiesToChain[len(identitiesToChain)-1]
+		currentLink := firstLink
+		if len(identitiesToChain) > 1 {
+			for i := len(identitiesToChain) - 1; i >= 0; i-- {
+				currentLink.ProcessNext = &identitiesToChain[i]
+				currentLink = currentLink.ProcessNext
+			}
+		}
+		identitiesToAdd = append(identitiesToAdd, *firstLink)
+	}
+
+	//add the identities
+	for i := 0; i < len(identitiesToAdd); i++ {
+		if err = t.ephemeral.AddIdentity(identitiesToAdd[i]); err != nil {
+			jww.FATAL.Panicf("Could not insert identity: %+v", err)
+		}
+	}
+
+	jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, "+
+		"End: %s, addrSize: %d",
+		NewestIdentity.EphId.Int64(),
+		NewestIdentity.Source,
+		NewestIdentity.StartValid,
+		NewestIdentity.EndValid,
+		addressSize)
+
 	jww.INFO.Printf("Number of identities generated: %d", len(protoIds))
-	return lastIdentityEnd
+	return NewestIdentity.End
 }
 
 // save persistent TrackedID to storage

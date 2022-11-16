@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	cmixMsg "gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/single/message"
+	"gitlab.com/elixxir/client/v4/cmix"
+	cmixMsg "gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/single/message"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
@@ -104,11 +104,11 @@ func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 
 			jww.DEBUG.Printf("[SU] Sent single-use response cMix message part "+
 				"%d of %d on round %d to %s (eph ID %d) (%s).",
-				i, len(parts), round, r.sender, ephID.Int64(), r.tag)
-			rounds[i] = round
+				i, len(parts), round.ID, r.sender, ephID.Int64(), r.tag)
+			rounds[i] = round.ID
 
 			r.net.GetInstance().GetRoundEvents().AddRoundEventChan(
-				round, sendResults, timeout, states.COMPLETED, states.FAILED)
+				round.ID, sendResults, timeout, states.COMPLETED, states.FAILED)
 		}(i, parts[i].Marshal())
 	}
 

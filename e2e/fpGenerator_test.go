@@ -8,13 +8,13 @@
 package e2e
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -118,14 +118,20 @@ func newMockFpgCmix() *mockFpgCmix {
 
 func (m *mockFpgCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 func (m *mockFpgCmix) GetMaxMessageLength() int                                   { return 0 }
-func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	return 0, ephemeral.Id{}, nil
+func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	return 0, nil, nil
+func (m *mockFpgCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
 }
 func (m *mockFpgCmix) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockFpgCmix) RemoveIdentity(*id.ID)               {}
+func (m *mockFpgCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+}
+func (m *mockFpgCmix) RemoveIdentity(*id.ID) {}
 func (m *mockFpgCmix) GetIdentity(*id.ID) (identity.TrackedID, error) {
 	return identity.TrackedID{}, nil
 }
@@ -153,8 +159,11 @@ func (m *mockFpgCmix) DeleteFingerprint(uid *id.ID, fp format.Fingerprint) {
 	}
 }
 
-func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                          {}
-func (m *mockFpgCmix) AddService(*id.ID, message.Service, message.Processor)    {}
+func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                       {}
+func (m *mockFpgCmix) AddService(*id.ID, message.Service, message.Processor) {}
+func (m *mockFpgCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
+	return nil
+}
 func (m *mockFpgCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockFpgCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockFpgCmix) TrackServices(message.ServicesTracker)                    {}
@@ -166,8 +175,7 @@ func (m *mockFpgCmix) RemoveHealthCallback(uint64)                              
 func (m *mockFpgCmix) HasNode(*id.ID) bool                                      { return false }
 func (m *mockFpgCmix) NumRegisteredNodes() int                                  { return 0 }
 func (m *mockFpgCmix) TriggerNodeRegistration(*id.ID)                           {}
-func (m *mockFpgCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) error {
-	return nil
+func (m *mockFpgCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) {
 }
 func (m *mockFpgCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error { return nil }
 func (m *mockFpgCmix) SendToAny(func(host *connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {
@@ -183,3 +191,7 @@ func (m *mockFpgCmix) RegisterAddressSpaceNotification(string) (chan uint8, erro
 func (m *mockFpgCmix) UnregisterAddressSpaceNotification(string)                   {}
 func (m *mockFpgCmix) GetInstance() *network.Instance                              { return nil }
 func (m *mockFpgCmix) GetVerboseRounds() string                                    { return "" }
+func (m *mockFpgCmix) PauseNodeRegistrations(timeout time.Duration) error          { return nil }
+func (m *mockFpgCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
+}

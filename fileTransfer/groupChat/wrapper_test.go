@@ -9,8 +9,8 @@ package groupChat
 
 import (
 	"bytes"
-	ft "gitlab.com/elixxir/client/fileTransfer"
-	"gitlab.com/elixxir/client/groupChat"
+	ft "gitlab.com/elixxir/client/v4/fileTransfer"
+	"gitlab.com/elixxir/client/v4/groupChat"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/crypto/csprng"

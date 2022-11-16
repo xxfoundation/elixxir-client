@@ -11,10 +11,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	gc "gitlab.com/elixxir/client/groupChat"
-	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	gc "gitlab.com/elixxir/client/v4/groupChat"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -203,8 +203,8 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 
 	// Construct send report
 	sendReport := &GroupSendReport{
-		RoundsList: makeRoundsList(round),
-		RoundURL:   getRoundURL(round),
+		RoundURL:   getRoundURL(round.ID),
+		RoundsList: makeRoundsList(round.ID),
 		Timestamp:  timestamp.UnixNano(),
 		MessageID:  msgID.Bytes(),
 	}
@@ -322,7 +322,7 @@ func (g *Group) Serialize() []byte {
 	return g.g.Serialize()
 }
 
-// DeserializeGroup converts the results of Group.Serialize() into a Group
+// DeserializeGroup converts the results of Group.Serialize into a Group
 // so that its methods can be called.
 func DeserializeGroup(serializedGroupData []byte) (*Group, error) {
 	grp, err := gs.DeserializeGroup(serializedGroupData)

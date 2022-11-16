@@ -10,11 +10,11 @@ package fileTransfer
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/fileTransfer/sentRoundTracker"
-	"gitlab.com/elixxir/client/fileTransfer/store"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/fileTransfer/sentRoundTracker"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
@@ -50,6 +50,7 @@ const (
 // startSendingWorkerPool initialises a worker pool of file part sending
 // threads.
 func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
+	jww.INFO.Printf("[FT] Starting %d sending worker threads.", workerPoolThreads)
 	// Set up cMix sending parameters
 	m.params.Cmix.SendTimeout = m.params.SendTimeout
 	m.params.Cmix.ExcludedRounds =
@@ -70,6 +71,7 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 
 // sendingThread sends part packets that become available oin the send queue.
 func (m *manager) sendingThread(stop *stoppable.Single) {
+	jww.INFO.Printf("[FT] Starting sending worker thread %s.", stop.Name())
 	healthChan := make(chan bool, 10)
 	healthChanID := m.cmix.AddHealthCallback(func(b bool) { healthChan <- b })
 	for {
@@ -163,13 +165,14 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 	}
 
-	err = m.cmix.GetRoundResults(
-		roundResultsTimeout, m.roundResultsCallback(validParts), rid)
+	m.cmix.GetRoundResults(
+		roundResultsTimeout, m.roundResultsCallback(validParts), rid.ID)
 }
 
 // roundResultsCallback generates a network.RoundEventCallback that handles
 // all parts in the packet once the round succeeds or fails.
-func (m *manager) roundResultsCallback(packet []store.Part) cmix.RoundEventCallback {
+func (m *manager) roundResultsCallback(
+	packet []store.Part) cmix.RoundEventCallback {
 	// Group file parts by transfer
 	grouped := map[ftCrypto.TransferID][]store.Part{}
 	for _, p := range packet {

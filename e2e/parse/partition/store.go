@@ -8,19 +8,20 @@
 package partition
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"encoding/binary"
 	"encoding/json"
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
-	"sync"
-	"time"
 )
 
 type multiPartID [16]byte
@@ -60,7 +61,7 @@ func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 
 	mpm := s.load(partner, messageID)
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
-	if bytes.Equal(residue.Marshal(), []byte{}) {
+	if hmac.Equal(residue.Marshal(), []byte{}) {
 		// fixme: should this error or crash?
 		jww.WARN.Printf("Key reside from first message " +
 			"is empty, continuing...")
@@ -171,7 +172,7 @@ func (s *Store) loadActivePartitions() {
 	defer s.mux.Unlock()
 	obj, err := s.kv.Get(activePartitions, activePartitionVersion)
 	if err != nil {
-		jww.DEBUG.Printf("Could not load active partitions: %+v", err)
+		jww.DEBUG.Printf("Could not load active partitions: %s", err.Error())
 		return
 	}
 

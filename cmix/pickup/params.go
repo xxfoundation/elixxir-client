@@ -35,9 +35,6 @@ type Params struct {
 	// tried
 	SendTimeout time.Duration
 
-	// Disables all attempts to pick up dropped or missed messages
-	RealtimeOnly bool
-
 	// Toggles if historical rounds should always be used
 	ForceHistoricalRounds bool
 }
@@ -57,13 +54,12 @@ type paramsDisk struct {
 // GetDefaultParams returns a default set of Params.
 func GetDefaultParams() Params {
 	return Params{
-		NumMessageRetrievalWorkers: 8,
-		LookupRoundsBufferLen:      2000,
-		MaxHistoricalRoundsRetries: 3,
-		UncheckRoundPeriod:         20 * time.Second,
+		NumMessageRetrievalWorkers: 2,
+		LookupRoundsBufferLen:      100000,
+		MaxHistoricalRoundsRetries: 2,
+		UncheckRoundPeriod:         120 * time.Second,
 		ForceMessagePickupRetry:    false,
 		SendTimeout:                3 * time.Second,
-		RealtimeOnly:               false,
 	}
 }
 
@@ -89,7 +85,6 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		UncheckRoundPeriod:         p.UncheckRoundPeriod,
 		ForceMessagePickupRetry:    p.ForceMessagePickupRetry,
 		SendTimeout:                p.SendTimeout,
-		RealtimeOnly:               p.RealtimeOnly,
 		ForceHistoricalRounds:      p.ForceHistoricalRounds,
 	}
 
@@ -112,7 +107,6 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		UncheckRoundPeriod:         pDisk.UncheckRoundPeriod,
 		ForceMessagePickupRetry:    pDisk.ForceMessagePickupRetry,
 		SendTimeout:                pDisk.SendTimeout,
-		RealtimeOnly:               pDisk.RealtimeOnly,
 		ForceHistoricalRounds:      pDisk.ForceHistoricalRounds,
 	}
 

@@ -8,11 +8,11 @@
 package single
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	cMixMsg "gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	cMixMsg "gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -44,7 +44,7 @@ type RequestCmix interface {
 	GetMaxMessageLength() int
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
 		service cMixMsg.Service, payload, mac []byte,
-		cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
+		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	GetInstance() *network.Instance
 }
 
@@ -72,7 +72,7 @@ type Cmix interface {
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
 		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
-		id.Round, ephemeral.Id, error)
+		rounds.Round, ephemeral.Id, error)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteService(clientID *id.ID, toDelete message.Service,

@@ -12,8 +12,8 @@ package gateway
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
@@ -77,11 +77,11 @@ func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 					"with error %s", proxies[proxy].GetId(), err.Error())
 			} else {
 				if checkReplaceErr != nil {
-					jww.WARN.Printf("Unable to SendToAny via %s: %s."+
+					jww.WARN.Printf("Unable to SendToAny via %s: %s. "+
 						"Unable to replace host: %+v",
 						proxies[proxy].GetId(), err.Error(), checkReplaceErr)
 				} else {
-					jww.WARN.Printf("Unable to SendToAny via %s: %s."+
+					jww.WARN.Printf("Unable to SendToAny via %s: %s. "+
 						"Did not replace host.",
 						proxies[proxy].GetId(), err.Error())
 				}

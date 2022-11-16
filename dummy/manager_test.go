@@ -9,7 +9,7 @@ package dummy
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -35,6 +35,7 @@ func Test_newManager(t *testing.T) {
 			statusChanLen, cap(received.statusChan))
 	}
 	received.statusChan = expected.statusChan
+	received.totalSent = nil
 
 	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("New manager does not match expected."+

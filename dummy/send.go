@@ -8,7 +8,7 @@
 package dummy
 
 import (
-	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/xx_network/crypto/csprng"
 	"sync"
 	"sync/atomic"
@@ -16,12 +16,17 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 )
 
 // Error messages for the Manager.sendThread and its helper functions.
 const (
-	numMsgsRngErr = "failed to generate random number of messages to send: %+v"
+	numMsgsRngErr          = "failed to generate random number of messages to send: %+v"
+	overrideAvgSendDelta   = 10 * time.Minute
+	overrideRandomRange    = 8 * time.Minute
+	overrideMaxNumMessages = 2
+
+	numSendsToOverride = 20
 )
 
 // sendThread is a thread that sends the dummy messages at random intervals.
@@ -32,6 +37,13 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 	nextSendChanPtr := &(nextSendChan)
 
 	for {
+
+		if numSent := atomic.LoadUint64(m.totalSent); numSent > numSendsToOverride {
+			m.avgSendDelta = overrideAvgSendDelta
+			m.randomRange = overrideRandomRange
+			m.maxNumMessages = overrideMaxNumMessages
+		}
+
 		select {
 		case status := <-m.statusChan:
 			if status {
@@ -71,6 +83,8 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 				err := m.sendMessages()
 				if err != nil {
 					jww.ERROR.Printf("Failed to send dummy messages: %+v", err)
+				} else {
+					atomic.AddUint64(m.totalSent, 1)
 				}
 			}()
 		case <-stop.Quit():
@@ -125,6 +139,7 @@ func (m *Manager) sendMessage(index, totalMessages int, rng csprng.Source) error
 
 	// Send message
 	p := cmix.GetDefaultCMIXParams()
+	p.Probe = true
 	_, _, err = m.net.Send(recipient, fp, service, payload, mac, p)
 	if err != nil {
 		return errors.Errorf("Failed to send message: %+v", err)

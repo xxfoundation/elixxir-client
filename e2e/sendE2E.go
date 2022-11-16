@@ -13,13 +13,13 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e/parse"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/rekey"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e/parse"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/rekey"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -170,8 +170,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 		thisSendFunc := func() {
 			wg.Add(1)
 			go func(i int) {
-				var err error
-				roundIds[i], _, err = m.net.Send(recipient,
+				r, _, err := m.net.Send(recipient,
 					key.Fingerprint(), s, contentsEnc, mac,
 					params.CMIXParams)
 				if err != nil {
@@ -179,6 +178,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 						"Send: %+v", err)
 					errCh <- err
 				}
+				roundIds[i] = r.ID
 				wg.Done()
 			}(localI)
 		}

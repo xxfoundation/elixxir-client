@@ -10,9 +10,9 @@ package nodes
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,10 +30,10 @@ const maxAttempts = 5
 // Backoff for attempting to register with a cMix node.
 var delayTable = [5]time.Duration{
 	0,
-	5 * time.Second,
 	30 * time.Second,
 	60 * time.Second,
 	120 * time.Second,
+	240 * time.Second,
 }
 
 // registrar is an implementation of the Registrar interface.
@@ -46,6 +47,20 @@ type registrar struct {
 	comms   RegisterNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
 
+	inProgress sync.Map
+	// We are relying on the in progress check to ensure there is only a single
+	// operator at a time, as a result this is a map of ID -> int
+	attempts sync.Map
+
+	pauser        chan interface{}
+	resumer       chan interface{}
+	numberRunning *int64
+	maxRunning    int
+
+	runnerLock sync.Mutex
+
+	numnodesGetter func() int
+
 	c chan network.NodeGateway
 }
 
@@ -53,12 +68,18 @@ type registrar struct {
 // exist.
 func LoadRegistrar(session session, sender gateway.Sender,
 	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
-	c chan network.NodeGateway) (Registrar, error) {
+	c chan network.NodeGateway, numNodesGetter func() int) (Registrar, error) {
+
+	running := int64(0)
 
 	kv := session.GetKV().Prefix(prefix)
 	r := &registrar{
-		nodes: make(map[id.ID]*key),
-		kv:    kv,
+		nodes:          make(map[id.ID]*key),
+		kv:             kv,
+		pauser:         make(chan interface{}),
+		resumer:        make(chan interface{}),
+		numberRunning:  &running,
+		numnodesGetter: numNodesGetter,
 	}
 
 	obj, err := kv.Get(storeKey, currentKeyVersion)
@@ -89,22 +110,77 @@ func LoadRegistrar(session session, sender gateway.Sender,
 // StartProcesses initiates numParallel amount of threads
 // to register with nodes.
 func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
+	r.runnerLock.Lock()
+	defer r.runnerLock.Unlock()
+
 	multi := stoppable.NewMulti("NodeRegistrations")
-
-	inProgress := &sync.Map{}
-
-	// We are relying on the in progress check to ensure there is only a single
-	// operator at a time, as a result this is a map of ID -> int
-	attempts := &sync.Map{}
+	r.maxRunning = int(numParallel)
 
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
 
-		go registerNodes(r, r.session, stop, inProgress, attempts)
+		go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts, int(i))
 		multi.Add(stop)
 	}
 
 	return multi
+}
+
+//PauseNodeRegistrations stops all node registrations
+//and returns a function to resume them
+func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
+	r.runnerLock.Lock()
+	defer r.runnerLock.Unlock()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	numRegistrations := atomic.LoadInt64(r.numberRunning)
+	jww.INFO.Printf("PauseNodeRegistrations() - Pausing %d registrations", numRegistrations)
+	for i := int64(0); i < numRegistrations; i++ {
+		select {
+		case r.pauser <- struct{}{}:
+		case <-timer.C:
+			return errors.Errorf("Timed out on pausing node registration on %d", i)
+		}
+	}
+
+	return nil
+}
+
+// ChangeNumberOfNodeRegistrations changes the number of parallel node
+// registrations up to the initialized maximum
+func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
+	timeout time.Duration) error {
+	r.runnerLock.Lock()
+	defer r.runnerLock.Unlock()
+	numRunning := int(atomic.LoadInt64(r.numberRunning))
+	if toRun+numRunning > r.maxRunning {
+		return errors.Errorf("Cannot change number of " +
+			"running node registration to number greater than the max")
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	if numRunning < toRun {
+		jww.INFO.Printf("ChangeNumberOfNodeRegistrations(%d) Reducing number "+
+			"of node registrations from %d to %d", toRun, numRunning, toRun)
+		for i := 0; i < toRun-numRunning; i++ {
+			select {
+			case r.pauser <- struct{}{}:
+			case <-timer.C:
+				return errors.New("Timed out on reducing node registration")
+			}
+		}
+	} else if numRunning > toRun {
+		jww.INFO.Printf("ChangeNumberOfNodeRegistrations(%d) Increasing number "+
+			"of node registrations from %d to %d", toRun, numRunning, toRun)
+		for i := 0; i < toRun-numRunning; i++ {
+			select {
+			case r.resumer <- struct{}{}:
+			case <-timer.C:
+				return errors.New("Timed out on increasing node registration")
+			}
+		}
+	}
+	return nil
 }
 
 // GetNodeKeys returns a MixCypher for the topology and a list of nodes it did

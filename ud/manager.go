@@ -10,10 +10,10 @@ package ud
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage/versioned"
-	store "gitlab.com/elixxir/client/ud/store"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	store "gitlab.com/elixxir/client/v4/ud/store"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
@@ -44,6 +44,10 @@ type Manager struct {
 	// ud is the tracker for the contact information of the specified UD server.
 	// This information is specified in Manager's constructors (NewOrLoad and NewManagerFromBackup).
 	ud *userDiscovery
+
+	// nameService adheres to the channels.NameService interface. This is
+	// implemented using the clientIDTracker.
+	nameService *clientIDTracker
 }
 
 // NewOrLoad loads an existing Manager from storage or creates a

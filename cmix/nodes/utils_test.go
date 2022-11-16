@@ -9,10 +9,10 @@ package nodes
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -101,7 +101,7 @@ func makeTestRegistrar(mockComms *MockClientComms, t *testing.T) *registrar {
 	nodeChan := make(chan commNetwork.NodeGateway, InputChanLen)
 
 	r, err := LoadRegistrar(
-		session, sender, mockComms, rngGen, nodeChan)
+		session, sender, mockComms, rngGen, nodeChan, func() int { return 100 })
 	if err != nil {
 		t.Fatalf("Failed to create new registrar: %+v", err)
 	}

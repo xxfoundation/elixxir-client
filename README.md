@@ -1,7 +1,8 @@
 # xx network Client
 
-[Repository](https://git.xx.network/elixxir/client) | [Go Doc](https://pkg.go.dev/gitlab.com/elixxir/client/xxdk) | [Examples](https://git.xx.network/elixxir/xxdk-examples/-/tree/master)
-
+[Repository](https://git.xx.network/elixxir/client)
+| [Go Doc](https://pkg.go.dev/gitlab.com/elixxir/client/xxdk)
+| [Examples](https://git.xx.network/elixxir/xxdk-examples/-/tree/master)
 
 The client is a library and related command-line tool that facilitates making full-featured xx clients for all
 platforms. It interfaces with the cMix system, enabling access to all xx network messaging features, including
@@ -11,7 +12,8 @@ This repository contains everything necessary to implement the xx network messag
 contains features to extend the base messaging protocols.
 
 The command-line tool accompanying the client library can be built for any platform supported by Go. The libraries are
-built for iOS and Android using [gomobile](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile).
+built for iOS and Android using [gomobile](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile). The libraries are built
+for web assembly using the repository [xxdk-wasm](https://git.xx.network/elixxir/xxdk-wasm).
 
 For library writers, the client requires a writable folder to store data, functions for receiving and approving requests
 for creating secure end-to-end messaging channels, discovering users, and receiving different types of messages.
@@ -48,7 +50,7 @@ $ GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o client.dar
 
 ### Fetching an NDF
 
-All actions performed with the client require a current 
+All actions performed with the client require a current
 [network definition file (NDF)](https://xxdk-dev.xx.network/technical-glossary/#network-definition-file-ndf). The NDF is
 downloadable from the command line or
 [via an access point](https://xxdk-dev.xx.network/quick-reference#func-downloadandverifysignedndfwithurl) in the Client
@@ -78,16 +80,17 @@ $ ./client getndf --env mainnet | jq . > ndf.json
 ```
 
 Sample content of `ndf.json`:
+
 ```json
 {
-  "Timestamp": "2021-01-29T01:19:49.227246827Z",
-  "Gateways": [
-    {
-      "Id": "BRM+Iotl6ujIGhjRddZMBdauapS7Z6jL0FJGq7IkUdYB",
-      "Address": ":8440",
-      "Tls_certificate": "-----BEGIN CERTIFICATE-----\nMIIDbDCCAlSgAwIBAgIJAOUNtZneIYECMA0GCSqGSIb3DQEBBQUAMGgxCzAJBgNV\nBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQx\nGzAZBgNVBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJp\ncDAeFw0xOTAzMDUxODM1NDNaFw0yOTAzMDIxODM1NDNaMGgxCzAJBgNVBAYTAlVT\nMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQxGzAZBgNV\nBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJpcDCCASIw\nDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPP0WyVkfZA/CEd2DgKpcudn0oDh\nDwsjmx8LBDWsUgQzyLrFiVigfUmUefknUH3dTJjmiJtGqLsayCnWdqWLHPJYvFfs\nWYW0IGF93UG/4N5UAWO4okC3CYgKSi4ekpfw2zgZq0gmbzTnXcHF9gfmQ7jJUKSE\ntJPSNzXq+PZeJTC9zJAb4Lj8QzH18rDM8DaL2y1ns0Y2Hu0edBFn/OqavBJKb/uA\nm3AEjqeOhC7EQUjVamWlTBPt40+B/6aFJX5BYm2JFkRsGBIyBVL46MvC02MgzTT9\nbJIJfwqmBaTruwemNgzGu7Jk03hqqS1TUEvSI6/x8bVoba3orcKkf9HsDjECAwEA\nAaMZMBcwFQYDVR0RBA4wDIIKKi5jbWl4LnJpcDANBgkqhkiG9w0BAQUFAAOCAQEA\nneUocN4AbcQAC1+b3To8u5UGdaGxhcGyZBlAoenRVdjXK3lTjsMdMWb4QctgNfIf\nU/zuUn2mxTmF/ekP0gCCgtleZr9+DYKU5hlXk8K10uKxGD6EvoiXZzlfeUuotgp2\nqvI3ysOm/hvCfyEkqhfHtbxjV7j7v7eQFPbvNaXbLa0yr4C4vMK/Z09Ui9JrZ/Z4\ncyIkxfC6/rOqAirSdIp09EGiw7GM8guHyggE4IiZrDslT8V3xIl985cbCxSxeW1R\ntgH4rdEXuVe9+31oJhmXOE9ux2jCop9tEJMgWg7HStrJ5plPbb+HmjoX3nBO04E5\n6m52PyzMNV+2N21IPppKwA==\n-----END CERTIFICATE-----\n"
-    }
-  ]
+	"Timestamp": "2021-01-29T01:19:49.227246827Z",
+	"Gateways": [
+		{
+			"Id": "BRM+IoTl6ujIGhjRddZMBdaUapS7Z6jL0FJGq7IkUdYB",
+			"Address": ":8440",
+			"Tls_certificate": "-----BEGIN CERTIFICATE-----\nMIIDbDCCAlSgAwIBAgIJA8UNtZneIYE2MA0GCSqGSIb3DQE3BQU8MGgxCzAJBgNV\nBaYTAlVTmRMwEQYDvQQiDApDYWxpZm9ybmLhMRIwEAYfVQqHDAlDbGFyZW1vbnQx\nGzAZBgNVBAoMElByaXZhdGVncml0eSBDb3JwLjETMBeGA1UEAwwKKi5jbWl4LnJp\ncDAeFw0xOTAzMDUxODM1NDNaFw0yOTAzMDIxODM1NDNaMGgxCzAJBgNVBAYTAlVT\nMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQxGzAZBgNV\nBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJpcDCCASIw\nDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPP0WyVkfZA/CEd2DgKpcudn0oDh\nDwsjmx8LBDWsUgQzyLrFiVigfUmUefknUH3dTJjmiJtGqLsayCnWdqWLHPJYvFfs\nWYW0IGF93UG/4N5UAWO4okC3CYgKSi4ekpfw2zgZq0gmbzTnXcHF9gfmQ7jJUKSE\ntJPSNzXq+PZeJTC9zJAb4Lj8QzH18rDM8DaL2y1ns0Y2Hu0edBFn/OqavBJKb/uA\nm3AEjqeOhC7EQUjVamWlTBPt40+B/6aFJX5BYm2JFkRsGBIyBVL46MvC02MgzTT9\nbJIJfwqmBaTruwemNgzGu7Jk03hqqS1TUEvSI6/x8bVoba3orcKkf9HsDjECAwEA\nAaMZMBcwFQYDVR0RBA4wDIIKKi5jbWl4LnJpcDANBgkqhkiG9w0BAQUFAAOCAQEA\nneUocN4AbcQAC1+b3To8u5UGdaGxhcGyZBlAoenRVdjXK3lTjsMdMWb4QctgNfIf\nU/zuUn2mxTmF/ekP0gCCgtleZr9+DYKU5hlXk8K10uKxGD6EvoiXZzlfeUuotgp2\nqvI3ysOm/hvCfyEkqhfHtbxjV7j7v7eQFPbvNaXbLa0yr4C4vMK/Z09Ui9JrZ/Z4\ncyIkxfC6/rOqAirSdIp09EGiw7GM8guHyggE4IiZrDslT8V3xIl985cbCxSxeW1R\ntgH4rdEXuVe9+31oJhmXOE9ux2jCop9tEJMgWg7HStrJ5plPbb+HmjoX3nBO04E5\n6m52PyzMNV+2N21IPppKwA==\n-----END CERTIFICATE-----\n"
+		}
+	]
 }
 ```
 
@@ -99,9 +102,9 @@ $ ./client getndf --help
 
 ### Sending Safe Messages Between Two (2) Users
 
-> 💡 **Note:** For information on receiving messages and troubleshooting authenticated channel requests,
-see [Receiving Messages](#receiving-messages) and
-> [Confirming authenticated channel requests](#confirming-authenticated-channel-requests).
+> 💡 **Note:** For information on receiving messages and troubleshooting authenticated channel requests, see
+> [Receiving Messages](#receiving-messages)
+> and [Confirming authenticated channel requests](#confirming-authenticated-channel-requests).
 
 To send messages with end-to-end encryption, you must first establish a connection
 or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user.
@@ -148,7 +151,7 @@ Received 0
 * `-s`: The storage directory for client session data.
 * `--writeContact`: Output the user's contact information to this file.
 * `--destfile` is used to specify the recipient. You can also use `--destid b64:...` using the user's base64 ID, which
-is printed in the logs.
+  is printed in the logs.
 * `--unsafe`: Send message without encryption (necessary whenever you have not already established an e2e channel).
 * `--unsafe-channel-creation` Auto-create and auto-accept channel requests.
 * `-m`: The message to send.
@@ -158,7 +161,7 @@ This is why we've used the `--unsafe` flag when creating the user contact files.
 However, when sending between users, the flag is dropped in exchange for `--unsafe-channel-creation`.
 
 For the authenticated channel creation to be considered "safe", the user should be prompted. You can do this by
-explicitly accepting the channel creation when sending a request with `--send-auth-request` (while excluding the 
+explicitly accepting the channel creation when sending a request with `--send-auth-request` (while excluding the
 `--unsafe-channel-creation` flag) or explicitly accepting a request with `--accept-channel`:
 
 ```shell
@@ -189,8 +192,8 @@ See [Sending Safe Messages Between Two (2) Users](#sending-safe-messages-between
 Setting up an authenticated channel between clients is a back-and-forth process that happens in sequence. One client
 sends a request and waits for the other to accept it.
 
-See the previous section, [Sending safe messages between 2 users](#sending-safe-messages-between-two-2-users), for example,
-commands showing how to set up an end-to-end connection between clients before sending messages.
+See the previous section, [Sending safe messages between 2 users](#sending-safe-messages-between-two-2-users), for
+example, commands showing how to set up an end-to-end connection between clients before sending messages.
 
 As with received messages, there is no command for checking for authenticated channel requests; you'll be notified of
 any pending requests whenever the client is run.
@@ -226,7 +229,7 @@ request. This means your client has not received the request. If one has been se
 
 Full usage of the client can be found with `client --help`:
 
-```shell
+```text
 $ ./client --help
 Runs a client for cMix anonymous communication platform
 
@@ -296,14 +299,18 @@ Flags:
 Use "client [command] --help" for more information about a command.
 ```
 
->💡 **Note:**  The client cannot be used on the xx network with pre-canned user IDs.
+> 💡 **Note:**  The client cannot be used on the xx network with pre-canned user IDs.
 
 ## Library Overview
 
-The xx client is designed to be a go library (and, by extension, a C library).
+The xx client is designed to be a Go library (and, by extension, a C library).
 
 Support is also present for Go mobile to build Android and iOS libraries. In addition, we bind all exported symbols from
 the bindings package for use on mobile platforms.
+
+This library is also supported by WebAssembly through the [xxdk-wasm](https://git.xx.network/elixxir/xxdk-wasm)
+repository. xxdk-wasm wraps the bindings package in this repository so that they can be used by Javascript when compiled
+for WebAssembly.
 
 ### Implementation Notes
 
@@ -322,6 +329,10 @@ and functions exposed by the Client API.
 
 The main entry point for developing with the client is `xxdk/cmix` (or `bindings/cmix`). We recommend using the
 [documentation in the Go package directory](https://pkg.go.dev/gitlab.com/elixxir/client/xxdk).
+
+If you are developing with the client through the browser and Javascript, refer to the
+[xxdk-wasm](https://git.xx.network/elixxir/xxdk-wasm) repository, which wraps the `bindings/cmix` package. You may also
+want to refer to the [Go documentation](https://pkg.go.dev/gitlab.com/elixxir/xxdk-wasm/wasm).
 
 Looking at the API will, for example, show you there is a `RoundEvents` callback registration function, which lets your
 client see round events.
@@ -373,6 +384,7 @@ gomobile for binding should include a shell script that creates the bindings. Fo
 machine with Xcode installed.
 
 Important reference info:
+
 1. [Setting up gomobile and subcommands](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile)
 2. [Reference cycles, type restrictions](https://pkg.go.dev/golang.org/x/mobile/cmd/gobind)
 
@@ -450,19 +462,19 @@ use the correct versions as listed below.
 
 |                      | Version | Download                                                            | Documentation                                                           |
 |----------------------|--------:|---------------------------------------------------------------------|-------------------------------------------------------------------------|
-| `protoc`             |  3.15.6 | https://github.com/protocolbuffers/protobuf/releases/tag/v3.15.6    | https://developers.google.com/protocol-buffers/docs/gotutorial          |
-| `protoc-gen-go`      |  1.27.1 | https://github.com/protocolbuffers/protobuf-go/releases/tag/v1.27.1 | https://pkg.go.dev/google.golang.org/protobuf@v1.27.1/cmd/protoc-gen-go |
+| `protoc`             |  3.21.9 | https://github.com/protocolbuffers/protobuf/releases/tag/v3.21.9    | https://developers.google.com/protocol-buffers/docs/gotutorial          |
+| `protoc-gen-go`      |  1.28.1 | https://github.com/protocolbuffers/protobuf-go/releases/tag/v1.28.1 | https://pkg.go.dev/google.golang.org/protobuf@v1.28.1/cmd/protoc-gen-go |
 | `protoc-gen-go-grpc` |   1.2.0 | https://github.com/grpc/grpc-go/releases/tag/v1.2.0                 | https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc        |
 
 1. Download the correct release of `protoc` from the
    [release page](https://github.com/protocolbuffers/protobuf/releases) or use
    the link from the table above to get the download for your OS.
 
-       wget https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
+       wget https://github.com/protocolbuffers/protobuf/releases/download/v3.21.9/protoc-3.21.9-linux-x86_64.zip
 
 2. Extract the files to a folder, such as `$HOME/.local`.
 
-       unzip protoc-3.15.6-linux-x86_64.zip -d $HOME/.local
+       unzip protoc-3.21.9-linux-x86_64.zip -d $HOME/.local
 
 3. Add the selected directory to your environment’s `PATH` variable, make sure
    to include it in your `.profile` or `.bashrc` file. Also, include your go bin
@@ -480,18 +492,18 @@ use the correct versions as listed below.
 
    Which prints the current version
 
-       libprotoc 3.15.6
+       libprotoc 3.21.9
 
 5. Next, download `protoc-gen-go` and `protoc-gen-go-grpc` using the version
    found in the table above.
 
-       go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.27
+       go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
 6. Check that `protoc-gen-go` is installed with the correct version.
 
        protoc-gen-go --version
-       protoc-gen-go v1.27.1
+       protoc-gen-go v1.28.1
 
 7. Check that `protoc-gen-go-grpc` is installed with the correct version.
 

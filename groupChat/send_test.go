@@ -10,9 +10,9 @@ package groupChat
 import (
 	"bytes"
 	"encoding/base64"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
@@ -56,7 +56,7 @@ func Test_manager_Send(t *testing.T) {
 		reception.Process(msg, receptionID.EphemeralIdentity{
 			EphId: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},
 		},
-			rounds.Round{ID: roundId, Timestamps: timestamps})
+			rounds.Round{ID: roundId.ID, Timestamps: timestamps})
 		select {
 		case result := <-msgChan:
 			if !result.SenderID.Cmp(m.getReceptionIdentity().ID) {

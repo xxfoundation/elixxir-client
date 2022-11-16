@@ -9,6 +9,7 @@ package xxdk
 
 import (
 	"encoding/base64"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/client"
@@ -18,7 +19,6 @@ import (
 	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"net/http"
 )
@@ -59,7 +59,7 @@ func DownloadNdfFromGateway(address string, cert []byte) (
 	}
 
 	// Send poll request and receive response containing NDF
-	resp, err := comms.SendPoll(host, pollMsg)
+	resp, _, _, err := comms.SendPoll(host, pollMsg)
 	if err != nil {
 		return nil, err
 	}

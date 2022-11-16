@@ -10,12 +10,12 @@ package cmix
 import (
 	"time"
 
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/nodes"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
@@ -58,7 +58,7 @@ type Client interface {
 	// WARNING: Do not roll your own crypto.
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
 		service message.Service, payload, mac []byte, cmixParams CMIXParams) (
-		id.Round, ephemeral.Id, error)
+		rounds.Round, ephemeral.Id, error)
 
 	// SendMany sends many "raw" cMix message payloads to the provided
 	// recipients all in the same round.
@@ -85,7 +85,25 @@ type Client interface {
 	// (along with the reason). Blocks until successful send or err.
 	// WARNING: Do not roll your own crypto.
 	SendMany(messages []TargetedCmixMessage, p CMIXParams) (
-		id.Round, []ephemeral.Id, error)
+		rounds.Round, []ephemeral.Id, error)
+
+	// SendWithAssembler sends a variable cmix payload to the provided recipient.
+	// The payload sent is based on the Complier function passed in, which accepts
+	// a round ID and returns the necessary payload data.
+	// Returns the round ID of the round the payload was sent or an error if it
+	// fails.
+	// This does not have end-to-end encryption on it and is used exclusively as
+	// a send for higher order cryptographic protocols. Do not use unless
+	// implementing a protocol on top.
+	//   recipient - cMix ID of the recipient.
+	//   assembler - MessageAssembler function, accepting round ID and returning
+	//   fingerprint
+	//   format.Fingerprint, service message.Service, payload, mac []byte
+	// Will return an error if the network is unhealthy or if it fails to send
+	// (along with the reason). Blocks until successful sends or errors.
+	// WARNING: Do not roll your own crypto.
+	SendWithAssembler(recipient *id.ID, assembler MessageAssembler,
+		cmixParams CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	/* === Message Reception ================================================ */
 	/* Identities are all network identities which the client is currently
@@ -97,6 +115,13 @@ type Client interface {
 	// AddIdentity adds an identity to be tracked. If persistent is false,
 	// the identity will not be stored to disk and will be dropped on reload.
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+
+	// AddIdentityWithHistory adds an identity to be tracked. If persistent is
+	// false, the identity will not be stored to disk and will be dropped on
+	// reload. It will pickup messages slowly back in the history or up back
+	// until beginning or the start of message retention, which should be ~500
+	// houses back
+	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
 
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(id *id.ID)
@@ -165,6 +190,14 @@ type Client interface {
 	// fingerprints.
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
+
+	// PauseNodeRegistrations stops all node registrations and returns a
+	// function to resume them.
+	PauseNodeRegistrations(timeout time.Duration) error
+
+	// ChangeNumberOfNodeRegistrations changes the number of parallel node
+	// registrations up to the initialized maximum.
+	ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error
 
 	// DeleteService deletes a message service. If only a single response is
 	// associated with the preimage, the entire preimage is removed. If there is
@@ -236,7 +269,7 @@ type Client interface {
 	// GetRoundResults adjudicates on the rounds requested. Checks if they are
 	// older rounds or in progress rounds.
 	GetRoundResults(timeout time.Duration, roundCallback RoundEventCallback,
-		roundList ...id.Round) error
+		roundList ...id.Round)
 
 	// LookupHistoricalRound looks up the passed historical round on the network.
 	// GetRoundResults does this lookup when needed, generally that is
@@ -296,6 +329,17 @@ type Client interface {
 }
 
 type ClientErrorReport func(source, message, trace string)
+
+// MessageAssembler func accepts a round ID, returning fingerprint, service,
+// payload & mac. This allows users to pass in a paylaod which will contain the
+// round ID over which the message is sent.
+type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint,
+	service message.Service, payload, mac []byte, err error)
+
+// messageAssembler is an internal wrapper around MessageAssembler which
+// returns a format.message This is necessary to preserve the interaction
+// between sendCmixHelper and critical messages
+type messageAssembler func(rid id.Round) (format.Message, error)
 
 type clientCommsInterface interface {
 	followNetworkComms

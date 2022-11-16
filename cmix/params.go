@@ -10,12 +10,13 @@ package cmix
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/pickup"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/pickup"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -51,12 +52,17 @@ type Params struct {
 	// for debugging.
 	VerboseRoundTracking bool
 
-	// RealtimeOnly disables all attempts to pick up dropped or missed messages.
-	RealtimeOnly bool
-
 	// ReplayRequests Resends auth requests up the stack if received multiple
 	// times.
 	ReplayRequests bool
+
+	// MaxParallelIdentityTracks is the maximum number of parallel identities
+	// the system will poll in one iteration of the follower
+	MaxParallelIdentityTracks uint
+
+	// ClockSkewClamp is the window (+/-) in which clock skew is
+	// ignored and local time is used
+	ClockSkewClamp time.Duration
 
 	Rounds     rounds.Params
 	Pickup     pickup.Params
@@ -80,22 +86,24 @@ type paramsDisk struct {
 	Pickup                    pickup.Params
 	Message                   message.Params
 	Historical                rounds.Params
+	MaxParallelIdentityTracks uint
 }
 
 // GetDefaultParams returns a Params object containing the
 // default parameters.
 func GetDefaultParams() Params {
 	n := Params{
-		TrackNetworkPeriod:        100 * time.Millisecond,
+		TrackNetworkPeriod:        1000 * time.Millisecond,
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
-		NetworkHealthTimeout:      30 * time.Second,
-		ParallelNodeRegistrations: 20,
+		NetworkHealthTimeout:      15 * time.Second,
+		ParallelNodeRegistrations: defaultParallelNodeRegistration,
 		KnownRoundsThreshold:      1500, // 5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,
 		VerboseRoundTracking:      false,
-		RealtimeOnly:              false,
 		ReplayRequests:            true,
+		MaxParallelIdentityTracks: 5,
+		ClockSkewClamp:            50 * time.Millisecond,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()
@@ -129,12 +137,12 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		KnownRoundsThreshold:      p.KnownRoundsThreshold,
 		FastPolling:               p.FastPolling,
 		VerboseRoundTracking:      p.VerboseRoundTracking,
-		RealtimeOnly:              p.RealtimeOnly,
 		ReplayRequests:            p.ReplayRequests,
 		Rounds:                    p.Rounds,
 		Pickup:                    p.Pickup,
 		Message:                   p.Message,
 		Historical:                p.Historical,
+		MaxParallelIdentityTracks: p.MaxParallelIdentityTracks,
 	}
 
 	return json.Marshal(&pDisk)
@@ -157,22 +165,15 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		KnownRoundsThreshold:      pDisk.KnownRoundsThreshold,
 		FastPolling:               pDisk.FastPolling,
 		VerboseRoundTracking:      pDisk.VerboseRoundTracking,
-		RealtimeOnly:              pDisk.RealtimeOnly,
 		ReplayRequests:            pDisk.ReplayRequests,
 		Rounds:                    pDisk.Rounds,
 		Pickup:                    pDisk.Pickup,
 		Message:                   pDisk.Message,
 		Historical:                pDisk.Historical,
+		MaxParallelIdentityTracks: pDisk.MaxParallelIdentityTracks,
 	}
 
 	return nil
-}
-
-func (p Params) SetRealtimeOnlyAll() Params {
-	p.RealtimeOnly = true
-	p.Pickup.RealtimeOnly = true
-	p.Message.RealtimeOnly = true
-	return p
 }
 
 const DefaultDebugTag = "External"
@@ -206,6 +207,10 @@ type CMIXParams struct {
 	// should only be used in cases where repeats cannot be different. Only used
 	// in sendCmix, not sendManyCmix.
 	Critical bool
+
+	// Probe tells the client that this send can be used to test network performance,
+	// that outgoing latency is not important
+	Probe bool
 }
 
 // cMixParamsDisk will be the marshal-able and umarshal-able object.
@@ -228,7 +233,8 @@ func GetDefaultCMIXParams() CMIXParams {
 		DebugTag:    DefaultDebugTag,
 		// Unused stoppable so components that require one have a channel to
 		// wait on
-		Stop: stoppable.NewSingle("cmixParamsDefault"),
+		Stop:  stoppable.NewSingle("cmixParamsDefault"),
+		Probe: false,
 	}
 }
 
@@ -280,6 +286,18 @@ func (p *CMIXParams) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// SetDebugTag appends the debug tag if one already exists,
+// otherwise it just used the new debug tag
+func (p CMIXParams) SetDebugTag(newTag string) CMIXParams {
+	if p.DebugTag != DefaultDebugTag {
+		p.DebugTag = fmt.Sprintf("%s-%s", p.DebugTag, newTag)
+	} else {
+		p.DebugTag = newTag
+	}
+
+	return p
 }
 
 // NodeMap represents a map of nodes and whether they have been

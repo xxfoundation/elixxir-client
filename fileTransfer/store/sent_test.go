@@ -10,7 +10,7 @@ package store
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -141,13 +141,13 @@ func TestSent_AddTransfer(t *testing.T) {
 // Tests that Sent.AddTransfer returns an error when adding a transfer ID that
 // already exists.
 func TestSent_AddTransfer_TransferAlreadyExists(t *testing.T) {
-	tid := ftCrypto.TransferID{0}
+	tid := &ftCrypto.TransferID{0}
 	s := &Sent{
-		transfers: map[ftCrypto.TransferID]*SentTransfer{tid: nil},
+		transfers: map[ftCrypto.TransferID]*SentTransfer{*tid: nil},
 	}
 
 	expectedErr := fmt.Sprintf(errAddExistingSentTransfer, tid)
-	_, err := s.AddTransfer(nil, nil, &tid, "", 0, nil, 0)
+	_, err := s.AddTransfer(nil, nil, tid, "", 0, nil, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -225,8 +225,8 @@ func TestSent_save(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	s, _, _ := NewOrLoadSent(kv)
 	s.transfers = map[ftCrypto.TransferID]*SentTransfer{
-		ftCrypto.TransferID{0}: nil, ftCrypto.TransferID{1}: nil,
-		ftCrypto.TransferID{2}: nil, ftCrypto.TransferID{3}: nil,
+		{0}: nil, {1}: nil,
+		{2}: nil, {3}: nil,
 	}
 
 	err := s.save()

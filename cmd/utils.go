@@ -10,15 +10,15 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"io/ioutil"
 	"strconv"
 	"strings"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -53,13 +53,8 @@ func verifySendSuccess(user *xxdk.E2e, paramsE2E e2e.Params,
 	}
 
 	// Monitor rounds for results
-	err := user.GetCmix().GetRoundResults(
+	user.GetCmix().GetRoundResults(
 		paramsE2E.CMIXParams.Timeout, f, roundIDs...)
-	if err != nil {
-		jww.DEBUG.Printf("Could not verify messages were sent " +
-			"successfully, resending messages...")
-		return false
-	}
 
 	select {
 	case <-retryChan:

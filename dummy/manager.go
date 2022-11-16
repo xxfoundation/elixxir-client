@@ -12,10 +12,10 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"sync/atomic"
 	"time"
@@ -61,6 +61,8 @@ type Manager struct {
 	// Pauses/Resumes the dummy send thread when triggered
 	statusChan chan bool
 
+	totalSent *uint64
+
 	// Interfaces
 	net   cmix.Client
 	store storage.Session
@@ -96,6 +98,7 @@ func NewManager(maxNumMessages int,
 // function is a helper function for NewManager.
 func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 	net cmix.Client, store storage.Session, rng *fastRNG.StreamGenerator) *Manager {
+	numSent := uint64(8)
 	return &Manager{
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
@@ -105,6 +108,7 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		net:            net,
 		store:          store,
 		rng:            rng,
+		totalSent:      &numSent,
 	}
 }
 

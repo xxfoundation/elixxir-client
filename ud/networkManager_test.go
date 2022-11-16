@@ -9,13 +9,13 @@ package ud
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/format"
@@ -34,9 +34,44 @@ type testNetworkManager struct {
 	responseProcessor message.Processor
 }
 
+func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+
+	msg := format.NewMessage(tnm.instance.GetE2EGroup().GetP().ByteLen())
+
+	var rid id.Round = 123
+	ephemeralId := new(ephemeral.Id)
+
+	fingerprint, service, payload, mac, err := assembler(rid)
+	if err != nil {
+		return rounds.Round{ID: rid}, *ephemeralId, err
+	}
+
+	// Build message. Will panic if inputs are not correct.
+	msg.SetKeyFP(fingerprint)
+	msg.SetContents(payload)
+	msg.SetMac(mac)
+	msg.SetSIH(service.Hash(msg.GetContents()))
+	// If the recipient for a call to Send is UD, then this
+	// is the request pathway. Call the UD processor to simulate
+	// the UD picking up the request
+	if bytes.Equal(tnm.instance.GetFullNdf().
+		Get().UDB.ID,
+		recipient.Bytes()) {
+		tnm.responseProcessor.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+
+	} else {
+		// This should happen when the mock UD service Sends back a response.
+		// Calling process mocks up the requester picking up the response.
+		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	}
+
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+
 func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service,
-	payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(tnm.instance.GetE2EGroup().GetP().ByteLen())
 	// Build message. Will panic if inputs are not correct.
 	msg.SetKeyFP(fingerprint)
@@ -57,7 +92,7 @@ func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerp
 		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (tnm *testNetworkManager) AddFingerprint(identity *id.ID,
@@ -89,6 +124,10 @@ func (tnm *testNetworkManager) GetMaxMessageLength() int {
 }
 
 func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+	return
+}
+
+func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
 	return
 }
 
@@ -136,7 +175,7 @@ func (tnm *testNetworkManager) SendToAny(sendFunc func(host *connect.Host) (inte
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -196,7 +235,7 @@ func (tnm *testNetworkManager) TriggerNodeRegistration(nid *id.ID) {
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -229,4 +268,9 @@ func (tnm *testNetworkManager) RegisterAddressSpaceNotification(tag string) (cha
 func (tnm *testNetworkManager) UnregisterAddressSpaceNotification(tag string) {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (tnm *testNetworkManager) PauseNodeRegistrations(timeout time.Duration) error { return nil }
+func (tnm *testNetworkManager) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
+	return nil
 }

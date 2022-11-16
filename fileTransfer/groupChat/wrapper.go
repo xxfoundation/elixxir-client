@@ -9,8 +9,9 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
-	ft "gitlab.com/elixxir/client/fileTransfer"
-	"gitlab.com/elixxir/client/groupChat"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	ft "gitlab.com/elixxir/client/v4/fileTransfer"
+	"gitlab.com/elixxir/client/v4/groupChat"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
@@ -44,7 +45,7 @@ type Wrapper struct {
 // by the Wrapper for easier testing.
 type gcManager interface {
 	Send(groupID *id.ID, tag string, message []byte) (
-		id.Round, time.Time, group.MessageID, error)
+		rounds.Round, time.Time, group.MessageID, error)
 	AddService(tag string, p groupChat.Processor) error
 }
 

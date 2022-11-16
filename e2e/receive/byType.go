@@ -9,7 +9,7 @@ package receive
 
 import (
 	"github.com/golang-collections/collections/set"
-	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/v4/catalog"
 )
 
 type byType struct {

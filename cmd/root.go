@@ -27,11 +27,11 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/backup"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/backup"
+	"gitlab.com/elixxir/client/v4/xxdk"
 
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -671,14 +671,8 @@ func acceptChannelVerified(user *xxdk.E2e, recipientID *id.ID,
 		rid := acceptChannel(user, recipientID)
 
 		// Monitor rounds for results
-		err := user.GetCmix().GetRoundResults(roundTimeout,
+		user.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done), rid)
-		if err != nil {
-			jww.DEBUG.Printf("Could not verify "+
-				"confirmation message for relationship with %s were sent "+
-				"successfully, resending messages...", recipientID)
-			continue
-		}
 
 		select {
 		case <-retryChan:
@@ -712,14 +706,9 @@ func requestChannelVerified(user *xxdk.E2e,
 		}
 
 		// Monitor rounds for results
-		err = user.GetCmix().GetRoundResults(roundTimeout,
+		user.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done),
 			rid)
-		if err != nil {
-			jww.DEBUG.Printf("Could not verify auth request was sent " +
-				"successfully, resending...")
-			continue
-		}
 
 		select {
 		case <-retryChan:
@@ -751,14 +740,9 @@ func resetChannelVerified(user *xxdk.E2e, recipientContact contact.Contact,
 		}
 
 		// Monitor rounds for results
-		err = user.GetCmix().GetRoundResults(roundTimeout,
+		user.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done),
 			rid)
-		if err != nil {
-			jww.DEBUG.Printf("Could not verify auth request was sent " +
-				"successfully, resending...")
-			continue
-		}
 
 		select {
 		case <-retryChan:

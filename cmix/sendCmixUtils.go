@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -41,7 +41,7 @@ type SendCmixCommsInterface interface {
 }
 
 // How much in the future a round needs to be to send to it
-const sendTimeBuffer = 1000 * time.Millisecond
+const sendTimeBuffer = 150 * time.Millisecond
 const unrecoverableError = "failed with an unrecoverable error"
 
 // handlePutMessageError handles errors received from a PutMessage or a

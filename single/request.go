@@ -11,11 +11,11 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	cmixMsg "gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/single/message"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	cmixMsg "gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/single/message"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -211,14 +211,14 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 
 	jww.DEBUG.Printf("[SU] Sent single-use request cMix message part "+
 		"%d of %d on round %d to %s (eph ID %d) (%s).",
-		0, len(parts)+1, rid, recipient.ID, ephID.Int64(), tag)
+		0, len(parts)+1, rid.ID, recipient.ID, ephID.Int64(), tag)
 
 	var wg sync.WaitGroup
 	wg.Add(len(parts))
 	failed := uint32(0)
 
 	roundIDs := make([]id.Round, len(parts)+1)
-	roundIDs[0] = rid
+	roundIDs[0] = rid.ID
 	for i, part := range parts {
 		go func(i int, part []byte) {
 			defer wg.Done()
@@ -231,9 +231,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 			encryptedPayload := auth.Crypt(key, fp[:24], requestPart.Marshal())
 			mac := singleUse.MakeMAC(key, encryptedPayload)
 
-			var ephID ephemeral.Id
-			var err error
-			roundIDs[i], ephID, err = net.Send(recipient.ID, fp,
+			r, ephID, err := net.Send(recipient.ID, fp,
 				cmixMsg.Service{}, encryptedPayload, mac, params.CmixParams)
 			if err != nil {
 				atomic.AddUint32(&failed, 1)
@@ -242,6 +240,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 					i, len(part)+1, recipient.ID, tag, err)
 				return
 			}
+			roundIDs[i] = r.ID
 
 			jww.DEBUG.Printf("[SU] Sent single-use request cMix message part "+
 				"%d of %d on round %d to %s (eph ID %d) (%s).", i,
@@ -263,7 +262,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	remainingTimeout := params.Timeout - netTime.Since(timeStart)
 	go waitForTimeout(timeoutKillChan, wrapper, remainingTimeout)
 
-	return []id.Round{rid}, sendingID, nil
+	return []id.Round{rid.ID}, sendingID, nil
 }
 
 // generateDhKeys generates a new public key and DH key.

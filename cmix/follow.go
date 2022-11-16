@@ -23,15 +23,19 @@ package cmix
 //		instance
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/xx_network/primitives/ndf"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID/store"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID/store"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"
@@ -55,7 +59,7 @@ const (
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (
-		*pb.GatewayPollResponse, error)
+		*pb.GatewayPollResponse, time.Time, time.Duration, error)
 	RequestMessages(host *connect.Host, message *pb.GetMessages) (
 		*pb.GetMessagesResponse, error)
 }
@@ -68,7 +72,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := c.rng.GetStream()
 
+	// abandon tracks rounds which data was not found out about in
+	// the verbose rounds debugging mode
 	abandon := func(round id.Round) { return }
+	dummyAbandon := func(round id.Round) { return }
 	if c.verboseRounds != nil {
 		abandon = func(round id.Round) {
 			c.verboseRounds.denote(round, Abandoned)
@@ -82,7 +89,57 @@ func (c *client) followNetwork(report ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
-			c.follow(report, rng, c.comms, stop, abandon)
+			operator := func(toTrack []receptionID.IdentityUse) error {
+
+				// set up tracking tools
+				wg := &sync.WaitGroup{}
+				wg.Add(len(toTrack))
+
+				// trigger the first separately because it will get network state
+				// updates
+				go func() {
+					c.follow(toTrack[0], report, rng, c.comms, stop, abandon,
+						true)
+					wg.Done()
+				}()
+
+				//trigger all others without getting network state updates
+				for i := 1; i < len(toTrack); i++ {
+					go func(index int) {
+						c.follow(toTrack[index], report, rng, c.comms, stop,
+							dummyAbandon, false)
+						wg.Done()
+					}(i)
+				}
+
+				//wait for all to complete
+				wg.Wait()
+				return nil
+			}
+
+			//denote the execution
+			atomic.AddUint64(c.tracker, 1)
+
+			// track the message on every identity
+			stream := c.rng.GetStream()
+			err := c.Tracker.ForEach(
+				int(c.param.MaxParallelIdentityTracks),
+				stream,
+				c.Space.GetAddressSpaceWithoutWait(),
+				operator)
+			stream.Close()
+
+			//update clock skew
+			estimatedSkew := c.skewTracker.Aggregate()
+			// invert the skew because we need to reverse it
+			netTime.SetOffset(-estimatedSkew)
+
+			if err != nil {
+				jww.ERROR.Printf("failed to operate on identities to "+
+					"track: %s", err)
+				continue
+			}
+
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(c.tracker, 0)
 			if c.numLatencies != 0 {
@@ -108,18 +165,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 	}
 }
 
-// follow executes each iteration of the follower.
-func (c *client) follow(report ClientErrorReport, rng csprng.Source,
-	comms followNetworkComms, stop *stoppable.Single,
-	abandon func(round id.Round)) {
-
-	// Get the identity we will poll for
-	identity, err := c.GetEphemeralIdentity(
-		rng, c.Space.GetAddressSpaceWithoutWait())
-	if err != nil {
-		jww.FATAL.Panicf(
-			"[Follow] Failed to get an identity, this should be impossible: %+v", err)
-	}
+// follow executes an iteration of the follower for a specific identity
+func (c *client) follow(identity receptionID.IdentityUse,
+	report ClientErrorReport, rng csprng.Source, comms followNetworkComms,
+	stop *stoppable.Single, abandon func(round id.Round), getUpdates bool) {
 
 	// While polling with a fake identity, it is necessary to have populated
 	// earliestRound data. However, as with fake identities, we want the values
@@ -129,8 +178,6 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		fakeEr.Set(c.getFakeEarliestRound())
 		identity.ER = fakeEr
 	}
-
-	atomic.AddUint64(c.tracker, 1)
 
 	// Get client version for poll
 	version := c.session.GetClientVersion()
@@ -147,14 +194,23 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		ClientVersion:  []byte(version.String()),
 		FastPolling:    c.param.FastPolling,
 		LastRound:      uint64(identity.ER.Get()),
+		DisableUpdates: !getUpdates,
 	}
+
+	var rtt time.Duration
+	var sendTo *id.ID
+	var startTime time.Time
 
 	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("[Follow] Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
 			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
 			host.GetId())
-		return comms.SendPoll(host, &pollReq)
+		var err error
+		var response *pb.GatewayPollResponse
+		response, startTime, rtt, err = comms.SendPoll(host, &pollReq)
+		sendTo = host.GetId()
+		return response, err
 	}, stop)
 
 	// Exit if the thread has been stopped
@@ -181,6 +237,11 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 
 	pollResp := result.(*pb.GatewayPollResponse)
 
+	//execute clock skew update
+	c.skewTracker.Add(sendTo, startTime,
+		time.Unix(0, pollResp.ReceivedTs),
+		rtt, time.Duration(pollResp.GatewayDelay))
+
 	// ---- Process Network State Update Data ----
 	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
@@ -198,6 +259,15 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 			jww.ERROR.Printf("[Follow] Unable to update partial NDF: %+v", err)
 			return
 		}
+
+		//set the number of nodes
+		numNodes := uint64(0)
+		for _, n := range c.instance.GetPartialNdf().Get().Nodes {
+			if n.Status != ndf.Stale {
+				numNodes++
+			}
+		}
+		atomic.StoreUint64(c.numNodes, numNodes)
 
 		// update gateway connections
 		c.UpdateNdf(c.GetInstance().GetPartialNdf().Get())
@@ -225,7 +295,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 			marshaledTid := c.session.GetTransmissionID().Marshal()
 			for _, clientErr := range update.ClientErrors {
 				// If this ClientId appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, marshaledTid) {
+				if hmac.Equal(clientErr.ClientId, marshaledTid) {
 
 					// Obtain relevant NodeGateway information
 					nid, err := id.Unmarshal(clientErr.Source)
@@ -277,7 +347,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.WARN.Printf("[Follow] No filters found for the passed ID %d (%s), "+
+		jww.TRACE.Printf("[Follow] No filters found for the passed ID %d (%s), "+
 			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}
@@ -300,6 +370,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
 		}
+		//jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %v", rid, identity.EphId.Int64(), hasMessage)
 		return hasMessage
 	}
 
@@ -351,12 +422,12 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	// remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown :=
 		gwRoundsState.RangeUnchecked(
-			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker)
+			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker, 100)
 
-	jww.DEBUG.Printf("[Follow] Processed RangeUnchecked, Oldest: %d, "+
+	jww.DEBUG.Printf("[Follow] Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
 		"NewEarliestRemaining: %d, NumWithMessages: %d, NumUnknown: %d",
-		updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
+		identity.EphId.Int64(), updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
 		gwRoundsState.GetLastChecked(), c.param.KnownRoundsThreshold,
 		earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
 
@@ -370,16 +441,15 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 
 	var roundsWithMessages2 []id.Round
 
-	if !c.param.RealtimeOnly {
-		roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
-			if gwRoundsState.Checked(rid) {
-				return Checker(rid, filterList, identity.CR)
-			}
-			return false
-		}, roundsUnknown, abandon)
-	}
+	roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
+		if gwRoundsState.Checked(rid) {
+			return Checker(rid, filterList, identity.CR)
+		}
+		return false
+	}, roundsUnknown, abandon)
 
-	for _, rid := range roundsWithMessages {
+	for i := 0; i < len(roundsWithMessages); i++ {
+		rid := roundsWithMessages[i]
 		// Denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
 			c.GetMessagesFromRound(rid, identity.EphemeralIdentity)

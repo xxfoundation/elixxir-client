@@ -21,16 +21,17 @@ package groupChat
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/receive"
-	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
+	sessionImport "gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -68,7 +69,7 @@ type GroupChat interface {
 	// The send fails if the message is too long. Returns the ID of the round
 	// sent on and the timestamp of the message send.
 	Send(groupID *id.ID, tag string, message []byte) (
-		id.Round, time.Time, group.MessageID, error)
+		rounds.Round, time.Time, group.MessageID, error)
 
 	// GetGroups returns a list of all registered GroupChat IDs.
 	GetGroups() []*id.ID
@@ -114,7 +115,7 @@ type groupE2e interface {
 // methods needed by GroupChat
 type groupCmix interface {
 	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
-		id.Round, []ephemeral.Id, error)
+		rounds.Round, []ephemeral.Id, error)
 	AddService(
 		clientID *id.ID, newService message.Service, response message.Processor)
 	DeleteService(

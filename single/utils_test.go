@@ -8,10 +8,10 @@
 package single
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
@@ -118,7 +118,7 @@ func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
 
 func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 	ms message.Service, payload, mac []byte, _ cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetMac(mac)
@@ -155,7 +155,7 @@ func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 		})
 	}
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func serviceKey(ms message.Service) string {

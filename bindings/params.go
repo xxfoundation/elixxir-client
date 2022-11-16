@@ -12,10 +12,10 @@ package bindings
 import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/fileTransfer"
-	e2eFileTransfer "gitlab.com/elixxir/client/fileTransfer/e2e"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/fileTransfer"
+	e2eFileTransfer "gitlab.com/elixxir/client/v4/fileTransfer/e2e"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/xxdk"
 )
 
 // GetDefaultCMixParams returns a JSON serialized object with all of the cMix
@@ -78,27 +78,42 @@ func GetDefaultE2eFileTransferParams() []byte {
 	return data
 }
 
+// parseE2eFileTransferParams is a helper function which parses a JSON
+// marshalled [e2eFileTransfer.Params].
 func parseE2eFileTransferParams(data []byte) (e2eFileTransfer.Params, error) {
 	p := &e2eFileTransfer.Params{}
 	return *p, json.Unmarshal(data, p)
 }
 
+// parseSingleUseParams is a helper function which parses a JSON marshalled
+// [single.RequestParams].
 func parseSingleUseParams(data []byte) (single.RequestParams, error) {
 	p := &single.RequestParams{}
 	return *p, p.UnmarshalJSON(data)
 }
 
+// parseFileTransferParams is a helper function which parses a JSON marshalled
+// [fileTransfer.Params].
 func parseFileTransferParams(data []byte) (fileTransfer.Params, error) {
 	p := &fileTransfer.Params{}
 	return *p, json.Unmarshal(data, p)
 }
 
+// parseCMixParams is a helper function which parses a JSON marshalled
+// [xxdk.CMIXParams].
 func parseCMixParams(data []byte) (xxdk.CMIXParams, error) {
+	if len(data) == 0 {
+		jww.WARN.Printf("cMix params not specified, using defaults...")
+		data = GetDefaultCMixParams()
+	}
+
 	p := &xxdk.CMIXParams{}
 	err := p.Unmarshal(data)
 	return *p, err
 }
 
+// parseE2EParams is a helper function which parses a JSON marshalled
+// [xxdk.E2EParams].
 func parseE2EParams(data []byte) (xxdk.E2EParams, error) {
 	p := &xxdk.E2EParams{}
 	err := p.Unmarshal(data)

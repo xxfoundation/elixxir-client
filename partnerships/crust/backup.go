@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-// Error constants
+// Error constantgitlab.com/xx_network/crypto/tlss
 const (
 	parseFormErr = "Failed to initialize request: %v"
 )
@@ -63,9 +63,8 @@ type uploadBackupHeader struct {
 	// UserPublicKey is the user's public key PEM encoded.
 	UserPublicKey []byte
 
-	// UsernameHash is the hash of the user's username. This can be obtained
-	//	// using [crust.HashUsername].
-	UsernameHash []byte
+	// Username is the user's username.
+	Username string
 
 	// VerificationSignature is the signature indicating that this owner
 	// owns their username. This is obtained via [ud.Manager]'s
@@ -116,9 +115,6 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 		return nil, errors.Errorf("failed to get username: %+v", err)
 	}
 
-	// Hash the username
-	usernameHash := crust.HashUsername(username)
-
 	// Hash the file
 	fileHash, err := crust.HashFile(file)
 	if err != nil {
@@ -139,7 +135,7 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 	// Construct header
 	header := uploadBackupHeader{
 		UserPublicKey:         pubKeyPem,
-		UsernameHash:          usernameHash,
+		Username:              username,
 		VerificationSignature: verificationSignature,
 		UploadSignature:       uploadSignature,
 		UploadTimestamp:       uploadTimestamp.UnixNano(),
@@ -259,7 +255,7 @@ func (header uploadBackupHeader) constructBasicAuth() (
 	username, password string) {
 	username = fmt.Sprintf("xx-%s-%s-%s-%d-%s",
 		base64.StdEncoding.EncodeToString(header.UserPublicKey),
-		base64.StdEncoding.EncodeToString(header.UsernameHash),
+		header.Username,
 		base64.StdEncoding.EncodeToString(header.FileHash),
 		header.UploadTimestamp,
 		base64.StdEncoding.EncodeToString(header.UploadSignature),

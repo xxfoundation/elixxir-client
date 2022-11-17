@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/netTime"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -31,7 +32,7 @@ const (
 // Backup/Pinning constants.
 const (
 	// URLS
-	backupUploadURL = "https://crustipfs.xyz/api/v0/add"
+	backupUploadURL = "https://gw-nft.crustapps.net/api/v0/add"
 	pinnerURL       = "https://pin.crustcode.com/psa/pins"
 
 	// HTTP POSTing constants
@@ -253,11 +254,11 @@ func requestPin(backupResponse *uploadBackupResponse,
 // BasicAuth function.
 func (header uploadBackupHeader) constructBasicAuth() (
 	username, password string) {
-	username = fmt.Sprintf("xx-%s-%s-%s-%d-%s",
+	username = fmt.Sprintf("xx-%s-%s-%s-%s-%s",
 		base64.StdEncoding.EncodeToString(header.UserPublicKey),
 		header.Username,
 		base64.StdEncoding.EncodeToString(header.FileHash),
-		header.UploadTimestamp,
+		strconv.FormatInt(header.UploadTimestamp, 10),
 		base64.StdEncoding.EncodeToString(header.UploadSignature),
 	)
 

@@ -39,10 +39,13 @@ const (
 	directMessageServiceTag = "direct_message_v0"
 )
 
+// DeriveReceptionID returns a reception ID for direct messages sent
+// to the user. It generates this ID by hashing the public key and
+// an arbitrary idToken together. The ID type is set to "User".
 func DeriveReceptionID(publicKey nike.PublicKey, idToken []byte) *id.ID {
 	h, err := blake2b.New256(nil)
 	if err != nil {
-		panic(err)
+		jww.FATAL.Panicf("%+v", err)
 	}
 	h.Write(publicKey.Bytes())
 	h.Write(idToken)
@@ -50,7 +53,7 @@ func DeriveReceptionID(publicKey nike.PublicKey, idToken []byte) *id.ID {
 	idBytes = append(idBytes, byte(id.User))
 	receptionID, err := id.Unmarshal(idBytes)
 	if err != nil {
-		panic(err)
+		jww.FATAL.Panicf("%+v", err)
 	}
 	return receptionID
 }
@@ -66,6 +69,10 @@ type dmClient struct {
 	rng *fastRNG.StreamGenerator
 }
 
+// NewDMClient creates a new client for direct messaging. This should
+// be called when the channels manager is created/loaded. It has no
+// associated state, so it does not have a corresponding Load
+// funciton.
 func NewDMClient(privateKey nike.PrivateKey,
 	myIdToken []byte, nickMgr *nicknameManager,
 	net Client,

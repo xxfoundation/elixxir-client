@@ -9,6 +9,7 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
@@ -70,6 +71,7 @@ func (m *manager) RemoveService(tag string) error {
 
 // addAllServices adds every service for the given group.
 func (m *manager) addAllServices(g gs.Group) {
+	jww.INFO.Printf("Adding service for group %s", g.ID)
 	for tag, p := range m.services {
 		newService := makeService(g.ID, tag)
 		m.getCMix().AddService(m.getReceptionIdentity().ID, newService,

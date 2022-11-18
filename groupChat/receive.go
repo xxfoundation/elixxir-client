@@ -44,7 +44,7 @@ type receptionProcessor struct {
 // Process incoming group chat messages.
 func (p *receptionProcessor) Process(message format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	jww.TRACE.Printf("[GC] Received group message from %d (%s) on round %d.",
+	jww.INFO.Printf("[GC] Received group message from %d (%s) on round %d.",
 		receptionID.EphId.Int64(), receptionID.Source, round.ID)
 
 	// Unmarshal cMix message contents to get public message format
@@ -76,7 +76,7 @@ func (p *receptionProcessor) Process(message format.Message,
 	// Populate remaining fields from the top level
 	result.GroupID = p.g.ID
 
-	jww.DEBUG.Printf("[GC] Received group message with ID %s from sender "+
+	jww.INFO.Printf("[GC] Received group message with ID %s from sender "+
 		"%s in group %q with ID %s at %s.", result.ID, result.SenderID,
 		p.g.Name, p.g.ID, result.Timestamp)
 

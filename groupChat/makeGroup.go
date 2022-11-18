@@ -82,7 +82,7 @@ func (m *manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	g := gs.NewGroup(name, groupID, groupKey, idPreimage,
 		keyPreimage, msg, created, mem, dkl)
 
-	jww.DEBUG.Printf("[GC] Created new group %q with ID %s and %d members %s",
+	jww.INFO.Printf("[GC] Created new group %q with ID %s and %d members %s",
 		g.Name, g.ID, len(g.Members), g.Members)
 
 	// Send all group requests

@@ -77,7 +77,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 			errors.Errorf(sendManyCmixErr, m.getReceptionIdentity().ID, g.Name, g.ID, err)
 	}
 
-	jww.DEBUG.Printf("[GC] Sent message to %d members in group %s at %s.",
+	jww.INFO.Printf("[GC] Sent message to %d members in group %s at %s.",
 		len(groupMessages), groupID, timeNow)
 	return rid, timeNow, msgId, nil
 }

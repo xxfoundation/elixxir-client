@@ -33,7 +33,7 @@ func sendRequest(req *http.Request) ([]byte, error) {
 
 	// Handle error
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("Could not upload backup: %v",
+		return nil, errors.Errorf("%v",
 			handleError(responseData))
 	}
 

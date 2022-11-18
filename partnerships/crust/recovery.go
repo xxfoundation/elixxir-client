@@ -79,7 +79,7 @@ func requestCid(usernameHash string) (*cidResponse, error) {
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("failed to request CID: %+v", err)
 	}
 
 	// Parse request
@@ -114,7 +114,7 @@ func requestBackupFile(cid *cidResponse) ([]byte, error) {
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("failed to request backup file: %+v", err)
 	}
 
 	// Parse response

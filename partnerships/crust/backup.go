@@ -191,7 +191,7 @@ func uploadBackup(file []byte, header uploadBackupHeader) (
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, errors.Errorf("Failed to send request: %+v", err)
+		return nil, errors.Errorf("failed to upload backup: %+v", err)
 	}
 
 	// Handle valid response
@@ -236,7 +236,7 @@ func requestPin(backupResponse *uploadBackupResponse,
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("Failed to request pin: %+v", err)
 	}
 
 	// Unmarshal response

@@ -14,6 +14,9 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/broadcast"
@@ -26,8 +29,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -53,6 +54,9 @@ type manager struct {
 
 	// Send tracker
 	st *sendTracker
+
+	// Direct Messages
+	dm *dmClient
 
 	// Makes the function that is used to create broadcasts be a pointer so that
 	// it can be replaced in tests
@@ -154,6 +158,12 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	m.loadChannels()
 
 	m.nicknameManager = loadOrNewNicknameManager(kv)
+
+	myToken := hashPrivateKey(m.me.Privkey)
+	nikePrivKey := GetDMNIKEPrivateKey(m.me.Privkey)
+	m.dm = NewDMClient(nikePrivKey, myToken, m.nicknameManager,
+		m.net, m.rng)
+	m.dm.RegisterListener(m.events.triggerDMEvent, m.st.MessageReceive)
 
 	return &m
 }

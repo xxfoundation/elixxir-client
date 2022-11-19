@@ -25,6 +25,12 @@ const (
 
 	// Reaction denotes that the message is a reaction to another message.
 	Reaction MessageType = 3
+
+	// Direct Message Text type
+	DMText MessageType = 4
+
+	// Direct Message Reaction type
+	DMReaction MessageType = 5
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -37,6 +43,10 @@ func (mt MessageType) String() string {
 		return "AdminText"
 	case Reaction:
 		return "Reaction"
+	case DMText:
+		return "DirectMessageText"
+	case DMReaction:
+		return "DirectMessageReaction"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}

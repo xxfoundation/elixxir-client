@@ -12,15 +12,17 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/elixxir/crypto/channel"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -148,6 +150,85 @@ type EventModel interface {
 		timestamp time.Time, lease time.Duration, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
 
+	// ReceiveDM is called whenever a direct message is
+	// received. It may be called multiple times on the same
+	// message. It is incumbent on the user of the API to filter
+	// such called by message ID.
+	//
+	// The API needs to return a UUID of the message that can be
+	// referenced at a later time.
+	//
+	// messageID, timestamp, and round are all nillable and may be
+	// updated based upon the UUID at a later date. A time of
+	// time.Time{} will be passed for a nilled timestamp.
+	//
+	// Nickname may be empty, in which case the UI is expected to
+	// display the codename.
+	//
+	// Message type is included in the call; it will always be
+	// Text (1) for this call, but it may be required in
+	// downstream databases.
+	ReceiveDM(messageID cryptoChannel.MessageID,
+		nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
+		codeset uint8, timestamp time.Time, lease time.Duration,
+		round rounds.Round, mType MessageType, status SentStatus) uint64
+
+	// ReceiveDMReply is called whenever a direct message is
+	// received that is a reply. It may be called multiple times
+	// on the same message. It is incumbent on the user of the API
+	// to filter such called by message ID.
+	//
+	// Messages may arrive our of order, so a reply, in theory,
+	// can arrive before the initial message. As a result, it may
+	// be important to buffer replies.
+	//
+	// The API needs to return a UUID of the message that can be
+	// referenced at a later time.
+	//
+	// messageID, timestamp, and round are all nillable and may be
+	// updated based upon the UUID at a later date. A time of
+	// time.Time{} will be passed for a nilled timestamp.
+	//
+	// Nickname may be empty, in which case the UI is expected to
+	// display the codename.
+	//
+	// Message type is included in the call; it will always be
+	// Text (1) for this call, but it may be required in
+	// downstream databases.
+	ReceiveDMReply(messageID cryptoChannel.MessageID,
+		reactionTo cryptoChannel.MessageID, nickname, text string,
+		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		timestamp time.Time, lease time.Duration, round rounds.Round,
+		mType MessageType, status SentStatus) uint64
+
+	// ReceiveDMReaction is called whenever a reaction to a direct
+	// message is received. It may be called multiple times on the
+	// same reaction. It is incumbent on the user of the API to
+	// filter such called by message ID.
+	//
+	// Messages may arrive our of order, so a reply, in theory,
+	// can arrive before the initial message. As a result, it may
+	// be important to buffer replies.
+	//
+	// The API needs to return a UUID of the message that can be
+	// referenced at a later time.
+	//
+	// messageID, timestamp, and round are all nillable and may be
+	// updated based upon the UUID at a later date. A time of
+	// time.Time{} will be passed for a nilled timestamp.
+	//
+	// Nickname may be empty, in which case the UI is expected to
+	// display the codename.
+	//
+	// Message type is included in the call; it will always be
+	// Text (1) for this call, but it may be required in
+	// downstream databases.
+	ReceiveDMReaction(messageID cryptoChannel.MessageID,
+		reactionTo cryptoChannel.MessageID, nickname, reaction string,
+		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		timestamp time.Time, lease time.Duration, round rounds.Round,
+		mType MessageType, status SentStatus) uint64
+
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
 	//
@@ -178,6 +259,20 @@ type MessageTypeReceiveMessage func(channelID *id.ID,
 	codeset uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, status SentStatus) uint64
 
+// MessageTypeReceiveDM defines handlers for messages of various direct message
+// types. Default ones for Text and Reaction.
+//
+// A unique UUID must be returned by which the message can be referenced later
+// via [EventModel.UpdateSentStatus].
+//
+// It must return a unique UUID for the message by which it can be referenced
+// later.
+type MessageTypeReceiveDM func(messageID cryptoChannel.MessageID,
+	messageType MessageType, nickname string, content []byte,
+	pubKey ed25519.PublicKey, dmToken []byte,
+	codeset uint8, timestamp time.Time, lease time.Duration,
+	round rounds.Round, status SentStatus) uint64
+
 // updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
 // be mocked for testing where used.
 type updateStatusFunc func(uuid uint64, messageID cryptoChannel.MessageID,
@@ -186,24 +281,28 @@ type updateStatusFunc func(uuid uint64, messageID cryptoChannel.MessageID,
 // events is an internal structure that processes events and stores the handlers
 // for those events.
 type events struct {
-	model      EventModel
-	registered map[MessageType]MessageTypeReceiveMessage
-	mux        sync.RWMutex
+	model        EventModel
+	registered   map[MessageType]MessageTypeReceiveMessage
+	registeredDM map[MessageType]MessageTypeReceiveDM
+	mux          sync.RWMutex
 }
 
 // initEvents initializes the event model and registers default message type
 // handlers.
 func initEvents(model EventModel) *events {
 	e := &events{
-		model:      model,
-		registered: make(map[MessageType]MessageTypeReceiveMessage),
-		mux:        sync.RWMutex{},
+		model:        model,
+		registered:   make(map[MessageType]MessageTypeReceiveMessage),
+		registeredDM: make(map[MessageType]MessageTypeReceiveDM),
+		mux:          sync.RWMutex{},
 	}
 
 	// set up default message types
 	e.registered[Text] = e.receiveTextMessage
 	e.registered[AdminText] = e.receiveTextMessage
 	e.registered[Reaction] = e.receiveReaction
+	e.registeredDM[DMText] = e.receiveDMTextMessage
+	e.registeredDM[DMReaction] = e.receiveDMReaction
 	return e
 }
 
@@ -226,6 +325,29 @@ func (e *events) RegisterReceiveHandler(
 	// register the message type
 	e.registered[messageType] = listener
 	jww.INFO.Printf("Registered Listener for Message Type %s", messageType)
+	return nil
+}
+
+// RegisterReceiveDMHandler is used to register handlers for non default message
+// types s they can be processed by modules. It is important that such modules
+// sync up with the event model implementation.
+//
+// There can only be one handler per message type, and this will return an error
+// on a multiple registration.
+func (e *events) RegisterReceiveDMHandler(
+	messageType MessageType, listener MessageTypeReceiveDM) error {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
+	// check if the type is already registered
+	if _, exists := e.registered[messageType]; exists {
+		return MessageTypeAlreadyRegistered
+	}
+
+	// register the message type
+	e.registeredDM[messageType] = listener
+	jww.INFO.Printf("Registered DM Listener for Message Type %s",
+		messageType)
 	return nil
 }
 
@@ -263,6 +385,38 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 		chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload,
 		um.ECCPublicKey, cm.DMToken, 0, ts, time.Duration(cm.Lease), round,
 		status)
+	return uuid, nil
+}
+
+// triggerDMEvent is an internal function that is used to trigger message
+// reception on a direct message received from a user.
+//
+// It will call the appropriate MessageTypeHandler assuming one exists.
+func (e *events) triggerDMEvent(msgID channel.MessageID, dmi *DirectMessage,
+	ts time.Time, _ receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) (uint64, error) {
+
+	messageType := MessageType(dmi.PayloadType)
+
+	// Check if the type is already registered
+	e.mux.RLock()
+	listener, exists := e.registeredDM[messageType]
+	e.mux.RUnlock()
+	if !exists {
+		errStr := fmt.Sprintf("Received direct message from %x in "+
+			"round %d which could not be handled due to "+
+			"unregistered message type %s; Contents: %v",
+			dmi.ECCPublicKey, round.ID, messageType, dmi.Payload)
+		jww.WARN.Printf(errStr)
+		return 0, errors.New(errStr)
+	}
+
+	// Call the listener. This is already in an instanced event;
+	// no new thread is needed.
+	uuid := listener(msgID, messageType, dmi.Nickname, dmi.Payload,
+		dmi.ECCPublicKey, dmi.DMToken, 0, round.GetEndTimestamp(),
+		time.Duration(dmi.Lease),
+		round, status)
 	return uuid, nil
 }
 
@@ -407,6 +561,131 @@ func (e *events) receiveReaction(channelID *id.ID,
 			"(codeset %d) on channel %s, type %s, ts: %s, lease: %s, "+
 			"round: %d, reacting to invalid message, ignoring reaction",
 			messageID, pubKey, codeset, channelID, messageType, timestamp,
+			lease, round.ID)
+	}
+	return 0
+}
+
+// receiveDMTextMessage is the internal function that handles the
+// reception of direct message text messages. It handles both messages
+// and replies and calls the correct function on the event model.
+//
+// Note: this is duplicative of receiveTextMessage, mostly because it doesn't
+//
+//	have a channel ID for the debug messages.
+//
+// If the message has a reply, but it is malformed, it will drop the reply and
+// write to the log.
+func (e *events) receiveDMTextMessage(messageID cryptoChannel.MessageID,
+	messageType MessageType, nickname string, content []byte,
+	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus) uint64 {
+	txt := &CMIXChannelText{}
+
+	if err := proto.Unmarshal(content, txt); err != nil {
+		jww.ERROR.Printf("Failed to text unmarshal DM %s from %x"+
+			", type %s, ts: %s, lease: %s, round: %d: %+v",
+			messageID, pubKey, messageType, timestamp, lease,
+			round.ID, err)
+		return 0
+	}
+
+	if txt.ReplyMessageID != nil {
+
+		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
+			var replyTo cryptoChannel.MessageID
+			copy(replyTo[:], txt.ReplyMessageID)
+			tag := makeChaDebugTag(&id.DummyUser, pubKey, content,
+				SendReplyTag)
+			jww.INFO.Printf("[%s] DM - Received reply from %s "+
+				"to %s", tag,
+				base64.StdEncoding.EncodeToString(pubKey),
+				base64.StdEncoding.EncodeToString(
+					txt.ReplyMessageID))
+			return e.model.ReceiveDMReply(messageID,
+				replyTo, nickname, txt.Text, pubKey,
+				dmToken, codeset, timestamp, lease,
+				round, Text, status)
+
+		} else {
+			jww.ERROR.Printf("Failed process DM reply to for "+
+				"message %s from public key %v "+
+				"(codeset %d) on type %s, "+
+				"ts: %s, "+"lease: %s, round: %d, "+
+				"returning without reply",
+				messageID, pubKey, codeset,
+				messageType, timestamp, lease,
+				round.ID)
+			// Still process the message, but drop the
+			// reply because it is malformed
+		}
+	}
+
+	tag := makeChaDebugTag(&id.DummyUser, pubKey, content, SendMessageTag)
+	jww.INFO.Printf("[%s]Channels - Received message from %s "+
+		"to %s", tag, base64.StdEncoding.EncodeToString(pubKey),
+		base64.StdEncoding.EncodeToString(txt.ReplyMessageID))
+
+	return e.model.ReceiveDM(messageID, nickname, txt.Text,
+		pubKey, dmToken, codeset, timestamp, lease, round, Text, status)
+}
+
+// receiveReaction is the internal function that handles the reception of
+// Reactions.
+//
+// It does edge checking to ensure the received reaction is just a single emoji.
+// If the received reaction is not, the reaction is dropped.
+// If the messageID for the message the reaction is to is malformed, the
+// reaction is dropped.
+func (e *events) receiveDMReaction(messageID cryptoChannel.MessageID,
+	messageType MessageType, nickname string, content []byte,
+	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus) uint64 {
+	react := &CMIXChannelReaction{}
+	if err := proto.Unmarshal(content, react); err != nil {
+		jww.ERROR.Printf("Failed to text unmarshal DM %s from %x"+
+			", type %s, ts: %s, lease: %s, round: "+
+			"%d: %+v",
+			messageID, pubKey, messageType, timestamp, lease,
+			round.ID, err)
+		return 0
+	}
+
+	// check that the reaction is a single emoji and ignore if it isn't
+	if err := ValidateReaction(react.Reaction); err != nil {
+		jww.ERROR.Printf("Failed process DM reaction %s from %x"+
+			", type %s, ts: %s, lease: %s, round: %d, due to "+
+			"malformed reaction (%s), ignoring reaction",
+			messageID, pubKey, messageType, timestamp, lease,
+			round.ID, err)
+		return 0
+	}
+
+	if react.ReactionMessageID != nil &&
+		len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
+		var reactTo cryptoChannel.MessageID
+		copy(reactTo[:], react.ReactionMessageID)
+
+		tag := makeChaDebugTag(&id.DummyUser, pubKey, content,
+			SendReactionTag)
+		jww.INFO.Printf("[%s] DM - Received reaction from %s "+
+			"to %s", tag,
+			base64.StdEncoding.EncodeToString(pubKey),
+			base64.StdEncoding.EncodeToString(
+				react.ReactionMessageID))
+
+		return e.model.ReceiveDMReaction(messageID, reactTo, nickname,
+			react.Reaction, pubKey, dmToken, codeset, timestamp,
+			lease, round, Reaction,
+			status)
+	} else {
+		jww.ERROR.Printf("Failed process DM reaction %s from public "+
+			"key %v (codeset %d), type %s, ts: %s, lease: %s, "+
+			"round: %d, reacting to invalid message, "+
+			"ignoring reaction",
+			messageID, pubKey, codeset, messageType, timestamp,
 			lease, round.ID)
 	}
 	return 0

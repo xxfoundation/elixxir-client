@@ -10,6 +10,12 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"math/rand"
+	"reflect"
+	"runtime"
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -18,11 +24,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"reflect"
-	"runtime"
-	"testing"
-	"time"
 )
 
 type eventReceive struct {
@@ -90,6 +91,54 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		channelID:  channelID,
+		messageID:  messageID,
+		reactionTo: reactionTo,
+		nickname:   nickname,
+		content:    []byte(reaction),
+		timestamp:  timestamp,
+		lease:      lease,
+		round:      round,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveDM(messageID cryptoChannel.MessageID,
+	nickname, text string,
+	_ ed25519.PublicKey, _ []byte, _ uint8, timestamp time.Time,
+	lease time.Duration, round rounds.Round, _ MessageType,
+	_ SentStatus) uint64 {
+	m.eventReceive = eventReceive{
+		messageID:  messageID,
+		reactionTo: cryptoChannel.MessageID{},
+		nickname:   nickname,
+		content:    []byte(text),
+		timestamp:  timestamp,
+		lease:      lease,
+		round:      round,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveDMReply(messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID,
+	nickname, text string, _ ed25519.PublicKey, _ []byte, _ uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
+	_ SentStatus) uint64 {
+	m.eventReceive = eventReceive{
+		messageID:  messageID,
+		reactionTo: reactionTo,
+		nickname:   nickname,
+		content:    []byte(text),
+		timestamp:  timestamp,
+		lease:      lease,
+		round:      round,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveDMReaction(messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID,
+	nickname, reaction string, _ ed25519.PublicKey, _ []byte, _ uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
+	_ SentStatus) uint64 {
+	m.eventReceive = eventReceive{
 		messageID:  messageID,
 		reactionTo: reactionTo,
 		nickname:   nickname,

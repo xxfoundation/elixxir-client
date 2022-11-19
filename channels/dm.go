@@ -10,10 +10,12 @@ package channels
 import (
 	"crypto/ed25519"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/channel"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/id"
@@ -31,6 +33,7 @@ import (
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
 )
 
 const (
@@ -180,7 +183,7 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		}
 
 		// Make the messageID
-		msgId = cryptoChannel.MakeMessageID(dmSerial, partnerID)
+		msgId = cryptoChannel.MakeMessageID(dmSerial, &id.DummyUser)
 
 		// NOTE: When sending you use the partner id
 		//       When self sending you use your own id
@@ -235,7 +238,7 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		}
 
 		// Make the messageID
-		msgId = cryptoChannel.MakeMessageID(dmSerial, partnerID)
+		msgId = cryptoChannel.MakeMessageID(dmSerial, &id.DummyUser)
 
 		// NOTE: When sending you use the partner id
 		//       When self sending you use your own id
@@ -284,10 +287,12 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 }
 
 // RegisterListener registers a listener for broadcast messages.
-func (dc *dmClient) RegisterListener(listenerCb ListenerFunc) error {
+func (dc *dmClient) RegisterListener(listenerCb ListenerFunc,
+	checkSent messageReceiveFunc) error {
 	p := &processor{
-		c:  dc,
-		cb: listenerCb,
+		c:         dc,
+		cb:        listenerCb,
+		checkSent: checkSent,
 	}
 
 	service := message.Service{
@@ -299,15 +304,17 @@ func (dc *dmClient) RegisterListener(listenerCb ListenerFunc) error {
 	return nil
 }
 
-// ListenerFunc is registered when creating a new broadcasting channel and
-// receives all new broadcast messages for the channel.
-type ListenerFunc func(payload []byte,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round)
+// ListenerFunc is registered when creating a new dm listener and
+// receives all new messages for the reception ID.
+type ListenerFunc func(msgID channel.MessageID, dmi *DirectMessage,
+	ts time.Time, ephID receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) (uint64, error)
 
 // processor struct for message handling
 type processor struct {
-	c  *dmClient
-	cb ListenerFunc
+	c         *dmClient
+	cb        ListenerFunc
+	checkSent messageReceiveFunc
 }
 
 // String returns a string identifying the symmetricProcessor for
@@ -336,7 +343,50 @@ func (p *processor) Process(msg format.Message,
 		return
 	}
 
-	p.cb(payload, receptionID, round)
+	msgID := channel.MakeMessageID(payload, &id.DummyUser)
+
+	// Check if we sent the message and ignore triggering if we sent
+	if p.checkSent(msgID, round) {
+		return
+	}
+
+	directMsg := &DirectMessage{}
+	if err := proto.Unmarshal(payload, directMsg); err != nil {
+		jww.ERROR.Printf("unable to parse direct message: %+v",
+			err)
+		return
+	}
+
+	/* CRYPTOGRAPHICALLY RELEVANT CHECKS */
+
+	// FIXME: MsgID on a send cannot match MsgID on a self send..
+	//        it's not clear how to fix that.. Maybe we need
+	//        to set the round id to the same on both send and self
+	//        send, and make this check sensitive to that?
+	//        We will also have to either wipe or change the
+	//        ECC PubKey + dmToken fields to make it work, and that
+	//        means reserializing the messge :-(
+
+	// Check the round to ensure the message is not a replay
+	if id.Round(directMsg.RoundID) != round.ID {
+		jww.WARN.Printf("The round DM %s send on %d"+
+			"by %s was not the same as the"+
+			"round the message was found on (%d)", msgID,
+			round.ID, directMsg.ECCPublicKey, directMsg.RoundID)
+		return
+	}
+
+	// NOTE: There's no signature here, that kind of thing is done
+	// by Noise in the layer doing decryption.
+	//
+	// There also are no admin commands for direct messages.
+
+	// Replace the timestamp on the message if it is outside the
+	// allowable range
+	ts := vetTimestamp(time.Unix(0, directMsg.LocalTimestamp),
+		round.Timestamps[states.QUEUED], msgID)
+
+	p.cb(msgID, directMsg, ts, receptionID, round, Delivered)
 }
 
 // enableDirectMessageToken is a helper functions for EnableDirectMessageToken

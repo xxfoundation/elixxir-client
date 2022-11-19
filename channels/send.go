@@ -376,6 +376,125 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		channelID, Reaction, reactMarshaled, ValidForever, params)
 }
 
+// SendGenericDM is used to send a raw message. In general, it
+// should be wrapped in a function that defines the wire protocol.
+//
+// If the final message, before being sent over the wire, is
+// too long, this will return an error. Due to the underlying
+// encoding using compression, it is not possible to define
+// the largest payload that can be sent, but it will always be
+// possible to send a payload of 802 bytes at minimum.
+//
+// The meaning of validUntil depends on the use case.
+func (m *manager) SendGenericDM(partnerPubKey *ed25519.PublicKey, dmToken []byte,
+	messageType MessageType, msg []byte, params cmix.CMIXParams) (
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+
+	partnerPubNIKE := GetDMNIKEPublicKey(partnerPubKey)
+
+	return m.dm.Send(dmToken, partnerPubNIKE, messageType, msg, params)
+}
+
+// SendDM is used to send a formatted message to another user.
+//
+// The message will auto delete validUntil after the round it
+// is sent in, lasting forever if ValidForever is used.
+func (m *manager) SendDM(partnerPubKey *ed25519.PublicKey, dmToken []byte,
+	msg string,
+	params cmix.CMIXParams) (
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(&id.DummyUser, m.me.PubKey, []byte(msg),
+		SendMessageTag)
+	jww.INFO.Printf("[%s] SendDM(%s)", tag, partnerPubKey)
+
+	txt := &CMIXChannelText{
+		Version:        cmixChannelTextVersion,
+		Text:           msg,
+		ReplyMessageID: nil,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	txtMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
+	return m.SendGenericDM(partnerPubKey, dmToken, Text, txtMarshaled,
+		params)
+}
+
+// SendDMReply is used to send a formatted direct message reply.
+//
+// If the message ID that the reply is sent to does not exist,
+// then the other side will post the message as a normal
+// message and not as a reply.
+//
+// The message will auto delete validUntil after the round it
+// is sent in, lasting forever if ValidForever is used.
+func (m *manager) SendDMReply(partnerPubKey *ed25519.PublicKey, dmToken []byte,
+	msg string,
+	replyTo cryptoChannel.MessageID, params cmix.CMIXParams) (
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(&id.DummyUser, m.me.PubKey, []byte(msg),
+		SendReplyTag)
+	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, partnerPubKey, replyTo)
+	txt := &CMIXChannelText{
+		Version:        cmixChannelTextVersion,
+		Text:           msg,
+		ReplyMessageID: replyTo[:],
+	}
+
+	params = params.SetDebugTag(tag)
+
+	txtMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
+	return m.SendGenericDM(partnerPubKey, dmToken, Text, txtMarshaled,
+		params)
+}
+
+// SendDMReaction is used to send a reaction to a direct
+// message. The reaction must be a single emoji with no other
+// characters, and will be rejected otherwise.
+//
+// Clients will drop the reaction if they do not recognize the reactTo
+// message.
+func (m *manager) SendDMReaction(partnerPubKey *ed25519.PublicKey, dmToken []byte,
+	reaction string, reactTo cryptoChannel.MessageID,
+	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
+	ephemeral.Id, error) {
+	tag := makeChaDebugTag(&id.DummyUser, m.me.PubKey, []byte(reaction),
+		SendReactionTag)
+	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, *partnerPubKey,
+		reactTo)
+
+	if err := ValidateReaction(reaction); err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
+	react := &CMIXChannelReaction{
+		Version:           cmixChannelReactionVersion,
+		Reaction:          reaction,
+		ReactionMessageID: reactTo[:],
+	}
+
+	params = params.SetDebugTag(tag)
+
+	reactMarshaled, err := proto.Marshal(react)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return m.SendGenericDM(partnerPubKey, dmToken, Reaction, reactMarshaled,
+		params)
+}
+
 // makeChaDebugTag is a debug helper that creates non-unique msg identifier.
 //
 // This is set as the debug tag on messages and enables some level of tracing a

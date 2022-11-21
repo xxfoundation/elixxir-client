@@ -9,7 +9,6 @@ package bindings
 
 import (
 	"crypto/ed25519"
-	"encoding/base64"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"sync"
@@ -19,14 +18,12 @@ import (
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -423,77 +420,13 @@ func GenerateChannel(cmixID int, name, description string, privacyLevel int) ([]
 		PrivateKey: string(pk.MarshalPem()),
 	}
 
-	err = saveChannelPrivateKey(cmix, c.ReceptionID, pk)
+	err =
+		saveChannelPrivateKey(c.ReceptionID, pk, cmix.api.GetStorage().GetKV())
 	if err != nil {
 		return nil, err
 	}
 
 	return json.Marshal(&gen)
-}
-
-const (
-	channelPrivateKeyStoreVersion = 0
-	channelPrivateKeyStoreKey     = "channelPrivateKey"
-)
-
-func saveChannelPrivateKey(cmix *Cmix, channelID *id.ID, pk rsa.PrivateKey) error {
-	return cmix.api.GetStorage().Set(
-		makeChannelPrivateKeyStoreKey(channelID),
-		&versioned.Object{
-			Version:   channelPrivateKeyStoreVersion,
-			Timestamp: netTime.Now(),
-			Data:      pk.MarshalPem(),
-		})
-}
-
-// GetSavedChannelPrivateKeyUNSAFE loads the private key from storage for the
-// given channel ID.
-//
-// NOTE: This function is unsafe and only for debugging purposes only.
-//
-// Parameters:
-//   - cmixID - ID of [Cmix] object in tracker.
-//   - channelIdBase64 - The [id.ID] of the channel in base 64 encoding.
-//
-// Returns:
-//   - The PEM file of the private key.
-func GetSavedChannelPrivateKeyUNSAFE(cmixID int, channelIdBase64 string) (string, error) {
-	cmix, err := cmixTrackerSingleton.get(cmixID)
-	if err != nil {
-		return "", err
-	}
-
-	channelIdBytes, err := base64.StdEncoding.DecodeString(channelIdBase64)
-	if err != nil {
-		return "", errors.Errorf("failed to decode channel ID: %+v", err)
-	}
-
-	channelID, err := id.Unmarshal(channelIdBytes)
-	if err != nil {
-		return "", errors.Errorf("invalid channel ID: %+v", err)
-	}
-
-	privKey, err := loadChannelPrivateKey(cmix, channelID)
-	if err != nil {
-		return "", errors.Errorf(
-			"failed to load private key from storage: %+v", err)
-	}
-
-	return string(privKey.MarshalPem()), nil
-}
-
-func loadChannelPrivateKey(cmix *Cmix, channelID *id.ID) (rsa.PrivateKey, error) {
-	obj, err := cmix.api.GetStorage().Get(
-		makeChannelPrivateKeyStoreKey(channelID))
-	if err != nil {
-		return nil, err
-	}
-
-	return rsa.GetScheme().UnmarshalPrivateKeyPEM(obj.Data)
-}
-
-func makeChannelPrivateKeyStoreKey(channelID *id.ID) string {
-	return channelPrivateKeyStoreKey + "/" + channelID.String()
 }
 
 // DecodePublicURL decodes the channel URL into a channel pretty print. This

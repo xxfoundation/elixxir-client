@@ -15,12 +15,12 @@ require (
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
 	gitlab.com/elixxir/comms v0.0.4-0.20221108183306-7c473bca3cd6
-	gitlab.com/elixxir/crypto v0.0.7-0.20221108183134-3f4a29c68e97
+	gitlab.com/elixxir/crypto v0.0.7-0.20221121233335-83f145891bc7
 	gitlab.com/elixxir/ekv v0.2.1
-	gitlab.com/elixxir/primitives v0.0.3-0.20221108183049-7bdff545bf8e
+	gitlab.com/elixxir/primitives v0.0.3-0.20221110181119-e83320a48b13
 	gitlab.com/xx_network/comms v0.0.4-0.20221108183032-8732b403e506
-	gitlab.com/xx_network/crypto v0.0.5-0.20221108182939-05998dc093e9
-	gitlab.com/xx_network/primitives v0.0.4-0.20221104175439-f0d440beacd9
+	gitlab.com/xx_network/crypto v0.0.5-0.20221110181048-76f0c556fe95
+	gitlab.com/xx_network/primitives v0.0.4-0.20221110180011-fd6ea3058225
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c

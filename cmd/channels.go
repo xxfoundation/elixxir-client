@@ -14,6 +14,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -23,6 +24,8 @@ import (
 	"os"
 	"time"
 )
+
+const channelsPrintHeader = "CHANNELS"
 
 // mockEventModel is the CLI implementation of the channels.EventModel interface.
 type mockEventModel struct{}
@@ -97,22 +100,26 @@ var channelsCmd = &cobra.Command{
 		if viper.IsSet(channelsChanIdentityPathFlag) {
 			path, err := utils.ExpandPath(viper.GetString(channelsChanIdentityPathFlag))
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to load identity: %+v", err)
+				jww.FATAL.Panicf("[%s] Failed to load identity: %+v",
+					channelsPrintHeader, err)
 			}
 			// Load channel identity from path if given from path
 			cBytes, err := utils.ReadFile(path)
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to read channel identity from file at %s: %+v", path, err)
+				jww.FATAL.Panicf("[%s] Failed to read channel identity from file at %s: %+v",
+					channelsPrintHeader, path, err)
 			}
 			channelIdentity, err = cryptoChannel.UnmarshalPrivateIdentity(cBytes)
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to unmarshal channel data %+v: %+v", cBytes, err)
+				jww.FATAL.Panicf("[%s] Failed to unmarshal channel data %+v: %+v",
+					channelsPrintHeader, string(cBytes), err)
 			}
 		} else {
 			// Generate channel identity if extant one does not exist
 			channelIdentity, err = cryptoChannel.GenerateIdentity(rng)
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to generate identity for channel: %+v", err)
+				jww.FATAL.Panicf("[%s] Failed to generate identity for channel: %+v",
+					channelsPrintHeader, err)
 			}
 		}
 
@@ -122,19 +129,21 @@ var channelsCmd = &cobra.Command{
 		}
 
 		// Construct channels manager
-		chanManager, err := channels.NewManager(channelIdentity, user.GetStorage().GetKV(),
-			user.GetCmix(), user.GetRng(), mockEventModelBuilder)
+		chanManager, err := channels.NewManager(channelIdentity,
+			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
+			mockEventModelBuilder)
 		if err != nil {
-			jww.FATAL.Panicf("[CHANNELS] Failed to create channels manager: %+v", err)
+			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
+				channelsPrintHeader, err)
 		}
 
 		// Load in channel info
 		name := viper.GetString(channelsNameFlag)
 		desc := viper.GetString(channelsDescriptionFlag)
 		if name == "" {
-			jww.FATAL.Panicf("[CHANNELS] Name cannot be empty")
+			jww.FATAL.Panicf("[%s] Name cannot be empty", channelsPrintHeader)
 		} else if desc == "" {
-			jww.FATAL.Panicf("[CHANNELS] Description cannot be empty")
+			jww.FATAL.Panicf("[%s] Description cannot be empty", channelsPrintHeader)
 		}
 
 		var channel *cryptoBroadcast.Channel
@@ -164,24 +173,28 @@ var channelsCmd = &cobra.Command{
 			// Write channel to file
 			marshalledChan, err := channel.Marshal()
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to marshal channel: %+v", err)
+				jww.FATAL.Panicf("[$s] Failed to marshal channel: %+v",
+					channelsPrintHeader, err)
 			}
 
 			err = utils.WriteFileDef(chanPath, marshalledChan)
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to write channel to file: %+v", err)
+				jww.FATAL.Panicf("[%s] Failed to write channel to file: %+v",
+					channelsPrintHeader, err)
 			}
 
 		} else {
 			// Load channel
 			marshalledChan, err := utils.ReadFile(chanPath)
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to read channel from file: %+v", err)
+				jww.FATAL.Panicf("[%s] Failed to read channel from file: %+v",
+					channelsPrintHeader, err)
 			}
 
 			channel, err = cryptoBroadcast.UnmarshalChannel(marshalledChan)
 			if err != nil {
-				jww.FATAL.Panicf("[CHANNELS] Failed to unmarshal channel: %+v", err)
+				jww.FATAL.Panicf("[%s] Failed to unmarshal channel: %+v",
+					channelsPrintHeader, err)
 			}
 
 		}
@@ -189,8 +202,55 @@ var channelsCmd = &cobra.Command{
 		// Join channel
 		err = chanManager.JoinChannel(channel)
 		if err != nil {
-			jww.FATAL.Panicf("[CHANNELS] Failed to join channel: %+v", err)
+			jww.FATAL.Panicf("[%s] Failed to join channel: %+v",
+				channelsPrintHeader, err)
 		}
 
+		// Construct receiver callback
+		messageReceptionCb := func(channelID *id.ID,
+			messageID cryptoChannel.MessageID,
+			messageType channels.MessageType,
+			nickname string, content []byte, pubKey ed25519.PublicKey,
+			codeset uint8, timestamp time.Time, lease time.Duration,
+			round rounds.Round, status channels.SentStatus) uint64 {
+			channelReceivedMessage, err := chanManager.GetChannel(channelID)
+			if err != nil {
+				jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",
+					channelsPrintHeader, channelID, err)
+			}
+			jww.INFO.Printf("[%s] Received message (%s) from %s",
+				channelsPrintHeader, content, channelReceivedMessage.Name)
+			fmt.Printf("Received message (%s) from %s\n",
+				content, channelReceivedMessage.Name)
+			return 0
+		}
+		err = chanManager.RegisterReceiveHandler(channels.Text,
+			messageReceptionCb)
+
+		if viper.IsSet(channelsSendFlag) {
+			message := viper.GetString(channelsSendFlag)
+			chanMsgId, round, _, err := chanManager.SendMessage(
+				channel.ReceptionID, message, 5*time.Second,
+				cmix.GetDefaultCMIXParams())
+			if err != nil {
+				jww.FATAL.Panicf("[%s] Failed to send message to channel: %+v",
+					channelsPrintHeader, err)
+			}
+
+			jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with message ID %s on round %d",
+				channelsPrintHeader, message, channel.Name, channel.ReceptionID, chanMsgId, round.ID)
+			fmt.Printf("Sent message (%s) to channel %s\n", message, channel.Name)
+		}
+
+		if viper.IsSet(channelsLeaveFlag) {
+			err = chanManager.LeaveChannel(channel.ReceptionID)
+			if err != nil {
+				jww.FATAL.Panicf("[%s] Failed to leave channel %s (ID %s): %+v",
+					channelsPrintHeader, channel.Name, channel.ReceptionID)
+			}
+
+			fmt.Printf("Successfully left channel %s\n", channel.Name)
+		}
+		
 	},
 }

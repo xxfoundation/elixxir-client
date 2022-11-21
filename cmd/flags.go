@@ -103,6 +103,7 @@ const (
 	channelsChanPathFlag         = "chanPath"
 	channelsDescriptionFlag      = "description"
 	channelsKeyPathFlag          = "keyPath"
+	channelsLeaveFlag            = "leave"
 	channelsNewFlag              = "new"
 	channelsSendFlag             = "send"
 

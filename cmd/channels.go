@@ -86,7 +86,7 @@ var channelsCmd = &cobra.Command{
 		// Wait for user to be connected to network
 		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+			jww.FATAL.Panicf("[CHANNELS] %+v", err)
 		}
 
 		rng := user.GetRng().GetStream()
@@ -94,27 +94,26 @@ var channelsCmd = &cobra.Command{
 
 		/* Set up underlying crypto broadcast.Channel */
 		var channelIdentity cryptoChannel.PrivateIdentity
-		if viper.IsSet(broadcastChanPathFlag) {
-			path, err := utils.ExpandPath(viper.GetString(broadcastChanPathFlag))
+		if viper.IsSet(channelsChanIdentityPathFlag) {
+			path, err := utils.ExpandPath(viper.GetString(channelsChanIdentityPathFlag))
 			if err != nil {
-				jww.FATAL.Panicf("Failed to load identity: %+v", err)
+				jww.FATAL.Panicf("[CHANNELS] Failed to load identity: %+v", err)
 			}
 			// Load channel identity from path if given from path
 			cBytes, err := utils.ReadFile(path)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to read channel identity from file at %s: %+v", path, err)
+				jww.FATAL.Panicf("[CHANNELS] Failed to read channel identity from file at %s: %+v", path, err)
 			}
 			channelIdentity, err = cryptoChannel.UnmarshalPrivateIdentity(cBytes)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to unmarshal channel data %+v: %+v", cBytes, err)
+				jww.FATAL.Panicf("[CHANNELS] Failed to unmarshal channel data %+v: %+v", cBytes, err)
 			}
 		} else {
-			// Generate channel identity
+			// Generate channel identity if extant one does not exist
 			channelIdentity, err = cryptoChannel.GenerateIdentity(rng)
 			if err != nil {
 				jww.FATAL.Panicf("[CHANNELS] Failed to generate identity for channel: %+v", err)
 			}
-
 		}
 
 		// Construct mock event model builder
@@ -129,9 +128,9 @@ var channelsCmd = &cobra.Command{
 			jww.FATAL.Panicf("[CHANNELS] Failed to create channels manager: %+v", err)
 		}
 
-		// Load in broadcast channel info
-		name := viper.GetString(broadcastNameFlag)
-		desc := viper.GetString(broadcastDescriptionFlag)
+		// Load in channel info
+		name := viper.GetString(channelsNameFlag)
+		desc := viper.GetString(channelsDescriptionFlag)
 		if name == "" {
 			jww.FATAL.Panicf("[CHANNELS] Name cannot be empty")
 		} else if desc == "" {
@@ -140,10 +139,10 @@ var channelsCmd = &cobra.Command{
 
 		var channel *cryptoBroadcast.Channel
 		var pk rsa2.PrivateKey
-		keyPath := viper.GetString(broadcastKeyPathFlag)
-
+		keyPath := viper.GetString(channelsKeyPathFlag)
+		chanPath := viper.GetString(channelsChanPathFlag)
 		// Create new channel
-		if viper.GetBool(broadcastNewFlag) {
+		if viper.GetBool(channelsNewFlag) {
 			// Create a new  channel
 			channel, pk, err = cryptoBroadcast.NewChannel(name, desc,
 				cryptoBroadcast.Public,
@@ -155,13 +154,42 @@ var channelsCmd = &cobra.Command{
 			if keyPath != "" {
 				err = utils.WriteFile(keyPath, pk.MarshalPem(), os.ModePerm, os.ModeDir)
 				if err != nil {
-					jww.ERROR.Printf("Failed to write private key to path %s: %+v", path, err)
+					jww.ERROR.Printf("Failed to write private key to path %s: %+v", keyPath, err)
 				}
 			} else {
 				fmt.Printf("Private key generated for channel: %+v", pk.MarshalPem())
 			}
-			fmt.Printf("New broadcast channel generated")
+			fmt.Printf("New channel generated")
 
+			// Write channel to file
+			marshalledChan, err := channel.Marshal()
+			if err != nil {
+				jww.FATAL.Panicf("[CHANNELS] Failed to marshal channel: %+v", err)
+			}
+
+			err = utils.WriteFileDef(chanPath, marshalledChan)
+			if err != nil {
+				jww.FATAL.Panicf("[CHANNELS] Failed to write channel to file: %+v", err)
+			}
+
+		} else {
+			// Load channel
+			marshalledChan, err := utils.ReadFile(chanPath)
+			if err != nil {
+				jww.FATAL.Panicf("[CHANNELS] Failed to read channel from file: %+v", err)
+			}
+
+			channel, err = cryptoBroadcast.UnmarshalChannel(marshalledChan)
+			if err != nil {
+				jww.FATAL.Panicf("[CHANNELS] Failed to unmarshal channel: %+v", err)
+			}
+
+		}
+
+		// Join channel
+		err = chanManager.JoinChannel(channel)
+		if err != nil {
+			jww.FATAL.Panicf("[CHANNELS] Failed to join channel: %+v", err)
 		}
 
 	},

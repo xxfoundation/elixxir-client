@@ -124,12 +124,14 @@ var channelsCmd = &cobra.Command{
 				channelsPrintHeader, err)
 		}
 
+		// Register a callback for the expected message to be received.
 		err = makeChannelReceptionHandler(channels.Text, chanManager)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create reception handler for message type %s: %+v",
 				channels.Text, err)
 		}
 
+		// Send message
 		if viper.IsSet(channelsSendFlag) {
 			message := viper.GetString(channelsSendFlag)
 			chanMsgId, round, _, err := chanManager.SendMessage(
@@ -145,6 +147,7 @@ var channelsCmd = &cobra.Command{
 			fmt.Printf("Sent message (%s) to channel %s\n", message, channel.Name)
 		}
 
+		// Leave channel
 		if viper.IsSet(channelsLeaveFlag) {
 			err = chanManager.LeaveChannel(channel.ReceptionID)
 			if err != nil {
@@ -195,6 +198,8 @@ func createNewChannel(name, desc, keyPath, chanPath string,
 
 }
 
+// makeChannelReceptionHandler is a helper function which will register with the
+// channels.Manager a reception callback for the given message type.
 func makeChannelReceptionHandler(msgType channels.MessageType,
 	chanManager channels.Manager) error {
 	// Construct receiver callback
@@ -299,5 +304,24 @@ func init() {
 	channelsCmd.Flags().String(channelsChanPathFlag, "",
 		"The file path for the channel information to be written to.")
 	bindFlagHelper(channelsChanPathFlag, channelsCmd)
+
+	channelsCmd.Flags().String(channelsDescriptionFlag, "Channel Description",
+		"The description for the channel which will be created.")
+	bindFlagHelper(channelsDescriptionFlag, channelsCmd)
+
+	channelsCmd.Flags().String(channelsKeyPathFlag, "",
+		"The file path for the channel identity's key to be written to.")
+	bindFlagHelper(channelsKeyPathFlag, channelsCmd)
+
+	channelsCmd.Flags().Bool(channelsLeaveFlag, false,
+		"Determines if the channel created from the 'new' or 'chanPath' flag will be left.")
+	bindFlagHelper(channelsLeaveFlag, channelsCmd)
+
+	channelsCmd.Flags().Bool(channelsNewFlag, false,
+		"Determines if a new channel will be constructed.")
+	bindFlagHelper(channelsNewFlag, channelsCmd)
+
+	channelsCmd.Flags().String(channelsSendFlag, "",
+		"The message that will be sent to a channel.")
 
 }

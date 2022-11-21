@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"encoding/binary"
 	"fmt"
 	"time"
 
@@ -116,6 +117,35 @@ func GetDMNIKEPrivateKey(privateEdwardsKey *ed25519.PrivateKey) nike.PrivateKey 
 	return privateKey
 }
 
+// DeriveDirectMessageID hashes the parts relevant to a direct message
+// to create a shared message ID between both parties.
+// Round ID, Pubey, and DMToken is not hashed, so this is not replay
+// resistant from a malicious attacker, but DMs prevent parties without the
+// keys of one half the connection from participating.
+func DeriveDirectMessageID(msg *DirectMessage) cryptoChannel.MessageID {
+	h, err := blake2b.New256(nil)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get Hash: %+v", err)
+	}
+	h.Write(msg.GetPayload())
+
+	pty := make([]byte, 4)
+	binary.LittleEndian.PutUint32(pty, msg.GetPayloadType())
+	h.Write(pty)
+
+	h.Write([]byte(msg.GetNickname()))
+	h.Write(msg.Nonce)
+
+	ts := make([]byte, 8)
+	binary.LittleEndian.PutUint64(pty, uint64(msg.GetLocalTimestamp()))
+	h.Write(ts)
+
+	midBytes := h.Sum(nil)
+	mid := cryptoChannel.MessageID{}
+	copy(mid[:], midBytes)
+	return mid
+}
+
 func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 	messageType MessageType, msg []byte, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
@@ -169,6 +199,8 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		LocalTimestamp: netTime.Now().UnixNano(),
 	}
 
+	msgId = DeriveDirectMessageID(directMessage)
+
 	// Send to Partner
 	assemble := func(rid id.Round) (fp format.Fingerprint,
 		service message.Service, encryptedPayload, mac []byte,
@@ -181,9 +213,6 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		if err != nil {
 			return
 		}
-
-		// Make the messageID
-		msgId = cryptoChannel.MakeMessageID(dmSerial, &id.DummyUser)
 
 		// NOTE: When sending you use the partner id
 		//       When self sending you use your own id
@@ -236,9 +265,6 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		if err != nil {
 			return
 		}
-
-		// Make the messageID
-		msgId = cryptoChannel.MakeMessageID(dmSerial, &id.DummyUser)
 
 		// NOTE: When sending you use the partner id
 		//       When self sending you use your own id
@@ -343,17 +369,16 @@ func (p *processor) Process(msg format.Message,
 		return
 	}
 
-	msgID := channel.MakeMessageID(payload, &id.DummyUser)
-
-	// Check if we sent the message and ignore triggering if we sent
-	if p.checkSent(msgID, round) {
-		return
-	}
-
 	directMsg := &DirectMessage{}
 	if err := proto.Unmarshal(payload, directMsg); err != nil {
 		jww.ERROR.Printf("unable to parse direct message: %+v",
 			err)
+		return
+	}
+
+	msgID := DeriveDirectMessageID(directMsg)
+	// Check if we sent the message and ignore triggering if we sent
+	if p.checkSent(msgID, round) {
 		return
 	}
 

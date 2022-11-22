@@ -58,7 +58,7 @@ var channelsCmd = &cobra.Command{
 		if viper.IsSet(channelsChanIdentityPathFlag) {
 			channelIdentity, err = readChannelIdentity()
 			if err != nil {
-				jww.FATAL.Panicf("[%s] Failed to read channel identity: %+v", err)
+				jww.FATAL.Panicf("[%s] Failed to read channel identity: %+v", channelsPrintHeader, err)
 			}
 		} else {
 			// Generate channel identity if extant one does not exist
@@ -128,7 +128,7 @@ var channelsCmd = &cobra.Command{
 		err = makeChannelReceptionHandler(channels.Text, chanManager)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create reception handler for message type %s: %+v",
-				channels.Text, err)
+				channelsPrintHeader, channels.Text, err)
 		}
 
 		// Send message
@@ -152,7 +152,7 @@ var channelsCmd = &cobra.Command{
 			err = chanManager.LeaveChannel(channel.ReceptionID)
 			if err != nil {
 				jww.FATAL.Panicf("[%s] Failed to leave channel %s (ID %s): %+v",
-					channelsPrintHeader, channel.Name, channel.ReceptionID)
+					channelsPrintHeader, channel.Name, channel.ReceptionID, err)
 			}
 
 			fmt.Printf("Successfully left channel %s\n", channel.Name)

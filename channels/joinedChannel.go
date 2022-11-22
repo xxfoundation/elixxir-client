@@ -145,9 +145,19 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 
 	ch.broadcast.Stop()
 
+	err := m.mutedUsers.removeChannel(channelID)
+	if err != nil {
+		return err
+	}
+
+	err = m.leases.deleteLeaseMessages(channelID)
+	if err != nil {
+		return err
+	}
+
 	delete(m.channels, *channelID)
 
-	err := m.storeUnsafe()
+	err = m.storeUnsafe()
 	if err != nil {
 		return err
 	}

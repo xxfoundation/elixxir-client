@@ -671,21 +671,15 @@ func (m *mockEventModel) LeaveChannel(c *id.ID) {
 	m.leftCh = c
 }
 
-func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string,
-	string, ed25519.PublicKey, uint8, time.Time, time.Duration, rounds.Round,
-	MessageType, SentStatus) uint64 {
+func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8, time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID, cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8, time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID, cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8, time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 

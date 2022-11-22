@@ -8,11 +8,13 @@
 package cmix
 
 import (
+	"encoding/base64"
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -84,12 +86,19 @@ func (cmh *cmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error
 
 // HashMessage generates a hash of the message.
 func (cmh *cmixMessageHandler) HashMessage(m interface{}) utility.MessageHash {
-	h, _ := blake2b.New256(nil)
+	msg := m.(storedMessage)
 
-	h.Write(m.(storedMessage).Marshal())
+	h, _ := blake2b.New256(nil)
+	h.Write(msg.Recipient)
+	h.Write(msg.Msg)
+	digest := h.Sum(nil)
 
 	var messageHash utility.MessageHash
-	copy(messageHash[:], h.Sum(nil))
+	copy(messageHash[:], digest)
+
+	jww.TRACE.Printf("HashMessage Results: %s -> %s",
+		base64.StdEncoding.EncodeToString(digest),
+		base64.StdEncoding.EncodeToString(messageHash[:]))
 
 	return messageHash
 }
@@ -133,7 +142,7 @@ func (cmb *CmixMessageBuffer) Add(msg format.Message, recipient *id.ID,
 	}
 
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 		Params:    paramBytes,
 	}
@@ -149,7 +158,7 @@ func (cmb *CmixMessageBuffer) AddProcessing(msg format.Message, recipient *id.ID
 	}
 
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 		Params:    paramBytes,
 	}
@@ -190,7 +199,7 @@ func (cmb *CmixMessageBuffer) Next() (format.Message, *id.ID, CMIXParams, bool) 
 
 func (cmb *CmixMessageBuffer) Succeeded(msg format.Message, recipient *id.ID) {
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 	}
 
@@ -199,7 +208,7 @@ func (cmb *CmixMessageBuffer) Succeeded(msg format.Message, recipient *id.ID) {
 
 func (cmb *CmixMessageBuffer) Failed(msg format.Message, recipient *id.ID) {
 	sm := storedMessage{
-		Msg:       msg.Marshal(),
+		Msg:       msg.MarshalImmutable(),
 		Recipient: recipient.Marshal(),
 	}
 

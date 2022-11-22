@@ -15,7 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -133,11 +133,31 @@ func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
 	defer s.mux.RUnlock()
 
 	for _, rnd := range s.list {
+		if rnd.beingChecked {
+			continue
+		}
 		jww.DEBUG.Printf("Round for lookup: %d, %+v\n", rnd.Id, rnd)
 		go func(localRid id.Round, localRnd UncheckedRound) {
 			iterator(localRid, localRnd)
 		}(rnd.Id, rnd)
 	}
+}
+
+// EndCheck increments the amount of checks performed on this stored
+// round.
+func (s *UncheckedRoundStore) EndCheck(rid id.Round, recipient *id.ID,
+	ephId ephemeral.Id) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	nri := newRoundIdentity(rid, recipient, ephId)
+	rnd, exists := s.list[nri]
+	if !exists {
+		return errors.Errorf("round %d could not be found in RAM", rid)
+	}
+
+	rnd.beingChecked = false
+	s.list[nri] = rnd
+	return nil
 }
 
 // IncrementCheck increments the amount of checks performed on this stored
@@ -165,6 +185,7 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round, recipient *id.ID,
 	// Update the rounds state
 	rnd.LastCheck = netTime.Now()
 	rnd.NumChecks++
+	rnd.storageUpToDate = false
 	s.list[nri] = rnd
 	return s.save()
 }

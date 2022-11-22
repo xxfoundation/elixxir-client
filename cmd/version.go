@@ -13,12 +13,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
 // Change this value to set the version for this build
-const currentVersion = "4.3.3"
+const currentVersion = "4.3.9"
 
 func Version() string {
 	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", xxdk.SEMVER,

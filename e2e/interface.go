@@ -8,17 +8,17 @@
 package e2e
 
 import (
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 )

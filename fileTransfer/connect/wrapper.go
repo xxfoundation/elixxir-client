@@ -8,11 +8,11 @@
 package connect
 
 import (
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/receive"
-	ft "gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	ft "gitlab.com/elixxir/client/v4/fileTransfer"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"time"

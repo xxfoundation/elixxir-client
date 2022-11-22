@@ -10,9 +10,9 @@ package groupChat
 import (
 	"bytes"
 	"encoding/base64"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"

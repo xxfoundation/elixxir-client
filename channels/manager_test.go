@@ -9,9 +9,9 @@ package channels
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/broadcast"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"

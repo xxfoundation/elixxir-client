@@ -10,11 +10,11 @@ package single
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/restlike"
-	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/restlike"
+	"gitlab.com/elixxir/client/v4/single"
 	"google.golang.org/protobuf/proto"
 	"time"
 )

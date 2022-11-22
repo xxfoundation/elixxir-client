@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e/auth"

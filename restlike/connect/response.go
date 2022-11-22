@@ -8,8 +8,8 @@
 package connect
 
 import (
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/restlike"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/restlike"
 	"google.golang.org/protobuf/proto"
 )
 

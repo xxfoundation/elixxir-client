@@ -9,10 +9,10 @@ package e2e
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"

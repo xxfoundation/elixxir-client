@@ -8,7 +8,7 @@
 package utility
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/ndf"
 	"os"
 	"syscall/js"

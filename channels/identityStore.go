@@ -1,7 +1,7 @@
 package channels
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/primitives/netTime"
 )

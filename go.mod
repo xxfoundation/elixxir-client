@@ -1,4 +1,4 @@
-module gitlab.com/elixxir/client
+module gitlab.com/elixxir/client/v4
 
 go 1.19
 
@@ -14,11 +14,11 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20221108183306-7c473bca3cd6
-	gitlab.com/elixxir/crypto v0.0.7-0.20221121233335-83f145891bc7
+	gitlab.com/elixxir/comms v0.0.4-0.20221110181420-84bca6216fe4
+	gitlab.com/elixxir/crypto v0.0.7-0.20221114184755-9fecef9a2093
 	gitlab.com/elixxir/ekv v0.2.1
-	gitlab.com/elixxir/primitives v0.0.3-0.20221110181119-e83320a48b13
-	gitlab.com/xx_network/comms v0.0.4-0.20221108183032-8732b403e506
+	gitlab.com/elixxir/primitives v0.0.3-0.20221114231218-cc461261a6af
+	gitlab.com/xx_network/comms v0.0.4-0.20221110181111-4f0694876936
 	gitlab.com/xx_network/crypto v0.0.5-0.20221110181048-76f0c556fe95
 	gitlab.com/xx_network/primitives v0.0.4-0.20221110180011-fd6ea3058225
 	go.uber.org/ratelimit v0.2.0

@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"crypto/ed25519"
 	"math"
 	"time"
 
@@ -110,6 +111,40 @@ type Manager interface {
 		reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
+	// DeleteMessage deletes the targeted message from user's view. Users may
+	// delete their own messages (by leaving the private key as nil) but only
+	// the channel admin can delete other user's messages.
+	//
+	// If undoAction is true, then the targeted message is un-deleted.
+	//
+	// Clients will drop the deletion if they do not recognize the target
+	// message.
+	DeleteMessage(privKey rsa.PrivateKey, channelID *id.ID,
+		targetMessage cryptoChannel.MessageID, undoAction bool,
+		params cmix.CMIXParams) (
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+
+	// PinMessage pins the target message to the top of a channel view for all
+	// users in the specified channel. Only the channel admin can pin user
+	// messages.
+	//
+	// If undoAction is true, then the targeted message is unpinned.
+	//
+	// Clients will drop the pin if they do not recognize the target message.
+	PinMessage(privKey rsa.PrivateKey, channelID *id.ID,
+		targetMessage cryptoChannel.MessageID, undoAction bool,
+		params cmix.CMIXParams) (
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+
+	// MuteUser is used to mute a user in a channel. Muting a user will cause
+	// all future messages from the user being hidden from view. Muted users are
+	// also unable to send messages. Only the channel admin can mute a user.
+	//
+	// If undoAction is true, then the targeted user will be unmuted.
+	MuteUser(privKey rsa.PrivateKey, channelID *id.ID,
+		mutedUser ed25519.PublicKey, undoAction bool, params cmix.CMIXParams) (
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+
 	// RegisterReceiveHandler is used to register handlers for non default
 	// message types so that they can be processed by modules. It is important
 	// that such modules sync up with the event model implementation.
@@ -143,4 +178,7 @@ type Manager interface {
 
 	// GetNickname returns the nickname for the given channel, if it exists.
 	GetNickname(chID *id.ID) (nickname string, exists bool)
+
+	// Muted returns true if the user is currently muted in the given channel.
+	Muted(channelID *id.ID) bool
 }

@@ -252,6 +252,11 @@ func (m *manager) GetIdentity() cryptoChannel.Identity {
 	return m.me.Identity
 }
 
+// Muted returns true if the user is currently muted in the given channel.
+func (m *manager) Muted(channelID *id.ID) bool {
+	return m.events.mutedUsers.isMuted(channelID, m.me.PubKey)
+}
+
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
 // string.
 func (m *manager) ExportPrivateIdentity(password string) ([]byte, error) {

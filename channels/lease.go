@@ -24,12 +24,15 @@ import (
 )
 
 const leaseThreadStoppable = "ActionLeaseThread"
-const addLeaseMessageChanSize = 100
-const removeLeaseMessageChanSize = 100
+const (
+	addLeaseMessageChanSize    = 100
+	removeLeaseMessageChanSize = 100
+	removeChannelChChanSize    = 100
+)
 
 // Error messages.
 const (
-	// actionLeaseList.addMessage and actionLeaseList.removeElement
+	// actionLeaseList.updateStorage
 	storeLeaseMessagesErr = "could not store message leases for channel %s: %+v"
 	storeLeaseChanIDsErr  = "could not store lease channel IDs: %+v"
 
@@ -54,6 +57,9 @@ type actionLeaseList struct {
 
 	// Lease messages that need to be removed are added to this channel.
 	removeLeaseMessage chan *leaseMessage
+
+	// Channels that need to be removed are added to this channel.
+	removeChannelCh chan *id.ID
 
 	// triggerFn is called when a lease expired to trigger the undoing of the
 	// action.
@@ -126,6 +132,7 @@ func newActionLeaseList(
 		messages:           make(map[id.ID]map[leaseFingerprintKey]*leaseMessage),
 		addLeaseMessage:    make(chan *leaseMessage, addLeaseMessageChanSize),
 		removeLeaseMessage: make(chan *leaseMessage, removeLeaseMessageChanSize),
+		removeChannelCh:    make(chan *id.ID, removeChannelChChanSize),
 		triggerFn:          triggerFn,
 		kv:                 kv,
 	}
@@ -175,6 +182,12 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 			err := all._removeMessage(lm)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to remove lease message: %+v", err)
+			}
+		case channelID := <-all.removeChannelCh:
+			jww.DEBUG.Printf("Removing channel %s", channelID)
+			err := all._removeChannel(channelID)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to remove channel: %+v", err)
 			}
 		case <-timer.C:
 			// Once the timer is triggered, drop below to undo any expired
@@ -280,7 +293,7 @@ func (all *actionLeaseList) removeMessage(
 	}
 }
 
-// _removeMessage removes the leas message from the lease list and the message
+// _removeMessage removes the lease message from the lease list and the message
 // map. This function also updates storage. If the message does not exist, nil
 // is returned.
 func (all *actionLeaseList) _removeMessage(newLm *leaseMessage) error {
@@ -333,6 +346,34 @@ func (all *actionLeaseList) updateLease(e *list.Element) {
 	all.leases.MoveToBack(e)
 }
 
+// removeMessage triggers the channel for removal.
+func (all *actionLeaseList) removeChannel(channelID *id.ID) {
+	all.removeChannelCh <- channelID
+}
+
+// _removeChannel removes each lease message for the channel from the leases
+// list and removes the channel from the messages map. Also deletes from
+// storage.
+func (all *actionLeaseList) _removeChannel(channelID *id.ID) error {
+	leases, exists := all.messages[*channelID]
+	if !exists {
+		return nil
+	}
+
+	for _, lm := range leases {
+		all.leases.Remove(lm.e)
+	}
+
+	delete(all.messages, *channelID)
+
+	err := all.storeLeaseChannels()
+	if err != nil {
+		return err
+	}
+
+	return all.deleteLeaseMessages(channelID)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -377,9 +418,8 @@ func (all *actionLeaseList) updateStorage(
 	channelID *id.ID, channelIdUpdate bool) error {
 	if err := all.storeLeaseMessages(channelID); err != nil {
 		return errors.Errorf(storeLeaseMessagesErr, channelID, err)
-	}
-	if channelIdUpdate {
-		if err := all.storeLeaseChannels(); err != nil {
+	} else if channelIdUpdate {
+		if err = all.storeLeaseChannels(); err != nil {
 			return errors.Errorf(storeLeaseChanIDsErr, err)
 		}
 	}
@@ -424,6 +464,11 @@ func (all *actionLeaseList) loadLeaseChannels() ([]*id.ID, error) {
 // storeLeaseMessages stores the list of leaseMessage objects for the given
 // channel ID to storage keying on the channel ID.
 func (all *actionLeaseList) storeLeaseMessages(channelID *id.ID) error {
+	// If the list is empty, then delete it from storage
+	if len(all.messages[*channelID]) == 0 {
+		return all.deleteLeaseMessages(channelID)
+	}
+
 	data, err := json.Marshal(all.messages[*channelID])
 	if err != nil {
 		return err
@@ -450,6 +495,13 @@ func (all *actionLeaseList) loadLeaseMessages(channelID *id.ID) (
 
 	var messages map[leaseFingerprintKey]*leaseMessage
 	return messages, json.Unmarshal(obj.Data, &messages)
+}
+
+// deleteLeaseMessages deletes the list of leaseMessage from storage that is
+// keyed on the channel ID.
+func (all *actionLeaseList) deleteLeaseMessages(channelID *id.ID) error {
+	return all.kv.Delete(
+		makeChannelLeaseMessagesKey(channelID), channelLeaseMessagesVer)
 }
 
 // makeChannelLeaseMessagesKey creates a key for saving channel lease messages

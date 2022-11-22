@@ -47,6 +47,7 @@ func Test_newOrLoadActionLeaseList(t *testing.T) {
 
 	all.addLeaseMessage = expected.addLeaseMessage
 	all.removeLeaseMessage = expected.removeLeaseMessage
+	all.removeChannelCh = expected.removeChannelCh
 	if !reflect.DeepEqual(expected, all) {
 		t.Errorf("New actionLeaseList does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, all)
@@ -70,6 +71,7 @@ func Test_newOrLoadActionLeaseList(t *testing.T) {
 
 	all.addLeaseMessage = loadedAll.addLeaseMessage
 	all.removeLeaseMessage = loadedAll.removeLeaseMessage
+	all.removeChannelCh = loadedAll.removeChannelCh
 	if !reflect.DeepEqual(all, loadedAll) {
 		t.Errorf("Loaded actionLeaseList does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", all, loadedAll)
@@ -84,6 +86,7 @@ func Test_newActionLeaseList(t *testing.T) {
 		messages:           make(map[id.ID]map[leaseFingerprintKey]*leaseMessage),
 		addLeaseMessage:    make(chan *leaseMessage, addLeaseMessageChanSize),
 		removeLeaseMessage: make(chan *leaseMessage, removeLeaseMessageChanSize),
+		removeChannelCh:    make(chan *id.ID, removeChannelChChanSize),
 		triggerFn:          nil,
 		kv:                 kv,
 	}
@@ -91,6 +94,7 @@ func Test_newActionLeaseList(t *testing.T) {
 	all := newActionLeaseList(nil, kv)
 	all.addLeaseMessage = expected.addLeaseMessage
 	all.removeLeaseMessage = expected.removeLeaseMessage
+	all.removeChannelCh = expected.removeChannelCh
 
 	if !reflect.DeepEqual(expected, all) {
 		t.Errorf("New actionLeaseList does not match expected."+
@@ -701,6 +705,81 @@ func Test_actionLeaseList_updateLease(t *testing.T) {
 	}
 }
 
+// Tests that actionLeaseList._removeChannel removes all the messages from both
+// the lease list and the message map for the given channel and that the lease
+// list remains in the correct order after removal.
+func Test_actionLeaseList__removeChannel(t *testing.T) {
+	prng := rand.New(rand.NewSource(32))
+	all := newActionLeaseList(nil, versioned.NewKV(ekv.MakeMemstore()))
+
+	const m, n, o = 20, 5, 3
+	expected := make([]*leaseMessage, 0, m*n*o)
+	for i := 0; i < m; i++ {
+		// Make multiple messages with same channel ID
+		channelID := newRandomChanID(prng, t)
+
+		for j := 0; j < n; j++ {
+			// Make multiple messages with same payload (but different actions
+			// and leases)
+			payload := newRandomPayload(prng, t)
+
+			for k := 0; k < o; k++ {
+				lm := &leaseMessage{
+					ChannelID: channelID,
+					Action:    MessageType(k),
+					Payload:   payload,
+					LeaseEnd:  newRandomLeaseEnd(prng, t).UnixNano(),
+				}
+				fp := newLeaseFingerprint(channelID, lm.Action, payload)
+				err := all._addMessage(lm)
+				if err != nil {
+					t.Errorf("Failed to add message: %+v", err)
+				}
+
+				expected = append(expected, all.messages[*channelID][fp.key()])
+			}
+		}
+	}
+
+	// Check that the message map has all the expected messages
+	for i, exp := range expected {
+		fp := newLeaseFingerprint(exp.ChannelID, exp.Action, exp.Payload)
+		if messages, exists := all.messages[*exp.ChannelID]; !exists {
+			t.Errorf("Channel %s does not exist (%d).", exp.ChannelID, i)
+		} else if lm, exists2 := messages[fp.key()]; !exists2 {
+			t.Errorf("No lease message found with key %s (%d).", fp.key(), i)
+		} else {
+			if !reflect.DeepEqual(exp, lm) {
+				t.Errorf("leaseMessage does not match expected (%d)."+
+					"\nexpected: %+v\nreceived: %+v", i, exp, lm)
+			}
+		}
+	}
+
+	// Get random channel ID
+	var channelID id.ID
+	for channelID = range all.messages {
+		break
+	}
+
+	err := all._removeChannel(&channelID)
+	if err != nil {
+		t.Errorf("Failed to remove channel: %+v", err)
+	}
+
+	for e := all.leases.Front(); e != nil && e.Next() != nil; e = e.Next() {
+		// Check that the message does not exist in the list
+		if e.Value.(*leaseMessage).ChannelID.Cmp(&channelID) {
+			t.Errorf(
+				"Found lease message from channel %s: %+v", channelID, e.Value)
+		}
+		if e.Value.(*leaseMessage).LeaseEnd >
+			e.Next().Value.(*leaseMessage).LeaseEnd {
+			t.Errorf("Lease list not in order.")
+		}
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -900,6 +979,42 @@ func Test_actionLeaseList_storeLeaseMessages_loadLeaseMessages(t *testing.T) {
 	}
 }
 
+// Tests that actionLeaseList.storeLeaseMessages deletes the lease message file
+// from storage when the list is empty.
+func Test_actionLeaseList_storeLeaseMessages_EmptyList(t *testing.T) {
+	prng := rand.New(rand.NewSource(32))
+	all := newActionLeaseList(nil, versioned.NewKV(ekv.MakeMemstore()))
+	channelID := newRandomChanID(prng, t)
+	all.messages[*channelID] = make(map[leaseFingerprintKey]*leaseMessage)
+
+	for i := 0; i < 15; i++ {
+		lm := &leaseMessage{
+			ChannelID: channelID,
+			Action:    newRandomAction(prng, t),
+			Payload:   newRandomPayload(prng, t),
+			LeaseEnd:  newRandomLeaseEnd(prng, t).UnixNano(),
+		}
+		fp := newLeaseFingerprint(lm.ChannelID, lm.Action, lm.Payload)
+		all.messages[*channelID][fp.key()] = lm
+	}
+
+	err := all.storeLeaseMessages(channelID)
+	if err != nil {
+		t.Errorf("Failed to store messages: %+v", err)
+	}
+
+	all.messages[*channelID] = make(map[leaseFingerprintKey]*leaseMessage)
+	err = all.storeLeaseMessages(channelID)
+	if err != nil {
+		t.Errorf("Failed to store messages: %+v", err)
+	}
+
+	_, err = all.loadLeaseMessages(channelID)
+	if err == nil || all.kv.Exists(err) {
+		t.Fatalf("Failed to delete lease messages: %+v", err)
+	}
+}
+
 // Error path: Tests that actionLeaseList.loadLeaseMessages returns an error
 // when trying to load when nothing was saved.
 func Test_actionLeaseList_loadLeaseMessages_StorageError(t *testing.T) {
@@ -910,6 +1025,41 @@ func Test_actionLeaseList_loadLeaseMessages_StorageError(t *testing.T) {
 	if err == nil || all.kv.Exists(err) {
 		t.Errorf("Failed to return expected error when nothing exists to load."+
 			"\nexpected: %v\nreceived: %+v", os.ErrNotExist, err)
+	}
+}
+
+// Tests that actionLeaseList.deleteLeaseMessages removes the lease messages
+// from storage.
+func Test_actionLeaseList_deleteLeaseMessages(t *testing.T) {
+	prng := rand.New(rand.NewSource(32))
+	all := newActionLeaseList(nil, versioned.NewKV(ekv.MakeMemstore()))
+	channelID := newRandomChanID(prng, t)
+	all.messages[*channelID] = make(map[leaseFingerprintKey]*leaseMessage)
+
+	for i := 0; i < 15; i++ {
+		lm := &leaseMessage{
+			ChannelID: channelID,
+			Action:    newRandomAction(prng, t),
+			Payload:   newRandomPayload(prng, t),
+			LeaseEnd:  newRandomLeaseEnd(prng, t).UnixNano(),
+		}
+		fp := newLeaseFingerprint(lm.ChannelID, lm.Action, lm.Payload)
+		all.messages[*channelID][fp.key()] = lm
+	}
+
+	err := all.storeLeaseMessages(channelID)
+	if err != nil {
+		t.Errorf("Failed to store messages: %+v", err)
+	}
+
+	err = all.deleteLeaseMessages(channelID)
+	if err != nil {
+		t.Errorf("Failed to delete messages: %+v", err)
+	}
+
+	_, err = all.loadLeaseMessages(channelID)
+	if err == nil || all.kv.Exists(err) {
+		t.Fatalf("Failed to delete lease messages: %+v", err)
 	}
 }
 

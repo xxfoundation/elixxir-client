@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
@@ -29,6 +30,8 @@ import (
 const (
 	cmixChannelTextVersion     = 0
 	cmixChannelReactionVersion = 0
+	cmixChannelDeleteVersion   = 0
+	cmixChannelPinVersion      = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -49,6 +52,10 @@ const (
 	// SendPinnedTag is the base tag used when generating a debug tag for a
 	// pinned message.
 	SendPinnedTag = "ChPinned"
+
+	// SendMuteTag is the base tag used when generating a debug tag for a mute
+	// message.
+	SendMuteTag = "ChMute"
 )
 
 // The size of the nonce used in the message ID.
@@ -64,6 +71,12 @@ const messageNonceSize = 4
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+
+	// Reject the send if the user is muted in the channel they are sending to
+	if m.events.mutedUsers.isMuted(channelID, m.me.PubKey) {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf("user muted in channel %s", channelID)
+	}
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
@@ -223,7 +236,7 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	} else if n != messageNonceSize {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf(
-				"Generated %d bytes for %-byte nonce", n, messageNonceSize)
+				"Generated %d bytes for %d-byte nonce", n, messageNonceSize)
 	}
 
 	// Note: we are not checking if message is too long before trying to
@@ -341,8 +354,7 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil,
-		params)
+	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
 }
 
 // SendReaction is used to send a reaction to a message over a channel. The
@@ -355,7 +367,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
-	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, channelID, reactTo)
+	jww.INFO.Printf("[%s]SendReaction(%s, to %s)", tag, channelID, reactTo)
 
 	if err := ValidateReaction(reaction); err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
@@ -378,12 +390,125 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		channelID, Reaction, reactMarshaled, ValidForever, params)
 }
 
+// DeleteMessage deletes the targeted message from user's view. Users may delete
+// their own messages (by leaving the private key as nil) but only the channel
+// admin can delete other user's messages.
+//
+// If undoAction is true, then the targeted message is un-deleted.
+//
+// Clients will drop the deletion if they do not recognize the target message.
+func (m *manager) DeleteMessage(privKey rsa.PrivateKey, channelID *id.ID,
+	targetMessage cryptoChannel.MessageID, undoAction bool,
+	params cmix.CMIXParams) (
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
+	jww.INFO.Printf(
+		"[%s]DeleteMessage(%s, delete %s)", tag, channelID, targetMessage)
+
+	if privKey == nil {
+		msg, err := m.events.model.GetMessage(targetMessage)
+		if err != nil {
+			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+				errors.Errorf("failed to find targeted message %s to delete",
+					targetMessage)
+		}
+
+		if !bytes.Equal(msg.PubKey, m.me.PubKey) {
+			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+				errors.Errorf("can only delete message you are sender of or " +
+					"if you are the channel admin.")
+		}
+	}
+
+	deleteMessage := &CMIXChannelDelete{
+		Version:    cmixChannelDeleteVersion,
+		MessageID:  targetMessage.Bytes(),
+		UndoAction: undoAction,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	deleteMarshaled, err := proto.Marshal(deleteMessage)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	if privKey == nil {
+		return m.SendGeneric(
+			channelID, Delete, deleteMarshaled, ValidForever, params)
+	} else {
+		return m.SendAdminGeneric(
+			privKey, channelID, Delete, deleteMarshaled, ValidForever, params)
+	}
+}
+
+// PinMessage pins the target message to the top of a channel view for all
+// users in the specified channel. Only the channel admin can pin user messages.
+//
+// If undoAction is true, then the targeted message is unpinned.
+//
+// Clients will drop the pin if they do not recognize the target message.
+func (m *manager) PinMessage(privKey rsa.PrivateKey, channelID *id.ID,
+	targetMessage cryptoChannel.MessageID, undoAction bool,
+	params cmix.CMIXParams) (
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
+	jww.INFO.Printf(
+		"[%s]PinMessage(%s, delete %s)", tag, channelID, targetMessage)
+
+	pinnedMessage := &CMIXChannelPinned{
+		Version:    cmixChannelPinVersion,
+		MessageID:  targetMessage.Bytes(),
+		UndoAction: undoAction,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	pinnedMarshaled, err := proto.Marshal(pinnedMessage)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return m.SendAdminGeneric(
+		privKey, channelID, Pinned, pinnedMarshaled, ValidForever, params)
+}
+
+// MuteUser is used to mute a user in a channel. Muting a user will cause all
+// future messages from the user being hidden from view. Muted users are also
+// unable to send messages. Only the channel admin can mute a user.
+//
+// If undoAction is true, then the targeted user will be unmuted.
+func (m *manager) MuteUser(privKey rsa.PrivateKey, channelID *id.ID,
+	mutedUser ed25519.PublicKey, undoAction bool, params cmix.CMIXParams) (
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(channelID, m.me.PubKey, mutedUser, SendMuteTag)
+	jww.INFO.Printf("[%s]MuteUser(%s, mute %x)", tag, channelID, mutedUser)
+
+	muteMessage := &CMIXChannelMute{
+		Version:    cmixChannelPinVersion,
+		PubKey:     mutedUser,
+		UndoAction: undoAction,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	mutedMarshaled, err := proto.Marshal(muteMessage)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return m.SendAdminGeneric(
+		privKey, channelID, Mute, mutedMarshaled, ValidForever, params)
+}
+
 // makeChaDebugTag is a debug helper that creates non-unique msg identifier.
 //
 // This is set as the debug tag on messages and enables some level of tracing a
 // message (if its contents/chan/type are unique).
-func makeChaDebugTag(channelID *id.ID, id ed25519.PublicKey,
-	msg []byte, baseTag string) string {
+func makeChaDebugTag(
+	channelID *id.ID, id ed25519.PublicKey, msg []byte, baseTag string) string {
 
 	h, _ := blake2b.New256(nil)
 	h.Write(channelID[:])

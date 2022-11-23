@@ -99,9 +99,10 @@ const (
 
 	///////////////// Channels subcommand flags ///////////////////////////////
 	channelsNameFlag             = "name"
-	channelsChanIdentityPathFlag = "chanIdPath"
-	channelsChanPathFlag         = "chanPath"
+	channelsChanIdentityPathFlag = "channelIdentityPath"
+	channelsChanPathFlag         = "channelPath"
 	channelsDescriptionFlag      = "description"
+	channelsJoinFlag             = "join"
 	channelsKeyPathFlag          = "keyPath"
 	channelsLeaveFlag            = "leave"
 	channelsNewFlag              = "new"

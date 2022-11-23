@@ -55,11 +55,29 @@ var channelsCmd = &cobra.Command{
 
 		/* Set up underlying crypto broadcast.Channel */
 		var channelIdentity cryptoChannel.PrivateIdentity
-		if viper.IsSet(channelsChanIdentityPathFlag) {
-			channelIdentity, err = readChannelIdentity()
+
+		// Construct mock event model builder
+		mockEventModel := eventModel{}
+		mockEventModelBuilder := func(path string) (channels.EventModel, error) {
+			return mockEventModel, nil
+		}
+
+		// Load path of channel identity
+		path, err := utils.ExpandPath(viper.GetString(channelsChanIdentityPathFlag))
+		if err != nil {
+			jww.FATAL.Panicf("Failed to expand file path: %+v",
+				err)
+		}
+
+		// Read or create new channel identity
+		if utils.Exists(path) {
+			// Load channel idenity
+			channelIdentity, err = readChannelIdentity(path)
 			if err != nil {
-				jww.FATAL.Panicf("[%s] Failed to read channel identity: %+v", channelsPrintHeader, err)
+				jww.FATAL.Panicf("[%s] Failed to read channel identity: %+v",
+					channelsPrintHeader, err)
 			}
+
 		} else {
 			// Generate channel identity if extant one does not exist
 			channelIdentity, err = cryptoChannel.GenerateIdentity(rng)
@@ -67,11 +85,12 @@ var channelsCmd = &cobra.Command{
 				jww.FATAL.Panicf("[%s] Failed to generate identity for channel: %+v",
 					channelsPrintHeader, err)
 			}
-		}
 
-		// Construct mock event model builder
-		mockEventModelBuilder := func(path string) (channels.EventModel, error) {
-			return mockEventModel{}, nil
+			err = utils.WriteFileDef(path, channelIdentity.Marshal())
+			if err != nil {
+				jww.FATAL.Panicf("[%s] Failed to write channel identity to file: %+v",
+					channelsPrintHeader, err)
+			}
 		}
 
 		// Construct channels manager
@@ -83,21 +102,14 @@ var channelsCmd = &cobra.Command{
 				channelsPrintHeader, err)
 		}
 
-		// Load in channel info
-		name := viper.GetString(channelsNameFlag)
-		desc := viper.GetString(channelsDescriptionFlag)
-		if name == "" {
-			jww.FATAL.Panicf("[%s] Name cannot be empty", channelsPrintHeader)
-		} else if desc == "" {
-			jww.FATAL.Panicf("[%s] Description cannot be empty", channelsPrintHeader)
-		}
+		mockEventModel.api = chanManager
 
+		// Load in channel info
 		var channel *cryptoBroadcast.Channel
-		keyPath := viper.GetString(channelsKeyPathFlag)
 		chanPath := viper.GetString(channelsChanPathFlag)
 		// Create new channel
 		if viper.GetBool(channelsNewFlag) {
-			channel, err = createNewChannel(name, desc, keyPath, chanPath, user)
+			channel, err = createNewChannel(chanPath, user)
 			if err != nil {
 				jww.FATAL.Panicf("[%s] Failed to create new channel: %+v",
 					channelsPrintHeader, err)
@@ -117,11 +129,14 @@ var channelsCmd = &cobra.Command{
 			}
 		}
 
-		// Join channel
-		err = chanManager.JoinChannel(channel)
-		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to join channel: %+v",
-				channelsPrintHeader, err)
+		// Only join if we created it or are told to join
+		if viper.GetBool(channelsNewFlag) || viper.IsSet(channelsJoinFlag) {
+			// Join channel
+			err = chanManager.JoinChannel(channel)
+			if err != nil {
+				jww.FATAL.Panicf("[%s] Failed to join channel: %+v",
+					channelsPrintHeader, err)
+			}
 		}
 
 		// Register a callback for the expected message to be received.
@@ -133,18 +148,11 @@ var channelsCmd = &cobra.Command{
 
 		// Send message
 		if viper.IsSet(channelsSendFlag) {
-			message := viper.GetString(channelsSendFlag)
-			chanMsgId, round, _, err := chanManager.SendMessage(
-				channel.ReceptionID, message, 5*time.Second,
-				cmix.GetDefaultCMIXParams())
+			err = sendMessageToChannel(chanManager, channel)
 			if err != nil {
-				jww.FATAL.Panicf("[%s] Failed to send message to channel: %+v",
+				jww.FATAL.Panicf("[%s] Failed to send message: %+v",
 					channelsPrintHeader, err)
 			}
-
-			jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with message ID %s on round %d",
-				channelsPrintHeader, message, channel.Name, channel.ReceptionID, chanMsgId, round.ID)
-			fmt.Printf("Sent message (%s) to channel %s\n", message, channel.Name)
 		}
 
 		// Leave channel
@@ -162,8 +170,18 @@ var channelsCmd = &cobra.Command{
 }
 
 // createNewChannel is a helper function which creates a new channel.
-func createNewChannel(name, desc, keyPath, chanPath string,
-	user *xxdk.E2e) (*cryptoBroadcast.Channel, error) {
+func createNewChannel(chanPath string, user *xxdk.E2e) (
+	*cryptoBroadcast.Channel, error) {
+
+	keyPath := viper.GetString(channelsKeyPathFlag)
+	name := viper.GetString(channelsNameFlag)
+	desc := viper.GetString(channelsDescriptionFlag)
+	if name == "" {
+		jww.FATAL.Panicf("[%s] Name cannot be empty", channelsPrintHeader)
+	} else if desc == "" {
+		jww.FATAL.Panicf("[%s] Description cannot be empty", channelsPrintHeader)
+	}
+
 	// Create a new  channel
 	channel, pk, err := cryptoBroadcast.NewChannel(name, desc,
 		cryptoBroadcast.Public,
@@ -178,9 +196,9 @@ func createNewChannel(name, desc, keyPath, chanPath string,
 			jww.ERROR.Printf("Failed to write private key to path %s: %+v", keyPath, err)
 		}
 	} else {
-		fmt.Printf("Private key generated for channel: %+v", pk.MarshalPem())
+		jww.INFO.Printf("Private key generated for channel: %+v\n", pk.MarshalPem())
 	}
-	fmt.Printf("New channel generated")
+	fmt.Printf("New channel generated\n")
 
 	// Write channel to file
 	marshalledChan, err := channel.Marshal()
@@ -196,6 +214,26 @@ func createNewChannel(name, desc, keyPath, chanPath string,
 
 	return channel, nil
 
+}
+
+// sendMessageToChannel is a helper function which will send a message to a
+// channel.
+func sendMessageToChannel(chanManager channels.Manager,
+	channel *cryptoBroadcast.Channel) error {
+	message := viper.GetString(channelsSendFlag)
+	chanMsgId, round, _, err := chanManager.SendMessage(
+		channel.ReceptionID, message, 5*time.Second,
+		cmix.GetDefaultCMIXParams())
+	if err != nil {
+		return errors.Errorf("%+v", err)
+	}
+
+	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with message ID %s on round %d",
+		channelsPrintHeader, message,
+		channel.Name, channel.ReceptionID, chanMsgId, round.ID)
+	fmt.Printf("Sent message (%s) to channel %s\n", message, channel.Name)
+
+	return nil
 }
 
 // makeChannelReceptionHandler is a helper function which will register with the
@@ -225,13 +263,7 @@ func makeChannelReceptionHandler(msgType channels.MessageType,
 }
 
 // readChannelIdentity is a helper function to read a channel identity.
-func readChannelIdentity() (cryptoChannel.PrivateIdentity, error) {
-	path, err := utils.ExpandPath(viper.GetString(channelsChanIdentityPathFlag))
-	if err != nil {
-		return cryptoChannel.PrivateIdentity{},
-			errors.Errorf("Failed to expand file path: %+v",
-				err)
-	}
+func readChannelIdentity(path string) (cryptoChannel.PrivateIdentity, error) {
 	// Load channel identity from path if given from path
 	cBytes, err := utils.ReadFile(path)
 	if err != nil {
@@ -249,18 +281,20 @@ func readChannelIdentity() (cryptoChannel.PrivateIdentity, error) {
 	return channelIdentity, nil
 }
 
-// mockEventModel is the CLI implementation of the channels.EventModel interface.
-type mockEventModel struct{}
+// eventModel is the CLI implementation of the channels.EventModel interface.
+type eventModel struct {
+	api channels.Manager
+}
 
-func (m mockEventModel) JoinChannel(channel *cryptoBroadcast.Channel) {
+func (m eventModel) JoinChannel(channel *cryptoBroadcast.Channel) {
 	jww.WARN.Printf("JoinChannel is unimplemented in the CLI event model!")
 }
 
-func (m mockEventModel) LeaveChannel(channelID *id.ID) {
+func (m eventModel) LeaveChannel(channelID *id.ID) {
 	jww.WARN.Printf("LeaveChannel is unimplemented in the CLI event model!")
 }
 
-func (m mockEventModel) ReceiveMessage(channelID *id.ID,
+func (m eventModel) ReceiveMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, nickname, text string, pubKey ed25519.PublicKey,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
@@ -268,25 +302,33 @@ func (m mockEventModel) ReceiveMessage(channelID *id.ID,
 	return 0
 }
 
-func (m mockEventModel) ReceiveReply(channelID *id.ID,
+func (m *eventModel) ReceiveReply(channelID *id.ID,
 	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
 	nickname, text string, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
-	jww.WARN.Printf("ReceiveReply is unimplemented in the CLI event model!")
+	c, err := m.api.GetChannel(channelID)
+	if err != nil {
+		jww.FATAL.Panicf("[%] Failed to get channel with ID %s", channelID)
+	}
+	fmt.Printf("Received reply for channel %s\n", c.Name)
 	return 0
 }
 
-func (m mockEventModel) ReceiveReaction(channelID *id.ID,
+func (m *eventModel) ReceiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
 	nickname, reaction string, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
-	jww.WARN.Printf("ReceiveReaction is unimplemented in the CLI event model!")
+	c, err := m.api.GetChannel(channelID)
+	if err != nil {
+		jww.FATAL.Panicf("[%] Failed to get channel with ID %s", channelID)
+	}
+	fmt.Printf("Received reaction for channel %s\n", c.Name)
 	return 0
 }
 
-func (m mockEventModel) UpdateSentStatus(uuid uint64,
+func (m eventModel) UpdateSentStatus(uuid uint64,
 	messageID cryptoChannel.MessageID, timestamp time.Time, round rounds.Round,
 	status channels.SentStatus) {
 	jww.WARN.Printf("UpdateSentStatus is unimplemented in the CLI event model!")

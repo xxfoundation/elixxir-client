@@ -68,14 +68,8 @@ message UserMessage {
 // DirectMessage is a message sent directly from one user to another. It
 // includes the return information (public key and dmtoken) for the sender.
 message DirectMessage{
-    // Lease is the length that this channel message will take effect.
-    int64 Lease = 1;
-
     // The round this message was sent on.
     uint64 RoundID = 2;
-
-    // ECCPublicKey is the senders's EC Public key.
-    bytes ECCPublicKey = 3;
 
     bytes DMToken = 4;  // hash of private key of the sender
 
@@ -101,5 +95,4 @@ message DirectMessage{
     // round it sent on is queued, then a random mutation on the queued time
     // (+/- 200ms) will be used by local clients instead.
     int64 LocalTimestamp = 9;
-
 }

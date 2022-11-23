@@ -89,7 +89,7 @@ var crustCmd = &cobra.Command{
 		// Retrieve the file that either will be uploaded or has been uploaded
 		// depending on if triggering the upload or the recover.
 		filePath := viper.GetString(crustFile)
-		backupFile, err := utils.ReadFile(filePath)
+		file, err := utils.ReadFile(filePath)
 		if err != nil {
 			jww.FATAL.Panicf("%v", err)
 		}
@@ -111,6 +111,8 @@ var crustCmd = &cobra.Command{
 			if err != nil {
 				jww.FATAL.Panicf("Failed to retrieve private key: %+v", err)
 			}
+
+			backupFile := crust.NewBackupFile(filePath, file)
 
 			// Upload file to Crust
 			uploadReport, err := crust.UploadBackup(backupFile, userPrivKey,
@@ -137,11 +139,11 @@ var crustCmd = &cobra.Command{
 			}
 
 			// Check that recovered file matches originally backed up file.
-			if !bytes.Equal(backupFile, recoveredFile) {
+			if !bytes.Equal(file, recoveredFile) {
 				jww.FATAL.Panicf("Recovered file does not match originally "+
 					"backed up file!"+
 					"\n\tOriginal: %v"+
-					"\n\tReceived: %v", backupFile, recoveredFile)
+					"\n\tReceived: %v", file, recoveredFile)
 			}
 
 			jww.INFO.Printf("[CRUST] Successfully recovered file")

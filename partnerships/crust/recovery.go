@@ -43,7 +43,7 @@ func RecoverBackup(usernameHash string) ([]byte, error) {
 	jww.INFO.Printf("[CRUST] Requesting CID from Crust...")
 	cidResp, err := requestCid(usernameHash)
 	if err != nil {
-		return nil, errors.Errorf("failed to retrieve CID: %+v", err)
+		return nil, errors.Errorf("failed to request CID: %+v", err)
 	}
 
 	jww.INFO.Printf("[CRUST] Received CID from Crust.")
@@ -79,7 +79,7 @@ func requestCid(usernameHash string) (*cidResponse, error) {
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("failed request: %+v", err)
 	}
 
 	// Parse request
@@ -114,7 +114,7 @@ func requestBackupFile(cid *cidResponse) ([]byte, error) {
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("failed request: %+v", err)
 	}
 
 	// Parse response

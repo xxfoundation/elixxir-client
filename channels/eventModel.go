@@ -170,7 +170,7 @@ type EventModel interface {
 	// downstream databases.
 	ReceiveDM(messageID cryptoChannel.MessageID,
 		nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
-		codeset uint8, timestamp time.Time, lease time.Duration,
+		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status SentStatus) uint64
 
 	// ReceiveDMReply is called whenever a direct message is
@@ -198,7 +198,7 @@ type EventModel interface {
 	ReceiveDMReply(messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, text string,
 		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
-		timestamp time.Time, lease time.Duration, round rounds.Round,
+		timestamp time.Time, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
 
 	// ReceiveDMReaction is called whenever a reaction to a direct
@@ -226,7 +226,7 @@ type EventModel interface {
 	ReceiveDMReaction(messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, reaction string,
 		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
-		timestamp time.Time, lease time.Duration, round rounds.Round,
+		timestamp time.Time, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
@@ -270,7 +270,7 @@ type MessageTypeReceiveMessage func(channelID *id.ID,
 type MessageTypeReceiveDM func(messageID cryptoChannel.MessageID,
 	messageType MessageType, nickname string, content []byte,
 	pubKey ed25519.PublicKey, dmToken []byte,
-	codeset uint8, timestamp time.Time, lease time.Duration,
+	codeset uint8, timestamp time.Time,
 	round rounds.Round, status SentStatus) uint64
 
 // updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
@@ -392,7 +392,8 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 // reception on a direct message received from a user.
 //
 // It will call the appropriate MessageTypeHandler assuming one exists.
-func (e *events) triggerDMEvent(msgID channel.MessageID, dmi *DirectMessage,
+func (e *events) triggerDMEvent(msgID channel.MessageID,
+	partnerPubKey ed25519.PublicKey, dmi *DirectMessage,
 	ts time.Time, _ receptionID.EphemeralIdentity, round rounds.Round,
 	status SentStatus) (uint64, error) {
 
@@ -406,7 +407,7 @@ func (e *events) triggerDMEvent(msgID channel.MessageID, dmi *DirectMessage,
 		errStr := fmt.Sprintf("Received direct message from %x in "+
 			"round %d which could not be handled due to "+
 			"unregistered message type %s; Contents: %v",
-			dmi.ECCPublicKey, round.ID, messageType, dmi.Payload)
+			partnerPubKey, round.ID, messageType, dmi.Payload)
 		jww.WARN.Printf(errStr)
 		return 0, errors.New(errStr)
 	}
@@ -414,8 +415,7 @@ func (e *events) triggerDMEvent(msgID channel.MessageID, dmi *DirectMessage,
 	// Call the listener. This is already in an instanced event;
 	// no new thread is needed.
 	uuid := listener(msgID, messageType, dmi.Nickname, dmi.Payload,
-		dmi.ECCPublicKey, dmi.DMToken, 0, round.GetEndTimestamp(),
-		time.Duration(dmi.Lease),
+		partnerPubKey, dmi.DMToken, 0, round.GetEndTimestamp(),
 		round, status)
 	return uuid, nil
 }
@@ -579,14 +579,14 @@ func (e *events) receiveReaction(channelID *id.ID,
 func (e *events) receiveDMTextMessage(messageID cryptoChannel.MessageID,
 	messageType MessageType, nickname string, content []byte,
 	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
+	timestamp time.Time, round rounds.Round,
 	status SentStatus) uint64 {
 	txt := &CMIXChannelText{}
 
 	if err := proto.Unmarshal(content, txt); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal DM %s from %x"+
-			", type %s, ts: %s, lease: %s, round: %d: %+v",
-			messageID, pubKey, messageType, timestamp, lease,
+			", type %s, ts: %s, round: %d: %+v",
+			messageID, pubKey, messageType, timestamp,
 			round.ID, err)
 		return 0
 	}
@@ -605,17 +605,17 @@ func (e *events) receiveDMTextMessage(messageID cryptoChannel.MessageID,
 					txt.ReplyMessageID))
 			return e.model.ReceiveDMReply(messageID,
 				replyTo, nickname, txt.Text, pubKey,
-				dmToken, codeset, timestamp, lease,
+				dmToken, codeset, timestamp,
 				round, Text, status)
 
 		} else {
 			jww.ERROR.Printf("Failed process DM reply to for "+
 				"message %s from public key %v "+
 				"(codeset %d) on type %s, "+
-				"ts: %s, "+"lease: %s, round: %d, "+
+				"ts: %s, round: %d, "+
 				"returning without reply",
 				messageID, pubKey, codeset,
-				messageType, timestamp, lease,
+				messageType, timestamp,
 				round.ID)
 			// Still process the message, but drop the
 			// reply because it is malformed
@@ -628,7 +628,7 @@ func (e *events) receiveDMTextMessage(messageID cryptoChannel.MessageID,
 		base64.StdEncoding.EncodeToString(txt.ReplyMessageID))
 
 	return e.model.ReceiveDM(messageID, nickname, txt.Text,
-		pubKey, dmToken, codeset, timestamp, lease, round, Text, status)
+		pubKey, dmToken, codeset, timestamp, round, Text, status)
 }
 
 // receiveReaction is the internal function that handles the reception of
@@ -641,14 +641,14 @@ func (e *events) receiveDMTextMessage(messageID cryptoChannel.MessageID,
 func (e *events) receiveDMReaction(messageID cryptoChannel.MessageID,
 	messageType MessageType, nickname string, content []byte,
 	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
+	timestamp time.Time, round rounds.Round,
 	status SentStatus) uint64 {
 	react := &CMIXChannelReaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal DM %s from %x"+
-			", type %s, ts: %s, lease: %s, round: "+
+			", type %s, ts: %s, round: "+
 			"%d: %+v",
-			messageID, pubKey, messageType, timestamp, lease,
+			messageID, pubKey, messageType, timestamp,
 			round.ID, err)
 		return 0
 	}
@@ -656,9 +656,9 @@ func (e *events) receiveDMReaction(messageID cryptoChannel.MessageID,
 	// check that the reaction is a single emoji and ignore if it isn't
 	if err := ValidateReaction(react.Reaction); err != nil {
 		jww.ERROR.Printf("Failed process DM reaction %s from %x"+
-			", type %s, ts: %s, lease: %s, round: %d, due to "+
+			", type %s, ts: %s, round: %d, due to "+
 			"malformed reaction (%s), ignoring reaction",
-			messageID, pubKey, messageType, timestamp, lease,
+			messageID, pubKey, messageType, timestamp,
 			round.ID, err)
 		return 0
 	}
@@ -678,15 +678,15 @@ func (e *events) receiveDMReaction(messageID cryptoChannel.MessageID,
 
 		return e.model.ReceiveDMReaction(messageID, reactTo, nickname,
 			react.Reaction, pubKey, dmToken, codeset, timestamp,
-			lease, round, Reaction,
+			round, Reaction,
 			status)
 	} else {
 		jww.ERROR.Printf("Failed process DM reaction %s from public "+
-			"key %v (codeset %d), type %s, ts: %s, lease: %s, "+
+			"key %v (codeset %d), type %s, ts: %s, "+
 			"round: %d, reacting to invalid message, "+
 			"ignoring reaction",
 			messageID, pubKey, codeset, messageType, timestamp,
-			lease, round.ID)
+			round.ID)
 	}
 	return 0
 }

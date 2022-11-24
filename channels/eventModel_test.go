@@ -104,7 +104,7 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 func (m *MockEvent) ReceiveDM(messageID cryptoChannel.MessageID,
 	nickname, text string,
 	_ ed25519.PublicKey, _ []byte, _ uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, _ MessageType,
+	round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		messageID:  messageID,
@@ -112,7 +112,6 @@ func (m *MockEvent) ReceiveDM(messageID cryptoChannel.MessageID,
 		nickname:   nickname,
 		content:    []byte(text),
 		timestamp:  timestamp,
-		lease:      lease,
 		round:      round,
 	}
 	return m.getUUID()
@@ -120,7 +119,7 @@ func (m *MockEvent) ReceiveDM(messageID cryptoChannel.MessageID,
 func (m *MockEvent) ReceiveDMReply(messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID,
 	nickname, text string, _ ed25519.PublicKey, _ []byte, _ uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
+	timestamp time.Time, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		messageID:  messageID,
@@ -128,7 +127,6 @@ func (m *MockEvent) ReceiveDMReply(messageID cryptoChannel.MessageID,
 		nickname:   nickname,
 		content:    []byte(text),
 		timestamp:  timestamp,
-		lease:      lease,
 		round:      round,
 	}
 	return m.getUUID()
@@ -136,7 +134,7 @@ func (m *MockEvent) ReceiveDMReply(messageID cryptoChannel.MessageID,
 func (m *MockEvent) ReceiveDMReaction(messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID,
 	nickname, reaction string, _ ed25519.PublicKey, _ []byte, _ uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
+	timestamp time.Time, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		messageID:  messageID,
@@ -144,7 +142,6 @@ func (m *MockEvent) ReceiveDMReaction(messageID cryptoChannel.MessageID,
 		nickname:   nickname,
 		content:    []byte(reaction),
 		timestamp:  timestamp,
-		lease:      lease,
 		round:      round,
 	}
 	return m.getUUID()

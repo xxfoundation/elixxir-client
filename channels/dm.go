@@ -109,6 +109,13 @@ func GetDMNIKEPublicKey(publicEdwardsKey *ed25519.PublicKey) nike.PublicKey {
 	return publicKey
 }
 
+// GetDMNIKEPublicKey converts a public key from a signing key to a NIKE
+// (key exchange compatible) version of the the public key.
+func GetDMSigningPublicKey(publicKey nike.PublicKey) *ed25519.PublicKey {
+	p := ed25519.PublicKey(publicKey.Bytes())
+	return &p
+}
+
 // GetDMNIKEPrivateKey converts a private key from a signing key to a NIKE
 // (key exchange compatible) version of the the private key.
 func GetDMNIKEPrivateKey(privateEdwardsKey *ed25519.PrivateKey) nike.PrivateKey {
@@ -189,8 +196,6 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 	}
 
 	directMessage := &DirectMessage{
-		Lease:          0,
-		ECCPublicKey:   dc.publicKey.Bytes(),
 		DMToken:        dc.myToken,
 		PayloadType:    uint32(messageType),
 		Payload:        msg,
@@ -228,7 +233,10 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		payloadLen := (dc.net.GetMaxMessageLength() +
 			format.MacLen + format.KeyFPLen - 2)
 
-		ciphertext := dm.Cipher.Encrypt(dmSerial, partnerPubKey,
+		rng := dc.rng.GetStream()
+		defer rng.Close()
+		ciphertext := dm.Cipher.Encrypt(dmSerial, dc.privateKey,
+			partnerPubKey, rng,
 			payloadLen)
 
 		fpBytes, encryptedPayload, mac, err := dc.createCMIXFields(
@@ -257,7 +265,6 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		directMessage.RoundID = uint64(rid)
 		// NOTE: Very important to overwrite these fields
 		// for self sending!
-		directMessage.ECCPublicKey = partnerPubKey.Bytes()
 		directMessage.DMToken = partnerToken
 
 		// Serialize the message
@@ -287,7 +294,7 @@ func (dc *dmClient) Send(partnerToken []byte, partnerPubKey nike.PublicKey,
 		// FIXME: Why does this one return an error when the
 		// other doesn't!?
 		ciphertext, err := dm.Cipher.EncryptSelf(dmSerial, dc.privateKey,
-			payloadLen)
+			partnerPubKey, payloadLen)
 		if err != nil {
 			return
 		}
@@ -332,9 +339,9 @@ func (dc *dmClient) RegisterListener(listenerCb ListenerFunc,
 
 // ListenerFunc is registered when creating a new dm listener and
 // receives all new messages for the reception ID.
-type ListenerFunc func(msgID channel.MessageID, dmi *DirectMessage,
-	ts time.Time, ephID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) (uint64, error)
+type ListenerFunc func(msgID channel.MessageID, partnerPubKey ed25519.PublicKey,
+	dmi *DirectMessage, ts time.Time, ephID receptionID.EphemeralIdentity,
+	round rounds.Round, status SentStatus) (uint64, error)
 
 // processor struct for message handling
 type processor struct {
@@ -357,11 +364,12 @@ func (p *processor) Process(msg format.Message,
 
 	var payload []byte
 	var err error
+	var partnerPublicKey nike.PublicKey
 	if dm.Cipher.IsSelfEncrypted(ciphertext, p.c.privateKey) {
-		payload, err = dm.Cipher.DecryptSelf(ciphertext,
-			p.c.privateKey)
+		partnerPublicKey, payload, err = dm.Cipher.DecryptSelf(
+			ciphertext, p.c.privateKey)
 	} else {
-		payload, err = dm.Cipher.Decrypt(ciphertext,
+		partnerPublicKey, payload, err = dm.Cipher.Decrypt(ciphertext,
 			p.c.privateKey)
 	}
 	if err != nil {
@@ -384,20 +392,12 @@ func (p *processor) Process(msg format.Message,
 
 	/* CRYPTOGRAPHICALLY RELEVANT CHECKS */
 
-	// FIXME: MsgID on a send cannot match MsgID on a self send..
-	//        it's not clear how to fix that.. Maybe we need
-	//        to set the round id to the same on both send and self
-	//        send, and make this check sensitive to that?
-	//        We will also have to either wipe or change the
-	//        ECC PubKey + dmToken fields to make it work, and that
-	//        means reserializing the messge :-(
-
 	// Check the round to ensure the message is not a replay
 	if id.Round(directMsg.RoundID) != round.ID {
 		jww.WARN.Printf("The round DM %s send on %d"+
 			"by %s was not the same as the"+
 			"round the message was found on (%d)", msgID,
-			round.ID, directMsg.ECCPublicKey, directMsg.RoundID)
+			round.ID, partnerPublicKey, directMsg.RoundID)
 		return
 	}
 
@@ -411,7 +411,10 @@ func (p *processor) Process(msg format.Message,
 	ts := vetTimestamp(time.Unix(0, directMsg.LocalTimestamp),
 		round.Timestamps[states.QUEUED], msgID)
 
-	p.cb(msgID, directMsg, ts, receptionID, round, Delivered)
+	pubSigningKey := GetDMSigningPublicKey(partnerPublicKey)
+
+	p.cb(msgID, *pubSigningKey, directMsg, ts, receptionID, round,
+		Delivered)
 }
 
 // enableDirectMessageToken is a helper functions for EnableDirectMessageToken

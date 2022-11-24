@@ -690,20 +690,20 @@ func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
 }
 
 func (m *mockEventModel) ReceiveDM(cryptoChannel.MessageID, string,
-	string, ed25519.PublicKey, []byte, uint8, time.Time, time.Duration,
+	string, ed25519.PublicKey, []byte, uint8, time.Time,
 	rounds.Round, MessageType, SentStatus) uint64 {
 	return 0
 }
 
 func (m *mockEventModel) ReceiveDMReply(cryptoChannel.MessageID,
 	cryptoChannel.MessageID, string, string, ed25519.PublicKey, []byte, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+	time.Time, rounds.Round, MessageType, SentStatus) uint64 {
 	return 0
 }
 
 func (m *mockEventModel) ReceiveDMReaction(cryptoChannel.MessageID,
 	cryptoChannel.MessageID, string, string, ed25519.PublicKey, []byte, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+	time.Time, rounds.Round, MessageType, SentStatus) uint64 {
 	return 0
 }
 

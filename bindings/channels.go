@@ -1601,7 +1601,7 @@ type EventModel interface {
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveDM(messageID []byte, nickname,
 		text string, pubKey, dmToken []byte, codeset int, timestamp,
-		lease, roundId, mType, status int64) int64
+		roundId, mType, status int64) int64
 
 	// ReceiveDMReply is called whenever a direct message is
 	// received that is a reply. It may be called multiple times
@@ -1640,7 +1640,7 @@ type EventModel interface {
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveDMReply(messageID, reactionTo []byte, nickname,
 		text string, pubKey, dmToken []byte, codeset int, timestamp,
-		lease, roundId, mType, status int64) int64
+		roundId, mType, status int64) int64
 
 	// ReceiveDMReaction is called whenever a reaction to a direct
 	// message is received. It may be called multiple times on the
@@ -1679,7 +1679,7 @@ type EventModel interface {
 	// referenced later with UpdateSentStatus
 	ReceiveDMReaction(messageID, reactionTo []byte,
 		nickname, reaction string, pubKey, dmToken []byte,
-		codeset int, timestamp, lease, roundId, mType,
+		codeset int, timestamp, roundId, mType,
 		status int64) int64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
@@ -1782,12 +1782,12 @@ func (tem *toEventModel) ReceiveReaction(channelID *id.ID,
 func (tem *toEventModel) ReceiveDM(messageID cryptoChannel.MessageID,
 	nickname, text string, pubKey ed25519.PublicKey,
 	dmToken []byte, codeset uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	round rounds.Round, mType channels.MessageType,
 	status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveDM(messageID[:], nickname,
 		text, pubKey, dmToken, int(codeset),
-		timestamp.UnixNano(), int64(lease), int64(round.ID),
+		timestamp.UnixNano(), int64(round.ID),
 		int64(mType), int64(status)))
 }
 
@@ -1801,13 +1801,13 @@ func (tem *toEventModel) ReceiveDM(messageID cryptoChannel.MessageID,
 func (tem *toEventModel) ReceiveDMReply(messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, text string,
 	pubKey ed25519.PublicKey, dmToken []byte,
-	codeset uint8, timestamp time.Time, lease time.Duration,
+	codeset uint8, timestamp time.Time,
 	round rounds.Round, mType channels.MessageType,
 	status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveDMReply(messageID[:], reactionTo[:],
 		nickname, text, pubKey, dmToken, int(codeset),
-		timestamp.UnixNano(), int64(lease), int64(round.ID),
+		timestamp.UnixNano(), int64(round.ID),
 		int64(mType), int64(status)))
 
 }
@@ -1822,12 +1822,12 @@ func (tem *toEventModel) ReceiveDMReply(messageID cryptoChannel.MessageID,
 func (tem *toEventModel) ReceiveDMReaction(messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, reaction string,
 	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
+	timestamp time.Time, round rounds.Round,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveDMReaction(messageID[:],
 		reactionTo[:], nickname, reaction, pubKey, dmToken,
-		int(codeset), timestamp.UnixNano(), int64(lease),
+		int(codeset), timestamp.UnixNano(),
 		int64(round.ID), int64(mType), int64(status)))
 }
 

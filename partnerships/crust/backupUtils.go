@@ -23,9 +23,9 @@ import (
 	"strconv"
 )
 
-// uploadBackupHeader is the header that will be used for posting a backup
+// uploadBackupAuth is the header that will be used for posting a backup
 // to Crust's architecture.
-type uploadBackupHeader struct {
+type uploadBackupAuth struct {
 
 	// UserPublicKey is the user's public key PEM encoded.
 	UserPublicKey []byte
@@ -52,7 +52,7 @@ type uploadBackupHeader struct {
 }
 
 // uploadBackupResponse is the response received from uploadBackup
-// after sending a backup file and a uploadBackupHeader.
+// after sending a backup file and a uploadBackupAuth.
 type uploadBackupResponse struct {
 	Name string
 
@@ -63,28 +63,34 @@ type uploadBackupResponse struct {
 	Size string
 }
 
-// constructUploadHeader is a constructor for the uploadBackupHeader.
+// pinRequest is the request struct used in requestPin.
+type pinRequest struct {
+	Name string `json:"name"`
+	Cid  string `json:"cid"`
+}
+
+// newUploadAuth is a constructor for the uploadBackupAuth.
 // This is used to create a
-func constructUploadHeader(file BackupFile, privateKey *rsa.PrivateKey,
-	udMan *ud.Manager) (uploadBackupHeader, error) {
+func newUploadAuth(file BackupFile, privateKey *rsa.PrivateKey,
+	udMan *ud.Manager) (uploadBackupAuth, error) {
 
 	// Retrieve validation signature
 	verificationSignature, err := udMan.GetUsernameValidationSignature()
 	if err != nil {
-		return uploadBackupHeader{},
+		return uploadBackupAuth{},
 			errors.Errorf("failed to get username validation signature: %+v", err)
 	}
 
 	// Retrieve username
 	username, err := udMan.GetUsername()
 	if err != nil {
-		return uploadBackupHeader{}, errors.Errorf("failed to get username: %+v", err)
+		return uploadBackupAuth{}, errors.Errorf("failed to get username: %+v", err)
 	}
 
 	// Hash the file
 	fileHash, err := crust.HashFile(file.Data)
 	if err != nil {
-		return uploadBackupHeader{}, errors.Errorf("failed to hash file: %+v", err)
+		return uploadBackupAuth{}, errors.Errorf("failed to hash file: %+v", err)
 	}
 
 	// Sign the upload
@@ -92,14 +98,14 @@ func constructUploadHeader(file BackupFile, privateKey *rsa.PrivateKey,
 	uploadSignature, err := crust.SignUpload(rand.Reader,
 		privateKey, file.Data, uploadTimestamp)
 	if err != nil {
-		return uploadBackupHeader{}, errors.Errorf("failed to sign upload: %+v", err)
+		return uploadBackupAuth{}, errors.Errorf("failed to sign upload: %+v", err)
 	}
 
 	// Serialize the public key PEM
 	pubKeyPem := rsa.CreatePublicKeyPem(privateKey.GetPublic())
 
 	// Construct header
-	header := uploadBackupHeader{
+	header := uploadBackupAuth{
 		UserPublicKey:         pubKeyPem,
 		Username:              username,
 		VerificationSignature: verificationSignature,
@@ -111,11 +117,10 @@ func constructUploadHeader(file BackupFile, privateKey *rsa.PrivateKey,
 	return header, nil
 }
 
-// constructBasicAuth is a helper function which constructs
-// the header into a username:password format for the http.Request's
-// BasicAuth function.
-func (header uploadBackupHeader) constructBasicAuth() (
-	username, password string) {
+// getAuth is a helper function which constructs the HTTP basic auth information
+// from uploadBackupAuth. This returns it as a username-password pair such that
+// it can be passed directly into the http.Request object's SetBasicAuth method.
+func (header uploadBackupAuth) getAuth() (username, password string) {
 	username = fmt.Sprintf("xx-%s-%s-%s-%s-%s",
 		base64.StdEncoding.EncodeToString(header.UserPublicKey),
 		header.Username,
@@ -132,8 +137,8 @@ func (header uploadBackupHeader) constructBasicAuth() (
 }
 
 // constructUploadRequest is a helper function which constructs a http.Request
-// for a backup file upload.
-func constructUploadRequest(file BackupFile, header uploadBackupHeader) (
+// for uploading a backup file.
+func constructUploadRequest(file BackupFile, uploadAuth uploadBackupAuth) (
 	*http.Request, error) {
 	// Serialize file into body
 	buf := new(bytes.Buffer)
@@ -167,7 +172,7 @@ func constructUploadRequest(file BackupFile, header uploadBackupHeader) (
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 
 	// Add auth header
-	req.SetBasicAuth(header.constructBasicAuth())
+	req.SetBasicAuth(uploadAuth.getAuth())
 
 	return req, nil
 }

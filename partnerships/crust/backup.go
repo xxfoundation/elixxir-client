@@ -20,7 +20,7 @@ import (
 
 // Error constantgitlab.com/xx_network/crypto/tlss
 const (
-	parseFormErr = "Failed to initialize request: %v"
+	parseFormErr = "failed to initialize request: %v"
 )
 
 // Backup/Pinning constants.
@@ -38,16 +38,21 @@ const (
 // Uploading Backup Logic                                                     //
 ////////////////////////////////////////////////////////////////////////////////
 
-// UploadSuccessReport is the response given when calling requestPin.
 type UploadSuccessReport struct {
 	// RequestId is the server returns to the user.
-	RequestId string
-
+	Requestid string `json:"requestid"`
 	// Status is the status of the requestPin received from the server.
-	Status string
-
+	Status string `json:"status"`
 	// Created is the timestamp that the pin was created.
-	Created time.Time
+	Created time.Time `json:"created"`
+	Pin     struct {
+		Cid     string        `json:"cid"`
+		Name    string        `json:"name"`
+		Origins []interface{} `json:"origins"`
+	} `json:"pin"`
+	Delegates []string `json:"delegates"`
+	Info      struct {
+	} `json:"info"`
 }
 
 // UploadBackup will upload the file provided to the distributed file server.
@@ -56,24 +61,24 @@ type UploadSuccessReport struct {
 func UploadBackup(file BackupFile, privateKey *rsa.PrivateKey,
 	udMan *ud.Manager) (*UploadSuccessReport, error) {
 
-	header, err := constructUploadHeader(file, privateKey, udMan)
+	uploadAuth, err := newUploadAuth(file, privateKey, udMan)
 	if err != nil {
-		return nil, errors.Errorf("failed to construct upload header: %+v", err)
+		return nil, errors.Errorf("failed to construct upload uploadAuth: %+v", err)
 	}
 
-	jww.INFO.Printf("[CRUST] Uploading backup file to Crust...")
+	jww.INFO.Printf("[CRUST] Uploading backup file...")
 
 	// Send backup file to network
-	requestBackupResponse, err := uploadBackup(file, header)
+	requestBackupResponse, err := uploadBackup(file, uploadAuth)
 	if err != nil {
 		return nil, errors.Errorf("failed to upload backup: %+v", err)
 	}
 
-	jww.INFO.Printf("[CRUST] Completed upload to Crust.")
-	jww.INFO.Printf("[CRUST] Requesting PIN from Crust...")
+	jww.INFO.Printf("[CRUST] Completed upload.")
+	jww.INFO.Printf("[CRUST] Requesting PIN...")
 
 	// Check on the status of the backup
-	uploadSuccess, err := requestPin(requestBackupResponse, header)
+	uploadSuccess, err := requestPin(requestBackupResponse, uploadAuth)
 	if err != nil {
 		return nil, errors.Errorf("failed to request PIN: %+v", err)
 	}
@@ -85,10 +90,10 @@ func UploadBackup(file BackupFile, privateKey *rsa.PrivateKey,
 
 // uploadBackup is a sender function which sends the backup file
 // to a backup gateway.
-func uploadBackup(file BackupFile, header uploadBackupHeader) (
+func uploadBackup(file BackupFile, uploadAuth uploadBackupAuth) (
 	*uploadBackupResponse, error) {
 
-	req, err := constructUploadRequest(file, header)
+	req, err := constructUploadRequest(file, uploadAuth)
 	if err != nil {
 		return nil, errors.Errorf("failed to construct request: %+v", err)
 	}
@@ -101,7 +106,7 @@ func uploadBackup(file BackupFile, header uploadBackupHeader) (
 
 	// Handle valid response
 	uploadResponse := &uploadBackupResponse{}
-	jww.INFO.Printf("[CRUST] responseData %s", string(responseData))
+	jww.DEBUG.Printf("[CRUST] responseData %s", string(responseData))
 	err = json.Unmarshal(responseData, uploadResponse)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse response: %+v", err)
@@ -112,17 +117,22 @@ func uploadBackup(file BackupFile, header uploadBackupHeader) (
 
 // requestPin pins the backup to the network.
 func requestPin(backupResponse *uploadBackupResponse,
-	header uploadBackupHeader) (*UploadSuccessReport, error) {
+	uploadAuth uploadBackupAuth) (*UploadSuccessReport, error) {
 
-	// Marshal backup response
-	backupJson, err := json.Marshal(backupResponse)
+	// Construct the pin request
+	pinReq := pinRequest{
+		Name: backupResponse.Name,
+		Cid:  backupResponse.Hash,
+	}
+
+	// Write pin into JSON for HTTP request
+	jsonData, err := json.Marshal(pinReq)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct pin request
-	req, err := http.NewRequest(http.MethodPost, pinnerURL,
-		bytes.NewBuffer(backupJson))
+	req, err := http.NewRequest(http.MethodPost, pinnerURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +143,11 @@ func requestPin(backupResponse *uploadBackupResponse,
 		return nil, errors.Errorf(parseFormErr, err)
 	}
 
-	// Add auth header
-	req.SetBasicAuth(header.constructBasicAuth())
-
 	// Add JSON content type header
-	req.Header.Add(contentTypeHeader, jsonHeader)
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+	// Add auth header
+	req.SetBasicAuth(uploadAuth.getAuth())
 
 	// Send request
 	responseData, err := sendRequest(req)

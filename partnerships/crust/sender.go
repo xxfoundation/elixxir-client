@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"io"
 	"net/http"
 )
@@ -26,15 +27,17 @@ func sendRequest(req *http.Request) ([]byte, error) {
 	}
 
 	// Read response
+	defer resp.Body.Close()
 	responseData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-
-	// Handle error
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("%v",
-			handleError(responseData))
+	jww.INFO.Printf("[CRUST] Response data: %v", string(responseData))
+	jww.INFO.Printf("[Crust] Response status code: %d", resp.StatusCode)
+	// Handle error code
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return nil, errors.Errorf("received error code %d (details: %v)",
+			resp.StatusCode, handleError(responseData))
 	}
 
 	return responseData, nil

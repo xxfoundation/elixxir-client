@@ -20,7 +20,9 @@ import (
 
 // Error constantgitlab.com/xx_network/crypto/tlss
 const (
-	parseFormErr = "failed to initialize request: %v"
+	parseFormErr   = "failed to initialize request: %+v"
+	parseRespErr   = "failed to parse response: %+v"
+	sendRequestErr = "failed request: %+v"
 )
 
 // Backup/Pinning constants.
@@ -31,7 +33,7 @@ const (
 
 	// HTTP POSTing constants
 	contentTypeHeader = "Content-Type"
-	jsonHeader        = "application/json"
+	jsonHeader        = "application/json; charset=UTF-8"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,12 +63,12 @@ type UploadSuccessReport struct {
 func UploadBackup(file BackupFile, privateKey *rsa.PrivateKey,
 	udMan *ud.Manager) (*UploadSuccessReport, error) {
 
+	jww.INFO.Printf("[CRUST] Backing up file...")
+
 	uploadAuth, err := newUploadAuth(file, privateKey, udMan)
 	if err != nil {
 		return nil, errors.Errorf("failed to construct upload uploadAuth: %+v", err)
 	}
-
-	jww.INFO.Printf("[CRUST] Uploading backup file...")
 
 	// Send backup file to network
 	requestBackupResponse, err := uploadBackup(file, uploadAuth)
@@ -74,26 +76,25 @@ func UploadBackup(file BackupFile, privateKey *rsa.PrivateKey,
 		return nil, errors.Errorf("failed to upload backup: %+v", err)
 	}
 
-	jww.INFO.Printf("[CRUST] Completed upload.")
-	jww.INFO.Printf("[CRUST] Requesting PIN...")
-
 	// Check on the status of the backup
 	uploadSuccess, err := requestPin(requestBackupResponse, uploadAuth)
 	if err != nil {
 		return nil, errors.Errorf("failed to request PIN: %+v", err)
 	}
 
-	jww.INFO.Printf("[CRUST] Completed PIN request.")
+	jww.INFO.Printf("[CRUST] Completed file backup.")
 
 	return uploadSuccess, nil
 }
 
 // uploadBackup is a sender function which sends the backup file
 // to a backup gateway.
-func uploadBackup(file BackupFile, uploadAuth uploadBackupAuth) (
+func uploadBackup(file BackupFile, uploadAuth uploadAuth) (
 	*uploadBackupResponse, error) {
 
-	req, err := constructUploadRequest(file, uploadAuth)
+	jww.DEBUG.Printf("[CRUST] Uploading backup file...")
+
+	req, err := newUploadRequest(file, uploadAuth)
 	if err != nil {
 		return nil, errors.Errorf("failed to construct request: %+v", err)
 	}
@@ -101,23 +102,26 @@ func uploadBackup(file BackupFile, uploadAuth uploadBackupAuth) (
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, errors.Errorf("failed request: %+v", err)
+		return nil, errors.Errorf(sendRequestErr, err)
 	}
 
 	// Handle valid response
 	uploadResponse := &uploadBackupResponse{}
-	jww.DEBUG.Printf("[CRUST] responseData %s", string(responseData))
 	err = json.Unmarshal(responseData, uploadResponse)
 	if err != nil {
-		return nil, errors.Errorf("failed to parse response: %+v", err)
+		return nil, errors.Errorf(parseRespErr, err)
 	}
+
+	jww.DEBUG.Printf("[CRUST] Completed upload.")
 
 	return uploadResponse, nil
 }
 
 // requestPin pins the backup to the network.
 func requestPin(backupResponse *uploadBackupResponse,
-	uploadAuth uploadBackupAuth) (*UploadSuccessReport, error) {
+	uploadAuth uploadAuth) (*UploadSuccessReport, error) {
+
+	jww.DEBUG.Printf("[CRUST] Requesting PIN...")
 
 	// Construct the pin request
 	pinReq := pinRequest{
@@ -144,22 +148,22 @@ func requestPin(backupResponse *uploadBackupResponse,
 	}
 
 	// Add JSON content type header
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Set(contentTypeHeader, jsonHeader)
 
-	// Add auth header
-	req.SetBasicAuth(uploadAuth.getAuth())
+	// Add get header
+	req.SetBasicAuth(uploadAuth.get())
 
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, errors.Errorf("failed request: %+v", err)
+		return nil, errors.Errorf(sendRequestErr, err)
 	}
 
 	// Unmarshal response
 	uploadSuccess := &UploadSuccessReport{}
 	err = json.Unmarshal(responseData, uploadSuccess)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf(parseRespErr, err)
 	}
 
 	return uploadSuccess, nil

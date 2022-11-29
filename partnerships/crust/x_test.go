@@ -7,7 +7,7 @@ import (
 func TestConstructUpload(t *testing.T) {
 	username, pass, err := getRecoveryAuth()
 	if err != nil {
-		t.Fatalf("Failed to get recovery auth: %+v", err)
+		t.Fatalf("Failed to get recovery get: %+v", err)
 	}
 
 	t.Logf("%s:%s", username, pass)

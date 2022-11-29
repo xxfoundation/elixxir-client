@@ -43,22 +43,17 @@ type cidResponse struct {
 // server. The user must have called UploadBackup successfully for a proper
 // file recover.
 func RecoverBackup(username string) ([]byte, error) {
-	jww.INFO.Printf("[CRUST] Requesting CID...")
 	cidResp, err := requestCid(username)
 	if err != nil {
 		return nil, errors.Errorf("failed to request CID: %+v", err)
 	}
 
-	jww.INFO.Printf("[CRUST] Received CID.")
-	jww.INFO.Printf("[CRUST] Requesting file (V0)...")
-
-	jww.INFO.Printf("[CRUST] Requesting file (V1)...")
 	backupFile, err := requestBackupFile(cidResp)
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve backup file: %+v", err)
 	}
 
-	jww.INFO.Printf("[CRUST] File is recovered")
+	jww.INFO.Printf("[CRUST] File has been recovered.")
 
 	return backupFile, nil
 }
@@ -66,6 +61,8 @@ func RecoverBackup(username string) ([]byte, error) {
 // requestCid requests the CID associated with this username.
 // This allows the user to request their backup file using requestBackupFile.
 func requestCid(username string) (*cidResponse, error) {
+
+	jww.DEBUG.Printf("[CRUST] Requesting CID...")
 
 	// Construct request to get CID
 	req, err := http.NewRequest(http.MethodGet, cidRequestURL+username, nil)
@@ -79,26 +76,26 @@ func requestCid(username string) (*cidResponse, error) {
 		return nil, errors.Errorf(parseFormErr, err)
 	}
 
-	// Retrieve basic auth from token
+	// Retrieve basic get from token
 	recoveryAuthUser, recoveryAuthPass, err := getRecoveryAuth()
 	if err != nil {
 		return nil, err
 	}
 
-	// Add auth header
+	// Add get header
 	req.SetBasicAuth(recoveryAuthUser, recoveryAuthPass)
 
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, errors.Errorf("failed request: %+v", err)
+		return nil, errors.Errorf(sendRequestErr, err)
 	}
 
 	// Parse request
 	cidResp := &cidResponse{}
 	err = json.Unmarshal(responseData, cidResp)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf(parseRespErr, err)
 	}
 
 	// Sanity check that there is at least one CID in the response
@@ -106,7 +103,7 @@ func requestCid(username string) (*cidResponse, error) {
 		return nil, errors.Errorf("CID response from Crust does not contain any CIDs.")
 	}
 
-	jww.INFO.Printf("[CRUST] CID response: %v", cidResp)
+	jww.DEBUG.Printf("[CRUST] Received CID.")
 
 	return cidResp, nil
 }
@@ -114,6 +111,7 @@ func requestCid(username string) (*cidResponse, error) {
 // requestBackupFile sends the CID to the network to retrieve the backed up
 // file.
 func requestBackupFile(cid *cidResponse) ([]byte, error) {
+	jww.INFO.Printf("[CRUST] Requesting file (V1)...")
 
 	// Construct restore GET request
 	response, err := http.Get(recoveryUrl + cid.Cids[0])
@@ -130,6 +128,8 @@ func requestBackupFile(cid *cidResponse) ([]byte, error) {
 // according to spec. This is kept for historical purposes, in the case
 // the code needs to be revised.
 func requestBackupFileV0(cid *cidResponse) ([]byte, error) {
+	jww.INFO.Printf("[CRUST] Requesting file (V0)...")
+
 	// Construct request
 	req, err := http.NewRequest(http.MethodPost, recoveryUrlV0+cid.Cids[0], nil)
 	if err != nil {
@@ -142,19 +142,19 @@ func requestBackupFileV0(cid *cidResponse) ([]byte, error) {
 		return nil, errors.Errorf(parseFormErr, err)
 	}
 
-	// Retrieve basic auth from token
+	// Retrieve basic get from token
 	recoveryAuthUser, recoveryAuthPass, err := getRecoveryAuth()
 	if err != nil {
 		return nil, err
 	}
 
-	// Add auth header
+	// Add get header
 	req.SetBasicAuth(recoveryAuthUser, recoveryAuthPass)
 
 	// Send request
 	responseData, err := sendRequest(req)
 	if err != nil {
-		return nil, errors.Errorf("failed request: %+v", err)
+		return nil, errors.Errorf(sendRequestErr, err)
 	}
 
 	return responseData, nil
@@ -171,7 +171,7 @@ func getRecoveryAuth() (username, pass string, err error) {
 
 	recoveryAuth := strings.Split(string(recoveryAuthDecoded), ":")
 	if len(recoveryAuth) != 2 {
-		return "", "", errors.Errorf("failed to retrieve recovery auth")
+		return "", "", errors.Errorf("failed to retrieve recovery get")
 	}
 
 	username, pass = recoveryAuth[0], recoveryAuth[1]

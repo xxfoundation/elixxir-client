@@ -23,9 +23,9 @@ import (
 	"strconv"
 )
 
-// uploadBackupAuth is the header that will be used for posting a backup
+// uploadAuth is the header that will be used for posting a backup
 // to Crust's architecture.
-type uploadBackupAuth struct {
+type uploadAuth struct {
 
 	// UserPublicKey is the user's public key PEM encoded.
 	UserPublicKey []byte
@@ -52,7 +52,7 @@ type uploadBackupAuth struct {
 }
 
 // uploadBackupResponse is the response received from uploadBackup
-// after sending a backup file and a uploadBackupAuth.
+// after sending a backup file and a uploadAuth.
 type uploadBackupResponse struct {
 	Name string
 
@@ -69,28 +69,28 @@ type pinRequest struct {
 	Cid  string `json:"cid"`
 }
 
-// newUploadAuth is a constructor for the uploadBackupAuth.
+// newUploadAuth is a constructor for the uploadAuth.
 // This is used to create a
 func newUploadAuth(file BackupFile, privateKey *rsa.PrivateKey,
-	udMan *ud.Manager) (uploadBackupAuth, error) {
+	udMan *ud.Manager) (uploadAuth, error) {
 
 	// Retrieve validation signature
 	verificationSignature, err := udMan.GetUsernameValidationSignature()
 	if err != nil {
-		return uploadBackupAuth{},
+		return uploadAuth{},
 			errors.Errorf("failed to get username validation signature: %+v", err)
 	}
 
 	// Retrieve username
 	username, err := udMan.GetUsername()
 	if err != nil {
-		return uploadBackupAuth{}, errors.Errorf("failed to get username: %+v", err)
+		return uploadAuth{}, errors.Errorf("failed to get username: %+v", err)
 	}
 
 	// Hash the file
 	fileHash, err := crust.HashFile(file.Data)
 	if err != nil {
-		return uploadBackupAuth{}, errors.Errorf("failed to hash file: %+v", err)
+		return uploadAuth{}, errors.Errorf("failed to hash file: %+v", err)
 	}
 
 	// Sign the upload
@@ -98,14 +98,14 @@ func newUploadAuth(file BackupFile, privateKey *rsa.PrivateKey,
 	uploadSignature, err := crust.SignUpload(rand.Reader,
 		privateKey, file.Data, uploadTimestamp)
 	if err != nil {
-		return uploadBackupAuth{}, errors.Errorf("failed to sign upload: %+v", err)
+		return uploadAuth{}, errors.Errorf("failed to sign upload: %+v", err)
 	}
 
 	// Serialize the public key PEM
 	pubKeyPem := rsa.CreatePublicKeyPem(privateKey.GetPublic())
 
 	// Construct header
-	header := uploadBackupAuth{
+	header := uploadAuth{
 		UserPublicKey:         pubKeyPem,
 		Username:              username,
 		VerificationSignature: verificationSignature,
@@ -117,10 +117,10 @@ func newUploadAuth(file BackupFile, privateKey *rsa.PrivateKey,
 	return header, nil
 }
 
-// getAuth is a helper function which constructs the HTTP basic auth information
-// from uploadBackupAuth. This returns it as a username-password pair such that
+// get is a helper function which constructs the HTTP basic auth information
+// from uploadAuth. This returns it as a username-password pair such that
 // it can be passed directly into the http.Request object's SetBasicAuth method.
-func (header uploadBackupAuth) getAuth() (username, password string) {
+func (header uploadAuth) get() (username, password string) {
 	username = fmt.Sprintf("xx-%s-%s-%s-%s-%s",
 		base64.StdEncoding.EncodeToString(header.UserPublicKey),
 		header.Username,
@@ -136,9 +136,9 @@ func (header uploadBackupAuth) getAuth() (username, password string) {
 	return
 }
 
-// constructUploadRequest is a helper function which constructs a http.Request
+// newUploadRequest is a helper function which constructs a http.Request
 // for uploading a backup file.
-func constructUploadRequest(file BackupFile, uploadAuth uploadBackupAuth) (
+func newUploadRequest(file BackupFile, uploadAuth uploadAuth) (
 	*http.Request, error) {
 	// Serialize file into body
 	buf := new(bytes.Buffer)
@@ -171,8 +171,8 @@ func constructUploadRequest(file BackupFile, uploadAuth uploadBackupAuth) (
 
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 
-	// Add auth header
-	req.SetBasicAuth(uploadAuth.getAuth())
+	// Add get header
+	req.SetBasicAuth(uploadAuth.get())
 
 	return req, nil
 }

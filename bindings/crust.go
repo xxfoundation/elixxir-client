@@ -10,7 +10,6 @@ package bindings
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/partnerships/crust"
-	crust2 "gitlab.com/elixxir/crypto/partnerships/crust"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/utils"
 )
@@ -52,7 +51,5 @@ func UploadBackup(filePath string, udManager *UserDiscovery,
 // server. The user must have called UploadBackup successfully for a proper
 // file recover.
 func RecoverBackup(username string) ([]byte, error) {
-	usernameHash := crust2.HashUsername(username)
-
-	return crust.RecoverBackup(string(usernameHash))
+	return crust.RecoverBackup(username)
 }

@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/partnerships/crust"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
-	crustCrypto "gitlab.com/elixxir/crypto/partnerships/crust"
 	"gitlab.com/xx_network/primitives/utils"
 	"time"
 )
@@ -166,8 +165,7 @@ var crustCmd = &cobra.Command{
 		} else if triggerRecovery {
 			// Trigger recovery from Crust
 			jww.INFO.Printf("[CRUST] Recovering file...")
-			usernameHash := crustCrypto.HashUsername(username)
-			recoveredFile, err := crust.RecoverBackup(string(usernameHash))
+			recoveredFile, err := crust.RecoverBackup(username)
 			if err != nil {
 				jww.FATAL.Panicf("[CRUST] Failed to recover backup from Crust: %+v",
 					err)

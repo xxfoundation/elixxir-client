@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -51,14 +52,10 @@ func RecoverBackup(username string) ([]byte, error) {
 	jww.INFO.Printf("[CRUST] Received CID.")
 	jww.INFO.Printf("[CRUST] Requesting file (V0)...")
 
-	backupFile, err := requestBackupFileV0(cidResp)
+	jww.INFO.Printf("[CRUST] Requesting file (V1)...")
+	backupFile, err := requestBackupFile(cidResp)
 	if err != nil {
-		jww.INFO.Printf("[CRUST] Requesting file (V1)...")
-		backupFile, err = requestBackupFile(cidResp)
-		if err != nil {
-			return nil, errors.Errorf("failed to retrieve backup file: %+v", err)
-		}
-
+		return nil, errors.Errorf("failed to retrieve backup file: %+v", err)
 	}
 
 	jww.INFO.Printf("[CRUST] File is recovered")
@@ -119,29 +116,19 @@ func requestCid(username string) (*cidResponse, error) {
 func requestBackupFile(cid *cidResponse) ([]byte, error) {
 
 	// Construct restore GET request
-	req, err := http.NewRequest(http.MethodGet, recoveryUrl+cid.Cids[0], nil)
+	response, err := http.Get(recoveryUrl + cid.Cids[0])
 	if err != nil {
 		return nil, err
 	}
 
-	// Send request
-	responseData, err := sendRequest(req)
-	if err != nil {
-		return nil, errors.Errorf("failed request: %+v", err)
-	}
-
-	// Parse response
-	recoveryResponse := &RecoveryResponse{}
-	err = json.Unmarshal(responseData, recoveryResponse)
-	if err != nil {
-		return nil, errors.Errorf("failed to parse recovery response: %+v", err)
-	}
-
-	return base64.StdEncoding.DecodeString(recoveryResponse.Value)
+	// Read response
+	defer response.Body.Close()
+	return io.ReadAll(response.Body)
 }
 
 // requestBackupFileV0 is the http.MethodPost version to retrieve the file
-// according to spec.
+// according to spec. This is kept for historical purposes, in the case
+// the code needs to be revised.
 func requestBackupFileV0(cid *cidResponse) ([]byte, error) {
 	// Construct request
 	req, err := http.NewRequest(http.MethodPost, recoveryUrlV0+cid.Cids[0], nil)
@@ -170,14 +157,7 @@ func requestBackupFileV0(cid *cidResponse) ([]byte, error) {
 		return nil, errors.Errorf("failed request: %+v", err)
 	}
 
-	// Parse response
-	recoveryResponse := &RecoveryResponse{}
-	err = json.Unmarshal(responseData, recoveryResponse)
-	if err != nil {
-		return nil, errors.Errorf("failed to parse recovery response: %+v", err)
-	}
-
-	return base64.StdEncoding.DecodeString(recoveryResponse.Value)
+	return responseData, nil
 }
 
 // getRecoveryAuth is a helper function which parses the recovery token provided

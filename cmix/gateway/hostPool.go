@@ -527,16 +527,19 @@ func (h *HostPool) getSpecific(target *id.ID) (*connect.Host, bool) {
 func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 	// Keep track of Hosts already selected to avoid duplicates
 	checked := make(map[uint32]interface{})
-	length := len(targets)
-	if length > int(h.poolParams.PoolSize) {
-		length = int(h.poolParams.PoolSize)
-	}
+	length := 1
+
 	result := make([]*connect.Host, length)
 
 	rng := h.rng.GetStream()
 	h.hostMux.RLock()
 	for i := 0; i < length; {
-		if hostIdx, ok := h.hostMap[*targets[i]]; ok {
+		jww.WARN.Printf("[HTTPS] 4"+
+			"targets: %v\n"+
+			"h %v"+
+			"\nhostmap: %v",
+			targets, h, h.hostMap)
+		if hostIdx, ok := h.hostMap[*targets[0]]; ok {
 			result[i] = h.hostList[hostIdx]
 			checked[hostIdx] = nil
 			i++

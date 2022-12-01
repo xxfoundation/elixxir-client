@@ -1066,9 +1066,8 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
-// PinMessage pins the target message to the top of a channel view for all
-// users in the specified channel. Only the channel admin can pin user
-// messages.
+// PinMessage pins the target message to the top of a channel view for all users
+// in the specified channel. Only the channel admin can pin user messages.
 //
 // If undoAction is true, then the targeted message is unpinned.
 //
@@ -1079,7 +1078,7 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - targetMessageIdBytes - The marshalled [channel.MessageID] of the message
 //     you want to pin.
-//   - undoAction - Set to true to un-pin the message.
+//   - undoAction - Set to true to unpin the message.
 //   - cmixParamsJSON - JSON of [xxdk.CMIXParams]. This may be empty, and
 //     [GetDefaultCMixParams] will be used internally.
 //
@@ -1240,7 +1239,7 @@ func IsNicknameValid(nick string) error {
 //   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
 //
 // Returns:
-//   - bool - true if the user is muted in the channel and false otherwise.
+//   - bool - True if the user is muted in the channel and false otherwise.
 func (cm *ChannelsManager) Muted(channelIDBytes []byte) (bool, error) {
 	channelID, err := id.Unmarshal(channelIDBytes)
 	if err != nil {

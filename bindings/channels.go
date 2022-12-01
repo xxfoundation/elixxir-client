@@ -1008,11 +1008,13 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
-// DeleteMessage is used to send a reaction to a message over a channel.
-// The reaction must be a single emoji with no other characters, and will
-// be rejected otherwise.
+// DeleteMessage deletes the targeted message from user's view. Users may delete
+// their own messages (by leaving the private key as nil) but only the channel
+// admin can delete other user's messages.
 //
-// Users will drop the reaction if they do not recognize the reactTo message.
+// If undoAction is true, then the targeted message is un-deleted.
+//
+// Clients will drop the deletion if they do not recognize the target message.
 //
 // Parameters:
 //   - adminPrivateKey - The PEM-encoded admin RSA private key for the channel.
@@ -1068,6 +1070,8 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 // users in the specified channel. Only the channel admin can pin user
 // messages.
 //
+// If undoAction is true, then the targeted message is unpinned.
+//
 // Clients will drop the pin if they do not recognize the target message.
 //
 // Parameters:
@@ -1075,7 +1079,7 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - targetMessageIdBytes - The marshalled [channel.MessageID] of the message
 //     you want to pin.
-//   - undoAction - Set to true to un-delete the message.
+//   - undoAction - Set to true to un-pin the message.
 //   - cmixParamsJSON - JSON of [xxdk.CMIXParams]. This may be empty, and
 //     [GetDefaultCMixParams] will be used internally.
 //
@@ -1127,7 +1131,7 @@ func (cm *ChannelsManager) PinMessage(adminPrivateKey, channelIdBytes []byte,
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - mutedUserPubKeyBytes - The [ed25519.PublicKey] of the user you want to
 //     mute.
-//   - undoAction - Set to true to un-delete the message.
+//   - undoAction - Set to true to unmute the user.
 //   - cmixParamsJSON - JSON of [xxdk.CMIXParams]. This may be empty, and
 //     [GetDefaultCMixParams] will be used internally.
 //
@@ -1816,8 +1820,8 @@ func NewChannelsDatabaseCipher(cmixID int, password []byte,
 	}
 
 	// Construct a cipher
-	c, err := cryptoChannel.NewCipher(password, salt,
-		plaintTextBlockSize, stream)
+	c, err := cryptoChannel.NewCipher(
+		password, salt, plaintTextBlockSize, stream)
 	if err != nil {
 		return nil, err
 	}

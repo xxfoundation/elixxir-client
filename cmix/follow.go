@@ -24,6 +24,7 @@ package cmix
 
 import (
 	"crypto/hmac"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"sync"
@@ -201,7 +202,8 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	var sendTo *id.ID
 	// todo: remove this
 	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-	preferred, _ := id.Unmarshal([]byte(xxGatewayId))
+	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
+	preferred, _ := id.Unmarshal(gatewayDecoded)
 	timeout := 15 * time.Second
 
 	var startTime time.Time

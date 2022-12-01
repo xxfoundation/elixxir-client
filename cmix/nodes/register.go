@@ -8,7 +8,9 @@
 package nodes
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"gitlab.com/xx_network/crypto/csprng"
 	"strconv"
@@ -96,23 +98,27 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 				continue
 			}
 
-			// Register with this node
-			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
+			gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
 
-			// Remove from in progress immediately (success or failure)
-			inProgress.Delete(nidStr)
+			if !bytes.Equal(gatewayDecoded, gw.Gateway.ID) {
+				// Register with this node
+				err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
 
-			// Process the result
-			if err != nil {
-				jww.ERROR.Printf("Failed to register node: %s", err.Error())
-				// If we have not reached the attempt limit for this gateway,
-				// then send it back into the channel to retry
-				if numAttempts < maxAttempts {
-					go func() {
-						// Delay the send operation for a backoff
-						time.Sleep(delayTable[numAttempts-1])
-						r.c <- gw
-					}()
+				// Remove from in progress immediately (success or failure)
+				inProgress.Delete(nidStr)
+
+				// Process the result
+				if err != nil {
+					jww.ERROR.Printf("Failed to register node: %s", err.Error())
+					// If we have not reached the attempt limit for this gateway,
+					// then send it back into the channel to retry
+					if numAttempts < maxAttempts {
+						go func() {
+							// Delay the send operation for a backoff
+							time.Sleep(delayTable[numAttempts-1])
+							r.c <- gw
+						}()
+					}
 				}
 			}
 			rng.Close()

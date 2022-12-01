@@ -8,6 +8,7 @@
 package rounds
 
 import (
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -159,7 +160,8 @@ func (m *manager) processHistoricalRounds(comm Comms, stop *stoppable.Single) {
 		hr := &pb.HistoricalRounds{Rounds: rounds}
 		// todo: remove this
 		const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-		preferred, _ := id.Unmarshal([]byte(xxGatewayId))
+		gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
+		preferred, _ := id.Unmarshal(gatewayDecoded)
 		timeout := 15 * time.Second
 
 		var gwHost *connect.Host

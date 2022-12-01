@@ -8,6 +8,7 @@
 package nodes
 
 import (
+	"encoding/base64"
 	"io"
 	"time"
 
@@ -30,6 +31,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
+
+// todo: remove this
+const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
 
 // requestKey is a helper function which constructs a ClientKeyRequest message.
 // This message is sent to the passed gateway. It will further handle the
@@ -70,8 +74,8 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		"gateway %s, setup took %s", gatewayID, time.Since(start))
 
 	// todo: remove this
-	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-	preferred, _ := id.Unmarshal([]byte(xxGatewayId))
+	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
+	preferred, _ := id.Unmarshal(gatewayDecoded)
 	start = time.Now()
 	timeout := 15 * time.Second
 	result, err := sender.SendToPreferred([]*id.ID{preferred},

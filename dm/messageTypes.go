@@ -5,7 +5,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package channels
+package dm
 
 import (
 	"strconv"
@@ -15,27 +15,21 @@ import (
 type MessageType uint32
 
 const (
-	// Text is the default type for a message. It denotes that the message only
-	// contains text.
-	Text MessageType = 1
-
-	// AdminText denotes that the message only contains text and that it comes
-	// from the channel admin.
-	AdminText MessageType = 2
+	// Text is the default type for a message. It denotes that the
+	// message only contains text.
+	TextType MessageType = 1
 
 	// Reaction denotes that the message is a reaction to another message.
-	Reaction MessageType = 3
+	ReactionType MessageType = 2
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
 // and logging. This function adheres to the [fmt.Stringer] interface.
 func (mt MessageType) String() string {
 	switch mt {
-	case Text:
+	case TextType:
 		return "Text"
-	case AdminText:
-		return "AdminText"
-	case Reaction:
+	case ReactionType:
 		return "Reaction"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))

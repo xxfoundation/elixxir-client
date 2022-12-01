@@ -1,0 +1,60 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+
+option go_package = "gitlab.com/elixxir/client/dm";
+
+package dm;
+
+// Text is the payload for sending normal text messages the replyMessageID
+// is nil when it is not a reply.
+message Text {
+    uint32 version = 1;
+    string text = 2;
+    bytes  replyMessageID = 3;
+}
+
+// Reaction is the payload for reactions. The reaction must be a
+// single emoji and the reactionMessageID must be non nil and a real message
+// in the channel.
+message Reaction {
+    uint32 version = 1;
+    string reaction = 2;
+    bytes  reactionMessageID = 3;
+}
+
+// DirectMessage is a message sent directly from one user to another. It
+// includes the return information (public key and dmtoken) for the sender.
+message DirectMessage{
+    // The round this message was sent on.
+    uint64 RoundID = 1;
+
+    bytes DMToken = 2;  // hash of private key of the sender
+
+    // The type the below payload is (currently a Text or Reaction)
+    uint32 PayloadType = 3;
+
+    // Payload is the actual message payload. It will be processed differently
+    // based on the PayloadType.
+    bytes Payload = 4;
+
+    // nickname is the name which the user is using for this message it will not
+    // be longer than 24 characters.
+    string Nickname = 5;
+
+    // Nonce is 32 bits of randomness to ensure that two messages in the same
+    // round with that have the same nickname, payload, and lease will not have
+    // the same message ID.
+    bytes Nonce = 6;
+
+    // LocalTimestamp is the timestamp when the "send call" is made based upon
+    // the local clock. If this differs by more than 5 seconds +/- from when the
+    // round it sent on is queued, then a random mutation on the queued time
+    // (+/- 200ms) will be used by local clients instead.
+    int64 LocalTimestamp = 7;
+}

@@ -55,9 +55,6 @@ type manager struct {
 	// Send tracker
 	st *sendTracker
 
-	// Direct Messages
-	dm *dmClient
-
 	// Makes the function that is used to create broadcasts be a pointer so that
 	// it can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
@@ -158,12 +155,6 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	m.loadChannels()
 
 	m.nicknameManager = loadOrNewNicknameManager(kv)
-
-	myToken := hashPrivateKey(m.me.Privkey)
-	nikePrivKey := GetDMNIKEPrivateKey(m.me.Privkey)
-	m.dm = NewDMClient(nikePrivKey, myToken, m.nicknameManager,
-		m.net, m.rng)
-	m.dm.RegisterListener(m.events.triggerDMEvent, m.st.MessageReceive)
 
 	return &m
 }

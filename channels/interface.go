@@ -8,7 +8,6 @@
 package channels
 
 import (
-	"crypto/ed25519"
 	"math"
 	"time"
 
@@ -118,61 +117,6 @@ type Manager interface {
 	SendReaction(channelID *id.ID, reaction string,
 		reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
-
-	// SendGenericDM is used to send a raw message. In general, it
-	// should be wrapped in a function that defines the wire protocol.
-	//
-	// If the final message, before being sent over the wire, is
-	// too long, this will return an error. Due to the underlying
-	// encoding using compression, it is not possible to define
-	// the largest payload that can be sent, but it will always be
-	// possible to send a payload of 802 bytes at minimum.
-	//
-	// The meaning of validUntil depends on the use case.
-	SendGenericDM(partnerPubKey *ed25519.PublicKey, dmToken []byte,
-		messageType MessageType,
-		msg []byte, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
-
-	// SendDM is used to send a formatted message to another user.
-	//
-	// The message will auto delete validUntil after the round it
-	// is sent in, lasting forever if ValidForever is used.
-	SendDM(partnerPubKey *ed25519.PublicKey, dmToken []byte,
-		msg string,
-		params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
-
-	// SendDMReply is used to send a formatted direct message reply.
-	//
-	// If the message ID that the reply is sent to does not exist,
-	// then the other side will post the message as a normal
-	// message and not as a reply.
-	//
-	// The message will auto delete validUntil after the round it
-	// is sent in, lasting forever if ValidForever is used.
-	SendDMReply(partnerPubKey *ed25519.PublicKey, dmToken []byte,
-		msg string,
-		replyTo cryptoChannel.MessageID, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
-
-	// SendDMReaction is used to send a reaction to a direct
-	// message. The reaction must be a single emoji with no other
-	// characters, and will be rejected otherwise.
-	//
-	// Clients will drop the reaction if they do not recognize the reactTo
-	// message.
-	SendDMReaction(partnerPubKey *ed25519.PublicKey, dmToken []byte,
-		reaction string, reactTo cryptoChannel.MessageID,
-		params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
-		ephemeral.Id, error)
-
-	// TODO: These unimplemented at this time.
-	// BlockDMs disables DMs from a specific user. Received messages
-	// will be dropped during event processing.
-	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken []byte) error
-	// UnblockDMs enables DMs from a specific user.
-	// UnblockDMs(conversationID *id.ID) error
 
 	// RegisterReceiveHandler is used to register handlers for non default
 	// message types so that they can be processed by modules. It is important

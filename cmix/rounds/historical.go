@@ -168,6 +168,7 @@ func (m *manager) processHistoricalRounds(comm Comms, stop *stoppable.Single) {
 			func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
 				jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 					"gateway %s", rounds, host.GetId())
+				jww.INFO.Printf("[HTTPS] Requesting historical rounds from %s", target)
 
 				gwHost = host
 

@@ -213,6 +213,8 @@ func (c *client) follow(identity receptionID.IdentityUse,
 				identity.EphId.Int64(), identity.Source, identity.StartValid,
 				identity.EndValid, identity.EndValid.Sub(identity.StartValid),
 				host.GetId())
+			jww.INFO.Printf("[HTTPS] Requesting poll from %s", target)
+
 			var err error
 			var response *pb.GatewayPollResponse
 			response, startTime, rtt, err = comms.SendPoll(host, &pollReq)

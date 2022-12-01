@@ -77,6 +77,7 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	result, err := sender.SendToPreferred([]*id.ID{preferred},
 		func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
 			startInternal := time.Now()
+			jww.INFO.Printf("[HTTPS] Requesting keys from %s", target)
 			keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
 			if err2 != nil {
 				return nil, errors.WithMessagef(err2,

@@ -157,17 +157,24 @@ func (m *manager) processHistoricalRounds(comm Comms, stop *stoppable.Single) {
 
 		// Send the historical roundRequests request
 		hr := &pb.HistoricalRounds{Rounds: rounds}
+		// todo: remove this
+		const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
+		preferred, _ := id.Unmarshal([]byte(xxGatewayId))
+		timeout := 15 * time.Second
 
 		var gwHost *connect.Host
-		result, err := m.sender.SendToAny(
-			func(host *connect.Host) (interface{}, error) {
+		result, err := m.sender.SendToPreferred(
+			[]*id.ID{preferred},
+			func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
 				jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 					"gateway %s", rounds, host.GetId())
 
 				gwHost = host
 
 				return comm.RequestHistoricalRounds(host, hr)
-			}, stop)
+			},
+			stop,
+			timeout)
 
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical roundRequests "+

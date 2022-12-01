@@ -199,19 +199,28 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	var rtt time.Duration
 	var sendTo *id.ID
+	// todo: remove this
+	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
+	preferred, _ := id.Unmarshal([]byte(xxGatewayId))
+	timeout := 15 * time.Second
+
 	var startTime time.Time
 
-	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
-		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
-			identity.EphId.Int64(), identity.Source, identity.StartValid,
-			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
-			host.GetId())
-		var err error
-		var response *pb.GatewayPollResponse
-		response, startTime, rtt, err = comms.SendPoll(host, &pollReq)
-		sendTo = host.GetId()
-		return response, err
-	}, stop)
+	result, err := c.SendToPreferred(
+		[]*id.ID{preferred},
+		func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
+			jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+				identity.EphId.Int64(), identity.Source, identity.StartValid,
+				identity.EndValid, identity.EndValid.Sub(identity.StartValid),
+				host.GetId())
+			var err error
+			var response *pb.GatewayPollResponse
+			response, startTime, rtt, err = comms.SendPoll(host, &pollReq)
+			sendTo = host.GetId()
+			return response, err
+		},
+		stop,
+		timeout)
 
 	// Exit if the thread has been stopped
 	if stoppable.CheckErr(err) {

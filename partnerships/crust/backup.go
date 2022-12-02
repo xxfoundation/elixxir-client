@@ -82,8 +82,6 @@ func UploadBackup(file BackupFile, privateKey *rsa.PrivateKey,
 		return nil, errors.Errorf("failed to request PIN: %+v", err)
 	}
 
-	jww.INFO.Printf("[CRUST] Completed file backup.")
-
 	return uploadSuccess, nil
 }
 

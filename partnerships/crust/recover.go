@@ -48,12 +48,18 @@ func RecoverBackup(username string) ([]byte, error) {
 		return nil, errors.Errorf("failed to request CID: %+v", err)
 	}
 
+	marshalledCid, _ := json.Marshal(cidResp)
+	jww.INFO.Printf("[CRUST] Recovering with username %s", username)
+	jww.INFO.Printf("[CRUST] CID response: %s", string(marshalledCid))
+
 	backupFile, err := requestBackupFile(cidResp)
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve backup file: %+v", err)
 	}
 
 	jww.INFO.Printf("[CRUST] File has been recovered.")
+
+	jww.INFO.Printf("[CRUST] Backup file: %v", backupFile)
 
 	return backupFile, nil
 }

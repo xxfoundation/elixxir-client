@@ -8,6 +8,7 @@
 package cmix
 
 import (
+	"encoding/base64"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/cmix/attempts"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -44,6 +45,9 @@ type TargetedCmixMessage struct {
 	Mac         []byte
 }
 
+// todo: remove this
+const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
+
 // SendMany sends many "raw" cMix message payloads to the provided
 // recipients all in the same round.
 // Returns the round ID of the round the payloads was sent or an error if it
@@ -53,18 +57,20 @@ type TargetedCmixMessage struct {
 // implementing a protocol on top.
 // Due to sending multiple payloads, this leaks more metadata than a
 // standard cMix send and should be in general avoided.
-//   recipient - cMix ID of the recipient.
-//   fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
-//      fingerprint, highest order bit must be 0 (panic otherwise). If your
-//      system does not use key fingerprints, this must be random bits.
-//   service - Reception Service. The backup way for a client to identify
-//      messages on receipt via trial hashing and to identify notifications.
-//      If unused, use message.GetRandomService to fill the field with
-//      random data.
-//   payload - Contents of the message. Cannot exceed the payload size for a
-//      cMix message (panic otherwise).
-//   mac - 256-bit field to store a 255-bit mac, highest order bit must be 0
-//      (panic otherwise). If used, fill with random bits.
+//
+//	recipient - cMix ID of the recipient.
+//	fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
+//	   fingerprint, highest order bit must be 0 (panic otherwise). If your
+//	   system does not use key fingerprints, this must be random bits.
+//	service - Reception Service. The backup way for a client to identify
+//	   messages on receipt via trial hashing and to identify notifications.
+//	   If unused, use message.GetRandomService to fill the field with
+//	   random data.
+//	payload - Contents of the message. Cannot exceed the payload size for a
+//	   cMix message (panic otherwise).
+//	mac - 256-bit field to store a 255-bit mac, highest order bit must be 0
+//	   (panic otherwise). If used, fill with random bits.
+//
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful send or err.
 // WARNING: Do not roll your own crypto
@@ -278,8 +284,13 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 			}
 			return result, err
 		}
+
+		// todo: remove this
+		gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
+		preferred, _ := id.Unmarshal(gatewayDecoded)
+
 		result, err := sender.SendToPreferred(
-			[]*id.ID{firstGateway}, sendFunc, param.Stop, param.SendTimeout)
+			[]*id.ID{preferred}, sendFunc, param.Stop, param.SendTimeout)
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {

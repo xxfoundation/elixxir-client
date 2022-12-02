@@ -203,8 +203,9 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 
 	// Determine size of HostPool
 	if poolParams.PoolSize == 0 {
-		poolParams.PoolSize, err = getPoolSize(
-			uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
+		//poolParams.PoolSize, err = getPoolSize(
+		//	uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
+		poolParams.PoolSize = 1
 		if err != nil {
 			return nil, err
 		}

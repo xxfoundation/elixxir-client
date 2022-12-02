@@ -37,8 +37,8 @@ const (
 	storeLeaseChanIDsErr  = "could not store lease channel IDs: %+v"
 
 	// actionLeaseList.load
-	loadLeaseChanIDsErr  = "could not load list of channels: %+v"
-	loadLeaseMessagesErr = "could not load message leases for channel %s: %+v"
+	loadLeaseChanIDsErr  = "could not load list of channels"
+	loadLeaseMessagesErr = "could not load message leases for channel %s"
 )
 
 // actionLeaseList keeps a list of messages and actions and undoes each action
@@ -392,7 +392,7 @@ func (all *actionLeaseList) load() error {
 	// Get list of channel IDs
 	channelIDs, err := all.loadLeaseChannels()
 	if err != nil {
-		return errors.Errorf(loadLeaseChanIDsErr, err)
+		return errors.Wrap(err, loadLeaseChanIDsErr)
 	}
 
 	// Get list of lease messages and load them into the message map and lease
@@ -400,7 +400,7 @@ func (all *actionLeaseList) load() error {
 	for _, channelID := range channelIDs {
 		all.messages[*channelID], err = all.loadLeaseMessages(channelID)
 		if err != nil {
-			return errors.Errorf(loadLeaseMessagesErr, channelID, err)
+			return errors.Wrapf(err, loadLeaseMessagesErr, channelID)
 		}
 
 		for _, lm := range all.messages[*channelID] {

@@ -292,7 +292,7 @@ func Test_mutedUserManager_save_load(t *testing.T) {
 // no channel list to load.
 func Test_mutedUserManager_load_LoadChannelListError(t *testing.T) {
 	mum := newMutedUserManager(versioned.NewKV(ekv.MakeMemstore()))
-	expectedErr := strings.Split(loadMutedChannelsErr, "%")[0]
+	expectedErr := loadMutedChannelsErr
 
 	err := mum.load()
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
@@ -309,7 +309,7 @@ func Test_mutedUserManager_load_LoadUserListError(t *testing.T) {
 
 	channelID := newRandomChanID(prng, t)
 	mum.list[*channelID] = make(map[mutedUserKey]struct{})
-	expectedErr := fmt.Sprintf(loadMutedUsersErr, channelID, "")
+	expectedErr := fmt.Sprintf(loadMutedUsersErr, channelID)
 
 	if err := mum.saveChannelList(); err != nil {
 		t.Fatalf("Failed to save channel list to storage: %+v", err)

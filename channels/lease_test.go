@@ -852,7 +852,7 @@ func Test_actionLeaseList_load(t *testing.T) {
 // no channel IDs can be loaded from storage.
 func Test_actionLeaseList_load_ChannelListLoadError(t *testing.T) {
 	all := newActionLeaseList(nil, versioned.NewKV(ekv.MakeMemstore()))
-	expectedErr := strings.Split(loadLeaseChanIDsErr, "%")[0]
+	expectedErr := loadLeaseChanIDsErr
 
 	err := all.load()
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
@@ -873,7 +873,7 @@ func Test_actionLeaseList_load_LeaseMessagesLoadError(t *testing.T) {
 		t.Errorf("Failed to store lease channels: %+v", err)
 	}
 
-	expectedErr := fmt.Sprintf(loadLeaseMessagesErr, chanID, "")
+	expectedErr := fmt.Sprintf(loadLeaseMessagesErr, chanID)
 
 	err = all.load()
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {

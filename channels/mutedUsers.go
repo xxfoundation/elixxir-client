@@ -28,7 +28,7 @@ const (
 
 	// mutedUserManager.load
 	loadMutedChannelsErr = "could not load list of muted channels: %+v"
-	loadMutedUsersErr    = "could not load muted users for channel %s: %+v"
+	loadMutedUsersErr    = "could not load muted users for channel %s"
 )
 
 // mutedUserKey identifies a user in the muted user list for each channel. It is
@@ -192,14 +192,14 @@ func (mum *mutedUserManager) load() error {
 	// Get list of channel IDs
 	channelIDs, err := mum.loadChannelList()
 	if err != nil {
-		return errors.Errorf(loadMutedChannelsErr, err)
+		return errors.Wrap(err, loadMutedChannelsErr)
 	}
 
 	// Get list of muted users for each channel and load them into the map
 	for _, channelID := range channelIDs {
 		mum.list[*channelID], err = mum.loadMutedUsers(channelID)
 		if err != nil {
-			return errors.Errorf(loadMutedUsersErr, channelID, err)
+			return errors.Wrapf(err, loadMutedUsersErr, channelID)
 		}
 	}
 

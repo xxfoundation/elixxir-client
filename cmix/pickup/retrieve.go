@@ -8,6 +8,7 @@
 package pickup
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"time"
 
@@ -159,8 +160,14 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms,
 	gwIds []*id.ID, stop *stoppable.Single) (message.Bundle, error) {
 	start := netTime.Now()
+
+	// todo: remove this
+	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
+	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
+	preferred, _ := id.Unmarshal(gatewayDecoded)
+
 	// Send to the gateways using backup proxies
-	result, err := m.sender.SendToPreferred(gwIds,
+	result, err := m.sender.SendToPreferred([]*id.ID{preferred},
 		func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
 			jww.DEBUG.Printf("Trying to get messages for round %d for "+
 				"ephemeralID %d (%s) via Gateway: %s", roundID,

@@ -1854,3 +1854,18 @@ func (c *ChannelDbCipher) Encrypt(plaintext []byte) ([]byte, error) {
 func (c *ChannelDbCipher) Decrypt(ciphertext []byte) ([]byte, error) {
 	return c.api.Decrypt(ciphertext)
 }
+
+// MarshalJSON marshals the cipher into valid JSON. This function adheres to the
+// json.Marshaler interface.
+func (c *ChannelDbCipher) MarshalJSON() ([]byte, error) {
+	return c.api.MarshalJSON()
+}
+
+// UnmarshalJSON unmarshalls JSON into the cipher. This function adheres to the
+// json.Unmarshaler interface.
+//
+// Note that this function does not transfer the internal RNG. Use
+// NewCipherFromJSON to properly reconstruct a cipher from JSON.
+func (c *ChannelDbCipher) UnmarshalJSON(data []byte) error {
+	return c.api.UnmarshalJSON(data)
+}

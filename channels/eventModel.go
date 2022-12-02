@@ -183,21 +183,21 @@ type EventModel interface {
 
 // ModelMessage contains a message and all of its information.
 type ModelMessage struct {
-	UUID            uint64
-	Nickname        string
-	MessageID       cryptoChannel.MessageID
-	ChannelID       *id.ID
-	ParentMessageID cryptoChannel.MessageID
-	Timestamp       time.Time
-	Lease           time.Duration
-	Status          SentStatus
-	Hidden          bool
-	Pinned          bool
-	Content         []byte
-	Type            MessageType
-	Round           id.Round
-	PubKey          ed25519.PublicKey
-	CodesetVersion  uint8
+	UUID            uint64                  `json:"uuid"`
+	Nickname        string                  `json:"nickname"`
+	MessageID       cryptoChannel.MessageID `json:"messageID"`
+	ChannelID       *id.ID                  `json:"channelID"`
+	ParentMessageID cryptoChannel.MessageID `json:"parentMessageID"`
+	Timestamp       time.Time               `json:"timestamp"`
+	Lease           time.Duration           `json:"lease"`
+	Status          SentStatus              `json:"status"`
+	Hidden          bool                    `json:"hidden"`
+	Pinned          bool                    `json:"pinned"`
+	Content         []byte                  `json:"content"`
+	Type            MessageType             `json:"type"`
+	Round           id.Round                `json:"round"`
+	PubKey          ed25519.PublicKey       `json:"pubKey"`
+	CodesetVersion  uint8                   `json:"codesetVersion"`
 }
 
 // MessageTypeReceiveMessage defines handlers for messages of various message

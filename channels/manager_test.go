@@ -9,6 +9,13 @@ package channels
 
 import (
 	"fmt"
+	"math/rand"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
@@ -17,12 +24,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"os"
-	"reflect"
-	"sync"
-	"testing"
-	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 )
@@ -261,7 +262,7 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 
 	token := m.getDmToken(ch.ReceptionID)
 
-	expected := hashPrivateKey(pi.Privkey)
+	expected := pi.GetDMToken()
 	if !reflect.DeepEqual(token, expected) {
 		t.Fatalf("EnableDirectMessageToken did not set token as expected."+
 			"\nExpected: %v"+

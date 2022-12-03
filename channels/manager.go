@@ -259,7 +259,7 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 
 // GetIdentity returns the public identity associated with this channel manager.
 func (m *manager) GetIdentity() cryptoChannel.Identity {
-	return m.me.Identity
+	return m.me.GetIdentity()
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

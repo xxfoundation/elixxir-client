@@ -154,7 +154,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.loadChannels()
 
-	m.nicknameManager = loadOrNewNicknameManager(kv)
+	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
 	return &m
 }

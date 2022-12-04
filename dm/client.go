@@ -8,12 +8,12 @@
 package dm
 
 import (
-	"crypto/ed25519"
-
+	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 )
@@ -36,12 +36,15 @@ type dmClient struct {
 //
 // The DMClient implements both the Sender and ListenerRegistrar interface.
 // See send.go for implementation of the Sender interface.
-func NewDMClient(privateEdwardsKey ed25519.PrivateKey,
-	myIDToken []byte, nickMgr nickNameManager,
+func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
+	nickMgr nickNameManager,
 	net cMixClient,
-	rng *fastRNG.StreamGenerator) *dmClient {
+	rng *fastRNG.StreamGenerator) Client {
 
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(&privateEdwardsKey)
+	privateEdwardsKey := myID.Privkey
+	myIDToken := myID.GetDMToken()
+
+	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	receptionID := deriveReceptionID(publicKey, myIDToken)
@@ -49,7 +52,7 @@ func NewDMClient(privateEdwardsKey ed25519.PrivateKey,
 	// TODO: do we do the reception registration here or do we do
 	// it outside of this function?
 
-	return &dmClient{
+	dmc := &dmClient{
 		receptionID: receptionID,
 		privateKey:  privateKey,
 		publicKey:   publicKey,
@@ -58,6 +61,16 @@ func NewDMClient(privateEdwardsKey ed25519.PrivateKey,
 		net:         net,
 		rng:         rng,
 	}
+
+	// Register the listener
+	// TODO: For now we are not doing send tracking. Add it when
+	// hitting WASM.
+	dmc.Register(receiver, func(
+		messageID MessageID, r rounds.Round) bool {
+		return false
+	})
+
+	return dmc
 }
 
 // Register registers a listener for direct messages.

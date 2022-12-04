@@ -114,8 +114,6 @@ func (p *receiver) Process(msg format.Message,
 		jww.WARN.Printf("Error processing for "+
 			"DM (UUID: %d): %+v", uuid, err)
 	}
-
-	return
 }
 
 // receiveMessage attempts to parse the message and calls the appropriate

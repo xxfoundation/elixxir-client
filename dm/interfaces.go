@@ -19,6 +19,12 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 )
 
+// Client the direct message client implements a Listener and Sender interface.
+type Client interface {
+	Sender
+	Listener
+}
+
 // Sender implemntors allow the API user to send to a given partner over
 // cMix.
 type Sender interface {
@@ -74,6 +80,9 @@ type Listener interface {
 	// UnblockDMs enables DMs from a specific user.
 	// UnblockDMs(conversationID *id.ID) error
 }
+
+// DMReceiverBuilder initialises the event model using the given path.
+type ReceiverBuilder func(path string) (Receiver, error)
 
 // Receiver is all of the reception functions an API user must implement.
 // This is similar to the event model system in channels.
@@ -217,5 +226,5 @@ type cMixClient interface {
 type nickNameManager interface {
 	// GetNick gets a nickname associated with this DM partner (reception)
 	// ID.
-	GetNickname(id *id.ID) (string, error)
+	GetNickname(id *id.ID) (string, bool)
 }

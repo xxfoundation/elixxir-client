@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"github.com/pkg/errors"
 	"math"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -30,17 +30,10 @@ var ValidForever = time.Duration(math.MaxInt64)
 
 // Manager provides an interface to manager channels.
 type Manager interface {
-	// GetIdentity returns the public identity associated with this channel
-	// manager.
-	GetIdentity() cryptoChannel.Identity
 
-	// ExportPrivateIdentity encrypts and exports the private identity to a
-	// portable string.
-	ExportPrivateIdentity(password string) ([]byte, error)
-
-	// GetStorageTag returns the tag at where this manager is stored. To be used
-	// when loading the manager. The storage tag is derived from the public key.
-	GetStorageTag() string
+	////////////////////////////////////////////////////////////////////////////
+	// Channel Actions                                                        //
+	////////////////////////////////////////////////////////////////////////////
 
 	// GenerateChannel creates a new channel with the user as the admin. This
 	// function only create a channel and does not join it.
@@ -80,6 +73,24 @@ type Manager interface {
 	// channel was not previously joined.
 	LeaveChannel(channelID *id.ID) error
 
+	// ReplayChannel replays all messages from the channel within the network's
+	// memory (~3 weeks) over the event model. It does this by wiping the
+	// underlying state tracking for message pickup for the channel, causing all
+	// messages to be re-retrieved from the network.
+	ReplayChannel(chID *id.ID) error
+
+	// GetChannels returns the IDs of all channels that have been joined. Use
+	// getChannelsUnsafe if you already have taken the mux.
+	GetChannels() []*id.ID
+
+	// GetChannel returns the underlying cryptographic structure for a given
+	// channel.
+	GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error)
+
+	////////////////////////////////////////////////////////////////////////////
+	// Sending                                                                //
+	////////////////////////////////////////////////////////////////////////////
+
 	// SendGeneric is used to send a raw message over a channel. In general, it
 	// should be wrapped in a function that defines the wire protocol.
 	//
@@ -92,17 +103,6 @@ type Manager interface {
 	SendGeneric(channelID *id.ID, messageType MessageType,
 		msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
-
-	// SendAdminGeneric is used to send a raw message over a channel encrypted
-	// with admin keys, identifying it as sent by the admin. In general, it
-	// should be wrapped in a function that defines the wire protocol.
-	//
-	// If the final message, before being sent over the wire, is too long, this
-	// will return an error. The message must be at most 510 bytes long.
-	SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
-		messageType MessageType, msg []byte, validUntil time.Duration,
-		params cmix.CMIXParams) (cryptoChannel.MessageID,
-		rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
 	//
@@ -141,39 +141,76 @@ type Manager interface {
 		reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
+	////////////////////////////////////////////////////////////////////////////
+	// Admin Sending                                                          //
+	////////////////////////////////////////////////////////////////////////////
+
+	// SendAdminGeneric is used to send a raw message over a channel encrypted
+	// with admin keys, identifying it as sent by the admin. In general, it
+	// should be wrapped in a function that defines the wire protocol.
+	//
+	// If the final message, before being sent over the wire, is too long, this
+	// will return an error. The message must be at most 510 bytes long.
+	//
+	// If the user is not an admin of the channel (i.e. does not have a private
+	// key for the channel saved to storage), then the error NotAnAdminErr is
+	// returned.
+	SendAdminGeneric(channelID *id.ID, messageType MessageType, msg []byte,
+		validUntil time.Duration, params cmix.CMIXParams) (
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+
 	// DeleteMessage deletes the targeted message from user's view. Users may
-	// delete their own messages (by leaving the private key as nil) but only
-	// the channel admin can delete other user's messages.
+	// delete their own messages but only the channel admin can delete other
+	// user's messages. If the user is not an admin of the channel or if they
+	// are not the sender of the targetMessage, then the error NotAnAdminErr is
+	// returned.
 	//
 	// If undoAction is true, then the targeted message is un-deleted.
 	//
 	// Clients will drop the deletion if they do not recognize the target
 	// message.
-	DeleteMessage(privKey rsa.PrivateKey, channelID *id.ID,
-		targetMessage cryptoChannel.MessageID, undoAction bool,
-		params cmix.CMIXParams) (
+	DeleteMessage(channelID *id.ID, targetMessage cryptoChannel.MessageID,
+		undoAction bool, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// PinMessage pins the target message to the top of a channel view for all
 	// users in the specified channel. Only the channel admin can pin user
-	// messages.
+	// messages; if the user is not an admin of the channel, then the error
+	// NotAnAdminErr is returned.
 	//
 	// If undoAction is true, then the targeted message is unpinned.
 	//
 	// Clients will drop the pin if they do not recognize the target message.
-	PinMessage(privKey rsa.PrivateKey, channelID *id.ID,
-		targetMessage cryptoChannel.MessageID, undoAction bool,
-		params cmix.CMIXParams) (
+	PinMessage(channelID *id.ID, targetMessage cryptoChannel.MessageID,
+		undoAction bool, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// MuteUser is used to mute a user in a channel. Muting a user will cause
 	// all future messages from the user being hidden from view. Muted users are
-	// also unable to send messages. Only the channel admin can mute a user.
+	// also unable to send messages. Only the channel admin can mute a user; if
+	// the user is not an admin of the channel, then the error NotAnAdminErr is
+	// returned.
 	//
 	// If undoAction is true, then the targeted user will be unmuted.
-	MuteUser(privKey rsa.PrivateKey, channelID *id.ID,
-		mutedUser ed25519.PublicKey, undoAction bool, params cmix.CMIXParams) (
+	MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey, undoAction bool,
+		params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+
+	////////////////////////////////////////////////////////////////////////////
+	// Other Channel Actions                                                  //
+	////////////////////////////////////////////////////////////////////////////
+
+	// GetIdentity returns the public identity associated with this channel
+	// manager.
+	GetIdentity() cryptoChannel.Identity
+
+	// ExportPrivateIdentity encrypts and exports the private identity to a
+	// portable string.
+	ExportPrivateIdentity(password string) ([]byte, error)
+
+	// GetStorageTag returns the tag at where this manager is stored. To be used
+	// when loading the manager. The storage tag is derived from the public key.
+	GetStorageTag() string
 
 	// RegisterReceiveHandler is used to register handlers for non default
 	// message types so that they can be processed by modules. It is important
@@ -183,20 +220,6 @@ type Manager interface {
 	// error on a multiple registration.
 	RegisterReceiveHandler(
 		messageType MessageType, listener MessageTypeReceiveMessage) error
-
-	// GetChannels returns the IDs of all channels that have been joined. Use
-	// getChannelsUnsafe if you already have taken the mux.
-	GetChannels() []*id.ID
-
-	// GetChannel returns the underlying cryptographic structure for a given
-	// channel.
-	GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error)
-
-	// ReplayChannel replays all messages from the channel within the network's
-	// memory (~3 weeks) over the event model. It does this by wiping the
-	// underlying state tracking for message pickup for the channel, causing all
-	// messages to be re-retrieved from the network.
-	ReplayChannel(chID *id.ID) error
 
 	// SetNickname sets the nickname for a channel after checking that the
 	// nickname is valid using [IsNicknameValid].
@@ -260,3 +283,7 @@ type Manager interface {
 	// have another admin.
 	DeleteChannelAdminKey(channelID *id.ID) error
 }
+
+// NotAnAdminErr is returned if the user is attempting to do an admin command
+// while not being an admin.
+var NotAnAdminErr = errors.New("user not a member of the channel")

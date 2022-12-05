@@ -9,6 +9,7 @@ package channels
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -19,6 +20,11 @@ import (
 // IsChannelAdmin returns true if the user is an admin of the channel.
 func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
 	if _, err := loadChannelPrivateKey(channelID, m.kv); err != nil {
+		if m.kv.Exists(err) {
+			jww.WARN.Printf("Private key for channel ID %s found in storage, "+
+				"but an error was encountered while accessing it: %+v",
+				channelID, err)
+		}
 		return false
 	}
 	return true

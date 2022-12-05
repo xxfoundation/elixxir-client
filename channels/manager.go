@@ -25,6 +25,7 @@ import (
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
@@ -170,23 +171,32 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 func (m *manager) GenerateChannel(
 	name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, error) {
+	ch, _, err := m.generateChannel(
+		name, description, privacyLevel, m.net.GetMaxMessageLength())
+	return ch, err
+}
+
+// generateChannel generates a new channel with a custom packet payload length.
+func (m *manager) generateChannel(name, description string,
+	privacyLevel cryptoBroadcast.PrivacyLevel, packetPayloadLength int) (
+	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 
 	// Generate channel
 	stream := m.rng.GetStream()
 	ch, pk, err := cryptoBroadcast.NewChannel(
-		name, description, privacyLevel, m.net.GetMaxMessageLength(), stream)
+		name, description, privacyLevel, packetPayloadLength, stream)
 	stream.Close()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Save private key to storage
 	err = saveChannelPrivateKey(ch.ReceptionID, pk, m.kv)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return ch, nil
+	return ch, pk, nil
 }
 
 // JoinChannel joins the given channel. It will fail if the channel has already
@@ -215,28 +225,6 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 	go m.events.model.LeaveChannel(channelID)
 
 	return nil
-}
-
-// GetChannels returns the IDs of all channels that have been joined. Use
-// getChannelsUnsafe if you already have taken the mux.
-func (m *manager) GetChannels() []*id.ID {
-	jww.INFO.Printf("GetChannels")
-	m.mux.Lock()
-	defer m.mux.Unlock()
-	return m.getChannelsUnsafe()
-}
-
-// GetChannel returns the underlying cryptographic structure for a given
-// channel.
-func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
-	jww.INFO.Printf("GetChannel(%s)", chID)
-	jc, err := m.getChannel(chID)
-	if err != nil {
-		return nil, err
-	} else if jc.broadcast == nil {
-		return nil, errors.New("broadcast.Channel on joinedChannel is nil")
-	}
-	return jc.broadcast.Get(), nil
 }
 
 // ReplayChannel replays all messages from the channel within the network's
@@ -268,17 +256,37 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 	jc.broadcast = b
 
 	return nil
-
 }
+
+// GetChannels returns the IDs of all channels that have been joined. Use
+// getChannelsUnsafe if you already have taken the mux.
+func (m *manager) GetChannels() []*id.ID {
+	jww.INFO.Printf("GetChannels")
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.getChannelsUnsafe()
+}
+
+// GetChannel returns the underlying cryptographic structure for a given
+// channel.
+func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
+	jww.INFO.Printf("GetChannel(%s)", chID)
+	jc, err := m.getChannel(chID)
+	if err != nil {
+		return nil, err
+	} else if jc.broadcast == nil {
+		return nil, errors.New("broadcast.Channel on joinedChannel is nil")
+	}
+	return jc.broadcast.Get(), nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Other Channel Actions                                                      //
+////////////////////////////////////////////////////////////////////////////////
 
 // GetIdentity returns the public identity associated with this channel manager.
 func (m *manager) GetIdentity() cryptoChannel.Identity {
 	return m.me.Identity
-}
-
-// Muted returns true if the user is currently muted in the given channel.
-func (m *manager) Muted(channelID *id.ID) bool {
-	return m.events.mutedUsers.isMuted(channelID, m.me.PubKey)
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
@@ -299,4 +307,9 @@ func (m *manager) GetStorageTag() string {
 // getStorageTag generates a storage tag from an Ed25519 public key.
 func getStorageTag(pub ed25519.PublicKey) string {
 	return fmt.Sprintf(storageTagFormat, base64.StdEncoding.EncodeToString(pub))
+}
+
+// Muted returns true if the user is currently muted in the given channel.
+func (m *manager) Muted(channelID *id.ID) bool {
+	return m.events.mutedUsers.isMuted(channelID, m.me.PubKey)
 }

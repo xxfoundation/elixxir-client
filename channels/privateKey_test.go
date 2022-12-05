@@ -19,22 +19,20 @@ import (
 	"testing"
 )
 
-// Tests that manager.IsChannelAdmin returns true to a channel private key saved in
-// storage and returns false to one that is not.
-func Test_manager_IsChannelAdmin(t *testing.T) {
-	m := &manager{
+func newPrivKeyTestManager() *manager {
+	return &manager{
 		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		kv:  versioned.NewKV(ekv.MakeMemstore()),
 	}
-	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+}
+
+// Tests that manager.IsChannelAdmin returns true to a channel private key saved
+// in storage and returns false to one that is not.
+func Test_manager_IsChannelAdmin(t *testing.T) {
+	m := newPrivKeyTestManager()
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
-
-	err = saveChannelPrivateKey(c.ReceptionID, pk, m.kv)
-	if err != nil {
-		t.Fatalf("Failed to save private key: %+v", err)
 	}
 
 	if !m.IsChannelAdmin(c.ReceptionID) {
@@ -53,26 +51,13 @@ func Test_manager_IsChannelAdmin(t *testing.T) {
 // private key when decrypted. Also tests that it can be verified using
 // manager.VerifyChannelAdminKey and imported into a new manager using
 // manager.ImportChannelAdminKey.
-func Test_manager_ExportChannelAdminKey_VerifyChannelAdminKey_ImportChannelAdminKey(t *testing.T) {
+func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 	password := "hunter2"
-	m1 := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
-	}
-	m2 := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
-	}
-	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+	m1 := newPrivKeyTestManager()
+	m2 := newPrivKeyTestManager()
+	c, pk, err := m1.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
-
-	// Save private key to storage in m1
-	err = saveChannelPrivateKey(c.ReceptionID, pk, m1.kv)
-	if err != nil {
-		t.Fatalf("Failed to save private key: %+v", err)
 	}
 
 	pkPacket, err := m1.ExportChannelAdminKey(c.ReceptionID, password)
@@ -134,19 +119,10 @@ func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 // Error path: Tests that when the password is invalid,
 // manager.ImportChannelAdminKey returns an error.
 func Test_manager_ImportChannelAdminKey_WrongPasswordError(t *testing.T) {
-	m := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
-	}
-	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+	m := newPrivKeyTestManager()
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
-
-	err = saveChannelPrivateKey(c.ReceptionID, pk, m.kv)
-	if err != nil {
-		t.Fatalf("Failed to save private key: %+v", err)
 	}
 
 	pkPacket, err := m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
@@ -163,19 +139,10 @@ func Test_manager_ImportChannelAdminKey_WrongPasswordError(t *testing.T) {
 // Error path: Tests that when the channel ID does not match,
 // manager.ImportChannelAdminKey returns an error.
 func Test_manager_ImportChannelAdminKey_WrongChannelIdError(t *testing.T) {
-	m := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
-	}
-	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+	m := newPrivKeyTestManager()
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
-
-	err = saveChannelPrivateKey(c.ReceptionID, pk, m.kv)
-	if err != nil {
-		t.Fatalf("Failed to save private key: %+v", err)
 	}
 
 	password := "hunter2"
@@ -193,19 +160,10 @@ func Test_manager_ImportChannelAdminKey_WrongChannelIdError(t *testing.T) {
 // Error path: Tests that when the password is invalid,
 // manager.VerifyChannelAdminKey returns an error.
 func Test_manager_VerifyChannelAdminKey_WrongPasswordError(t *testing.T) {
-	m := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
-	}
-	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+	m := newPrivKeyTestManager()
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
-
-	err = saveChannelPrivateKey(c.ReceptionID, pk, m.kv)
-	if err != nil {
-		t.Fatalf("Failed to save private key: %+v", err)
 	}
 
 	pkPacket, err := m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
@@ -222,19 +180,11 @@ func Test_manager_VerifyChannelAdminKey_WrongPasswordError(t *testing.T) {
 // Error path: Tests that when the channel ID does not match,
 // manager.VerifyChannelAdminKey returns false.
 func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
-	m := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
-	}
-	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+
+	m := newPrivKeyTestManager()
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
-
-	err = saveChannelPrivateKey(c.ReceptionID, pk, m.kv)
-	if err != nil {
-		t.Fatalf("Failed to save private key: %+v", err)
 	}
 
 	password := "hunter2"
@@ -255,21 +205,10 @@ func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
 // Tests that manager.DeleteChannelAdminKey deletes the channel and that
 // manager.ExportChannelAdminKey returns an error.
 func Test_manager_DeleteChannelAdminKey(t *testing.T) {
-	password := "hunter2"
-	m := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
-	}
-	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+	m := newPrivKeyTestManager()
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
-
-	// Save private key to storage in m1
-	err = saveChannelPrivateKey(c.ReceptionID, pk, m.kv)
-	if err != nil {
-		t.Fatalf("Failed to save private key: %+v", err)
 	}
 
 	err = m.DeleteChannelAdminKey(c.ReceptionID)
@@ -277,7 +216,7 @@ func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 		t.Fatalf("Failed to delete private key: %+v", err)
 	}
 
-	_, err = m.ExportChannelAdminKey(c.ReceptionID, password)
+	_, err = m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
 	if m.kv.Exists(err) {
 		t.Fatalf("Private key was not deleted: %+v", err)
 	}

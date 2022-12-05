@@ -17,9 +17,7 @@ const (
 
 type nicknameManager struct {
 	byChannel map[id.ID]string
-
 	mux sync.RWMutex
-
 	kv *versioned.KV
 }
 
@@ -30,23 +28,13 @@ func loadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
 		byChannel: make(map[id.ID]string),
 		kv:        kv,
 	}
+
 	err := nm.load()
 	if err != nil && nm.kv.Exists(err) {
 		jww.FATAL.Panicf("Failed to load nicknameManager: %+v", err)
 	}
 
 	return nm
-
-}
-
-// GetNickname returns the nickname for the given channel if it exists.
-func (nm *nicknameManager) GetNickname(chID *id.ID) (
-	nickname string, exists bool) {
-	nm.mux.RLock()
-	defer nm.mux.RUnlock()
-
-	nickname, exists = nm.byChannel[*chID]
-	return
 }
 
 // SetNickname sets the nickname for a channel after checking that the nickname
@@ -72,6 +60,16 @@ func (nm *nicknameManager) DeleteNickname(chID *id.ID) error {
 	delete(nm.byChannel, *chID)
 
 	return nm.save()
+}
+
+// GetNickname returns the nickname for the given channel if it exists.
+func (nm *nicknameManager) GetNickname(chID *id.ID) (
+	nickname string, exists bool) {
+	nm.mux.RLock()
+	defer nm.mux.RUnlock()
+
+	nickname, exists = nm.byChannel[*chID]
+	return
 }
 
 // channelIDToNickname is a serialization structure. This is used by the save

@@ -19,7 +19,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -191,109 +190,6 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	return msgId, r, ephID, err
 }
 
-// SendAdminGeneric is used to send a raw message over a channel encrypted with
-// admin keys, identifying it as sent by the admin. In general, it should be
-// wrapped in a function that defines the wire protocol.
-//
-// If the final message, before being sent over the wire, is too long, this will
-// return an error. The message must be at most 510 bytes long.
-func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
-	messageType MessageType, msg []byte, validUntil time.Duration,
-	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
-	ephemeral.Id, error) {
-
-	// Note: We log sends on exit, and append what happened to the message
-	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf("[%s] Admin sending ch %s type %d at %s",
-		params.DebugTag, channelID, messageType, netTime.Now())
-	defer jww.INFO.Println(sendPrint)
-
-	// Find the channel
-	ch, err := m.getChannel(channelID)
-	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
-	}
-
-	var msgId cryptoChannel.MessageID
-	chMsg := &ChannelMessage{
-		Lease:          validUntil.Nanoseconds(),
-		PayloadType:    uint32(messageType),
-		Payload:        msg,
-		Nickname:       AdminUsername,
-		Nonce:          make([]byte, messageNonceSize),
-		LocalTimestamp: netTime.Now().UnixNano(),
-	}
-
-	// Generate random nonce to be used for message ID generation. This makes it
-	// so two identical messages sent on the same round have different message
-	// IDs
-	rng := m.rng.GetStream()
-	n, err := rng.Read(chMsg.Nonce)
-	rng.Close()
-	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
-			errors.Errorf("Failed to generate nonce: %+v", err)
-	} else if n != messageNonceSize {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
-			errors.Errorf(
-				"Generated %d bytes for %d-byte nonce", n, messageNonceSize)
-	}
-
-	// Note: we are not checking if message is too long before trying to
-	// find a round
-
-	// Build the function pointer that will build the message
-	assemble := func(rid id.Round) ([]byte, error) {
-		// Build the message
-		chMsg.RoundID = uint64(rid)
-
-		// Serialize the message
-		chMsgSerial, err := proto.Marshal(chMsg)
-		if err != nil {
-			return nil, err
-		}
-
-		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
-
-		// Check if the message is too long
-		if len(chMsgSerial) > ch.broadcast.MaxRSAToPublicPayloadSize() {
-			return nil, MessageTooLongErr
-		}
-
-		return chMsgSerial, nil
-	}
-
-	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
-	uuid, err := m.st.denotePendingAdminSend(channelID, chMsg)
-	if err != nil {
-		sendPrint += fmt.Sprintf(", pending send failed %s", err.Error())
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
-	}
-
-	sendPrint += fmt.Sprintf(", broadcasting message %s", netTime.Now())
-	r, ephID, err := ch.broadcast.BroadcastRSAToPublicWithAssembler(privKey,
-		assemble, params)
-	if err != nil {
-		sendPrint += fmt.Sprintf(
-			", broadcast failed %s, %s", netTime.Now(), err.Error())
-		errDenote := m.st.failedSend(uuid)
-		if errDenote != nil {
-			sendPrint += fmt.Sprintf(
-				", failed to denote failed broadcast: %s", err.Error())
-			jww.ERROR.Printf(
-				"Failed to update for a failed send to %s: %+v", channelID, err)
-		}
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
-	}
-	sendPrint += fmt.Sprintf(
-		", broadcast succeeded %s, success!", netTime.Now())
-	err = m.st.send(uuid, msgId, r)
-	if err != nil {
-		sendPrint += fmt.Sprintf(", broadcast failed: %s ", err.Error())
-	}
-	return msgId, r, ephID, err
-}
-
 // SendMessage is used to send a formatted message over a channel.
 //
 // Due to the underlying encoding using compression, it is not possible to
@@ -390,14 +286,132 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		channelID, Reaction, reactMarshaled, ValidForever, params)
 }
 
+
+// SendAdminGeneric is used to send a raw message over a channel encrypted with
+// admin keys, identifying it as sent by the admin. In general, it should be
+// wrapped in a function that defines the wire protocol.
+//
+// If the final message, before being sent over the wire, is too long, this will
+// return an error. The message must be at most 510 bytes long.
+//
+// If the user is not an admin of the channel (i.e. does not have a private
+// key for the channel saved to storage), then an error is returned.
+func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
+	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+
+	// Note: We log sends on exit, and append what happened to the message
+	// this cuts down on clutter in the log.
+	sendPrint := fmt.Sprintf("[%s] Admin sending ch %s type %d at %s",
+		params.DebugTag, channelID, messageType, netTime.Now())
+	defer jww.INFO.Println(sendPrint)
+
+	// Find the channel
+	ch, err := m.getChannel(channelID)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Return an error if the user is not an admin
+	privKey, err := loadChannelPrivateKey(channelID, m.kv)
+	if err != nil {
+		if m.kv.Exists(err) {
+			jww.WARN.Printf("Private key for channel ID %s found in storage, "+
+				"but an error was encountered while accessing it: %+v",
+				channelID, err)
+		}
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		NotAnAdminErr
+	}
+
+	var msgId cryptoChannel.MessageID
+	chMsg := &ChannelMessage{
+		Lease:          validUntil.Nanoseconds(),
+		PayloadType:    uint32(messageType),
+		Payload:        msg,
+		Nickname:       AdminUsername,
+		Nonce:          make([]byte, messageNonceSize),
+		LocalTimestamp: netTime.Now().UnixNano(),
+	}
+
+	// Generate random nonce to be used for message ID generation. This makes it
+	// so two identical messages sent on the same round have different message
+	// IDs
+	rng := m.rng.GetStream()
+	n, err := rng.Read(chMsg.Nonce)
+	rng.Close()
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf("Failed to generate nonce: %+v", err)
+	} else if n != messageNonceSize {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf(
+				"Generated %d bytes for %d-byte nonce", n, messageNonceSize)
+	}
+
+	// Note: we are not checking if message is too long before trying to
+	// find a round
+
+	// Build the function pointer that will build the message
+	assemble := func(rid id.Round) ([]byte, error) {
+		// Build the message
+		chMsg.RoundID = uint64(rid)
+
+		// Serialize the message
+		chMsgSerial, err := proto.Marshal(chMsg)
+		if err != nil {
+			return nil, err
+		}
+
+		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
+
+		// Check if the message is too long
+		if len(chMsgSerial) > ch.broadcast.MaxRSAToPublicPayloadSize() {
+			return nil, MessageTooLongErr
+		}
+
+		return chMsgSerial, nil
+	}
+
+	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
+	uuid, err := m.st.denotePendingAdminSend(channelID, chMsg)
+	if err != nil {
+		sendPrint += fmt.Sprintf(", pending send failed %s", err.Error())
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	sendPrint += fmt.Sprintf(", broadcasting message %s", netTime.Now())
+	r, ephID, err := ch.broadcast.BroadcastRSAToPublicWithAssembler(privKey,
+		assemble, params)
+	if err != nil {
+		sendPrint += fmt.Sprintf(
+			", broadcast failed %s, %s", netTime.Now(), err.Error())
+		errDenote := m.st.failedSend(uuid)
+		if errDenote != nil {
+			sendPrint += fmt.Sprintf(
+				", failed to denote failed broadcast: %s", err.Error())
+			jww.ERROR.Printf(
+				"Failed to update for a failed send to %s: %+v", channelID, err)
+		}
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+	sendPrint += fmt.Sprintf(
+		", broadcast succeeded %s, success!", netTime.Now())
+	err = m.st.send(uuid, msgId, r)
+	if err != nil {
+		sendPrint += fmt.Sprintf(", broadcast failed: %s ", err.Error())
+	}
+	return msgId, r, ephID, err
+}
+
 // DeleteMessage deletes the targeted message from user's view. Users may delete
-// their own messages (by leaving the private key as nil) but only the channel
-// admin can delete other user's messages.
+// their own messages but only the channel admin can delete other user's
+// messages.
 //
 // If undoAction is true, then the targeted message is un-deleted.
 //
 // Clients will drop the deletion if they do not recognize the target message.
-func (m *manager) DeleteMessage(privKey rsa.PrivateKey, channelID *id.ID,
+func (m *manager) DeleteMessage(channelID *id.ID,
 	targetMessage cryptoChannel.MessageID, undoAction bool,
 	params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
@@ -406,18 +420,22 @@ func (m *manager) DeleteMessage(privKey rsa.PrivateKey, channelID *id.ID,
 	jww.INFO.Printf(
 		"[%s]DeleteMessage(%s, delete %s)", tag, channelID, targetMessage)
 
-	if privKey == nil {
+	// Load private key from storage. If it does not exist, then check if the
+	// user is the sender of the message to delete.
+	isChannelAdmin := m.IsChannelAdmin(channelID)
+	if !isChannelAdmin {
 		msg, err := m.events.model.GetMessage(targetMessage)
 		if err != nil {
 			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
-				errors.Errorf("failed to find targeted message %s to delete",
-					targetMessage)
+				errors.Errorf(
+					"failed to find targeted message %s to delete: %+v",
+					targetMessage, err)
 		}
 
 		if !bytes.Equal(msg.PubKey, m.me.PubKey) {
 			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
-				errors.Errorf("can only delete message you are sender of or " +
-					"if you are the channel admin.")
+				errors.Errorf("can only delete message you are sender of " +
+					"or if you are the channel admin.")
 		}
 	}
 
@@ -434,12 +452,12 @@ func (m *manager) DeleteMessage(privKey rsa.PrivateKey, channelID *id.ID,
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	if privKey == nil {
-		return m.SendGeneric(
+	if isChannelAdmin {
+		return m.SendAdminGeneric(
 			channelID, Delete, deleteMarshaled, ValidForever, params)
 	} else {
-		return m.SendAdminGeneric(
-			privKey, channelID, Delete, deleteMarshaled, ValidForever, params)
+		return m.SendGeneric(
+			channelID, Delete, deleteMarshaled, ValidForever, params)
 	}
 }
 
@@ -449,7 +467,7 @@ func (m *manager) DeleteMessage(privKey rsa.PrivateKey, channelID *id.ID,
 // If undoAction is true, then the targeted message is unpinned.
 //
 // Clients will drop the pin if they do not recognize the target message.
-func (m *manager) PinMessage(privKey rsa.PrivateKey, channelID *id.ID,
+func (m *manager) PinMessage(channelID *id.ID,
 	targetMessage cryptoChannel.MessageID, undoAction bool,
 	params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
@@ -472,7 +490,7 @@ func (m *manager) PinMessage(privKey rsa.PrivateKey, channelID *id.ID,
 	}
 
 	return m.SendAdminGeneric(
-		privKey, channelID, Pinned, pinnedMarshaled, ValidForever, params)
+		channelID, Pinned, pinnedMarshaled, ValidForever, params)
 }
 
 // MuteUser is used to mute a user in a channel. Muting a user will cause all
@@ -480,9 +498,9 @@ func (m *manager) PinMessage(privKey rsa.PrivateKey, channelID *id.ID,
 // unable to send messages. Only the channel admin can mute a user.
 //
 // If undoAction is true, then the targeted user will be unmuted.
-func (m *manager) MuteUser(privKey rsa.PrivateKey, channelID *id.ID,
-	mutedUser ed25519.PublicKey, undoAction bool, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+func (m *manager) MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey,
+	undoAction bool, params cmix.CMIXParams) (cryptoChannel.MessageID,
+	rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, mutedUser, SendMuteTag)
 	jww.INFO.Printf("[%s]MuteUser(%s, mute %x)", tag, channelID, mutedUser)
 
@@ -500,7 +518,7 @@ func (m *manager) MuteUser(privKey rsa.PrivateKey, channelID *id.ID,
 	}
 
 	return m.SendAdminGeneric(
-		privKey, channelID, Mute, mutedMarshaled, ValidForever, params)
+		channelID, Mute, mutedMarshaled, ValidForever, params)
 }
 
 // makeChaDebugTag is a debug helper that creates non-unique msg identifier.

@@ -21,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -351,6 +350,10 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	return channelManagerTrackerSingleton.make(m), nil
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Channel Actions                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
 // DecodePublicURL decodes the channel URL into a channel pretty print. This
 // function can only be used for public channel URLs. To get the privacy level
 // of a channel URL, use [GetShareUrlType].
@@ -534,22 +537,6 @@ func (cm *ChannelsManager) JoinChannel(channelPretty string) ([]byte, error) {
 	return info, err
 }
 
-// GetChannels returns the IDs of all channels that have been joined.
-//
-// Returns:
-//   - []byte - A JSON marshalled list of IDs.
-//
-// JSON Example:
-//
-//	{
-//	  "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
-//	  "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
-//	}
-func (cm *ChannelsManager) GetChannels() ([]byte, error) {
-	channelIds := cm.api.GetChannels()
-	return json.Marshal(channelIds)
-}
-
 // LeaveChannel leaves the given channel. It will return an error if the
 // channel was not previously joined.
 //
@@ -581,6 +568,22 @@ func (cm *ChannelsManager) ReplayChannel(channelIdBytes []byte) error {
 
 	// Replay channel
 	return cm.api.ReplayChannel(chanId)
+}
+
+// GetChannels returns the IDs of all channels that have been joined.
+//
+// Returns:
+//   - []byte - A JSON marshalled list of IDs.
+//
+// JSON Example:
+//
+//	{
+//	  "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+//	  "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
+//	}
+func (cm *ChannelsManager) GetChannels() ([]byte, error) {
+	channelIds := cm.api.GetChannels()
+	return json.Marshal(channelIds)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -766,61 +769,6 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
-// SendAdminGeneric is used to send a raw message over a channel encrypted with
-// admin keys, identifying it as sent by the admin. In general, it should be
-// wrapped in a function that defines the wire protocol. If the final message,
-// before being sent over the wire, is too long, this will return an error. The
-// message must be at most 510 bytes long.
-//
-// Parameters:
-//   - adminPrivateKey - The PEM-encoded admin RSA private key.
-//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
-//   - messageType - The message type of the message. This will be a valid
-//     [channels.MessageType].
-//   - message - The contents of the message. The message should be at most 510
-//     bytes. This need not be of data type string, as the message could be a
-//     specified format that the channel may recognize.
-//   - leaseTimeMS - The lease of the message. This will be how long the message
-//     is valid until, in milliseconds. As per the channels.Manager
-//     documentation, this has different meanings depending on the use case.
-//     These use cases may be generic enough that they will not be enumerated
-//     here.
-//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
-//     and GetDefaultCMixParams will be used internally.
-//
-// Returns:
-//   - []byte - JSON of [ChannelSendReport].
-func (cm *ChannelsManager) SendAdminGeneric(
-	adminPrivateKey, channelIdBytes []byte, messageType int, message []byte,
-	leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
-
-	// Load private key from file
-	rsaPrivKey, err := rsa.GetScheme().UnmarshalPrivateKeyPEM(adminPrivateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal channel ID and parameters
-	chanId, params, err := parseChannelsParameters(
-		channelIdBytes, cmixParamsJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	msgTy := channels.MessageType(messageType)
-
-	// Send admin message
-	lease := time.Duration(leaseTimeMS) * time.Millisecond
-	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(
-		rsaPrivKey, chanId, msgTy, message, lease, params.CMIX)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
-}
-
 // SendMessage is used to send a formatted message over a channel.
 // Due to the underlying encoding using compression, it isn't possible to define
 // the largest payload that can be sent, but it will always be possible to send
@@ -971,20 +919,74 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Admin Sending                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
+// SendAdminGeneric is used to send a raw message over a channel encrypted with
+// admin keys, identifying it as sent by the admin. In general, it should be
+// wrapped in a function that defines the wire protocol.
+//
+// If the final message, before being sent over the wire, is too long, this will
+// return an error. The message must be at most 510 bytes long.
+//
+// If the user is not an admin of the channel (i.e. does not have a private key
+// for the channel saved to storage), then the error [channels.NotAnAdminErr] is
+// returned.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//   - messageType - The message type of the message. This will be a valid
+//     [channels.MessageType].
+//   - message - The contents of the message. The message should be at most 510
+//     bytes. This need not be of data type string, as the message could be a
+//     specified format that the channel may recognize.
+//   - leaseTimeMS - The lease of the message. This will be how long the message
+//     is valid until, in milliseconds. As per the [channels.Manager]
+//     documentation, this has different meanings depending on the use case.
+//     These use cases may be generic enough that they will not be enumerated
+//     here.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and [GetDefaultCMixParams] will be used internally.
+//
+// Returns:
+//   - []byte - JSON of [ChannelSendReport].
+func (cm *ChannelsManager) SendAdminGeneric(channelIdBytes []byte,
+	messageType int, message []byte, leaseTimeMS int64, cmixParamsJSON []byte) (
+	[]byte, error) {
+	// Unmarshal channel ID and parameters
+	chanId, params, err := parseChannelsParameters(
+		channelIdBytes, cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	msgTy := channels.MessageType(messageType)
+
+	// Send admin message
+	lease := time.Duration(leaseTimeMS) * time.Millisecond
+	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(
+		chanId, msgTy, message, lease, params.CMIX)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct send report
+	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+}
+
 // DeleteMessage deletes the targeted message from user's view. Users may delete
-// their own messages (by leaving the private key as nil) but only the channel
-// admin can delete other user's messages. If no private key is passed in, then
-// the channel private key is retrieved from storage. If no private key is
-// found, then an error is returned.
+// their own messages but only the channel admin can delete other user's
+// messages. If the user is not an admin of the channel or if they are not the
+// sender of the targetMessage, then the error [channels.NotAnAdminErr] is
+// returned.
 //
 // If undoAction is true, then the targeted message is un-deleted.
 //
-// Clients will drop the deletion if they do not recognize the target message.
+// Clients will drop the deletion if they do not recognize the target
+// message.
 //
 // Parameters:
-//   - adminPrivateKey - The PEM-encoded admin RSA private key for the channel.
-//     Leave this blank if the user is deleting their own message or the private
-//     key is saved in storage.
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - targetMessageIdBytes - The marshalled [channel.MessageID] of the message
 //     you want to delete.
@@ -994,20 +996,9 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
-func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
+func (cm *ChannelsManager) DeleteMessage(channelIdBytes,
 	targetMessageIdBytes []byte, undoAction bool, cmixParamsJSON []byte) (
 	[]byte, error) {
-
-	// Load private key PEM
-	var privKey rsa.PrivateKey
-	if adminPrivateKey != nil && len(adminPrivateKey) > 0 {
-		var err error
-		privKey, err = rsa.GetScheme().UnmarshalPrivateKeyPEM(adminPrivateKey)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-	}
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err :=
@@ -1025,7 +1016,7 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 
 	// Send message deletion
 	chanMsgId, rnd, ephId, err := cm.api.DeleteMessage(
-		privKey, channelID, targetedMessageID, undoAction, params.CMIX)
+		channelID, targetedMessageID, undoAction, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
@@ -1034,18 +1025,16 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
-// PinMessage pins the target message to the top of a channel view for all users
-// in the specified channel. Only the channel admin can pin user messages. If no
-// private key is passed in, then the channel private key is retrieved from
-// storage. If no private key is found, then an error is returned.
+// PinMessage pins the target message to the top of a channel view for all
+// users in the specified channel. Only the channel admin can pin user
+// messages; if the user is not an admin of the channel, then the error
+// [channels.NotAnAdminErr] is returned.
 //
 // If undoAction is true, then the targeted message is unpinned.
 //
 // Clients will drop the pin if they do not recognize the target message.
 //
 // Parameters:
-//   - adminPrivateKey - The PEM-encoded admin RSA private key for the channel.
-//     Leave this blank if the private key is saved in storage.
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - targetMessageIdBytes - The marshalled [channel.MessageID] of the message
 //     you want to pin.
@@ -1055,15 +1044,9 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
-func (cm *ChannelsManager) PinMessage(adminPrivateKey, channelIdBytes []byte,
+func (cm *ChannelsManager) PinMessage(channelIdBytes,
 	targetMessageIdBytes []byte, undoAction bool, cmixParamsJSON []byte) (
 	[]byte, error) {
-
-	// Load private key PEM
-	privKey, err := rsa.GetScheme().UnmarshalPrivateKeyPEM(adminPrivateKey)
-	if err != nil {
-		return nil, err
-	}
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err :=
@@ -1081,7 +1064,7 @@ func (cm *ChannelsManager) PinMessage(adminPrivateKey, channelIdBytes []byte,
 
 	// Send message pin
 	chanMsgId, rnd, ephId, err := cm.api.PinMessage(
-		privKey, channelID, targetedMessageID, undoAction, params.CMIX)
+		channelID, targetedMessageID, undoAction, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
@@ -1090,17 +1073,15 @@ func (cm *ChannelsManager) PinMessage(adminPrivateKey, channelIdBytes []byte,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
-// MuteUser is used to mute a user in a channel. Muting a user will cause all
-// future messages from the user being hidden from view. Muted users are also
-// unable to send messages. Only the channel admin can mute a user. If no
-// private key is passed in, then the channel private key is retrieved from
-// storage. If no private key is found, then an error is returned.
+// MuteUser is used to mute a user in a channel. Muting a user will cause
+// all future messages from the user being hidden from view. Muted users are
+// also unable to send messages. Only the channel admin can mute a user; if
+// the user is not an admin of the channel, then the error
+// [channels.NotAnAdminErr] is returned.
 //
 // If undoAction is true, then the targeted user will be unmuted.
 //
 // Parameters:
-//   - adminPrivateKey - The PEM-encoded admin RSA private key for the channel.
-//     Leave this blank if the private key is saved in storage.
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - mutedUserPubKeyBytes - The [ed25519.PublicKey] of the user you want to
 //     mute.
@@ -1110,16 +1091,8 @@ func (cm *ChannelsManager) PinMessage(adminPrivateKey, channelIdBytes []byte,
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
-func (cm *ChannelsManager) MuteUser(adminPrivateKey, channelIdBytes []byte,
-	mutedUserPubKeyBytes []byte, undoAction bool, cmixParamsJSON []byte) (
-	[]byte, error) {
-
-	// Load private key PEM
-	privKey, err := rsa.GetScheme().UnmarshalPrivateKeyPEM(adminPrivateKey)
-	if err != nil {
-		return nil, err
-	}
-
+func (cm *ChannelsManager) MuteUser(channelIdBytes, mutedUserPubKeyBytes []byte,
+	undoAction bool, cmixParamsJSON []byte) ([]byte, error) {
 	// Unmarshal channel ID and parameters
 	channelID, params, err :=
 		parseChannelsParameters(channelIdBytes, cmixParamsJSON)
@@ -1136,90 +1109,14 @@ func (cm *ChannelsManager) MuteUser(adminPrivateKey, channelIdBytes []byte,
 	}
 
 	// Send message pin
-	chanMsgId, rnd, ephId, err := cm.api.MuteUser(
-		privKey, channelID, userPubKey, undoAction, params.CMIX)
+	chanMsgId, rnd, ephId, err :=
+		cm.api.MuteUser(channelID, userPubKey, undoAction, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
-}
-
-// GetIdentity returns the marshaled public identity ([channel.Identity]) that
-// the channel is using.
-func (cm *ChannelsManager) GetIdentity() ([]byte, error) {
-	i := cm.api.GetIdentity()
-	return json.Marshal(&i)
-}
-
-// ExportPrivateIdentity encrypts and exports the private identity to a portable
-// string.
-func (cm *ChannelsManager) ExportPrivateIdentity(password string) ([]byte, error) {
-	return cm.api.ExportPrivateIdentity(password)
-}
-
-// GetStorageTag returns the storage tag needed to reload the manager.
-func (cm *ChannelsManager) GetStorageTag() string {
-	return cm.api.GetStorageTag()
-}
-
-// SetNickname sets the nickname for a given channel. The nickname must be valid
-// according to [IsNicknameValid].
-func (cm *ChannelsManager) SetNickname(newNick string, ch []byte) error {
-	chid, err := id.Unmarshal(ch)
-	if err != nil {
-		return err
-	}
-	return cm.api.SetNickname(newNick, chid)
-}
-
-// DeleteNickname deletes the nickname for a given channel.
-func (cm *ChannelsManager) DeleteNickname(ch []byte) error {
-	chid, err := id.Unmarshal(ch)
-	if err != nil {
-		return err
-	}
-	return cm.api.DeleteNickname(chid)
-}
-
-// GetNickname returns the nickname set for a given channel. Returns an error if
-// there is no nickname set.
-func (cm *ChannelsManager) GetNickname(ch []byte) (string, error) {
-	chid, err := id.Unmarshal(ch)
-	if err != nil {
-		return "", err
-	}
-	nick, exists := cm.api.GetNickname(chid)
-	if !exists {
-		return "", errors.New("no nickname found for the given channel")
-	}
-
-	return nick, nil
-}
-
-// IsNicknameValid checks if a nickname is valid.
-//
-// Rules:
-//  1. A nickname must not be longer than 24 characters.
-//  2. A nickname must not be shorter than 1 character.
-func IsNicknameValid(nick string) error {
-	return channels.IsNicknameValid(nick)
-}
-
-// Muted returns true if the user is currently muted in the given channel.
-//
-// Parameters:
-//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
-//
-// Returns:
-//   - bool - True if the user is muted in the channel and false otherwise.
-func (cm *ChannelsManager) Muted(channelIDBytes []byte) (bool, error) {
-	channelID, err := id.Unmarshal(channelIDBytes)
-	if err != nil {
-		return false, err
-	}
-	return cm.api.Muted(channelID), nil
 }
 
 // parseChannelsParameters is a helper function for the Send functions. It
@@ -1256,6 +1153,102 @@ func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
 
 	// Marshal send report
 	return json.Marshal(chanSendReport)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Other Channel Actions                                                      //
+////////////////////////////////////////////////////////////////////////////////
+
+// GetIdentity returns the marshaled public identity ([channel.Identity]) that
+// the channel is using.
+func (cm *ChannelsManager) GetIdentity() ([]byte, error) {
+	i := cm.api.GetIdentity()
+	return json.Marshal(&i)
+}
+
+// ExportPrivateIdentity encrypts and exports the private identity to a portable
+// string.
+func (cm *ChannelsManager) ExportPrivateIdentity(password string) ([]byte, error) {
+	return cm.api.ExportPrivateIdentity(password)
+}
+
+// GetStorageTag returns the storage tag needed to reload the manager.
+func (cm *ChannelsManager) GetStorageTag() string {
+	return cm.api.GetStorageTag()
+}
+
+// SetNickname sets the nickname for a given channel. The nickname must be valid
+// according to [IsNicknameValid].
+//
+// Parameters:
+//   - nickname - The new nickname.
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) SetNickname(nickname string, channelIDBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return err
+	}
+	return cm.api.SetNickname(nickname, channelID)
+}
+
+// DeleteNickname deletes the nickname for a given channel.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) DeleteNickname(channelIDBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return err
+	}
+	return cm.api.DeleteNickname(channelID)
+}
+
+// GetNickname returns the nickname set for a given channel. Returns an error if
+// there is no nickname set.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - string - The nickname for the channel.
+func (cm *ChannelsManager) GetNickname(channelIDBytes []byte) (string, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return "", err
+	}
+	nickname, exists := cm.api.GetNickname(channelID)
+	if !exists {
+		return "", errors.New("no nickname found for the given channel")
+	}
+
+	return nickname, nil
+}
+
+// IsNicknameValid checks if a nickname is valid.
+//
+// Rules:
+//  1. A nickname must not be longer than 24 characters.
+//  2. A nickname must not be shorter than 1 character.
+//
+// Parameters:
+//   - nickname - Nickname to check.
+func IsNicknameValid(nickname string) error {
+	return channels.IsNicknameValid(nickname)
+}
+
+// Muted returns true if the user is currently muted in the given channel.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - bool - True if the user is muted in the channel and false otherwise.
+func (cm *ChannelsManager) Muted(channelIDBytes []byte) (bool, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return false, err
+	}
+	return cm.api.Muted(channelID), nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

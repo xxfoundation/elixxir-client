@@ -35,6 +35,9 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// Verify that manager adheres to the Manager interface.
+var _ Manager = (*manager)(nil)
+
 var mockAddServiceFn = func(sp xxdk.Service) error {
 	_, err := sp()
 	return err

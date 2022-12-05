@@ -357,76 +357,13 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //
 // Example JSON:
 //
-//	 {
-//	   "Channel": "\u003cSpeakeasy-v3:name|description:desc|level:Public|created:1665489600000000000|secrets:zjHmrPPMDQ0tNSANjAmQfKhRpJIdJMU+Hz5hsZ+fVpk=|qozRNkADprqb38lsnU7WxCtGCq9OChlySCEgl4NHjI4=|2|328|7aZQAtuVjE84q4Z09iGytTSXfZj9NyTa6qBp0ueKjCI=\u003e",
-//		  "PrivateKey": "-----BEGIN RSA PRIVATE KEY-----\nMCYCAQACAwDVywIDAQABAgMAlVECAgDvAgIA5QICAJECAgCVAgIA1w==\n-----END RSA PRIVATE KEY-----"
-//	 }
+//	{
+//	  "Channel": "\u003cSpeakeasy-v3:name|description:desc|level:Public|created:1665489600000000000|secrets:zjHmrPPMDQ0tNSANjAmQfKhRpJIdJMU+Hz5hsZ+fVpk=|qozRNkADprqb38lsnU7WxCtGCq9OChlySCEgl4NHjI4=|2|328|7aZQAtuVjE84q4Z09iGytTSXfZj9NyTa6qBp0ueKjCI=\u003e",
+//	  "PrivateKey": "-----BEGIN RSA PRIVATE KEY-----\nMCYCAQACAwDVywIDAQABAgMAlVECAgDvAgIA5QICAJECAgCVAgIA1w==\n-----END RSA PRIVATE KEY-----"
+//	}
 type ChannelGeneration struct {
 	Channel    string
 	PrivateKey string
-}
-
-// GenerateChannel is used to create a channel a new channel of which you are
-// the admin. It is only for making new channels, not joining existing ones.
-//
-// It returns a pretty print of the channel and the private key.
-//
-// Parameters:
-//   - cmixID - The tracked cmix object ID. This can be retrieved using
-//     [Cmix.GetID].
-//   - name - The name of the new channel. The name must be between 3 and 24
-//     characters inclusive. It can only include upper and lowercase unicode
-//     letters, digits 0 through 9, and underscores (_). It cannot be changed
-//     once a channel is created.
-//   - description - The description of a channel. The description is optional
-//     but cannot be longer than 144 characters and can include all unicode
-//     characters. It cannot be changed once a channel is created.
-//   - privacyLevel - The broadcast.PrivacyLevel of the channel. 0 = public,
-//     1 = private, and 2 = secret. Refer to the comment below for more
-//     information.
-//
-// Returns:
-//   - []byte - [ChannelGeneration] describes a generated channel. It contains
-//     both the public channel info and the private key for the channel in PEM
-//     format.
-//
-// The [broadcast.PrivacyLevel] of a channel indicates the level of channel
-// information revealed when sharing it via URL. For any channel besides public
-// channels, the secret information is encrypted and a password is required to
-// share and join a channel.
-//   - A privacy level of [broadcast.Public] reveals all the information
-//     including the name, description, privacy level, public key and salt.
-//   - A privacy level of [broadcast.Private] reveals only the name and
-//     description.
-//   - A privacy level of [broadcast.Secret] reveals nothing.
-func GenerateChannel(cmixID int, name, description string, privacyLevel int) ([]byte, error) {
-	// Get cmix from singleton so its rng can be used
-	cmix, err := cmixTrackerSingleton.get(cmixID)
-	if err != nil {
-		return nil, err
-	}
-
-	stream := cmix.api.GetRng().GetStream()
-	defer stream.Close()
-	level := cryptoBroadcast.PrivacyLevel(privacyLevel)
-	c, pk, err := cryptoBroadcast.NewChannel(name, description, level,
-		cmix.api.GetCmix().GetMaxMessageLength(), stream)
-	if err != nil {
-		return nil, err
-	}
-
-	gen := ChannelGeneration{
-		Channel:    c.PrettyPrint(),
-		PrivateKey: string(pk.MarshalPem()),
-	}
-
-	err =
-		saveChannelPrivateKey(c.ReceptionID, pk, cmix.api.GetStorage().GetKV())
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(&gen)
 }
 
 // DecodePublicURL decodes the channel URL into a channel pretty print. This
@@ -544,6 +481,47 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 		return nil, nil, err
 	}
 	return c, bytes, nil
+}
+
+// GenerateChannel creates a new channel with the user as the admin. This
+// function only create a channel and does not join it.
+//
+// The private key is saved to storage and can be accessed with
+// ExportChannelAdminKey.
+//
+// Parameters:
+//   - name - The name of the new channel. The name must be between 3 and 24
+//     characters inclusive. It can only include upper and lowercase Unicode
+//     letters, digits 0 through 9, and underscores (_). It cannot be changed
+//     once a channel is created.
+//   - description - The description of a channel. The description is optional
+//     but cannot be longer than 144 characters and can include all Unicode
+//     characters. It cannot be changed once a channel is created.
+//   - privacyLevel - The [broadcast.PrivacyLevel] of the channel. 0 = public,
+//     1 = private, and 2 = secret. Refer to the comment below for more
+//     information.
+//
+// Returns:
+//   - []byte - The pretty print of the channel.
+//
+// The [broadcast.PrivacyLevel] of a channel indicates the level of channel
+// information revealed when sharing it via URL. For any channel besides public
+// channels, the secret information is encrypted and a password is required to
+// share and join a channel.
+//   - A privacy level of [broadcast.Public] reveals all the information
+//     including the name, description, privacy level, public key and salt.
+//   - A privacy level of [broadcast.Private] reveals only the name and
+//     description.
+//   - A privacy level of [broadcast.Secret] reveals nothing.
+func (cm *ChannelsManager) GenerateChannel(
+	name, description string, privacyLevel int) (string, error) {
+	level := cryptoBroadcast.PrivacyLevel(privacyLevel)
+	ch, err := cm.api.GenerateChannel(name, description, level)
+	if err != nil {
+		return "", err
+	}
+
+	return ch.PrettyPrint(), nil
 }
 
 // JoinChannel joins the given channel. It will fail if the channel has already
@@ -1010,7 +988,9 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 
 // DeleteMessage deletes the targeted message from user's view. Users may delete
 // their own messages (by leaving the private key as nil) but only the channel
-// admin can delete other user's messages.
+// admin can delete other user's messages. If no private key is passed in, then
+// the channel private key is retrieved from storage. If no private key is
+// found, then an error is returned.
 //
 // If undoAction is true, then the targeted message is un-deleted.
 //
@@ -1018,6 +998,8 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 //
 // Parameters:
 //   - adminPrivateKey - The PEM-encoded admin RSA private key for the channel.
+//     Leave this blank if the user is deleting their own message or the private
+//     key is saved in storage.
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - targetMessageIdBytes - The marshalled [channel.MessageID] of the message
 //     you want to delete.
@@ -1039,6 +1021,7 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 		if err != nil {
 			return nil, err
 		}
+	} else {
 	}
 
 	// Unmarshal channel ID and parameters
@@ -1067,7 +1050,9 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 }
 
 // PinMessage pins the target message to the top of a channel view for all users
-// in the specified channel. Only the channel admin can pin user messages.
+// in the specified channel. Only the channel admin can pin user messages. If no
+// private key is passed in, then the channel private key is retrieved from
+// storage. If no private key is found, then an error is returned.
 //
 // If undoAction is true, then the targeted message is unpinned.
 //
@@ -1075,6 +1060,7 @@ func (cm *ChannelsManager) DeleteMessage(adminPrivateKey, channelIdBytes []byte,
 //
 // Parameters:
 //   - adminPrivateKey - The PEM-encoded admin RSA private key for the channel.
+//     Leave this blank if the private key is saved in storage.
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - targetMessageIdBytes - The marshalled [channel.MessageID] of the message
 //     you want to pin.
@@ -1121,12 +1107,15 @@ func (cm *ChannelsManager) PinMessage(adminPrivateKey, channelIdBytes []byte,
 
 // MuteUser is used to mute a user in a channel. Muting a user will cause all
 // future messages from the user being hidden from view. Muted users are also
-// unable to send messages. Only the channel admin can mute a user.
+// unable to send messages. Only the channel admin can mute a user. If no
+// private key is passed in, then the channel private key is retrieved from
+// storage. If no private key is found, then an error is returned.
 //
 // If undoAction is true, then the targeted user will be unmuted.
 //
 // Parameters:
 //   - adminPrivateKey - The PEM-encoded admin RSA private key for the channel.
+//     Leave this blank if the private key is saved in storage.
 //   - channelIdBytes - Marshalled bytes of channel [id.ID].
 //   - mutedUserPubKeyBytes - The [ed25519.PublicKey] of the user you want to
 //     mute.
@@ -1246,6 +1235,113 @@ func (cm *ChannelsManager) Muted(channelIDBytes []byte) (bool, error) {
 		return false, err
 	}
 	return cm.api.Muted(channelID), nil
+}
+
+// IsChannelAdmin returns true if the user is an admin of the channel.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - bool - True if the user is an admin in the channel and false otherwise.
+func (cm *ChannelsManager) IsChannelAdmin(channelIDBytes []byte) (bool, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return false, err
+	}
+	return cm.api.IsChannelAdmin(channelID), nil
+}
+
+// ExportChannelAdminKey gets the private key for the given channel ID, encrypts
+// it with the provided encryptionPassword, and exports it into a portable
+// format. Returns an error if the user is not an admin of the channel.
+//
+// This key can be provided to other users in a channel to grant them admin
+// access using ImportChannelAdminKey.
+//
+// The private key is encrypted using a key generated from the password using
+// Argon2. Each call to ExportChannelAdminKey produces a different encrypted
+// packet regardless if the same password is used for the same channel. It
+// cannot be determined which channel the payload is for nor that two payloads
+// are for the same channel.
+//
+// The passwords between each call are not related. They can be the same or
+// different with no adverse impact on the security properties.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//   - encryptionPassword - The password used to encrypt the private key. The
+//     passwords between each call are not related. They can be the same or
+//     different with no adverse impact on the security properties.
+//
+// Returns:
+//   - Portable string of the channel private key encrypted with the password.
+func (cm *ChannelsManager) ExportChannelAdminKey(
+	channelIDBytes []byte, encryptionPassword string) ([]byte, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return cm.api.ExportChannelAdminKey(channelID, encryptionPassword)
+}
+
+// VerifyChannelAdminKey verifies that the encrypted private key can be
+// decrypted and that it matches the expected channel. Returns false if private
+// key does not belong to the given channel ID. Returns an error for an invalid
+// password.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//   - encryptionPassword - The password used to encrypt the private key.
+//   - encryptedPrivKey - The encrypted channel private key packet.
+func (cm *ChannelsManager) VerifyChannelAdminKey(
+	channelIdBytes []byte, encryptionPassword string, encryptedPrivKey []byte) (
+	bool, error) {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return false, err
+	}
+
+	return cm.api.VerifyChannelAdminKey(
+		channelID, encryptionPassword, encryptedPrivKey)
+}
+
+// ImportChannelAdminKey decrypts and imports the given encrypted private key
+// and grants the user admin access to the channel the private key belongs to.
+// Returns an error if the private key cannot be decrypted or if the private key
+// is for the wrong channel.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//   - encryptionPassword - The password used to encrypt the private key.
+//   - encryptedPrivKey - The encrypted channel private key packet.
+func (cm *ChannelsManager) ImportChannelAdminKey(channelIdBytes []byte,
+	encryptionPassword string, encryptedPrivKey []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.ImportChannelAdminKey(
+		channelID, encryptionPassword, encryptedPrivKey)
+}
+
+// DeleteChannelAdminKey deletes the private key for the given channel.
+//
+// CAUTION: This will remove admin access. This cannot be undone. If the
+// private key is deleted, it cannot be recovered and the channel can never
+// have another admin.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) DeleteChannelAdminKey(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.DeleteChannelAdminKey(channelID)
 }
 
 // parseChannelsParameters is a helper function for the Send functions. It

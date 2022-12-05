@@ -104,10 +104,6 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	//
-	// Message type is included in the call; it will always be
-	// Text (1) for this call, but it may be required in
-	// downstream databases.
 	Receive(messageID MessageID,
 		nickname string, text []byte, pubKey ed25519.PublicKey,
 		dmToken []byte,
@@ -128,10 +124,6 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	//
-	// Message type is included in the call; it will always be
-	// Text (1) for this call, but it may be required in
-	// downstream databases.
 	ReceiveText(messageID MessageID,
 		nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
 		codeset uint8, timestamp time.Time,
@@ -155,10 +147,6 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	//
-	// Message type is included in the call; it will always be
-	// Text (1) for this call, but it may be required in
-	// downstream databases.
 	ReceiveReply(messageID MessageID,
 		reactionTo MessageID, nickname, text string,
 		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
@@ -183,10 +171,6 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	//
-	// Message type is included in the call; it will always be
-	// Text (1) for this call, but it may be required in
-	// downstream databases.
 	ReceiveReaction(messageID MessageID,
 		reactionTo MessageID, nickname, reaction string,
 		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
@@ -196,9 +180,10 @@ type Receiver interface {
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
 	//
-	// messageID, timestamp, and round are all nillable and may be updated based
-	// upon the UUID at a later date. A time of time.Time{} will be passed for a
-	// nilled timestamp. If a nil value is passed, make no update.
+	// messageID, timestamp, and round are all nillable and may be
+	// updated based upon the UUID at a later date. A time of
+	// time.Time{} will be passed for a nilled timestamp. If a nil
+	// value is passed, make no update.
 	UpdateSentStatus(uuid uint64, messageID MessageID,
 		timestamp time.Time, round rounds.Round, status Status)
 }
@@ -215,8 +200,8 @@ type cMixClient interface {
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)
 	RemoveIdentity(id *id.ID)
-	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-		roundList ...id.Round)
+	GetRoundResults(timeout time.Duration,
+		roundCallback cmix.RoundEventCallback, roundList ...id.Round)
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
 }

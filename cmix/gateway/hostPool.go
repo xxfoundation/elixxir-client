@@ -801,8 +801,7 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		prefixGwAddress := getDnsPrefix(gwId.Bytes())
-
-		gwAddress := prefixGwAddress + "22840"
+		gwAddress := prefixGwAddress + gatewayUrl + "22840"
 		jww.INFO.Printf("[HostPool] Adding address %s  to host-pool: %s", gwAddress)
 		// Add the new gateway host
 		_, err := h.manager.AddHost(

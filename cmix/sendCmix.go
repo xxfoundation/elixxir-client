@@ -8,7 +8,6 @@
 package cmix
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -337,11 +336,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 		jww.TRACE.Printf("[Send-%s] sendToPreferred %s",
 			cmixParams.DebugTag, firstGateway)
 
-		// todo: remove this
-		gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-		preferred, _ := id.Unmarshal(gatewayDecoded)
-
-		result, err := sender.SendToPreferred([]*id.ID{preferred}, sendFunc,
+		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc,
 			cmixParams.Stop, cmixParams.SendTimeout)
 		jww.DEBUG.Printf("[Send-%s] sendToPreferred %s returned",
 			cmixParams.DebugTag, firstGateway)

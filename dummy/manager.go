@@ -79,13 +79,13 @@ type Manager struct {
 // given parameters below.
 //
 // Params:
-//  - maxNumMessages - the upper bound of the random number of messages sent
-//    each sending cycle.
-//  - avgSendDeltaMS - the average duration, in milliseconds, to wait
-//    between sends.
-//  - randomRangeMS - the upper bound of the interval between sending cycles,
-//    in milliseconds. Sends occur every avgSendDeltaMS +/- a random duration
-//    with an upper bound of randomRangeMS.
+//   - maxNumMessages - the upper bound of the random number of messages sent
+//     each sending cycle.
+//   - avgSendDeltaMS - the average duration, in milliseconds, to wait
+//     between sends.
+//   - randomRangeMS - the upper bound of the interval between sending cycles,
+//     in milliseconds. Sends occur every avgSendDeltaMS +/- a random duration
+//     with an upper bound of randomRangeMS.
 func NewManager(maxNumMessages int,
 	avgSendDelta, randomRange time.Duration,
 	net *xxdk.Cmix) *Manager {
@@ -116,7 +116,7 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 // adheres to xxdk.Service.
 func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle(dummyTrafficStoppableName)
-	go m.sendThread(stop)
+	//go m.sendThread(stop)
 
 	return stop, nil
 }
@@ -129,11 +129,12 @@ func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 // operation has completed.
 //
 // Params:
-//  - boolean - Input should be true if you want to send dummy messages.
-//  			Input should be false if you want to pause dummy messages.
+//   - boolean - Input should be true if you want to send dummy messages.
+//     Input should be false if you want to pause dummy messages.
+//
 // Returns:
-//  - error - if the Manager.SetStatus is called too frequently, causing the
-//    internal status channel to fill.
+//   - error - if the Manager.SetStatus is called too frequently, causing the
+//     internal status channel to fill.
 func (m *Manager) SetStatus(status bool) error {
 	select {
 	case m.statusChan <- status:
@@ -151,8 +152,8 @@ func (m *Manager) SetStatus(status bool) error {
 //
 // Returns:
 //   - boolean - Returns true if sending thread is sending dummy messages.
-//  	         Returns false if sending thread is paused/stopped and is
-// 	             not sending dummy messages.
+//     Returns false if sending thread is paused/stopped and is
+//     not sending dummy messages.
 func (m *Manager) GetStatus() bool {
 	switch atomic.LoadUint32(&m.status) {
 	case running:

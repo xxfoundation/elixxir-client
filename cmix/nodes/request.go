@@ -8,7 +8,6 @@
 package nodes
 
 import (
-	"encoding/base64"
 	"io"
 	"time"
 
@@ -31,9 +30,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
-
-// todo: remove this
-const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
 
 // requestKey is a helper function which constructs a ClientKeyRequest message.
 // This message is sent to the passed gateway. It will further handle the
@@ -73,30 +69,22 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	jww.INFO.Printf("Register: Requesting client key from "+
 		"gateway %s, setup took %s", gatewayID, time.Since(start))
 
-	// todo: remove this
-	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-	preferred, _ := id.Unmarshal(gatewayDecoded)
 	start = time.Now()
-	timeout := 15 * time.Second
-	result, err := sender.SendToPreferred([]*id.ID{preferred},
-		func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
-			startInternal := time.Now()
-			jww.INFO.Printf("[HTTPS] Requesting keys from %s", target)
-			keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
-			if err2 != nil {
-				return nil, errors.WithMessagef(err2,
-					"Register: Failed requesting client key from gateway %s", gatewayID.String())
-			}
-			if keyResponse.Error != "" {
-				return nil, errors.WithMessage(err2,
-					"requestKey: clientKeyResponse error")
-			}
-			jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
+	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+		startInternal := time.Now()
+		keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
+		if err2 != nil {
+			return nil, errors.WithMessagef(err2,
+				"Register: Failed requesting client key from gateway %s", gatewayID.String())
+		}
+		if keyResponse.Error != "" {
+			return nil, errors.WithMessage(err2,
+				"requestKey: clientKeyResponse error")
+		}
+		jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
 
-			return keyResponse, nil
-		},
-		stop,
-		timeout)
+		return keyResponse, nil
+	}, stop)
 	jww.TRACE.Printf("full reg request took %s", time.Since(start))
 
 	if err != nil {

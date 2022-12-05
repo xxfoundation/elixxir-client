@@ -8,7 +8,6 @@
 package rounds
 
 import (
-	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -158,26 +157,17 @@ func (m *manager) processHistoricalRounds(comm Comms, stop *stoppable.Single) {
 
 		// Send the historical roundRequests request
 		hr := &pb.HistoricalRounds{Rounds: rounds}
-		// todo: remove this
-		const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-		gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-		preferred, _ := id.Unmarshal(gatewayDecoded)
-		timeout := 15 * time.Second
 
 		var gwHost *connect.Host
-		result, err := m.sender.SendToPreferred(
-			[]*id.ID{preferred},
-			func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
+		result, err := m.sender.SendToAny(
+			func(host *connect.Host) (interface{}, error) {
 				jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 					"gateway %s", rounds, host.GetId())
-				jww.INFO.Printf("[HTTPS] Requesting historical rounds from %s", target)
 
 				gwHost = host
 
 				return comm.RequestHistoricalRounds(host, hr)
-			},
-			stop,
-			timeout)
+			}, stop)
 
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical roundRequests "+

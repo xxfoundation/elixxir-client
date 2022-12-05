@@ -201,14 +201,16 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	addGateway chan<- network.NodeGateway) (*HostPool, error) {
 	var err error
 
-	// Determine size of HostPool
-	if poolParams.PoolSize == 0 {
-		poolParams.PoolSize, err = getPoolSize(
-			uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//// Determine size of HostPool
+	//if poolParams.PoolSize == 0 {
+	//	poolParams.PoolSize, err = getPoolSize(
+	//		uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
+
+	poolParams.PoolSize = 1
 
 	result := &HostPool{
 		manager:        getter,

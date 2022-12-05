@@ -201,14 +201,16 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	addGateway chan<- network.NodeGateway) (*HostPool, error) {
 	var err error
 
-	// Determine size of HostPool
-	if poolParams.PoolSize == 0 {
-		poolParams.PoolSize, err = getPoolSize(
-			uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//// Determine size of HostPool
+	//if poolParams.PoolSize == 0 {
+	//	poolParams.PoolSize, err = getPoolSize(
+	//		uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
+
+	poolParams.PoolSize = 1
 
 	result := &HostPool{
 		manager:        getter,
@@ -795,8 +797,11 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		// Add the new gateway host
+		prefixGwAddress := getDnsPrefix(gwId.Bytes())
+		gwAddress := prefixGwAddress + gatewayUrl + "22840"
+		jww.INFO.Printf("[HostPool] Adding address %s  to host-pool: %s", gwAddress)
 		_, err := h.manager.AddHost(
-			gwId, gw.Address, []byte(gw.TlsCertificate), h.poolParams.HostParams)
+			gwId, gwAddress, []byte(gw.TlsCertificate), h.poolParams.HostParams)
 		if err != nil {
 			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
 		}

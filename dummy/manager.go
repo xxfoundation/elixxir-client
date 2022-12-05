@@ -116,7 +116,7 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 // adheres to xxdk.Service.
 func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle(dummyTrafficStoppableName)
-	//go m.sendThread(stop)
+	go m.sendThread(stop)
 
 	return stop, nil
 }

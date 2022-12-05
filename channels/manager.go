@@ -165,6 +165,30 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	return &m
 }
 
+// GenerateChannel creates a new channel with the user as the admin. This
+// function only create a channel and does not join it.
+func (m *manager) GenerateChannel(
+	name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
+	*cryptoBroadcast.Channel, error) {
+
+	// Generate channel
+	stream := m.rng.GetStream()
+	ch, pk, err := cryptoBroadcast.NewChannel(
+		name, description, privacyLevel, m.net.GetMaxMessageLength(), stream)
+	stream.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	// Save private key to storage
+	err = saveChannelPrivateKey(ch.ReceptionID, pk, m.kv)
+	if err != nil {
+		return nil, err
+	}
+
+	return ch, nil
+}
+
 // JoinChannel joins the given channel. It will fail if the channel has already
 // been joined.
 func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {

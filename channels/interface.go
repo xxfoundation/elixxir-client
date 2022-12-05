@@ -42,6 +42,36 @@ type Manager interface {
 	// when loading the manager. The storage tag is derived from the public key.
 	GetStorageTag() string
 
+	// GenerateChannel creates a new channel with the user as the admin. This
+	// function only create a channel and does not join it.
+	//
+	// The private key is saved to storage and can be accessed with
+	// ExportChannelAdminKey.
+	//
+	// Parameters:
+	//   - name - The name of the new channel. The name must be between 3 and 24
+	//     characters inclusive. It can only include upper and lowercase Unicode
+	//     letters, digits 0 through 9, and underscores (_). It cannot be
+	//     changed once a channel is created.
+	//   - description - The description of a channel. The description is
+	//     optional but cannot be longer than 144 characters and can include all
+	//     Unicode characters. It cannot be changed once a channel is created.
+	//   - privacyLevel - The broadcast.PrivacyLevel of the channel. Refer to
+	//     the comment below for more information.
+	//
+	// The broadcast.PrivacyLevel of a channel indicates the level of channel
+	// information revealed when sharing it via URL. For any channel besides
+	// public channels, the secret information is encrypted and a password is
+	// required to share and join a channel.
+	//   - A privacy level of [broadcast.Public] reveals all the information
+	//     including the name, description, privacy level, public key and salt.
+	//   - A privacy level of [broadcast.Private] reveals only the name and
+	//     description.
+	//   - A privacy level of [broadcast.Secret] reveals nothing.
+	GenerateChannel(
+		name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
+		*cryptoBroadcast.Channel, error)
+
 	// JoinChannel joins the given channel. It will fail if the channel has
 	// already been joined.
 	JoinChannel(channel *cryptoBroadcast.Channel) error
@@ -181,4 +211,52 @@ type Manager interface {
 
 	// Muted returns true if the user is currently muted in the given channel.
 	Muted(channelID *id.ID) bool
+
+	////////////////////////////////////////////////////////////////////////////
+	// Admin Management                                                       //
+	////////////////////////////////////////////////////////////////////////////
+
+	// IsChannelAdmin returns true if the user is an admin of the channel.
+	IsChannelAdmin(channelID *id.ID) bool
+
+	// ExportChannelAdminKey gets the private key for the given channel ID,
+	// encrypts it with the provided encryptionPassword, and exports it into a
+	// portable format. Returns an error if the user is not an admin of the
+	// channel.
+	//
+	// This key can be provided to other users in a channel to grant them admin
+	// access using ImportChannelAdminKey.
+	//
+	// The private key is encrypted using a key generated from the password
+	// using Argon2. Each call to ExportChannelAdminKey produces a different
+	// encrypted packet regardless if the same password is used for the same
+	// channel. It cannot be determined which channel the payload is for nor
+	// that two payloads are for the same channel.
+	//
+	// The passwords between each call are not related. They can be the same or
+	// different with no adverse impact on the security properties.
+	ExportChannelAdminKey(
+		channelID *id.ID, encryptionPassword string) ([]byte, error)
+
+	// VerifyChannelAdminKey verifies that the encrypted private key can be
+	// decrypted and that it matches the expected channel. Returns false if
+	// private key does not belong to the given channel ID. Returns an error for
+	// an invalid password.
+	VerifyChannelAdminKey(
+		channelID *id.ID, encryptionPassword string, encryptedPrivKey []byte) (
+		bool, error)
+
+	// ImportChannelAdminKey decrypts and imports the given encrypted private
+	// key and grants the user admin access to the channel the private key
+	// belongs to. Returns an error if the private key cannot be decrypted or if
+	// the private key is for the wrong channel.
+	ImportChannelAdminKey(channelID *id.ID, encryptionPassword string,
+		encryptedPrivKey []byte) error
+
+	// DeleteChannelAdminKey deletes the private key for the given channel.
+	//
+	// CAUTION: This will remove admin access. This cannot be undone. If the
+	// private key is deleted, it cannot be recovered and the channel can never
+	// have another admin.
+	DeleteChannelAdminKey(channelID *id.ID) error
 }

@@ -10,6 +10,7 @@
 package gateway
 
 import (
+	"encoding/base64"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -23,6 +24,13 @@ import (
 	"strings"
 	"time"
 )
+
+// getDnsPrefix returns the DNS prefix for the given GwId.
+func getDnsPrefix(gwId []byte) string {
+	return base64.URLEncoding.EncodeToString(gwId)
+}
+
+const gatewayUrl = ".mainnet.cmix.rip:"
 
 // Sender object is used for sending that wraps the HostPool for providing
 // destinations.

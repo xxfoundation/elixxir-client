@@ -800,9 +800,14 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 				"hard coded ID. Invalid ID: %s", gwId)
 		}
 
+		prefixGwAddress := getDnsPrefix(gwId.Bytes())
+		originalGwAddress := strings.Split(gw.Address, ":")
+
+		gwAddress := prefixGwAddress + originalGwAddress[1]
+		jww.INFO.Printf("[HostPool] Adding address %s to host-pool: %s", gwAddress)
 		// Add the new gateway host
 		_, err := h.manager.AddHost(
-			gwId, gw.Address, []byte(gw.TlsCertificate), h.poolParams.HostParams)
+			gwId, gwAddress, []byte(gw.TlsCertificate), h.poolParams.HostParams)
 		if err != nil {
 			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
 		}

@@ -235,6 +235,11 @@ type Manager interface {
 	// Muted returns true if the user is currently muted in the given channel.
 	Muted(channelID *id.ID) bool
 
+	// GetMutedUsers returns the list of the public keys for each muted user in
+	// the channel. If there are no muted user or if the channel does not exist,
+	// an empty list is returned.
+	GetMutedUsers(channelID *id.ID) []ed25519.PublicKey
+
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Management                                                       //
 	////////////////////////////////////////////////////////////////////////////

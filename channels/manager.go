@@ -313,3 +313,10 @@ func getStorageTag(pub ed25519.PublicKey) string {
 func (m *manager) Muted(channelID *id.ID) bool {
 	return m.events.mutedUsers.isMuted(channelID, m.me.PubKey)
 }
+
+// GetMutedUsers returns the list of the public keys for each muted user in
+// the channel. If there are no muted user or if the channel does not exist,
+// an empty list is returned.
+func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
+	return m.mutedUsers.getMutedUsers(channelID)
+}

@@ -1251,6 +1251,28 @@ func (cm *ChannelsManager) Muted(channelIDBytes []byte) (bool, error) {
 	return cm.api.Muted(channelID), nil
 }
 
+// GetMutedUsers returns the list of the public keys for each muted user in
+// the channel. If there are no muted user or if the channel does not exist,
+// an empty list is returned.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - []byte - JSON of []ed25519.PublicKey. Look below for an example
+//
+// Example return:
+//
+//	["k2IrybDXjJtqxjS6Tx/6m3bXvT/4zFYOJnACNWTvESE=","ocELv7KyeCskLz4cm0klLWhmFLYvQL2FMDco79GTXYw=","mmxoDgoTEYwaRyEzq5Npa24IIs+3B5LXhll/8K5yCv0="]
+func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(cm.api.Muted(channelID))
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Admin Management                                                           //
 ////////////////////////////////////////////////////////////////////////////////

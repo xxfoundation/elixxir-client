@@ -189,6 +189,43 @@ func Test_mutedUserManager_isMuted(t *testing.T) {
 	}
 }
 
+// Tests that mutedUserManager.getMutedUsers returns the expected list of public
+// keys.
+func Test_mutedUserManager_getMutedUsers(t *testing.T) {
+	prng := rand.New(rand.NewSource(189))
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	mum := newMutedUserManager(kv)
+
+	expected := make(map[id.ID][]ed25519.PublicKey)
+
+	for i := 0; i < 20; i++ {
+		channelID := newRandomChanID(prng, t)
+		expected[*channelID] = make([]ed25519.PublicKey, 50)
+		for j := range expected[*channelID] {
+			pubKey := makeEd25519PubKey(prng, t)
+			expected[*channelID][j] = pubKey
+			mum.muteUser(channelID, pubKey)
+		}
+	}
+
+	for channelID, pubKeys := range expected {
+		mutedUsers := mum.getMutedUsers(&channelID)
+
+		sort.SliceStable(pubKeys, func(i, j int) bool {
+			return bytes.Compare(pubKeys[i], pubKeys[j]) == -1
+		})
+		sort.SliceStable(mutedUsers, func(i, j int) bool {
+			return bytes.Compare(mutedUsers[i], mutedUsers[j]) == -1
+		})
+
+		if !reflect.DeepEqual(pubKeys, mutedUsers) {
+			t.Errorf("List of muted users does not match expected for " +
+				"channel %s.\nexpected: %x\nreceived: %x",
+				&channelID, pubKeys, mutedUsers)
+		}
+	}
+}
+
 // Tests that mutedUserManager.removeChannel removes the channel from the list
 // and from storage.
 func Test_mutedUserManager_removeChannel(t *testing.T) {
@@ -481,6 +518,25 @@ func Test_makeMutedUserKey_Consistency(t *testing.T) {
 		if key != expected {
 			t.Errorf("mutedUserKey does not match expected (%d)."+
 				"\nexpected: %s\nreceived: %s", i, expected, key)
+		}
+	}
+}
+
+// Tests that mutedUserKey.decode can decode each mutedUserKey to its original
+// ed25519.PublicKey.
+func Test_mutedUserKey_decode(t *testing.T) {
+	prng := rand.New(rand.NewSource(953))
+	for i := 0; i < 0; i++ {
+		expected := makeEd25519PubKey(prng, t)
+		key := makeMutedUserKey(expected)
+		decoded, err := key.decode()
+		if err != nil {
+			t.Errorf("Failed to decode key: %+v", err)
+		}
+
+		if !expected.Equal(decoded) {
+			t.Errorf("Decoded key does not match original (%d)." +
+				"\nexpected: %x\nreceived: %x", i, expected, decoded)
 		}
 	}
 }

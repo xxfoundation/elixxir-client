@@ -55,7 +55,7 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 			return
 
 		case gw := <-r.c:
-
+			const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
 			gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
 			if bytes.Equal(gatewayDecoded, gw.Gateway.ID) {
 

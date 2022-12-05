@@ -8,9 +8,7 @@
 package nodes
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"gitlab.com/xx_network/crypto/csprng"
 	"strconv"
@@ -55,82 +53,79 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 			return
 
 		case gw := <-r.c:
-			const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-			gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-			if bytes.Equal(gatewayDecoded, gw.Gateway.ID) {
 
-				rng := r.rng.GetStream()
+			rng := r.rng.GetStream()
 
-				// Pull node information from channel
-				nidStr := hex.EncodeToString(gw.Node.ID)
-				nid, err := gw.Node.GetNodeId()
-				if err != nil {
-					jww.WARN.Printf(
-						"Could not process node ID for registration: %s", err)
-					rng.Close()
-					continue
-				}
-
-				// Check if the registrar has this node already
-				if r.HasNode(nid) {
-					jww.TRACE.Printf(
-						"Not registering node %s, already registered", nid)
-				}
-
-				// Check if the client is already attempting to register with this
-				// node in another thread
-				if _, operating := inProgress.LoadOrStore(nidStr,
-					struct{}{}); operating {
-					rng.Close()
-					continue
-				}
-
-				// Keep track of how many times registering with this node
-				// has been attempted
-				numAttempts := uint(1)
-				if nunAttemptsInterface, hasValue := attempts.LoadOrStore(
-					nidStr, numAttempts); hasValue {
-					numAttempts = nunAttemptsInterface.(uint)
-					attempts.Store(nidStr, numAttempts+1)
-				}
-
-				// No need to register with stale nodes
-				if isStale := gw.Node.Status == ndf.Stale; isStale {
-					jww.DEBUG.Printf(
-						"Skipping registration with stale nodes %s", nidStr)
-					rng.Close()
-					continue
-				}
-
-				// Register with this node
-				err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
-
-				// Remove from in progress immediately (success or failure)
-				inProgress.Delete(nidStr)
-
-				// Process the result
-				if err != nil {
-					jww.ERROR.Printf("Failed to register node: %s", err.Error())
-					// If we have not reached the attempt limit for this gateway,
-					// then send it back into the channel to retry
-					if numAttempts < maxAttempts {
-						go func() {
-							// Delay the send operation for a backoff
-							time.Sleep(delayTable[numAttempts-1])
-							r.c <- gw
-						}()
-					}
-
-				}
+			// Pull node information from channel
+			nidStr := hex.EncodeToString(gw.Node.ID)
+			nid, err := gw.Node.GetNodeId()
+			if err != nil {
+				jww.WARN.Printf(
+					"Could not process node ID for registration: %s", err)
 				rng.Close()
+				continue
 			}
+
+			// Check if the registrar has this node already
+			if r.HasNode(nid) {
+				jww.TRACE.Printf(
+					"Not registering node %s, already registered", nid)
+			}
+
+			// Check if the client is already attempting to register with this
+			// node in another thread
+			if _, operating := inProgress.LoadOrStore(nidStr,
+				struct{}{}); operating {
+				rng.Close()
+				continue
+			}
+
+			// Keep track of how many times registering with this node
+			// has been attempted
+			numAttempts := uint(1)
+			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(
+				nidStr, numAttempts); hasValue {
+				numAttempts = nunAttemptsInterface.(uint)
+				attempts.Store(nidStr, numAttempts+1)
+			}
+
+			// No need to register with stale nodes
+			if isStale := gw.Node.Status == ndf.Stale; isStale {
+				jww.DEBUG.Printf(
+					"Skipping registration with stale nodes %s", nidStr)
+				rng.Close()
+				continue
+			}
+
+			// Register with this node
+			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
+
+			// Remove from in progress immediately (success or failure)
+			inProgress.Delete(nidStr)
+
+			// Process the result
+			if err != nil {
+				jww.ERROR.Printf("Failed to register node: %s", err.Error())
+				// If we have not reached the attempt limit for this gateway,
+				// then send it back into the channel to retry
+				if numAttempts < maxAttempts {
+					go func() {
+						// Delay the send operation for a backoff
+						time.Sleep(delayTable[numAttempts-1])
+						r.c <- gw
+					}()
+				}
+
+			}
+			rng.Close()
 		}
-		if index >= 2 {
-			if float64(r.NumRegisteredNodes()) > (float64(r.numnodesGetter()) * .7) {
-				<-stop.Quit()
-				stop.ToStopped()
-				return
-			}
+	}
+	if index >= 2 {
+		if float64(r.NumRegisteredNodes()) > (float64(r.numnodesGetter()) * .7) {
+			<-stop.Quit()
+			stop.ToStopped()
+			return
+
 		}
 	}
 }

@@ -351,21 +351,6 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	return channelManagerTrackerSingleton.make(m), nil
 }
 
-// ChannelGeneration contains information about a newly generated channel. It
-// contains the public channel info formatted in pretty print and the private
-// key for the channel in PEM format.
-//
-// Example JSON:
-//
-//	{
-//	  "Channel": "\u003cSpeakeasy-v3:name|description:desc|level:Public|created:1665489600000000000|secrets:zjHmrPPMDQ0tNSANjAmQfKhRpJIdJMU+Hz5hsZ+fVpk=|qozRNkADprqb38lsnU7WxCtGCq9OChlySCEgl4NHjI4=|2|328|7aZQAtuVjE84q4Z09iGytTSXfZj9NyTa6qBp0ueKjCI=\u003e",
-//	  "PrivateKey": "-----BEGIN RSA PRIVATE KEY-----\nMCYCAQACAwDVywIDAQABAgMAlVECAgDvAgIA5QICAJECAgCVAgIA1w==\n-----END RSA PRIVATE KEY-----"
-//	}
-type ChannelGeneration struct {
-	Channel    string
-	PrivateKey string
-}
-
 // DecodePublicURL decodes the channel URL into a channel pretty print. This
 // function can only be used for public channel URLs. To get the privacy level
 // of a channel URL, use [GetShareUrlType].
@@ -502,7 +487,7 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //     information.
 //
 // Returns:
-//   - []byte - The pretty print of the channel.
+//   - string - The pretty print of the channel.
 //
 // The [broadcast.PrivacyLevel] of a channel indicates the level of channel
 // information revealed when sharing it via URL. For any channel besides public
@@ -1237,6 +1222,46 @@ func (cm *ChannelsManager) Muted(channelIDBytes []byte) (bool, error) {
 	return cm.api.Muted(channelID), nil
 }
 
+// parseChannelsParameters is a helper function for the Send functions. It
+// parses the channel ID and the passed in parameters into their respective
+// objects. These objects are passed into the API via the internal send
+// functions.
+func parseChannelsParameters(channelIdBytes, cmixParamsJSON []byte) (
+	*id.ID, xxdk.CMIXParams, error) {
+	// Unmarshal channel ID
+	chanId, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return nil, xxdk.CMIXParams{}, err
+	}
+
+	// Unmarshal cmix params
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, xxdk.CMIXParams{}, err
+	}
+
+	return chanId, params, nil
+}
+
+// constructChannelSendReport is a helper function which returns a JSON
+// marshalled ChannelSendReport.
+func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
+	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
+	// Construct send report
+	chanSendReport := ChannelSendReport{
+		MessageId:  channelMessageId.Bytes(),
+		RoundsList: makeRoundsList(roundId),
+		EphId:      ephId.Int64(),
+	}
+
+	// Marshal send report
+	return json.Marshal(chanSendReport)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Admin Management                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
 // IsChannelAdmin returns true if the user is an admin of the channel.
 //
 // Parameters:
@@ -1342,42 +1367,6 @@ func (cm *ChannelsManager) DeleteChannelAdminKey(channelIdBytes []byte) error {
 	}
 
 	return cm.api.DeleteChannelAdminKey(channelID)
-}
-
-// parseChannelsParameters is a helper function for the Send functions. It
-// parses the channel ID and the passed in parameters into their respective
-// objects. These objects are passed into the API via the internal send
-// functions.
-func parseChannelsParameters(channelIdBytes, cmixParamsJSON []byte) (
-	*id.ID, xxdk.CMIXParams, error) {
-	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(channelIdBytes)
-	if err != nil {
-		return nil, xxdk.CMIXParams{}, err
-	}
-
-	// Unmarshal cmix params
-	params, err := parseCMixParams(cmixParamsJSON)
-	if err != nil {
-		return nil, xxdk.CMIXParams{}, err
-	}
-
-	return chanId, params, nil
-}
-
-// constructChannelSendReport is a helper function which returns a JSON
-// marshalled ChannelSendReport.
-func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
-	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
-	// Construct send report
-	chanSendReport := ChannelSendReport{
-		MessageId:  channelMessageId.Bytes(),
-		RoundsList: makeRoundsList(roundId),
-		EphId:      ephId.Int64(),
-	}
-
-	// Marshal send report
-	return json.Marshal(chanSendReport)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

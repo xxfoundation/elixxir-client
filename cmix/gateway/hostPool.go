@@ -537,10 +537,10 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 	rng := h.rng.GetStream()
 	h.hostMux.RLock()
 	for i := 0; i < length; {
-		jww.WARN.Printf("[HTTPS] 4"+
+		jww.WARN.Printf("[HTTPS]"+
 			"targets: %v\n"+
-			"h %v"+
-			"\nhostmap: %v",
+			"h %v\n"+
+			"hostmap: %v",
 			targets, h, h.hostMap)
 		if hostIdx, ok := h.hostMap[*targets[0]]; ok {
 			result[i] = h.hostList[hostIdx]

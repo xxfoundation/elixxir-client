@@ -68,7 +68,12 @@ func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 	stop *stoppable.Single) (interface{}, error) {
 
-	proxies := s.getAny(s.poolParams.ProxyAttempts, nil)
+	// todo: remove this
+	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
+	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
+	preferred, _ := id.Unmarshal(gatewayDecoded)
+	p, _ := s.getSpecific(preferred)
+	proxies := []*connect.Host{p}
 	for proxy := range proxies {
 		result, err := sendFunc(proxies[proxy])
 		if stop != nil && !stop.IsRunning() {

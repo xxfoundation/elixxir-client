@@ -24,7 +24,6 @@ package cmix
 
 import (
 	"crypto/hmac"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"sync"
@@ -200,31 +199,19 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	var rtt time.Duration
 	var sendTo *id.ID
-	// todo: remove this
-	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-	preferred, _ := id.Unmarshal(gatewayDecoded)
-	timeout := 15 * time.Second
-
 	var startTime time.Time
 
-	result, err := c.SendToPreferred(
-		[]*id.ID{preferred},
-		func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
-			jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
-				identity.EphId.Int64(), identity.Source, identity.StartValid,
-				identity.EndValid, identity.EndValid.Sub(identity.StartValid),
-				host.GetId())
-			jww.INFO.Printf("[HTTPS] Requesting poll from %s", target)
-
-			var err error
-			var response *pb.GatewayPollResponse
-			response, startTime, rtt, err = comms.SendPoll(host, &pollReq)
-			sendTo = host.GetId()
-			return response, err
-		},
-		stop,
-		timeout)
+	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
+		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+			identity.EphId.Int64(), identity.Source, identity.StartValid,
+			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
+			host.GetId())
+		var err error
+		var response *pb.GatewayPollResponse
+		response, startTime, rtt, err = comms.SendPoll(host, &pollReq)
+		sendTo = host.GetId()
+		return response, err
+	}, stop)
 
 	// Exit if the thread has been stopped
 	if stoppable.CheckErr(err) {

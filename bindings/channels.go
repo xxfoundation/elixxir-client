@@ -1467,8 +1467,20 @@ type ChannelMessageReceptionCallback interface {
 //   - messageType - The [channels.MessageType] that the listener listens for.
 //   - listenerCb - The callback which will be executed when a channel message
 //     of messageType is received.
+//   - name - A name describing what type of messages the listener picks up.
+//     This is used for debugging and logging.
+//   - userSpace - Set to true if this listener can receive messages from normal
+//     users.
+//   - adminSpace - Set to true if this listener can receive messages from
+//     admins.
+//   - mutedSpace - Set to true if this listener can receive messages from muted
+//     users. Note that this should still be true when receiving most messages
+//     because they still need to be stored in the database, they will just be
+//     marked as hidden. Only set this to true if you truly want to reject the
+//     message entirely.
 func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
-	listenerCb ChannelMessageReceptionCallback) error {
+	listenerCb ChannelMessageReceptionCallback, name string, userSpace,
+	adminSpace, mutedSpace bool) error {
 
 	// Wrap callback around backend interface
 	cb := channels.MessageTypeReceiveMessage(
@@ -1495,7 +1507,9 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 		})
 
 	// Register handler
-	return cm.api.RegisterReceiveHandler(channels.MessageType(messageType), cb)
+	return cm.api.RegisterReceiveHandler(channels.MessageType(messageType),
+		channels.NewReceiveMessageHandler(
+			name, cb, userSpace, adminSpace, mutedSpace))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

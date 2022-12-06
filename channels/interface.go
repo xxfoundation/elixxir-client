@@ -214,8 +214,10 @@ type Manager interface {
 	// There can only be one handler per message type; the error
 	// MessageTypeAlreadyRegistered will be returned on multiple registrations
 	// of the same type.
+	//
+	// To create a ReceiveMessageHandler, use NewReceiveMessageHandler.
 	RegisterReceiveHandler(
-		messageType MessageType, listener MessageTypeReceiveMessage) error
+		messageType MessageType, handler ReceiveMessageHandler) error
 
 	// SetNickname sets the nickname in a channel after checking that the
 	// nickname is valid using [IsNicknameValid].

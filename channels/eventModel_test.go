@@ -160,15 +160,15 @@ func Test_initEvents(t *testing.T) {
 		// number here and add tests below. be suspicious if it goes down.
 	}
 
-	if getFuncName(e.registered[Text]) != getFuncName(e.receiveTextMessage) {
+	if getFuncName(e.registered[Text].listener) != getFuncName(e.receiveTextMessage) {
 		t.Errorf("Text does not have recieveTextMessageRegistred")
 	}
 
-	if getFuncName(e.registered[AdminText]) != getFuncName(e.receiveTextMessage) {
+	if getFuncName(e.registered[AdminText].listener) != getFuncName(e.receiveTextMessage) {
 		t.Errorf("AdminText does not have recieveTextMessageRegistred")
 	}
 
-	if getFuncName(e.registered[Reaction]) != getFuncName(e.receiveReaction) {
+	if getFuncName(e.registered[Reaction].listener) != getFuncName(e.receiveReaction) {
 		t.Errorf("Reaction does not have recieveReaction")
 	}
 }
@@ -180,7 +180,8 @@ func TestEvents_RegisterReceiveHandler(t *testing.T) {
 
 	// Test that a new reception handler can be registered.
 	mt := MessageType(42)
-	err := e.RegisterReceiveHandler(mt, e.receiveReaction)
+	err := e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
+		"reaction", e.receiveReaction, true, false, true))
 	if err != nil {
 		t.Fatalf("Failed to register '%s' when it should be "+
 			"sucesfull: %+v", mt, err)
@@ -193,14 +194,15 @@ func TestEvents_RegisterReceiveHandler(t *testing.T) {
 	}
 
 	// check that the correct function is written
-	if getFuncName(e.receiveReaction) != getFuncName(returnedHandler) {
+	if getFuncName(e.receiveReaction) != getFuncName(returnedHandler.listener) {
 		t.Fatalf("Failed to get correct handler for '%s' after "+
 			"registration, %s vs %s", mt, getFuncName(e.receiveReaction),
-			getFuncName(returnedHandler))
+			getFuncName(returnedHandler.listener))
 	}
 
 	// test that writing to the same receive handler fails
-	err = e.RegisterReceiveHandler(mt, e.receiveTextMessage)
+	err = e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
+		"userTextMessage", e.receiveTextMessage, true, false, true))
 	if err == nil {
 		t.Fatalf("Failed to register '%s' when it should be "+
 			"sucesfull: %+v", mt, err)
@@ -217,10 +219,10 @@ func TestEvents_RegisterReceiveHandler(t *testing.T) {
 	}
 
 	// check that the correct function is written
-	if getFuncName(e.receiveReaction) != getFuncName(returnedHandler) {
+	if getFuncName(e.receiveReaction) != getFuncName(returnedHandler.listener) {
 		t.Fatalf("Failed to get correct handler for '%s' after "+
 			"second registration, %s vs %s", mt, getFuncName(e.receiveReaction),
-			getFuncName(returnedHandler))
+			getFuncName(returnedHandler.listener))
 	}
 }
 
@@ -262,7 +264,8 @@ func TestEvents_triggerEvents(t *testing.T) {
 
 	// register the handler
 	mt := MessageType(42)
-	err := e.RegisterReceiveHandler(mt, dummy.dummyMessageTypeReceiveMessage)
+	err := e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
+		"dummy", dummy.dummyMessageTypeReceiveMessage, true, false, true))
 	if err != nil {
 		t.Fatalf("Error on registration, should not have happened: "+
 			"%+v", err)
@@ -371,7 +374,8 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 
 	// register the handler
 	mt := MessageType(42)
-	err := e.RegisterReceiveHandler(mt, dummy.dummyMessageTypeReceiveMessage)
+	err := e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
+		"dummy", dummy.dummyMessageTypeReceiveMessage, false, true, false))
 	if err != nil {
 		t.Fatalf("Error on registration, should not have happened: "+
 			"%+v", err)
@@ -449,28 +453,25 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 
 	dummy := &dummyMessageTypeHandler{}
 
-	mt := MessageType(1)
-	// skip handler registration
+	mt := AdminText
+	// Skip handler registration
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
+	// Craft the input for the event
+	chID := &id.ID{1}
 
 	u, _, cm := builtTestUMI(t, mt)
-
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
 	r.Timestamps[states.QUEUED] = netTime.Now()
-
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
-	// call the trigger
+	// Call the trigger
 	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
-	// check that the event was triggered
+	// Check that the event was triggered
 	if dummy.triggered {
 		t.Errorf("The admin event was triggered when unregistered")
 	}
@@ -481,7 +482,8 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 
 	// Register the handler
 	mt := MessageType(42)
-	err := e.RegisterReceiveHandler(mt, dummy.dummyMessageTypeReceiveMessage)
+	err := e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
+		"dummy", dummy.dummyMessageTypeReceiveMessage, false, true, false))
 	if err != nil {
 		t.Fatalf("Error on registration: %+v", err)
 	}

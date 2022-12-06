@@ -1259,7 +1259,7 @@ func (cm *ChannelsManager) Muted(channelIDBytes []byte) (bool, error) {
 //   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
 //
 // Returns:
-//   - []byte - JSON of []ed25519.PublicKey. Look below for an example
+//   - []byte - JSON of []ed25519.PublicKey. Look below for an example.
 //
 // Example return:
 //

@@ -218,29 +218,88 @@ type UpdateFromUuidFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
 // for those events.
 type events struct {
 	model      EventModel
-	registered map[MessageType]MessageTypeReceiveMessage
+	registered map[MessageType]ReceiveMessageHandler
 	leases     *actionLeaseList
 	mutedUsers *mutedUserManager
 	mux        sync.RWMutex
 }
 
+// ReceiveMessageHandler contains a message listener MessageTypeReceiveMessage
+// linked to a specific MessageType. It also lists which spaces this handler can
+// receive messages for.
+type ReceiveMessageHandler struct {
+	name       string // Describes the listener (used for logging)
+	listener   MessageTypeReceiveMessage
+	userSpace  bool
+	adminSpace bool
+	mutedSpace bool
+}
+
+// NewReceiveMessageHandler generates a new ReceiveMessageHandler.
+//
+// Parameters:
+//   - name - A name describing what type of messages the listener picks up. This
+//     is used for debugging and logging.
+//   - listener - The listener that handles the received message.
+//   - userSpace - Set to true if this listener can receive messages from normal
+//     users.
+//   - adminSpace - Set to true if this listener can receive messages from
+//     admins.
+//   - mutedSpace - Set to true if this listener can receive messages from muted
+//     users. Note that this should still be true when receiving most messages
+//     because they still need to be stored in the database, they will just be
+//     marked as hidden. Only set this to true if you truly want to reject the
+//     message entirely.
+func NewReceiveMessageHandler(name string, listener MessageTypeReceiveMessage,
+	userSpace, adminSpace, mutedSpace bool) ReceiveMessageHandler {
+	return ReceiveMessageHandler{
+		name:       name,
+		listener:   listener,
+		userSpace:  userSpace,
+		adminSpace: adminSpace,
+		mutedSpace: mutedSpace,
+	}
+}
+
+// CheckSpace checks that ReceiveMessageHandler can receive in the given user
+// spaces. Returns nil if the message matches one or more of the handler's
+// spaces. Returns an error if it does not.
+func (rmh *ReceiveMessageHandler) CheckSpace(user, admin, muted bool) error {
+	// Always reject a muted user if they are not allowed even if this message
+	// satisfies one or more of the other spaces
+	if !rmh.mutedSpace && muted {
+		return errors.Errorf("rejected channel message from %s listener "+
+			"because sender is muted. Accepted spaces:{user:%t admin:%t "+
+			"muted:%t}, message spaces:{user:%t admin:%t muted:%t}", rmh.name,
+			rmh.userSpace, rmh.adminSpace, rmh.mutedSpace, user, admin, muted)
+	}
+
+	switch {
+	case rmh.userSpace && user:
+		return nil
+	case rmh.adminSpace && admin:
+		return nil
+	}
+
+	return errors.Errorf("Rejected channel message from %s listener because "+
+		"message space mismatch. Accepted spaces:{user:%t admin:%t muted:%t}, "+
+		"message spaces:{user:%t admin:%t muted:%t}", rmh.name,
+		rmh.userSpace, rmh.adminSpace, rmh.mutedSpace, user, admin, muted)
+}
+
 // initEvents initializes the event model and registers default message type
 // handlers.
 func initEvents(model EventModel, kv *versioned.KV) *events {
-	e := &events{
-		model: model,
-		mux:   sync.RWMutex{},
-	}
+	e := &events{model: model}
 
 	// Set up default message types
-	// TODO: add space checking (admin, user, muted)
-	e.registered = map[MessageType]MessageTypeReceiveMessage{
-		Text:      e.receiveTextMessage,
-		AdminText: e.receiveTextMessage,
-		Reaction:  e.receiveReaction,
-		Delete:    e.receiveDelete,
-		Pinned:    e.receivePinned,
-		Mute:      e.receiveMute,
+	e.registered = map[MessageType]ReceiveMessageHandler{
+		Text:      {"userTextMessage", e.receiveTextMessage, true, false, true},
+		AdminText: {"adminTextMessage", e.receiveTextMessage, false, true, true},
+		Reaction:  {"reaction", e.receiveReaction, true, false, true},
+		Delete:    {"delete", e.receiveDelete, true, true, false},
+		Pinned:    {"pinned", e.receivePinned, false, true, false},
+		Mute:      {"mute", e.receiveMute, false, true, false},
 	}
 
 	// Initialise list of message leases
@@ -266,8 +325,10 @@ func initEvents(model EventModel, kv *versioned.KV) *events {
 // There can only be one handler per message type; the error
 // MessageTypeAlreadyRegistered will be returned on multiple registrations of
 // the same type.
+//
+// To create a ReceiveMessageHandler, use NewReceiveMessageHandler.
 func (e *events) RegisterReceiveHandler(
-	messageType MessageType, listener MessageTypeReceiveMessage) error {
+	messageType MessageType, handler ReceiveMessageHandler) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -277,7 +338,7 @@ func (e *events) RegisterReceiveHandler(
 	}
 
 	// register the message type
-	e.registered[messageType] = listener
+	e.registered[messageType] = handler
 	jww.INFO.Printf("Registered Listener for Message Type %s", messageType)
 	return nil
 }
@@ -286,9 +347,10 @@ func (e *events) RegisterReceiveHandler(
 // Message Triggers                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
-type triggerEventFunc func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) (uint64, error)
+// triggerEventFunc is triggered on normal message reception.
+type triggerEventFunc func(channelID *id.ID, umi *userMessageInternal,
+	timestamp time.Time, receptionID receptionID.EphemeralIdentity,
+	round rounds.Round, status SentStatus) (uint64, error)
 
 // triggerEvent is an internal function that is used to trigger message
 // reception on a message received from a user (symmetric encryption).
@@ -296,8 +358,8 @@ type triggerEventFunc func(chID *id.ID, umi *userMessageInternal, ts time.Time,
 // It will call the appropriate MessageTypeReceiveMessage, assuming one exists.
 //
 // This function adheres to the triggerEventFunc type.
-func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	ts time.Time, _ receptionID.EphemeralIdentity, round rounds.Round,
+func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
+	timestamp time.Time, _ receptionID.EphemeralIdentity, round rounds.Round,
 	status SentStatus) (uint64, error) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()
@@ -305,31 +367,43 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 
 	// Check if the type is already registered
 	e.mux.RLock()
-	listener, exists := e.registered[messageType]
+	handler, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
-		err := errors.Errorf("Received message from %x on channel %s in "+
+		err := errors.Errorf("Received message %s from %x on channel %s in "+
 			"round %d that could not be handled due to unregistered message "+
-			"type %s; Contents: %v",
-			um.ECCPublicKey, chID, round.ID, messageType, cm.Payload)
+			"type %s; Contents: %v", umi.GetMessageID(), um.ECCPublicKey,
+			channelID, round.ID, messageType, cm.Payload)
 		jww.WARN.Print(err)
 		return 0, err
 	}
 
 	// Check if the user is muted on this channel
-	isMuted := e.mutedUsers.isMuted(chID, um.ECCPublicKey)
+	isMuted := e.mutedUsers.isMuted(channelID, um.ECCPublicKey)
+
+	// Check if the received message is in the correct space for the listener
+	if err := handler.CheckSpace(true, false, isMuted); err != nil {
+		err = errors.Errorf("Received message %s from %x of type %s on "+
+			"channel %s in round %d could not be handled: %+v",
+			umi.GetMessageID(), um.ECCPublicKey, messageType, channelID,
+			round.ID, err)
+		jww.WARN.Print(err)
+		return 0, err
+	}
 
 	// Call the listener. This is already in an instanced event; no new thread
 	// is needed.
-	uuid := listener(chID, umi.GetMessageID(), messageType, cm.Nickname,
-		cm.Payload, um.ECCPublicKey, 0, ts, time.Duration(cm.Lease), round,
-		status, false, isMuted)
+	uuid := handler.listener(channelID, umi.GetMessageID(), messageType,
+		cm.Nickname, cm.Payload, um.ECCPublicKey, 0, timestamp,
+		time.Duration(cm.Lease), round, status, false, isMuted)
 	return uuid, nil
 }
 
-type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-	round rounds.Round, status SentStatus) (uint64, error)
+// triggerAdminEventFunc is triggered on admin message reception.
+type triggerAdminEventFunc func(channelID *id.ID, cm *ChannelMessage,
+	timestamp time.Time, messageID cryptoChannel.MessageID,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) (uint64, error)
 
 // triggerAdminEvent is an internal function that is used to trigger message
 // reception on a message received from the admin (asymmetric encryption).
@@ -337,40 +411,52 @@ type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 // It will call the appropriate MessageTypeReceiveMessage, assuming one exists.
 //
 // This function adheres to the triggerAdminEventFunc type.
-func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
-	ts time.Time, messageID cryptoChannel.MessageID,
+func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
+	timestamp time.Time, messageID cryptoChannel.MessageID,
 	_ receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (
 	uint64, error) {
 	messageType := MessageType(cm.PayloadType)
 
 	// check if the type is already registered
 	e.mux.RLock()
-	listener, exists := e.registered[messageType]
+	handler, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
-		err := errors.Errorf("Received Admin message from %s on channel %s in "+
-			"round %d that could not be handled due to unregistered message "+
-			"type %s; Contents: %v",
-			AdminUsername, chID, round.ID, messageType, cm.Payload)
+		err := errors.Errorf("Received admin message %s from %s on channel %s "+
+			"in round %d that could not be handled due to unregistered "+
+			"message type %s; Contents: %v", messageID, AdminUsername,
+			channelID, round.ID, messageType, cm.Payload)
+		jww.WARN.Print(err)
+		return 0, err
+	}
+
+	// Check if the received message is in the correct space for the listener
+	if err := handler.CheckSpace(false, true, false); err != nil {
+		err = errors.Errorf("Received message %s from %s of type %s on "+
+			"channel %s in round %d could not be handled: %+v",
+			messageID, AdminUsername, messageType, channelID, round.ID, err)
 		jww.WARN.Print(err)
 		return 0, err
 	}
 
 	// Call the listener. This is already in an instanced event; no new thread
 	// is needed.
-	uuid := listener(chID, messageID, messageType, AdminUsername, cm.Payload,
-		AdminFakePubKey, 0, ts, time.Duration(cm.Lease), round, status, true,
-		false)
+	uuid := handler.listener(channelID, messageID, messageType, AdminUsername,
+		cm.Payload, AdminFakePubKey, 0, timestamp, time.Duration(cm.Lease),
+		round, status, true, false)
 	return uuid, nil
 }
 
+// triggerAdminEventFunc is triggered on for message actions.
 type triggerActionEventFunc func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
 	payload []byte, timestamp time.Time, lease time.Duration,
 	round rounds.Round, status SentStatus, fromAdmin bool) (uint64, error)
 
 // triggerActionEvent is an internal function that is used to trigger an action
-// on a message.
+// on a message. Currently, this function does not receive any messages and is
+// only called by the internal lease manager to undo a message action. An action
+// is set via triggerAdminEvent and triggerEvent.
 //
 // It will call the appropriate MessageTypeReceiveMessage, assuming one exists.
 //
@@ -382,7 +468,7 @@ func (e *events) triggerActionEvent(channelID *id.ID,
 
 	// Check if the type is already registered
 	e.mux.RLock()
-	listener, exists := e.registered[messageType]
+	handler, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
 		err := errors.Errorf("Received action trigger message %s from %s on "+
@@ -393,9 +479,18 @@ func (e *events) triggerActionEvent(channelID *id.ID,
 		return 0, err
 	}
 
+	// Check if the received message is in the correct space for the listener
+	if err := handler.CheckSpace(true, fromAdmin, false); err != nil {
+		err = errors.Errorf("Received message %s from %s of type %s on "+
+			"channel %s in round %d could not be handled: %+v",
+			messageID, nickname, messageType, channelID, round.ID, err)
+		jww.WARN.Print(err)
+		return 0, err
+	}
+
 	// Call the listener. This is already in an instanced event; no new thread
 	// is needed.
-	return listener(
+	return handler.listener(
 		channelID, messageID, messageType, nickname, payload, AdminFakePubKey,
 		0, timestamp, lease, round, status, fromAdmin, false), nil
 }
@@ -521,14 +616,10 @@ func (e *events) receiveDelete(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
 	content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus, fromAdmin, userMuted bool) uint64 {
+	status SentStatus, fromAdmin, _ bool) uint64 {
 
 	msgLog := sprintfReceiveMessage(channelID, messageID, messageType, pubKey,
 		codeset, timestamp, lease, round, fromAdmin)
-
-	if userMuted {
-		jww.ERROR.Printf("Muted user trying to delete message in %s", msgLog)
-	}
 
 	deleteMsg := &CMIXChannelDelete{}
 	if err := proto.Unmarshal(content, deleteMsg); err != nil {
@@ -596,20 +687,10 @@ func (e *events) receivePinned(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
 	content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus, fromAdmin, userMuted bool) uint64 {
+	status SentStatus, fromAdmin, _ bool) uint64 {
 
 	msgLog := sprintfReceiveMessage(channelID, messageID, messageType, pubKey,
 		codeset, timestamp, lease, round, fromAdmin)
-
-	if userMuted {
-		jww.ERROR.Printf("Muted user trying to pin message in %s", msgLog)
-	}
-
-	// Reject the message pin if it is not from the admin
-	if !fromAdmin {
-		jww.ERROR.Printf("Pin message must come from admin for %s", msgLog)
-		return 0
-	}
 
 	pinnedMsg := &CMIXChannelPinned{}
 	if err := proto.Unmarshal(content, pinnedMsg); err != nil {
@@ -663,21 +744,10 @@ func (e *events) receiveMute(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
 	content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus, fromAdmin, userMuted bool) uint64 {
+	status SentStatus, fromAdmin, _ bool) uint64 {
 
 	msgLog := sprintfReceiveMessage(channelID, messageID, messageType, pubKey,
 		codeset, timestamp, lease, round, fromAdmin)
-
-	if userMuted {
-		jww.ERROR.Printf("Muted user trying to mute user in %s", msgLog)
-		return 0
-	}
-
-	// Reject the message pin if it is not from the admin
-	if !fromAdmin {
-		jww.ERROR.Printf("Mute user must come from admin for %s", msgLog)
-		return 0
-	}
 
 	muteMsg := &CMIXChannelMute{}
 	if err := proto.Unmarshal(content, muteMsg); err != nil {
@@ -721,6 +791,12 @@ func (e *events) receiveMute(channelID *id.ID,
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Debugging and Logging Utilities                                            //
+////////////////////////////////////////////////////////////////////////////////
+
+// sprintfReceiveMessage returns a string describing the received message. Used
+// for debugging and logging.
 func sprintfReceiveMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,

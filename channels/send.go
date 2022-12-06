@@ -320,7 +320,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 				channelID, err)
 		}
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
-		NotAnAdminErr
+			NotAnAdminErr
 	}
 
 	var messageID cryptoChannel.MessageID

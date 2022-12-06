@@ -22,10 +22,15 @@ var (
 	// too large.
 	MessageTooLongErr = errors.New("the passed message is too long")
 
-	// WrongPrivateKey is returned when the private key does not match the
+	// WrongPrivateKeyErr is returned when the private key does not match the
 	// channel's public key.
-	WrongPrivateKey = errors.New(
+	WrongPrivateKeyErr = errors.New(
 		"the passed private key does not match the channel")
+
+	// WrongPasswordErr is returned when the encrypted packet could not be
+	// decrypted using the supplied password.
+	WrongPasswordErr = errors.New(
+		"incorrect password")
 
 	// MessageTypeAlreadyRegistered is returned if a handler has already been
 	// registered with the supplied message type. Only one handler can be

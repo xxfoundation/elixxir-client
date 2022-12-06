@@ -175,7 +175,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 func (m *manager) GenerateChannel(
 	name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, error) {
-	jww.INFO.Printf("[CH] GenerateChannel %q with description %q and privacy " +
+	jww.INFO.Printf("[CH] GenerateChannel %q with description %q and privacy "+
 		"level %s", name, description, privacyLevel)
 	ch, _, err := m.generateChannel(
 		name, description, privacyLevel, m.net.GetMaxMessageLength())

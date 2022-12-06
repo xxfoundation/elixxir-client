@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -21,8 +22,9 @@ import (
 
 func newPrivKeyTestManager() *manager {
 	return &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
+		channels: make(map[id.ID]*joinedChannel),
+		rng:      fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		kv:       versioned.NewKV(ekv.MakeMemstore()),
 	}
 }
 
@@ -64,6 +66,13 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to export private key: %+v", err)
 	}
+
+	b, err := broadcast.NewBroadcastChannel(c, new(mockBroadcastClient), m2.rng)
+	if err != nil {
+		t.Errorf("Failed to create new broadcast channel: %+v", err)
+	}
+
+	m2.channels[*c.ReceptionID] = &joinedChannel{b}
 
 	valid, err := m2.VerifyChannelAdminKey(c.ReceptionID, password, pkPacket)
 	if err != nil {

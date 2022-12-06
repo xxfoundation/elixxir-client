@@ -134,10 +134,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 }
 
 func TestManager_GetChannels(t *testing.T) {
-	m := &manager{
-		channels: make(map[id.ID]*joinedChannel),
-		mux:      sync.RWMutex{},
-	}
+	m := &manager{channels: make(map[id.ID]*joinedChannel)}
 
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 

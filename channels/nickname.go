@@ -17,8 +17,8 @@ const (
 
 type nicknameManager struct {
 	byChannel map[id.ID]string
-	mux sync.RWMutex
-	kv *versioned.KV
+	mux       sync.RWMutex
+	kv        *versioned.KV
 }
 
 // loadOrNewNicknameManager returns the stored nickname manager if there is one
@@ -36,6 +36,7 @@ func loadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
 
 	return nm
 }
+
 // SetNickname sets the nickname in a channel after checking that the nickname
 // is valid using [IsNicknameValid].
 func (nm *nicknameManager) SetNickname(nickname string, channelID *id.ID) error {
@@ -126,8 +127,8 @@ func (nm *nicknameManager) load() error {
 // IsNicknameValid checks if a nickname is valid.
 //
 // Rules:
-//  - A nickname must not be longer than 24 characters.
-//  - A nickname must not be shorter than 1 character.
+//   - A nickname must not be longer than 24 characters.
+//   - A nickname must not be shorter than 1 character.
 //
 // TODO: Add character filtering.
 func IsNicknameValid(nick string) error {

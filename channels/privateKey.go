@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -54,41 +55,73 @@ func (m *manager) ExportChannelAdminKey(
 
 // VerifyChannelAdminKey verifies that the encrypted private key can be
 // decrypted and that it matches the expected channel. Returns false if private
-// key does not belong to the given channel ID. Returns an error for an invalid
-// password.
+// key does not belong to the given channel.
+//
+// Returns the error WrongPasswordErr for an invalid password. Returns the error
+// ChannelDoesNotExistsErr if the channel has not already been joined.
 func (m *manager) VerifyChannelAdminKey(channelID *id.ID,
 	encryptionPassword string, encryptedPrivKey []byte) (bool, error) {
 	jww.INFO.Printf("[CH] VerifyChannelAdminKey %s", channelID)
-	decryptedChannelID, _, err :=
+	decryptedChannelID, pk, err :=
 		cryptoBroadcast.ImportPrivateKey(encryptionPassword, encryptedPrivKey)
 	if err != nil {
-		return false,
-			errors.Errorf("failed to decrypt private channel key: %+v", err)
+		return false, WrongPasswordErr
 	}
 
+	// Compare channel ID
 	if !channelID.Cmp(decryptedChannelID) {
+		return false, nil
+	}
+
+	c, err := m.getChannel(decryptedChannelID)
+	if err != nil {
+		return false, err
+	}
+
+	// Compare public keys
+	if !bytes.Equal(cryptoBroadcast.HashPubKey(pk.Public()),
+		c.broadcast.Get().RsaPubKeyHash) {
 		return false, nil
 	}
 
 	return true, nil
 }
 
-// ImportChannelAdminKey decrypts the given private channel ID and saves it to
-// storage.
+// ImportChannelAdminKey decrypts and imports the given encrypted private key
+// and grants the user admin access to the channel the private key belongs to.
+// Returns an error if the private key cannot be decrypted or if the private key
+// is for the wrong channel.
+//
+// Returns the error WrongPasswordErr for an invalid password. Returns the error
+// ChannelDoesNotExistsErr if the channel has not already been joined. Returns
+// the error WrongPrivateKeyErr if the private key does not belong to the
+// channel.
 func (m *manager) ImportChannelAdminKey(
 	channelID *id.ID, encryptionPassword string, encryptedPrivKey []byte) error {
 	jww.INFO.Printf("[CH] ImportChannelAdminKey %s", channelID)
-	decryptedChannelID, privKey, err :=
+	decryptedChannelID, pk, err :=
 		cryptoBroadcast.ImportPrivateKey(encryptionPassword, encryptedPrivKey)
 	if err != nil {
-		return errors.Errorf("failed to decrypt private channel key: %+v", err)
+		return WrongPasswordErr
 	}
 
+	// Compare channel IDs
 	if !channelID.Cmp(decryptedChannelID) {
-		return errors.New("private key belongs to a different channel")
+		return WrongPrivateKeyErr
 	}
 
-	return saveChannelPrivateKey(channelID, privKey, m.kv)
+	c, err := m.getChannel(decryptedChannelID)
+	if err != nil {
+		return err
+	}
+
+	// Compare public keys
+	if !bytes.Equal(cryptoBroadcast.HashPubKey(pk.Public()),
+		c.broadcast.Get().RsaPubKeyHash) {
+		return WrongPrivateKeyErr
+	}
+
+	return saveChannelPrivateKey(channelID, pk, m.kv)
 }
 
 // DeleteChannelAdminKey deletes the private key for the given channel.

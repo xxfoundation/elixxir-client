@@ -219,7 +219,7 @@ func Test_mutedUserManager_getMutedUsers(t *testing.T) {
 		})
 
 		if !reflect.DeepEqual(pubKeys, mutedUsers) {
-			t.Errorf("List of muted users does not match expected for " +
+			t.Errorf("List of muted users does not match expected for "+
 				"channel %s.\nexpected: %x\nreceived: %x",
 				&channelID, pubKeys, mutedUsers)
 		}
@@ -535,7 +535,7 @@ func Test_mutedUserKey_decode(t *testing.T) {
 		}
 
 		if !expected.Equal(decoded) {
-			t.Errorf("Decoded key does not match original (%d)." +
+			t.Errorf("Decoded key does not match original (%d)."+
 				"\nexpected: %x\nreceived: %x", i, expected, decoded)
 		}
 	}

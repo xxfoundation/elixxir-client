@@ -193,7 +193,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 }
 
 // Test send tracker send function, confirming that data is stored appropriately
-//// and callbacks are called
+// and callbacks are called
 func TestSendTracker_send(t *testing.T) {
 	triggerCh := make(chan bool)
 

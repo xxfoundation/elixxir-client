@@ -264,8 +264,10 @@ type Manager interface {
 
 	// VerifyChannelAdminKey verifies that the encrypted private key can be
 	// decrypted and that it matches the expected channel. Returns false if
-	// private key does not belong to the given channel ID. Returns an error for
-	// an invalid password.
+	// private key does not belong to the given channel.
+	//
+	// Returns the error WrongPasswordErr for an invalid password. Returns the
+	// error ChannelDoesNotExistsErr if the channel has not already been joined.
 	VerifyChannelAdminKey(
 		channelID *id.ID, encryptionPassword string, encryptedPrivKey []byte) (
 		bool, error)
@@ -274,6 +276,11 @@ type Manager interface {
 	// key and grants the user admin access to the channel the private key
 	// belongs to. Returns an error if the private key cannot be decrypted or if
 	// the private key is for the wrong channel.
+	//
+	// Returns the error WrongPasswordErr for an invalid password. Returns the
+	// error ChannelDoesNotExistsErr if the channel has not already been joined.
+	// Returns the error WrongPrivateKeyErr if the private key does not belong
+	// to the channel.
 	ImportChannelAdminKey(channelID *id.ID, encryptionPassword string,
 		encryptedPrivKey []byte) error
 

@@ -1311,7 +1311,7 @@ func (cm *ChannelsManager) IsChannelAdmin(channelIDBytes []byte) (bool, error) {
 // format. Returns an error if the user is not an admin of the channel.
 //
 // This key can be provided to other users in a channel to grant them admin
-// access using ImportChannelAdminKey.
+// access using [ChannelsManager.ImportChannelAdminKey].
 //
 // The private key is encrypted using a key generated from the password using
 // Argon2. Each call to ExportChannelAdminKey produces a different encrypted
@@ -1342,13 +1342,19 @@ func (cm *ChannelsManager) ExportChannelAdminKey(
 
 // VerifyChannelAdminKey verifies that the encrypted private key can be
 // decrypted and that it matches the expected channel. Returns false if private
-// key does not belong to the given channel ID. Returns an error for an invalid
-// password.
+// key does not belong to the given channel.
 //
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
 //   - encryptionPassword - The password used to encrypt the private key.
 //   - encryptedPrivKey - The encrypted channel private key packet.
+//
+// Returns:
+//   - bool - True if the private key belongs to the channel and false
+//     otherwise.
+//   - Returns the error [Channels.WrongPasswordErr] for an invalid password.
+//   - Returns the error [Channels.ChannelDoesNotExistsErr] if the channel has
+//     not already been joined.
 func (cm *ChannelsManager) VerifyChannelAdminKey(
 	channelIdBytes []byte, encryptionPassword string, encryptedPrivKey []byte) (
 	bool, error) {
@@ -1370,6 +1376,13 @@ func (cm *ChannelsManager) VerifyChannelAdminKey(
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
 //   - encryptionPassword - The password used to encrypt the private key.
 //   - encryptedPrivKey - The encrypted channel private key packet.
+//
+// Returns:
+//   - Returns the error [Channels.WrongPasswordErr] for an invalid password.
+//   - Returns the error [Channels.ChannelDoesNotExistsErr] if the channel has
+//     not already been joined.
+//   - Returns the error [Channels.WrongPrivateKeyErr] if the private key does
+//     not belong to the channel.
 func (cm *ChannelsManager) ImportChannelAdminKey(channelIdBytes []byte,
 	encryptionPassword string, encryptedPrivKey []byte) error {
 	channelID, err := id.Unmarshal(channelIdBytes)

@@ -218,7 +218,7 @@ type UpdateFromUuidFunc func(uuid uint64, messageID *cryptoChannel.MessageID,
 // for those events.
 type events struct {
 	model      EventModel
-	registered map[MessageType]ReceiveMessageHandler
+	registered map[MessageType]*ReceiveMessageHandler
 	leases     *actionLeaseList
 	mutedUsers *mutedUserManager
 	mux        sync.RWMutex
@@ -248,14 +248,21 @@ type ReceiveMessageHandler struct {
 //   - mutedSpace - Set to true if this listener can receive messages from muted
 //     users.
 func NewReceiveMessageHandler(name string, listener MessageTypeReceiveMessage,
-	userSpace, adminSpace, mutedSpace bool) ReceiveMessageHandler {
-	return ReceiveMessageHandler{
+	userSpace, adminSpace, mutedSpace bool) *ReceiveMessageHandler {
+	return &ReceiveMessageHandler{
 		name:       name,
 		listener:   listener,
 		userSpace:  userSpace,
 		adminSpace: adminSpace,
 		mutedSpace: mutedSpace,
 	}
+}
+
+// SpaceString returns a string with the values of each space. This is used for
+// logging and debugging purposes.
+func (rmh *ReceiveMessageHandler) SpaceString() string {
+	return fmt.Sprintf("{user:%t admin:%t muted:%t}",
+		rmh.userSpace, rmh.adminSpace, rmh.mutedSpace)
 }
 
 // CheckSpace checks that ReceiveMessageHandler can receive in the given user
@@ -266,9 +273,9 @@ func (rmh *ReceiveMessageHandler) CheckSpace(user, admin, muted bool) error {
 	// satisfies one or more of the other spaces
 	if !rmh.mutedSpace && muted {
 		return errors.Errorf("rejected channel message from %s listener "+
-			"because sender is muted. Accepted spaces:{user:%t admin:%t "+
-			"muted:%t}, message spaces:{user:%t admin:%t muted:%t}", rmh.name,
-			rmh.userSpace, rmh.adminSpace, rmh.mutedSpace, user, admin, muted)
+			"because sender is muted. Accepted spaces:%s, message spaces:"+
+			"{user:%t admin:%t muted:%t}",
+			rmh.name, rmh.SpaceString(), user, admin, muted)
 	}
 
 	switch {
@@ -279,9 +286,9 @@ func (rmh *ReceiveMessageHandler) CheckSpace(user, admin, muted bool) error {
 	}
 
 	return errors.Errorf("Rejected channel message from %s listener because "+
-		"message space mismatch. Accepted spaces:{user:%t admin:%t muted:%t}, "+
-		"message spaces:{user:%t admin:%t muted:%t}", rmh.name,
-		rmh.userSpace, rmh.adminSpace, rmh.mutedSpace, user, admin, muted)
+		"message space mismatch. Accepted spaces:%s, message spaces:"+
+		"{user:%t admin:%t muted:%t}",
+		rmh.name, rmh.SpaceString(), user, admin, muted)
 }
 
 // initEvents initializes the event model and registers default message type
@@ -290,7 +297,7 @@ func initEvents(model EventModel, kv *versioned.KV) *events {
 	e := &events{model: model}
 
 	// Set up default message types
-	e.registered = map[MessageType]ReceiveMessageHandler{
+	e.registered = map[MessageType]*ReceiveMessageHandler{
 		Text:      {"userTextMessage", e.receiveTextMessage, true, false, true},
 		AdminText: {"adminTextMessage", e.receiveTextMessage, false, true, true},
 		Reaction:  {"reaction", e.receiveReaction, true, false, true},
@@ -325,7 +332,7 @@ func initEvents(model EventModel, kv *versioned.KV) *events {
 //
 // To create a ReceiveMessageHandler, use NewReceiveMessageHandler.
 func (e *events) RegisterReceiveHandler(
-	messageType MessageType, handler ReceiveMessageHandler) error {
+	messageType MessageType, handler *ReceiveMessageHandler) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 

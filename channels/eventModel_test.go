@@ -173,6 +173,74 @@ func Test_initEvents(t *testing.T) {
 	}
 }
 
+// Unit test of NewReceiveMessageHandler.
+func TestNewReceiveMessageHandler(t *testing.T) {
+	expected := &ReceiveMessageHandler{
+		name:       "handlerName",
+		userSpace:  true,
+		adminSpace: true,
+		mutedSpace: true,
+	}
+
+	received := NewReceiveMessageHandler(expected.name, expected.listener,
+		expected.userSpace, expected.adminSpace, expected.mutedSpace)
+
+	if !reflect.DeepEqual(expected, received) {
+		t.Errorf("New ReceiveMessageHandler does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", expected, received)
+	}
+}
+
+// Tests that ReceiveMessageHandler.CheckSpace returns the expected output for
+// every possible combination of user, admin, and muted space.
+func TestReceiveMessageHandler_CheckSpace(t *testing.T) {
+	handlers := []struct {
+		*ReceiveMessageHandler
+		expected []bool
+	}{
+		{NewReceiveMessageHandler("0", nil, true, true, true),
+			[]bool{true, true, true, true, true, true, false, false}},
+		{NewReceiveMessageHandler("1", nil, true, true, false),
+			[]bool{false, true, false, true, false, true, false, false}},
+		{NewReceiveMessageHandler("2", nil, true, false, true),
+			[]bool{true, true, true, true, false, false, false, false}},
+		{NewReceiveMessageHandler("3", nil, true, false, false),
+			[]bool{false, true, false, true, false, false, false, false}},
+		{NewReceiveMessageHandler("4", nil, false, true, true),
+			[]bool{true, true, false, false, true, true, false, false}},
+		{NewReceiveMessageHandler("5", nil, false, true, false),
+			[]bool{false, true, false, false, false, true, false, false}},
+		{NewReceiveMessageHandler("6", nil, false, false, true),
+			[]bool{false, false, false, false, false, false, false, false}},
+		{NewReceiveMessageHandler("7", nil, false, false, false),
+			[]bool{false, false, false, false, false, false, false, false}},
+	}
+
+	tests := []struct{ user, admin, muted bool }{
+		{true, true, true},    // 0
+		{true, true, false},   // 1
+		{true, false, true},   // 2
+		{true, false, false},  // 3
+		{false, true, true},   // 4
+		{false, true, false},  // 5
+		{false, false, true},  // 6
+		{false, false, false}, // 7
+	}
+
+	for i, handler := range handlers {
+		for j, tt := range tests {
+			err := handler.CheckSpace(tt.user, tt.admin, tt.muted)
+			if handler.expected[j] && err != nil {
+				t.Errorf("Handler %d failed test %d: %s", i, j, err)
+			} else if !handler.expected[j] && err == nil {
+				t.Errorf("Handler %s (#%d) did not fail test #%d when it "+
+					"should have.\nhandler: %s\ntest:    %+v",
+					handler.name, i, j, handler.SpaceString(), tt)
+			}
+		}
+	}
+}
+
 func TestEvents_RegisterReceiveHandler(t *testing.T) {
 	me := &MockEvent{}
 

@@ -217,7 +217,7 @@ type Manager interface {
 	//
 	// To create a ReceiveMessageHandler, use NewReceiveMessageHandler.
 	RegisterReceiveHandler(
-		messageType MessageType, handler ReceiveMessageHandler) error
+		messageType MessageType, handler *ReceiveMessageHandler) error
 
 	// SetNickname sets the nickname in a channel after checking that the
 	// nickname is valid using [IsNicknameValid].

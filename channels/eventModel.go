@@ -96,7 +96,7 @@ type EventModel interface {
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 		nickname, text string, pubKey ed25519.PublicKey, codeset uint8,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
-		mType MessageType, status SentStatus, hidden bool) uint64
+		messageType MessageType, status SentStatus, hidden bool) uint64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
 	// a given channel. It may be called multiple times on the same message. It
@@ -121,7 +121,7 @@ type EventModel interface {
 	ReceiveReply(channelID *id.ID, messageID,
 		reactionTo cryptoChannel.MessageID, nickname, text string,
 		pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-		lease time.Duration, round rounds.Round, mType MessageType,
+		lease time.Duration, round rounds.Round, messageType MessageType,
 		status SentStatus, hidden bool) uint64
 
 	// ReceiveReaction is called whenever a reaction to a message is received on

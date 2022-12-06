@@ -1550,7 +1550,7 @@ type EventModel interface {
 	//  - codeset - The codeset version.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundID - The ID of the round that the message was received on.
-	//  - mType - the type of the message, always 1 for this call
+	//  - messageType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
@@ -1561,7 +1561,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveMessage(channelID, messageID []byte, nickname, text string,
-		pubKey []byte, codeset int, timestamp, lease, roundID, mType,
+		pubKey []byte, codeset int, timestamp, lease, roundID, messageType,
 		status int64, hidden bool) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
@@ -1585,7 +1585,7 @@ type EventModel interface {
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundID - The ID of the round that the message was received on.
-	//  - mType - the type of the message, always 1 for this call
+	//  - messageType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
@@ -1596,7 +1596,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveReply(channelID, messageID, reactionTo []byte, nickname, text string,
-		pubKey []byte, codeset int, timestamp, lease, roundID, mType,
+		pubKey []byte, codeset int, timestamp, lease, roundID, messageType,
 		status int64, hidden bool) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
@@ -1622,7 +1622,7 @@ type EventModel interface {
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundID - The ID of the round that the message was received on.
-	//  - mType - the type of the message, always 1 for this call
+	//  - messageType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
@@ -1634,7 +1634,7 @@ type EventModel interface {
 	// referenced later with [EventModel.UpdateFromUUID]
 	ReceiveReaction(channelID, messageID, reactionTo []byte, nickname,
 		reaction string, pubKey []byte, codeset int, timestamp, lease, roundID,
-		mType, status int64, hidden bool) int64
+		messageType, status int64, hidden bool) int64
 
 	// UpdateFromUUID is called whenever a message at the UUID is modified.
 	//
@@ -1724,11 +1724,11 @@ func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, nickname, text string,
 	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	lease time.Duration, round rounds.Round, messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) uint64 {
 	return uint64(tem.em.ReceiveMessage(channelID[:], messageID[:], nickname,
 		text, pubKey, int(codeset), timestamp.UnixNano(), int64(lease),
-		int64(round.ID), int64(mType), int64(status), hidden))
+		int64(round.ID), int64(messageType), int64(status), hidden))
 }
 
 // ReceiveReply is called whenever a message is received that is a reply on a
@@ -1740,11 +1740,11 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID,
 	reactionTo cryptoChannel.MessageID, nickname, text string,
 	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	lease time.Duration, round rounds.Round, messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) uint64 {
 	return uint64(tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
 		nickname, text, pubKey, int(codeset), timestamp.UnixNano(),
-		int64(lease), int64(round.ID), int64(mType), int64(status), hidden))
+		int64(lease), int64(round.ID), int64(messageType), int64(status), hidden))
 
 }
 
@@ -1757,12 +1757,12 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID,
 func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID,
 	reactionTo cryptoChannel.MessageID, nickname, reaction string,
 	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	lease time.Duration, round rounds.Round, messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) uint64 {
 
 	return uint64(tem.em.ReceiveReaction(channelID[:], messageID[:],
 		reactionTo[:], nickname, reaction, pubKey, int(codeset),
-		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(mType),
+		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(messageType),
 		int64(status), hidden))
 }
 

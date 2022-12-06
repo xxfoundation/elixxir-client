@@ -801,9 +801,12 @@ func waitUntilConnected(connected chan bool) {
 func waitForRegistration(user *xxdk.Cmix, threshhold float32) {
 	// After connection, make sure we have registered with
 	// at least 85% of the nodes
+	var err error
 	for numReg, total := 0, 100; numReg < int(threshhold*float32(total)); {
+		jww.INFO.Printf("%d < %d", numReg,
+			int(threshhold*float32(total)))
 		time.Sleep(1 * time.Second)
-		numReg, total, err := user.GetNodeRegistrationStatus()
+		numReg, total, err = user.GetNodeRegistrationStatus()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

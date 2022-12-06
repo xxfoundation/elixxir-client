@@ -48,7 +48,7 @@ var dmCmd = &cobra.Command{
 		rng := user.GetRng().GetStream()
 		defer rng.Close()
 		dmIDObj, err := ekv.Get("dmID", 0)
-		if ekv != nil && !ekv.Exists(err) {
+		if ekv != nil && ekv.Exists(err) {
 			jww.FATAL.Panicf("%+v", err)
 		}
 		var dmID codename.PrivateIdentity
@@ -110,7 +110,7 @@ var dmCmd = &cobra.Command{
 		jww.INFO.Printf("DM Send: %v, %v, %v", msgID, rnd, ephID)
 
 		// Message Reception Loop
-		waitTime := 5 * time.Second
+		waitTime := 15 * time.Second
 		receiveCnt := 0
 		timer := time.NewTimer(waitTime)
 		for done := false; !done; {
@@ -124,6 +124,14 @@ var dmCmd = &cobra.Command{
 				receiveCnt++
 			}
 		}
+
+		err = user.StopNetworkFollower()
+		if err != nil {
+			jww.WARN.Printf(
+				"Failed to cleanly close threads: %+v\n",
+				err)
+		}
+		jww.INFO.Printf("Client exiting!")
 	},
 }
 
@@ -197,6 +205,7 @@ func (r *receiver) receive(messageID dm.MessageID, replyID dm.MessageID,
 	} else {
 		msg.status = status
 	}
+	go func() { r.recv <- messageID }()
 	return msg.uuid
 }
 
@@ -214,8 +223,6 @@ func (r *receiver) ReceiveText(messageID dm.MessageID,
 	nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status dm.Status) uint64 {
-	r.Lock()
-	defer r.Unlock()
 	jww.INFO.Printf("ReceiveText: %v", messageID)
 	return r.receive(messageID, dm.MessageID{}, nickname, text,
 		pubKey, dmToken, codeset, timestamp, round, dm.TextType, status)
@@ -225,8 +232,6 @@ func (r *receiver) ReceiveReply(messageID dm.MessageID,
 	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
-	r.Lock()
-	defer r.Unlock()
 	jww.INFO.Printf("ReceiveReply: %v", messageID)
 	return r.receive(messageID, reactionTo, nickname, text,
 		pubKey, dmToken, codeset, timestamp, round, dm.TextType, status)
@@ -236,8 +241,6 @@ func (r *receiver) ReceiveReaction(messageID dm.MessageID,
 	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
-	r.Lock()
-	defer r.Unlock()
 	jww.INFO.Printf("ReceiveReaction: %v", messageID)
 	return r.receive(messageID, reactionTo, nickname, reaction,
 		pubKey, dmToken, codeset, timestamp, round, dm.ReactionType,

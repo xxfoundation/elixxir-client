@@ -52,7 +52,7 @@ func DeriveDirectMessageID(msg *DirectMessage) MessageID {
 	h.Write(msg.Nonce)
 
 	ts := make([]byte, 8)
-	binary.LittleEndian.PutUint64(pty, uint64(msg.GetLocalTimestamp()))
+	binary.LittleEndian.PutUint64(ts, uint64(msg.GetLocalTimestamp()))
 	h.Write(ts)
 
 	midBytes := h.Sum(nil)

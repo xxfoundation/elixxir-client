@@ -8,10 +8,13 @@
 package dm
 
 import (
+	"time"
+
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 
+	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/nike"
@@ -49,9 +52,6 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 
 	receptionID := deriveReceptionID(publicKey, myIDToken)
 
-	// TODO: do we do the reception registration here or do we do
-	// it outside of this function?
-
 	dmc := &dmClient{
 		receptionID: receptionID,
 		privateKey:  privateKey,
@@ -69,6 +69,10 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 		messageID MessageID, r rounds.Round) bool {
 		return false
 	})
+
+	beginningOfTime := time.Time{}
+	net.AddIdentityWithHistory(receptionID, identity.Forever,
+		beginningOfTime, true)
 
 	return dmc
 }

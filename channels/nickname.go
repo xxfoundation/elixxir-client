@@ -36,39 +36,38 @@ func loadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
 
 	return nm
 }
-
-// SetNickname sets the nickname for a channel after checking that the nickname
+// SetNickname sets the nickname in a channel after checking that the nickname
 // is valid using [IsNicknameValid].
-func (nm *nicknameManager) SetNickname(newNick string, chID *id.ID) error {
+func (nm *nicknameManager) SetNickname(nickname string, channelID *id.ID) error {
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	if err := IsNicknameValid(newNick); err != nil {
+	if err := IsNicknameValid(nickname); err != nil {
 		return err
 	}
 
-	nm.byChannel[*chID] = newNick
+	nm.byChannel[*channelID] = nickname
 	return nm.save()
 }
 
-// DeleteNickname removes the nickname for a given channel, using the codename
-// for that channel instead.
-func (nm *nicknameManager) DeleteNickname(chID *id.ID) error {
+// DeleteNickname removes the nickname for a given channel. The name will revert
+// back to the codename for this channel instead.
+func (nm *nicknameManager) DeleteNickname(channelID *id.ID) error {
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	delete(nm.byChannel, *chID)
+	delete(nm.byChannel, *channelID)
 
 	return nm.save()
 }
 
 // GetNickname returns the nickname for the given channel if it exists.
-func (nm *nicknameManager) GetNickname(chID *id.ID) (
+func (nm *nicknameManager) GetNickname(channelID *id.ID) (
 	nickname string, exists bool) {
 	nm.mux.RLock()
 	defer nm.mux.RUnlock()
 
-	nickname, exists = nm.byChannel[*chID]
+	nickname, exists = nm.byChannel[*channelID]
 	return
 }
 

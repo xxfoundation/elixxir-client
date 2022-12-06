@@ -35,8 +35,9 @@ type Manager interface {
 	// Channel Actions                                                        //
 	////////////////////////////////////////////////////////////////////////////
 
-	// GenerateChannel creates a new channel with the user as the admin. This
-	// function only create a channel and does not join it.
+	// GenerateChannel creates a new channel with the user as the admin and
+	// returns the broadcast.Channel object. This function only create a channel
+	// and does not join it.
 	//
 	// The private key is saved to storage and can be accessed with
 	// ExportChannelAdminKey.
@@ -49,43 +50,37 @@ type Manager interface {
 	//   - description - The description of a channel. The description is
 	//     optional but cannot be longer than 144 characters and can include all
 	//     Unicode characters. It cannot be changed once a channel is created.
-	//   - privacyLevel - The broadcast.PrivacyLevel of the channel. Refer to
-	//     the comment below for more information.
-	//
-	// The broadcast.PrivacyLevel of a channel indicates the level of channel
-	// information revealed when sharing it via URL. For any channel besides
-	// public channels, the secret information is encrypted and a password is
-	// required to share and join a channel.
-	//   - A privacy level of [broadcast.Public] reveals all the information
-	//     including the name, description, privacy level, public key and salt.
-	//   - A privacy level of [broadcast.Private] reveals only the name and
-	//     description.
-	//   - A privacy level of [broadcast.Secret] reveals nothing.
+	//   - privacyLevel - The broadcast.PrivacyLevel of the channel.
 	GenerateChannel(
 		name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
 		*cryptoBroadcast.Channel, error)
 
-	// JoinChannel joins the given channel. It will fail if the channel has
-	// already been joined.
+	// JoinChannel joins the given channel. It will return the error
+	// ChannelAlreadyExistsErr if the channel has already been joined.
 	JoinChannel(channel *cryptoBroadcast.Channel) error
 
-	// LeaveChannel leaves the given channel. It will return an error if the
-	// channel was not previously joined.
+	// LeaveChannel leaves the given channel. It will return the error
+	// ChannelDoesNotExistsErr if the channel was not previously joined.
 	LeaveChannel(channelID *id.ID) error
 
 	// ReplayChannel replays all messages from the channel within the network's
 	// memory (~3 weeks) over the event model. It does this by wiping the
 	// underlying state tracking for message pickup for the channel, causing all
 	// messages to be re-retrieved from the network.
-	ReplayChannel(chID *id.ID) error
+	//
+	// Returns the error ChannelDoesNotExistsErr if the channel was not
+	// previously joined.
+	ReplayChannel(channelID *id.ID) error
 
-	// GetChannels returns the IDs of all channels that have been joined. Use
-	// getChannelsUnsafe if you already have taken the mux.
+	// GetChannels returns the IDs of all channels that have been joined.
 	GetChannels() []*id.ID
 
 	// GetChannel returns the underlying cryptographic structure for a given
 	// channel.
-	GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error)
+	//
+	// Returns the error ChannelDoesNotExistsErr if the channel was not
+	// previously joined.
+	GetChannel(channelID *id.ID) (*cryptoBroadcast.Channel, error)
 
 	////////////////////////////////////////////////////////////////////////////
 	// Sending                                                                //
@@ -100,8 +95,8 @@ type Manager interface {
 	// will always be possible to send a payload of 802 bytes at minimum.
 	//
 	// The meaning of validUntil depends on the use case.
-	SendGeneric(channelID *id.ID, messageType MessageType,
-		msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
+	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
+		validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
@@ -200,37 +195,38 @@ type Manager interface {
 	// Other Channel Actions                                                  //
 	////////////////////////////////////////////////////////////////////////////
 
-	// GetIdentity returns the public identity associated with this channel
-	// manager.
+	// GetIdentity returns the public identity of the user associated with this
+	// channel manager.
 	GetIdentity() cryptoChannel.Identity
 
-	// ExportPrivateIdentity encrypts and exports the private identity to a
-	// portable string.
+	// ExportPrivateIdentity encrypts the private identity using the password
+	// and exports it to a portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
 	// GetStorageTag returns the tag at where this manager is stored. To be used
 	// when loading the manager. The storage tag is derived from the public key.
 	GetStorageTag() string
 
-	// RegisterReceiveHandler is used to register handlers for non default
-	// message types so that they can be processed by modules. It is important
-	// that such modules sync up with the event model implementation.
+	// RegisterReceiveHandler registers a listener for non-default message types
+	// so that they can be processed by modules. It is important that such
+	// modules sync up with the event model implementation.
 	//
-	// There can only be one handler per message type, and this will return an
-	// error on a multiple registration.
+	// There can only be one handler per message type; the error
+	// MessageTypeAlreadyRegistered will be returned on multiple registrations
+	// of the same type.
 	RegisterReceiveHandler(
 		messageType MessageType, listener MessageTypeReceiveMessage) error
 
-	// SetNickname sets the nickname for a channel after checking that the
+	// SetNickname sets the nickname in a channel after checking that the
 	// nickname is valid using [IsNicknameValid].
-	SetNickname(newNick string, chID *id.ID) error
+	SetNickname(nickname string, channelID *id.ID) error
 
-	// DeleteNickname removes the nickname for a given channel, using the
-	// codename for that channel instead.
-	DeleteNickname(chID *id.ID) error
+	// DeleteNickname removes the nickname for a given channel. The name will
+	// revert back to the codename for this channel instead.
+	DeleteNickname(channelID *id.ID) error
 
 	// GetNickname returns the nickname for the given channel, if it exists.
-	GetNickname(chID *id.ID) (nickname string, exists bool)
+	GetNickname(channelID *id.ID) (nickname string, exists bool)
 
 	// Muted returns true if the user is currently muted in the given channel.
 	Muted(channelID *id.ID) bool

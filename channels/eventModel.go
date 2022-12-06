@@ -259,12 +259,13 @@ func initEvents(model EventModel, kv *versioned.KV) *events {
 	return e
 }
 
-// RegisterReceiveHandler is used to register handlers for non default message
-// types s they can be processed by modules. It is important that such modules
-// sync up with the event model implementation.
+// RegisterReceiveHandler registers a listener for non-default message types so
+// that they can be processed by modules. It is important that such modules sync
+// up with the event model implementation.
 //
-// There can only be one handler per message type, and this will return an error
-// on a multiple registration.
+// There can only be one handler per message type; the error
+// MessageTypeAlreadyRegistered will be returned on multiple registrations of
+// the same type.
 func (e *events) RegisterReceiveHandler(
 	messageType MessageType, listener MessageTypeReceiveMessage) error {
 	e.mux.Lock()

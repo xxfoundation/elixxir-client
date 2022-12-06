@@ -19,6 +19,7 @@ import (
 
 // IsChannelAdmin returns true if the user is an admin of the channel.
 func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
+	jww.INFO.Printf("[CH] IsChannelAdmin %s", channelID)
 	if _, err := loadChannelPrivateKey(channelID, m.kv); err != nil {
 		if m.kv.Exists(err) {
 			jww.WARN.Printf("Private key for channel ID %s found in storage, "+
@@ -34,6 +35,7 @@ func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
 // encrypted with the given encryptionPassword.
 func (m *manager) ExportChannelAdminKey(
 	channelID *id.ID, encryptionPassword string) ([]byte, error) {
+	jww.INFO.Printf("[CH] ExportChannelAdminKey %s", channelID)
 	privKey, err := loadChannelPrivateKey(channelID, m.kv)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load private key from storage")
@@ -56,6 +58,7 @@ func (m *manager) ExportChannelAdminKey(
 // password.
 func (m *manager) VerifyChannelAdminKey(channelID *id.ID,
 	encryptionPassword string, encryptedPrivKey []byte) (bool, error) {
+	jww.INFO.Printf("[CH] VerifyChannelAdminKey %s", channelID)
 	decryptedChannelID, _, err :=
 		cryptoBroadcast.ImportPrivateKey(encryptionPassword, encryptedPrivKey)
 	if err != nil {
@@ -74,6 +77,7 @@ func (m *manager) VerifyChannelAdminKey(channelID *id.ID,
 // storage.
 func (m *manager) ImportChannelAdminKey(
 	channelID *id.ID, encryptionPassword string, encryptedPrivKey []byte) error {
+	jww.INFO.Printf("[CH] ImportChannelAdminKey %s", channelID)
 	decryptedChannelID, privKey, err :=
 		cryptoBroadcast.ImportPrivateKey(encryptionPassword, encryptedPrivKey)
 	if err != nil {
@@ -93,6 +97,7 @@ func (m *manager) ImportChannelAdminKey(
 // key is deleted, it cannot be recovered and the channel can never have another
 // admin.
 func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
+	jww.INFO.Printf("[CH] DeleteChannelAdminKey %s", channelID)
 	return deleteChannelPrivateKey(channelID, m.kv)
 }
 

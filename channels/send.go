@@ -202,7 +202,7 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 	validUntil time.Duration, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendMessageTag)
-	jww.INFO.Printf("[%s]SendMessage(%s)", tag, channelID)
+	jww.INFO.Printf("[CH] [%s] SendMessage(%s)", tag, channelID)
 
 	txt := &CMIXChannelText{
 		Version:        cmixChannelTextVersion,
@@ -236,7 +236,7 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 	params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendReplyTag)
-	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, channelID, replyTo)
+	jww.INFO.Printf("[CH] [%s] SendReply(%s, to %s)", tag, channelID, replyTo)
 	txt := &CMIXChannelText{
 		Version:        cmixChannelTextVersion,
 		Text:           msg,
@@ -263,7 +263,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
-	jww.INFO.Printf("[%s]SendReaction(%s, to %s)", tag, channelID, reactTo)
+	jww.INFO.Printf("[CH] [%s] SendReaction(%s, to %s)", tag, channelID, reactTo)
 
 	if err := ValidateReaction(reaction); err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
@@ -285,7 +285,6 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	return m.SendGeneric(
 		channelID, Reaction, reactMarshaled, ValidForever, params)
 }
-
 
 // SendAdminGeneric is used to send a raw message over a channel encrypted with
 // admin keys, identifying it as sent by the admin. In general, it should be
@@ -418,7 +417,7 @@ func (m *manager) DeleteMessage(channelID *id.ID,
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
 	jww.INFO.Printf(
-		"[%s]DeleteMessage(%s, delete %s)", tag, channelID, targetMessage)
+		"[CH] [%s] DeleteMessage(%s, delete %s)", tag, channelID, targetMessage)
 
 	// Load private key from storage. If it does not exist, then check if the
 	// user is the sender of the message to delete.
@@ -474,7 +473,7 @@ func (m *manager) PinMessage(channelID *id.ID,
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
 	jww.INFO.Printf(
-		"[%s]PinMessage(%s, delete %s)", tag, channelID, targetMessage)
+		"[CH] [%s] PinMessage(%s, pin %s)", tag, channelID, targetMessage)
 
 	pinnedMessage := &CMIXChannelPinned{
 		Version:    cmixChannelPinVersion,
@@ -502,7 +501,7 @@ func (m *manager) MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey,
 	undoAction bool, params cmix.CMIXParams) (cryptoChannel.MessageID,
 	rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, mutedUser, SendMuteTag)
-	jww.INFO.Printf("[%s]MuteUser(%s, mute %x)", tag, channelID, mutedUser)
+	jww.INFO.Printf("[CH] [%s] MuteUser(%s, mute %x)", tag, channelID, mutedUser)
 
 	muteMessage := &CMIXChannelMute{
 		Version:    cmixChannelPinVersion,

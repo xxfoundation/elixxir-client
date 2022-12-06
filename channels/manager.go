@@ -166,11 +166,17 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	return &m
 }
 
-// GenerateChannel creates a new channel with the user as the admin. This
-// function only create a channel and does not join it.
+// GenerateChannel creates a new channel with the user as the admin and returns
+// the broadcast.Channel object. This function only create a channel and does
+// not join it.
+//
+// The private key is saved to storage and can be accessed with
+// ExportChannelAdminKey.
 func (m *manager) GenerateChannel(
 	name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, error) {
+	jww.INFO.Printf("[CH] GenerateChannel %q with description %q and privacy " +
+		"level %s", name, description, privacyLevel)
 	ch, _, err := m.generateChannel(
 		name, description, privacyLevel, m.net.GetMaxMessageLength())
 	return ch, err
@@ -199,24 +205,26 @@ func (m *manager) generateChannel(name, description string,
 	return ch, pk, nil
 }
 
-// JoinChannel joins the given channel. It will fail if the channel has already
-// been joined.
+// JoinChannel joins the given channel. It will return the error
+// ChannelAlreadyExistsErr if the channel has already been joined.
 func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
-	jww.INFO.Printf("JoinChannel(%s[%s])", channel.Name, channel.ReceptionID)
+	jww.INFO.Printf(
+		"[CH] JoinChannel %q with ID %s", channel.Name, channel.ReceptionID)
 	err := m.addChannel(channel)
 	if err != nil {
 		return err
 	}
 
+	// Report joined channel to the event model
 	go m.events.model.JoinChannel(channel)
 
 	return nil
 }
 
-// LeaveChannel leaves the given channel. It will return an error if the channel
-// was not previously joined.
+// LeaveChannel leaves the given channel. It will return the error
+// ChannelDoesNotExistsErr if the channel was not previously joined.
 func (m *manager) LeaveChannel(channelID *id.ID) error {
-	jww.INFO.Printf("LeaveChannel(%s)", channelID)
+	jww.INFO.Printf("[CH] LeaveChannel %s", channelID)
 	err := m.removeChannel(channelID)
 	if err != nil {
 		return err
@@ -231,12 +239,15 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 // memory (~3 weeks) over the event model. It does this by wiping the underlying
 // state tracking for message pickup for the channel, causing all messages to be
 // re-retrieved from the network.
-func (m *manager) ReplayChannel(chID *id.ID) error {
-	jww.INFO.Printf("ReplayChannel(%s)", chID)
+//
+// Returns the error ChannelDoesNotExistsErr if the channel was not previously
+// joined.
+func (m *manager) ReplayChannel(channelID *id.ID) error {
+	jww.INFO.Printf("[CH] ReplayChannel %s", channelID)
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
-	jc, exists := m.channels[*chID]
+	jc, exists := m.channels[*channelID]
 	if !exists {
 		return ChannelDoesNotExistsErr
 	}
@@ -258,10 +269,11 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 	return nil
 }
 
-// GetChannels returns the IDs of all channels that have been joined. Use
-// getChannelsUnsafe if you already have taken the mux.
+// GetChannels returns the IDs of all channels that have been joined.
+//
+// Use manager.getChannelsUnsafe if you already have taken the mux.
 func (m *manager) GetChannels() []*id.ID {
-	jww.INFO.Printf("GetChannels")
+	jww.INFO.Print("[CH] GetChannels")
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.getChannelsUnsafe()
@@ -269,9 +281,12 @@ func (m *manager) GetChannels() []*id.ID {
 
 // GetChannel returns the underlying cryptographic structure for a given
 // channel.
-func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
-	jww.INFO.Printf("GetChannel(%s)", chID)
-	jc, err := m.getChannel(chID)
+//
+// Returns the error ChannelDoesNotExistsErr if the channel was not previously
+// joined.
+func (m *manager) GetChannel(channelID *id.ID) (*cryptoBroadcast.Channel, error) {
+	jww.INFO.Printf("[CH] GetChannel %s", channelID)
+	jc, err := m.getChannel(channelID)
 	if err != nil {
 		return nil, err
 	} else if jc.broadcast == nil {
@@ -284,15 +299,16 @@ func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
 // Other Channel Actions                                                      //
 ////////////////////////////////////////////////////////////////////////////////
 
-// GetIdentity returns the public identity associated with this channel manager.
+// GetIdentity returns the public identity of the user associated with this
+// channel manager.
 func (m *manager) GetIdentity() cryptoChannel.Identity {
 	return m.me.Identity
 }
 
-// ExportPrivateIdentity encrypts and exports the private identity to a portable
-// string.
+// ExportPrivateIdentity encrypts the private identity using the password and
+// exports it to a portable string.
 func (m *manager) ExportPrivateIdentity(password string) ([]byte, error) {
-	jww.INFO.Printf("ExportPrivateIdentity()")
+	jww.INFO.Print("[CH] ExportPrivateIdentity")
 	rng := m.rng.GetStream()
 	defer rng.Close()
 	return m.me.Export(password, rng)
@@ -311,6 +327,7 @@ func getStorageTag(pub ed25519.PublicKey) string {
 
 // Muted returns true if the user is currently muted in the given channel.
 func (m *manager) Muted(channelID *id.ID) bool {
+	jww.INFO.Printf("[CH] Muted in channel %s", channelID)
 	return m.events.mutedUsers.isMuted(channelID, m.me.PubKey)
 }
 
@@ -318,5 +335,6 @@ func (m *manager) Muted(channelID *id.ID) bool {
 // the channel. If there are no muted user or if the channel does not exist,
 // an empty list is returned.
 func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
+	jww.INFO.Printf("[CH] GetMutedUsers in channel %s", channelID)
 	return m.mutedUsers.getMutedUsers(channelID)
 }

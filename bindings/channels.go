@@ -1474,10 +1474,7 @@ type ChannelMessageReceptionCallback interface {
 //   - adminSpace - Set to true if this listener can receive messages from
 //     admins.
 //   - mutedSpace - Set to true if this listener can receive messages from muted
-//     users. Note that this should still be true when receiving most messages
-//     because they still need to be stored in the database, they will just be
-//     marked as hidden. Only set this to true if you truly want to reject the
-//     message entirely.
+//     users.
 func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 	listenerCb ChannelMessageReceptionCallback, name string, userSpace,
 	adminSpace, mutedSpace bool) error {

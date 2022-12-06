@@ -544,13 +544,13 @@ func (cm *ChannelsManager) JoinChannel(channelPretty string) ([]byte, error) {
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
 func (cm *ChannelsManager) LeaveChannel(channelIdBytes []byte) error {
 	// Unmarshal channel ID
-	channelId, err := id.Unmarshal(channelIdBytes)
+	channelID, err := id.Unmarshal(channelIdBytes)
 	if err != nil {
 		return err
 	}
 
 	// Leave the channel
-	return cm.api.LeaveChannel(channelId)
+	return cm.api.LeaveChannel(channelID)
 }
 
 // ReplayChannel replays all messages from the channel within the network's
@@ -561,13 +561,13 @@ func (cm *ChannelsManager) LeaveChannel(channelIdBytes []byte) error {
 func (cm *ChannelsManager) ReplayChannel(channelIdBytes []byte) error {
 
 	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(channelIdBytes)
+	channelID, err := id.Unmarshal(channelIdBytes)
 	if err != nil {
 		return err
 	}
 
 	// Replay channel
-	return cm.api.ReplayChannel(chanId)
+	return cm.api.ReplayChannel(channelID)
 }
 
 // GetChannels returns the IDs of all channels that have been joined.
@@ -648,13 +648,13 @@ func (cm *ChannelsManager) GetShareURL(cmixID int, host string, maxUses int,
 	channelIdBytes []byte) ([]byte, error) {
 
 	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(channelIdBytes)
+	channelID, err := id.Unmarshal(channelIdBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the channel from the ID
-	ch, err := cm.api.GetChannel(chanId)
+	ch, err := cm.api.GetChannel(channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -749,24 +749,24 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 	message []byte, leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
-	chanId, params, err :=
+	channelID, params, err :=
 		parseChannelsParameters(channelIdBytes, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	msgTy := channels.MessageType(messageType)
+	msgType := channels.MessageType(messageType)
 
 	// Send message
 	lease := time.Duration(leaseTimeMS) * time.Millisecond
-	chanMsgId, rnd, ephId, err :=
-		cm.api.SendGeneric(chanId, msgTy, message, lease, params.CMIX)
+	messageID, rnd, ephID, err :=
+		cm.api.SendGeneric(channelID, msgType, message, lease, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 // SendMessage is used to send a formatted message over a channel.
@@ -796,7 +796,7 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 	leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
-	chanId, params, err :=
+	channelID, params, err :=
 		parseChannelsParameters(channelIdBytes, cmixParamsJSON)
 	if err != nil {
 		return nil, err
@@ -804,14 +804,14 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 
 	// Send message
 	lease := time.Duration(leaseTimeMS) * time.Millisecond
-	chanMsgId, rnd, ephId, err :=
-		cm.api.SendMessage(chanId, message, lease, params.CMIX)
+	messageID, rnd, ephID, err :=
+		cm.api.SendMessage(channelID, message, lease, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 // SendReply is used to send a formatted message over a channel. Due to the
@@ -863,14 +863,14 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 
 	// Send Reply
 	lease := time.Duration(leaseTimeMS) * time.Millisecond
-	chanMsgId, rnd, ephId, err :=
+	messageID, rnd, ephID, err :=
 		cm.api.SendReply(channelID, message, messageID, lease, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 // SendReaction is used to send a reaction to a message over a channel.
@@ -909,14 +909,14 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	}
 
 	// Send reaction
-	chanMsgId, rnd, ephId, err :=
+	messageID, rnd, ephID, err :=
 		cm.api.SendReaction(channelID, reaction, messageID, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -955,24 +955,24 @@ func (cm *ChannelsManager) SendAdminGeneric(channelIdBytes []byte,
 	messageType int, message []byte, leaseTimeMS int64, cmixParamsJSON []byte) (
 	[]byte, error) {
 	// Unmarshal channel ID and parameters
-	chanId, params, err := parseChannelsParameters(
-		channelIdBytes, cmixParamsJSON)
+	channelID, params, err :=
+		parseChannelsParameters(channelIdBytes, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	msgTy := channels.MessageType(messageType)
+	msgType := channels.MessageType(messageType)
 
 	// Send admin message
 	lease := time.Duration(leaseTimeMS) * time.Millisecond
-	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(
-		chanId, msgTy, message, lease, params.CMIX)
+	messageID, rnd, ephID, err :=
+		cm.api.SendAdminGeneric(channelID, msgType, message, lease, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 // DeleteMessage deletes the targeted message from user's view. Users may delete
@@ -1015,14 +1015,14 @@ func (cm *ChannelsManager) DeleteMessage(channelIdBytes,
 	}
 
 	// Send message deletion
-	chanMsgId, rnd, ephId, err := cm.api.DeleteMessage(
+	messageID, rnd, ephID, err := cm.api.DeleteMessage(
 		channelID, targetedMessageID, undoAction, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 // PinMessage pins the target message to the top of a channel view for all
@@ -1063,14 +1063,14 @@ func (cm *ChannelsManager) PinMessage(channelIdBytes,
 	}
 
 	// Send message pin
-	chanMsgId, rnd, ephId, err := cm.api.PinMessage(
+	messageID, rnd, ephID, err := cm.api.PinMessage(
 		channelID, targetedMessageID, undoAction, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 // MuteUser is used to mute a user in a channel. Muting a user will cause all
@@ -1109,14 +1109,14 @@ func (cm *ChannelsManager) MuteUser(channelIdBytes, mutedUserPubKeyBytes []byte,
 	}
 
 	// Send message pin
-	chanMsgId, rnd, ephId, err :=
+	messageID, rnd, ephID, err :=
 		cm.api.MuteUser(channelID, userPubKey, undoAction, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
+	return constructChannelSendReport(messageID, rnd.ID, ephID)
 }
 
 // parseChannelsParameters is a helper function for the Send functions. It
@@ -1126,7 +1126,7 @@ func (cm *ChannelsManager) MuteUser(channelIdBytes, mutedUserPubKeyBytes []byte,
 func parseChannelsParameters(channelIdBytes, cmixParamsJSON []byte) (
 	*id.ID, xxdk.CMIXParams, error) {
 	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(channelIdBytes)
+	channelID, err := id.Unmarshal(channelIdBytes)
 	if err != nil {
 		return nil, xxdk.CMIXParams{}, err
 	}
@@ -1137,18 +1137,18 @@ func parseChannelsParameters(channelIdBytes, cmixParamsJSON []byte) (
 		return nil, xxdk.CMIXParams{}, err
 	}
 
-	return chanId, params, nil
+	return channelID, params, nil
 }
 
 // constructChannelSendReport is a helper function which returns a JSON
 // marshalled ChannelSendReport.
-func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
-	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
+func constructChannelSendReport(messageID cryptoChannel.MessageID,
+	roundID id.Round, ephID ephemeral.Id) ([]byte, error) {
 	// Construct send report
 	chanSendReport := ChannelSendReport{
-		MessageId:  channelMessageId.Bytes(),
-		RoundsList: makeRoundsList(roundId),
-		EphId:      ephId.Int64(),
+		MessageId:  messageID.Marshal(),
+		RoundsList: makeRoundsList(roundID),
+		EphId:      ephID.Int64(),
 	}
 
 	// Marshal send report
@@ -1452,7 +1452,7 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 
 			rcm := ReceivedChannelMessageReport{
 				ChannelId:   channelID.Marshal(),
-				MessageId:   messageID.Bytes(),
+				MessageId:   messageID.Marshal(),
 				MessageType: int(messageType),
 				Nickname:    nickname,
 				PubKey:      pubKey,
@@ -1492,7 +1492,7 @@ type EventModel interface {
 	// LeaveChannel is called whenever a channel is left locally.
 	//
 	// Parameters:
-	//  - ChannelId - The marshalled channel [id.ID].
+	//  - ChannelID - The marshalled channel [id.ID].
 	LeaveChannel(channelID []byte)
 
 	// ReceiveMessage is called whenever a message is received on a given
@@ -1510,7 +1510,7 @@ type EventModel interface {
 	//  - pubKey - The sender's Ed25519 public key.
 	//  - codeset - The codeset version.
 	//  - lease - The number of nanoseconds that the message is valid for.
-	//  - roundId - The ID of the round that the message was received on.
+	//  - roundID - The ID of the round that the message was received on.
 	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
@@ -1522,7 +1522,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveMessage(channelID, messageID []byte, nickname, text string,
-		pubKey []byte, codeset int, timestamp, lease, roundId, mType,
+		pubKey []byte, codeset int, timestamp, lease, roundID, mType,
 		status int64, hidden bool) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
@@ -1545,7 +1545,7 @@ type EventModel interface {
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
-	//  - roundId - The ID of the round that the message was received on.
+	//  - roundID - The ID of the round that the message was received on.
 	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
@@ -1557,7 +1557,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveReply(channelID, messageID, reactionTo []byte, nickname, text string,
-		pubKey []byte, codeset int, timestamp, lease, roundId, mType,
+		pubKey []byte, codeset int, timestamp, lease, roundID, mType,
 		status int64, hidden bool) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
@@ -1582,7 +1582,7 @@ type EventModel interface {
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
-	//  - roundId - The ID of the round that the message was received on.
+	//  - roundID - The ID of the round that the message was received on.
 	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
@@ -1594,7 +1594,7 @@ type EventModel interface {
 	// Returns a non-negative unique uuid for the message by which it can be
 	// referenced later with [EventModel.UpdateFromUUID]
 	ReceiveReaction(channelID, messageID, reactionTo []byte, nickname,
-		reaction string, pubKey []byte, codeset int, timestamp, lease, roundId,
+		reaction string, pubKey []byte, codeset int, timestamp, lease, roundID,
 		mType, status int64, hidden bool) int64
 
 	// UpdateFromUUID is called whenever a message at the UUID is modified.
@@ -1624,12 +1624,6 @@ type EventModel interface {
 	// Returns:
 	//  - JSON of [channels.ModelMessage].
 	GetMessage(messageID []byte) ([]byte, error)
-
-	// unimplemented
-	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
-	// UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 }
 
 // MessageUpdateInfo contains the updated information for a channel message.
@@ -1740,7 +1734,7 @@ func (tem *toEventModel) UpdateFromUUID(uuid uint64,
 	var mui MessageUpdateInfo
 
 	if messageID != nil {
-		mui.MessageID = messageID.Bytes()
+		mui.MessageID = messageID.Marshal()
 		mui.MessageIDSet = true
 	}
 	if timestamp != nil {
@@ -1811,7 +1805,7 @@ func (tem *toEventModel) UpdateFromMessageID(messageID cryptoChannel.MessageID,
 // GetMessage returns the message with the given [channel.MessageID].
 func (tem *toEventModel) GetMessage(
 	messageID cryptoChannel.MessageID) (channels.ModelMessage, error) {
-	msgJSON, err := tem.em.GetMessage(messageID.Bytes())
+	msgJSON, err := tem.em.GetMessage(messageID.Marshal())
 	if err != nil {
 		return channels.ModelMessage{}, err
 	}

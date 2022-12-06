@@ -83,9 +83,9 @@ type channelIDToNickname struct {
 // hold the mux.
 func (nm *nicknameManager) save() error {
 	list := make([]channelIDToNickname, 0)
-	for chId, nickname := range nm.byChannel {
+	for channelID, nickname := range nm.byChannel {
 		list = append(list, channelIDToNickname{
-			ChannelId: chId,
+			ChannelId: channelID,
 			Nickname:  nickname,
 		})
 	}

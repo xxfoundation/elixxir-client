@@ -173,12 +173,6 @@ type EventModel interface {
 
 	// GetMessage returns the message with the given [channel.MessageID].
 	GetMessage(messageID cryptoChannel.MessageID) (ModelMessage, error)
-
-	// unimplemented
-	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
-	// UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 }
 
 // ModelMessage contains a message and all of its information.

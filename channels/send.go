@@ -91,7 +91,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 
 	nickname, _ := m.GetNickname(channelID)
 
-	var msgId cryptoChannel.MessageID
+	var messageID cryptoChannel.MessageID
 
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
@@ -139,7 +139,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		}
 
 		// Make the messageID
-		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
+		messageID = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
 
 		// Sign the message
 		messageSig := ed25519.Sign(*m.me.Privkey, chMsgSerial)
@@ -160,7 +160,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	uuid, err := m.st.denotePendingSend(channelID, &userMessageInternal{
 		userMessage:    usrMsg,
 		channelMessage: chMsg,
-		messageID:      msgId,
+		messageID:      messageID,
 	})
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s", err.Error())
@@ -183,11 +183,11 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	}
 	sendPrint += fmt.Sprintf(
 		", broadcast succeeded %s, success!", netTime.Now())
-	err = m.st.send(uuid, msgId, r)
+	err = m.st.send(uuid, messageID, r)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", broadcast failed: %s ", err.Error())
 	}
-	return msgId, r, ephID, err
+	return messageID, r, ephID, err
 }
 
 // SendMessage is used to send a formatted message over a channel.
@@ -324,7 +324,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 		NotAnAdminErr
 	}
 
-	var msgId cryptoChannel.MessageID
+	var messageID cryptoChannel.MessageID
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
 		PayloadType:    uint32(messageType),
@@ -363,7 +363,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 			return nil, err
 		}
 
-		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
+		messageID = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
 
 		// Check if the message is too long
 		if len(chMsgSerial) > ch.broadcast.MaxRSAToPublicPayloadSize() {
@@ -397,11 +397,11 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	}
 	sendPrint += fmt.Sprintf(
 		", broadcast succeeded %s, success!", netTime.Now())
-	err = m.st.send(uuid, msgId, r)
+	err = m.st.send(uuid, messageID, r)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", broadcast failed: %s ", err.Error())
 	}
-	return msgId, r, ephID, err
+	return messageID, r, ephID, err
 }
 
 // DeleteMessage deletes the targeted message from user's view. Users may delete

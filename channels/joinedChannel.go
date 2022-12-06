@@ -219,11 +219,11 @@ func (jc *joinedChannel) Store(kv *versioned.KV) error {
 }
 
 // loadJoinedChannel loads a given channel from ekv storage.
-func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
+func loadJoinedChannel(channelID *id.ID, kv *versioned.KV, net broadcast.Client,
 	rngGen *fastRNG.StreamGenerator, e *events,
 	broadcastMaker broadcast.NewBroadcastChannelFunc, mr messageReceiveFunc) (
 	*joinedChannel, error) {
-	obj, err := kv.Get(makeJoinedChannelKey(chId), joinedChannelVersion)
+	obj, err := kv.Get(makeJoinedChannelKey(channelID), joinedChannelVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -247,8 +247,8 @@ func (jc *joinedChannel) delete(kv *versioned.KV) error {
 		joinedChannelVersion)
 }
 
-func makeJoinedChannelKey(chId *id.ID) string {
-	return joinedChannelKey + chId.HexEncode()
+func makeJoinedChannelKey(channelID *id.ID) string {
+	return joinedChannelKey + channelID.HexEncode()
 }
 
 func initBroadcast(c *cryptoBroadcast.Channel, e *events, net broadcast.Client,

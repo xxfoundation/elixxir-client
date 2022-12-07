@@ -27,6 +27,7 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/shuffle"
+	"gitlab.com/elixxir/primitives/authorizer"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
@@ -797,8 +798,8 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		// Add the new gateway host
-		prefixGwAddress := getDnsPrefix(gwId.Bytes())
-		gwAddress := prefixGwAddress + gatewayUrl + "22840"
+		gwUrl := authorizer.GetGatewayDns(gwId.Bytes())
+		gwAddress := gwUrl + ":22840"
 		jww.INFO.Printf("[HostPool] Adding address %s  to host-pool: %s", gwAddress)
 		_, err := h.manager.AddHost(
 			gwId, gwAddress, []byte(gw.TlsCertificate), h.poolParams.HostParams)

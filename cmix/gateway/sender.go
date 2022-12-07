@@ -25,13 +25,6 @@ import (
 	"time"
 )
 
-// getDnsPrefix returns the DNS prefix for the given GwId.
-func getDnsPrefix(gwId []byte) string {
-	return base64.URLEncoding.EncodeToString(gwId)
-}
-
-const gatewayUrl = ".mainnet.cmix.rip:"
-
 // Sender object is used for sending that wraps the HostPool for providing
 // destinations.
 type Sender interface {

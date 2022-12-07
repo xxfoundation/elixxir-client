@@ -19,12 +19,20 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/dm"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/primitives/id"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+)
+
+// DM Specific command line options
+const (
+	dmPartnerPubKeyFlag = "dmPubkey"
+	dmPartnerTokenFlag  = "dmToken"
 )
 
 // groupCmd represents the base command when called without any subcommands
@@ -33,14 +41,14 @@ var dmCmd = &cobra.Command{
 	Short: "Group commands for cMix client",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmixParams, e2eParams := initParams()
-		authCbs := makeAuthCallbacks(
-			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		user := initE2e(cmixParams, e2eParams, authCbs)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
+		cmixParams, _ := initParams()
+		user := loadOrInitCmix([]byte(viper.GetString(passwordFlag)),
+			viper.GetString(sessionFlag), "", cmixParams)
 
 		// Print user's reception ID
-		identity := user.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", identity.ID)
+		identity := user.GetStorage().GetReceptionID()
+		jww.INFO.Printf("User: %s", identity)
 
 		// NOTE: DM ID's are not storage backed, so we do the
 		// storage here.
@@ -48,7 +56,7 @@ var dmCmd = &cobra.Command{
 		rng := user.GetRng().GetStream()
 		defer rng.Close()
 		dmIDObj, err := ekv.Get("dmID", 0)
-		if ekv != nil && ekv.Exists(err) {
+		if err != nil && ekv.Exists(err) {
 			jww.FATAL.Panicf("%+v", err)
 		}
 		var dmID codename.PrivateIdentity
@@ -64,6 +72,12 @@ var dmCmd = &cobra.Command{
 		dmToken := dmID.GetDMToken()
 		pubKeyBytes := dmID.PubKey[:]
 
+		ekv.Set("dmID", &versioned.Object{
+			Version:   0,
+			Timestamp: time.Now(),
+			Data:      dmID.Marshal(),
+		})
+
 		jww.INFO.Printf("DMPUBKEY: %s",
 			base64.RawStdEncoding.EncodeToString(pubKeyBytes))
 		jww.INFO.Printf("DMTOKEN: %s",
@@ -75,6 +89,11 @@ var dmCmd = &cobra.Command{
 			partnerPubKey = dmID.PubKey
 			partnerDMToken = dmToken
 		}
+
+		jww.INFO.Printf("DMRECVPUBKEY: %s",
+			base64.RawStdEncoding.EncodeToString(partnerPubKey))
+		jww.INFO.Printf("DMRECVTOKEN: %s",
+			base64.RawStdEncoding.EncodeToString(partnerDMToken))
 
 		recvCh := make(chan dm.MessageID, 10)
 		myReceiver := &receiver{
@@ -98,11 +117,11 @@ var dmCmd = &cobra.Command{
 				connected <- isConnected
 			})
 		waitUntilConnected(connected)
-		waitForRegistration(user.Cmix, 0.85)
+		waitForRegistration(user, 0.85)
 
 		msgID, rnd, ephID, err := dmClient.SendText(&partnerPubKey,
 			partnerDMToken,
-			"Hello, World!",
+			viper.GetString(messageFlag),
 			cmix.GetDefaultCMIXParams())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -110,20 +129,37 @@ var dmCmd = &cobra.Command{
 		jww.INFO.Printf("DM Send: %v, %v, %v", msgID, rnd, ephID)
 
 		// Message Reception Loop
-		waitTime := 15 * time.Second
+		waitTime := viper.GetDuration(waitTimeoutFlag) * time.Second
+		maxReceiveCnt := viper.GetInt(receiveCountFlag)
 		receiveCnt := 0
 		timer := time.NewTimer(waitTime)
 		for done := false; !done; {
+			if maxReceiveCnt != 0 && receiveCnt >= maxReceiveCnt {
+				done = true
+				continue
+			}
 			select {
 			case <-timer.C:
 				done = true
-				break
 			case m := <-recvCh:
 				msg := myReceiver.msgData[m]
-				fmt.Printf("Message received: %s\n", msg)
+				fmt.Printf("Message received (%s): %s\n",
+					msg.mType, msg.content)
+				jww.INFO.Printf("Message received: %s\n", msg)
+				jww.INFO.Printf("RECVDMPUBKEY: %s",
+					base64.RawStdEncoding.EncodeToString(
+						msg.pubKey[:]))
+				jww.INFO.Printf("RECVDMTOKEN: %s",
+					base64.RawStdEncoding.EncodeToString(
+						msg.dmToken))
 				receiveCnt++
 			}
 		}
+		if maxReceiveCnt == 0 {
+			maxReceiveCnt = receiveCnt
+		}
+		fmt.Printf("Received %d/%d messages\n", receiveCnt,
+			maxReceiveCnt)
 
 		err = user.StopNetworkFollower()
 		if err != nil {
@@ -136,12 +172,41 @@ var dmCmd = &cobra.Command{
 }
 
 func init() {
+	dmCmd.Flags().StringP(dmPartnerPubKeyFlag, "d", "",
+		"The public key of the dm partner (base64)")
+	viper.BindPFlag(dmPartnerPubKeyFlag, dmCmd.Flags().Lookup(
+		dmPartnerPubKeyFlag))
+
+	dmCmd.Flags().StringP(dmPartnerTokenFlag, "t", "",
+		"The token of the dm partner (base64)")
+	viper.BindPFlag(dmPartnerTokenFlag, dmCmd.Flags().Lookup(
+		dmPartnerTokenFlag))
 
 	rootCmd.AddCommand(dmCmd)
 }
 
 func getDMPartner() (ed25519.PublicKey, []byte, bool) {
-	return nil, nil, false
+	pubBytesStr := viper.GetString(dmPartnerPubKeyFlag)
+	pubBytes, err := base64.RawStdEncoding.DecodeString(pubBytesStr)
+	if err != nil {
+		jww.INFO.Printf("unable to read partner public key: %+v",
+			err)
+		return nil, nil, false
+	}
+	pubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(pubBytes)
+	if err != nil {
+		jww.INFO.Printf("unable to decode partner public key: %+v",
+			err)
+		return nil, nil, false
+	}
+	tokenStr := viper.GetString(dmPartnerTokenFlag)
+	tokenBytes, err := base64.RawStdEncoding.DecodeString(tokenStr)
+	if err != nil {
+		jww.INFO.Printf("unable to decode partner token: %+v",
+			err)
+		return nil, nil, false
+	}
+	return *ecdh.ECDHNIKE2EdwardsPublicKey(pubKey), tokenBytes, true
 }
 
 type nickMgr struct{}

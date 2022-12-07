@@ -57,7 +57,7 @@ var channelsCmd = &cobra.Command{
 		var channelIdentity cryptoChannel.PrivateIdentity
 
 		// Construct mock event model builder
-		mockEventModel := eventModel{}
+		mockEventModel := &eventModel{}
 		mockEventModelBuilder := func(path string) (channels.EventModel, error) {
 			return mockEventModel, nil
 		}
@@ -365,5 +365,7 @@ func init() {
 
 	channelsCmd.Flags().String(channelsSendFlag, "",
 		"The message that will be sent to a channel.")
+
+	rootCmd.AddCommand(channelsCmd)
 
 }

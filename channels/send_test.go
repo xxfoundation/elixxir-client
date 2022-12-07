@@ -10,7 +10,6 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	jww "github.com/spf13/jwalterweatherman"
 	"math/rand"
 	"testing"
 	"time"
@@ -201,7 +200,6 @@ func Test_manager_SendGeneric(t *testing.T) {
 }
 
 func Test_manager_SendAdminGeneric(t *testing.T) {
-	jww.SetStdoutThreshold(jww.LevelInfo)
 	prng := rand.New(rand.NewSource(64))
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {

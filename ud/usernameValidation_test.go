@@ -9,6 +9,7 @@ package ud
 
 import (
 	"crypto/rand"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/partnerships/crust"
@@ -67,6 +68,7 @@ func TestManager_GetUsernameValidationSignature(t *testing.T) {
 		net:           newTestNetworkManager(t),
 		privKey:       rsaPrivKey,
 		alternativeUd: &alternateUd{host: h},
+		storage:       storage.InitTestingSession(t),
 	}
 
 	c := &testUsernameValidation{
@@ -74,7 +76,7 @@ func TestManager_GetUsernameValidationSignature(t *testing.T) {
 		username:  "admin",
 	}
 
-	_, err = m.getUsernameValidationSignature(c)
+	_, err = m.queryUsernameValidationSignature(c)
 	if err != nil {
 		t.Fatalf("getUsernameValidationSignature error: %+v", err)
 	}

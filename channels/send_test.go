@@ -10,6 +10,7 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	jww "github.com/spf13/jwalterweatherman"
 	"math/rand"
 	"testing"
 	"time"
@@ -46,26 +47,15 @@ type mockBroadcastChannel struct {
 	crypto *cryptoBroadcast.Channel
 }
 
-func (m *mockBroadcastChannel) MaxPayloadSize() int {
-	return 1024
-}
-
-func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int {
-	return 512
-}
-
-func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel {
-	return m.crypto
-}
+func (m *mockBroadcastChannel) MaxPayloadSize() int            { return 1024 }
+func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int { return 512 }
+func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel  { return m.crypto }
 
 func (m *mockBroadcastChannel) Broadcast(payload []byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-
 	m.hasRun = true
-
 	m.payload = payload
 	m.params = cMixParams
-
 	return rounds.Round{ID: 123}, ephemeral.Id{}, nil
 }
 
@@ -73,12 +63,9 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(
 	assembler broadcast.Assembler, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
-
 	var err error
-
 	m.payload, err = assembler(returnedRound)
 	m.params = cMixParams
-
 	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
@@ -86,10 +73,8 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 	payload []byte, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
-
 	m.payload = payload
 	m.params = cMixParams
-
 	m.pk = pk
 	return rounds.Round{ID: 123}, ephemeral.Id{}, nil
 }
@@ -97,21 +82,15 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
 	pk rsa.PrivateKey, assembler broadcast.Assembler,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-
 	m.hasRun = true
-
 	var err error
-
 	m.payload, err = assembler(returnedRound)
 	m.params = cMixParams
-
 	m.pk = pk
-
 	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) RegisterListener(
-	broadcast.ListenerFunc, broadcast.Method) error {
+func (m *mockBroadcastChannel) RegisterListener(broadcast.ListenerFunc, broadcast.Method) error {
 	return nil
 }
 func (m *mockBroadcastChannel) Stop() {}
@@ -120,29 +99,20 @@ type mockNameService struct {
 	validChMsg bool
 }
 
-func (m *mockNameService) GetUsername() string {
-	return "Alice"
-}
+func (m *mockNameService) GetUsername() string { return "Alice" }
 
-func (m *mockNameService) GetChannelValidationSignature() (
-	signature []byte, lease time.Time) {
+func (m *mockNameService) GetChannelValidationSignature() (signature []byte, lease time.Time) {
 	return []byte("fake validation sig"), netTime.Now()
 }
-
-func (m *mockNameService) GetChannelPubkey() ed25519.PublicKey {
-	return []byte("fake pubkey")
-}
-
+func (m *mockNameService) GetChannelPubkey() ed25519.PublicKey { return []byte("fake pubkey") }
 func (m *mockNameService) SignChannelMessage([]byte) (signature []byte, err error) {
 	return []byte("fake sig"), nil
 }
-
-func (m *mockNameService) ValidateChannelMessage(
-	string, time.Time, ed25519.PublicKey, []byte) bool {
+func (m *mockNameService) ValidateChannelMessage(string, time.Time, ed25519.PublicKey, []byte) bool {
 	return m.validChMsg
 }
 
-func TestSendGeneric(t *testing.T) {
+func Test_manager_SendGeneric(t *testing.T) {
 	nameService := new(mockNameService)
 	nameService.validChMsg = true
 
@@ -186,7 +156,7 @@ func TestSendGeneric(t *testing.T) {
 	messageType := Text
 	msg := []byte("hello world")
 	validUntil := time.Hour
-	params := new(cmix.CMIXParams)
+	params := cmix.CMIXParams{DebugTag: "ChannelTest"}
 
 	mbc := &mockBroadcastChannel{}
 
@@ -195,7 +165,7 @@ func TestSendGeneric(t *testing.T) {
 	}
 
 	messageId, _, _, err :=
-		m.SendGeneric(channelID, messageType, msg, validUntil, *params)
+		m.SendGeneric(channelID, messageType, msg, validUntil, params)
 	if err != nil {
 		t.Fatalf("SendGeneric error: %+v", err)
 	}
@@ -230,7 +200,8 @@ func TestSendGeneric(t *testing.T) {
 	}
 }
 
-func TestAdminGeneric(t *testing.T) {
+func Test_manager_SendAdminGeneric(t *testing.T) {
+	jww.SetStdoutThreshold(jww.LevelInfo)
 	prng := rand.New(rand.NewSource(64))
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
@@ -313,7 +284,7 @@ func TestAdminGeneric(t *testing.T) {
 	}
 }
 
-func TestSendMessage(t *testing.T) {
+func Test_manager_SendMessage(t *testing.T) {
 	nameService := new(mockNameService)
 	nameService.validChMsg = true
 
@@ -410,7 +381,7 @@ func TestSendMessage(t *testing.T) {
 	}
 }
 
-func TestSendReply(t *testing.T) {
+func Test_manager_SendReply(t *testing.T) {
 	prng := rand.New(rand.NewSource(64))
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
@@ -507,7 +478,7 @@ func TestSendReply(t *testing.T) {
 	}
 }
 
-func TestSendReaction(t *testing.T) {
+func Test_manager_SendReaction(t *testing.T) {
 	prng := rand.New(rand.NewSource(64))
 	kv := versioned.NewKV(ekv.MakeMemstore())
 

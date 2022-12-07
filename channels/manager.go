@@ -96,11 +96,10 @@ type AddServiceFn func(sp xxdk.Service) error
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	addService AddServiceFn) (Manager, error) {
-
 	// Prefix the kv with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
-	jww.INFO.Printf("NewManager(ID:%s-%s, tag:%s)", identity.Codename,
-		identity.PubKey, storageTag)
+	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
+		identity.Codename, identity.PubKey, storageTag)
 	kv = kv.Prefix(storageTag)
 
 	if err := storeIdentity(kv, identity); err != nil {
@@ -121,8 +120,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
-
-	jww.INFO.Printf("LoadManager(tag:%s)", storageTag)
+	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
 	kv = kv.Prefix(storageTag)
@@ -145,16 +143,14 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel) *manager {
-
 	m := manager{
-		me:             identity,
-		kv:             kv,
-		net:            net,
-		rng:            rng,
-		broadcastMaker: broadcast.NewBroadcastChannel,
+		me:              identity,
+		kv:              kv,
+		net:             net,
+		rng:             rng,
+		events:          initEvents(model, kv),
+		broadcastMaker:  broadcast.NewBroadcastChannel,
 	}
-
-	m.events = initEvents(model, kv)
 
 	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
 		m.events.triggerAdminEvent, model.UpdateFromUUID, rng)

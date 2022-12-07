@@ -1799,7 +1799,8 @@ func (tem *toEventModel) UpdateFromUUID(uuid uint64,
 
 	muiJSON, err := json.Marshal(mui)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal MessageUpdateInfo: %+v", err)
+		jww.FATAL.Panicf(
+			"[CH] Failed to JSON marshal MessageUpdateInfo: %+v", err)
 	}
 
 	tem.em.UpdateFromUUID(int64(uuid), muiJSON)
@@ -1835,7 +1836,8 @@ func (tem *toEventModel) UpdateFromMessageID(messageID cryptoChannel.MessageID,
 
 	muiJSON, err := json.Marshal(mui)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal MessageUpdateInfo: %+v", err)
+		jww.FATAL.Panicf(
+			"[CH] Failed to JSON marshal MessageUpdateInfo: %+v", err)
 	}
 
 	return uint64(tem.em.UpdateFromMessageID(messageID.Marshal(), muiJSON))

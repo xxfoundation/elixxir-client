@@ -155,7 +155,7 @@ func (all *actionLeaseList) StartProcesses() (stoppable.Stoppable, error) {
 // message when the lease expires.
 func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 	jww.INFO.Printf(
-		"Starting action lease list thread with stoppable %s", stop.Name())
+		"[CH] Starting action lease list thread with stoppable %s", stop.Name())
 
 	// Start timer stopped to wait to receive first message
 	var alarmTime time.Duration
@@ -167,32 +167,32 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 
 		select {
 		case <-stop.Quit():
-			jww.INFO.Printf("Stopping action lease list thread: "+
+			jww.INFO.Printf("[CH] Stopping action lease list thread: "+
 				"stoppable %s quit", stop.Name())
 			stop.ToStopped()
 			return
 		case lm = <-all.addLeaseMessage:
-			jww.DEBUG.Printf("Adding new lease message: %+v", lm)
+			jww.DEBUG.Printf("[CH] Adding new lease message: %+v", lm)
 			err := all._addMessage(lm)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to add new lease message: %+v", err)
+				jww.FATAL.Panicf("[CH] Failed to add new lease message: %+v", err)
 			}
 		case lm = <-all.removeLeaseMessage:
-			jww.DEBUG.Printf("Removing lease message: %+v", lm)
+			jww.DEBUG.Printf("[CH] Removing lease message: %+v", lm)
 			err := all._removeMessage(lm)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to remove lease message: %+v", err)
+				jww.FATAL.Panicf("[CH] Failed to remove lease message: %+v", err)
 			}
 		case channelID := <-all.removeChannelCh:
-			jww.DEBUG.Printf("Removing channel %s", channelID)
+			jww.DEBUG.Printf("[CH] Removing leases for channel %s", channelID)
 			err := all._removeChannel(channelID)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to remove channel: %+v", err)
+				jww.FATAL.Panicf("[CH] Failed to remove channel: %+v", err)
 			}
 		case <-timer.C:
 			// Once the timer is triggered, drop below to undo any expired
 			// message actions and start the next timer
-			jww.DEBUG.Printf("Lease alarm triggered after %s.", alarmTime)
+			jww.DEBUG.Printf("[CH] Lease alarm triggered after %s.", alarmTime)
 		}
 
 		timer.Stop()
@@ -207,7 +207,7 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 				// Mark message for removal
 				lmToRemove = append(lmToRemove, lm)
 
-				jww.DEBUG.Printf("Lease %s expired; undoing %s for %+v",
+				jww.DEBUG.Printf("[CH] Lease %s expired; undoing %s for %+v",
 					time.Unix(0, lm.LeaseEnd), lm.Action, lm)
 
 				// Trigger undo
@@ -215,14 +215,14 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 					lm.Nickname, lm.Payload, lm.Timestamp, lm.Lease, lm.Round,
 					lm.Status, lm.FromAdmin)
 				if err != nil {
-					jww.FATAL.Panicf("Failed to trigger undo: %+v", err)
+					jww.FATAL.Panicf("[CH] Failed to trigger undo: %+v", err)
 				}
 			} else {
 				// Trigger alarm for next lease end
 				alarmTime = netTime.Until(time.Unix(0, lm.LeaseEnd))
 				timer.Reset(alarmTime)
 
-				jww.DEBUG.Printf("Lease alarm reset for %s", alarmTime)
+				jww.DEBUG.Printf("[CH] Lease alarm reset for %s", alarmTime)
 				break
 			}
 		}
@@ -230,7 +230,7 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 		// Remove all expired actions
 		for _, m := range lmToRemove {
 			if err := all._removeMessage(m); err != nil {
-				jww.FATAL.Panicf("Could not remove lease message: %+v", err)
+				jww.FATAL.Panicf("[CH] Could not remove lease message: %+v", err)
 			}
 		}
 	}

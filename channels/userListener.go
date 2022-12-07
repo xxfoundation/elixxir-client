@@ -51,17 +51,17 @@ func (ul *userListener) Listen(payload []byte,
 
 	// Check the round to ensure the message is not a replay
 	if id.Round(cm.RoundID) != round.ID {
-		jww.WARN.Printf("The round message %s send on %d referenced "+
-			"(%d) was not the same as the round the message was found on (%d)",
+		jww.WARN.Printf("[CH] Message %s for channel %s referenced round %d, " +
+			"but the message was found on round %d",
 			msgID, ul.chID, cm.RoundID, round.ID)
 		return
 	}
 
 	// Check that the user properly signed the message
 	if !ed25519.Verify(um.ECCPublicKey, um.Message, um.Signature) {
-		jww.WARN.Printf("Message %s on channel %s purportedly from %s "+
-			"failed its user signature with signature %v", msgID,
-			ul.chID, cm.Nickname, um.Signature)
+		jww.WARN.Printf("[CH] Message %s on channel %s purportedly from %s "+
+			"failed its user signature with signature %x",
+			msgID, ul.chID, cm.Nickname, um.Signature)
 		return
 	}
 
@@ -74,8 +74,9 @@ func (ul *userListener) Listen(payload []byte,
 	// Submit the message to the event model for listening
 	uuid, err := ul.trigger(ul.chID, umi, ts, receptionID, round, Delivered)
 	if err != nil {
-		jww.WARN.Printf("Error in passing off trigger for "+
-			"message (UUID: %d): %+v", uuid, err)
+		jww.WARN.Printf(
+			"[CH] Error in passing off trigger for message (UUID: %d): %+v",
+			uuid, err)
 	}
 
 	return

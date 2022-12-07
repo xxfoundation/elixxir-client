@@ -60,12 +60,12 @@ func (m *manager) loadChannels() {
 		m.channels = make(map[id.ID]*joinedChannel)
 		return
 	} else if err != nil {
-		jww.FATAL.Panicf("Failed to load channels: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to load channels: %+v", err)
 	}
 
 	chList := make([]*id.ID, 0, len(m.channels))
 	if err = json.Unmarshal(obj.Data, &chList); err != nil {
-		jww.FATAL.Panicf("Failed to load channels: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to load channels: %+v", err)
 	}
 
 	chMap := make(map[id.ID]*joinedChannel)
@@ -75,7 +75,7 @@ func (m *manager) loadChannels() {
 			chList[i], m.kv, m.net, m.rng, m.events, m.broadcastMaker,
 			m.st.MessageReceive)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load channel %s: %+v", chList[i], err)
+			jww.FATAL.Panicf("[CH] Failed to load channel %s: %+v", chList[i], err)
 		}
 		chMap[*chList[i]] = jc
 	}

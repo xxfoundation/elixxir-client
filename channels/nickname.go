@@ -31,7 +31,7 @@ func loadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
 
 	err := nm.load()
 	if err != nil && nm.kv.Exists(err) {
-		jww.FATAL.Panicf("Failed to load nicknameManager: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to load nicknameManager: %+v", err)
 	}
 
 	return nm

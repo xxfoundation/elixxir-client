@@ -99,7 +99,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	}
 
 	if err := st.load(); err != nil && kv.Exists(err) {
-		jww.FATAL.Panicf("Failed to load channels sent tracker: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to load channels sent tracker: %+v", err)
 	}
 
 	// Denote all unsent messages as failed and clear
@@ -219,9 +219,11 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 	umi.messageID = cryptoChannel.MessageID{}
 	n, err := stream.Read(umi.messageID[:])
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get generate random message ID: %+v", err)
+		jww.FATAL.Panicf(
+			"[CH] Failed to get generate random message ID: %+v", err)
 	} else if n != len(umi.messageID[:]) {
-		jww.FATAL.Panicf("Generated %d bytes for message ID; %d bytes required.",
+		jww.FATAL.Panicf(
+			"[CH] Generated %d bytes for message ID; %d bytes required.",
 			n, len(umi.messageID[:]))
 	}
 	stream.Close()
@@ -438,7 +440,7 @@ func (st *sendTracker) MessageReceive(
 	go st.updateStatus(msgData.UUID, &messageID, &ts, &round, nil, nil, &status)
 
 	if err := st.storeSent(); err != nil {
-		jww.FATAL.Panicf("failed to store the updated sent list: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to store the updated sent list: %+v", err)
 	}
 
 	return true
@@ -472,7 +474,7 @@ func (rr *roundResults) callback(
 
 	if timedOut {
 		if rr.numChecks >= maxChecks {
-			jww.WARN.Printf("Channel messages sent on %d assumed to "+
+			jww.WARN.Printf("[CH] Channel messages sent on %d assumed to "+
 				"have failed after %d attempts to get round status", rr.round,
 				maxChecks)
 			status = Failed
@@ -486,14 +488,13 @@ func (rr *roundResults) callback(
 				getRoundResultsTimeout, rr.callback, []id.Round{rr.round}...)
 			return
 		}
-
 	}
 
 	registered.RoundCompleted = true
 	rr.st.byRound[rr.round] = registered
 	if err := rr.st.store(); err != nil {
-		jww.FATAL.Panicf("failed to store update after "+
-			"finalizing delivery of sent messages: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to store update after finalizing " +
+			"delivery of sent messages: %+v", err)
 	}
 
 	rr.st.mux.Unlock()

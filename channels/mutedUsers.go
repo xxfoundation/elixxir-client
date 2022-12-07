@@ -85,7 +85,7 @@ func (mum *mutedUserManager) muteUser(
 
 	// Save to storage
 	if err := mum.save(channelID, channelIdUpdate); err != nil {
-		jww.FATAL.Panicf("Failed to save muted users: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to save muted users: %+v", err)
 	}
 }
 
@@ -113,7 +113,7 @@ func (mum *mutedUserManager) unmuteUser(
 
 	// Save to storage
 	if err := mum.save(channelID, channelIdUpdate); err != nil {
-		jww.FATAL.Panicf("Failed to save muted users: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to save muted users: %+v", err)
 	}
 }
 
@@ -151,7 +151,7 @@ func (mum *mutedUserManager) getMutedUsers(channelID *id.ID) []ed25519.PublicKey
 	for user := range mutedUsers {
 		pubKey, err := user.decode()
 		if err != nil {
-			jww.ERROR.Printf("Could not decode user public key: %+v", err)
+			jww.ERROR.Printf("[CH] Could not decode user public key: %+v", err)
 			continue
 		}
 		userList = append(userList, pubKey)

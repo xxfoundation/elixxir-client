@@ -35,8 +35,8 @@ func (al *adminListener) Listen(payload []byte,
 	// Decode the message as a channel message
 	cm := &ChannelMessage{}
 	if err := proto.Unmarshal(payload, cm); err != nil {
-		jww.WARN.Printf("Failed to unmarshal Channel Message from Admin on "+
-			"channel %s", al.chID)
+		jww.WARN.Printf("[CH] Failed to unmarshal Channel Message from Admin " +
+			"on channel %s", al.chID)
 		return
 	}
 
@@ -49,8 +49,8 @@ func (al *adminListener) Listen(payload []byte,
 
 	// Check the round to ensure that the message is not a replay
 	if id.Round(cm.RoundID) != round.ID {
-		jww.WARN.Printf("The round message %s send on %s referenced (%d) was "+
-			"not the same as the round the message was found on (%d)",
+		jww.WARN.Printf("[CH] The round message %s send on %s referenced (%d) " +
+			"was not the same as the round the message was found on (%d)",
 			msgID, al.chID, cm.RoundID, round.ID)
 		return
 	}
@@ -62,7 +62,7 @@ func (al *adminListener) Listen(payload []byte,
 	// Submit the message to the event model for listening
 	if uuid, err := al.trigger(al.chID, cm, ts, msgID, receptionID,
 		round, Delivered); err != nil {
-		jww.WARN.Printf("Error in passing off trigger for admin "+
+		jww.WARN.Printf("[CH] Error in passing off trigger for admin "+
 			"message (UUID: %d): %+v", uuid, err)
 	}
 

@@ -798,9 +798,11 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		// Add the new gateway host
+		// todo: pull the port from the address properly and add it. The GW address
+		//  isn't always gonna be hardcoded to 22840
 		gwUrl := authorizer.GetGatewayDns(gwId.Bytes())
 		gwAddress := gwUrl + ":22840"
-		jww.INFO.Printf("[HostPool] Adding address %s  to host-pool: %s", gwAddress)
+		jww.INFO.Printf("[HostPool] Adding address %s to host-pool: %s", gwAddress)
 		_, err := h.manager.AddHost(
 			gwId, gwAddress, []byte(gw.TlsCertificate), h.poolParams.HostParams)
 		if err != nil {

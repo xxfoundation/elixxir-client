@@ -21,7 +21,7 @@ import (
 const (
 	cidRequestURL     = "https://pin.crustcode.com/psa/cids/"
 	recoveryUrlV0     = "https://gw-nft.crustapps.net/api/v0/cat?arg="
-	recoveryUrl       = "https://gw-nft.crustapps.net/ipfs/"
+	recoveryUrl       = "https://crustipfs.xyz/ipfs/"
 	recoveryBasicAuth = "c3ViLTVGcXdqWW9MUXE5Z2NXSGM2azVZd3RuZHg3Q01pQ1FlS1N2THpYb2plZ3ZYY005bToweDIwZjYxODc5ODhiNjIxZjk3ZDQwNGZlZmMzZTQ5MWU5OTU0MWY5MzdjNDNiYWQyNWE3NGQ2OTRjMjA2NWYzODFkOTc5YmY0YTQzYmI3MGZlYzY1MzIwMGI2MmFhZmRiOWFjNzEwODc1YzlkMjhlYTJjNTA2ZDcyZDc1Y2RjNzA2"
 )
 

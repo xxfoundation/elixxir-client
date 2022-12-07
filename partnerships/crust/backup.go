@@ -28,7 +28,7 @@ const (
 // Backup/Pinning constants.
 const (
 	// URLS
-	backupUploadURL = "https://gw-nft.crustapps.net/api/v0/add"
+	backupUploadURL = "https://crustipfs.xyz/api/v0/add"
 	pinnerURL       = "https://pin.crustcode.com/psa/pins"
 
 	// HTTP POSTing constants

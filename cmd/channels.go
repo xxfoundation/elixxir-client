@@ -27,6 +27,7 @@ import (
 )
 
 const channelsPrintHeader = "CHANNELS"
+const integrationChannelMessage = channels.MessageType(0)
 
 // connectionCmd handles the operation of connection operations within the CLI.
 var channelsCmd = &cobra.Command{
@@ -48,6 +49,27 @@ var channelsCmd = &cobra.Command{
 		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("[CHANNELS] %+v", err)
+		}
+
+		// Wait until connected or crash on timeout
+		connected := make(chan bool, 10)
+		user.GetCmix().AddHealthCallback(
+			func(isConnected bool) {
+				connected <- isConnected
+			})
+		waitUntilConnected(connected)
+
+		// After connection, wait until registered with at least 85% of nodes
+		for numReg, total := 1, 100; numReg < (total*3)/4; {
+			time.Sleep(1 * time.Second)
+
+			numReg, total, err = user.GetNodeRegistrationStatus()
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to get node registration status: %+v", err)
+			}
+
+			jww.INFO.Printf("Registering with nodes (%d/%d)...", numReg, total)
 		}
 
 		rng := user.GetRng().GetStream()
@@ -130,25 +152,28 @@ var channelsCmd = &cobra.Command{
 		}
 
 		// Only join if we created it or are told to join
-		if viper.GetBool(channelsNewFlag) || viper.IsSet(channelsJoinFlag) {
+		if viper.GetBool(channelsNewFlag) || viper.GetBool(channelsJoinFlag) {
 			// Join channel
 			err = chanManager.JoinChannel(channel)
 			if err != nil {
 				jww.FATAL.Panicf("[%s] Failed to join channel: %+v",
 					channelsPrintHeader, err)
 			}
+			fmt.Printf("Successfully joined channel %s\n", channel.Name)
 		}
 
 		// Register a callback for the expected message to be received.
-		err = makeChannelReceptionHandler(channels.Text, chanManager)
+		err = makeChannelReceptionHandler(integrationChannelMessage,
+			chanManager)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create reception handler for message type %s: %+v",
 				channelsPrintHeader, channels.Text, err)
 		}
 
 		// Send message
-		if viper.IsSet(channelsSendFlag) {
-			err = sendMessageToChannel(chanManager, channel)
+		if viper.GetBool(channelsSendFlag) {
+			msgBody := []byte(viper.GetString(messageFlag))
+			err = sendMessageToChannel(chanManager, channel, msgBody)
 			if err != nil {
 				jww.FATAL.Panicf("[%s] Failed to send message: %+v",
 					channelsPrintHeader, err)
@@ -219,19 +244,21 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 // sendMessageToChannel is a helper function which will send a message to a
 // channel.
 func sendMessageToChannel(chanManager channels.Manager,
-	channel *cryptoBroadcast.Channel) error {
-	message := viper.GetString(channelsSendFlag)
-	chanMsgId, round, _, err := chanManager.SendMessage(
-		channel.ReceptionID, message, 5*time.Second,
+	channel *cryptoBroadcast.Channel, msgBody []byte) error {
+	jww.INFO.Printf("[%s] Sending message (%s) to channel %s", channelsPrintHeader, msgBody,
+		channel.Name)
+	chanMsgId, round, _, err := chanManager.SendGeneric(
+		channel.ReceptionID, integrationChannelMessage,
+		msgBody, 5*time.Second,
 		cmix.GetDefaultCMIXParams())
 	if err != nil {
 		return errors.Errorf("%+v", err)
 	}
 
 	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with message ID %s on round %d",
-		channelsPrintHeader, message,
+		channelsPrintHeader, msgBody,
 		channel.Name, channel.ReceptionID, chanMsgId, round.ID)
-	fmt.Printf("Sent message (%s) to channel %s\n", message, channel.Name)
+	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
 
 	return nil
 }
@@ -298,7 +325,9 @@ func (m eventModel) ReceiveMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, nickname, text string, pubKey ed25519.PublicKey,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
-	jww.WARN.Printf("ReceiveMessage is unimplemented in the CLI event model!")
+	jww.INFO.Printf("[%s] Received message (%s) from channel",
+		channelsPrintHeader, text)
+	fmt.Printf("Received message (%s) from channel\n", text)
 	return 0
 }
 
@@ -335,7 +364,7 @@ func (m eventModel) UpdateSentStatus(uuid uint64,
 }
 
 func init() {
-	channelsCmd.Flags().String(channelsNameFlag, "Channel Name",
+	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",
 		"The name of the new channel to create.")
 	bindFlagHelper(channelsNameFlag, channelsCmd)
 
@@ -355,17 +384,21 @@ func init() {
 		"The file path for the channel identity's key to be written to.")
 	bindFlagHelper(channelsKeyPathFlag, channelsCmd)
 
+	channelsCmd.Flags().Bool(channelsJoinFlag, false,
+		"Determines if the channel channel created from the 'newChannel' or loaded from 'channelPath' flag will be joined.")
+	bindFlagHelper(channelsJoinFlag, channelsCmd)
+
 	channelsCmd.Flags().Bool(channelsLeaveFlag, false,
-		"Determines if the channel created from the 'new' or 'chanPath' flag will be left.")
+		"Determines if the channel created from the 'newChannel' or loaded from 'channelPath' flag will be left.")
 	bindFlagHelper(channelsLeaveFlag, channelsCmd)
 
 	channelsCmd.Flags().Bool(channelsNewFlag, false,
 		"Determines if a new channel will be constructed.")
 	bindFlagHelper(channelsNewFlag, channelsCmd)
 
-	channelsCmd.Flags().String(channelsSendFlag, "",
-		"The message that will be sent to a channel.")
+	channelsCmd.Flags().Bool(channelsSendFlag, false,
+		"Determines if a message will be sent to the channel.")
+	bindFlagHelper(channelsSendFlag, channelsCmd)
 
 	rootCmd.AddCommand(channelsCmd)
-
 }

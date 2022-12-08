@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"io"
 	"net/http"
 )
@@ -26,15 +27,17 @@ func sendRequest(req *http.Request) ([]byte, error) {
 	}
 
 	// Read response
+	defer resp.Body.Close()
 	responseData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-
-	// Handle error
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("Could not upload backup: %v",
-			handleError(responseData)))
+	jww.INFO.Printf("[CRUST] Response data: %v", string(responseData))
+	jww.INFO.Printf("[Crust] Response status code: %d", resp.StatusCode)
+	// Handle error code
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return nil, errors.Errorf("received error code %d (details: %v)",
+			resp.StatusCode, handleError(responseData))
 	}
 
 	return responseData, nil
@@ -43,7 +46,10 @@ func sendRequest(req *http.Request) ([]byte, error) {
 // errorResponse handles any POST or GET request returning an error as a
 // response.
 type errorResponse struct {
-	Error string
+	Error struct {
+		Reason  string `json:"reason"`
+		Details string `json:"details"`
+	} `json:"error"`
 }
 
 // handleError converts the response data which contains a JSON encoded error
@@ -55,5 +61,8 @@ func handleError(responseData []byte) error {
 		return err
 	}
 
-	return errors.New(errResponse.Error)
+	errResp := fmt.Sprintf("%s: %s",
+		errResponse.Error.Reason, errResponse.Error.Details)
+
+	return errors.New(errResp)
 }

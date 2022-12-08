@@ -10,6 +10,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
@@ -132,19 +133,27 @@ var dmCmd = &cobra.Command{
 		waitTime := viper.GetDuration(waitTimeoutFlag) * time.Second
 		maxReceiveCnt := viper.GetInt(receiveCountFlag)
 		receiveCnt := 0
-		timer := time.NewTimer(waitTime)
 		for done := false; !done; {
 			if maxReceiveCnt != 0 && receiveCnt >= maxReceiveCnt {
 				done = true
 				continue
 			}
 			select {
-			case <-timer.C:
+			case <-time.After(waitTime):
 				done = true
 			case m := <-recvCh:
 				msg := myReceiver.msgData[m]
-				fmt.Printf("Message received (%s): %s\n",
-					msg.mType, msg.content)
+				selfStr := "Partner"
+				if bytes.Equal(dmID.GetDMToken(), msg.dmToken) {
+					selfStr = "Self"
+					if !bytes.Equal(dmID.PubKey[:],
+						msg.pubKey[:]) {
+						jww.FATAL.Panicf(
+							"pubkey mismatch!\n")
+					}
+				}
+				fmt.Printf("Message received (%s, %s): %s\n",
+					selfStr, msg.mType, msg.content)
 				jww.INFO.Printf("Message received: %s\n", msg)
 				jww.INFO.Printf("RECVDMPUBKEY: %s",
 					base64.RawStdEncoding.EncodeToString(

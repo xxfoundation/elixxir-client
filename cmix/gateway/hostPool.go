@@ -15,6 +15,7 @@ package gateway
 import (
 	"encoding/json"
 	"math"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -798,12 +799,16 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		// Add the new gateway host
-		// todo: pull the port from the address properly and add it. The GW address
-		//  isn't always gonna be hardcoded to 22840
 		gwUrl := authorizer.GetGatewayDns(gwId.Bytes())
-		gwAddress := gwUrl + ":22840"
-		jww.INFO.Printf("[HostPool] Adding address %s to host-pool: %s", gwAddress)
-		_, err := h.manager.AddHost(
+		//net.SplitHostPort()
+		_, gwPort, err := net.SplitHostPort(gw.Address)
+		if err != nil {
+			return
+		}
+
+		gwAddress := gwUrl + gwPort
+		//jww.INFO.Printf("[HostPool] Adding address %s to host-pool: %s", gwAddress)
+		_, err = h.manager.AddHost(
 			gwId, gwAddress, []byte(gw.TlsCertificate), h.poolParams.HostParams)
 		if err != nil {
 			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)

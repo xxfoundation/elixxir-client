@@ -106,5 +106,5 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 		return err
 	}
 
-	return err
+	return nil
 }

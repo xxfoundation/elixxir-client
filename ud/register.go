@@ -89,13 +89,15 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 
 	// Register user with user discovery
 	_, err = comm.SendRegisterUser(host, msg)
-	if err == nil {
-		err = m.setRegistered()
-		if m.client != nil {
-			m.client.ReportEvent(1, "UserDiscovery", "Registration",
-				fmt.Sprintf("User Registered with UD: %+v",
-					user))
-		}
+	if err != nil {
+		return err
+	}
+
+	err = m.setRegistered()
+	if m.client != nil {
+		m.client.ReportEvent(1, "UserDiscovery", "Registration",
+			fmt.Sprintf("User Registered with UD: %+v",
+				user))
 	}
 
 	// Store username

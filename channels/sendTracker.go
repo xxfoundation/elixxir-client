@@ -252,11 +252,15 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 	// that requires a unique message ID
 	stream := st.rngSrc.GetStream()
 	randMid := cryptoChannel.MessageID{}
-	num, err := stream.Read(randMid[:])
-	if num != len(randMid[:]) || err != nil {
-		jww.FATAL.Panicf(
-			"Failed to get a random message ID, read len: %d, err: %+v",
-			num, err)
+	n, err := stream.Read(randMid[:])
+	if err != nil {
+		jww.FATAL.Panicf("[CH] Failed to generate a random message ID on " +
+			"channel %s: %+v", channelID, err)
+	}
+	if n != cryptoChannel.MessageIDLen {
+		jww.FATAL.Panicf("[CH] Failed to generate a random message ID on " +
+			"channel %s: generated %d bytes when %d bytes are required",
+			channelID, n, cryptoChannel.MessageIDLen)
 	}
 	stream.Close()
 
@@ -289,7 +293,9 @@ func (st *sendTracker) handleDenoteSend(uuid uint64, channelID *id.ID,
 
 	err := st.storeUnsent()
 	if err != nil {
-		jww.FATAL.Panicf(err.Error())
+		jww.FATAL.Panicf("[CH] Failed to store unsent for message %s " +
+			"(UUID %d) in channel %s on round %d: %+v",
+			messageID, uuid, channelID, round.ID, err)
 	}
 }
 
@@ -367,7 +373,8 @@ func (st *sendTracker) handleSend(uuid uint64,
 	// Store the changed list to disk
 	err := st.store()
 	if err != nil {
-		jww.FATAL.Panicf(err.Error())
+		jww.FATAL.Panicf("[CH] Failed to store changes for message %s " +
+			"(UUID %d) on round %d: %+v", messageID, uuid, round.ID, err)
 	}
 
 	return t, nil
@@ -389,7 +396,8 @@ func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
 	// Store the changed list to disk
 	err := st.storeUnsent()
 	if err != nil {
-		jww.FATAL.Panicf(err.Error())
+		jww.FATAL.Panicf(
+			"[CH] Failed to store changes for UUID %d: %+v", uuid, err)
 	}
 
 	return t, nil

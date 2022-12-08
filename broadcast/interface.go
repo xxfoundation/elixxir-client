@@ -34,11 +34,11 @@ type Channel interface {
 	// broadcast payload.
 	MaxRSAToPublicPayloadSize() int
 
-	// Get returns the underlying [broadcast.Channel] object.
+	// Get returns the underlying broadcast.Channel object.
 	Get() *crypto.Channel
 
 	// Broadcast broadcasts a payload to the channel. The payload must be of the
-	// size [Channel.MaxPayloadSize] or smaller.
+	// size Channel.MaxPayloadSize or smaller.
 	//
 	// The network must be healthy to send.
 	Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
@@ -48,7 +48,7 @@ type Channel interface {
 	// assembled after the round is selected, allowing the round info to be
 	// included in the payload.
 	//
-	// The payload must be of the size [Channel.MaxPayloadSize] or smaller.
+	// The payload must be of the size Channel.MaxPayloadSize or smaller.
 	//
 	// The network must be healthy to send.
 	BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
@@ -56,8 +56,8 @@ type Channel interface {
 
 	// BroadcastRSAtoPublic broadcasts the payload to the channel.
 	//
-	// The payload must be of the size [Channel.MaxRSAToPublicPayloadSize] or
-	// smaller and the channel [rsa.PrivateKey] must be passed in.
+	// The payload must be of the size Channel.MaxRSAToPublicPayloadSize or
+	// smaller and the channel rsa.PrivateKey must be passed in.
 	//
 	// The network must be healthy to send.
 	BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte,
@@ -67,8 +67,8 @@ type Channel interface {
 	// with a function that builds the payload based upon the ID of the selected
 	// round.
 	//
-	// The payload must be of the size [Channel.MaxRSAToPublicPayloadSize] or
-	// smaller and the channel [rsa.PrivateKey] must be passed in.
+	// The payload must be of the size Channel.MaxRSAToPublicPayloadSize or
+	// smaller and the channel rsa.PrivateKey must be passed in.
 	//
 	// The network must be healthy to send.
 	BroadcastRSAToPublicWithAssembler(
@@ -83,10 +83,10 @@ type Channel interface {
 	Stop()
 }
 
-// Assembler is a function which allows a bre.
+// Assembler assembles the message to send using the provided round ID.
 type Assembler func(rid id.Round) (payload []byte, err error)
 
-// Client contains the methods from [cmix.Client] that are required by
+// Client contains the methods from [cmix.Client] that are required by the
 // broadcastClient.
 type Client interface {
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
@@ -94,8 +94,8 @@ type Client interface {
 	IsHealthy() bool
 	AddIdentityWithHistory(
 		id *id.ID, validUntil, beginning time.Time, persistent bool)
-	AddService(clientID *id.ID, newService message.Service,
-		response message.Processor)
+	AddService(
+		clientID *id.ID, newService message.Service, response message.Processor)
 	DeleteClientService(clientID *id.ID)
 	RemoveIdentity(id *id.ID)
 	GetMaxMessageLength() int

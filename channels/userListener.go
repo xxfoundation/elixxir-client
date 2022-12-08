@@ -33,8 +33,8 @@ func (ul *userListener) Listen(payload []byte,
 	// Decode the message as a user message
 	umi, err := unmarshalUserMessageInternal(payload, ul.chID)
 	if err != nil {
-		jww.WARN.Printf(
-			"Failed to unmarshal User Message on channel %s", ul.chID)
+		jww.WARN.Printf("[CH] Failed to unmarshal User Message on channel %s " +
+			"in round %d: %+v", ul.chID, round.ID, err)
 		return
 	}
 
@@ -68,8 +68,6 @@ func (ul *userListener) Listen(payload []byte,
 	// Replace the timestamp on the message if it is outside the allowable range
 	ts := vetTimestamp(
 		time.Unix(0, cm.LocalTimestamp), round.Timestamps[states.QUEUED], msgID)
-
-	// TODO: Processing of the message relative to admin commands will be here.
 
 	// Submit the message to the event model for listening
 	uuid, err := ul.trigger(ul.chID, umi, ts, receptionID, round, Delivered)

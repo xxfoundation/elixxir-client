@@ -531,8 +531,8 @@ func newLeaseFingerprint(
 	channelID *id.ID, action MessageType, payload []byte) leaseFingerprint {
 	h, err := hash.NewCMixHash()
 	if err != nil {
-		jww.FATAL.Panicf(
-			"Failed to get hash to make lease fingerprint: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to get hash to make lease fingerprint " +
+			"for action %s in channel %s: %+v", action, channelID, err)
 	}
 
 	h.Write(channelID.Bytes())

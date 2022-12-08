@@ -7,15 +7,20 @@
 
 package broadcast
 
+import "strconv"
+
 // Method enum for broadcast type.
 type Method uint8
 
 const (
+	// Symmetric messages can be sent to anyone in the broadcast.
 	Symmetric Method = iota
 	RSAToPublic
 	RSAToPrivate
 )
 
+// String prints a human-readable string representation of the Method used for
+// logging and debugging. This function adheres to the fmt.Stringer interface.
 func (m Method) String() string {
 	switch m {
 	case Symmetric:
@@ -25,6 +30,6 @@ func (m Method) String() string {
 	case RSAToPrivate:
 		return "RSAToPrivate"
 	default:
-		return "Unknown"
+		return "INVALID METHOD " + strconv.Itoa(int(m))
 	}
 }

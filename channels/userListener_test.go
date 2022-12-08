@@ -49,7 +49,7 @@ func (ted *triggerEventDummy) triggerEvent(chID *id.ID, umi *userMessageInternal
 }
 
 // Tests the happy path.
-func TestUserListener_Listen(t *testing.T) {
+func Test_userListener_Listen(t *testing.T) {
 
 	// Build inputs
 	chID := &id.ID{}
@@ -133,7 +133,7 @@ func TestUserListener_Listen(t *testing.T) {
 }
 
 // Tests that the message is rejected when the user signature is invalid.
-func TestUserListener_Listen_BadUserSig(t *testing.T) {
+func Test_userListener_Listen_BadUserSig(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -201,7 +201,7 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 
 // Tests that the message is rejected when the round in the message does not
 // match the round passed in.
-func TestUserListener_Listen_BadRound(t *testing.T) {
+func Test_userListener_Listen_BadRound(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -263,7 +263,7 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 }
 
 // Tests that the message is rejected when the user message is malformed.
-func TestUserListener_Listen_BadMessage(t *testing.T) {
+func Test_userListener_Listen_BadMessage(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -297,7 +297,7 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 }
 
 // Tests that the message is rejected when the sized broadcast is malformed.
-func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
+func Test_userListener_Listen_BadSizedBroadcast(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1

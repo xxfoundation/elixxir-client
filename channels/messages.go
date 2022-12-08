@@ -37,36 +37,32 @@ func newUserMessageInternal(
 }
 
 func unmarshalUserMessageInternal(
-	usrMsg []byte, chID *id.ID) (*userMessageInternal, error) {
+	usrMsg []byte, channelID *id.ID) (*userMessageInternal, error) {
 
 	um := &UserMessage{}
 	if err := proto.Unmarshal(usrMsg, um); err != nil {
 		return nil, err
 	}
 
-	chanMessage := &ChannelMessage{}
-	err := proto.Unmarshal(um.Message, chanMessage)
+	channelMessage := &ChannelMessage{}
+	err := proto.Unmarshal(um.Message, channelMessage)
 	if err != nil {
 		return nil, err
 	}
 
-	channelMessage := chanMessage
-
 	return &userMessageInternal{
 		userMessage:    um,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(um.Message, chID),
+		messageID:      channel.MakeMessageID(um.Message, channelID),
 	}, nil
 }
 
-// GetUserMessage retrieves the UserMessage within
-// userMessageInternal.
+// GetUserMessage retrieves the UserMessage within userMessageInternal.
 func (umi *userMessageInternal) GetUserMessage() *UserMessage {
 	return umi.userMessage
 }
 
-// GetChannelMessage retrieves the ChannelMessage within
-// userMessageInternal.
+// GetChannelMessage retrieves the ChannelMessage within userMessageInternal.
 func (umi *userMessageInternal) GetChannelMessage() *ChannelMessage {
 	return umi.channelMessage
 }

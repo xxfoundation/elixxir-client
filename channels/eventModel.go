@@ -526,7 +526,6 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	}
 
 	if txt.ReplyMessageID != nil {
-
 		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
@@ -646,13 +645,13 @@ func (e *events) receiveDelete(channelID *id.ID,
 	if !fromAdmin {
 		targetMsg, err2 := e.model.GetMessage(deleteMessageID)
 		if err2 != nil {
-			jww.ERROR.Printf("[CH] Failed to find target message %s for " +
-				"deletion from %s: %+v", deleteMsg, msgLog, err2)
+			jww.ERROR.Printf("[CH] [%s] Failed to find target message %s for " +
+				"deletion from %s: %+v", tag, deleteMsg, msgLog, err2)
 			return 0
 		}
 		if !bytes.Equal(targetMsg.PubKey, pubKey) {
-			jww.ERROR.Printf("[CH] Deletion message must come from original " +
-				"sender or admin for %s", msgLog)
+			jww.ERROR.Printf("[CH] [%s] Deletion message must come from " +
+				"original sender or admin for %s", tag, msgLog)
 			return 0
 		}
 	}
@@ -661,23 +660,23 @@ func (e *events) receiveDelete(channelID *id.ID,
 	payload, err := proto.Marshal(deleteMsg)
 	if err != nil {
 		jww.ERROR.Printf(
-			"[CH] Failed to proto marshal %T from payload in %s: %+v",
-			deleteMsg, msgLog, err)
+			"[CH] [%s] Failed to proto marshal %T from payload in %s: %+v",
+			tag, deleteMsg, msgLog, err)
 		return 0
 	}
 
 	if deleteMsg.UndoAction {
 		e.leases.removeMessage(channelID, messageType, payload)
 		deleted := false
-		return e.model.UpdateFromMessageID(
-			messageID, nil, nil, &deleted, nil, nil)
+		return e.model.
+			UpdateFromMessageID(messageID, nil, nil, &deleted, nil, nil)
 	} else {
 		e.leases.addMessage(channelID, messageID, messageType, nickname,
 			payload, timestamp, lease, round, status)
 
 		deleted := true
-		return e.model.UpdateFromMessageID(
-			messageID, nil, nil, &deleted, nil, nil)
+		return e.model.
+			UpdateFromMessageID(messageID, nil, nil, &deleted, nil, nil)
 	}
 }
 
@@ -719,8 +718,8 @@ func (e *events) receivePinned(channelID *id.ID,
 	payload, err := proto.Marshal(pinnedMsg)
 	if err != nil {
 		jww.ERROR.Printf(
-			"[CH] Failed to proto marshal %T from payload in %s: %+v",
-			pinnedMsg, msgLog, err)
+			"[CH] [%s] Failed to proto marshal %T from payload in %s: %+v",
+			tag, pinnedMsg, msgLog, err)
 		return 0
 	}
 
@@ -728,15 +727,15 @@ func (e *events) receivePinned(channelID *id.ID,
 		e.leases.removeMessage(channelID, messageType, payload)
 		pinned := false
 
-		return e.model.UpdateFromMessageID(
-			messageID, nil, nil, &pinned, nil, nil)
+		return e.model.
+			UpdateFromMessageID(messageID, nil, nil, &pinned, nil, nil)
 	} else {
 		e.leases.addMessage(channelID, messageID, messageType, nickname,
 			payload, timestamp, lease, round, status)
 
 		pinned := true
-		return e.model.UpdateFromMessageID(
-			messageID, nil, nil, &pinned, nil, nil)
+		return e.model.
+			UpdateFromMessageID(messageID, nil, nil, &pinned, nil, nil)
 	}
 }
 
@@ -780,8 +779,8 @@ func (e *events) receiveMute(channelID *id.ID,
 	payload, err := proto.Marshal(muteMsg)
 	if err != nil {
 		jww.ERROR.Printf(
-			"[CH] Failed to proto marshal %T from payload in %s: %+v",
-			muteMsg, msgLog, err)
+			"[CH] [%s] Failed to proto marshal %T from payload in %s: %+v",
+			tag, muteMsg, msgLog, err)
 		return 0
 	}
 

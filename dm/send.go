@@ -252,6 +252,8 @@ func send(net cMixClient, partnerID *id.ID, partnerPubKey nike.PublicKey,
 			Tag:        directMessageServiceTag,
 		}
 
+		jww.INFO.Printf("[DM] Payload In: \n%v", dmSerial)
+
 		payloadLen := calcDMPayloadLen(net)
 
 		ciphertext := dm.Cipher.Encrypt(dmSerial, myPrivateKey,
@@ -301,6 +303,8 @@ func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
 		if params.DebugTag == cmix.DefaultDebugTag {
 			params.DebugTag = directMessageServiceTag
 		}
+
+		jww.INFO.Printf("[DM] SelfPayload In: \n%v", dmSerial)
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -353,7 +357,8 @@ func createCMIXFields(ciphertext []byte, payloadSize int,
 
 	fpBytes = make([]byte, format.KeyFPLen)
 	mac = make([]byte, format.MacLen)
-	encryptedPayload = make([]byte, payloadSize)
+	encryptedPayload = make([]byte, payloadSize-
+		len(fpBytes)-len(mac)+2)
 
 	// The first byte of mac and fp are random
 	prefixBytes := make([]byte, 2)
@@ -362,12 +367,13 @@ func createCMIXFields(ciphertext []byte, payloadSize int,
 		err = fmt.Errorf("rng read failure: %+v", err)
 		return nil, nil, nil, err
 	}
-	fpBytes[0] = prefixBytes[0]
-	mac[0] = prefixBytes[1]
+	// Note: the first bit must be 0 for these...
+	fpBytes[0] = 0x7F & prefixBytes[0]
+	mac[0] = 0x7F & prefixBytes[1]
 
 	// ciphertext[0:FPLen-1] == fp[1:FPLen]
 	start := 0
-	end := format.KeyFPLen
+	end := format.KeyFPLen - 1
 	copy(fpBytes[1:format.KeyFPLen], ciphertext[start:end])
 	// ciphertext[FPLen-1:FPLen+MacLen-2] == mac[1:MacLen]
 	start = end

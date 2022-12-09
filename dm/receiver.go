@@ -54,11 +54,16 @@ func (p *receiver) Process(msg format.Message,
 	var err error
 	var partnerPublicKey nike.PublicKey
 	if dm.Cipher.IsSelfEncrypted(ciphertext, p.c.privateKey) {
+		jww.INFO.Printf("[DM] DecryptSelf: %s", msg.Digest())
 		partnerPublicKey, payload, err = dm.Cipher.DecryptSelf(
 			ciphertext, p.c.privateKey)
+		jww.INFO.Printf("[DM] SelfPayload Out:\n%v", payload)
 	} else {
+		jww.INFO.Printf("[DM] Decrypt: %s", msg.Digest())
 		partnerPublicKey, payload, err = dm.Cipher.Decrypt(ciphertext,
 			p.c.privateKey)
+
+		jww.INFO.Printf("[DM] Payload Out:\n%v", payload)
 	}
 	if err != nil {
 		jww.ERROR.Printf("failed to decrypt direct message: %s", err)

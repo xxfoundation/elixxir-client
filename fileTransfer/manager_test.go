@@ -161,7 +161,6 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 							"\nsent:     %q\nreceived: %q",
 							fileData, receivedFile)
 					}
-					wg.Done()
 				}
 			}
 			err3 := m2.RegisterReceivedProgressCallback(
@@ -202,6 +201,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			throughput := fileSizeKb * float64(time.Second) / (float64(sendTime))
 			t.Logf("Completed receiving file %q in %s (%.2f kb @ %.2f kb/s).",
 				fileName, sendTime, fileSizeKb, throughput)
+			wg.Done()
 
 			expectedThroughput := float64(params.MaxThroughput) * .001
 			delta := (math.Abs(expectedThroughput-throughput) /

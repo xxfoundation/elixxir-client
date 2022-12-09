@@ -137,7 +137,6 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 							"\nsent:     %q\nreceived: %q",
 							fileData, receivedFile)
 					}
-					wg.Done()
 				}
 			}
 			err3 := m2.RegisterReceivedProgressCallback(
@@ -175,6 +174,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			fileSize := len(fileData)
 			sendTime := tr.Sub(sendStart)
 			fileSizeKb := float32(fileSize) * .001
+			wg.Done()
+
 			speed := fileSizeKb * float32(time.Second) / (float32(sendTime))
 			t.Logf("Completed receiving file %q in %s (%.2f kb @ %.2f kb/s).",
 				fileName, sendTime, fileSizeKb, speed)

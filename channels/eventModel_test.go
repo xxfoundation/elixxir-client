@@ -8,7 +8,6 @@
 package channels
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -26,117 +25,6 @@ import (
 	"testing"
 	"time"
 )
-
-type eventReceive struct {
-	channelID  *id.ID
-	messageID  cryptoChannel.MessageID
-	reactionTo cryptoChannel.MessageID
-	nickname   string
-	content    []byte
-	timestamp  time.Time
-	lease      time.Duration
-	round      rounds.Round
-}
-
-type MockEvent struct {
-	uuid uint64
-	eventReceive
-}
-
-func (m *MockEvent) getUUID() uint64 {
-	old := m.uuid
-	m.uuid++
-	return old
-}
-
-func (*MockEvent) JoinChannel(*cryptoBroadcast.Channel) {}
-func (*MockEvent) LeaveChannel(*id.ID)                  {}
-func (m *MockEvent) ReceiveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, nickname, text string,
-	_ ed25519.PublicKey, _ uint8, timestamp time.Time, lease time.Duration,
-	round rounds.Round, _ MessageType, _ SentStatus, _ bool) uint64 {
-	m.eventReceive = eventReceive{
-		channelID:  channelID,
-		messageID:  messageID,
-		reactionTo: cryptoChannel.MessageID{},
-		nickname:   nickname,
-		content:    []byte(text),
-		timestamp:  timestamp,
-		lease:      lease,
-		round:      round,
-	}
-	return m.getUUID()
-}
-func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID,
-	reactionTo cryptoChannel.MessageID, nickname, text string,
-	_ ed25519.PublicKey, _ uint8, timestamp time.Time, lease time.Duration,
-	round rounds.Round, _ MessageType, _ SentStatus, _ bool) uint64 {
-	m.eventReceive = eventReceive{
-		channelID:  channelID,
-		messageID:  messageID,
-		reactionTo: reactionTo,
-		nickname:   nickname,
-		content:    []byte(text),
-		timestamp:  timestamp,
-		lease:      lease,
-		round:      round,
-	}
-	return m.getUUID()
-}
-func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID,
-	reactionTo cryptoChannel.MessageID, nickname, reaction string,
-	_ ed25519.PublicKey, _ uint8, timestamp time.Time, lease time.Duration,
-	round rounds.Round, _ MessageType, _ SentStatus, _ bool) uint64 {
-	m.eventReceive = eventReceive{
-		channelID:  channelID,
-		messageID:  messageID,
-		reactionTo: reactionTo,
-		nickname:   nickname,
-		content:    []byte(reaction),
-		timestamp:  timestamp,
-		lease:      lease,
-		round:      round,
-	}
-	return m.getUUID()
-}
-
-func (m *MockEvent) UpdateFromUUID(uint64, *cryptoChannel.MessageID,
-	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) {
-	panic("implement me")
-}
-
-func (m *MockEvent) UpdateFromMessageID(_ cryptoChannel.MessageID,
-	timestamp *time.Time, round *rounds.Round, _, _ *bool, _ *SentStatus) uint64 {
-
-	if timestamp != nil {
-		m.eventReceive.timestamp = *timestamp
-	}
-	if round != nil {
-		m.eventReceive.round = *round
-	}
-
-	return m.getUUID()
-}
-
-func (m *MockEvent) GetMessage(cryptoChannel.MessageID) (ModelMessage, error) {
-	return ModelMessage{
-		UUID:            m.getUUID(),
-		Nickname:        m.eventReceive.nickname,
-		MessageID:       m.eventReceive.messageID,
-		ChannelID:       m.eventReceive.channelID,
-		ParentMessageID: cryptoChannel.MessageID{},
-		Timestamp:       m.eventReceive.timestamp,
-		Lease:           m.eventReceive.lease,
-		Status:          0,
-		Hidden:          false,
-		Pinned:          false,
-		Content:         m.eventReceive.content,
-		Type:            0,
-		Round:           0,
-		PubKey:          nil,
-		CodesetVersion:  0,
-	}, nil
-}
 
 func Test_initEvents(t *testing.T) {
 	me := &MockEvent{}
@@ -241,7 +129,7 @@ func TestReceiveMessageHandler_CheckSpace(t *testing.T) {
 	}
 }
 
-func TestEvents_RegisterReceiveHandler(t *testing.T) {
+func Test_events_RegisterReceiveHandler(t *testing.T) {
 	me := &MockEvent{}
 
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
@@ -323,14 +211,14 @@ func (dmth *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
 	return rand.Uint64()
 }
 
-func TestEvents_triggerEvents(t *testing.T) {
+func Test_events_triggerEvents(t *testing.T) {
 	me := &MockEvent{}
 
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
 	dummy := &dummyMessageTypeHandler{}
 
-	// register the handler
+	// Register the handler
 	mt := MessageType(42)
 	err := e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
 		"dummy", dummy.dummyMessageTypeReceiveMessage, true, false, true))
@@ -339,69 +227,35 @@ func TestEvents_triggerEvents(t *testing.T) {
 			"%+v", err)
 	}
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	// Craft the input for the event
+	chID := &id.ID{1}
 	umi, _, _ := builtTestUMI(t, mt)
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	// call the trigger
+	// Call the trigger
 	_, err = e.triggerEvent(
 		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	// check that the event was triggered
-	if !dummy.triggered {
-		t.Errorf("The event was not triggered")
+		t.Fatal(err)
 	}
 
-	// check the data is stored in the dummy
-	if !dummy.channelID.Cmp(chID) {
-		t.Errorf("The channel IDs do not match %s vs %s",
-			dummy.channelID, chID)
-	}
-
-	if !dummy.messageID.Equals(umi.GetMessageID()) {
-		t.Errorf("The message IDs do not match %s vs %s",
-			dummy.messageID, umi.GetMessageID())
-	}
-
-	if dummy.messageType != mt {
-		t.Errorf("The message types do not match %s vs %s",
-			dummy.messageType, mt)
-	}
-
-	if dummy.nickname != umi.channelMessage.Nickname {
-		t.Errorf("The usernames do not match %s vs %s",
-			dummy.nickname, umi.channelMessage.Nickname)
-	}
-
-	if !bytes.Equal(dummy.content, umi.GetChannelMessage().Payload) {
-		t.Errorf("The payloads do not match %s vs %s",
-			dummy.content, umi.GetChannelMessage().Payload)
+	// Check the data is stored in the dummy
+	expected := &dummyMessageTypeHandler{true, chID, umi.GetMessageID(), mt,
+		umi.channelMessage.Nickname, umi.GetChannelMessage().Payload,
+		dummy.timestamp, time.Duration(umi.GetChannelMessage().Lease), r}
+	if !reflect.DeepEqual(expected, dummy) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, dummy)
 	}
 
 	if !withinMutationWindow(r.Timestamps[states.QUEUED], dummy.timestamp) {
-		t.Errorf("The timestamps do not match %s vs %s",
-			dummy.timestamp, r.Timestamps[states.QUEUED])
-	}
-
-	if dummy.lease != time.Duration(umi.GetChannelMessage().Lease) {
-		t.Errorf("The messge lease durations do not match %s vs %s",
-			dummy.lease, time.Duration(umi.GetChannelMessage().Lease))
-	}
-
-	if dummy.round.ID != r.ID {
-		t.Errorf("The messge round does not match %s vs %s",
-			dummy.round.ID, r.ID)
+		t.Errorf("Incorrect timestamp.\nexpected: %s\nreceived: %s",
+			r.Timestamps[states.QUEUED], dummy.timestamp)
 	}
 }
 
-func TestEvents_triggerEvents_noChannel(t *testing.T) {
+func Test_events_triggerEvents_noChannel(t *testing.T) {
 	me := &MockEvent{}
 
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
@@ -411,20 +265,19 @@ func TestEvents_triggerEvents_noChannel(t *testing.T) {
 	// skip handler registration
 	mt := MessageType(1)
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
+	// Craft the input for the event
+	chID := &id.ID{1}
 
 	umi, _, _ := builtTestUMI(t, mt)
 
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// call the trigger
 	_, err := e.triggerEvent(
 		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	// check that the event was triggered
@@ -433,103 +286,58 @@ func TestEvents_triggerEvents_noChannel(t *testing.T) {
 	}
 }
 
-func TestEvents_triggerAdminEvents(t *testing.T) {
+func Test_events_triggerAdminEvents(t *testing.T) {
 	me := &MockEvent{}
-
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
-
 	dummy := &dummyMessageTypeHandler{}
 
-	// register the handler
+	// Register the handler
 	mt := MessageType(42)
 	err := e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
 		"dummy", dummy.dummyMessageTypeReceiveMessage, false, true, false))
 	if err != nil {
-		t.Fatalf("Error on registration, should not have happened: "+
-			"%+v", err)
+		t.Fatalf("Error on registration: %+v", err)
 	}
-
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
-	u, _, cm := builtTestUMI(t, mt)
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
-
-	// call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
-		receptionID.EphemeralIdentity{}, r, Delivered)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	// check that the event was triggered
-	if !dummy.triggered {
-		t.Errorf("The admin event was not triggered")
-	}
-
-	// check the data is stored in the dummy
-	if !dummy.channelID.Cmp(chID) {
-		t.Errorf("The channel IDs do not match %s vs %s",
-			dummy.channelID, chID)
-	}
-
-	if !dummy.messageID.Equals(msgID) {
-		t.Errorf("The message IDs do not match %s vs %s",
-			dummy.messageID, msgID)
-	}
-
-	if dummy.messageType != mt {
-		t.Errorf("The message types do not match %s vs %s",
-			dummy.messageType, mt)
-	}
-
-	if dummy.nickname != AdminUsername {
-		t.Errorf("The usernames do not match %s vs %s",
-			dummy.nickname, AdminUsername)
-	}
-
-	if !bytes.Equal(dummy.content, cm.Payload) {
-		t.Errorf("The payloads do not match %s vs %s",
-			dummy.content, cm.Payload)
-	}
-
-	if !withinMutationWindow(r.Timestamps[states.QUEUED], dummy.timestamp) {
-		t.Errorf("The timestamps do not match %s vs %s",
-			dummy.timestamp, r.Timestamps[states.QUEUED])
-	}
-
-	if dummy.lease != time.Duration(cm.Lease) {
-		t.Errorf("The messge lease durations do not match %s vs %s",
-			dummy.lease, time.Duration(cm.Lease))
-	}
-
-	if dummy.round.ID != r.ID {
-		t.Errorf("The messge round does not match %s vs %s",
-			dummy.round.ID, r.ID)
-	}
-}
-
-func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
-	me := &MockEvent{}
-
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
-
-	dummy := &dummyMessageTypeHandler{}
-
-	mt := AdminText
-	// Skip handler registration
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-
 	u, _, cm := builtTestUMI(t, mt)
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
+
+	// Call the trigger
+	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
+		receptionID.EphemeralIdentity{}, r, Delivered)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check the data is stored in the dummy
+	expected := &dummyMessageTypeHandler{true, chID, msgID, mt, AdminUsername,
+		cm.Payload, dummy.timestamp, time.Duration(cm.Lease), r}
+	if !reflect.DeepEqual(expected, dummy) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, dummy)
+	}
+
+	if !withinMutationWindow(r.Timestamps[states.QUEUED], dummy.timestamp) {
+		t.Errorf("Incorrect timestamp.\nexpected: %s\nreceived: %s",
+			r.Timestamps[states.QUEUED], dummy.timestamp)
+	}
+}
+
+func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
+	me := &MockEvent{}
+	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	dummy := &dummyMessageTypeHandler{}
+	mt := AdminText
+
+	// Craft the input for the event
+	chID := &id.ID{1}
+	u, _, cm := builtTestUMI(t, mt)
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// Call the trigger
@@ -539,12 +347,13 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check that the event was triggered
+	// Check that the event was not triggered
 	if dummy.triggered {
 		t.Errorf("The admin event was triggered when unregistered")
 	}
 }
-func TestEvents_triggerActionEvent(t *testing.T) {
+
+func Test_events_triggerActionEvent(t *testing.T) {
 	e := initEvents(&MockEvent{}, versioned.NewKV(ekv.MakeMemstore()))
 	dummy := &dummyMessageTypeHandler{}
 
@@ -557,14 +366,10 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 	}
 
 	// Craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	chID := &id.ID{1}
 	u, _, cm := builtTestUMI(t, mt)
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// Call the trigger
@@ -575,484 +380,261 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 
-	// Check that the event was triggered
-	if !dummy.triggered {
-		t.Error("The trigger event was not triggered")
+	// Check the data is stored in the dummy
+	expected := &dummyMessageTypeHandler{true, chID, msgID, mt, cm.Nickname,
+		cm.Payload, dummy.timestamp, time.Duration(cm.Lease), r}
+	if !reflect.DeepEqual(expected, dummy) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, dummy)
 	}
 
-	// Check the data is stored in the dummy
-	if !dummy.channelID.Cmp(chID) {
-		t.Errorf("Incorrect channel ID.\nexpected: %s\nreceived: %s",
-			chID, dummy.channelID)
-	}
-	if !dummy.messageID.Equals(msgID) {
-		t.Errorf("Incorrect message ID.\nexpected: %s\nreceived: %s",
-			msgID, dummy.messageID)
-	}
-	if dummy.messageType != mt {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			mt, dummy.messageType)
-	}
-	if dummy.nickname != cm.Nickname {
-		t.Errorf("Incorrect username.\nexpected: %s\nreceived: %s",
-			cm.Nickname, dummy.nickname)
-	}
-	if !bytes.Equal(dummy.content, cm.Payload) {
-		t.Errorf("Incorrect payload.\nexpected: %q\nreceived: %q",
-			cm.Payload, dummy.content)
-	}
 	if !withinMutationWindow(r.Timestamps[states.QUEUED], dummy.timestamp) {
-		t.Errorf("Incorrect timestamps.\nexpected: %s\nreceived: %s",
+		t.Errorf("Incorrect timestamp.\nexpected: %s\nreceived: %s",
 			r.Timestamps[states.QUEUED], dummy.timestamp)
-	}
-	if dummy.lease != time.Duration(cm.Lease) {
-		t.Errorf("Incorrect lease duration.\nexpected: %s\nreceived: %s",
-			time.Duration(cm.Lease), dummy.lease)
-	}
-	if dummy.round.ID != r.ID {
-		t.Errorf("Incorrect round ID.\nexpected: %d\nreceived: %d",
-			r.ID, dummy.round.ID)
 	}
 }
 
-func TestEvents_receiveTextMessage_Message(t *testing.T) {
+func Test_events_receiveTextMessage_Message(t *testing.T) {
 	me := &MockEvent{}
-
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	// Craft the input for the event
+	chID := &id.ID{1}
 	textPayload := &CMIXChannelText{
 		Version:        0,
 		Text:           "They Don't Think It Be Like It Is, But It Do",
 		ReplyMessageID: nil,
 	}
-
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
-
 	senderNickname := "Alice"
 	ts := netTime.Now()
-
 	lease := 69 * time.Minute
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	// call the handler
-	e.receiveTextMessage(chID, msgID, 0, senderNickname, textMarshaled,
+	// Call the handler
+	e.receiveTextMessage(chID, msgID, Text, senderNickname, textMarshaled,
 		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
 
-	// check the results on the model
-	if !me.eventReceive.channelID.Cmp(chID) {
-		t.Errorf("Channel ID did not propogate correctly, %s vs %s",
-			me.eventReceive.channelID, chID)
-	}
-
-	if !me.eventReceive.messageID.Equals(msgID) {
-		t.Errorf("Message ID did not propogate correctly, %s vs %s",
-			me.eventReceive.messageID, msgID)
-	}
-
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Errorf("Reaction ID is not blank, %s", me.eventReceive.reactionTo)
-	}
-
-	if me.eventReceive.nickname != senderNickname {
-		t.Errorf("SenderID propogate correctly, %s vs %s",
-			me.eventReceive.nickname, senderNickname)
-	}
-
-	if me.eventReceive.timestamp != ts {
-		t.Errorf("Message timestamp did not propogate correctly, %s vs %s",
-			me.eventReceive.timestamp, ts)
-	}
-
-	if me.eventReceive.lease != lease {
-		t.Errorf("Message lease did not propogate correctly, %s vs %s",
-			me.eventReceive.lease, lease)
-	}
-
-	if me.eventReceive.round.ID != r.ID {
-		t.Errorf("Message round did not propogate correctly, %d vs %d",
-			me.eventReceive.round.ID, r.ID)
+	// Check the results on the model
+	expected := eventReceive{chID, msgID, cryptoChannel.MessageID{},
+		senderNickname, []byte(textPayload.Text), ts, lease, r, Delivered,
+		false, false, Text, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
-func TestEvents_receiveTextMessage_Reply(t *testing.T) {
+func Test_events_receiveTextMessage_Reply(t *testing.T) {
 	me := &MockEvent{}
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	// Craft the input for the event
+	chID := &id.ID{1}
 	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
-
 	textPayload := &CMIXChannelText{
 		Version:        0,
 		Text:           "They Don't Think It Be Like It Is, But It Do",
 		ReplyMessageID: replyMsgId[:],
 	}
-
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
-
 	lease := 69 * time.Minute
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
-	// call the handler
+	// Call the handler
 	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled,
 		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
 
-	// check the results on the model
-	if !me.eventReceive.channelID.Cmp(chID) {
-		t.Errorf("Channel ID did not propogate correctly, %s vs %s",
-			me.eventReceive.channelID, chID)
-	}
-
-	if !me.eventReceive.messageID.Equals(msgID) {
-		t.Errorf("Message ID did not propogate correctly, %s vs %s",
-			me.eventReceive.messageID, msgID)
-	}
-
-	if !me.eventReceive.reactionTo.Equals(replyMsgId) {
-		t.Errorf("Reaction ID is not equal to what was passed in, "+
-			"%s vs %s", me.eventReceive.reactionTo, replyMsgId)
-	}
-
-	if me.eventReceive.nickname != senderUsername {
-		t.Errorf("SenderID propogate correctly, %s vs %s",
-			me.eventReceive.nickname, senderUsername)
-	}
-
-	if me.eventReceive.timestamp != ts {
-		t.Errorf("Message timestamp did not propogate correctly, "+
-			"%s vs %s", me.eventReceive.timestamp, ts)
-	}
-
-	if me.eventReceive.lease != lease {
-		t.Errorf("Message lease did not propogate correctly, %s vs %s",
-			me.eventReceive.lease, lease)
-	}
-
-	if me.eventReceive.round.ID != r.ID {
-		t.Errorf("Message round did not propogate correctly, %d vs %d",
-			me.eventReceive.round.ID, r.ID)
+	// Check the results on the model
+	expected := eventReceive{chID, msgID, replyMsgId,
+		senderUsername, []byte(textPayload.Text), ts, lease, r, Delivered,
+		false, false, Text, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
-func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
+func Test_events_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	me := &MockEvent{}
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	// Craft the input for the event
+	chID := &id.ID{1}
 	replyMsgId := []byte("blarg")
-
 	textPayload := &CMIXChannelText{
 		Version:        0,
 		Text:           "They Don't Think It Be Like It Is, But It Do",
 		ReplyMessageID: replyMsgId[:],
 	}
-
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
-
 	lease := 69 * time.Minute
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
-	// call the handler
-	e.receiveTextMessage(chID, msgID, 0, senderUsername, textMarshaled,
+	// Call the handler
+	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled,
 		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
 
-	// check the results on the model
-	if !me.eventReceive.channelID.Cmp(chID) {
-		t.Errorf("Channel ID did not propogate correctly, %s vs %s",
-			me.eventReceive.channelID, chID)
-	}
-
-	if !me.eventReceive.messageID.Equals(msgID) {
-		t.Errorf("Message ID did not propogate correctly, %s vs %s",
-			me.eventReceive.messageID, msgID)
-	}
-
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Errorf("Reaction ID is not blank, %s", me.eventReceive.reactionTo)
-	}
-
-	if me.eventReceive.nickname != senderUsername {
-		t.Errorf("SenderID propogate correctly, %s vs %s",
-			me.eventReceive.nickname, senderUsername)
-	}
-
-	if me.eventReceive.timestamp != ts {
-		t.Errorf("Message timestamp did not propogate correctly, %s vs %s",
-			me.eventReceive.timestamp, ts)
-	}
-
-	if me.eventReceive.lease != lease {
-		t.Errorf("Message lease did not propogate correctly, %s vs %s",
-			me.eventReceive.lease, lease)
-	}
-
-	if me.eventReceive.round.ID != r.ID {
-		t.Errorf("Message round did not propogate correctly, %d vs %d",
-			me.eventReceive.round.ID, r.ID)
+	// Check the results on the model
+	expected := eventReceive{chID, msgID, cryptoChannel.MessageID{},
+		senderUsername, []byte(textPayload.Text), ts, lease, r, Delivered,
+		false, false, Text, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
-func TestEvents_receiveReaction(t *testing.T) {
+func Test_events_receiveReaction(t *testing.T) {
 	me := &MockEvent{}
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	// Craft the input for the event
+	chID := &id.ID{1}
 	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
-
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
 		Reaction:          "🍆",
 		ReactionMessageID: replyMsgId[:],
 	}
-
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
-
 	lease := 69 * time.Minute
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
-	// call the handler
-	e.receiveReaction(chID, msgID, 0, senderUsername, textMarshaled, pi.PubKey,
-		pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	// Call the handler
+	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled,
+		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
 
-	// check the results on the model
-	if !me.eventReceive.channelID.Cmp(chID) {
-		t.Errorf("Channel ID did not propogate correctly, %s vs %s",
-			me.eventReceive.channelID, chID)
-	}
-
-	if !me.eventReceive.messageID.Equals(msgID) {
-		t.Errorf("Message ID did not propogate correctly, %s vs %s",
-			me.eventReceive.messageID, msgID)
-	}
-
-	if !me.eventReceive.reactionTo.Equals(replyMsgId) {
-		t.Errorf("Reaction ID is not equal to what was passed in, %s vs %s",
-			me.eventReceive.reactionTo, replyMsgId)
-	}
-
-	if me.eventReceive.nickname != senderUsername {
-		t.Errorf("SenderID propogate correctly, %s vs %s",
-			me.eventReceive.nickname, senderUsername)
-	}
-
-	if me.eventReceive.timestamp != ts {
-		t.Errorf("Message timestamp did not propogate correctly, "+
-			"%s vs %s", me.eventReceive.timestamp, ts)
-	}
-
-	if me.eventReceive.lease != lease {
-		t.Errorf("Message lease did not propogate correctly, %s vs %s",
-			me.eventReceive.lease, lease)
-	}
-
-	if me.eventReceive.round.ID != r.ID {
-		t.Errorf("Message round did not propogate correctly, %d vs %d",
-			me.eventReceive.round.ID, r.ID)
+	// Check the results on the model
+	expected := eventReceive{chID, msgID, replyMsgId, senderUsername,
+		[]byte(textPayload.Reaction), ts, lease, r, Delivered, false, false,
+		Reaction, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
-func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
+func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	me := &MockEvent{}
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	// Craft the input for the event
+	chID := &id.ID{1}
 	replyMsgId := []byte("blarg")
-
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
 		Reaction:          "🍆",
 		ReactionMessageID: replyMsgId[:],
 	}
-
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
-
-	lease := 69 * time.Minute
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
-	// call the handler
-	e.receiveReaction(chID, msgID, 0, senderUsername, textMarshaled, pi.PubKey,
-		pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	// Call the handler
+	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled,
+		pi.PubKey, pi.CodesetVersion, ts, 0, r, Delivered, false, false)
 
-	// check the results on the model
-	if me.eventReceive.channelID != nil {
-		t.Error("Channel ID did propagate correctly when the reaction is bad.")
-	}
-
-	if me.eventReceive.messageID.Equals(msgID) {
-		t.Errorf("Message ID propagate correctly when the reaction is bad.")
-	}
-
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Errorf("Reaction ID propagate correctly when the reaction is bad.")
-	}
-
-	if me.eventReceive.nickname != "" {
-		t.Errorf("SenderID propagate correctly when the reaction is bad.")
-	}
-
-	if me.eventReceive.lease != 0 {
-		t.Errorf("Message lease propagate correctly when the reaction is bad.")
+	// Check the results on the model
+	expected := eventReceive{nil, cryptoChannel.MessageID{},
+		cryptoChannel.MessageID{}, "", nil, time.Time{}, 0, rounds.Round{},
+		0, false, false, 0, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
-func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
+func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 	me := &MockEvent{}
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	// craft the input for the event
-	chID := &id.ID{}
-	chID[0] = 1
-
+	// Craft the input for the event
+	chID := &id.ID{1}
 	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
-
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
 		Reaction:          "I'm not a reaction",
 		ReactionMessageID: replyMsgId[:],
 	}
-
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
-
 	lease := 69 * time.Minute
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	// Call the handler
-	e.receiveReaction(chID, msgID, 0, senderUsername, textMarshaled, pi.PubKey,
-		pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled,
+		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
 
 	// Check the results on the model
-	if me.eventReceive.channelID != nil {
-		t.Error("Channel ID did propagate correctly when the reaction is bad.")
-	}
-
-	if me.eventReceive.messageID.Equals(msgID) {
-		t.Error("Message ID propagate correctly when the reaction is bad.")
-	}
-
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
-		t.Error("Reaction ID propagate correctly when the reaction is bad.")
-	}
-
-	if me.eventReceive.nickname != "" {
-		t.Error("SenderID propagate correctly when the reaction is bad.")
-	}
-
-	if me.eventReceive.lease != 0 {
-		t.Error("Message lease propagate correctly when the reaction is bad.")
+	expected := eventReceive{nil, cryptoChannel.MessageID{},
+		cryptoChannel.MessageID{}, "", nil, time.Time{}, 0, rounds.Round{},
+		0, false, false, 0, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
@@ -1061,21 +643,9 @@ func Test_events_receiveDelete(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	me.eventReceive = eventReceive{
-		channelID:  nil,
-		messageID:  cryptoChannel.MessageID{},
-		reactionTo: cryptoChannel.MessageID{},
-		nickname:   "",
-		content:    nil,
-		timestamp:  time.Time{},
-		lease:      0,
-		round:      rounds.Round{},
-	}
-
 	// Craft the input for the event
 	chID, _ := id.NewRandomID(prng, id.User)
 	targetMessageID := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
-
 	textPayload := &CMIXChannelDelete{
 		Version:    0,
 		MessageID:  targetMessageID[:],
@@ -1086,61 +656,31 @@ func Test_events_receiveDelete(t *testing.T) {
 		t.Fatalf("Failed to proto marshal %T: %+v", textPayload, err)
 	}
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
 	lease := 69 * time.Minute
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
-
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	me.eventReceive = eventReceive{
-		channelID:  chID,
-		messageID:  cryptoChannel.MessageID{},
-		reactionTo: targetMessageID,
-		nickname:   senderUsername,
-		content:    textMarshaled,
-		timestamp:  ts,
-		lease:      lease,
-		round:      r,
-	}
+	me.eventReceive = eventReceive{chID, cryptoChannel.MessageID{},
+		targetMessageID, senderUsername, textMarshaled, ts, lease, r, Delivered,
+		false, false, Text, 0}
 
 	// Call the handler
-	e.receiveDelete(chID, msgID, 0, senderUsername, textMarshaled, pi.PubKey,
+	e.receiveDelete(chID, msgID, Delete, AdminUsername, textMarshaled, pi.PubKey,
 		pi.CodesetVersion, ts, lease, r, Delivered, true, false)
 
 	// Check the results on the model
-	if !me.eventReceive.channelID.Cmp(chID) {
-		t.Errorf("Incorrect channel ID.\nexpected: %s\nreceived: %s",
-			chID, me.eventReceive.channelID)
-	}
-	if !me.eventReceive.reactionTo.Equals(targetMessageID) {
-		t.Errorf("Incorrect target message ID.\nexpected: %s\nreceived: %s",
-			targetMessageID, me.eventReceive.reactionTo)
-	}
-	if me.eventReceive.nickname != senderUsername {
-		t.Errorf("Incorrect sender username.\nexpected: %s\nreceived: %s",
-			senderUsername, me.eventReceive.nickname)
-	}
-	if me.eventReceive.timestamp != ts {
-		t.Errorf("Incorrect timestamp.\nexpected: %s\nreceived: %s",
-			ts, me.eventReceive.timestamp)
-	}
-	if me.eventReceive.lease != lease {
-		t.Errorf("Incorrect lease.\nexpected: %s\nreceived: %s",
-			lease, me.eventReceive.lease)
-	}
-	if me.eventReceive.lease != lease {
-		t.Errorf("Incorrect lease.\nexpected: %s\nreceived: %s",
-			lease, me.eventReceive.lease)
-	}
-	if me.eventReceive.round.ID != r.ID {
-		t.Errorf("Incorrect round ID.\nexpected: %d\nreceived: %d",
-			r.ID, me.eventReceive.round.ID)
+	expected := eventReceive{chID, cryptoChannel.MessageID{},
+		targetMessageID, senderUsername, textMarshaled, ts, lease, r, Delivered,
+		false, true, Text, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
@@ -1149,22 +689,10 @@ func Test_events_receivePinned(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
 	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
 
-	me.eventReceive = eventReceive{
-		channelID:  nil,
-		messageID:  cryptoChannel.MessageID{},
-		reactionTo: cryptoChannel.MessageID{},
-		nickname:   "",
-		content:    nil,
-		timestamp:  time.Time{},
-		lease:      0,
-		round:      rounds.Round{},
-	}
-
 	// Craft the input for the event
 	chID, _ := id.NewRandomID(prng, id.User)
 	targetMessageID := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
-
-	textPayload := &CMIXChannelDelete{
+	textPayload := &CMIXChannelPinned{
 		Version:    0,
 		MessageID:  targetMessageID[:],
 		UndoAction: false,
@@ -1174,64 +702,249 @@ func Test_events_receivePinned(t *testing.T) {
 		t.Fatalf("Failed to proto marshal %T: %+v", textPayload, err)
 	}
 	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
 	lease := 69 * time.Minute
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
-
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	me.eventReceive = eventReceive{
-		channelID:  chID,
-		messageID:  cryptoChannel.MessageID{},
-		reactionTo: targetMessageID,
-		nickname:   senderUsername,
-		content:    textMarshaled,
-		timestamp:  ts,
-		lease:      lease,
-		round:      r,
-	}
+	content := []byte("someTest")
+	me.eventReceive = eventReceive{chID, cryptoChannel.MessageID{},
+		targetMessageID, senderUsername, content, ts, lease, r, Delivered,
+		false, false, Text, 0}
 
 	// Call the handler
-	e.receivePinned(chID, msgID, 0, senderUsername, textMarshaled, pi.PubKey,
-		pi.CodesetVersion, ts, lease, r, Delivered, true, false)
+	e.receivePinned(chID, msgID, Pinned, senderUsername, textMarshaled,
+		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, true, false)
 
 	// Check the results on the model
-	if !me.eventReceive.channelID.Cmp(chID) {
-		t.Errorf("Incorrect channel ID.\nexpected: %s\nreceived: %s",
-			chID, me.eventReceive.channelID)
+	expected := eventReceive{chID, cryptoChannel.MessageID{},
+		targetMessageID, senderUsername, content, ts, lease, r, Delivered,
+		true, false, Text, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
-	if !me.eventReceive.reactionTo.Equals(targetMessageID) {
-		t.Errorf("Incorrect target message ID.\nexpected: %s\nreceived: %s",
-			targetMessageID, me.eventReceive.reactionTo)
+}
+
+// Unit test of events.receivePinned.
+func Test_events_receiveMute(t *testing.T) {
+	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
+	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+
+	// Craft the input for the event
+	chID, _ := id.NewRandomID(prng, id.User)
+	targetMessageID := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
+	pubKey, _, _ := ed25519.GenerateKey(prng)
+	textPayload := &CMIXChannelMute{
+		Version:       0,
+		PubKey:        pubKey,
+		UndoAction:    false,
 	}
-	if me.eventReceive.nickname != senderUsername {
-		t.Errorf("Incorrect sender username.\nexpected: %s\nreceived: %s",
-			senderUsername, me.eventReceive.nickname)
+	textMarshaled, err := proto.Marshal(textPayload)
+	if err != nil {
+		t.Fatalf("Failed to proto marshal %T: %+v", textPayload, err)
 	}
-	if me.eventReceive.timestamp != ts {
-		t.Errorf("Incorrect timestamp.\nexpected: %s\nreceived: %s",
-			ts, me.eventReceive.timestamp)
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	senderUsername := "Alice"
+	ts := netTime.Now()
+	lease := 69 * time.Minute
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if me.eventReceive.lease != lease {
-		t.Errorf("Incorrect lease.\nexpected: %s\nreceived: %s",
-			lease, me.eventReceive.lease)
-	}
-	if me.eventReceive.lease != lease {
-		t.Errorf("Incorrect lease.\nexpected: %s\nreceived: %s",
-			lease, me.eventReceive.lease)
-	}
-	if me.eventReceive.round.ID != r.ID {
-		t.Errorf("Incorrect round ID.\nexpected: %d\nreceived: %d",
-			r.ID, me.eventReceive.round.ID)
+
+	content := []byte("someTest")
+	me.eventReceive = eventReceive{chID, cryptoChannel.MessageID{},
+		targetMessageID, senderUsername, content, ts, lease, r, Delivered,
+		false, false, Text, 0}
+
+	// Call the handler
+	e.receiveMute(chID, msgID, Mute, senderUsername, textMarshaled,
+		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, true, false)
+
+	// Check the results on the model
+	expected := eventReceive{chID, cryptoChannel.MessageID{},
+		targetMessageID, senderUsername, content, ts, lease, r, Delivered,
+		false, false, Text, 0}
+	if !reflect.DeepEqual(expected, me.eventReceive) {
+		t.Errorf("Did not receive expected values."+
+			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
 	}
 }
 
 func getFuncName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
+// //////////////////////////////////////////////////////////////////////////////
+// Mock Event Model                                                           //
+// //////////////////////////////////////////////////////////////////////////////
+type eventReceive struct {
+	channelID   *id.ID
+	messageID   cryptoChannel.MessageID
+	reactionTo  cryptoChannel.MessageID
+	nickname    string
+	content     []byte
+	timestamp   time.Time
+	lease       time.Duration
+	round       rounds.Round
+	status      SentStatus
+	pinned      bool
+	hidden      bool
+	messageType MessageType
+	codeset     uint8
+}
+
+type MockEvent struct {
+	uuid uint64
+	eventReceive
+}
+
+func (m *MockEvent) getUUID() uint64 {
+	old := m.uuid
+	m.uuid++
+	return old
+}
+
+func (*MockEvent) JoinChannel(*cryptoBroadcast.Channel) {}
+func (*MockEvent) LeaveChannel(*id.ID)                  {}
+func (m *MockEvent) ReceiveMessage(channelID *id.ID,
+	messageID cryptoChannel.MessageID, nickname, text string,
+	_ ed25519.PublicKey, codeset uint8, timestamp time.Time,
+	lease time.Duration, round rounds.Round, messageType MessageType,
+	status SentStatus, hidden bool) uint64 {
+	m.eventReceive = eventReceive{
+		channelID:   channelID,
+		messageID:   messageID,
+		reactionTo:  cryptoChannel.MessageID{},
+		nickname:    nickname,
+		content:     []byte(text),
+		timestamp:   timestamp,
+		lease:       lease,
+		round:       round,
+		status:      status,
+		pinned:      false,
+		hidden:      hidden,
+		messageType: messageType,
+		codeset:     codeset,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID,
+	reactionTo cryptoChannel.MessageID, nickname, text string,
+	_ ed25519.PublicKey, codeset uint8, timestamp time.Time,
+	lease time.Duration, round rounds.Round, messageType MessageType,
+	status SentStatus, hidden bool) uint64 {
+	m.eventReceive = eventReceive{
+		channelID:   channelID,
+		messageID:   messageID,
+		reactionTo:  reactionTo,
+		nickname:    nickname,
+		content:     []byte(text),
+		timestamp:   timestamp,
+		lease:       lease,
+		round:       round,
+		status:      status,
+		pinned:      false,
+		hidden:      hidden,
+		messageType: messageType,
+		codeset:     codeset,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID,
+	reactionTo cryptoChannel.MessageID, nickname, reaction string,
+	_ ed25519.PublicKey, codeset uint8, timestamp time.Time,
+	lease time.Duration, round rounds.Round, messageType MessageType,
+	status SentStatus, hidden bool) uint64 {
+	m.eventReceive = eventReceive{
+		channelID:   channelID,
+		messageID:   messageID,
+		reactionTo:  reactionTo,
+		nickname:    nickname,
+		content:     []byte(reaction),
+		timestamp:   timestamp,
+		lease:       lease,
+		round:       round,
+		status:      status,
+		pinned:      false,
+		hidden:      hidden,
+		messageType: messageType,
+		codeset:     codeset,
+	}
+	return m.getUUID()
+}
+
+func (m *MockEvent) UpdateFromUUID(_ uint64, messageID *cryptoChannel.MessageID,
+	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+	status *SentStatus) {
+
+	if messageID != nil {
+		m.eventReceive.messageID = *messageID
+	}
+	if timestamp != nil {
+		m.eventReceive.timestamp = *timestamp
+	}
+	if round != nil {
+		m.eventReceive.round = *round
+	}
+	if status != nil {
+		m.eventReceive.status = *status
+	}
+	if pinned != nil {
+		m.eventReceive.pinned = *pinned
+	}
+	if hidden != nil {
+		m.eventReceive.hidden = *hidden
+	}
+}
+
+func (m *MockEvent) UpdateFromMessageID(_ cryptoChannel.MessageID,
+	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+	status *SentStatus) uint64 {
+
+	if timestamp != nil {
+		m.eventReceive.timestamp = *timestamp
+	}
+	if round != nil {
+		m.eventReceive.round = *round
+	}
+	if status != nil {
+		m.eventReceive.status = *status
+	}
+	if pinned != nil {
+		m.eventReceive.pinned = *pinned
+	}
+	if hidden != nil {
+		m.eventReceive.hidden = *hidden
+	}
+
+	return m.getUUID()
+}
+
+func (m *MockEvent) GetMessage(cryptoChannel.MessageID) (ModelMessage, error) {
+	return ModelMessage{
+		UUID:            m.getUUID(),
+		Nickname:        m.eventReceive.nickname,
+		MessageID:       m.eventReceive.messageID,
+		ChannelID:       m.eventReceive.channelID,
+		ParentMessageID: m.reactionTo,
+		Timestamp:       m.eventReceive.timestamp,
+		Lease:           m.eventReceive.lease,
+		Status:          m.status,
+		Hidden:          m.hidden,
+		Pinned:          m.pinned,
+		Content:         m.eventReceive.content,
+		Type:            m.messageType,
+		Round:           m.round.ID,
+		PubKey:          nil,
+		CodesetVersion:  m.codeset,
+	}, nil
 }

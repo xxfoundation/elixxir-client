@@ -630,7 +630,7 @@ func (e *events) receiveDelete(channelID *id.ID,
 
 	deleteMessageID, err := cryptoChannel.UnmarshalMessageID(deleteMsg.MessageID)
 	if err != nil {
-		jww.ERROR.Printf("[CH] Failed unmarshal message ID of message " +
+		jww.ERROR.Printf("[CH] Failed unmarshal message ID of message "+
 			"targeted for deletion in %s: %+v", msgLog, err)
 		return 0
 	}
@@ -645,7 +645,7 @@ func (e *events) receiveDelete(channelID *id.ID,
 	if !fromAdmin {
 		targetMsg, err2 := e.model.GetMessage(deleteMessageID)
 		if err2 != nil {
-			jww.ERROR.Printf("[CH] [%s] Failed to find target message %s for " +
+			jww.ERROR.Printf("[CH] [%s] Failed to find target message %s for "+
 				"deletion from %s: %+v", tag, deleteMsg, msgLog, err2)
 			return 0
 		}
@@ -656,6 +656,7 @@ func (e *events) receiveDelete(channelID *id.ID,
 		}
 	}
 
+	undoAction := deleteMsg.UndoAction
 	deleteMsg.UndoAction = true
 	payload, err := proto.Marshal(deleteMsg)
 	if err != nil {
@@ -665,19 +666,18 @@ func (e *events) receiveDelete(channelID *id.ID,
 		return 0
 	}
 
-	if deleteMsg.UndoAction {
+	var deleted bool
+	if undoAction {
 		e.leases.removeMessage(channelID, messageType, payload)
-		deleted := false
-		return e.model.
-			UpdateFromMessageID(messageID, nil, nil, &deleted, nil, nil)
+		deleted = false
 	} else {
 		e.leases.addMessage(channelID, messageID, messageType, nickname,
 			payload, timestamp, lease, round, status)
 
-		deleted := true
-		return e.model.
-			UpdateFromMessageID(messageID, nil, nil, &deleted, nil, nil)
+		deleted = true
 	}
+
+	return e.model.UpdateFromMessageID(messageID, nil, nil, nil, &deleted, nil)
 }
 
 // receivePinned is the internal function that handles the reception of pinned
@@ -703,7 +703,7 @@ func (e *events) receivePinned(channelID *id.ID,
 
 	pinnedMessageID, err := cryptoChannel.UnmarshalMessageID(pinnedMsg.MessageID)
 	if err != nil {
-		jww.ERROR.Printf("[CH] Failed unmarshal message ID of message " +
+		jww.ERROR.Printf("[CH] Failed unmarshal message ID of message "+
 			"targeted for pinning in %s: %+v", msgLog, err)
 		return 0
 	}
@@ -714,6 +714,7 @@ func (e *events) receivePinned(channelID *id.ID,
 		"[CH] [%s] Received message %s from %x to channel %s to %s message %s",
 		tag, messageID, pubKey, channelID, v, pinnedMessageID)
 
+	undoAction := pinnedMsg.UndoAction
 	pinnedMsg.UndoAction = true
 	payload, err := proto.Marshal(pinnedMsg)
 	if err != nil {
@@ -723,20 +724,17 @@ func (e *events) receivePinned(channelID *id.ID,
 		return 0
 	}
 
-	if pinnedMsg.UndoAction {
+	var pinned bool
+	if undoAction {
 		e.leases.removeMessage(channelID, messageType, payload)
-		pinned := false
-
-		return e.model.
-			UpdateFromMessageID(messageID, nil, nil, &pinned, nil, nil)
+		pinned = false
 	} else {
 		e.leases.addMessage(channelID, messageID, messageType, nickname,
 			payload, timestamp, lease, round, status)
-
-		pinned := true
-		return e.model.
-			UpdateFromMessageID(messageID, nil, nil, &pinned, nil, nil)
+		pinned = true
 	}
+
+	return e.model.UpdateFromMessageID(messageID, nil, nil, &pinned, nil, nil)
 }
 
 // receiveMute is the internal function that handles the reception of muted

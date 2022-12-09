@@ -52,18 +52,18 @@ func (p *receiver) Process(msg format.Message,
 
 	var payload []byte
 	var err error
-	var partnerPublicKey nike.PublicKey
+	var senderToken uint32
+	var partnerPublicKey, senderPublicKey nike.PublicKey
 	if dm.Cipher.IsSelfEncrypted(ciphertext, p.c.privateKey) {
-		jww.INFO.Printf("[DM] DecryptSelf: %s", msg.Digest())
 		partnerPublicKey, payload, err = dm.Cipher.DecryptSelf(
 			ciphertext, p.c.privateKey)
-		jww.INFO.Printf("[DM] SelfPayload Out:\n%v", payload)
+		senderPublicKey = p.c.publicKey
+		senderToken = p.c.myToken
 	} else {
-		jww.INFO.Printf("[DM] Decrypt: %s", msg.Digest())
 		partnerPublicKey, payload, err = dm.Cipher.Decrypt(ciphertext,
 			p.c.privateKey)
-
-		jww.INFO.Printf("[DM] Payload Out:\n%v", payload)
+		senderToken = 0
+		senderPublicKey = partnerPublicKey
 	}
 	if err != nil {
 		jww.ERROR.Printf("failed to decrypt direct message: %s", err)
@@ -75,6 +75,9 @@ func (p *receiver) Process(msg format.Message,
 		jww.ERROR.Printf("unable to parse direct message: %+v",
 			err)
 		return
+	}
+	if senderToken == 0 {
+		senderToken = directMsg.DMToken
 	}
 
 	msgID := DeriveDirectMessageID(directMsg)
@@ -105,14 +108,14 @@ func (p *receiver) Process(msg format.Message,
 	ts := vetTimestamp(time.Unix(0, directMsg.LocalTimestamp),
 		round.Timestamps[states.QUEUED], msgID)
 
-	pubSigningKey := ecdh.ECDHNIKE2EdwardsPublicKey(partnerPublicKey)
+	pubSigningKey := ecdh.ECDHNIKE2EdwardsPublicKey(senderPublicKey)
 
 	messageType := MessageType(directMsg.PayloadType)
 
 	// Process the receivedMessage. This is already in an instanced event;
 	// no new thread is needed.
 	uuid, err := p.receiveMessage(msgID, messageType, directMsg.Nickname,
-		directMsg.Payload, directMsg.DMToken,
+		directMsg.Payload, senderToken,
 		*pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {

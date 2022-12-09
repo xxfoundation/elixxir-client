@@ -25,7 +25,7 @@ type dmClient struct {
 	receptionID *id.ID
 	privateKey  nike.PrivateKey
 	publicKey   nike.PublicKey
-	myToken     []byte
+	myToken     uint32
 
 	nm  nickNameManager
 	net cMixClient

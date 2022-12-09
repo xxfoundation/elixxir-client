@@ -34,7 +34,7 @@ message DirectMessage{
     // The round this message was sent on.
     uint64 RoundID = 1;
 
-    bytes DMToken = 2;  // hash of private key of the sender
+    uint32 DMToken = 2;  // hash of private key of the sender
 
     // The type the below payload is (currently a Text or Reaction)
     uint32 PayloadType = 3;

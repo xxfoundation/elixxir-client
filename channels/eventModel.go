@@ -94,7 +94,7 @@ type EventModel interface {
 	// Message type is included in the call; it will always be Text (1) for this
 	// call, but it may be required in downstream databases.
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-		nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
+		nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 		codeset uint8, timestamp time.Time, lease time.Duration,
 		round rounds.Round, mType MessageType, status SentStatus) uint64
 
@@ -120,7 +120,7 @@ type EventModel interface {
 	// call, but it may be required in downstream databases.
 	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, text string,
-		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
 
@@ -146,7 +146,7 @@ type EventModel interface {
 	// call, but it may be required in downstream databases.
 	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, reaction string,
-		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
 
@@ -176,7 +176,7 @@ type EventModel interface {
 // later.
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken []byte,
+	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, status SentStatus) uint64
 
@@ -312,7 +312,7 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 // write to the log.
 func (e *events) receiveTextMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken []byte,
+	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
 	txt := &CMIXChannelText{}
@@ -368,7 +368,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 // reaction is dropped.
 func (e *events) receiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken []byte,
+	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
 	react := &CMIXChannelReaction{}

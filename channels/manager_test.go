@@ -311,9 +311,9 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf("DisableDirectMessageToken error: %+v", err)
 	}
 
-	// Test that token is nil when retrieved
+	// Test that token is 0 when retrieved
 	token := m.getDmToken(ch.ReceptionID)
-	if token != nil {
+	if token != 0 {
 		t.Fatalf("getDmToken expected to return nil after calling " +
 			"DisableDirectMessageToken")
 	}

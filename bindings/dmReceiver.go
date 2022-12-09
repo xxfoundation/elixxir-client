@@ -51,8 +51,8 @@ type DMReceiver interface {
 	//
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
-	Receive(messageID []byte, nickname string, text []byte, pubKey,
-		dmToken []byte, codeset int, timestamp,
+	Receive(messageID []byte, nickname string, text []byte, pubKey []byte,
+		dmToken uint32, codeset int, timestamp,
 		roundId, mType, status int64) int64
 
 	// ReceiveTest is called whenever a direct message is
@@ -87,8 +87,8 @@ type DMReceiver interface {
 	//
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
-	ReceiveText(messageID []byte, nickname, text string, pubKey,
-		dmToken []byte, codeset int, timestamp,
+	ReceiveText(messageID []byte, nickname, text string, pubKey []byte,
+		dmToken uint32, codeset int, timestamp,
 		roundId, status int64) int64
 
 	// ReceiveReply is called whenever a direct message is
@@ -126,8 +126,8 @@ type DMReceiver interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveReply(messageID, reactionTo []byte, nickname,
-		text string, pubKey, dmToken []byte, codeset int, timestamp,
-		roundId, status int64) int64
+		text string, pubKey []byte, dmToken uint32, codeset int,
+		timestamp, roundId, status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a direct
 	// message is received. It may be called multiple times on the
@@ -164,7 +164,7 @@ type DMReceiver interface {
 	// Returns a non-negative unique uuid for the message by which it can be
 	// referenced later with UpdateSentStatus
 	ReceiveReaction(messageID, reactionTo []byte,
-		nickname, reaction string, pubKey, dmToken []byte,
+		nickname, reaction string, pubKey []byte, dmToken uint32,
 		codeset int, timestamp, roundId,
 		status int64) int64
 
@@ -201,7 +201,7 @@ func NewDMReceiver(dr DMReceiver) dm.Receiver {
 // user of the API to filter such called by message ID.
 func (dmr *dmReceiver) Receive(messageID dm.MessageID,
 	nickname string, text []byte, pubKey ed25519.PublicKey,
-	dmToken []byte, codeset uint8, timestamp time.Time,
+	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType,
 	status dm.Status) uint64 {
 
@@ -216,7 +216,7 @@ func (dmr *dmReceiver) Receive(messageID dm.MessageID,
 // user of the API to filter such called by message ID.
 func (dmr *dmReceiver) ReceiveText(messageID dm.MessageID,
 	nickname, text string, pubKey ed25519.PublicKey,
-	dmToken []byte, codeset uint8, timestamp time.Time,
+	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round,
 	status dm.Status) uint64 {
 
@@ -234,7 +234,7 @@ func (dmr *dmReceiver) ReceiveText(messageID dm.MessageID,
 // initial message. As a result, it may be important to buffer replies.
 func (dmr *dmReceiver) ReceiveReply(messageID dm.MessageID,
 	reactionTo dm.MessageID, nickname, text string,
-	pubKey ed25519.PublicKey, dmToken []byte,
+	pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status dm.Status) uint64 {
 
@@ -253,7 +253,7 @@ func (dmr *dmReceiver) ReceiveReply(messageID dm.MessageID,
 // initial message. As a result, it may be important to buffer reactions.
 func (dmr *dmReceiver) ReceiveReaction(messageID dm.MessageID,
 	reactionTo dm.MessageID, nickname, reaction string,
-	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
 

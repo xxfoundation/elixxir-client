@@ -10,6 +10,7 @@ package dm
 import (
 	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -52,7 +53,7 @@ const (
 )
 
 // SendText is used to send a formatted message to another user.
-func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey, partnerToken []byte,
+func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
 	MessageID, rounds.Round, ephemeral.Id, error) {
 	return dc.SendReply(partnerPubKey, partnerToken, msg,
@@ -65,7 +66,7 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey, partnerToken []by
 // then the other side will post the message as a normal
 // message and not as a reply.
 func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
-	partnerToken []byte, msg string, replyTo MessageID,
+	partnerToken uint32, msg string, replyTo MessageID,
 	params cmix.CMIXParams) (MessageID, rounds.Round, ephemeral.Id, error) {
 
 	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
@@ -95,7 +96,7 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 // Clients will drop the reaction if they do not recognize the reactTo
 // message.
 func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
-	partnerToken []byte, reaction string, reactTo MessageID,
+	partnerToken uint32, reaction string, reactTo MessageID,
 	params cmix.CMIXParams) (MessageID,
 	rounds.Round, ephemeral.Id, error) {
 	tag := makeDebugTag(*partnerPubKey, []byte(reaction),
@@ -125,7 +126,7 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 }
 
 func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
-	partnerToken []byte, messageType MessageType, msg []byte,
+	partnerToken uint32, messageType MessageType, msg []byte,
 	params cmix.CMIXParams) (
 	MessageID, rounds.Round, ephemeral.Id, error) {
 
@@ -205,18 +206,20 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 // DeriveReceptionID returns a reception ID for direct messages sent
 // to the user. It generates this ID by hashing the public key and
 // an arbitrary idToken together. The ID type is set to "User".
-func DeriveReceptionID(publicKey ed25519.PublicKey, idToken []byte) *id.ID {
+func DeriveReceptionID(publicKey ed25519.PublicKey, idToken uint32) *id.ID {
 	nikePubKey := ecdh.Edwards2ECDHNIKEPublicKey(&publicKey)
 	return deriveReceptionID(nikePubKey, idToken)
 }
 
-func deriveReceptionID(publicKey nike.PublicKey, idToken []byte) *id.ID {
+func deriveReceptionID(publicKey nike.PublicKey, idToken uint32) *id.ID {
 	h, err := blake2b.New256(nil)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 	h.Write(publicKey.Bytes())
-	h.Write(idToken)
+	tokenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(tokenBytes, idToken)
+	h.Write(tokenBytes)
 	idBytes := h.Sum(nil)
 	idBytes = append(idBytes, byte(id.User))
 	receptionID, err := id.Unmarshal(idBytes)
@@ -270,7 +273,7 @@ func send(net cMixClient, partnerID *id.ID, partnerPubKey nike.PublicKey,
 }
 
 func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
-	partnerToken []byte, myPrivateKey nike.PrivateKey,
+	partnerToken uint32, myPrivateKey nike.PrivateKey,
 	msg *DirectMessage, params cmix.CMIXParams, rng io.Reader) (rounds.Round,
 	ephemeral.Id, error) {
 

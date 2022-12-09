@@ -124,8 +124,9 @@ func (p *receiver) Process(msg format.Message,
 // receiveMessage attempts to parse the message and calls the appropriate
 // receiver function.
 func (p *receiver) receiveMessage(msgID MessageID, messageType MessageType,
-	nick string, plaintext, dmToken []byte, partnerPubKey ed25519.PublicKey,
-	ts time.Time, _ receptionID.EphemeralIdentity, round rounds.Round,
+	nick string, plaintext []byte, dmToken uint32,
+	partnerPubKey ed25519.PublicKey, ts time.Time,
+	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error) {
 	switch messageType {
 	case TextType:
@@ -144,8 +145,8 @@ func (p *receiver) receiveMessage(msgID MessageID, messageType MessageType,
 }
 
 func (p *receiver) receiveTextMessage(messageID MessageID,
-	messageType MessageType, nickname string, content, dmToken []byte,
-	pubKey ed25519.PublicKey, codeset uint8,
+	messageType MessageType, nickname string, content []byte,
+	dmToken uint32, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status Status) (uint64, error) {
 	txt := &Text{}
@@ -202,7 +203,7 @@ func (p *receiver) receiveTextMessage(messageID MessageID,
 // reaction is dropped.
 func (p *receiver) receiveReaction(messageID MessageID,
 	messageType MessageType, nickname string, content []byte,
-	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+	dmToken uint32, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status Status) (uint64, error) {
 	react := &Reaction{}

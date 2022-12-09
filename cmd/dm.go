@@ -81,8 +81,7 @@ var dmCmd = &cobra.Command{
 
 		jww.INFO.Printf("DMPUBKEY: %s",
 			base64.RawStdEncoding.EncodeToString(pubKeyBytes))
-		jww.INFO.Printf("DMTOKEN: %s",
-			base64.RawStdEncoding.EncodeToString(dmToken))
+		jww.INFO.Printf("DMTOKEN: %d", dmToken)
 
 		partnerPubKey, partnerDMToken, ok := getDMPartner()
 		if !ok {
@@ -93,8 +92,7 @@ var dmCmd = &cobra.Command{
 
 		jww.INFO.Printf("DMRECVPUBKEY: %s",
 			base64.RawStdEncoding.EncodeToString(partnerPubKey))
-		jww.INFO.Printf("DMRECVTOKEN: %s",
-			base64.RawStdEncoding.EncodeToString(partnerDMToken))
+		jww.INFO.Printf("DMRECVTOKEN: %d", partnerDMToken)
 
 		recvCh := make(chan dm.MessageID, 10)
 		myReceiver := &receiver{
@@ -144,7 +142,7 @@ var dmCmd = &cobra.Command{
 			case m := <-recvCh:
 				msg := myReceiver.msgData[m]
 				selfStr := "Partner"
-				if bytes.Equal(dmID.GetDMToken(), msg.dmToken) {
+				if dmID.GetDMToken() == msg.dmToken {
 					selfStr = "Self"
 					if !bytes.Equal(dmID.PubKey[:],
 						msg.pubKey[:]) {
@@ -158,9 +156,7 @@ var dmCmd = &cobra.Command{
 				jww.INFO.Printf("RECVDMPUBKEY: %s",
 					base64.RawStdEncoding.EncodeToString(
 						msg.pubKey[:]))
-				jww.INFO.Printf("RECVDMTOKEN: %s",
-					base64.RawStdEncoding.EncodeToString(
-						msg.dmToken))
+				jww.INFO.Printf("RECVDMTOKEN: %d", msg.dmToken)
 				receiveCnt++
 			}
 		}
@@ -194,28 +190,22 @@ func init() {
 	rootCmd.AddCommand(dmCmd)
 }
 
-func getDMPartner() (ed25519.PublicKey, []byte, bool) {
+func getDMPartner() (ed25519.PublicKey, uint32, bool) {
 	pubBytesStr := viper.GetString(dmPartnerPubKeyFlag)
 	pubBytes, err := base64.RawStdEncoding.DecodeString(pubBytesStr)
 	if err != nil {
 		jww.INFO.Printf("unable to read partner public key: %+v",
 			err)
-		return nil, nil, false
+		return nil, 0, false
 	}
 	pubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(pubBytes)
 	if err != nil {
 		jww.INFO.Printf("unable to decode partner public key: %+v",
 			err)
-		return nil, nil, false
+		return nil, 0, false
 	}
-	tokenStr := viper.GetString(dmPartnerTokenFlag)
-	tokenBytes, err := base64.RawStdEncoding.DecodeString(tokenStr)
-	if err != nil {
-		jww.INFO.Printf("unable to decode partner token: %+v",
-			err)
-		return nil, nil, false
-	}
-	return *ecdh.ECDHNIKE2EdwardsPublicKey(pubKey), tokenBytes, true
+	token := viper.GetUint32(dmPartnerTokenFlag)
+	return *ecdh.ECDHNIKE2EdwardsPublicKey(pubKey), token, true
 }
 
 type nickMgr struct{}
@@ -230,7 +220,7 @@ type msgInfo struct {
 	nickname  string
 	content   string
 	pubKey    ed25519.PublicKey
-	dmToken   []byte
+	dmToken   uint32
 	codeset   uint8
 	timestamp time.Time
 	round     rounds.Round
@@ -253,7 +243,7 @@ type receiver struct {
 
 func (r *receiver) receive(messageID dm.MessageID, replyID dm.MessageID,
 	nickname, text string, pubKey ed25519.PublicKey,
-	dmToken []byte,
+	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType, status dm.Status) uint64 {
 	r.Lock()
@@ -285,7 +275,7 @@ func (r *receiver) receive(messageID dm.MessageID, replyID dm.MessageID,
 
 func (r *receiver) Receive(messageID dm.MessageID,
 	nickname string, text []byte, pubKey ed25519.PublicKey,
-	dmToken []byte,
+	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType, status dm.Status) uint64 {
 	jww.INFO.Printf("Receive: %v", messageID)
@@ -294,7 +284,7 @@ func (r *receiver) Receive(messageID dm.MessageID,
 }
 
 func (r *receiver) ReceiveText(messageID dm.MessageID,
-	nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
+	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status dm.Status) uint64 {
 	jww.INFO.Printf("ReceiveText: %v", messageID)
@@ -303,7 +293,7 @@ func (r *receiver) ReceiveText(messageID dm.MessageID,
 }
 func (r *receiver) ReceiveReply(messageID dm.MessageID,
 	reactionTo dm.MessageID, nickname, text string,
-	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
 	jww.INFO.Printf("ReceiveReply: %v", messageID)
@@ -312,7 +302,7 @@ func (r *receiver) ReceiveReply(messageID dm.MessageID,
 }
 func (r *receiver) ReceiveReaction(messageID dm.MessageID,
 	reactionTo dm.MessageID, nickname, reaction string,
-	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
 	jww.INFO.Printf("ReceiveReaction: %v", messageID)

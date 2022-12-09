@@ -39,6 +39,8 @@ type manager struct {
 
 	// List of all channels
 	channels map[id.ID]*joinedChannel
+	// List of dmTokens for each channel
+	dmTokens map[id.ID]uint32
 	mux      sync.RWMutex
 
 	// External references
@@ -106,6 +108,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	}
 
 	m := setupManager(identity, kv, net, rng, model)
+	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, nil
 }
@@ -113,7 +116,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
+	rng *fastRNG.StreamGenerator,
+	modelBuilder EventModelBuilder) (Manager, error) {
 
 	jww.INFO.Printf("LoadManager(tag:%s)", storageTag)
 
@@ -132,6 +136,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 	}
 
 	m := setupManager(identity, kv, net, rng, model)
+	m.loadDMTokens()
 
 	return m, nil
 }

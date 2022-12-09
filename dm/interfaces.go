@@ -29,7 +29,7 @@ type Client interface {
 // cMix.
 type Sender interface {
 	// SendText is used to send a formatted message to another user.
-	SendText(partnerPubKey *ed25519.PublicKey, partnerToken []byte,
+	SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		msg string, params cmix.CMIXParams) (
 		MessageID, rounds.Round, ephemeral.Id, error)
 
@@ -38,7 +38,7 @@ type Sender interface {
 	// If the message ID that the reply is sent to does not exist,
 	// then the other side will post the message as a normal
 	// message and not as a reply.
-	SendReply(partnerPubKey *ed25519.PublicKey, partnerToken []byte,
+	SendReply(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		msg string, replyTo MessageID,
 		params cmix.CMIXParams) (MessageID, rounds.Round,
 		ephemeral.Id, error)
@@ -49,7 +49,7 @@ type Sender interface {
 	//
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
-	SendReaction(partnerPubKey *ed25519.PublicKey, partnerToken []byte,
+	SendReaction(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		reaction string, reactTo MessageID,
 		params cmix.CMIXParams) (MessageID, rounds.Round,
 		ephemeral.Id, error)
@@ -62,7 +62,7 @@ type Sender interface {
 	// encoding using compression, it is not possible to define
 	// the largest payload that can be sent, but it will always be
 	// possible to send a payload of 802 bytes at minimum.
-	Send(partnerPubKey *ed25519.PublicKey, partnerToken []byte,
+	Send(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		messageType MessageType, plaintext []byte,
 		params cmix.CMIXParams) (MessageID,
 		rounds.Round, ephemeral.Id, error)
@@ -76,7 +76,7 @@ type Listener interface {
 	// TODO: These unimplemented at this time.
 	// BlockDMs disables DMs from a specific user. Received messages
 	// will be dropped during event processing.
-	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken []byte) error
+	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken uint32) error
 	// UnblockDMs enables DMs from a specific user.
 	// UnblockDMs(conversationID *id.ID) error
 }
@@ -106,7 +106,7 @@ type Receiver interface {
 	// display the codename.
 	Receive(messageID MessageID,
 		nickname string, text []byte, pubKey ed25519.PublicKey,
-		dmToken []byte,
+		dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status Status) uint64
 
@@ -125,7 +125,7 @@ type Receiver interface {
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
 	ReceiveText(messageID MessageID,
-		nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
+		nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, status Status) uint64
 
@@ -149,7 +149,7 @@ type Receiver interface {
 	// display the codename.
 	ReceiveReply(messageID MessageID,
 		reactionTo MessageID, nickname, text string,
-		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -173,7 +173,7 @@ type Receiver interface {
 	// display the codename.
 	ReceiveReaction(messageID MessageID,
 		reactionTo MessageID, nickname, reaction string,
-		pubKey ed25519.PublicKey, dmToken []byte, codeset uint8,
+		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 

@@ -63,36 +63,3 @@ message UserMessage {
     // network.
     bytes ECCPublicKey = 5;
 }
-
-
-// DirectMessage is a message sent directly from one user to another. It
-// includes the return information (public key and dmtoken) for the sender.
-message DirectMessage{
-    // The round this message was sent on.
-    uint64 RoundID = 2;
-
-    bytes DMToken = 4;  // hash of private key of the sender
-
-    // The type the below payload is. This may be some form of channel command,
-    // such as BAN<username1>.
-    uint32 PayloadType = 5;
-
-    // Payload is the actual message payload. It will be processed differently
-    // based on the PayloadType.
-    bytes Payload = 6;
-
-    // nickname is the name which the user is using for this message it will not
-    // be longer than 24 characters.
-    string Nickname = 7;
-
-    // Nonce is 32 bits of randomness to ensure that two messages in the same
-    // round with that have the same nickname, payload, and lease will not have
-    // the same message ID.
-    bytes Nonce = 8;
-
-    // LocalTimestamp is the timestamp when the "send call" is made based upon
-    // the local clock. If this differs by more than 5 seconds +/- from when the
-    // round it sent on is queued, then a random mutation on the queued time
-    // (+/- 200ms) will be used by local clients instead.
-    int64 LocalTimestamp = 9;
-}

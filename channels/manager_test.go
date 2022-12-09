@@ -255,7 +255,7 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
-	err = m.EnableDirectMessageToken(ch.ReceptionID)
+	err = m.EnableDirectMessages(ch.ReceptionID)
 	if err != nil {
 		t.Fatalf("EnableDirectMessageToken error: %+v", err)
 	}
@@ -301,12 +301,12 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
-	err = m.EnableDirectMessageToken(ch.ReceptionID)
+	err = m.EnableDirectMessages(ch.ReceptionID)
 	if err != nil {
 		t.Fatalf("EnableDirectMessageToken error: %+v", err)
 	}
 
-	err = m.DisableDirectMessageToken(ch.ReceptionID)
+	err = m.DisableDirectMessages(ch.ReceptionID)
 	if err != nil {
 		t.Fatalf("DisableDirectMessageToken error: %+v", err)
 	}

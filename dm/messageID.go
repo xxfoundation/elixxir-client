@@ -38,6 +38,7 @@ type MessageID [MessageIDLen]byte
 // resistant from a malicious attacker, but DMs prevent parties without the
 // keys of one half the connection from participating.
 func DeriveDirectMessageID(msg *DirectMessage) MessageID {
+	// TODO: Add roundID here
 	h, err := blake2b.New256(nil)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get Hash: %+v", err)

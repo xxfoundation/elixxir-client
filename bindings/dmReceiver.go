@@ -52,7 +52,7 @@ type DMReceiver interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	Receive(messageID []byte, nickname string, text []byte, pubKey []byte,
-		dmToken uint32, codeset int, timestamp,
+		dmToken int32, codeset int, timestamp,
 		roundId, mType, status int64) int64
 
 	// ReceiveTest is called whenever a direct message is
@@ -88,7 +88,7 @@ type DMReceiver interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveText(messageID []byte, nickname, text string, pubKey []byte,
-		dmToken uint32, codeset int, timestamp,
+		dmToken int32, codeset int, timestamp,
 		roundId, status int64) int64
 
 	// ReceiveReply is called whenever a direct message is
@@ -126,7 +126,7 @@ type DMReceiver interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveReply(messageID, reactionTo []byte, nickname,
-		text string, pubKey []byte, dmToken uint32, codeset int,
+		text string, pubKey []byte, dmToken int32, codeset int,
 		timestamp, roundId, status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a direct
@@ -164,7 +164,7 @@ type DMReceiver interface {
 	// Returns a non-negative unique uuid for the message by which it can be
 	// referenced later with UpdateSentStatus
 	ReceiveReaction(messageID, reactionTo []byte,
-		nickname, reaction string, pubKey []byte, dmToken uint32,
+		nickname, reaction string, pubKey []byte, dmToken int32,
 		codeset int, timestamp, roundId,
 		status int64) int64
 
@@ -206,7 +206,7 @@ func (dmr *dmReceiver) Receive(messageID dm.MessageID,
 	status dm.Status) uint64 {
 
 	return uint64(dmr.dr.Receive(messageID[:], nickname,
-		text, pubKey, dmToken, int(codeset),
+		text, pubKey, int32(dmToken), int(codeset),
 		timestamp.UnixNano(), int64(round.ID),
 		int64(mType), int64(status)))
 }
@@ -221,7 +221,7 @@ func (dmr *dmReceiver) ReceiveText(messageID dm.MessageID,
 	status dm.Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveText(messageID[:], nickname,
-		text, pubKey, dmToken, int(codeset),
+		text, pubKey, int32(dmToken), int(codeset),
 		timestamp.UnixNano(), int64(round.ID), int64(status)))
 }
 
@@ -239,7 +239,7 @@ func (dmr *dmReceiver) ReceiveReply(messageID dm.MessageID,
 	round rounds.Round, status dm.Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveReply(messageID[:], reactionTo[:],
-		nickname, text, pubKey, dmToken, int(codeset),
+		nickname, text, pubKey, int32(dmToken), int(codeset),
 		timestamp.UnixNano(), int64(round.ID), int64(status)))
 
 }
@@ -258,7 +258,7 @@ func (dmr *dmReceiver) ReceiveReaction(messageID dm.MessageID,
 	status dm.Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveReaction(messageID[:],
-		reactionTo[:], nickname, reaction, pubKey, dmToken,
+		reactionTo[:], nickname, reaction, pubKey, int32(dmToken),
 		int(codeset), timestamp.UnixNano(),
 		int64(round.ID), int64(status)))
 }

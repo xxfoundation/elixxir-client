@@ -1306,7 +1306,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveMessage(channelID, messageID []byte, nickname, text string,
-		pubKey []byte, dmToken uint32, codeset int, timestamp, lease, roundId, mType,
+		pubKey []byte, dmToken int32, codeset int, timestamp, lease, roundId, mType,
 		status int64) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
@@ -1341,7 +1341,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveReply(channelID, messageID, reactionTo []byte, nickname, text string,
-		pubKey []byte, dmToken uint32, codeset int, timestamp, lease, roundId, mType,
+		pubKey []byte, dmToken int32, codeset int, timestamp, lease, roundId, mType,
 		status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
@@ -1378,7 +1378,7 @@ type EventModel interface {
 	// Returns a non-negative unique uuid for the message by which it can be
 	// referenced later with UpdateSentStatus
 	ReceiveReaction(channelID, messageID, reactionTo []byte, nickname,
-		reaction string, pubKey []byte, dmToken uint32, codeset int,
+		reaction string, pubKey []byte, dmToken int32, codeset int,
 		timestamp, lease, roundId, mType, status int64) int64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
@@ -1434,7 +1434,8 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 	status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveMessage(channelID[:], messageID[:], nickname,
-		text, pubKey, dmToken, int(codeset), timestamp.UnixNano(), int64(lease),
+		text, pubKey, int32(dmToken), int(codeset),
+		timestamp.UnixNano(), int64(lease),
 		int64(round.ID), int64(mType), int64(status)))
 }
 
@@ -1452,8 +1453,9 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID,
 	status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
-		nickname, text, pubKey, dmToken, int(codeset), timestamp.UnixNano(),
-		int64(lease), int64(round.ID), int64(mType), int64(status)))
+		nickname, text, pubKey, int32(dmToken), int(codeset),
+		timestamp.UnixNano(), int64(lease), int64(round.ID),
+		int64(mType), int64(status)))
 
 }
 
@@ -1470,9 +1472,9 @@ func (tem *toEventModel) ReceiveReaction(channelID *id.ID,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveReaction(channelID[:], messageID[:],
-		reactionTo[:], nickname, reaction, pubKey, dmToken, int(codeset),
-		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(mType),
-		int64(status)))
+		reactionTo[:], nickname, reaction, pubKey, int32(dmToken),
+		int(codeset), timestamp.UnixNano(), int64(lease),
+		int64(round.ID), int64(mType), int64(status)))
 }
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.

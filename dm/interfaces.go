@@ -208,8 +208,10 @@ type cMixClient interface {
 
 // nickNameManager interface is an object that handles the mapping of nicknames
 // to cMix reception IDs.
-type nickNameManager interface {
-	// GetNick gets a nickname associated with this DM partner (reception)
-	// ID.
+type NickNameManager interface {
+	// GetNickname gets a nickname associated with this DM partner
+	// (reception) ID.
 	GetNickname(id *id.ID) (string, bool)
+	// SetNickname sets the nickname to use
+	SetNickname(nick string)
 }

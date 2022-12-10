@@ -100,7 +100,7 @@ var dmCmd = &cobra.Command{
 			msgData: make(map[dm.MessageID]*msgInfo),
 			uuid:    0,
 		}
-		myNickMgr := &nickMgr{}
+		myNickMgr := dm.NewNicknameManager(identity, ekv)
 
 		dmClient := dm.NewDMClient(dmID, myReceiver, myNickMgr,
 			user.GetCmix(), user.GetRng())

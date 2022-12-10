@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/xx_network/primitives/id"
@@ -75,8 +74,7 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	// TODO: Move nicknames into own module
-	nickMgr := channels.LoadOrNewNicknameManager(
+	nickMgr := dm.NewNicknameManager(user.api.GetStorage().GetReceptionID(),
 		user.api.GetStorage().GetKV())
 
 	m := dm.NewDMClient(pi, receiver, nickMgr, user.api.GetCmix(),
@@ -127,8 +125,7 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	// TODO: Move nicknames into own module
-	nickMgr := channels.LoadOrNewNicknameManager(
+	nickMgr := dm.NewNicknameManager(user.api.GetStorage().GetReceptionID(),
 		user.api.GetStorage().GetKV())
 
 	m := dm.NewDMClient(pi, receiver, nickMgr, user.api.GetCmix(),

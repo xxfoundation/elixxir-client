@@ -49,6 +49,7 @@ func DeriveDirectMessageID(msg *DirectMessage) MessageID {
 	h.Write(pty)
 
 	h.Write([]byte(msg.GetNickname()))
+	// Note: It is imperative to include this so messages are not repeated
 	h.Write(msg.Nonce)
 
 	ts := make([]byte, 8)

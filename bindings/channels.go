@@ -1230,7 +1230,7 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 		func(channelID *id.ID,
 			messageID cryptoChannel.MessageID, messageType channels.MessageType,
 			nickname string, content []byte, pubKey ed25519.PublicKey,
-			dmToken []byte, codeset uint8, timestamp time.Time,
+			dmToken uint32, codeset uint8, timestamp time.Time,
 			lease time.Duration, round rounds.Round,
 			status channels.SentStatus) uint64 {
 
@@ -1306,7 +1306,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveMessage(channelID, messageID []byte, nickname, text string,
-		pubKey, dmToken []byte, codeset int, timestamp, lease, roundId, mType,
+		pubKey []byte, dmToken int32, codeset int, timestamp, lease, roundId, mType,
 		status int64) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
@@ -1341,7 +1341,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveReply(channelID, messageID, reactionTo []byte, nickname, text string,
-		pubKey, dmToken []byte, codeset int, timestamp, lease, roundId, mType,
+		pubKey []byte, dmToken int32, codeset int, timestamp, lease, roundId, mType,
 		status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
@@ -1378,8 +1378,8 @@ type EventModel interface {
 	// Returns a non-negative unique uuid for the message by which it can be
 	// referenced later with UpdateSentStatus
 	ReceiveReaction(channelID, messageID, reactionTo []byte, nickname,
-		reaction string, pubKey, dmToken []byte, codeset int, timestamp, lease,
-		roundId, mType, status int64) int64
+		reaction string, pubKey []byte, dmToken int32, codeset int,
+		timestamp, lease, roundId, mType, status int64) int64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
@@ -1429,12 +1429,13 @@ func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 // user of the API to filter such called by message ID.
 func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, nickname, text string,
-	pubKey ed25519.PublicKey, dmToken []byte, codeset uint8, timestamp time.Time,
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp time.Time,
 	lease time.Duration, round rounds.Round, mType channels.MessageType,
 	status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveMessage(channelID[:], messageID[:], nickname,
-		text, pubKey, dmToken, int(codeset), timestamp.UnixNano(), int64(lease),
+		text, pubKey, int32(dmToken), int(codeset),
+		timestamp.UnixNano(), int64(lease),
 		int64(round.ID), int64(mType), int64(status)))
 }
 
@@ -1446,14 +1447,15 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 // initial message. As a result, it may be important to buffer replies.
 func (tem *toEventModel) ReceiveReply(channelID *id.ID,
 	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
-	nickname, text string, pubKey ed25519.PublicKey, dmToken []byte,
+	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, mType channels.MessageType,
 	status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
-		nickname, text, pubKey, dmToken, int(codeset), timestamp.UnixNano(),
-		int64(lease), int64(round.ID), int64(mType), int64(status)))
+		nickname, text, pubKey, int32(dmToken), int(codeset),
+		timestamp.UnixNano(), int64(lease), int64(round.ID),
+		int64(mType), int64(status)))
 
 }
 
@@ -1465,14 +1467,14 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID,
 // initial message. As a result, it may be important to buffer reactions.
 func (tem *toEventModel) ReceiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
-	nickname, reaction string, pubKey ed25519.PublicKey, dmToken []byte,
+	nickname, reaction string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveReaction(channelID[:], messageID[:],
-		reactionTo[:], nickname, reaction, pubKey, dmToken, int(codeset),
-		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(mType),
-		int64(status)))
+		reactionTo[:], nickname, reaction, pubKey, int32(dmToken),
+		int(codeset), timestamp.UnixNano(), int64(lease),
+		int64(round.ID), int64(mType), int64(status)))
 }
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.

@@ -17,6 +17,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/emoji"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -355,7 +356,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
 	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, channelID, reactTo)
 
-	if err := ValidateReaction(reaction); err != nil {
+	if err := emoji.ValidateReaction(reaction); err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 

@@ -14,6 +14,9 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/broadcast"
@@ -26,8 +29,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -38,6 +39,8 @@ type manager struct {
 
 	// List of all channels
 	channels map[id.ID]*joinedChannel
+	// List of dmTokens for each channel
+	dmTokens map[id.ID]uint32
 	mux      sync.RWMutex
 
 	// External references
@@ -105,6 +108,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	}
 
 	m := setupManager(identity, kv, net, rng, model)
+	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, nil
 }
@@ -112,7 +116,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
+	rng *fastRNG.StreamGenerator,
+	modelBuilder EventModelBuilder) (Manager, error) {
 
 	jww.INFO.Printf("LoadManager(tag:%s)", storageTag)
 
@@ -131,6 +136,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 	}
 
 	m := setupManager(identity, kv, net, rng, model)
+	m.loadDMTokens()
 
 	return m, nil
 }
@@ -153,7 +159,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.loadChannels()
 
-	m.nicknameManager = loadOrNewNicknameManager(kv)
+	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
 	return &m
 }
@@ -186,9 +192,9 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 	return nil
 }
 
-// EnableDirectMessageToken enables the token for direct messaging for this
+// EnableDirectMessages enables the token for direct messaging for this
 // channel.
-func (m *manager) EnableDirectMessageToken(chId *id.ID) error {
+func (m *manager) EnableDirectMessages(chId *id.ID) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.enableDirectMessageToken(chId)
@@ -196,7 +202,7 @@ func (m *manager) EnableDirectMessageToken(chId *id.ID) error {
 
 // DisableDirectMessageToken removes the token for direct messaging for a
 // given channel.
-func (m *manager) DisableDirectMessageToken(chId *id.ID) error {
+func (m *manager) DisableDirectMessages(chId *id.ID) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.disableDirectMessageToken(chId)
@@ -258,7 +264,7 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 
 // GetIdentity returns the public identity associated with this channel manager.
 func (m *manager) GetIdentity() cryptoChannel.Identity {
-	return m.me.Identity
+	return m.me.GetIdentity()
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

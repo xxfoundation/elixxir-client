@@ -10,6 +10,12 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"math/rand"
+	"reflect"
+	"runtime"
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -18,11 +24,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"reflect"
-	"runtime"
-	"testing"
-	"time"
 )
 
 type eventReceive struct {
@@ -51,7 +52,7 @@ func (*MockEvent) JoinChannel(*cryptoBroadcast.Channel) {}
 func (*MockEvent) LeaveChannel(*id.ID)                  {}
 func (m *MockEvent) ReceiveMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, nickname, text string,
-	_ ed25519.PublicKey, _ []byte, _ uint8, timestamp time.Time,
+	_ ed25519.PublicKey, _ uint32, _ uint8, timestamp time.Time,
 	lease time.Duration, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
@@ -68,7 +69,7 @@ func (m *MockEvent) ReceiveMessage(channelID *id.ID,
 }
 func (m *MockEvent) ReceiveReply(channelID *id.ID,
 	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
-	nickname, text string, _ ed25519.PublicKey, _ []byte, _ uint8,
+	nickname, text string, _ ed25519.PublicKey, _ uint32, _ uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
@@ -85,7 +86,7 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID,
 }
 func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
-	nickname, reaction string, _ ed25519.PublicKey, _ []byte, _ uint8,
+	nickname, reaction string, _ ed25519.PublicKey, _ uint32, _ uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
@@ -96,6 +97,51 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 		content:    []byte(reaction),
 		timestamp:  timestamp,
 		lease:      lease,
+		round:      round,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveDM(messageID cryptoChannel.MessageID,
+	nickname, text string,
+	_ ed25519.PublicKey, _ uint32, _ uint8, timestamp time.Time,
+	round rounds.Round, _ MessageType,
+	_ SentStatus) uint64 {
+	m.eventReceive = eventReceive{
+		messageID:  messageID,
+		reactionTo: cryptoChannel.MessageID{},
+		nickname:   nickname,
+		content:    []byte(text),
+		timestamp:  timestamp,
+		round:      round,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveDMReply(messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID,
+	nickname, text string, _ ed25519.PublicKey, _ []byte, _ uint8,
+	timestamp time.Time, round rounds.Round, _ MessageType,
+	_ SentStatus) uint64 {
+	m.eventReceive = eventReceive{
+		messageID:  messageID,
+		reactionTo: reactionTo,
+		nickname:   nickname,
+		content:    []byte(text),
+		timestamp:  timestamp,
+		round:      round,
+	}
+	return m.getUUID()
+}
+func (m *MockEvent) ReceiveDMReaction(messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID,
+	nickname, reaction string, _ ed25519.PublicKey, _ []byte, _ uint8,
+	timestamp time.Time, round rounds.Round, _ MessageType,
+	_ SentStatus) uint64 {
+	m.eventReceive = eventReceive{
+		messageID:  messageID,
+		reactionTo: reactionTo,
+		nickname:   nickname,
+		content:    []byte(reaction),
+		timestamp:  timestamp,
 		round:      round,
 	}
 	return m.getUUID()
@@ -209,7 +255,7 @@ type dummyMessageTypeHandler struct {
 func (dmth *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
 	channelID *id.ID, messageID cryptoChannel.MessageID,
 	messageType MessageType, nickname string, content []byte,
-	_ ed25519.PublicKey, _ []byte, _ uint8, timestamp time.Time, lease time.Duration,
+	_ ed25519.PublicKey, _ uint32, _ uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, _ SentStatus) uint64 {
 	dmth.triggered = true
 	dmth.channelID = channelID
@@ -482,10 +528,11 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
 	r.Timestamps[states.QUEUED] = netTime.Now()
-	dmToken := []byte("token")
+	dmToken := uint32(8675309)
 	// call the handler
 	e.receiveTextMessage(chID, msgID, 0, senderNickname,
-		textMarshaled, pi.PubKey, dmToken, pi.CodesetVersion, ts, lease, r, Delivered)
+		textMarshaled, pi.PubKey, dmToken, pi.CodesetVersion, ts, lease,
+		r, Delivered)
 
 	// check the results on the model
 	if !me.eventReceive.channelID.Cmp(chID) {
@@ -561,7 +608,7 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	dmToken := []byte("token,")
+	dmToken := uint32(8675309)
 
 	// call the handler
 	e.receiveTextMessage(chID, msgID, Text, senderUsername,
@@ -643,7 +690,7 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	dmToken := []byte("token")
+	dmToken := uint32(8675309)
 
 	// call the handler
 	e.receiveTextMessage(chID, msgID, 0, senderUsername,
@@ -723,7 +770,7 @@ func TestEvents_receiveReaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	dmToken := []byte("token")
+	dmToken := uint32(8675309)
 	// call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,
 		textMarshaled, pi.PubKey, dmToken, pi.CodesetVersion, ts, lease, r,
@@ -803,7 +850,7 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	dmToken := []byte("token")
+	dmToken := uint32(8675309)
 
 	// call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,
@@ -869,7 +916,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	dmToken := []byte("token")
+	dmToken := uint32(8675309)
 
 	// Call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,

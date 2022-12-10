@@ -9,6 +9,13 @@ package channels
 
 import (
 	"fmt"
+	"math/rand"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
@@ -17,12 +24,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"os"
-	"reflect"
-	"sync"
-	"testing"
-	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 )
@@ -254,14 +255,14 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
-	err = m.EnableDirectMessageToken(ch.ReceptionID)
+	err = m.EnableDirectMessages(ch.ReceptionID)
 	if err != nil {
 		t.Fatalf("EnableDirectMessageToken error: %+v", err)
 	}
 
 	token := m.getDmToken(ch.ReceptionID)
 
-	expected := hashPrivateKey(pi.Privkey)
+	expected := pi.GetDMToken()
 	if !reflect.DeepEqual(token, expected) {
 		t.Fatalf("EnableDirectMessageToken did not set token as expected."+
 			"\nExpected: %v"+
@@ -300,19 +301,19 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
-	err = m.EnableDirectMessageToken(ch.ReceptionID)
+	err = m.EnableDirectMessages(ch.ReceptionID)
 	if err != nil {
 		t.Fatalf("EnableDirectMessageToken error: %+v", err)
 	}
 
-	err = m.DisableDirectMessageToken(ch.ReceptionID)
+	err = m.DisableDirectMessages(ch.ReceptionID)
 	if err != nil {
 		t.Fatalf("DisableDirectMessageToken error: %+v", err)
 	}
 
-	// Test that token is nil when retrieved
+	// Test that token is 0 when retrieved
 	token := m.getDmToken(ch.ReceptionID)
-	if token != nil {
+	if token != 0 {
 		t.Fatalf("getDmToken expected to return nil after calling " +
 			"DisableDirectMessageToken")
 	}

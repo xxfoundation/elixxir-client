@@ -3,11 +3,12 @@ package channels
 import (
 	"encoding/json"
 	"errors"
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const (
@@ -23,9 +24,9 @@ type nicknameManager struct {
 	kv *versioned.KV
 }
 
-// loadOrNewNicknameManager returns the stored nickname manager if there is one
+// LoadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
-func loadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
+func LoadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
 	nm := &nicknameManager{
 		byChannel: make(map[id.ID]string),
 		kv:        kv,
@@ -129,8 +130,8 @@ func (nm *nicknameManager) load() error {
 // IsNicknameValid checks if a nickname is valid.
 //
 // Rules:
-//  - A nickname must not be longer than 24 characters.
-//  - A nickname must not be shorter than 1 character.
+//   - A nickname must not be longer than 24 characters.
+//   - A nickname must not be shorter than 1 character.
 //
 // TODO: Add character filtering.
 func IsNicknameValid(nick string) error {

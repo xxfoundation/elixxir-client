@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -208,7 +209,7 @@ func (cm *DMClient) SendText(partnerPubKeyBytes []byte, dmToken uint32,
 // Returns:
 //   - []byte - A JSON marshalled ChannelSendReport
 func (cm *DMClient) SendReply(partnerPubKeyBytes []byte, dmToken uint32,
-	message string, messageToReactTo []byte, leaseTimeMS int64,
+	content string, messageToReactTo []byte, leaseTimeMS int64,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	params, err := parseCMixParams(cmixParamsJSON)
@@ -218,12 +219,12 @@ func (cm *DMClient) SendReply(partnerPubKeyBytes []byte, dmToken uint32,
 	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
 
 	// Unmarshal message ID
-	msgId := dm.MessageID{}
+	msgId := message.ID{}
 	copy(msgId[:], messageToReactTo)
 
 	// Send Reply
 	msgID, rnd, ephID, err := cm.api.SendReply(&partnerPubKey, dmToken,
-		message, msgId, params.CMIX)
+		content, msgId, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +265,7 @@ func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, dmToken uint32,
 	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
 
 	// Unmarshal message ID
-	msgId := dm.MessageID{}
+	msgId := message.ID{}
 	copy(msgId[:], messageToReactTo)
 
 	// Send reaction
@@ -329,7 +330,7 @@ func (dmc *DMClient) Send(messageType int, partnerPubKeyBytes []byte,
 
 // constructChannelSendReport is a helper function which returns a JSON
 // marshalled ChannelSendReport.
-func constructDMSendReport(dmMsgID dm.MessageID,
+func constructDMSendReport(dmMsgID message.ID,
 	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
 	// Construct send report
 	sendReport := ChannelSendReport{

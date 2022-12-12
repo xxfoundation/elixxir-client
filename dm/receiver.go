@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
 	"gitlab.com/elixxir/crypto/dm"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/elixxir/primitives/format"
@@ -29,7 +30,7 @@ import (
 // messageReceiveFunc is a function type for sendTracker.MessageReceive so it
 // can be mocked for testing where used.
 type messageReceiveFunc func(
-	messageID MessageID, r rounds.Round) bool
+	messageID message.ID, r rounds.Round) bool
 
 // receiver struct for message handling
 type receiver struct {
@@ -80,7 +81,7 @@ func (p *receiver) Process(msg format.Message,
 		senderToken = directMsg.DMToken
 	}
 
-	msgID := DeriveDirectMessageID(directMsg)
+	msgID := message.DeriveDirectMessageID(p.c.receptionID, directMsg)
 	// Check if we sent the message and ignore triggering if we sent
 	if p.checkSent(msgID, round) {
 		return
@@ -105,7 +106,7 @@ func (p *receiver) Process(msg format.Message,
 
 	// Replace the timestamp on the message if it is outside the
 	// allowable range
-	ts := vetTimestamp(time.Unix(0, directMsg.LocalTimestamp),
+	ts := message.VetTimestamp(time.Unix(0, directMsg.LocalTimestamp),
 		round.Timestamps[states.QUEUED], msgID)
 
 	pubSigningKey := ecdh.ECDHNIKE2EdwardsPublicKey(senderPublicKey)
@@ -126,7 +127,7 @@ func (p *receiver) Process(msg format.Message,
 
 // receiveMessage attempts to parse the message and calls the appropriate
 // receiver function.
-func (p *receiver) receiveMessage(msgID MessageID, messageType MessageType,
+func (p *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 	nick string, plaintext []byte, dmToken uint32,
 	partnerPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
@@ -147,7 +148,7 @@ func (p *receiver) receiveMessage(msgID MessageID, messageType MessageType,
 	}
 }
 
-func (p *receiver) receiveTextMessage(messageID MessageID,
+func (p *receiver) receiveTextMessage(messageID message.ID,
 	messageType MessageType, nickname string, content []byte,
 	dmToken uint32, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, round rounds.Round,
@@ -163,8 +164,8 @@ func (p *receiver) receiveTextMessage(messageID MessageID,
 
 	if txt.ReplyMessageID != nil {
 
-		if len(txt.ReplyMessageID) == MessageIDLen {
-			var replyTo MessageID
+		if len(txt.ReplyMessageID) == message.IDLen {
+			var replyTo message.ID
 			copy(replyTo[:], txt.ReplyMessageID)
 			tag := makeDebugTag(pubKey, content, SendReplyTag)
 			jww.INFO.Printf("[%s] DM - Received reply from %s "+
@@ -204,7 +205,7 @@ func (p *receiver) receiveTextMessage(messageID MessageID,
 // If the received reaction is not, the reaction is dropped.
 // If the messageID for the message the reaction is to is malformed, the
 // reaction is dropped.
-func (p *receiver) receiveReaction(messageID MessageID,
+func (p *receiver) receiveReaction(messageID message.ID,
 	messageType MessageType, nickname string, content []byte,
 	dmToken uint32, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, round rounds.Round,
@@ -227,8 +228,8 @@ func (p *receiver) receiveReaction(messageID MessageID,
 	}
 
 	if react.ReactionMessageID != nil &&
-		len(react.ReactionMessageID) == MessageIDLen {
-		var reactTo MessageID
+		len(react.ReactionMessageID) == message.IDLen {
+		var reactTo message.ID
 		copy(reactTo[:], react.ReactionMessageID)
 
 		tag := makeDebugTag(pubKey, content, SendReactionTag)

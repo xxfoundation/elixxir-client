@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
 	"gitlab.com/elixxir/crypto/dm"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/elixxir/primitives/format"
@@ -55,9 +56,9 @@ const (
 // SendText is used to send a formatted message to another user.
 func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
-	MessageID, rounds.Round, ephemeral.Id, error) {
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	return dc.SendReply(partnerPubKey, partnerToken, msg,
-		MessageID{}, params)
+		cryptoMessage.ID{}, params)
 }
 
 // SendDMReply is used to send a formatted direct message reply.
@@ -66,8 +67,8 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint
 // then the other side will post the message as a normal
 // message and not as a reply.
 func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
-	partnerToken uint32, msg string, replyTo MessageID,
-	params cmix.CMIXParams) (MessageID, rounds.Round, ephemeral.Id, error) {
+	partnerToken uint32, msg string, replyTo cryptoMessage.ID,
+	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
 	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
 	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, partnerPubKey, replyTo)
@@ -81,7 +82,7 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
-		return MessageID{}, rounds.Round{},
+		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
 
@@ -96,8 +97,8 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 // Clients will drop the reaction if they do not recognize the reactTo
 // message.
 func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
-	partnerToken uint32, reaction string, reactTo MessageID,
-	params cmix.CMIXParams) (MessageID,
+	partnerToken uint32, reaction string, reactTo cryptoMessage.ID,
+	params cmix.CMIXParams) (cryptoMessage.ID,
 	rounds.Round, ephemeral.Id, error) {
 	tag := makeDebugTag(*partnerPubKey, []byte(reaction),
 		SendReactionTag)
@@ -105,7 +106,7 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 		reactTo)
 
 	if err := emoji.ValidateReaction(reaction); err != nil {
-		return MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	react := &Reaction{
@@ -118,7 +119,7 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 
 	reactMarshaled, err := proto.Marshal(react)
 	if err != nil {
-		return MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return dc.Send(partnerPubKey, partnerToken, ReactionType,
@@ -128,7 +129,7 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType, msg []byte,
 	params cmix.CMIXParams) (
-	MessageID, rounds.Round, ephemeral.Id, error) {
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
 
@@ -152,13 +153,13 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	n, err := rng.Read(msgNonce)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", failed to generate nonce: %+v", err)
-		return MessageID{}, rounds.Round{},
+		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{},
 			errors.Errorf("Failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
 		sendPrint += fmt.Sprintf(
 			", got %d bytes for %d-byte nonce", n, messageNonceSize)
-		return MessageID{}, rounds.Round{},
+		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{},
 			errors.Errorf(
 				"Generated %d bytes for %d-byte nonce", n,
@@ -174,7 +175,8 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		LocalTimestamp: netTime.Now().UnixNano(),
 	}
 
-	msgID := DeriveDirectMessageID(directMessage)
+	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
+		directMessage)
 
 	if params.DebugTag == cmix.DefaultDebugTag {
 		params.DebugTag = directMessageServiceTag
@@ -183,7 +185,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		dc.privateKey, directMessage, params, rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on partner send: %+v", err)
-		return MessageID{}, rounds.Round{},
+		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
 	sendPrint += fmt.Sprintf(", partner send eph %s rnd %s id %s",
@@ -193,7 +195,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		partnerToken, dc.privateKey, directMessage, params, rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on self send: %+v", err)
-		return MessageID{}, rounds.Round{},
+		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
 	sendPrint += fmt.Sprintf(", self send eph %s rnd %s id %s",

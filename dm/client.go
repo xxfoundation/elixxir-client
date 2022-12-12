@@ -14,6 +14,7 @@ import (
 
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -73,7 +74,7 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 	// TODO: For now we are not doing send tracking. Add it when
 	// hitting WASM.
 	dmc.Register(receiver, func(
-		messageID MessageID, r rounds.Round) bool {
+		messageID cryptoMessage.ID, r rounds.Round) bool {
 		return false
 	})
 

@@ -130,7 +130,7 @@ func (p *pool) GetAny(length uint32, excluded []*id.ID, rng io.Reader) []*connec
 func (p *pool) GetSpecific(target *id.ID) (*connect.Host, bool) {
 	if idx, exists := p.hostMap[*target]; exists {
 		h := p.hostList[idx]
-		if connected, _ := h.Connected(); !connected {
+		if !p.isConnected(h) {
 			return nil, false
 		}
 		return h, true

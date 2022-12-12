@@ -38,6 +38,8 @@ func TestHostPool_GetAny(t *testing.T) {
 
 	}
 
+	testPool.isConnected = func(host *connect.Host) bool { return true }
+
 	requested := 3
 	anyList := testPool.GetAny(uint32(requested), nil, rng)
 	if len(anyList) != requested {
@@ -88,6 +90,8 @@ func TestHostPool_GetSpecific(t *testing.T) {
 	poolLen := 5
 	testPool := newPool(poolLen)
 
+	testPool.isConnected = func(host *connect.Host) bool { return true }
+
 	// Pull all gateways from NDF into host manager
 	for i, gw := range testNdf.Gateways {
 
@@ -109,11 +113,14 @@ func TestHostPool_GetSpecific(t *testing.T) {
 		}
 	}
 
-	//test get specific returns something in the host pool
+	testPool.isConnected = func(host *connect.Host) bool { return true }
+
+	//test get specific returns something in the host pool]
 	toGet := testPool.hostList[0].GetId()
 	h, exists := testPool.GetSpecific(toGet)
 	if !exists {
-		t.Errorf("Failed to get member of host pool that should be there")
+		t.Errorf("Failed to get member of host pool that should "+
+			"be there, got: %s", h)
 	}
 	if h == nil || !h.GetId().Cmp(toGet) {
 		t.Errorf("Wrong or invalid host returned")
@@ -138,6 +145,8 @@ func TestHostPool_GetPreferred(t *testing.T) {
 
 	poolLen := 12
 	testPool := newPool(poolLen)
+
+	testPool.isConnected = func(host *connect.Host) bool { return true }
 
 	// Pull all gateways from NDF into host manager
 	hostMap := make(map[id.ID]bool, 0)

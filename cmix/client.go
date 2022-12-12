@@ -11,13 +11,14 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/attempts"
-	"gitlab.com/elixxir/client/v4/cmix/clockSkew"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/attempts"
+	"gitlab.com/elixxir/client/v4/cmix/clockSkew"
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix/address"
@@ -240,11 +241,11 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 // Started Threads are:
 //   - Network Follower (/network/follow.go)
 //   - Historical Round Retrieval (/network/rounds/historical.go)
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//	 - health tracker (/network/health)
-//	 - Garbled Messages (/network/message/inProgress.go)
-//	 - Critical Messages (/network/message/critical.go)
+//   - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//   - Message Handling Worker Group (/network/message/handle.go)
+//   - health tracker (/network/health)
+//   - Garbled Messages (/network/message/inProgress.go)
+//   - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/address/tracker.go)
 func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("networkManager")

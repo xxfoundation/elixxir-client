@@ -120,7 +120,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 			// remove all gateways which are not missing from the host pool
 			// that are in the host pool
 			for gwID := range hp.ndfMap {
-				if _, exist := hp.writePool.hostMap[gwID]; exist {
+				if hp.writePool.Has(&gwID) {
 					hp.removeRequest <- gwID.DeepCopy()
 				}
 			}

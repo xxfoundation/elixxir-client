@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -51,6 +52,24 @@ func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	if err != nil {
 		return nil, err
 	}
+	return &sender{hp}, nil
+}
+
+// NewSender Create a new Sender object wrapping a HostPool object
+func NewTestingSender(poolParams Params, rng *fastRNG.StreamGenerator,
+	ndf *ndf.NetworkDefinition, getter HostManager,
+	storage storage.Session, t *testing.T) (Sender, error) {
+
+	if t == nil {
+		jww.FATAL.Panicf("can only be called in testing")
+	}
+
+	hp, err := newTestingHostPool(poolParams, rng, ndf,
+		getter, storage, t)
+	if err != nil {
+		return nil, err
+	}
+
 	return &sender{hp}, nil
 }
 

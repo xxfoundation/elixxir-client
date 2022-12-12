@@ -43,8 +43,8 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	var err error
-	testManager.sender, err = gateway.NewSender(p, testManager.rng,
-		testNdf, mockComms, testManager.session)
+	testManager.sender, err = gateway.NewTestingSender(p, testManager.rng,
+		testNdf, mockComms, testManager.session, t)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -354,8 +354,8 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
-	testManager.sender, _ = gateway.NewSender(
-		p, testManager.rng, testNdf, mockComms, testManager.session)
+	testManager.sender, _ = gateway.NewTestingSender(
+		p, testManager.rng, testNdf, mockComms, testManager.session, t)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)

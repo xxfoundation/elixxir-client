@@ -219,8 +219,9 @@ func (p *pool) internalReplace(selectedIndex uint, host *connect.Host) *connect.
 
 func (p *pool) deepCopy() *pool {
 	pCopy := &pool{
-		hostMap:  make(map[id.ID]uint, len(p.hostMap)),
-		hostList: make([]*connect.Host, len(p.hostList)),
+		hostMap:     make(map[id.ID]uint, len(p.hostMap)),
+		hostList:    make([]*connect.Host, len(p.hostList)),
+		isConnected: p.isConnected,
 	}
 
 	copy(pCopy.hostList, p.hostList)

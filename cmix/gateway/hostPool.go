@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"testing"
 )
 
 type hostPool struct {
@@ -138,6 +139,34 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		hp.addRequest <- hl[i]
 	}
 
+	return hp, nil
+}
+
+func newTestingHostPool(params Params, rng *fastRNG.StreamGenerator,
+	netDef *ndf.NetworkDefinition, getter HostManager,
+	storage storage.Session, t *testing.T) (*hostPool, error) {
+	if t == nil {
+		jww.FATAL.Panicf("can only be called in testing")
+	}
+
+	hp, err := newHostPool(params, rng, netDef, getter, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	//overwrite is connected
+	hp.writePool.isConnected = func(host *connect.Host) bool { return true }
+
+	gwID, _ := hp.ndf.Gateways[0].GetGatewayId()
+	h, exists := hp.manager.GetHost(gwID)
+	if !exists {
+		return nil, errors.Errorf("impossible error")
+	}
+	//add one member to the host pool
+	stream := rng.GetStream()
+	hp.writePool.addOrReplace(stream, h)
+	hp.readPool.Store(hp.writePool.deepCopy())
+	stream.Close()
 	return hp, nil
 }
 

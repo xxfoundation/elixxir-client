@@ -39,8 +39,8 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	testManager.sender, _ = gateway.NewSender(
-		p, rngGen, testNdf, mockComms, testManager.session)
+	testManager.sender, _ = gateway.NewTestingSender(
+		p, rngGen, testNdf, mockComms, testManager.session, t)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)

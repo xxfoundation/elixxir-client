@@ -76,7 +76,7 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	sender, err := gateway.NewSender(p, c.GetRng(), def, commsManager,
-		c.storage, nil)
+		c.storage)
 	if err != nil {
 		return nil, err
 	}

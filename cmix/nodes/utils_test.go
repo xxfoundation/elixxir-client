@@ -93,7 +93,7 @@ func makeTestRegistrar(mockComms *MockClientComms, t *testing.T) *registrar {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	sender, err := gateway.NewSender(gateway.DefaultPoolParams(), rngGen,
-		getNDF(), newMockManager(), session, nil)
+		getNDF(), newMockManager(), session)
 	if err != nil {
 		t.Fatalf("Failed to create new sender: %+v", err)
 	}

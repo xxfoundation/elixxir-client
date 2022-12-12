@@ -44,7 +44,7 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 	p.MaxPoolSize = 1
 	var err error
 	testManager.sender, err = gateway.NewSender(p, testManager.rng,
-		testNdf, mockComms, testManager.session, nil)
+		testNdf, mockComms, testManager.session)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -136,7 +136,7 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 
 	testManager.sender, _ = gateway.NewSender(p,
 		testManager.rng,
-		testNdf, mockComms, testManager.session, nil)
+		testNdf, mockComms, testManager.session)
 	stop := stoppable.NewSingle("singleStoppable")
 
 	// Create a local channel so reception is possible
@@ -212,7 +212,7 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 	p.MaxPoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
 		testManager.rng,
-		testNdf, mockComms, testManager.session, nil)
+		testNdf, mockComms, testManager.session)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)
@@ -355,7 +355,7 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	testManager.sender, _ = gateway.NewSender(
-		p, testManager.rng, testNdf, mockComms, testManager.session, nil)
+		p, testManager.rng, testNdf, mockComms, testManager.session)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)

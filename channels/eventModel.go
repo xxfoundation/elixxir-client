@@ -23,7 +23,7 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -93,7 +93,7 @@ type EventModel interface {
 	//
 	// Message type is included in the call; it will always be Text (1) for this
 	// call, but it may be required in downstream databases.
-	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
+	ReceiveMessage(channelID *id.ID, messageID message.ID,
 		nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 		codeset uint8, timestamp time.Time, lease time.Duration,
 		round rounds.Round, mType MessageType, status SentStatus) uint64
@@ -118,8 +118,8 @@ type EventModel interface {
 	//
 	// Message type is included in the call; it will always be Text (1) for this
 	// call, but it may be required in downstream databases.
-	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
-		reactionTo cryptoChannel.MessageID, nickname, text string,
+	ReceiveReply(channelID *id.ID, messageID message.ID,
+		reactionTo message.ID, nickname, text string,
 		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
@@ -144,8 +144,8 @@ type EventModel interface {
 	//
 	// Message type is included in the call; it will always be Text (1) for this
 	// call, but it may be required in downstream databases.
-	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
-		reactionTo cryptoChannel.MessageID, nickname, reaction string,
+	ReceiveReaction(channelID *id.ID, messageID message.ID,
+		reactionTo message.ID, nickname, reaction string,
 		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
@@ -156,14 +156,14 @@ type EventModel interface {
 	// messageID, timestamp, and round are all nillable and may be updated based
 	// upon the UUID at a later date. A time of time.Time{} will be passed for a
 	// nilled timestamp. If a nil value is passed, make no update.
-	UpdateSentStatus(uuid uint64, messageID cryptoChannel.MessageID,
+	UpdateSentStatus(uuid uint64, messageID message.ID,
 		timestamp time.Time, round rounds.Round, status SentStatus)
 
 	// unimplemented
-	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
-	// UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	// IgnoreMessage(ChannelID *id.ID, MessageID message.ID)
+	// UnIgnoreMessage(ChannelID *id.ID, MessageID message.ID)
+	// PinMessage(ChannelID *id.ID, MessageID message.ID, end time.Time)
+	// UnPinMessage(ChannelID *id.ID, MessageID message.ID)
 }
 
 // MessageTypeReceiveMessage defines handlers for messages of various message
@@ -175,14 +175,14 @@ type EventModel interface {
 // It must return a unique UUID for the message by which it can be referenced
 // later.
 type MessageTypeReceiveMessage func(channelID *id.ID,
-	messageID cryptoChannel.MessageID, messageType MessageType,
+	messageID message.ID, messageType MessageType,
 	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, status SentStatus) uint64
 
 // updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
 // be mocked for testing where used.
-type updateStatusFunc func(uuid uint64, messageID cryptoChannel.MessageID,
+type updateStatusFunc func(uuid uint64, messageID message.ID,
 	timestamp time.Time, round rounds.Round, status SentStatus)
 
 // events is an internal structure that processes events and stores the handlers
@@ -269,7 +269,7 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 }
 
 type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+	messageID message.ID, receptionID receptionID.EphemeralIdentity,
 	round rounds.Round, status SentStatus) (uint64, error)
 
 // triggerAdminEvent is an internal function that is used to trigger message
@@ -277,7 +277,7 @@ type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 //
 // It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
-	ts time.Time, messageID cryptoChannel.MessageID,
+	ts time.Time, messageID message.ID,
 	_ receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (
 	uint64, error) {
 	messageType := MessageType(cm.PayloadType)
@@ -311,7 +311,7 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 // If the message has a reply, but it is malformed, it will drop the reply and
 // write to the log.
 func (e *events) receiveTextMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, messageType MessageType,
+	messageID message.ID, messageType MessageType,
 	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
@@ -327,8 +327,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 
 	if txt.ReplyMessageID != nil {
 
-		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
-			var replyTo cryptoChannel.MessageID
+		if len(txt.ReplyMessageID) == message.IDLen {
+			var replyTo message.ID
 			copy(replyTo[:], txt.ReplyMessageID)
 			tag := makeChaDebugTag(channelID, pubKey, content, SendReplyTag)
 			jww.INFO.Printf("[%s]Channels - Received reply from %s "+
@@ -367,7 +367,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 // If the messageID for the message the reaction is to is malformed, the
 // reaction is dropped.
 func (e *events) receiveReaction(channelID *id.ID,
-	messageID cryptoChannel.MessageID, messageType MessageType,
+	messageID message.ID, messageType MessageType,
 	nickname string, content []byte, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
@@ -391,8 +391,8 @@ func (e *events) receiveReaction(channelID *id.ID,
 	}
 
 	if react.ReactionMessageID != nil &&
-		len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
-		var reactTo cryptoChannel.MessageID
+		len(react.ReactionMessageID) == message.IDLen {
+		var reactTo message.ID
 		copy(reactTo[:], react.ReactionMessageID)
 
 		tag := makeChaDebugTag(channelID, pubKey, content, SendReactionTag)

@@ -10,18 +10,19 @@ package channels
 import (
 	"encoding/json"
 	"errors"
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"time"
 )
 
 const (
@@ -40,7 +41,7 @@ const (
 )
 
 type tracked struct {
-	MsgID     cryptoChannel.MessageID
+	MsgID     message.ID
 	ChannelID *id.ID
 	RoundID   id.Round
 	UUID      uint64
@@ -58,7 +59,7 @@ type trackedList struct {
 type sendTracker struct {
 	byRound map[id.Round]trackedList
 
-	byMessageID map[cryptoChannel.MessageID]*tracked
+	byMessageID map[message.ID]*tracked
 
 	unsent map[uint64]*tracked
 
@@ -78,7 +79,7 @@ type sendTracker struct {
 // messageReceiveFunc is a function type for sendTracker.MessageReceive so it
 // can be mocked for testing where used.
 type messageReceiveFunc func(
-	messageID cryptoChannel.MessageID, r rounds.Round) bool
+	messageID message.ID, r rounds.Round) bool
 
 // loadSendTracker loads a sent tracker, restoring from disk. It will register a
 // function with the cmix client, delayed on when the network goes healthy,
@@ -88,7 +89,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	rngSource *fastRNG.StreamGenerator) *sendTracker {
 	st := &sendTracker{
 		byRound:      make(map[id.Round]trackedList),
-		byMessageID:  make(map[cryptoChannel.MessageID]*tracked),
+		byMessageID:  make(map[message.ID]*tracked),
 		unsent:       make(map[uint64]*tracked),
 		trigger:      trigger,
 		adminTrigger: adminTrigger,
@@ -215,7 +216,7 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 	// Create a random message ID so that there won't be collisions in a
 	// database that requires a unique message ID
 	stream := st.rngSrc.GetStream()
-	umi.messageID = cryptoChannel.MessageID{}
+	umi.messageID = message.ID{}
 	n, err := stream.Read(umi.messageID[:])
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get generate random message ID: %+v", err)
@@ -248,7 +249,7 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 	// Create a random message ID so there will not be collisions in a database
 	// that requires a unique message ID
 	stream := st.rngSrc.GetStream()
-	randMid := cryptoChannel.MessageID{}
+	randMid := message.ID{}
 	num, err := stream.Read(randMid[:])
 	if num != len(randMid[:]) || err != nil {
 		jww.FATAL.Panicf(
@@ -272,7 +273,7 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 
 // handleDenoteSend does the nitty-gritty of editing internal structures.
 func (st *sendTracker) handleDenoteSend(uuid uint64, channelID *id.ID,
-	messageID cryptoChannel.MessageID, round rounds.Round) {
+	messageID message.ID, round rounds.Round) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
@@ -292,7 +293,7 @@ func (st *sendTracker) handleDenoteSend(uuid uint64, channelID *id.ID,
 
 // send tracks a generic send message.
 func (st *sendTracker) send(
-	uuid uint64, msgID cryptoChannel.MessageID, round rounds.Round) error {
+	uuid uint64, msgID message.ID, round rounds.Round) error {
 	// Update the on disk message status
 	t, err := st.handleSend(uuid, msgID, round)
 	if err != nil {
@@ -300,7 +301,7 @@ func (st *sendTracker) send(
 	}
 
 	// Modify the timestamp to reduce the chance message order will be ambiguous
-	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED], msgID)
 
 	// Update the message in the UI
 	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
@@ -317,13 +318,13 @@ func (st *sendTracker) failedSend(uuid uint64) error {
 
 	// Update the message in the UI
 	go st.updateStatus(
-		t.UUID, cryptoChannel.MessageID{}, time.Time{}, rounds.Round{}, Failed)
+		t.UUID, message.ID{}, time.Time{}, rounds.Round{}, Failed)
 	return nil
 }
 
 // handleSend does the nitty-gritty of editing internal structures.
 func (st *sendTracker) handleSend(uuid uint64,
-	messageID cryptoChannel.MessageID, round rounds.Round) (*tracked, error) {
+	messageID message.ID, round rounds.Round) (*tracked, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
@@ -396,7 +397,7 @@ func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
 // and the function returns true, notifying the caller to not process the
 // message.
 func (st *sendTracker) MessageReceive(
-	messageID cryptoChannel.MessageID, round rounds.Round) bool {
+	messageID message.ID, round rounds.Round) bool {
 	st.mux.RLock()
 
 	// Skip if already added
@@ -431,7 +432,7 @@ func (st *sendTracker) MessageReceive(
 		}
 	}
 
-	ts := mutateTimestamp(round.Timestamps[states.QUEUED], messageID)
+	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED], messageID)
 	go st.updateStatus(msgData.UUID, messageID, ts,
 		round, Delivered)
 

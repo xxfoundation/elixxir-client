@@ -21,15 +21,24 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
+const (
+	// tenMsInNs is a prime close to one million to ensure that
+	// patterns do not arise due to cofactors with the message ID
+	// when doing the modulo.
+	tenMsInNs     = 10000019
+	halfTenMsInNs = tenMsInNs / 2
+)
+
 type eventReceive struct {
 	channelID  *id.ID
-	messageID  cryptoChannel.MessageID
-	reactionTo cryptoChannel.MessageID
+	messageID  message.ID
+	reactionTo message.ID
 	nickname   string
 	content    []byte
 	timestamp  time.Time
@@ -51,14 +60,14 @@ func (m *MockEvent) getUUID() uint64 {
 func (*MockEvent) JoinChannel(*cryptoBroadcast.Channel) {}
 func (*MockEvent) LeaveChannel(*id.ID)                  {}
 func (m *MockEvent) ReceiveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, nickname, text string,
+	messageID message.ID, nickname, text string,
 	_ ed25519.PublicKey, _ uint32, _ uint8, timestamp time.Time,
 	lease time.Duration, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		channelID:  channelID,
 		messageID:  messageID,
-		reactionTo: cryptoChannel.MessageID{},
+		reactionTo: message.ID{},
 		nickname:   nickname,
 		content:    []byte(text),
 		timestamp:  timestamp,
@@ -68,7 +77,7 @@ func (m *MockEvent) ReceiveMessage(channelID *id.ID,
 	return m.getUUID()
 }
 func (m *MockEvent) ReceiveReply(channelID *id.ID,
-	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
+	messageID message.ID, reactionTo message.ID,
 	nickname, text string, _ ed25519.PublicKey, _ uint32, _ uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
@@ -85,7 +94,7 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID,
 	return m.getUUID()
 }
 func (m *MockEvent) ReceiveReaction(channelID *id.ID,
-	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
+	messageID message.ID, reactionTo message.ID,
 	nickname, reaction string, _ ed25519.PublicKey, _ uint32, _ uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
@@ -101,14 +110,14 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID,
 	}
 	return m.getUUID()
 }
-func (m *MockEvent) ReceiveDM(messageID cryptoChannel.MessageID,
+func (m *MockEvent) ReceiveDM(messageID message.ID,
 	nickname, text string,
 	_ ed25519.PublicKey, _ uint32, _ uint8, timestamp time.Time,
 	round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		messageID:  messageID,
-		reactionTo: cryptoChannel.MessageID{},
+		reactionTo: message.ID{},
 		nickname:   nickname,
 		content:    []byte(text),
 		timestamp:  timestamp,
@@ -116,8 +125,8 @@ func (m *MockEvent) ReceiveDM(messageID cryptoChannel.MessageID,
 	}
 	return m.getUUID()
 }
-func (m *MockEvent) ReceiveDMReply(messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID,
+func (m *MockEvent) ReceiveDMReply(messageID message.ID,
+	reactionTo message.ID,
 	nickname, text string, _ ed25519.PublicKey, _ []byte, _ uint8,
 	timestamp time.Time, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
@@ -131,8 +140,8 @@ func (m *MockEvent) ReceiveDMReply(messageID cryptoChannel.MessageID,
 	}
 	return m.getUUID()
 }
-func (m *MockEvent) ReceiveDMReaction(messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID,
+func (m *MockEvent) ReceiveDMReaction(messageID message.ID,
+	reactionTo message.ID,
 	nickname, reaction string, _ ed25519.PublicKey, _ []byte, _ uint8,
 	timestamp time.Time, round rounds.Round, _ MessageType,
 	_ SentStatus) uint64 {
@@ -147,7 +156,7 @@ func (m *MockEvent) ReceiveDMReaction(messageID cryptoChannel.MessageID,
 	return m.getUUID()
 }
 
-func (m *MockEvent) UpdateSentStatus(uint64, cryptoChannel.MessageID,
+func (m *MockEvent) UpdateSentStatus(uint64, message.ID,
 	time.Time, rounds.Round, SentStatus) {
 	panic("implement me")
 }
@@ -243,7 +252,7 @@ func TestEvents_RegisterReceiveHandler(t *testing.T) {
 type dummyMessageTypeHandler struct {
 	triggered   bool
 	channelID   *id.ID
-	messageID   cryptoChannel.MessageID
+	messageID   message.ID
 	messageType MessageType
 	nickname    string
 	content     []byte
@@ -253,7 +262,7 @@ type dummyMessageTypeHandler struct {
 }
 
 func (dmth *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
-	channelID *id.ID, messageID cryptoChannel.MessageID,
+	channelID *id.ID, messageID message.ID,
 	messageType MessageType, nickname string, content []byte,
 	_ ed25519.PublicKey, _ uint32, _ uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, _ SentStatus) uint64 {
@@ -402,7 +411,8 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
-	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID),
+		u.userMessage.Message)
 
 	// call the trigger
 	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
@@ -477,7 +487,8 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
-	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID),
+		u.userMessage.Message)
 
 	// call the trigger
 	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
@@ -512,7 +523,10 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
+	r.Timestamps[states.QUEUED] = netTime.Now()
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID),
+		textMarshaled)
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -526,8 +540,6 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 
 	lease := 69 * time.Minute
 
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
 	dmToken := uint32(8675309)
 	// call the handler
 	e.receiveTextMessage(chID, msgID, 0, senderNickname,
@@ -545,7 +557,7 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 			me.eventReceive.messageID, msgID)
 	}
 
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
+	if !me.eventReceive.reactionTo.Equals(message.ID{}) {
 		t.Errorf("Reaction ID is not blank, %s", me.eventReceive.reactionTo)
 	}
 
@@ -577,8 +589,11 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 	// craft the input for the event
 	chID := &id.ID{}
 	chID[0] = 1
+	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
-	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
+	replyMsgId := message.DeriveChannelMessageID(chID, uint64(r.ID),
+		[]byte("blarg"))
 
 	textPayload := &CMIXChannelText{
 		Version:        0,
@@ -591,15 +606,13 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID),
+		textMarshaled)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
 
 	lease := 69 * time.Minute
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -672,16 +685,16 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
+	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID),
+		textMarshaled)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
 
 	lease := 69 * time.Minute
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -708,7 +721,7 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 			me.eventReceive.messageID, msgID)
 	}
 
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
+	if !me.eventReceive.reactionTo.Equals(message.ID{}) {
 		t.Errorf("Reaction ID is not blank, %s", me.eventReceive.reactionTo)
 	}
 
@@ -741,7 +754,7 @@ func TestEvents_receiveReaction(t *testing.T) {
 	chID := &id.ID{}
 	chID[0] = 1
 
-	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
+	replyMsgId := message.DeriveChannelMessageID(chID, 420, []byte("blarg"))
 
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
@@ -754,7 +767,7 @@ func TestEvents_receiveReaction(t *testing.T) {
 		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	msgID := message.DeriveChannelMessageID(chID, 420, textMarshaled)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
@@ -834,7 +847,7 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	msgID := message.DeriveChannelMessageID(chID, 420, textMarshaled)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
@@ -866,7 +879,7 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 		t.Errorf("Message ID propagate correctly when the reaction is bad.")
 	}
 
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
+	if !me.eventReceive.reactionTo.Equals(message.ID{}) {
 		t.Errorf("Reaction ID propagate correctly when the reaction is bad.")
 	}
 
@@ -887,7 +900,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	chID := &id.ID{}
 	chID[0] = 1
 
-	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
+	replyMsgId := message.DeriveChannelMessageID(chID, 420, []byte("blarg"))
 
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
@@ -900,7 +913,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 		t.Fatalf("Failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	msgID := message.DeriveChannelMessageID(chID, 420, textMarshaled)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
@@ -932,7 +945,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 		t.Error("Message ID propagate correctly when the reaction is bad.")
 	}
 
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
+	if !me.eventReceive.reactionTo.Equals(message.ID{}) {
 		t.Error("Reaction ID propagate correctly when the reaction is bad.")
 	}
 
@@ -947,4 +960,13 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 
 func getFuncName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
+// withinMutationWindow is a utility test function to check if a mutated
+// timestamp is within the allowable window
+func withinMutationWindow(raw, mutated time.Time) bool {
+	lowerBound := raw.Add(-time.Duration(halfTenMsInNs))
+	upperBound := raw.Add(time.Duration(halfTenMsInNs))
+
+	return mutated.After(lowerBound) && mutated.Before(upperBound)
 }

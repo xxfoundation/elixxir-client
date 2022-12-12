@@ -10,16 +10,17 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/golang/protobuf/proto"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -29,7 +30,7 @@ type triggerEventDummy struct {
 
 	chID        *id.ID
 	umi         *userMessageInternal
-	msgID       cryptoChannel.MessageID
+	msgID       message.ID
 	receptionID receptionID.EphemeralIdentity
 	round       rounds.Round
 }
@@ -76,7 +77,7 @@ func TestUserListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID), cmSerial)
 
 	sig := ed25519.Sign(priv, cmSerial)
 	ns := &mockNameService{validChMsg: true}
@@ -99,7 +100,7 @@ func TestUserListener_Listen(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
@@ -185,7 +186,7 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
@@ -248,7 +249,7 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
@@ -282,7 +283,7 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
@@ -347,7 +348,7 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}

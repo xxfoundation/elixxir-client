@@ -9,12 +9,14 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // userListener adheres to the [broadcast.ListenerFunc] interface and is used
@@ -66,7 +68,7 @@ func (ul *userListener) Listen(payload []byte,
 	}
 
 	// Replace the timestamp on the message if it is outside the allowable range
-	ts := vetTimestamp(
+	ts := message.VetTimestamp(
 		time.Unix(0, cm.LocalTimestamp), round.Timestamps[states.QUEUED], msgID)
 
 	// TODO: Processing of the message relative to admin commands will be here.

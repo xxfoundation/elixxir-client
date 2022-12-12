@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -1011,7 +1012,7 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 	}
 
 	// Unmarshal message ID
-	msgId := cryptoChannel.MessageID{}
+	msgId := cryptoMessage.ID{}
 	copy(msgId[:], messageToReactTo)
 
 	// Send Reply
@@ -1056,7 +1057,7 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	}
 
 	// Unmarshal message ID
-	msgId := cryptoChannel.MessageID{}
+	msgId := cryptoMessage.ID{}
 	copy(msgId[:], messageToReactTo)
 
 	// Send reaction
@@ -1154,7 +1155,7 @@ func parseChannelsParameters(marshalledChanId, cmixParamsJSON []byte) (
 
 // constructChannelSendReport is a helper function which returns a JSON
 // marshalled ChannelSendReport.
-func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
+func constructChannelSendReport(channelMessageId cryptoMessage.ID,
 	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
 	// Construct send report
 	chanSendReport := ChannelSendReport{
@@ -1228,7 +1229,7 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 	// Wrap callback around backend interface
 	cb := channels.MessageTypeReceiveMessage(
 		func(channelID *id.ID,
-			messageID cryptoChannel.MessageID, messageType channels.MessageType,
+			messageID cryptoMessage.ID, messageType channels.MessageType,
 			nickname string, content []byte, pubKey ed25519.PublicKey,
 			dmToken uint32, codeset uint8, timestamp time.Time,
 			lease time.Duration, round rounds.Round,
@@ -1397,10 +1398,10 @@ type EventModel interface {
 		uuid int64, messageID []byte, timestamp, roundID, status int64)
 
 	// unimplemented
-	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	// PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
-	// UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoMessage.ID)
+	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoMessage.ID)
+	// PinMessage(ChannelID *id.ID, MessageID cryptoMessage.ID, end time.Time)
+	// UnPinMessage(ChannelID *id.ID, MessageID cryptoMessage.ID)
 }
 
 // toEventModel is a wrapper which wraps an existing channels.EventModel object.
@@ -1428,7 +1429,7 @@ func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
 func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, nickname, text string,
+	messageID cryptoMessage.ID, nickname, text string,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp time.Time,
 	lease time.Duration, round rounds.Round, mType channels.MessageType,
 	status channels.SentStatus) uint64 {
@@ -1446,7 +1447,7 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer replies.
 func (tem *toEventModel) ReceiveReply(channelID *id.ID,
-	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
+	messageID cryptoMessage.ID, reactionTo cryptoMessage.ID,
 	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, mType channels.MessageType,
@@ -1466,7 +1467,7 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID,
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer reactions.
 func (tem *toEventModel) ReceiveReaction(channelID *id.ID,
-	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
+	messageID cryptoMessage.ID, reactionTo cryptoMessage.ID,
 	nickname, reaction string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
@@ -1479,7 +1480,7 @@ func (tem *toEventModel) ReceiveReaction(channelID *id.ID,
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.
 func (tem *toEventModel) UpdateSentStatus(uuid uint64,
-	messageID cryptoChannel.MessageID, timestamp time.Time, round rounds.Round,
+	messageID cryptoMessage.ID, timestamp time.Time, round rounds.Round,
 	status channels.SentStatus) {
 	tem.em.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))

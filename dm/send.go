@@ -178,9 +178,6 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		LocalTimestamp: netTime.Now().UnixNano(),
 	}
 
-	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
-		directMessage)
-
 	if params.DebugTag == cmix.DefaultDebugTag {
 		params.DebugTag = directMessageServiceTag
 	}
@@ -191,6 +188,11 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
+
+	// Now that we have a round ID, derive the msgID
+	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
+		directMessage)
+
 	sendPrint += fmt.Sprintf(", partner send eph %v rnd %s MsgID %s",
 		partnerEphID, partnerRnd.ID, msgID)
 

@@ -82,6 +82,7 @@ func (p *receiver) Process(msg format.Message,
 	}
 
 	msgID := message.DeriveDirectMessageID(p.c.receptionID, directMsg)
+
 	// Check if we sent the message and ignore triggering if we sent
 	if p.checkSent(msgID, round) {
 		return

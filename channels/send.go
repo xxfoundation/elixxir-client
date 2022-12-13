@@ -83,21 +83,27 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf(
+	log := fmt.Sprintf(
 		"[CH] [%s] Sending to channel %s message type %s at %s. ",
 		params.DebugTag, channelID, messageType, dateNow())
-	defer func() { jww.INFO.Print(sendPrint) }()
+	var printErr bool
+	defer func() {
+		if printErr {
+			jww.ERROR.Printf(log)
+		} else {
+			jww.INFO.Print(log)
+		}
+	}()
 
 	// Find the channel
 	ch, err := m.getChannel(channelID)
 	if err != nil {
+		printErr = true
+		log += fmt.Sprintf("ERROR Failed to get channel: %+v", err)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	nickname, _ := m.GetNickname(channelID)
-
-	var messageID cryptoChannel.MessageID
-
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
 		PayloadType:    uint32(messageType),
@@ -114,23 +120,26 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	n, err := rng.Read(chMsg.Nonce)
 	rng.Close()
 	if err != nil {
-		sendPrint += fmt.Sprintf("ERROR Failed to generate nonce: %+v", err)
+		printErr = true
+		log += fmt.Sprintf("ERROR Failed to generate nonce: %+v", err)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
-		sendPrint += fmt.Sprintf(
+		printErr = true
+		log += fmt.Sprintf(
 			"ERROR Got %d bytes for %d-byte nonce", n, messageNonceSize)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf(
 				"generated %d bytes for %d-byte nonce", n, messageNonceSize)
 	}
 
-	usrMsg := &UserMessage{ECCPublicKey: m.me.PubKey}
 
 	// Note: we are not checking if message is too long before trying to find a
 	// round
 
 	// Build the function pointer that will build the message
+	var messageID cryptoChannel.MessageID
+	usrMsg := &UserMessage{ECCPublicKey: m.me.PubKey}
 	assemble := func(rid id.Round) ([]byte, error) {
 		// Build the message
 		chMsg.RoundID = uint64(rid)
@@ -159,35 +168,37 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		return usrMsgSerial, nil
 	}
 
-	sendPrint += fmt.Sprintf("Pending send at %s. ", timeNow())
+	log += fmt.Sprintf("Pending send at %s. ", timeNow())
 	uuid, err := m.st.denotePendingSend(channelID, &userMessageInternal{
 		userMessage:    usrMsg,
 		channelMessage: chMsg,
 		messageID:      messageID,
 	})
 	if err != nil {
-		sendPrint +=
+		printErr = true
+		log +=
 			fmt.Sprintf("ERROR Pending send failed at %s: %s", timeNow(), err)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	sendPrint += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
+	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
 	r, ephID, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
 	if err != nil {
-		sendPrint +=
-			fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
+		printErr = true
+		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
 
 		if errDenote := m.st.failedSend(uuid); errDenote != nil {
-			sendPrint +=
-				fmt.Sprintf("Failed to denote failed broadcast: %s", err)
+			log += fmt.Sprintf("Failed to denote failed broadcast: %s", err)
 		}
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	sendPrint += fmt.Sprintf("Broadcast succeeded at %s, success! ", timeNow())
+	log += fmt.Sprintf("Broadcast succeeded at %s, success! ", timeNow())
 	err = m.st.send(uuid, messageID, r)
 	if err != nil {
-		sendPrint += fmt.Sprintf("ERROR Broadcast failed: %s", err)
+		printErr = true
+		log += fmt.Sprintf("ERROR Broadcast failed: %s", err)
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return messageID, r, ephID, err
@@ -306,14 +317,23 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf(
+	log := fmt.Sprintf(
 		"[CH] [%s] Admin sending to channel %s message type %s at %s. ",
 		params.DebugTag, channelID, messageType, dateNow())
-	defer func() { jww.INFO.Print(sendPrint) }()
+	var printErr bool
+	defer func() {
+		if printErr {
+			jww.ERROR.Printf(log)
+		} else {
+			jww.INFO.Print(log)
+		}
+	}()
 
 	// Find the channel
 	ch, err := m.getChannel(channelID)
 	if err != nil {
+		printErr = true
+		log += fmt.Sprintf("ERROR Failed to get channel: %+v", err)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
@@ -346,11 +366,13 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	n, err := rng.Read(chMsg.Nonce)
 	rng.Close()
 	if err != nil {
-		sendPrint += fmt.Sprintf("ERROR Failed to generate nonce: %+v", err)
+		printErr = true
+		log += fmt.Sprintf("ERROR Failed to generate nonce: %+v", err)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
-		sendPrint += fmt.Sprintf(
+		printErr = true
+		log += fmt.Sprintf(
 			"ERROR Got %d bytes for %d-byte nonce", n, messageNonceSize)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf(
@@ -381,34 +403,37 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 		return chMsgSerial, nil
 	}
 
-	sendPrint += fmt.Sprintf("Pending send at %s. ", timeNow())
+	log += fmt.Sprintf("Pending send at %s. ", timeNow())
 	uuid, err := m.st.denotePendingAdminSend(channelID, chMsg)
 	if err != nil {
-		sendPrint +=
+		printErr = true
+		log +=
 			fmt.Sprintf("ERROR Pending send failed at %s: %s", timeNow(), err)
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	sendPrint += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
+	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
 	r, ephID, err := ch.broadcast.BroadcastRSAToPublicWithAssembler(privKey,
 		assemble, params)
 	if err != nil {
-		sendPrint +=
-			fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
+		printErr = true
+		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
 		if errDenote := m.st.failedSend(uuid); errDenote != nil {
-			sendPrint +=
-				fmt.Sprintf("Failed to denote failed broadcast: %s", err)
+			log += fmt.Sprintf("Failed to denote failed broadcast: %s", err)
 		}
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	sendPrint += fmt.Sprintf("Broadcast succeeded at %s, success! ", timeNow())
 	err = m.st.send(uuid, messageID, r)
 	if err != nil {
-		sendPrint += fmt.Sprintf("ERROR Broadcast failed: %s", err)
+		printErr = true
+		log += fmt.Sprintf("ERROR Broadcast failed: %s", err)
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	return messageID, r, ephID, err
+	log += fmt.Sprintf("Broadcast succeeded at %s, success!", timeNow())
+
+	return messageID, r, ephID, nil
 }
 
 // DeleteMessage deletes the targeted message from user's view. Users may delete

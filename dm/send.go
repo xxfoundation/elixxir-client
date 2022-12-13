@@ -286,7 +286,10 @@ func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
 		service message.Service, encryptedPayload, mac []byte,
 		err error) {
 
-		msg.RoundID = uint64(rid)
+		// NOTE: We do not modify the round id already in the
+		//       message object. This enables the same msgID
+		//       on sender and recipient.
+		msg.SelfRoundID = uint64(rid)
 		// NOTE: Very important to overwrite these fields
 		// for self sending!
 		msg.DMToken = partnerToken

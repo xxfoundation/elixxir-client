@@ -90,7 +90,8 @@ func (p *receiver) Process(msg format.Message,
 	/* CRYPTOGRAPHICALLY RELEVANT CHECKS */
 
 	// Check the round to ensure the message is not a replay
-	if id.Round(directMsg.RoundID) != round.ID {
+	if id.Round(directMsg.RoundID) != round.ID &&
+		id.Round(directMsg.SelfRoundID) != round.ID {
 		jww.WARN.Printf("The round DM %s send on %d"+
 			"by %s was not the same as the"+
 			"round the message was found on (%d)", msgID,

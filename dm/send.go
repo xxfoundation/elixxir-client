@@ -54,7 +54,8 @@ const (
 )
 
 // SendText is used to send a formatted message to another user.
-func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
+	partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	return dc.SendReply(partnerPubKey, partnerToken, msg,
@@ -68,10 +69,12 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint
 // message and not as a reply.
 func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 	partnerToken uint32, msg string, replyTo cryptoMessage.ID,
-	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
+	ephemeral.Id, error) {
 
 	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
-	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, partnerPubKey, replyTo)
+	jww.INFO.Printf("[DM][%s] SendReply(%s, to %s)", tag, partnerPubKey,
+		replyTo)
 	txt := &Text{
 		Version:        textVersion,
 		Text:           msg,
@@ -102,7 +105,7 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 	rounds.Round, ephemeral.Id, error) {
 	tag := makeDebugTag(*partnerPubKey, []byte(reaction),
 		SendReactionTag)
-	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, *partnerPubKey,
+	jww.INFO.Printf("[DM][%s] SendReaction(%s, to %s)", tag, *partnerPubKey,
 		reactTo)
 
 	if err := emoji.ValidateReaction(reaction); err != nil {
@@ -137,9 +140,9 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf("[%s] Sending dm to %s type %d at %s",
+	sendPrint := fmt.Sprintf("[DM][%s] Sending dm to %s type %d at %s",
 		params.DebugTag, partnerID, messageType, netTime.Now())
-	defer jww.INFO.Println(sendPrint)
+	defer func() { jww.INFO.Println(sendPrint) }()
 
 	rng := dc.rng.GetStream()
 	defer rng.Close()
@@ -188,7 +191,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
-	sendPrint += fmt.Sprintf(", partner send eph %s rnd %s id %s",
+	sendPrint += fmt.Sprintf(", partner send eph %v rnd %s MsgID %s",
 		partnerEphID, partnerRnd.ID, msgID)
 
 	myRnd, myEphID, err := sendSelf(dc.net, dc.receptionID, partnerPubKey,
@@ -198,7 +201,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
-	sendPrint += fmt.Sprintf(", self send eph %s rnd %s id %s",
+	sendPrint += fmt.Sprintf(", self send eph %v rnd %s MsgID %s",
 		myEphID, myRnd.ID, msgID)
 
 	return msgID, myRnd, myEphID, err
@@ -257,8 +260,6 @@ func send(net cMixClient, partnerID *id.ID, partnerPubKey nike.PublicKey,
 			Tag:        directMessageServiceTag,
 		}
 
-		jww.INFO.Printf("[DM] Payload In: \n%v", dmSerial)
-
 		payloadLen := calcDMPayloadLen(net)
 
 		ciphertext := dm.Cipher.Encrypt(dmSerial, myPrivateKey,
@@ -311,8 +312,6 @@ func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
 		if params.DebugTag == cmix.DefaultDebugTag {
 			params.DebugTag = directMessageServiceTag
 		}
-
-		jww.INFO.Printf("[DM] SelfPayload In: \n%v", dmSerial)
 
 		payloadLen := calcDMPayloadLen(net)
 

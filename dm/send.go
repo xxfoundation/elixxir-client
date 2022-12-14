@@ -136,7 +136,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
 
-	partnerID := deriveReceptionID(partnerPubKey, partnerToken)
+	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
@@ -196,8 +196,9 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	sendPrint += fmt.Sprintf(", partner send eph %v rnd %s MsgID %s",
 		partnerEphID, partnerRnd.ID, msgID)
 
-	myRnd, myEphID, err := sendSelf(dc.net, dc.receptionID, partnerPubKey,
-		partnerToken, dc.privateKey, directMessage, params, rng)
+	myRnd, myEphID, err := sendSelf(dc.net, dc.selfReceptionID,
+		partnerPubKey, partnerToken, dc.privateKey, directMessage,
+		params, rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on self send: %+v", err)
 		return cryptoMessage.ID{}, rounds.Round{},
@@ -215,15 +216,15 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 // an arbitrary idToken together. The ID type is set to "User".
 func DeriveReceptionID(publicKey ed25519.PublicKey, idToken uint32) *id.ID {
 	nikePubKey := ecdh.Edwards2ECDHNIKEPublicKey(&publicKey)
-	return deriveReceptionID(nikePubKey, idToken)
+	return deriveReceptionID(nikePubKey.Bytes(), idToken)
 }
 
-func deriveReceptionID(publicKey nike.PublicKey, idToken uint32) *id.ID {
+func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 	h, err := blake2b.New256(nil)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	h.Write(publicKey.Bytes())
+	h.Write(keyBytes)
 	tokenBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(tokenBytes, idToken)
 	h.Write(tokenBytes)

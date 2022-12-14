@@ -30,10 +30,11 @@ const (
 )
 
 type dmClient struct {
-	receptionID *id.ID
-	privateKey  nike.PrivateKey
-	publicKey   nike.PublicKey
-	myToken     uint32
+	selfReceptionID *id.ID
+	receptionID     *id.ID
+	privateKey      nike.PrivateKey
+	publicKey       nike.PublicKey
+	myToken         uint32
 
 	nm  NickNameManager
 	net cMixClient
@@ -58,16 +59,18 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
-	receptionID := deriveReceptionID(publicKey, myIDToken)
+	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)
+	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
 	dmc := &dmClient{
-		receptionID: receptionID,
-		privateKey:  privateKey,
-		publicKey:   publicKey,
-		myToken:     myIDToken,
-		nm:          nickManager,
-		net:         net,
-		rng:         rng,
+		receptionID:     receptionID,
+		selfReceptionID: selfReceptionID,
+		privateKey:      privateKey,
+		publicKey:       publicKey,
+		myToken:         myIDToken,
+		nm:              nickManager,
+		net:             net,
+		rng:             rng,
 	}
 
 	// Register the listener
@@ -81,6 +84,8 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 	beginningOfTime := time.Time{}
 	net.AddIdentityWithHistory(receptionID, identity.Forever,
 		beginningOfTime, true)
+	net.AddIdentityWithHistory(selfReceptionID, identity.Forever,
+		beginningOfTime, true)
 
 	return dmc
 }
@@ -88,18 +93,27 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 // Register registers a listener for direct messages.
 func (dc *dmClient) Register(apiReceiver Receiver,
 	checkSent messageReceiveFunc) error {
-	p := &receiver{
+	r := &receiver{
 		c:         dc,
 		api:       apiReceiver,
 		checkSent: checkSent,
 	}
 
+	// NOTE: When raw listening is available via API,
+	//       we want to switch these directMessageServiceTag
+	//       Tags to the raw option.
 	service := message.Service{
 		Identifier: dc.receptionID.Bytes(),
 		Tag:        directMessageServiceTag,
 	}
+	dc.net.AddService(dc.receptionID, service, r.GetProcessor())
 
-	dc.net.AddService(dc.receptionID, service, p)
+	selfService := message.Service{
+		Identifier: dc.selfReceptionID.Bytes(),
+		Tag:        directMessageServiceTag,
+	}
+	dc.net.AddService(dc.selfReceptionID, selfService,
+		r.GetSelfProcessor())
 	return nil
 }
 

@@ -1110,6 +1110,7 @@ func (cm *ChannelsManager) MuteUser(channelIdBytes, mutedUserPubKeyBytes []byte,
 			"user ED25519 public key must be %d bytes, received %d bytes",
 			ed25519.PublicKeySize, len(mutedUserPubKeyBytes))
 	}
+	copy(userPubKey, mutedUserPubKeyBytes)
 
 	// Send message pin
 	messageID, rnd, ephID, err :=

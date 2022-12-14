@@ -1284,7 +1284,7 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 		return nil, err
 	}
 
-	return json.Marshal(cm.api.Muted(channelID))
+	return json.Marshal(cm.api.GetMutedUsers(channelID))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

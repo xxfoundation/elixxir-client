@@ -95,8 +95,15 @@ type Manager interface {
 	// will always be possible to send a payload of 802 bytes at minimum.
 	//
 	// The meaning of validUntil depends on the use case.
+	//
+	// Set tracked to true if the message should be tracked in the sendTracker,
+	// which allows messages to be shown locally before they are received on the
+	// network. In general, all messages that will be displayed to the user
+	// should be tracked while all actions should not be. More technically, any
+	// messageType that corresponds to a handler that does not return a unique
+	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
-		validUntil time.Duration, params cmix.CMIXParams) (
+		validUntil time.Duration, tracked bool,params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
@@ -150,8 +157,15 @@ type Manager interface {
 	// If the user is not an admin of the channel (i.e. does not have a private
 	// key for the channel saved to storage), then the error NotAnAdminErr is
 	// returned.
+	//
+	// Set tracked to true if the message should be tracked in the sendTracker,
+	// which allows messages to be shown locally before they are received on the
+	// network. In general, all messages that will be displayed to the user
+	// should be tracked while all actions should not be. More technically, any
+	// messageType that corresponds to a handler that does not return a unique
+	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendAdminGeneric(channelID *id.ID, messageType MessageType, msg []byte,
-		validUntil time.Duration, params cmix.CMIXParams) (
+		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// DeleteMessage deletes the targeted message from user's view. Users may

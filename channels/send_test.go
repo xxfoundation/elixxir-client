@@ -164,7 +164,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 	}
 
 	messageId, _, _, err :=
-		m.SendGeneric(channelID, messageType, msg, validUntil, params)
+		m.SendGeneric(channelID, messageType, msg, validUntil, true, params)
 	if err != nil {
 		t.Fatalf("SendGeneric error: %+v", err)
 	}
@@ -248,7 +248,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 	}
 
 	messageId, _, _, err := m.SendAdminGeneric(ch.ReceptionID, messageType, msg,
-		validUntil, cmix.GetDefaultCMIXParams())
+		validUntil, true, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Fatalf("Failed to SendAdminGeneric: %v", err)
 	}

@@ -15,6 +15,7 @@ package gateway
 import (
 	"encoding/json"
 	"math"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -202,16 +203,14 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	addGateway chan<- network.NodeGateway) (*HostPool, error) {
 	var err error
 
-	//// Determine size of HostPool
-	//if poolParams.PoolSize == 0 {
-	//	poolParams.PoolSize, err = getPoolSize(
-	//		uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
-
-	poolParams.PoolSize = 1
+	// Determine size of HostPool
+	if poolParams.PoolSize == 0 {
+		poolParams.PoolSize, err = getPoolSize(
+			uint32(len(netDef.Gateways)), poolParams.MaxPoolSize)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	result := &HostPool{
 		manager:        getter,
@@ -799,10 +798,13 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 
 		// Add the new gateway host
 		gwUrl := authorizer.GetGatewayDns(gwId.Bytes())
+		_, gwPort, err := net.SplitHostPort(gw.Address)
+		if err != nil {
+			return
+		}
+		gwAddress := gwUrl + ":" + gwPort
 
-		gwAddress := gwUrl + ":22480"
-		//jww.INFO.Printf("[HostPool] Adding address %s to host-pool: %s", gwAddress)
-		_, err := h.manager.AddHost(
+		_, err = h.manager.AddHost(
 			gwId, gwAddress, []byte(gw.TlsCertificate), h.poolParams.HostParams)
 		if err != nil {
 			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)

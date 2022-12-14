@@ -70,24 +70,21 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		"gateway %s, setup took %s", gatewayID, time.Since(start))
 
 	start = time.Now()
-	targets := []*id.ID{gatewayID}
-	result, err := sender.SendToPreferred(targets,
-		func(host *connect.Host, target *id.ID,
-			timeout time.Duration) (interface{}, error) {
-			startInternal := time.Now()
-			keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
-			if err2 != nil {
-				return nil, errors.WithMessagef(err2,
-					"Register: Failed requesting client key from gateway %s", gatewayID.String())
-			}
-			if keyResponse.Error != "" {
-				return nil, errors.WithMessage(err2,
-					"requestKey: clientKeyResponse error")
-			}
-			jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
+	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+		startInternal := time.Now()
+		keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
+		if err2 != nil {
+			return nil, errors.WithMessagef(err2,
+				"Register: Failed requesting client key from gateway %s", gatewayID.String())
+		}
+		if keyResponse.Error != "" {
+			return nil, errors.WithMessage(err2,
+				"requestKey: clientKeyResponse error")
+		}
+		jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
 
-			return keyResponse, nil
-		}, stop, 15*time.Second)
+		return keyResponse, nil
+	}, stop)
 	jww.TRACE.Printf("full reg request took %s", time.Since(start))
 
 	if err != nil {

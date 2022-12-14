@@ -10,7 +10,6 @@
 package gateway
 
 import (
-	"encoding/base64"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -60,13 +59,7 @@ func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 // to numProxies destinations.
 func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 	stop *stoppable.Single) (interface{}, error) {
-
-	// todo: remove this
-	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-	preferred, _ := id.Unmarshal(gatewayDecoded)
-	p, _ := s.getSpecific(preferred)
-	proxies := []*connect.Host{p}
+	proxies := s.getAny(s.poolParams.ProxyAttempts, nil)
 	for proxy := range proxies {
 		result, err := sendFunc(proxies[proxy])
 		if stop != nil && !stop.IsRunning() {
@@ -115,15 +108,9 @@ func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
 
 	startTime := netTime.Now()
-	// todo: remove this
-	const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-	gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-	preferred, _ := id.Unmarshal(gatewayDecoded)
 
-	// get the hosts and shuffle randomly
-	targetHost, _ := s.getSpecific(preferred)
-	targetHosts := []*connect.Host{targetHost}
 	// Attempt to send directly to targets if they are in the HostPool
+	targetHosts := s.getPreferred(targets)
 	for i := range targetHosts {
 		// Return an error if the timeout duration is reached
 		if netTime.Since(startTime) > timeout {
@@ -165,87 +152,81 @@ func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 		}
 	}
 
-	//// Build a list of proxies for every target
-	//proxies := make([][]*connect.Host, len(targets))
-	//// todo: remove this
-	//const xxGatewayId = "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB"
-	//gatewayDecoded, _ := base64.StdEncoding.DecodeString(xxGatewayId)
-	//preferred, _ := id.Unmarshal(gatewayDecoded)
-	//
-	//for i := 0; i < len(targets); i++ {
-	//	prefferedHost, _ := s.getSpecific(preferred)
-	//	proxies[i] = []*connect.Host{prefferedHost}
-	//}
-	//jww.INFO.Printf("Setting up proxies with gateway %s", preferred)
-	//// Build a map of bad proxies
-	//badProxies := make(map[string]interface{})
-	//
-	//// Iterate between each target's list of proxies, using the next target for
-	//// each proxy
-	//for proxyIdx := uint32(0); proxyIdx < s.poolParams.ProxyAttempts; proxyIdx++ {
-	//	for targetIdx := range proxies {
-	//		// Return an error if the timeout duration is reached
-	//		if netTime.Since(startTime) > timeout {
-	//			return nil, errors.Errorf("iterating over target's proxies "+
-	//				"timed out after %s", timeout)
-	//		}
-	//
-	//		target := targets[targetIdx]
-	//		targetProxies := proxies[targetIdx]
-	//		if !(int(proxyIdx) < len(targetProxies)) {
-	//			jww.WARN.Printf("Failed to send to proxy %d on target %d (%s) "+
-	//				"due to not enough proxies (only %d), skipping attempt",
-	//				proxyIdx, targetIdx, target, len(targetProxies))
-	//			continue
-	//		}
-	//		proxy := targetProxies[proxyIdx]
-	//
-	//		// Skip bad proxies
-	//		if _, ok := badProxies[proxy.String()]; ok {
-	//			continue
-	//		}
-	//
-	//		remainingTimeout := timeout - netTime.Since(startTime)
-	//		result, err := sendFunc(proxy, target, remainingTimeout)
-	//		if stop != nil && !stop.IsRunning() {
-	//			return nil, errors.Errorf(
-	//				stoppable.ErrMsg, stop.Name(), "SendToPreferred")
-	//		} else if err == nil {
-	//			return result, nil
-	//		} else if strings.Contains(err.Error(), RetryableError) {
-	//			// Retry of the proxy could not communicate
-	//			jww.INFO.Printf("Unable to SendToPreferred second pass %s "+
-	//				"via %s: non-fatal error received, retrying: %s",
-	//				target, proxy, err)
-	//			continue
-	//		} else {
-	//			// Check whether the Host should be replaced
-	//			replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err)
-	//			badProxies[proxy.String()] = nil
-	//			if replaced {
-	//				jww.WARN.Printf("Unable to SendToPreferred second pass "+
-	//					"via %s, replaced a proxy %s with error %s",
-	//					target, proxy.GetId(), err.Error())
-	//			} else {
-	//				if checkReplaceErr != nil {
-	//					jww.WARN.Printf("Unable to SendToPreferred second "+
-	//						"pass %s via %s: %s. Unable to replace host: %+v",
-	//						target, proxy.GetId(), err.Error(), checkReplaceErr)
-	//				} else {
-	//					jww.WARN.Printf("Unable to SendToPreferred second "+
-	//						"pass %s via %s: %s. Did not replace host.",
-	//						target, proxy.GetId(), err.Error())
-	//				}
-	//			}
-	//
-	//			// End for non-retryable errors
-	//			if !strings.Contains(err.Error(), RetryableError) {
-	//				return nil, errors.WithMessage(
-	//					err, "Received error with SendToPreferred")
-	//			}
-	//		}
-	//	}
-	//}
+	// Build a list of proxies for every target
+	proxies := make([][]*connect.Host, len(targets))
+	for i := 0; i < len(targets); i++ {
+		proxies[i] = s.getAny(s.poolParams.ProxyAttempts, targets)
+	}
+
+	// Build a map of bad proxies
+	badProxies := make(map[string]interface{})
+
+	// Iterate between each target's list of proxies, using the next target for
+	// each proxy
+	for proxyIdx := uint32(0); proxyIdx < s.poolParams.ProxyAttempts; proxyIdx++ {
+		for targetIdx := range proxies {
+			// Return an error if the timeout duration is reached
+			if netTime.Since(startTime) > timeout {
+				return nil, errors.Errorf("iterating over target's proxies "+
+					"timed out after %s", timeout)
+			}
+
+			target := targets[targetIdx]
+			targetProxies := proxies[targetIdx]
+			if !(int(proxyIdx) < len(targetProxies)) {
+				jww.WARN.Printf("Failed to send to proxy %d on target %d (%s) "+
+					"due to not enough proxies (only %d), skipping attempt",
+					proxyIdx, targetIdx, target, len(targetProxies))
+				continue
+			}
+			proxy := targetProxies[proxyIdx]
+
+			// Skip bad proxies
+			if _, ok := badProxies[proxy.String()]; ok {
+				continue
+			}
+
+			remainingTimeout := timeout - netTime.Since(startTime)
+			result, err := sendFunc(proxy, target, remainingTimeout)
+			if stop != nil && !stop.IsRunning() {
+				return nil, errors.Errorf(
+					stoppable.ErrMsg, stop.Name(), "SendToPreferred")
+			} else if err == nil {
+				return result, nil
+			} else if strings.Contains(err.Error(), RetryableError) {
+				// Retry of the proxy could not communicate
+				jww.INFO.Printf("Unable to SendToPreferred second pass %s "+
+					"via %s: non-fatal error received, retrying: %s",
+					target, proxy, err)
+				continue
+			} else {
+				// Check whether the Host should be replaced
+				replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err)
+				badProxies[proxy.String()] = nil
+				if replaced {
+					jww.WARN.Printf("Unable to SendToPreferred second pass "+
+						"via %s, replaced a proxy %s with error %s",
+						target, proxy.GetId(), err.Error())
+				} else {
+					if checkReplaceErr != nil {
+						jww.WARN.Printf("Unable to SendToPreferred second "+
+							"pass %s via %s: %s. Unable to replace host: %+v",
+							target, proxy.GetId(), err.Error(), checkReplaceErr)
+					} else {
+						jww.WARN.Printf("Unable to SendToPreferred second "+
+							"pass %s via %s: %s. Did not replace host.",
+							target, proxy.GetId(), err.Error())
+					}
+				}
+
+				// End for non-retryable errors
+				if !strings.Contains(err.Error(), RetryableError) {
+					return nil, errors.WithMessage(
+						err, "Received error with SendToPreferred")
+				}
+			}
+		}
+	}
 
 	return nil, errors.Errorf("Unable to send to any preferred")
 }

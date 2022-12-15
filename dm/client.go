@@ -83,9 +83,9 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 
 	beginningOfTime := time.Time{}
 	net.AddIdentityWithHistory(receptionID, identity.Forever,
-		beginningOfTime, true)
+		beginningOfTime, true, nil)
 	net.AddIdentityWithHistory(selfReceptionID, identity.Forever,
-		beginningOfTime, true)
+		beginningOfTime, true, nil)
 
 	return dmc
 }

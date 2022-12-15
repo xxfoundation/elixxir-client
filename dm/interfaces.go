@@ -194,9 +194,11 @@ type cMixClient interface {
 	GetMaxMessageLength() int
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	AddIdentityWithHistory(
-		id *id.ID, validUntil, beginning time.Time, persistent bool)
+		id *id.ID, validUntil, beginning time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)

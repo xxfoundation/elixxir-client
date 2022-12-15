@@ -10,8 +10,9 @@ package channels
 import "testing"
 
 func TestMessageType_String(t *testing.T) {
-	expected := []string{"Text", "AdminText", "Reaction", "Unknown messageType 4",
-		"Unknown messageType 5", "Unknown messageType 6", "Unknown messageType 7",
+	expected := []string{"Text", "AdminText", "Reaction",
+		"Unknown messageType 4", "Unknown messageType 5",
+		"Unknown messageType 6", "Unknown messageType 7",
 		"Unknown messageType 8", "Unknown messageType 9",
 		"Unknown messageType 10"}
 

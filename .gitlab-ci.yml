@@ -28,7 +28,6 @@ test:
     - git clean -ffdx
     - go mod vendor -v
     - go build ./...
-    - go mod tidy
     - mkdir -p testdata
 
     # Test coverage

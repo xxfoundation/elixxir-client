@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -155,8 +156,9 @@ func TestSendGeneric(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
-
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	m := &manager{
+		kv:       kv,
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
 		mux:      sync.RWMutex{},
@@ -172,11 +174,11 @@ func TestSendGeneric(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID,
+				messageID message.ID,
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+			}, func(uuid uint64, messageID message.ID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
 			}, crng),
 	}
@@ -254,11 +256,11 @@ func TestAdminGeneric(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID,
+				messageID message.ID,
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+			}, func(uuid uint64, messageID message.ID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
 			}, crng),
 	}
@@ -287,14 +289,6 @@ func TestAdminGeneric(t *testing.T) {
 		t.Fatalf("Failed to SendAdminGeneric: %v", err)
 	}
 
-	// Verify the message was handled correctly
-
-	msgID := cryptoChannel.MakeMessageID(mbc.payload, ch.ReceptionID)
-
-	if !msgID.Equals(messageId) {
-		t.Errorf("The message IDs do not match. %s vs %s", msgID, messageId)
-	}
-
 	// Decode the channel message
 	chMgs := &ChannelMessage{}
 	if err = proto.Unmarshal(mbc.payload, chMgs); err != nil {
@@ -314,6 +308,15 @@ func TestAdminGeneric(t *testing.T) {
 		t.Errorf("The returned round is incorrect, %d vs %d",
 			chMgs.RoundID, returnedRound)
 	}
+
+	msgID := message.DeriveChannelMessageID(ch.ReceptionID, chMgs.RoundID,
+		mbc.payload)
+
+	if !msgID.Equals(messageId) {
+		t.Errorf("The message IDs do not match. %s vs %s", msgID,
+			messageId)
+	}
+
 }
 
 func TestSendMessage(t *testing.T) {
@@ -328,8 +331,10 @@ func TestSendMessage(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	m := &manager{
+		kv:       kv,
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
 		nicknameManager: &nicknameManager{
@@ -344,11 +349,11 @@ func TestSendMessage(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID,
+				messageID message.ID,
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+			}, func(uuid uint64, messageID message.ID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
 			}, crng),
 	}
@@ -419,8 +424,10 @@ func TestSendReply(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	m := &manager{
+		kv:       kv,
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
 		nicknameManager: &nicknameManager{
@@ -435,11 +442,11 @@ func TestSendReply(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID,
+				messageID message.ID,
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+			}, func(uuid uint64, messageID message.ID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
 			}, crng),
 	}
@@ -450,7 +457,7 @@ func TestSendReply(t *testing.T) {
 	validUntil := time.Hour
 	params := new(cmix.CMIXParams)
 
-	replyMsgID := cryptoChannel.MessageID{}
+	replyMsgID := message.ID{}
 	replyMsgID[0] = 69
 
 	mbc := &mockBroadcastChannel{}
@@ -513,8 +520,10 @@ func TestSendReaction(t *testing.T) {
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	m := &manager{
+		kv: kv,
 		me: pi,
 		nicknameManager: &nicknameManager{
 			byChannel: make(map[id.ID]string),
@@ -529,11 +538,11 @@ func TestSendReaction(t *testing.T) {
 				round rounds.Round, status SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-				messageID cryptoChannel.MessageID,
+				messageID message.ID,
 				receptionID receptionID.EphemeralIdentity, round rounds.Round,
 				status SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+			}, func(uuid uint64, messageID message.ID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
 			}, crng),
 	}
@@ -543,7 +552,7 @@ func TestSendReaction(t *testing.T) {
 	msg := "🍆"
 	params := new(cmix.CMIXParams)
 
-	replyMsgID := cryptoChannel.MessageID{}
+	replyMsgID := message.ID{}
 	replyMsgID[0] = 69
 
 	mbc := &mockBroadcastChannel{}

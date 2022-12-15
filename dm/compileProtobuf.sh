@@ -9,7 +9,7 @@
 # This script will compile the Protobuf file to a Go file (pb.go).
 # This is meant to be called from the top level of the repo.
 
-cd ./channels/ || return
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd $SCRIPT_DIR || return
 
-protoc --go_out=. --go_opt=paths=source_relative ./channelMessages.proto
-protoc --go_out=. --go_opt=paths=source_relative ./text.proto
+protoc --go_out=. --go_opt=paths=source_relative ./directMessages.proto

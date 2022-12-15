@@ -9,8 +9,8 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -59,7 +59,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		return oldUUID, nil
 	}
 
-	updateStatus := func(uuid uint64, messageID cryptoChannel.MessageID,
+	updateStatus := func(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status SentStatus) {
 	}
 
@@ -69,7 +69,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus, crng)
 
-	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
+	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
+		[]byte("hello"))
 	process := st.MessageReceive(mid, r)
 	if process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
@@ -130,12 +131,12 @@ func TestSendTracker_failedSend(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	adminTrigger := func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-		messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+		messageID cryptoMessage.ID, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round, status SentStatus) (uint64, error) {
 		return 0, nil
 	}
 
-	updateStatus := func(uuid uint64, messageID cryptoChannel.MessageID,
+	updateStatus := func(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status SentStatus) {
 		triggerCh <- status
 	}
@@ -145,8 +146,9 @@ func TestSendTracker_failedSend(t *testing.T) {
 	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, updateStatus, crng)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
+	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
+		[]byte("hello"))
 	uuid, err := st.denotePendingAdminSend(cid, &ChannelMessage{
 		Lease:       0,
 		RoundID:     uint64(rid),
@@ -203,7 +205,7 @@ func TestSendTracker_send(t *testing.T) {
 		return 0, nil
 	}
 
-	updateStatus := func(uuid uint64, messageID cryptoChannel.MessageID,
+	updateStatus := func(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status SentStatus) {
 		triggerCh <- true
 	}
@@ -213,8 +215,9 @@ func TestSendTracker_send(t *testing.T) {
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus, crng)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
+	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
+		[]byte("hello"))
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
@@ -272,8 +275,9 @@ func TestSendTracker_load_store(t *testing.T) {
 
 	st := loadSendTracker(&mockClient{}, kv, nil, nil, nil, crng)
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
+	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
+		[]byte("hello"))
 	st.byRound[rid] = trackedList{
 		List:           []*tracked{{MsgID: mid, ChannelID: cid, RoundID: rid}},
 		RoundCompleted: false,
@@ -292,7 +296,7 @@ func TestSendTracker_load_store(t *testing.T) {
 func TestRoundResult_callback(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	triggerCh := make(chan bool)
-	update := func(uuid uint64, messageID cryptoChannel.MessageID,
+	update := func(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status SentStatus) {
 		triggerCh <- true
 	}
@@ -307,8 +311,8 @@ func TestRoundResult_callback(t *testing.T) {
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, update, crng)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
+	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid), []byte("hello"))
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{

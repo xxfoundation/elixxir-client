@@ -8,11 +8,12 @@
 package channels
 
 import (
-	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 func TestUnmarshalUserMessageInternal(t *testing.T) {
@@ -111,7 +112,7 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 
 	chID := &id.ID{}
 
-	expected := channel.MakeMessageID(usrMsg.Message, chID)
+	expected := message.DeriveChannelMessageID(chID, 42, usrMsg.Message)
 
 	if !reflect.DeepEqual(expected, received) {
 		t.Fatalf("GetMessageID did not return expected data."+
@@ -125,7 +126,7 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 // be good to know when this changes. If this test breaks, report it, but it
 // should be safe to update the expected.
 func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
-	expected := "ChMsgID-LrGYLFCaPamZk44X+c/b08qtmJIorgNnoE68v1HYrf8="
+	expected := "MsgID-/9l5HhCSBPgz+CPw+PUBxO4EqmkCrG8z8/39ZUWj+ks="
 
 	internal, _, _ := builtTestUMI(t, 7)
 

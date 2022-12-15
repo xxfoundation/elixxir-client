@@ -9,7 +9,7 @@ package channels
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -17,7 +17,7 @@ import (
 type userMessageInternal struct {
 	userMessage    *UserMessage
 	channelMessage *ChannelMessage
-	messageID      channel.MessageID
+	messageID      message.ID
 }
 
 func newUserMessageInternal(
@@ -32,7 +32,9 @@ func newUserMessageInternal(
 	return &userMessageInternal{
 		userMessage:    ursMsg,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(ursMsg.Message, chID),
+		messageID: message.DeriveChannelMessageID(chID,
+			chanMessage.RoundID,
+			ursMsg.Message),
 	}, nil
 }
 
@@ -55,7 +57,8 @@ func unmarshalUserMessageInternal(
 	return &userMessageInternal{
 		userMessage:    um,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(um.Message, chID),
+		messageID: message.DeriveChannelMessageID(chID,
+			chanMessage.RoundID, um.Message),
 	}, nil
 }
 
@@ -72,6 +75,6 @@ func (umi *userMessageInternal) GetChannelMessage() *ChannelMessage {
 }
 
 // GetMessageID retrieves the messageID for the message.
-func (umi *userMessageInternal) GetMessageID() channel.MessageID {
+func (umi *userMessageInternal) GetMessageID() message.ID {
 	return umi.messageID
 }

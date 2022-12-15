@@ -9,15 +9,16 @@ package channels
 
 import (
 	"bytes"
-	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/golang/protobuf/proto"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -27,13 +28,13 @@ type triggerAdminEventDummy struct {
 
 	chID        *id.ID
 	cm          *ChannelMessage
-	msgID       cryptoChannel.MessageID
+	msgID       message.ID
 	receptionID receptionID.EphemeralIdentity
 	round       rounds.Round
 }
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
-	cm *ChannelMessage, _ time.Time, messageID cryptoChannel.MessageID,
+	cm *ChannelMessage, _ time.Time, messageID message.ID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	_ SentStatus) (uint64, error) {
 	taed.gotData = true
@@ -68,7 +69,7 @@ func TestAdminListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID), cmSerial)
 
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}
@@ -76,7 +77,7 @@ func TestAdminListener_Listen(t *testing.T) {
 	al := adminListener{
 		chID:    chID,
 		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
@@ -138,7 +139,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	al := adminListener{
 		chID:    chID,
 		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
@@ -171,7 +172,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	al := adminListener{
 		chID:    chID,
 		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
@@ -218,7 +219,7 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	al := adminListener{
 		chID:    chID,
 		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}

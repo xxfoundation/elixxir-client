@@ -31,14 +31,14 @@ func (mc *mockClient) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 func (mc *mockClient) IsHealthy() bool {
 	return true
 }
-func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool)                                 {}
-func (mc *mockClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool)           {}
-func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)               {}
-func (mc *mockClient) DeleteClientService(*id.ID)                                          {}
-func (mc *mockClient) RemoveIdentity(*id.ID)                                               {}
-func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) {}
-func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                 { return 0 }
-func (mc *mockClient) RemoveHealthCallback(uint64)                                         {}
+func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool, message.Processor)                       {}
+func (mc *mockClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {}
+func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
+func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
+func (mc *mockClient) RemoveIdentity(*id.ID)                                                        {}
+func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
+func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                          { return 0 }
+func (mc *mockClient) RemoveHealthCallback(uint64)                                                  {}
 
 // Test MessageReceive basic logic.
 func TestSendTracker_MessageReceive(t *testing.T) {

@@ -48,7 +48,7 @@ const (
 	// sending a reaction.
 	SendReactionTag = "Reaction"
 
-	directMessageServiceTag = "direct_message_v0"
+	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
 	messageNonceSize = 4
 )
@@ -179,7 +179,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	if params.DebugTag == cmix.DefaultDebugTag {
-		params.DebugTag = directMessageServiceTag
+		params.DebugTag = directMessageDebugTag
 	}
 	partnerRnd, partnerEphID, err := send(dc.net, partnerID, partnerPubKey,
 		dc.privateKey, directMessage, params, rng)
@@ -255,13 +255,7 @@ func send(net cMixClient, partnerID *id.ID, partnerPubKey nike.PublicKey,
 			return
 		}
 
-		// NOTE: When sending you use the partner id
-		//       When self sending you use your own id
-		//       Receiver figures out what to do based on msg content
-		service = message.Service{
-			Identifier: partnerID.Bytes(),
-			Tag:        directMessageServiceTag,
-		}
+		service = createRandomService(rng)
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -304,17 +298,7 @@ func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
 			return
 		}
 
-		// NOTE: When sending you use the partner id
-		//       When self sending you use your own id
-		//       Receiver figures out what to do based on msg content
-		service = message.Service{
-			Identifier: myID.Bytes(),
-			Tag:        directMessageServiceTag,
-		}
-
-		if params.DebugTag == cmix.DefaultDebugTag {
-			params.DebugTag = directMessageServiceTag
-		}
+		service = createRandomService(rng)
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -407,4 +391,22 @@ func createCMIXFields(ciphertext []byte, payloadSize int,
 	}
 
 	return fpBytes, encryptedPayload, mac, nil
+}
+
+func createRandomService(rng io.Reader) message.Service {
+	// NOTE: 64 is entirely arbitrary, 33 bytes are used for the ID
+	// and the rest will be base64'd into a string for the tag.
+	data := make([]byte, 64)
+	n, err := rng.Read(data)
+	if err != nil {
+		jww.FATAL.Panicf("rng failure: %+v", err)
+	}
+	if n != len(data) {
+		jww.FATAL.Panicf("rng read failure, short read: %d < %d", n,
+			len(data))
+	}
+	return message.Service{
+		Identifier: data[:33],
+		Tag:        base64.RawStdEncoding.EncodeToString(data[33:]),
+	}
 }

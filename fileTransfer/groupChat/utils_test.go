@@ -8,6 +8,9 @@
 package groupChat
 
 import (
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
@@ -36,8 +39,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"sync"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -137,10 +138,12 @@ func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)                       { panic("implement me") }
-func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) { panic("implement me") }
-func (m *mockCmix) RemoveIdentity(*id.ID)                                     { panic("implement me") }
-func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error)            { panic("implement me") }
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) { panic("implement me") }
+func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
+	panic("implement me")
+}
+func (m *mockCmix) RemoveIdentity(*id.ID)                          { panic("implement me") }
+func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { panic("implement me") }
 
 func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
 	m.Lock()
@@ -219,9 +222,9 @@ func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Durat
 	return nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock Group Chat Manager                                                    //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type mockGcHandler struct {
 	services map[string]groupChat.Processor
 	sync.Mutex

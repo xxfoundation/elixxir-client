@@ -48,7 +48,7 @@ const (
 	// sending a reaction.
 	SendReactionTag = "Reaction"
 
-	directMessageServiceTag = "direct_message_v0"
+	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
 	messageNonceSize = 4
 )
@@ -136,7 +136,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
 
-	partnerID := deriveReceptionID(partnerPubKey, partnerToken)
+	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
@@ -179,7 +179,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	if params.DebugTag == cmix.DefaultDebugTag {
-		params.DebugTag = directMessageServiceTag
+		params.DebugTag = directMessageDebugTag
 	}
 	partnerRnd, partnerEphID, err := send(dc.net, partnerID, partnerPubKey,
 		dc.privateKey, directMessage, params, rng)
@@ -196,8 +196,9 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	sendPrint += fmt.Sprintf(", partner send eph %v rnd %s MsgID %s",
 		partnerEphID, partnerRnd.ID, msgID)
 
-	myRnd, myEphID, err := sendSelf(dc.net, dc.receptionID, partnerPubKey,
-		partnerToken, dc.privateKey, directMessage, params, rng)
+	myRnd, myEphID, err := sendSelf(dc.net, dc.selfReceptionID,
+		partnerPubKey, partnerToken, dc.privateKey, directMessage,
+		params, rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on self send: %+v", err)
 		return cryptoMessage.ID{}, rounds.Round{},
@@ -215,15 +216,15 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 // an arbitrary idToken together. The ID type is set to "User".
 func DeriveReceptionID(publicKey ed25519.PublicKey, idToken uint32) *id.ID {
 	nikePubKey := ecdh.Edwards2ECDHNIKEPublicKey(&publicKey)
-	return deriveReceptionID(nikePubKey, idToken)
+	return deriveReceptionID(nikePubKey.Bytes(), idToken)
 }
 
-func deriveReceptionID(publicKey nike.PublicKey, idToken uint32) *id.ID {
+func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 	h, err := blake2b.New256(nil)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	h.Write(publicKey.Bytes())
+	h.Write(keyBytes)
 	tokenBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(tokenBytes, idToken)
 	h.Write(tokenBytes)
@@ -254,13 +255,7 @@ func send(net cMixClient, partnerID *id.ID, partnerPubKey nike.PublicKey,
 			return
 		}
 
-		// NOTE: When sending you use the partner id
-		//       When self sending you use your own id
-		//       Receiver figures out what to do based on msg content
-		service = message.Service{
-			Identifier: partnerID.Bytes(),
-			Tag:        directMessageServiceTag,
-		}
+		service = createRandomService(rng)
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -303,17 +298,7 @@ func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
 			return
 		}
 
-		// NOTE: When sending you use the partner id
-		//       When self sending you use your own id
-		//       Receiver figures out what to do based on msg content
-		service = message.Service{
-			Identifier: myID.Bytes(),
-			Tag:        directMessageServiceTag,
-		}
-
-		if params.DebugTag == cmix.DefaultDebugTag {
-			params.DebugTag = directMessageServiceTag
-		}
+		service = createRandomService(rng)
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -406,4 +391,22 @@ func createCMIXFields(ciphertext []byte, payloadSize int,
 	}
 
 	return fpBytes, encryptedPayload, mac, nil
+}
+
+func createRandomService(rng io.Reader) message.Service {
+	// NOTE: 64 is entirely arbitrary, 33 bytes are used for the ID
+	// and the rest will be base64'd into a string for the tag.
+	data := make([]byte, 64)
+	n, err := rng.Read(data)
+	if err != nil {
+		jww.FATAL.Panicf("rng failure: %+v", err)
+	}
+	if n != len(data) {
+		jww.FATAL.Panicf("rng read failure, short read: %d < %d", n,
+			len(data))
+	}
+	return message.Service{
+		Identifier: data[:33],
+		Tag:        base64.RawStdEncoding.EncodeToString(data[33:]),
+	}
 }

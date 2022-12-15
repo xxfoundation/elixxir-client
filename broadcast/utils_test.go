@@ -99,7 +99,8 @@ func (m *mockCmix) IsHealthy() bool {
 	return m.health
 }
 
-func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool) {
+func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool,
+	_ message.Processor) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
@@ -110,7 +111,8 @@ func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool) {
 	m.handler.processorMap[*id] = make(map[string][]message.Processor)
 }
 
-func (m *mockCmix) AddIdentityWithHistory(id *id.ID, _, _ time.Time, _ bool) {
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, _, _ time.Time, _ bool,
+	_ message.Processor) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 

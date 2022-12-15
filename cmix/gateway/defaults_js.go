@@ -1,6 +1,11 @@
 package gateway
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+	"gitlab.com/elixxir/primitives/authorizer"
+	"gitlab.com/xx_network/primitives/id"
+	"net"
+)
 
 const (
 	MaxPoolSize = 7

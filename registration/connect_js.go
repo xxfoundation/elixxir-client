@@ -1,6 +1,9 @@
 package registration
 
-import "net"
+import (
+	"github.com/pkg/errors"
+	"net"
+)
 
 const defaultURl = "registration.mainnet.cmix.rip"
 const defaultIP = "35.157.32.59"

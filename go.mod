@@ -17,10 +17,10 @@ require (
 	gitlab.com/elixxir/comms v0.0.4-0.20221110181420-84bca6216fe4
 	gitlab.com/elixxir/crypto v0.0.7-0.20221202020255-46eeab272a7f
 	gitlab.com/elixxir/ekv v0.2.1
-	gitlab.com/elixxir/primitives v0.0.3-0.20221114231218-cc461261a6af
-	gitlab.com/xx_network/comms v0.0.4-0.20221110181111-4f0694876936
+	gitlab.com/elixxir/primitives v0.0.3-0.20221214192222-988b44a6958a
+	gitlab.com/xx_network/comms v0.0.4-0.20221215171911-be703a5ab2af
 	gitlab.com/xx_network/crypto v0.0.5-0.20221110181048-76f0c556fe95
-	gitlab.com/xx_network/primitives v0.0.4-0.20221110180011-fd6ea3058225
+	gitlab.com/xx_network/primitives v0.0.4-0.20221209210320-376735467d58
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c
@@ -70,4 +70,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
+	src.agwa.name/tlshacks v0.0.0-20220518131152-d2c6f4e2b780 // indirect
 )

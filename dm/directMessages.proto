@@ -31,30 +31,33 @@ message Reaction {
 // DirectMessage is a message sent directly from one user to another. It
 // includes the return information (public key and dmtoken) for the sender.
 message DirectMessage{
-    // The round this message was sent on.
+    // The round this message was sent on to the intended recipient
     uint64 RoundID = 1;
 
-    uint32 DMToken = 2;  // hash of private key of the sender
+    // The round this message was sent on for the self send.
+    uint64 SelfRoundID = 2;
+
+    uint32 DMToken = 3;  // hash of private key of the sender
 
     // The type the below payload is (currently a Text or Reaction)
-    uint32 PayloadType = 3;
+    uint32 PayloadType = 4;
 
     // Payload is the actual message payload. It will be processed differently
     // based on the PayloadType.
-    bytes Payload = 4;
+    bytes Payload = 5;
 
     // nickname is the name which the user is using for this message it will not
     // be longer than 24 characters.
-    string Nickname = 5;
+    string Nickname = 6;
 
     // Nonce is 32 bits of randomness to ensure that two messages in the same
     // round with that have the same nickname, payload, and lease will not have
     // the same message ID.
-    bytes Nonce = 6;
+    bytes Nonce = 7;
 
     // LocalTimestamp is the timestamp when the "send call" is made based upon
     // the local clock. If this differs by more than 5 seconds +/- from when the
     // round it sent on is queued, then a random mutation on the queued time
     // (+/- 200ms) will be used by local clients instead.
-    int64 LocalTimestamp = 7;
+    int64 LocalTimestamp = 8;
 }

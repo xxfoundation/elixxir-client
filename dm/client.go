@@ -18,7 +18,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/nike"
@@ -30,10 +29,11 @@ const (
 )
 
 type dmClient struct {
-	receptionID *id.ID
-	privateKey  nike.PrivateKey
-	publicKey   nike.PublicKey
-	myToken     uint32
+	selfReceptionID *id.ID
+	receptionID     *id.ID
+	privateKey      nike.PrivateKey
+	publicKey       nike.PublicKey
+	myToken         uint32
 
 	nm  NickNameManager
 	net cMixClient
@@ -58,16 +58,18 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
-	receptionID := deriveReceptionID(publicKey, myIDToken)
+	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)
+	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
 	dmc := &dmClient{
-		receptionID: receptionID,
-		privateKey:  privateKey,
-		publicKey:   publicKey,
-		myToken:     myIDToken,
-		nm:          nickManager,
-		net:         net,
-		rng:         rng,
+		receptionID:     receptionID,
+		selfReceptionID: selfReceptionID,
+		privateKey:      privateKey,
+		publicKey:       publicKey,
+		myToken:         myIDToken,
+		nm:              nickManager,
+		net:             net,
+		rng:             rng,
 	}
 
 	// Register the listener
@@ -78,28 +80,24 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 		return false
 	})
 
-	beginningOfTime := time.Time{}
-	net.AddIdentityWithHistory(receptionID, identity.Forever,
-		beginningOfTime, true)
-
 	return dmc
 }
 
 // Register registers a listener for direct messages.
 func (dc *dmClient) Register(apiReceiver Receiver,
 	checkSent messageReceiveFunc) error {
-	p := &receiver{
+	beginningOfTime := time.Time{}
+	r := &receiver{
 		c:         dc,
 		api:       apiReceiver,
 		checkSent: checkSent,
 	}
 
-	service := message.Service{
-		Identifier: dc.receptionID.Bytes(),
-		Tag:        directMessageServiceTag,
-	}
+	dc.net.AddIdentityWithHistory(dc.receptionID, identity.Forever,
+		beginningOfTime, true, r.GetProcessor())
 
-	dc.net.AddService(dc.receptionID, service, p)
+	dc.net.AddIdentityWithHistory(dc.selfReceptionID, identity.Forever,
+		beginningOfTime, true, r.GetSelfProcessor())
 	return nil
 }
 

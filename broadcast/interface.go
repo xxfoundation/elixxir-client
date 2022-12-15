@@ -8,6 +8,8 @@
 package broadcast
 
 import (
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -16,7 +18,6 @@ import (
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // ListenerFunc is registered when creating a new broadcasting channel and
@@ -93,7 +94,8 @@ type Client interface {
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
 	AddIdentityWithHistory(
-		id *id.ID, validUntil, beginning time.Time, persistent bool)
+		id *id.ID, validUntil, beginning time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)

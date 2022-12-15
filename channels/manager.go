@@ -14,6 +14,9 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/broadcast"
@@ -26,8 +29,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -66,9 +67,11 @@ type Client interface {
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	AddIdentityWithHistory(
-		id *id.ID, validUntil, beginning time.Time, persistent bool)
+		id *id.ID, validUntil, beginning time.Time,
+		persistent bool, fallthroughProcessor message.Processor)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)

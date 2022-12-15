@@ -18,7 +18,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/nike"
@@ -81,39 +80,24 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 		return false
 	})
 
-	beginningOfTime := time.Time{}
-	net.AddIdentityWithHistory(receptionID, identity.Forever,
-		beginningOfTime, true, nil)
-	net.AddIdentityWithHistory(selfReceptionID, identity.Forever,
-		beginningOfTime, true, nil)
-
 	return dmc
 }
 
 // Register registers a listener for direct messages.
 func (dc *dmClient) Register(apiReceiver Receiver,
 	checkSent messageReceiveFunc) error {
+	beginningOfTime := time.Time{}
 	r := &receiver{
 		c:         dc,
 		api:       apiReceiver,
 		checkSent: checkSent,
 	}
 
-	// NOTE: When raw listening is available via API,
-	//       we want to switch these directMessageServiceTag
-	//       Tags to the raw option.
-	service := message.Service{
-		Identifier: dc.receptionID.Bytes(),
-		Tag:        directMessageServiceTag,
-	}
-	dc.net.AddService(dc.receptionID, service, r.GetProcessor())
+	dc.net.AddIdentityWithHistory(dc.receptionID, identity.Forever,
+		beginningOfTime, true, r.GetProcessor())
 
-	selfService := message.Service{
-		Identifier: dc.selfReceptionID.Bytes(),
-		Tag:        directMessageServiceTag,
-	}
-	dc.net.AddService(dc.selfReceptionID, selfService,
-		r.GetSelfProcessor())
+	dc.net.AddIdentityWithHistory(dc.selfReceptionID, identity.Forever,
+		beginningOfTime, true, r.GetSelfProcessor())
 	return nil
 }
 

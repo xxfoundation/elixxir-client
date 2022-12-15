@@ -23,6 +23,6 @@ func getConnectionInfo(gwId *id.ID, gwAddr, certificate string) (addr string, ce
 		return "", nil, err
 	}
 	addr = gwUrl + ":" + gwPort
-	cert = nil
+	cert = []byte(certificate)
 	return addr, cert, nil
 }

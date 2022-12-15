@@ -8,6 +8,10 @@
 package single
 
 import (
+	"sync"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -17,9 +21,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"testing"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,7 +115,7 @@ func (m *mockCmix) AddFingerprint(
 	return nil
 }
 
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
 
 func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 	ms message.Service, payload, mac []byte, _ cmix.CMIXParams) (

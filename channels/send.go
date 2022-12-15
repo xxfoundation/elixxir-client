@@ -18,7 +18,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -56,7 +56,7 @@ const messageNonceSize = 4
 // be possible to send a payload of 802 bytes at minimum.
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
@@ -67,12 +67,12 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	// Find the channel
 	ch, err := m.getChannel(channelID)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	nickname, _ := m.GetNickname(channelID)
 
-	var msgId cryptoChannel.MessageID
+	var msgId message.ID
 
 	// Retrieve token.
 	// Note that this may be nil if DM token have not been enabled,
@@ -97,12 +97,12 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	rng.Close()
 	if err != nil {
 		sendPrint += fmt.Sprintf(", failed to generate nonce: %+v", err)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("Failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
 		sendPrint += fmt.Sprintf(
 			", got %d bytes for %d-byte nonce", n, messageNonceSize)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf(
 				"Generated %d bytes for %d-byte nonce", n, messageNonceSize)
 	}
@@ -126,7 +126,8 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		}
 
 		// Make the messageID
-		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
+		msgId = message.DeriveChannelMessageID(channelID,
+			chMsg.RoundID, chMsgSerial)
 
 		// Sign the message
 		messageSig := ed25519.Sign(*m.me.Privkey, chMsgSerial)
@@ -151,7 +152,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	})
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s", err.Error())
-		return cryptoChannel.MessageID{}, rounds.Round{},
+		return message.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
 
@@ -165,7 +166,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			sendPrint += fmt.Sprintf(
 				", failed to denote failed broadcast: %s", err.Error())
 		}
-		return cryptoChannel.MessageID{}, rounds.Round{},
+		return message.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
 	sendPrint += fmt.Sprintf(
@@ -185,7 +186,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 // return an error. The message must be at most 510 bytes long.
 func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	messageType MessageType, msg []byte, validUntil time.Duration,
-	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
+	params cmix.CMIXParams) (message.ID, rounds.Round,
 	ephemeral.Id, error) {
 
 	// Note: We log sends on exit, and append what happened to the message
@@ -197,10 +198,10 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	// Find the channel
 	ch, err := m.getChannel(channelID)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	var msgId cryptoChannel.MessageID
+	var msgId message.ID
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
 		PayloadType:    uint32(messageType),
@@ -217,10 +218,10 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	n, err := rng.Read(chMsg.Nonce)
 	rng.Close()
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("Failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf(
 				"Generated %d bytes for %-byte nonce", n, messageNonceSize)
 	}
@@ -239,7 +240,8 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 			return nil, err
 		}
 
-		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
+		msgId = message.DeriveChannelMessageID(channelID, chMsg.RoundID,
+			chMsgSerial)
 
 		// Check if the message is too long
 		if len(chMsgSerial) > ch.broadcast.MaxRSAToPublicPayloadSize() {
@@ -253,7 +255,7 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	uuid, err := m.st.denotePendingAdminSend(channelID, chMsg)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s", err.Error())
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	sendPrint += fmt.Sprintf(", broadcasting message %s", netTime.Now())
@@ -269,7 +271,7 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 			jww.ERROR.Printf(
 				"Failed to update for a failed send to %s: %+v", channelID, err)
 		}
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 	sendPrint += fmt.Sprintf(
 		", broadcast succeeded %s, success!", netTime.Now())
@@ -290,7 +292,7 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 // lasting forever if ValidForever is used.
 func (m *manager) SendMessage(channelID *id.ID, msg string,
 	validUntil time.Duration, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendMessageTag)
 	jww.INFO.Printf("[%s]SendMessage(%s)", tag, channelID)
 
@@ -304,7 +306,7 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
@@ -322,9 +324,9 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if ValidForever is used.
 func (m *manager) SendReply(channelID *id.ID, msg string,
-	replyTo cryptoChannel.MessageID, validUntil time.Duration,
+	replyTo message.ID, validUntil time.Duration,
 	params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendReplyTag)
 	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, channelID, replyTo)
 	txt := &CMIXChannelText{
@@ -337,7 +339,7 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil,
@@ -350,14 +352,14 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 //
 // Clients will drop the reaction if they do not recognize the reactTo message.
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
-	reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	reactTo message.ID, params cmix.CMIXParams) (
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
 	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, channelID, reactTo)
 
 	if err := emoji.ValidateReaction(reaction); err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	react := &CMIXChannelReaction{
@@ -370,7 +372,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 
 	reactMarshaled, err := proto.Marshal(react)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(

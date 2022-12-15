@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/dm"
+	"gitlab.com/elixxir/crypto/message"
 )
 
 // DMReceiver is an interface which an external party which uses the dm
@@ -199,7 +200,7 @@ func NewDMReceiver(dr DMReceiver) dm.Receiver {
 // Receive is called whenever a direct message is received.
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
-func (dmr *dmReceiver) Receive(messageID dm.MessageID,
+func (dmr *dmReceiver) Receive(messageID message.ID,
 	nickname string, text []byte, pubKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType,
@@ -214,7 +215,7 @@ func (dmr *dmReceiver) Receive(messageID dm.MessageID,
 // Receive is called whenever a direct message is received.
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
-func (dmr *dmReceiver) ReceiveText(messageID dm.MessageID,
+func (dmr *dmReceiver) ReceiveText(messageID message.ID,
 	nickname, text string, pubKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round,
@@ -232,8 +233,8 @@ func (dmr *dmReceiver) ReceiveText(messageID dm.MessageID,
 //
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer replies.
-func (dmr *dmReceiver) ReceiveReply(messageID dm.MessageID,
-	reactionTo dm.MessageID, nickname, text string,
+func (dmr *dmReceiver) ReceiveReply(messageID message.ID,
+	reactionTo message.ID, nickname, text string,
 	pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status dm.Status) uint64 {
@@ -251,8 +252,8 @@ func (dmr *dmReceiver) ReceiveReply(messageID dm.MessageID,
 //
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer reactions.
-func (dmr *dmReceiver) ReceiveReaction(messageID dm.MessageID,
-	reactionTo dm.MessageID, nickname, reaction string,
+func (dmr *dmReceiver) ReceiveReaction(messageID message.ID,
+	reactionTo message.ID, nickname, reaction string,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
@@ -265,7 +266,7 @@ func (dmr *dmReceiver) ReceiveReaction(messageID dm.MessageID,
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.
 func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
-	messageID dm.MessageID, timestamp time.Time, round rounds.Round,
+	messageID message.ID, timestamp time.Time, round rounds.Round,
 	status dm.Status) {
 	dmr.dr.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))

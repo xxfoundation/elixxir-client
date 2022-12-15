@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 )
 
 // Client the direct message client implements a Listener and Sender interface.
@@ -31,7 +32,7 @@ type Sender interface {
 	// SendText is used to send a formatted message to another user.
 	SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		msg string, params cmix.CMIXParams) (
-		MessageID, rounds.Round, ephemeral.Id, error)
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendReply is used to send a formatted direct message reply.
 	//
@@ -39,8 +40,8 @@ type Sender interface {
 	// then the other side will post the message as a normal
 	// message and not as a reply.
 	SendReply(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
-		msg string, replyTo MessageID,
-		params cmix.CMIXParams) (MessageID, rounds.Round,
+		msg string, replyTo cryptoMessage.ID,
+		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
 
 	// SendReaction is used to send a reaction to a direct
@@ -50,8 +51,8 @@ type Sender interface {
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
 	SendReaction(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
-		reaction string, reactTo MessageID,
-		params cmix.CMIXParams) (MessageID, rounds.Round,
+		reaction string, reactTo cryptoMessage.ID,
+		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
 
 	// Send is used to send a raw message. In general, it
@@ -64,7 +65,7 @@ type Sender interface {
 	// possible to send a payload of 802 bytes at minimum.
 	Send(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		messageType MessageType, plaintext []byte,
-		params cmix.CMIXParams) (MessageID,
+		params cmix.CMIXParams) (cryptoMessage.ID,
 		rounds.Round, ephemeral.Id, error)
 }
 
@@ -104,7 +105,7 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	Receive(messageID MessageID,
+	Receive(messageID cryptoMessage.ID,
 		nickname string, text []byte, pubKey ed25519.PublicKey,
 		dmToken uint32,
 		codeset uint8, timestamp time.Time,
@@ -124,7 +125,7 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	ReceiveText(messageID MessageID,
+	ReceiveText(messageID cryptoMessage.ID,
 		nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, status Status) uint64
@@ -147,8 +148,8 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	ReceiveReply(messageID MessageID,
-		reactionTo MessageID, nickname, text string,
+	ReceiveReply(messageID cryptoMessage.ID,
+		reactionTo cryptoMessage.ID, nickname, text string,
 		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
@@ -171,8 +172,8 @@ type Receiver interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
-	ReceiveReaction(messageID MessageID,
-		reactionTo MessageID, nickname, reaction string,
+	ReceiveReaction(messageID cryptoMessage.ID,
+		reactionTo cryptoMessage.ID, nickname, reaction string,
 		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
@@ -184,7 +185,7 @@ type Receiver interface {
 	// updated based upon the UUID at a later date. A time of
 	// time.Time{} will be passed for a nilled timestamp. If a nil
 	// value is passed, make no update.
-	UpdateSentStatus(uuid uint64, messageID MessageID,
+	UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status Status)
 }
 
@@ -193,9 +194,11 @@ type cMixClient interface {
 	GetMaxMessageLength() int
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	AddIdentityWithHistory(
-		id *id.ID, validUntil, beginning time.Time, persistent bool)
+		id *id.ID, validUntil, beginning time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)

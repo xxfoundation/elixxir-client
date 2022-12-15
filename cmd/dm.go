@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/primitives/id"
 
@@ -94,10 +95,10 @@ var dmCmd = &cobra.Command{
 			base64.RawStdEncoding.EncodeToString(partnerPubKey))
 		jww.INFO.Printf("DMRECVTOKEN: %d", partnerDMToken)
 
-		recvCh := make(chan dm.MessageID, 10)
+		recvCh := make(chan message.ID, 10)
 		myReceiver := &receiver{
 			recv:    recvCh,
-			msgData: make(map[dm.MessageID]*msgInfo),
+			msgData: make(map[message.ID]*msgInfo),
 			uuid:    0,
 		}
 		myNickMgr := dm.NewNicknameManager(identity, ekv)
@@ -215,8 +216,8 @@ func (nm *nickMgr) GetNickname(id *id.ID) (string, bool) {
 }
 
 type msgInfo struct {
-	messageID dm.MessageID
-	replyID   dm.MessageID
+	messageID message.ID
+	replyID   message.ID
 	nickname  string
 	content   string
 	pubKey    ed25519.PublicKey
@@ -235,13 +236,13 @@ func (mi *msgInfo) String() string {
 }
 
 type receiver struct {
-	recv    chan dm.MessageID
-	msgData map[dm.MessageID]*msgInfo
+	recv    chan message.ID
+	msgData map[message.ID]*msgInfo
 	uuid    uint64
 	sync.Mutex
 }
 
-func (r *receiver) receive(messageID dm.MessageID, replyID dm.MessageID,
+func (r *receiver) receive(messageID message.ID, replyID message.ID,
 	nickname, text string, pubKey ed25519.PublicKey,
 	dmToken uint32,
 	codeset uint8, timestamp time.Time,
@@ -273,26 +274,26 @@ func (r *receiver) receive(messageID dm.MessageID, replyID dm.MessageID,
 	return msg.uuid
 }
 
-func (r *receiver) Receive(messageID dm.MessageID,
+func (r *receiver) Receive(messageID message.ID,
 	nickname string, text []byte, pubKey ed25519.PublicKey,
 	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType, status dm.Status) uint64 {
 	jww.INFO.Printf("Receive: %v", messageID)
-	return r.receive(messageID, dm.MessageID{}, nickname, string(text),
+	return r.receive(messageID, message.ID{}, nickname, string(text),
 		pubKey, dmToken, codeset, timestamp, round, mType, status)
 }
 
-func (r *receiver) ReceiveText(messageID dm.MessageID,
+func (r *receiver) ReceiveText(messageID message.ID,
 	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status dm.Status) uint64 {
 	jww.INFO.Printf("ReceiveText: %v", messageID)
-	return r.receive(messageID, dm.MessageID{}, nickname, text,
+	return r.receive(messageID, message.ID{}, nickname, text,
 		pubKey, dmToken, codeset, timestamp, round, dm.TextType, status)
 }
-func (r *receiver) ReceiveReply(messageID dm.MessageID,
-	reactionTo dm.MessageID, nickname, text string,
+func (r *receiver) ReceiveReply(messageID message.ID,
+	reactionTo message.ID, nickname, text string,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
@@ -300,8 +301,8 @@ func (r *receiver) ReceiveReply(messageID dm.MessageID,
 	return r.receive(messageID, reactionTo, nickname, text,
 		pubKey, dmToken, codeset, timestamp, round, dm.TextType, status)
 }
-func (r *receiver) ReceiveReaction(messageID dm.MessageID,
-	reactionTo dm.MessageID, nickname, reaction string,
+func (r *receiver) ReceiveReaction(messageID message.ID,
+	reactionTo message.ID, nickname, reaction string,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
@@ -310,7 +311,7 @@ func (r *receiver) ReceiveReaction(messageID dm.MessageID,
 		pubKey, dmToken, codeset, timestamp, round, dm.ReactionType,
 		status)
 }
-func (r *receiver) UpdateSentStatus(uuid uint64, messageID dm.MessageID,
+func (r *receiver) UpdateSentStatus(uuid uint64, messageID message.ID,
 	timestamp time.Time, round rounds.Round, status dm.Status) {
 	r.Lock()
 	defer r.Unlock()

@@ -64,7 +64,7 @@ func (p *pool) Size() int {
 	return size
 }
 
-// IsReady returns true if there is at least one connected member fo the hostPool
+// IsReady returns true if there is at least one connected member of the hostPool
 func (p *pool) IsReady() error {
 	for i := 0; i < len(p.hostList); i++ {
 		if p.isConnected(p.hostList[i]) {
@@ -185,7 +185,7 @@ func (p *pool) GetPreferred(targets []*id.ID, rng io.Reader) []*connect.Host {
 }
 
 // addOrReplace adds the given host if the pool is not full, or replaces a random one if
-// the pool is full
+// the pool is full.
 // If a host was replaced, it returns it so it can be cleaned up
 func (p *pool) addOrReplace(rng io.Reader, host *connect.Host) *connect.Host {
 	// if the pool is not full, append to the end
@@ -213,7 +213,7 @@ func (p *pool) internalReplace(selectedIndex uint, host *connect.Host) *connect.
 	toRemove := p.hostList[selectedIndex]
 	p.hostList[selectedIndex] = host
 	delete(p.hostMap, *toRemove.GetId())
-	p.hostMap[*host.GetId()] = uint(selectedIndex)
+	p.hostMap[*host.GetId()] = selectedIndex
 	return toRemove
 }
 

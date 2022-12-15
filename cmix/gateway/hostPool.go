@@ -177,7 +177,7 @@ func (hp *hostPool) StartProcesses() stoppable.Stoppable {
 	// Create the Node Tester workers
 	for i := 0; i < hp.params.NumConnectionsWorkers; i++ {
 		stop := stoppable.NewSingle(
-			"Node Tester Worker " + strconv.Itoa(int(i)))
+			"Node Tester Worker " + strconv.Itoa(i))
 		go hp.nodeTester(stop)
 		multi.Add(stop)
 	}
@@ -229,29 +229,29 @@ func (hp *hostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 }
 
 // SetGatewayFilter sets the filter used to filter gateways from the ID map.
-func (h *hostPool) SetGatewayFilter(f Filter) {
-	h.filterMux.Lock()
-	defer h.filterMux.Unlock()
+func (hp *hostPool) SetGatewayFilter(f Filter) {
+	hp.filterMux.Lock()
+	defer hp.filterMux.Unlock()
 
-	h.filter = f
+	hp.filter = f
 }
 
 // GetHostParams returns a copy of the connect.HostParams struct.
-func (h *hostPool) GetHostParams() connect.HostParams {
-	hp := h.params.HostParams
+func (hp *hostPool) GetHostParams() connect.HostParams {
+	param := hp.params.HostParams
 	hpCopy := connect.HostParams{
-		MaxRetries:            hp.MaxRetries,
-		AuthEnabled:           hp.AuthEnabled,
-		EnableCoolOff:         hp.EnableCoolOff,
-		NumSendsBeforeCoolOff: hp.NumSendsBeforeCoolOff,
-		CoolOffTimeout:        hp.CoolOffTimeout,
-		SendTimeout:           hp.SendTimeout,
-		EnableMetrics:         hp.EnableMetrics,
-		ExcludeMetricErrors:   make([]string, len(hp.ExcludeMetricErrors)),
-		KaClientOpts:          hp.KaClientOpts,
+		MaxRetries:            param.MaxRetries,
+		AuthEnabled:           param.AuthEnabled,
+		EnableCoolOff:         param.EnableCoolOff,
+		NumSendsBeforeCoolOff: param.NumSendsBeforeCoolOff,
+		CoolOffTimeout:        param.CoolOffTimeout,
+		SendTimeout:           param.SendTimeout,
+		EnableMetrics:         param.EnableMetrics,
+		ExcludeMetricErrors:   make([]string, len(param.ExcludeMetricErrors)),
+		KaClientOpts:          param.KaClientOpts,
 	}
-	for i := 0; i < len(hp.ExcludeMetricErrors); i++ {
-		hpCopy.ExcludeMetricErrors[i] = hp.ExcludeMetricErrors[i]
+	for i := 0; i < len(param.ExcludeMetricErrors); i++ {
+		hpCopy.ExcludeMetricErrors[i] = param.ExcludeMetricErrors[i]
 	}
 	return hpCopy
 }
@@ -263,11 +263,11 @@ func (hp *hostPool) getPool() Pool {
 }
 
 // getFilter returns the filter used to filter gateways from the ID map.
-func (h *hostPool) getFilter() Filter {
-	h.filterMux.Lock()
-	defer h.filterMux.Unlock()
+func (hp *hostPool) getFilter() Filter {
+	hp.filterMux.Lock()
+	defer hp.filterMux.Unlock()
 
-	return h.filter
+	return hp.filter
 }
 
 // getHostList returns the host list from storage.

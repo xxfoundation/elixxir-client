@@ -105,7 +105,7 @@ var dmCmd = &cobra.Command{
 
 		sendTracker := dm.NewSendTracker(ekv)
 
-		dmClient := dm.NewDMClient(dmID, myReceiver, sendTracker,
+		dmClient := dm.NewDMClient(&dmID, myReceiver, sendTracker,
 			myNickMgr, user.GetCmix(), user.GetRng())
 
 		err = user.StartNetworkFollower(5 * time.Second)

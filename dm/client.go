@@ -12,6 +12,7 @@ import (
 	sync "sync"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
@@ -27,6 +28,7 @@ const (
 )
 
 type dmClient struct {
+	me              *codename.PrivateIdentity
 	selfReceptionID *id.ID
 	receptionID     *id.ID
 	privateKey      nike.PrivateKey
@@ -46,7 +48,7 @@ type dmClient struct {
 //
 // The DMClient implements both the Sender and ListenerRegistrar interface.
 // See send.go for implementation of the Sender interface.
-func NewDMClient(myID codename.PrivateIdentity, receiver EventModel,
+func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
 	nickManager NickNameManager,
 	net cMixClient,
@@ -62,6 +64,7 @@ func NewDMClient(myID codename.PrivateIdentity, receiver EventModel,
 	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
 	dmc := &dmClient{
+		me:              myID,
 		receptionID:     receptionID,
 		selfReceptionID: selfReceptionID,
 		privateKey:      privateKey,
@@ -127,6 +130,30 @@ func (dc *dmClient) GetPublicKey() nike.PublicKey {
 
 func (dc *dmClient) GetToken() uint32 {
 	return dc.myToken
+}
+
+// GetIdentity returns the public identity associated with this channel manager.
+func (dc *dmClient) GetIdentity() codename.Identity {
+	return dc.me.Identity
+}
+
+// GetNickname returns the stored nickname if there is one
+func (dc *dmClient) GetNickname(id *id.ID) (string, bool) {
+	return dc.GetNickname(id)
+}
+
+// SetNickname saves the nickname
+func (dc *dmClient) SetNickname(nick string) {
+	dc.SetNickname(nick)
+}
+
+// ExportPrivateIdentity encrypts and exports the private identity to a portable
+// string.
+func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
+	jww.INFO.Printf("[DM] ExportPrivateIdentity()")
+	rng := dc.rng.GetStream()
+	defer rng.Close()
+	return dc.me.Export(password, rng)
 }
 
 // GetNickname returns the stored nickname if there is one

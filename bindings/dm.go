@@ -80,7 +80,7 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 
 	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
 
-	m := dm.NewDMClient(pi, receiver, sendTracker, nickMgr,
+	m := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
 		user.api.GetCmix(), user.api.GetRng())
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 
 	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
 
-	m := dm.NewDMClient(pi, receiver, sendTracker, nickMgr,
+	m := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
 		user.api.GetCmix(), user.api.GetRng())
 	if err != nil {
 		return nil, err
@@ -141,6 +141,11 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 
 	// Add channel to singleton and return
 	return dmClients.add(m), nil
+}
+
+// GetID returns the tracker ID for the DMClient object.
+func (cm *DMClient) GetID() int {
+	return cm.id
 }
 
 // GetPublicKey returns the public key bytes for this client
@@ -151,6 +156,37 @@ func (cm *DMClient) GetPublicKey() []byte {
 // GetToken returns the dm token for this client
 func (cm *DMClient) GetToken() uint32 {
 	return cm.api.GetToken()
+}
+
+// GetIdentity returns the public identity associated with this DMClient
+func (cm *DMClient) GetIdentity() codename.Identity {
+	return cm.api.GetIdentity()
+}
+
+// ExportPrivateIdentity encrypts and exports the private identity to a
+// portable string.
+func (cm *DMClient) ExportPrivateIdentity(password string) ([]byte, error) {
+	return cm.api.ExportPrivateIdentity(password)
+}
+
+// GetNickname gets a nickname associated with this DM partner
+// (reception) ID.
+func (cm *DMClient) GetNickname(idBytes []byte) (string, error) {
+	chid, err := id.Unmarshal(idBytes)
+	if err != nil {
+		return "", err
+	}
+	nick, exists := cm.api.GetNickname(chid)
+	if !exists {
+		return "", errors.New("no nickname found")
+	}
+
+	return nick, nil
+}
+
+// SetNickname sets the nickname to use
+func (cm *DMClient) SetNickname(nick string) {
+	cm.api.SetNickname(nick)
 }
 
 // SendText is used to send a formatted direct message.

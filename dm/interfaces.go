@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike"
@@ -38,6 +39,15 @@ type Client interface {
 
 	// GetToken returns the DM Token of this client
 	GetToken() uint32
+
+	// GetIdentity returns the public identity associated with this DMClient
+	GetIdentity() codename.Identity
+
+	// ExportPrivateIdentity encrypts and exports the private identity to a
+	// portable string.
+	ExportPrivateIdentity(password string) ([]byte, error)
+
+	NickNameManager
 }
 
 // Sender implemntors allow the API user to send to a given partner over

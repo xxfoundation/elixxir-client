@@ -338,7 +338,7 @@ func (m *eventModel) ReceiveReply(channelID *id.ID,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
 	c, err := m.api.GetChannel(channelID)
 	if err != nil {
-		jww.FATAL.Panicf("[%] Failed to get channel with ID %s", channelID)
+		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s", channelsPrintHeader, channelID)
 	}
 	fmt.Printf("Received reply for channel %s\n", c.Name)
 	return 0
@@ -351,7 +351,7 @@ func (m *eventModel) ReceiveReaction(channelID *id.ID,
 	mType channels.MessageType, status channels.SentStatus) uint64 {
 	c, err := m.api.GetChannel(channelID)
 	if err != nil {
-		jww.FATAL.Panicf("[%] Failed to get channel with ID %s", channelID)
+		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s", channelsPrintHeader, channelID)
 	}
 	fmt.Printf("Received reaction for channel %s\n", c.Name)
 	return 0

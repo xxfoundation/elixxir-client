@@ -58,7 +58,7 @@ type DMClient struct {
 //     Receiver event model that is not compatible with GoMobile
 //     bindings.
 func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
-	receiverBuilder dm.ReceiverBuilder) (*DMClient, error) {
+	receiver dm.EventModel) (*DMClient, error) {
 	pi, err := codename.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -66,13 +66,6 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
-	if err != nil {
-		return nil, err
-	}
-
-	// FIXME: This should key off private key?
-	dmPath := base64.RawStdEncoding.EncodeToString(pi.PubKey[:])
-	receiver, err := receiverBuilder(dmPath)
 	if err != nil {
 		return nil, err
 	}

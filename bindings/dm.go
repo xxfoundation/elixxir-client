@@ -71,7 +71,8 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 	}
 
 	// FIXME: This should key off private key?
-	receiver, err := receiverBuilder("dms")
+	dmPath := base64.RawStdEncoding.EncodeToString(pi.PubKey[:])
+	receiver, err := receiverBuilder(dmPath)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	sync "sync"
 	"time"
@@ -76,13 +77,13 @@ func NewDMClient(myID codename.PrivateIdentity, receiver EventModel,
 	// Register the listener
 	// TODO: For now we are not doing send tracking. Add it when
 	// hitting WASM.
-	dmc.Register(receiver, dmc.st.CheckIfSent)
+	dmc.register(receiver, dmc.st.CheckIfSent)
 
 	return dmc
 }
 
 // Register registers a listener for direct messages.
-func (dc *dmClient) Register(apiReceiver EventModel,
+func (dc *dmClient) register(apiReceiver EventModel,
 	checkSent messageReceiveFunc) error {
 	beginningOfTime := time.Time{}
 	r := &receiver{
@@ -119,6 +120,14 @@ type nickMgr struct {
 	ekv      *versioned.KV
 	nick     *string
 	sync.Mutex
+}
+
+func (dc *dmClient) GetPublicKey() *ed25519.PublicKey {
+	return ecdh.ECDHNIKE2EdwardsPublicKey(dc.publicKey)
+}
+
+func (dc *dmClient) GetToken() uint32 {
+	return dc.myToken
 }
 
 // GetNickname returns the stored nickname if there is one

@@ -24,7 +24,19 @@ import (
 // Client the direct message client implements a Listener and Sender interface.
 type Client interface {
 	Sender
-	Listener
+	// Listener
+	// TODO: These unimplemented at this time.
+	// BlockDMs disables DMs from a specific user. Received messages
+	// will be dropped during event processing.
+	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken uint32) error
+	// UnblockDMs enables DMs from a specific user.
+	// UnblockDMs(conversationID *id.ID) error
+
+	// GetPublicKey returns the public key of this client
+	GetPublicKey() *ed25519.PublicKey
+
+	// GetToken returns the DM Token of this client
+	GetToken() uint32
 }
 
 // Sender implemntors allow the API user to send to a given partner over
@@ -68,19 +80,6 @@ type Sender interface {
 		messageType MessageType, plaintext []byte,
 		params cmix.CMIXParams) (cryptoMessage.ID,
 		rounds.Round, ephemeral.Id, error)
-}
-
-// Listener allows API users to register a Receiver to receive DMs.
-type Listener interface {
-	// Register registers a listener for direct messages.
-	Register(receiver EventModel, checkSent messageReceiveFunc) error
-
-	// TODO: These unimplemented at this time.
-	// BlockDMs disables DMs from a specific user. Received messages
-	// will be dropped during event processing.
-	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken uint32) error
-	// UnblockDMs enables DMs from a specific user.
-	// UnblockDMs(conversationID *id.ID) error
 }
 
 // DMReceiverBuilder initialises the event model using the given path.

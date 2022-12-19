@@ -62,7 +62,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	timeNow := netTime.Now().Round(0)
 
 	// Create a cMix message for each group member
-	groupMessages, msgId, err := m.newMessages(g, tag, message, timeNow)
+	groupMessages, recipients, msgId, err := m.newMessages(g, tag, message, timeNow)
 	if err != nil {
 		return rounds.Round{}, time.Time{}, group.MessageID{},
 			errors.Errorf(newCmixMsgErr, g.Name, g.ID, err)
@@ -71,10 +71,11 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	// Send all the groupMessages
 	param := cmix.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"
-	rid, _, err := m.getCMix().SendMany(groupMessages, param)
+	rid, _, err := m.getCMix().SendMany(recipients, groupMessages, param)
 	if err != nil {
 		return rounds.Round{}, time.Time{}, group.MessageID{},
-			errors.Errorf(sendManyCmixErr, m.getReceptionIdentity().ID, g.Name, g.ID, err)
+			errors.Errorf(sendManyCmixErr, m.getReceptionIdentity().ID, g.Name,
+				g.ID, err)
 	}
 
 	jww.DEBUG.Printf("[GC] Sent message to %d members in group %s at %s.",
@@ -84,10 +85,9 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 
 // newMessages builds a list of messages, one for each group chat member.
 func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
-	timestamp time.Time) ([]cmix.TargetedCmixMessage, group.MessageID, error) {
+	timestamp time.Time) ([]cmix.TargetedCmixMessage, []*id.ID,
+	group.MessageID, error) {
 
-	// Create list of cMix messages
-	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
 	rng := m.getRng().GetStream()
 	defer rng.Close()
 
@@ -97,18 +97,18 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 	// Generate public message to determine what length internal message can be
 	pubMsg, err := newPublicMsg(maxCmixMessageLength)
 	if err != nil {
-		return nil, group.MessageID{}, errors.Errorf(newPublicMsgErr, err)
+		return nil, nil, group.MessageID{}, errors.Errorf(newPublicMsgErr, err)
 	}
 
 	// Generate internal message
 	intlMsg, err := newInternalMsg(pubMsg.GetPayloadSize())
 	if err != nil {
-		return nil, group.MessageID{}, errors.Errorf(newInternalMsgErr, err)
+		return nil, nil, group.MessageID{}, errors.Errorf(newInternalMsgErr, err)
 	}
 
 	// Return an error if the message is too large to fit in the payload
 	if intlMsg.GetPayloadMaxSize() < len(msg) {
-		return nil, group.MessageID{}, errors.Errorf(
+		return nil, nil, group.MessageID{}, errors.Errorf(
 			messageLenErr, len(msg), intlMsg.GetPayloadMaxSize())
 	}
 
@@ -117,22 +117,26 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 		m.getReceptionIdentity().ID, msg)
 
 	// Create cMix messages
-	for _, member := range g.Members {
+	messages := make([]cmix.TargetedCmixMessage, len(g.Members))
+	recipients := make([]*id.ID, len(g.Members))
+	for i, member := range g.Members {
 		// Do not send to the sender
 		if m.getReceptionIdentity().ID.Cmp(member.ID) {
 			continue
 		}
 
 		// Add cMix message to list
-		cMixMsg, err := newCmixMsg(g, tag, timestamp, member, rng, maxCmixMessageLength,
-			internalMessagePayload)
+		cMixMsg, err := newCmixMsg(g, tag, timestamp, member, rng,
+			maxCmixMessageLength, internalMessagePayload)
 		if err != nil {
-			return nil, group.MessageID{}, err
+			return nil, nil, group.MessageID{}, err
 		}
-		messages = append(messages, cMixMsg)
+		messages[i] = cMixMsg
+		recipients[i] = g.ID
 	}
 
-	return messages, group.NewMessageID(g.ID, internalMessagePayload), nil
+	return messages, recipients,
+		group.NewMessageID(g.ID, internalMessagePayload), nil
 }
 
 // newCmixMsg generates a new cmix.TargetedCmixMessage for the given group

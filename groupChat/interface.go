@@ -114,8 +114,8 @@ type groupE2e interface {
 // groupCmix is a subset of the cmix.Client interface containing only the
 // methods needed by GroupChat
 type groupCmix interface {
-	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
-		rounds.Round, []ephemeral.Id, error)
+	SendMany(recipients []*id.ID, messages []cmix.TargetedCmixMessage,
+		p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error)
 	AddService(
 		clientID *id.ID, newService message.Service, response message.Processor)
 	DeleteService(

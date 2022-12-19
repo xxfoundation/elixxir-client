@@ -117,7 +117,7 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	eb := func(path string) (dm.Receiver, error) {
+	eb := func(path string) (dm.EventModel, error) {
 		return NewDMReceiver(receiverBuilder.Build(path)), nil
 	}
 	// FIXME: This should key off private key?

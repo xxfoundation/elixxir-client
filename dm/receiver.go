@@ -30,7 +30,7 @@ import (
 // receiver struct for message handling
 type receiver struct {
 	c         *dmClient
-	api       Receiver
+	api       EventModel
 	checkSent messageReceiveFunc
 }
 

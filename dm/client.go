@@ -46,7 +46,7 @@ type dmClient struct {
 //
 // The DMClient implements both the Sender and ListenerRegistrar interface.
 // See send.go for implementation of the Sender interface.
-func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
+func NewDMClient(myID codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
 	nickManager NickNameManager,
 	net cMixClient,
@@ -82,7 +82,7 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 }
 
 // Register registers a listener for direct messages.
-func (dc *dmClient) Register(apiReceiver Receiver,
+func (dc *dmClient) Register(apiReceiver EventModel,
 	checkSent messageReceiveFunc) error {
 	beginningOfTime := time.Time{}
 	r := &receiver{
@@ -94,6 +94,7 @@ func (dc *dmClient) Register(apiReceiver Receiver,
 	// Initialize Send Tracking
 	dc.st.Init(dc.net, r.receiveMessage, r.api.UpdateSentStatus, dc.rng)
 
+	// Start listening
 	dc.net.AddIdentityWithHistory(dc.receptionID, identity.Forever,
 		beginningOfTime, true, r.GetProcessor())
 

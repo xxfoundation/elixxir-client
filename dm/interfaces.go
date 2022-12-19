@@ -73,7 +73,7 @@ type Sender interface {
 // Listener allows API users to register a Receiver to receive DMs.
 type Listener interface {
 	// Register registers a listener for direct messages.
-	Register(receiver Receiver, checkSent messageReceiveFunc) error
+	Register(receiver EventModel, checkSent messageReceiveFunc) error
 
 	// TODO: These unimplemented at this time.
 	// BlockDMs disables DMs from a specific user. Received messages
@@ -84,11 +84,11 @@ type Listener interface {
 }
 
 // DMReceiverBuilder initialises the event model using the given path.
-type ReceiverBuilder func(path string) (Receiver, error)
+type ReceiverBuilder func(path string) (EventModel, error)
 
-// Receiver is all of the reception functions an API user must implement.
+// EventModel is all of the reception functions an API user must implement.
 // This is similar to the event model system in channels.
-type Receiver interface {
+type EventModel interface {
 	// Receive is called whenever a raw direct message is
 	// received. It may be called multiple times on the same
 	// message. It is incumbent on the user of the API to filter

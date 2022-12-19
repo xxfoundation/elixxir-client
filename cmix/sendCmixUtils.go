@@ -191,24 +191,35 @@ func handleMissingNodeKeys(instance *network.Instance,
 	}
 }
 
-// messageListToStrings serializes a list of assembledCmixMessage into a string
-// of comma seperated recipient IDs and a string of comma seperated message
-// digests. Duplicate recipient IDs are printed once. Intended for use in
-// printing to log.
-func messageListToStrings(msgList []assembledCmixMessage) (string, string) {
-	idStrings := make([]string, 0, len(msgList))
-	idMap := make(map[id.ID]bool, len(msgList))
+// messageListToDigestStrings serializes a list of assembledCmixMessage into a
+// string of comma seperated message digests. Duplicate recipient IDs are printed
+// once. Intended for use in printing to log.
+func messageListToDigestStrings(msgList []assembledCmixMessage) string {
 	msgDigests := make([]string, len(msgList))
 
 	for i, msg := range msgList {
-		if !idMap[*msg.Recipient] {
-			idStrings = append(idStrings, msg.Recipient.String())
-			idMap[*msg.Recipient] = true
-		}
 		msgDigests[i] = msg.Message.Digest()
 	}
 
-	return strings.Join(idStrings, ", "), strings.Join(msgDigests, ", ")
+	return strings.Join(msgDigests, ", ")
+}
+
+// messageListToDigestStrings serializes a list of recipient IDs into a string
+// of comma seperated recipient IDs. Duplicate recipient IDs are printed once.
+// Intended for use in printing to log.
+func recipientsToStrings(recipients []*id.ID) string {
+	idMap := make(map[id.ID]bool, len(recipients))
+	idStrings := make([]string, 0, len(recipients))
+
+	for _, recipient := range recipients {
+		if !idMap[*recipient] {
+			idStrings = append(idStrings, recipient.String())
+			idMap[*recipient] = true
+		}
+	}
+
+	return strings.Join(idStrings, ", ")
+
 }
 
 // messagesToDigestString serializes a list of cMix messages into a string of

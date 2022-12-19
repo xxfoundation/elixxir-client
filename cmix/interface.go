@@ -84,8 +84,8 @@ type Client interface {
 	// Will return an error if the network is unhealthy or if it fails to send
 	// (along with the reason). Blocks until successful send or err.
 	// WARNING: Do not roll your own crypto.
-	SendMany(messages []TargetedCmixMessage, p CMIXParams) (
-		rounds.Round, []ephemeral.Id, error)
+	SendMany(recipients []*id.ID, assembler ManyMessageAssembler,
+		params CMIXParams) (rounds.Round, []ephemeral.Id, error)
 
 	// SendWithAssembler sends a variable cmix payload to the provided recipient.
 	// The payload sent is based on the Complier function passed in, which accepts
@@ -104,6 +104,25 @@ type Client interface {
 	// WARNING: Do not roll your own crypto.
 	SendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 		cmixParams CMIXParams) (rounds.Round, ephemeral.Id, error)
+
+	// SendManyWithAssembler sends variable cMix payloads to the provided recipients.
+	// The payloads sent are based on the ManyMessageAssembler function passed in,
+	// which accepts a round ID and returns the necessary payload data.
+	// Returns the round IDs of the rounds the payloads were sent or an error if it
+	// fails.
+	// This does not have end-to-end encryption on it and is used exclusively as
+	// a send operation for higher order cryptographic protocols. Do not use unless
+	// implementing a protocol on top.
+	//
+	//	recipients - cMix IDs of the recipients.
+	//	assembler - ManyMessageAssembler function, accepting round ID and returning
+	// 	            a list of TargetedCmixMessage.
+	//
+	// Will return an error if the network is unhealthy or if it fails to send
+	// (along with the reason). Blocks until successful sends or errors.
+	// WARNING: Do not roll your own crypto.
+	SendManyWithAssembler(recipients []*id.ID, assembler ManyMessageAssembler,
+		params CMIXParams)
 
 	/* === Message Reception ================================================ */
 	/* Identities are all network identities which the client is currently
@@ -330,8 +349,14 @@ type Client interface {
 
 type ClientErrorReport func(source, message, trace string)
 
+// todo: docstring
+type ManyMessageAssembler func(rid id.Round) ([]TargetedCmixMessage, error)
+
+// todo: docstring
+type manyMessageAssembler func(rid id.Round) ([]assembledCmixMessage, error)
+
 // MessageAssembler func accepts a round ID, returning fingerprint, service,
-// payload & mac. This allows users to pass in a paylaod which will contain the
+// payload & mac. This allows users to pass in a payload which will contain the
 // round ID over which the message is sent.
 type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, err error)

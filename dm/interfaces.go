@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 )
 
@@ -209,7 +210,7 @@ type cMixClient interface {
 	RemoveHealthCallback(uint64)
 }
 
-// nickNameManager interface is an object that handles the mapping of nicknames
+// NickNameManager interface is an object that handles the mapping of nicknames
 // to cMix reception IDs.
 type NickNameManager interface {
 	// GetNickname gets a nickname associated with this DM partner
@@ -217,4 +218,27 @@ type NickNameManager interface {
 	GetNickname(id *id.ID) (string, bool)
 	// SetNickname sets the nickname to use
 	SetNickname(nick string)
+}
+
+// SendTracker provides facilities for tracking sent messages
+type SendTracker interface {
+	// Init is used by the DM Client to register trigger and
+	// update functions and start send tracking
+	Init(net cMixClient, trigger triggerEventFunc,
+		updateStatus updateStatusFunc, rng *fastRNG.StreamGenerator)
+
+	// DenotePendingSend registers a new message to be tracked for sending
+	DenotePendingSend(partnerPublicKey ed25519.PublicKey,
+		partnerToken uint32,
+		messageType MessageType,
+		msg *DirectMessage) (uuid uint64, err error)
+
+	// FailedSend marks a message failed
+	FailedSend(uuid uint64) error
+
+	//Sent marks a message successfully Sent
+	Sent(uuid uint64, msgID cryptoMessage.ID, round rounds.Round) error
+
+	//CheckIfSent checks if the given message was a sent message
+	CheckIfSent(messageID cryptoMessage.ID, r rounds.Round) bool
 }

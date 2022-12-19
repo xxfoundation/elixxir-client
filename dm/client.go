@@ -14,11 +14,9 @@ import (
 
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
@@ -35,6 +33,7 @@ type dmClient struct {
 	publicKey       nike.PublicKey
 	myToken         uint32
 
+	st  SendTracker
 	nm  NickNameManager
 	net cMixClient
 	rng *fastRNG.StreamGenerator
@@ -48,6 +47,7 @@ type dmClient struct {
 // The DMClient implements both the Sender and ListenerRegistrar interface.
 // See send.go for implementation of the Sender interface.
 func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
+	tracker SendTracker,
 	nickManager NickNameManager,
 	net cMixClient,
 	rng *fastRNG.StreamGenerator) Client {
@@ -67,6 +67,7 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 		privateKey:      privateKey,
 		publicKey:       publicKey,
 		myToken:         myIDToken,
+		st:              tracker,
 		nm:              nickManager,
 		net:             net,
 		rng:             rng,
@@ -75,10 +76,7 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 	// Register the listener
 	// TODO: For now we are not doing send tracking. Add it when
 	// hitting WASM.
-	dmc.Register(receiver, func(
-		messageID cryptoMessage.ID, r rounds.Round) bool {
-		return false
-	})
+	dmc.Register(receiver, dmc.st.CheckIfSent)
 
 	return dmc
 }
@@ -93,6 +91,9 @@ func (dc *dmClient) Register(apiReceiver Receiver,
 		checkSent: checkSent,
 	}
 
+	// Initialize Send Tracking
+	dc.st.Init(dc.net, r.receiveMessage, r.api.UpdateSentStatus, dc.rng)
+
 	dc.net.AddIdentityWithHistory(dc.receptionID, identity.Forever,
 		beginningOfTime, true, r.GetProcessor())
 
@@ -106,6 +107,10 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 		ekv:      ekv,
 		storeKey: fmt.Sprintf(nickStoreKey, id.String()),
 	}
+}
+
+func NewSendTracker(kv *versioned.KV) SendTracker {
+	return &sendTracker{kv: kv}
 }
 
 type nickMgr struct {

@@ -103,8 +103,10 @@ var dmCmd = &cobra.Command{
 		}
 		myNickMgr := dm.NewNicknameManager(identity, ekv)
 
-		dmClient := dm.NewDMClient(dmID, myReceiver, myNickMgr,
-			user.GetCmix(), user.GetRng())
+		sendTracker := dm.NewSendTracker(ekv)
+
+		dmClient := dm.NewDMClient(dmID, myReceiver, sendTracker,
+			myNickMgr, user.GetCmix(), user.GetRng())
 
 		err = user.StartNetworkFollower(5 * time.Second)
 		if err != nil {

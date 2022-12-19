@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"sync"
 
@@ -122,8 +123,10 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 	eb := func(path string) (dm.EventModel, error) {
 		return NewDMReceiver(receiverBuilder.Build(path)), nil
 	}
-	// FIXME: This should key off private key?
-	receiver, err := eb("dms")
+
+	// We path to the string of the public key for this user
+	dmPath := base64.RawStdEncoding.EncodeToString(pi.PubKey[:])
+	receiver, err := eb(dmPath)
 	if err != nil {
 		return nil, err
 	}
@@ -159,8 +162,8 @@ func (cm *DMClient) GetToken() uint32 {
 }
 
 // GetIdentity returns the public identity associated with this DMClient
-func (cm *DMClient) GetIdentity() codename.Identity {
-	return cm.api.GetIdentity()
+func (cm *DMClient) GetIdentity() []byte {
+	return cm.api.GetIdentity().Marshal()
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a

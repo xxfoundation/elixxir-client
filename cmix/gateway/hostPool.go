@@ -794,11 +794,19 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 				"hard coded ID. Invalid ID: %s", gwId)
 		}
 
-		// Add the new gateway host
-		_, err := h.manager.AddHost(
-			gwId, gw.Address, []byte(gw.TlsCertificate), h.poolParams.HostParams)
+		// process the cert. Normally this is a simple passthrough, in
+		// webassembly, it replaces with the web assembly connection info
+		gwAddr, cert, err := getConnectionInfo(gwId, gw.Address, gw.TlsCertificate)
+
 		if err != nil {
-			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
+			jww.ERROR.Printf("Could not add gateway host, invalid port %s: %+v", gwId, err)
+		} else {
+			// Add the new gateway host
+			_, err = h.manager.AddHost(
+				gwId, gwAddr, cert, h.poolParams.HostParams)
+			if err != nil {
+				jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
+			}
 		}
 
 		// Send AddGateway event if we do not already possess keys for the GW

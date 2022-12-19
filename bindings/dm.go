@@ -143,6 +143,16 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 	return dmClients.add(m), nil
 }
 
+// GetPublicKey returns the public key bytes for this client
+func (cm *DMClient) GetPublicKey() []byte {
+	return cm.api.GetPublicKey().Bytes()
+}
+
+// GetToken returns the dm token for this client
+func (cm *DMClient) GetToken() uint32 {
+	return cm.api.GetToken()
+}
+
 // SendText is used to send a formatted direct message.
 //
 // Parameters:

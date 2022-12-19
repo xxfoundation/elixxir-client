@@ -8,7 +8,6 @@
 package dm
 
 import (
-	"crypto/ed25519"
 	"fmt"
 	sync "sync"
 	"time"
@@ -122,8 +121,8 @@ type nickMgr struct {
 	sync.Mutex
 }
 
-func (dc *dmClient) GetPublicKey() *ed25519.PublicKey {
-	return ecdh.ECDHNIKE2EdwardsPublicKey(dc.publicKey)
+func (dc *dmClient) GetPublicKey() nike.PublicKey {
+	return dc.publicKey
 }
 
 func (dc *dmClient) GetToken() uint32 {

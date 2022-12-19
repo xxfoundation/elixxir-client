@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
+	"gitlab.com/elixxir/crypto/nike"
 )
 
 // Client the direct message client implements a Listener and Sender interface.
@@ -33,7 +34,7 @@ type Client interface {
 	// UnblockDMs(conversationID *id.ID) error
 
 	// GetPublicKey returns the public key of this client
-	GetPublicKey() *ed25519.PublicKey
+	GetPublicKey() nike.PublicKey
 
 	// GetToken returns the DM Token of this client
 	GetToken() uint32

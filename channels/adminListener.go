@@ -15,56 +15,41 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 // adminListener adheres to the [broadcast.ListenerFunc] interface and is used
 // when admin messages are received on the channel.
 type adminListener struct {
-	chID      *id.ID
-	trigger   triggerAdminEventFunc
-	checkSent messageReceiveFunc
+	chID    *id.ID
+	trigger triggerAdminEventFunc
 }
 
 // Listen is called when a message is received for the admin listener.
-func (al *adminListener) Listen(payload []byte,
+func (al *adminListener) Listen(payload, encryptedPayload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	// Get the message ID
-	msgID := message.DeriveChannelMessageID(al.chID, uint64(round.ID),
+	messageID := message.DeriveChannelMessageID(al.chID, uint64(round.ID),
 		payload)
 
 	// Decode the message as a channel message
 	cm := &ChannelMessage{}
 	if err := proto.Unmarshal(payload, cm); err != nil {
-		jww.WARN.Printf("Failed to unmarshal Channel Message from Admin on "+
-			"channel %s", al.chID)
-		return
-	}
-
-	// Check if we sent the message, ignore triggering if we sent
-	if al.checkSent(msgID, round) {
+		jww.WARN.Printf("[CH] Failed to unmarshal Channel Message from Admin "+
+			"on channel %s", al.chID)
 		return
 	}
 
 	/* CRYPTOGRAPHICALLY RELEVANT CHECKS */
 
-	// Check the round to ensure that the message is not a replay
-	if id.Round(cm.RoundID) != round.ID {
-		jww.WARN.Printf("The round message %s send on %s referenced (%d) was "+
-			"not the same as the round the message was found on (%d)",
-			msgID, al.chID, cm.RoundID, round.ID)
-		return
-	}
-
-	// Replace the timestamp on the message if it is outside the allowable range
-	ts := message.VetTimestamp(time.Unix(0, cm.LocalTimestamp),
-		round.Timestamps[states.QUEUED], msgID)
+	// No timestamp vetting for admins
+	ts := time.Unix(0, cm.LocalTimestamp)
 
 	// Submit the message to the event model for listening
-	if uuid, err := al.trigger(al.chID, cm, ts, msgID, receptionID,
-		round, Delivered); err != nil {
-		jww.WARN.Printf("Error in passing off trigger for admin "+
+	uuid, err := al.trigger(al.chID, cm, encryptedPayload, ts, messageID,
+		receptionID, round, Delivered)
+	if err != nil {
+		jww.WARN.Printf("[CH] Error in passing off trigger for admin "+
 			"message (UUID: %d): %+v", uuid, err)
 	}
 

@@ -16,24 +16,30 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func TestUnmarshalUserMessageInternal(t *testing.T) {
+func Test_unmarshalUserMessageInternal(t *testing.T) {
 	internal, usrMsg, _ := builtTestUMI(t, 7)
-
-	chID := &id.ID{}
+	channelID := &id.ID{}
 
 	usrMsgMarshaled, err := proto.Marshal(usrMsg)
 	if err != nil {
 		t.Fatalf("Failed to marshal user message: %+v", err)
 	}
 
-	umi, err := unmarshalUserMessageInternal(usrMsgMarshaled, chID)
+	umi, err := unmarshalUserMessageInternal(usrMsgMarshaled, channelID)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal user message: %+v", err)
 	}
 
-	if !umi.GetMessageID().Equals(internal.messageID) {
-		t.Errorf("Message IDs were changed in the unmarshal "+
-			"process, %s vs %s", internal.messageID, umi.GetMessageID())
+	if !proto.Equal(umi.userMessage, internal.userMessage) {
+		t.Errorf("Unmarshalled UserMessage does not match original."+
+			"\nexpected: %+v\nreceived: %+v",
+			internal.userMessage, umi.userMessage)
+	}
+
+	umi.userMessage = internal.userMessage
+	if !reflect.DeepEqual(umi, internal) {
+		t.Errorf("Unmarshalled userMessageInternal does not match original."+
+			"\nexpected: %+v\nreceived: %+v", internal, umi)
 	}
 }
 
@@ -65,7 +71,7 @@ func TestUnmarshalUserMessageInternal_BadChannelMessage(t *testing.T) {
 	}
 }
 
-func TestNewUserMessageInternal_BadChannelMessage(t *testing.T) {
+func Test_newUserMessageInternal_BadChannelMessage(t *testing.T) {
 	_, usrMsg, _ := builtTestUMI(t, 7)
 
 	usrMsg.Message = []byte("Malformed")

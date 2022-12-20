@@ -16,7 +16,7 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
-// broadcastClient implements the [broadcast.Channel] interface for sending/
+// broadcastClient implements the broadcast.Channel interface for sending/
 // receiving asymmetric or symmetric broadcast messages.
 type broadcastClient struct {
 	channel *crypto.Channel
@@ -44,8 +44,8 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 	}
 
 	// Add channel's identity
-	net.AddIdentityWithHistory(channel.ReceptionID, identity.Forever,
-		channel.Created, true, nil)
+	net.AddIdentityWithHistory(
+		channel.ReceptionID, identity.Forever, channel.Created, true, nil)
 
 	jww.INFO.Printf("New broadcast channel client created for channel %q (%s)",
 		channel.Name, channel.ReceptionID)
@@ -55,7 +55,7 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 
 // RegisterListener registers a listener for broadcast messages.
 func (bc *broadcastClient) RegisterListener(
-	listenerCb ListenerFunc, method Method) error {
+	listenerCb ListenerFunc, method Method) (Processor, error) {
 	var tag string
 	switch method {
 	case Symmetric:
@@ -63,8 +63,8 @@ func (bc *broadcastClient) RegisterListener(
 	case RSAToPublic:
 		tag = asymmetricRSAToPublicBroadcastServiceTag
 	default:
-		return errors.Errorf(
-			"Cannot register listener for broadcast method %s", method)
+		return nil, errors.Errorf(
+			"cannot register listener for broadcast method %s", method)
 	}
 
 	p := &processor{
@@ -79,7 +79,7 @@ func (bc *broadcastClient) RegisterListener(
 	}
 
 	bc.net.AddService(bc.channel.ReceptionID, service, p)
-	return nil
+	return p, nil
 }
 
 // Stop unregisters the listener callback and stops the channel's identity from
@@ -92,7 +92,7 @@ func (bc *broadcastClient) Stop() {
 	bc.net.DeleteClientService(bc.channel.ReceptionID)
 }
 
-// Get returns the underlying [broadcast.Channel] object.
+// Get returns the underlying broadcast.Channel object.
 func (bc *broadcastClient) Get() *crypto.Channel {
 	return bc.channel
 }
@@ -107,7 +107,7 @@ func (bc *broadcastClient) maxSymmetricPayload() int {
 }
 
 // MaxRSAToPublicPayloadSize return the maximum payload size for a
-// [broadcast.RSAToPublic] asymmetric payload.
+// broadcast.RSAToPublic asymmetric payload.
 func (bc *broadcastClient) MaxRSAToPublicPayloadSize() int {
 	return bc.maxRSAToPublicPayloadSizeRaw() - internalPayloadSizeLength
 }

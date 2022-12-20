@@ -43,7 +43,7 @@ func (m *manager) loadDMTokens() {
 		jww.ERROR.Printf("loading channel dmTokens: %v", err)
 		m.dmTokens = make(map[id.ID]uint32)
 	}
-	err = json.Unmarshal(obj.Data, m.dmTokens)
+	err = json.Unmarshal(obj.Data, &m.dmTokens)
 	if err != nil {
 		jww.ERROR.Printf("unmarshal channel dmTokens: %v", err)
 		m.dmTokens = make(map[id.ID]uint32)

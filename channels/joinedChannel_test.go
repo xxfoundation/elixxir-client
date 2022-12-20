@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -47,7 +48,7 @@ func Test_manager_store(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -94,7 +95,7 @@ func Test_manager_loadChannels(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -136,6 +137,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		kv:             m.kv,
 		net:            m.net,
 		rng:            m.rng,
+		events:         &events{broadcast: newProcessorList()},
 		broadcastMaker: m.broadcastMaker,
 	}
 
@@ -177,7 +179,7 @@ func Test_manager_addChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -223,7 +225,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -260,7 +262,7 @@ func Test_manager_removeChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -306,7 +308,7 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -339,7 +341,7 @@ func Test_manager_getChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -381,7 +383,7 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -415,7 +417,7 @@ func Test_manager_getChannels(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -496,7 +498,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -514,9 +516,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Errorf("Failed to add channel: %+v", err)
 	}
 
-	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
-		m.events, m.broadcastMaker,
-		func(cryptoMessage.ID, rounds.Round) bool { return false })
+	loadedJc, err := m.loadJoinedChannel(ch.ReceptionID)
 	if err != nil {
 		t.Errorf("Failed to load joinedChannel: %+v", err)
 	}
@@ -601,7 +601,7 @@ func newTestChannel(name, description string, rng csprng.Source,
 	level cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(
-		name, description, level, time.Now(), 1000, 512, rng)
+		name, description, level, netTime.Now(), 1000, 1024, rng)
 	return c, pk, err
 }
 
@@ -673,21 +673,21 @@ func (m *mockEventModel) LeaveChannel(c *id.ID) {
 	m.leftCh = c
 }
 
-func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoMessage.ID, string,
-	string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration,
-	rounds.Round, MessageType, SentStatus) uint64 {
+func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoMessage.ID,
+	string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration,
+	rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
 func (m *mockEventModel) ReceiveReply(*id.ID, cryptoMessage.ID,
 	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+	time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
 func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoMessage.ID,
 	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+	time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
@@ -709,7 +709,19 @@ func (m *mockEventModel) ReceiveDMReaction(cryptoMessage.ID,
 	return 0
 }
 
-func (m *mockEventModel) UpdateSentStatus(uint64, cryptoMessage.ID,
-	time.Time, rounds.Round, SentStatus) {
+func (m *mockEventModel) UpdateFromUUID(uint64, *cryptoMessage.ID,
+	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) {
+	panic("implement me")
+}
+
+func (m *mockEventModel) UpdateFromMessageID(cryptoMessage.ID,
+	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) uint64 {
+	panic("implement me")
+}
+
+func (m *mockEventModel) GetMessage(cryptoMessage.ID) (ModelMessage, error) {
+	panic("implement me")
+}
+func (m *mockEventModel) DeleteMessage(cryptoMessage.ID) error {
 	panic("implement me")
 }

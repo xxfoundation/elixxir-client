@@ -152,7 +152,7 @@ func (mum *mutedUserManager) getMutedUsers(channelID *id.ID) []ed25519.PublicKey
 	for user := range mutedUsers {
 		pubKey, err := user.decode()
 		if err != nil {
-			jww.ERROR.Printf("[CH] Could not decode user public key %d of %d " +
+			jww.ERROR.Printf("[CH] Could not decode user public key %d of %d "+
 				"in channel %s: %+v", i+1, len(mutedUsers), channelID, err)
 			continue
 		}

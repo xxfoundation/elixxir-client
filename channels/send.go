@@ -338,8 +338,10 @@ func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
 	jww.INFO.Printf(
 		"[CH] [%s] replayAdminMessage in channel %s", tag, channelID)
 
+	// Set validUntil to 0 since the replay message itself is not registered in
+	// the lease system (only the message its contains)
 	return m.SendGeneric(
-		channelID, AdminReplay, encryptedPayload, ValidForever, false, params)
+		channelID, AdminReplay, encryptedPayload, 0, false, params)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -137,7 +137,7 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 		return err
 	}
 
-	m.processors.removeProcessors(channelID)
+	m.broadcast.removeProcessors(channelID)
 
 	m.events.leases.RemoveChannel(channelID)
 
@@ -258,18 +258,17 @@ func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 	if err != nil {
 		return nil, err
 	}
-	m.processors.addProcessor(channel.ReceptionID, userProcessor, p)
+	m.broadcast.addProcessor(channel.ReceptionID, userProcessor, p)
 
 	// Admin message listener
 	p, err = broadcastChan.RegisterListener((&adminListener{
-		chID:      channel.ReceptionID,
-		trigger:   m.events.triggerAdminEvent,
-		checkSent: m.st.MessageReceive,
+		chID:    channel.ReceptionID,
+		trigger: m.events.triggerAdminEvent,
 	}).Listen, broadcast.RSAToPublic)
 	if err != nil {
 		return nil, err
 	}
-	m.processors.addProcessor(channel.ReceptionID, adminProcessor, p)
+	m.broadcast.addProcessor(channel.ReceptionID, adminProcessor, p)
 
 	return broadcastChan, nil
 }

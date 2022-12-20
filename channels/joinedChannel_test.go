@@ -136,7 +136,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		kv:             m.kv,
 		net:            m.net,
 		rng:            m.rng,
-		events:         &events{processors: newProcessorList()},
+		events:         &events{broadcast: newProcessorList()},
 		broadcastMaker: m.broadcastMaker,
 	}
 

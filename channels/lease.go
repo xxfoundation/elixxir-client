@@ -11,7 +11,6 @@ import (
 	"container/list"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -63,8 +62,6 @@ const (
 	loadLeaseChanIDsErr  = "could not load list of channels"
 	loadLeaseMessagesErr = "could not load message leases for channel %s"
 )
-
-// TODO: wrap time.Timer in neTime to fix errors
 
 // actionLeaseList keeps a list of messages and actions and undoes each action
 // when its lease is up.
@@ -351,8 +348,8 @@ func (all *actionLeaseList) AddMessage(channelID *id.ID,
 		Action:            action,
 		Payload:           payload,
 		EncryptedPayload:  encryptedPayload,
-		Timestamp:         timestamp,
-		OriginalTimestamp: localTimestamp,
+		Timestamp:         timestamp.Round(0),
+		OriginalTimestamp: localTimestamp.Round(0),
 		Lease:             lease,
 		LeaseEnd:          0, // Calculated in addMessage
 		LeaseTrigger:      0, // Calculated in addMessage
@@ -360,34 +357,6 @@ func (all *actionLeaseList) AddMessage(channelID *id.ID,
 		e:                 nil, // Set in addMessage
 	}
 }
-/*
-// TODO: remove
-func (lm *leaseMessage) String() string {
-	trunc := func(b []byte, n int) string {
-		if len(b) <= n-3 {
-			return hex.EncodeToString(b)
-		} else {
-			return hex.EncodeToString(b[:n]) + "..."
-		}
-	}
-
-	fields := []string{
-		"ChannelID:" + lm.ChannelID.String(),
-		"MessageID:" + lm.MessageID.String(),
-		"Action:" + lm.Action.String(),
-		"Payload:" + trunc(lm.Payload, 6),
-		"EncryptedPayload:" + trunc(lm.EncryptedPayload, 6),
-		"Timestamp:" + lm.Timestamp.String(),
-		"OriginalTimestamp:" + lm.OriginalTimestamp.String(),
-		"Lease:" + lm.Lease.String(),
-		"LeaseEnd:" + strconv.FormatInt(lm.LeaseEnd, 10),
-		"LeaseTrigger:" + strconv.FormatInt(lm.LeaseTrigger, 10),
-		"FromAdmin:" + strconv.FormatBool(lm.FromAdmin),
-		"e:" + fmt.Sprintf("%v", lm.e),
-	}
-
-	return "{" + strings.Join(fields, " ") + "}"
-}*/
 
 // addMessage inserts the message into the lease list. If the message already
 // exists, then its lease is updated.
@@ -596,7 +565,6 @@ func calculateLeaseTrigger(now, originalTimestamp time.Time,
 	// then the floor is set to the current time (plus a grace period to ensure
 	// no other leases are received).
 	floor := originalTimestamp.Add(lease / 2)
-	fmt.Printf("floor:   %s\n", floor)
 	if now.After(floor) {
 		floor = now.Add(gracePeriod)
 	}

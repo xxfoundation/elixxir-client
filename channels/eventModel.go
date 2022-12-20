@@ -227,7 +227,7 @@ type events struct {
 	mutedUsers *mutedUserManager
 
 	// List of registered message processors
-	processors *processorList
+	broadcast *processorList
 
 	// Used when creating new format.Message for replays
 	maxMessageLength int
@@ -331,7 +331,7 @@ func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
 	rng *fastRNG.StreamGenerator) *events {
 	e := &events{
 		model:            model,
-		processors:       newProcessorList(),
+		broadcast:        newProcessorList(),
 		maxMessageLength: maxMessageLength,
 	}
 
@@ -392,9 +392,6 @@ func (e *events) RegisterReceiveHandler(
 ////////////////////////////////////////////////////////////////////////////////
 // Message Triggers                                                           //
 ////////////////////////////////////////////////////////////////////////////////
-
-// TODO: codeset is set to 0 for all triggers. That should be fixed.
-// TODO: Is it ok to remove jww prints here since they are printed up the stack?
 
 // triggerEventFunc is triggered on normal message reception.
 type triggerEventFunc func(channelID *id.ID, umi *userMessageInternal,
@@ -459,7 +456,7 @@ func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
 	// Get handler for message type
 	handler, err := e.getHandler(messageType, false, true, false)
 	if err != nil {
-		return 0, errors.Errorf("Received admin message %s from %s on channel " +
+		return 0, errors.Errorf("Received admin message %s from %s on channel "+
 			"%s  in round %d that could not be handled: %s; Contents: %v",
 			messageID, AdminUsername, channelID, round.ID, err, cm.Payload)
 	}
@@ -497,8 +494,8 @@ func (e *events) triggerActionEvent(channelID *id.ID,
 	// Get handler for message type
 	handler, err := e.getHandler(messageType, true, fromAdmin, false)
 	if err != nil {
-		return 0, errors.Errorf("Received action trigger message %s from %s " +
-			"on channel %s in round %d that could not be handled: %s; " +
+		return 0, errors.Errorf("Received action trigger message %s from %s "+
+			"on channel %s in round %d that could not be handled: %s; "+
 			"Contents: %v",
 			messageID, nickname, channelID, round.ID, err, payload)
 	}
@@ -808,15 +805,14 @@ func (e *events) receiveAdminReplay(channelID *id.ID,
 		"[CH] [%s] Received admin replay message %s from %x to channel %s",
 		tag, messageID, pubKey, channelID)
 
-	p, err := e.processors.getProcessor(channelID, adminProcessor)
+	p, err := e.broadcast.getProcessor(channelID, adminProcessor)
 	if err != nil {
 		jww.ERROR.Printf("[CH] [%s] Failed to find processor to process "+
 			"replayed admin message in %s: %+v", tag, msgLog, err)
 		return 0
 	}
 
-	go p.ProcessAdminMessage(
-		content, receptionID.EphemeralIdentity{}, round)
+	go p.ProcessAdminMessage(content, receptionID.EphemeralIdentity{}, round)
 	return 0
 }
 

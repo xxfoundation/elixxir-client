@@ -849,7 +849,7 @@ func Test_events_receiveAdminReplay(t *testing.T) {
 		false, false, Text, 0}
 
 	c := make(chan []byte)
-	e.processors.addProcessor(
+	e.broadcast.addProcessor(
 		chID, adminProcessor, &testAdminProcessor{adminMsgChan: c})
 
 	// Call the handler

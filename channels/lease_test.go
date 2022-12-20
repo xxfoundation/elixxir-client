@@ -57,8 +57,8 @@ func Test_newOrLoadActionLeaseList(t *testing.T) {
 		ChannelID:         randChannelID(prng, t),
 		Action:            randAction(prng),
 		Payload:           randPayload(prng, t),
-		Timestamp:         randTimestamp(prng),
-		OriginalTimestamp: randTimestamp(prng),
+		Timestamp:         randTimestamp(prng).Round(0),
+		OriginalTimestamp: randTimestamp(prng).Round(0),
 		Lease:             time.Hour,
 		LeaseEnd:          randTimestamp(prng).UnixNano(),
 		LeaseTrigger:      randTimestamp(prng).UnixNano(),
@@ -156,7 +156,7 @@ func TestActionLeaseList_StartProcesses_RegisterReplayFn(t *testing.T) {
 	go all.updateLeasesThread(stop)
 
 	randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-	timestamp := netTime.Now().Add(-randDuration).Round(0)
+	timestamp := netTime.Now().Add(-randDuration)
 	expectedMessages := map[time.Duration]*leaseMessage{
 		50 * time.Millisecond: {
 			ChannelID:         randChannelID(prng, t),
@@ -302,7 +302,7 @@ func Test_actionLeaseList_updateLeasesThread_Stoppable(t *testing.T) {
 
 	lease := 200 * time.Hour
 	randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-	timestamp := netTime.Now().Add(-randDuration).Round(0)
+	timestamp := netTime.Now().Add(-randDuration)
 	exp := &leaseMessage{
 		ChannelID:         randChannelID(prng, t),
 		MessageID:         randMessageID(prng, t),
@@ -386,7 +386,7 @@ func Test_actionLeaseList_AddMessage(t *testing.T) {
 	all := newActionLeaseList(nil, versioned.NewKV(ekv.MakeMemstore()),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
-	timestamp := randTimestamp(prng)
+	timestamp := randTimestamp(prng).Round(0)
 	lease := randLease(prng)
 	exp := &leaseMessage{
 		ChannelID:         randChannelID(prng, t),
@@ -442,7 +442,7 @@ func Test_actionLeaseList_addMessage(t *testing.T) {
 			for k := 0; k < o; k++ {
 				lease := 200 * time.Hour
 				randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-				timestamp := netTime.Now().Add(-randDuration).Round(0)
+				timestamp := netTime.Now().Add(-randDuration)
 				lm := &leaseMessage{
 					ChannelID:         channelID,
 					Action:            MessageType(k),
@@ -597,7 +597,7 @@ func Test_actionLeaseList_updateLease(t *testing.T) {
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	for i := 0; i < 50; i++ {
-		randomTime := time.Unix(0, prng.Int63()).UTC().Round(0)
+		randomTime := time.Unix(0, prng.Int63())
 		all.insertLease(&leaseMessage{LeaseTrigger: randomTime.UnixNano()})
 	}
 
@@ -695,7 +695,7 @@ func Test_actionLeaseList_removeMessage(t *testing.T) {
 			for k := 0; k < o; k++ {
 				lease := 200 * time.Hour
 				randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-				timestamp := netTime.Now().Add(-randDuration).Round(0)
+				timestamp := netTime.Now().Add(-randDuration)
 				lm := &leaseMessage{
 					ChannelID:         channelID,
 					Action:            MessageType(k),
@@ -786,7 +786,7 @@ func Test_actionLeaseList_removeMessage_NonExistentMessage(t *testing.T) {
 			for k := 0; k < o; k++ {
 				lease := 200 * time.Hour
 				randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-				timestamp := netTime.Now().Add(-randDuration).Round(0)
+				timestamp := netTime.Now().Add(-randDuration)
 				lm := &leaseMessage{
 					ChannelID:         channelID,
 					Action:            MessageType(k),
@@ -854,7 +854,7 @@ func Test_actionLeaseList_removeMessage_NonExistentMessage(t *testing.T) {
 	for i := 0; i < numMessages; i++ {
 		lease := 200 * time.Hour
 		randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-		timestamp := netTime.Now().Add(-randDuration).Round(0)
+		timestamp := netTime.Now().Add(-randDuration)
 		lm := &leaseMessage{
 			ChannelID:         randChannelID(prng, t),
 			Action:            randAction(prng),
@@ -914,7 +914,7 @@ func Test_actionLeaseList_removeMessage_NonExistentMessage(t *testing.T) {
 		for j := 0; j < 5; j++ {
 			lease := 200 * time.Hour
 			randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-			timestamp := netTime.Now().Add(-randDuration).Round(0)
+			timestamp := netTime.Now().Add(-randDuration)
 			exp := &leaseMessage{
 				ChannelID:         channelID,
 				MessageID:         randMessageID(prng, t),
@@ -997,7 +997,7 @@ func Test_actionLeaseList_removeChannel(t *testing.T) {
 			for k := 0; k < o; k++ {
 				lease := 200 * time.Hour
 				randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-				timestamp := netTime.Now().Add(-randDuration).Round(0)
+				timestamp := netTime.Now().Add(-randDuration)
 				lm := &leaseMessage{
 					ChannelID:         channelID,
 					Action:            MessageType(k),
@@ -1068,12 +1068,11 @@ func Test_actionLeaseList_removeChannel(t *testing.T) {
 
 // Tests that calculateLeaseTrigger returns times within the expected
 // window. Runs the test many times to ensure no numbers fall outside the range.
-// TODO: fix test
-/*func Test_calculateLeaseTrigger(t *testing.T) {
+func Test_calculateLeaseTrigger(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	ts := time.Date(1955, 11, 5, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
-		lease                                       time.Duration
+		lease                            time.Duration
 		now, originalTimestamp, expected time.Time
 	}{
 		{time.Hour, ts, ts, ts.Add(time.Hour)},
@@ -1097,6 +1096,9 @@ func Test_actionLeaseList_removeChannel(t *testing.T) {
 					j, tt.expected, leaseTrigger)
 			}
 		} else {
+			if tt.lease == ValidForever {
+				tt.originalTimestamp = tt.now
+			}
 			floor := tt.originalTimestamp.Add(MessageLife / 2)
 			ceiling := tt.originalTimestamp.Add(MessageLife)
 			if leaseTrigger.Before(floor) {
@@ -1108,7 +1110,7 @@ func Test_actionLeaseList_removeChannel(t *testing.T) {
 			}
 		}
 	}
-}*/
+}
 
 // Tests that randDurationInRange returns positive unique numbers in range.
 func Test_randDurationInRange(t *testing.T) {
@@ -1156,7 +1158,7 @@ func Test_randDurationInRange(t *testing.T) {
 		for j := 0; j < 5; j++ {
 			lease := 200 * time.Hour
 			randDuration := randDurationInRange(time.Hour, 5*time.Hour, prng)
-			timestamp := netTime.Now().Add(-randDuration).Round(0)
+			timestamp := netTime.Now().Add(-randDuration)
 			lm := &leaseMessage{
 				ChannelID:         channelID,
 				MessageID:         randMessageID(prng, t),
@@ -1218,11 +1220,11 @@ func Test_randDurationInRange(t *testing.T) {
 	}
 }*/
 
-// Tests that when actionLeaseList.load loads a leaseMessage with a leaseTrigger
-// in the past, that a new one is randomly calculated between replayWaitMin and
-// replayWaitMax.
+// Tests that when actionLeaseList.load loads a leaseMessage with a lease
+// trigger in the past, that a new one is randomly calculated between
+// replayWaitMin and replayWaitMax.
 // TODO: Fix test
-/*func Test_actionLeaseList_load_LeaseModify(t *testing.T) {
+func Test_actionLeaseList_load_LeaseModify(t *testing.T) {
 	prng := rand.New(rand.NewSource(23))
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	all := newActionLeaseList(
@@ -1301,7 +1303,7 @@ func Test_randDurationInRange(t *testing.T) {
 				"\nexpected: %+v\nreceived: %+v", e1.Value, e2.Value)
 		}
 	}
-}*/
+}
 
 // Error path: Tests that actionLeaseList.load returns the expected error when
 // no channel IDs can be loaded from storage.
@@ -1422,8 +1424,8 @@ func Test_actionLeaseList_storeLeaseMessages_loadLeaseMessages(t *testing.T) {
 			Action:            randAction(prng),
 			Payload:           randPayload(prng, t),
 			EncryptedPayload:  randPayload(prng, t),
-			Timestamp:         randTimestamp(prng),
-			OriginalTimestamp: randTimestamp(prng),
+			Timestamp:         randTimestamp(prng).Round(0),
+			OriginalTimestamp: randTimestamp(prng).Round(0),
 			Lease:             randLease(prng),
 			LeaseEnd:          randTimestamp(prng).UnixNano(),
 			LeaseTrigger:      randTimestamp(prng).UnixNano(),
@@ -1551,7 +1553,7 @@ func Test_leaseMessage_JSON(t *testing.T) {
 	channelID := randChannelID(prng, t)
 	payload := []byte("payload")
 	encrypted := []byte("encrypted")
-	timestamp, lease := netTime.Now().Round(0), 6*time.Minute+30*time.Second
+	timestamp, lease := netTime.Now(), 6*time.Minute+30*time.Second
 
 	lm := leaseMessage{
 		ChannelID:         channelID,
@@ -1599,8 +1601,8 @@ func Test_leaseMessageMap_JSON(t *testing.T) {
 			Action:            randAction(prng),
 			Payload:           randPayload(prng, t),
 			EncryptedPayload:  randPayload(prng, t),
-			Timestamp:         randTimestamp(prng),
-			OriginalTimestamp: randTimestamp(prng),
+			Timestamp:         randTimestamp(prng).Round(0),
+			OriginalTimestamp: randTimestamp(prng).Round(0),
 			Lease:             randLease(prng),
 			LeaseEnd:          randTimestamp(prng).UnixNano(),
 			LeaseTrigger:      randTimestamp(prng).UnixNano(),
@@ -1780,7 +1782,7 @@ func randAction(rng io.Reader) MessageType {
 // randTimestamp creates a new random action lease end for testing.
 func randTimestamp(rng io.Reader) time.Time {
 	lease := randDurationInRange(1*time.Hour, 1000*time.Hour, rng)
-	return netTime.Now().Add(lease).UTC().Round(0)
+	return netTime.Now().Add(lease)
 }
 
 // randLease creates a new random lease duration end for testing.

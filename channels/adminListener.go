@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -21,9 +20,8 @@ import (
 // adminListener adheres to the [broadcast.ListenerFunc] interface and is used
 // when admin messages are received on the channel.
 type adminListener struct {
-	chID      *id.ID
-	trigger   triggerAdminEventFunc
-	checkSent messageReceiveFunc
+	chID    *id.ID
+	trigger triggerAdminEventFunc
 }
 
 // Listen is called when a message is received for the admin listener.
@@ -37,11 +35,6 @@ func (al *adminListener) Listen(payload, encryptedPayload []byte,
 	if err := proto.Unmarshal(payload, cm); err != nil {
 		jww.WARN.Printf("[CH] Failed to unmarshal Channel Message from Admin "+
 			"on channel %s", al.chID)
-		return
-	}
-
-	// Check if we sent the message, ignore triggering if we sent
-	if al.checkSent(messageID, round) {
 		return
 	}
 

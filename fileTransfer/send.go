@@ -128,6 +128,7 @@ func (m *manager) sendCmix(packet []store.Part) {
 
 	// Encrypt each part and to a TargetedCmixMessage
 	messages := make([]cmix.TargetedCmixMessage, 0, len(packet))
+	recipients := make([]*id.ID, 0, len(packet))
 	for _, p := range packet {
 		encryptedPart, mac, fp, err :=
 			p.GetEncryptedPart(m.cmix.GetMaxMessageLength())
@@ -139,7 +140,7 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 
 		validParts = append(validParts, p)
-
+		recipients = append(recipients, p.Recipient())
 		messages = append(messages, cmix.TargetedCmixMessage{
 			Recipient:   p.Recipient(),
 			Payload:     encryptedPart,
@@ -155,7 +156,7 @@ func (m *manager) sendCmix(packet []store.Part) {
 	jww.DEBUG.Printf("[FT] Sending %d file parts via SendManyCMIX",
 		len(messages))
 
-	rid, _, err := m.cmix.SendMany(messages, m.params.Cmix)
+	rid, _, err := m.cmix.SendMany(recipients, messages, m.params.Cmix)
 	if err != nil {
 		jww.WARN.Printf("[FT] Failed to send %d file parts via "+
 			"SendManyCMIX: %+v", len(messages), err)

@@ -84,7 +84,7 @@ type Client interface {
 	// Will return an error if the network is unhealthy or if it fails to send
 	// (along with the reason). Blocks until successful send or err.
 	// WARNING: Do not roll your own crypto.
-	SendMany(recipients []*id.ID, assembler ManyMessageAssembler,
+	SendMany(recipients []*id.ID, messages []TargetedCmixMessage,
 		params CMIXParams) (rounds.Round, []ephemeral.Id, error)
 
 	// SendWithAssembler sends a variable cmix payload to the provided recipient.
@@ -122,7 +122,7 @@ type Client interface {
 	// (along with the reason). Blocks until successful sends or errors.
 	// WARNING: Do not roll your own crypto.
 	SendManyWithAssembler(recipients []*id.ID, assembler ManyMessageAssembler,
-		params CMIXParams)
+		params CMIXParams) (rounds.Round, []ephemeral.Id, error)
 
 	/* === Message Reception ================================================ */
 	/* Identities are all network identities which the client is currently

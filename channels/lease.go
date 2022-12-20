@@ -585,6 +585,7 @@ func calculateLeaseTrigger(now, originalTimestamp time.Time,
 		// If the message lasts forever or the lease extends longer than a
 		// message life, then it needs to be replayed
 		lease = MessageLife
+		originalTimestamp = now
 	} else {
 		// If the lease is smaller than MessageLife, than the lease trigger is
 		// the same as the lease end

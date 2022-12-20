@@ -33,33 +33,23 @@ type processor struct {
 func (p *processor) Process(msg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
-	var payload, innerCiphertext, decodedMessage []byte
-	var err, decryptErr error
+	// Handle external symmetric decryption
+	payload, err := p.c.DecryptSymmetric(
+		msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
+	if err != nil {
+		jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
+		return
+	}
+
+	// Choose handling method
 	switch p.method {
 	case RSAToPublic:
-		decodedMessage, innerCiphertext, decryptErr = p.c.DecryptRSAToPublic(
-			msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
-		if decryptErr != nil {
-			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, decryptErr)
-			return
-		}
-		size :=
-			binary.BigEndian.Uint16(decodedMessage[:internalPayloadSizeLength])
-		payload =
-			decodedMessage[internalPayloadSizeLength : size+internalPayloadSizeLength]
-
+		p.ProcessAdminMessage(payload, receptionID, round)
 	case Symmetric:
-		payload, err = p.c.DecryptSymmetric(
-			msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
-		if err != nil {
-			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
-			return
-		}
+		p.cb(payload, msg.Marshal(), receptionID, round)
 	default:
 		jww.FATAL.Panicf("Unrecognized broadcast method %d", p.method)
 	}
-
-	p.cb(payload, innerCiphertext, receptionID, round)
 }
 
 // ProcessAdminMessage decrypts an admin message and sends the results on

@@ -47,10 +47,8 @@ func (al *adminListener) Listen(payload, encryptedPayload []byte,
 
 	/* CRYPTOGRAPHICALLY RELEVANT CHECKS */
 
-	// Replace the timestamp on the message if it is outside the allowable range
-	localTimestamp := time.Unix(0, cm.LocalTimestamp)
-	ts :=
-		vetTimestamp(localTimestamp, round.Timestamps[states.QUEUED], messageID)
+	// No timestamp vetting for admins
+	ts := time.Unix(0, cm.LocalTimestamp)
 
 	// Submit the message to the event model for listening
 	uuid, err := al.trigger(al.chID, cm, encryptedPayload, ts, messageID,

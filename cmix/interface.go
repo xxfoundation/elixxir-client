@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/cmix/nodes"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -46,7 +45,8 @@ type Client interface {
 	//      fingerprint, highest order bit must be 0 (panic otherwise). If your
 	//      system does not use key fingerprints, this must be random bits.
 	//   service - Reception Service. The backup way for a client to identify
-	//      messages on receipt via trial hashing and to identify notifications.
+	//      me This is necessary to preserve the interaction
+	// between sendCmixHelper and critical messagesssages on receipt via trial hashing and to identify notifications.
 	//      If unused, use message.GetRandomService to fill the field with
 	//      random data.
 	//   payload - Contents of the message. Cannot exceed the payload size for a
@@ -349,10 +349,13 @@ type Client interface {
 
 type ClientErrorReport func(source, message, trace string)
 
-// todo: docstring
+// ManyMessageAssembler func accepts a round ID, returning a TargetedCmixMessage.
+// This allows users to pass in a payload which will contain the
+// round ID over which the message is sent.
 type ManyMessageAssembler func(rid id.Round) ([]TargetedCmixMessage, error)
 
-// todo: docstring
+// manyMessageAssembler is an internal wrapper around ManyMessageAssembler which
+// returns a list of assembledCmixMessage.
 type manyMessageAssembler func(rid id.Round) ([]assembledCmixMessage, error)
 
 // MessageAssembler func accepts a round ID, returning fingerprint, service,
@@ -362,12 +365,6 @@ type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, err error)
 
 // messageAssembler is an internal wrapper around MessageAssembler which
-// returns a format.message This is necessary to preserve the interaction
+// returns a format.Message This is necessary to preserve the interaction
 // between sendCmixHelper and critical messages
 type messageAssembler func(rid id.Round) (format.Message, error)
-
-type clientCommsInterface interface {
-	followNetworkComms
-	SendCmixCommsInterface
-	nodes.RegisterNodeCommsInterface
-}

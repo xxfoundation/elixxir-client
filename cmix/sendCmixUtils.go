@@ -219,7 +219,17 @@ func recipientsToStrings(recipients []*id.ID) string {
 	}
 
 	return strings.Join(idStrings, ", ")
+}
 
+// recipientsFromTargetedMessage extracts the list of recipients from a
+// list of TargetedCmixMessage.
+func recipientsFromTargetedMessage(msgs []TargetedCmixMessage) []*id.ID {
+	idStrings := make([]*id.ID, 0, len(msgs))
+	for _, msg := range msgs {
+		idStrings = append(idStrings, msg.Recipient)
+	}
+
+	return idStrings
 }
 
 // messagesToDigestString serializes a list of cMix messages into a string of

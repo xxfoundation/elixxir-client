@@ -156,7 +156,7 @@ func (m *manager) sendCmix(packet []store.Part) {
 	jww.DEBUG.Printf("[FT] Sending %d file parts via SendManyCMIX",
 		len(messages))
 
-	rid, _, err := m.cmix.SendMany(recipients, messages, m.params.Cmix)
+	rid, _, err := m.cmix.SendMany(messages, m.params.Cmix)
 	if err != nil {
 		jww.WARN.Printf("[FT] Failed to send %d file parts via "+
 			"SendManyCMIX: %+v", len(messages), err)

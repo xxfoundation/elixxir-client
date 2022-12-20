@@ -70,14 +70,14 @@ type TargetedCmixMessage struct {
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful send or err.
 // WARNING: Do not roll your own crypto
-func (c *client) SendMany(recipients []*id.ID,
-	messages []TargetedCmixMessage,
+func (c *client) SendMany(messages []TargetedCmixMessage,
 	params CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if !c.Monitor.IsHealthy() {
 		return rounds.Round{}, []ephemeral.Id{}, errors.New(
 			"Cannot send cMix message when the network is not healthy")
 	}
 
+	recipients := recipientsFromTargetedMessage(messages)
 	assembler := func(rid id.Round) ([]TargetedCmixMessage, error) {
 		return messages, nil
 	}

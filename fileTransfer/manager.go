@@ -146,7 +146,7 @@ type FtE2e interface {
 // transfer manager for easier testing.
 type Cmix interface {
 	GetMaxMessageLength() int
-	SendMany(recipients []*id.ID, messages []cmix.TargetedCmixMessage,
+	SendMany(messages []cmix.TargetedCmixMessage,
 		p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error)
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error

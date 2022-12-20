@@ -17,13 +17,37 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
+	"gitlab.com/elixxir/crypto/nike"
 )
 
 // Client the direct message client implements a Listener and Sender interface.
 type Client interface {
 	Sender
-	Listener
+	// Listener
+	// TODO: These unimplemented at this time.
+	// BlockDMs disables DMs from a specific user. Received messages
+	// will be dropped during event processing.
+	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken uint32) error
+	// UnblockDMs enables DMs from a specific user.
+	// UnblockDMs(conversationID *id.ID) error
+
+	// GetPublicKey returns the public key of this client
+	GetPublicKey() nike.PublicKey
+
+	// GetToken returns the DM Token of this client
+	GetToken() uint32
+
+	// GetIdentity returns the public identity associated with this DMClient
+	GetIdentity() codename.Identity
+
+	// ExportPrivateIdentity encrypts and exports the private identity to a
+	// portable string.
+	ExportPrivateIdentity(password string) ([]byte, error)
+
+	NickNameManager
 }
 
 // Sender implemntors allow the API user to send to a given partner over
@@ -69,25 +93,12 @@ type Sender interface {
 		rounds.Round, ephemeral.Id, error)
 }
 
-// Listener allows API users to register a Receiver to receive DMs.
-type Listener interface {
-	// Register registers a listener for direct messages.
-	Register(receiver Receiver, checkSent messageReceiveFunc) error
-
-	// TODO: These unimplemented at this time.
-	// BlockDMs disables DMs from a specific user. Received messages
-	// will be dropped during event processing.
-	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken uint32) error
-	// UnblockDMs enables DMs from a specific user.
-	// UnblockDMs(conversationID *id.ID) error
-}
-
 // DMReceiverBuilder initialises the event model using the given path.
-type ReceiverBuilder func(path string) (Receiver, error)
+type ReceiverBuilder func(path string) (EventModel, error)
 
-// Receiver is all of the reception functions an API user must implement.
+// EventModel is all of the reception functions an API user must implement.
 // This is similar to the event model system in channels.
-type Receiver interface {
+type EventModel interface {
 	// Receive is called whenever a raw direct message is
 	// received. It may be called multiple times on the same
 	// message. It is incumbent on the user of the API to filter
@@ -209,7 +220,7 @@ type cMixClient interface {
 	RemoveHealthCallback(uint64)
 }
 
-// nickNameManager interface is an object that handles the mapping of nicknames
+// NickNameManager interface is an object that handles the mapping of nicknames
 // to cMix reception IDs.
 type NickNameManager interface {
 	// GetNickname gets a nickname associated with this DM partner
@@ -217,4 +228,27 @@ type NickNameManager interface {
 	GetNickname(id *id.ID) (string, bool)
 	// SetNickname sets the nickname to use
 	SetNickname(nick string)
+}
+
+// SendTracker provides facilities for tracking sent messages
+type SendTracker interface {
+	// Init is used by the DM Client to register trigger and
+	// update functions and start send tracking
+	Init(net cMixClient, trigger triggerEventFunc,
+		updateStatus updateStatusFunc, rng *fastRNG.StreamGenerator)
+
+	// DenotePendingSend registers a new message to be tracked for sending
+	DenotePendingSend(partnerPublicKey ed25519.PublicKey,
+		partnerToken uint32,
+		messageType MessageType,
+		msg *DirectMessage) (uuid uint64, err error)
+
+	// FailedSend marks a message failed
+	FailedSend(uuid uint64) error
+
+	//Sent marks a message successfully Sent
+	Sent(uuid uint64, msgID cryptoMessage.ID, round rounds.Round) error
+
+	//CheckIfSent checks if the given message was a sent message
+	CheckIfSent(messageID cryptoMessage.ID, r rounds.Round) bool
 }

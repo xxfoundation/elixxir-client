@@ -9,11 +9,14 @@ package bindings
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"sync"
 
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/dm"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
@@ -57,7 +60,7 @@ type DMClient struct {
 //     Receiver event model that is not compatible with GoMobile
 //     bindings.
 func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
-	receiverBuilder dm.ReceiverBuilder) (*DMClient, error) {
+	receiver dm.EventModel) (*DMClient, error) {
 	pi, err := codename.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -69,17 +72,13 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	// FIXME: This should key off private key?
-	receiver, err := receiverBuilder("dms")
-	if err != nil {
-		return nil, err
-	}
-
 	nickMgr := dm.NewNicknameManager(user.api.GetStorage().GetReceptionID(),
 		user.api.GetStorage().GetKV())
 
-	m := dm.NewDMClient(pi, receiver, nickMgr, user.api.GetCmix(),
-		user.api.GetRng())
+	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
+
+	m := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
+		user.api.GetCmix(), user.api.GetRng())
 	if err != nil {
 		return nil, err
 	}
@@ -117,11 +116,13 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	eb := func(path string) (dm.Receiver, error) {
+	eb := func(path string) (dm.EventModel, error) {
 		return NewDMReceiver(receiverBuilder.Build(path)), nil
 	}
-	// FIXME: This should key off private key?
-	receiver, err := eb("dms")
+
+	// We path to the string of the public key for this user
+	dmPath := base64.RawStdEncoding.EncodeToString(pi.PubKey[:])
+	receiver, err := eb(dmPath)
 	if err != nil {
 		return nil, err
 	}
@@ -129,14 +130,62 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 	nickMgr := dm.NewNicknameManager(user.api.GetStorage().GetReceptionID(),
 		user.api.GetStorage().GetKV())
 
-	m := dm.NewDMClient(pi, receiver, nickMgr, user.api.GetCmix(),
-		user.api.GetRng())
+	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
+
+	m := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
+		user.api.GetCmix(), user.api.GetRng())
 	if err != nil {
 		return nil, err
 	}
 
 	// Add channel to singleton and return
 	return dmClients.add(m), nil
+}
+
+// GetID returns the tracker ID for the DMClient object.
+func (cm *DMClient) GetID() int {
+	return cm.id
+}
+
+// GetPublicKey returns the public key bytes for this client
+func (cm *DMClient) GetPublicKey() []byte {
+	return cm.api.GetPublicKey().Bytes()
+}
+
+// GetToken returns the dm token for this client
+func (cm *DMClient) GetToken() uint32 {
+	return cm.api.GetToken()
+}
+
+// GetIdentity returns the public identity associated with this DMClient
+func (cm *DMClient) GetIdentity() []byte {
+	return cm.api.GetIdentity().Marshal()
+}
+
+// ExportPrivateIdentity encrypts and exports the private identity to a
+// portable string.
+func (cm *DMClient) ExportPrivateIdentity(password string) ([]byte, error) {
+	return cm.api.ExportPrivateIdentity(password)
+}
+
+// GetNickname gets a nickname associated with this DM partner
+// (reception) ID.
+func (cm *DMClient) GetNickname(idBytes []byte) (string, error) {
+	chid, err := id.Unmarshal(idBytes)
+	if err != nil {
+		return "", err
+	}
+	nick, exists := cm.api.GetNickname(chid)
+	if !exists {
+		return "", errors.New("no nickname found")
+	}
+
+	return nick, nil
+}
+
+// SetNickname sets the nickname to use
+func (cm *DMClient) SetNickname(nick string) {
+	cm.api.SetNickname(nick)
 }
 
 // SendText is used to send a formatted direct message.
@@ -387,4 +436,155 @@ func (dct *dmClientTracker) delete(id int) {
 
 	delete(dct.tracked, id)
 	dct.count--
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// DM DMDbCipher                                                             //
+////////////////////////////////////////////////////////////////////////////////
+
+// DMDbCipher is the bindings layer representation of the [DM.Cipher].
+type DMDbCipher struct {
+	api  cryptoChannel.Cipher
+	salt []byte
+	id   int
+}
+
+// DMDbCipherTrackerSingleton is used to track DMDbCipher objects
+// so that they can be referenced by ID back over the bindings.
+var DMDbCipherTrackerSingleton = &DMDbCipherTracker{
+	tracked: make(map[int]*DMDbCipher),
+	count:   0,
+}
+
+// DMDbCipherTracker is a singleton used to keep track of extant
+// DMDbCipher objects, preventing race conditions created by passing it
+// over the bindings.
+type DMDbCipherTracker struct {
+	tracked map[int]*DMDbCipher
+	count   int
+	mux     sync.RWMutex
+}
+
+// create creates a DMDbCipher from a [DM.Cipher], assigns it a unique
+// ID, and adds it to the DMDbCipherTracker.
+func (ct *DMDbCipherTracker) create(c cryptoChannel.Cipher) *DMDbCipher {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	chID := ct.count
+	ct.count++
+
+	ct.tracked[chID] = &DMDbCipher{
+		api: c,
+		id:  chID,
+	}
+
+	return ct.tracked[chID]
+}
+
+// get an DMDbCipher from the DMDbCipherTracker given its ID.
+func (ct *DMDbCipherTracker) get(id int) (*DMDbCipher, error) {
+	ct.mux.RLock()
+	defer ct.mux.RUnlock()
+
+	c, exist := ct.tracked[id]
+	if !exist {
+		return nil, errors.Errorf(
+			"Cannot get DMDbCipher for ID %d, does not exist", id)
+	}
+
+	return c, nil
+}
+
+// delete removes a DMDbCipher from the DMDbCipherTracker.
+func (ct *DMDbCipherTracker) delete(id int) {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	delete(ct.tracked, id)
+}
+
+// GetDMDbCipherTrackerFromID returns the DMDbCipher with the
+// corresponding ID in the tracker.
+func GetDMDbCipherTrackerFromID(id int) (*DMDbCipher, error) {
+	return DMDbCipherTrackerSingleton.get(id)
+}
+
+// NewDMsDatabaseCipher constructs a DMDbCipher object.
+//
+// Parameters:
+//   - cmixID - The tracked [Cmix] object ID.
+//   - password - The password for storage. This should be the same password
+//     passed into [NewCmix].
+//   - plaintTextBlockSize - The maximum size of a payload to be encrypted.
+//     A payload passed into [DMDbCipher.Encrypt] that is larger than
+//     plaintTextBlockSize will result in an error.
+func NewDMsDatabaseCipher(cmixID int, password []byte,
+	plaintTextBlockSize int) (*DMDbCipher, error) {
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate RNG
+	stream := user.api.GetRng().GetStream()
+
+	// Load or generate a salt
+	salt, err := utility.NewOrLoadSalt(
+		user.api.GetStorage().GetKV(), stream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct a cipher
+	c, err := cryptoChannel.NewCipher(password, salt,
+		plaintTextBlockSize, stream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return a cipher
+	return DMDbCipherTrackerSingleton.create(c), nil
+}
+
+// GetID returns the ID for this DMDbCipher in the DMDbCipherTracker.
+func (c *DMDbCipher) GetID() int {
+	return c.id
+}
+
+// Encrypt will encrypt the raw data. It will return a ciphertext. Padding is
+// done on the plaintext so all encrypted data looks uniform at rest.
+//
+// Parameters:
+//   - plaintext - The data to be encrypted. This must be smaller than the block
+//     size passed into [NewDMsDatabaseCipher]. If it is larger, this will
+//     return an error.
+func (c *DMDbCipher) Encrypt(plaintext []byte) ([]byte, error) {
+	return c.api.Encrypt(plaintext)
+}
+
+// Decrypt will decrypt the passed in encrypted value. The plaintext will
+// be returned by this function. Any padding will be discarded within
+// this function.
+//
+// Parameters:
+//   - ciphertext - the encrypted data returned by [DMDbCipher.Encrypt].
+func (c *DMDbCipher) Decrypt(ciphertext []byte) ([]byte, error) {
+	return c.api.Decrypt(ciphertext)
+}
+
+// MarshalJSON marshals the cipher into valid JSON. This function adheres to the
+// json.Marshaler interface.
+func (c *DMDbCipher) MarshalJSON() ([]byte, error) {
+	return c.api.MarshalJSON()
+}
+
+// UnmarshalJSON unmarshalls JSON into the cipher. This function adheres to the
+// json.Unmarshaler interface.
+//
+// Note that this function does not transfer the internal RNG. Use
+// NewCipherFromJSON to properly reconstruct a cipher from JSON.
+func (c *DMDbCipher) UnmarshalJSON(data []byte) error {
+	return c.api.UnmarshalJSON(data)
 }

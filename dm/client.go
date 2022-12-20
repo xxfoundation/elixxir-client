@@ -12,13 +12,12 @@ import (
 	sync "sync"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
@@ -29,12 +28,14 @@ const (
 )
 
 type dmClient struct {
+	me              *codename.PrivateIdentity
 	selfReceptionID *id.ID
 	receptionID     *id.ID
 	privateKey      nike.PrivateKey
 	publicKey       nike.PublicKey
 	myToken         uint32
 
+	st  SendTracker
 	nm  NickNameManager
 	net cMixClient
 	rng *fastRNG.StreamGenerator
@@ -47,7 +48,8 @@ type dmClient struct {
 //
 // The DMClient implements both the Sender and ListenerRegistrar interface.
 // See send.go for implementation of the Sender interface.
-func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
+func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
+	tracker SendTracker,
 	nickManager NickNameManager,
 	net cMixClient,
 	rng *fastRNG.StreamGenerator) Client {
@@ -62,11 +64,13 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
 	dmc := &dmClient{
+		me:              myID,
 		receptionID:     receptionID,
 		selfReceptionID: selfReceptionID,
 		privateKey:      privateKey,
 		publicKey:       publicKey,
 		myToken:         myIDToken,
+		st:              tracker,
 		nm:              nickManager,
 		net:             net,
 		rng:             rng,
@@ -75,16 +79,13 @@ func NewDMClient(myID codename.PrivateIdentity, receiver Receiver,
 	// Register the listener
 	// TODO: For now we are not doing send tracking. Add it when
 	// hitting WASM.
-	dmc.Register(receiver, func(
-		messageID cryptoMessage.ID, r rounds.Round) bool {
-		return false
-	})
+	dmc.register(receiver, dmc.st.CheckIfSent)
 
 	return dmc
 }
 
 // Register registers a listener for direct messages.
-func (dc *dmClient) Register(apiReceiver Receiver,
+func (dc *dmClient) register(apiReceiver EventModel,
 	checkSent messageReceiveFunc) error {
 	beginningOfTime := time.Time{}
 	r := &receiver{
@@ -93,6 +94,10 @@ func (dc *dmClient) Register(apiReceiver Receiver,
 		checkSent: checkSent,
 	}
 
+	// Initialize Send Tracking
+	dc.st.Init(dc.net, r.receiveMessage, r.api.UpdateSentStatus, dc.rng)
+
+	// Start listening
 	dc.net.AddIdentityWithHistory(dc.receptionID, identity.Forever,
 		beginningOfTime, true, r.GetProcessor())
 
@@ -108,11 +113,47 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 	}
 }
 
+func NewSendTracker(kv *versioned.KV) SendTracker {
+	return &sendTracker{kv: kv}
+}
+
 type nickMgr struct {
 	storeKey string
 	ekv      *versioned.KV
 	nick     *string
 	sync.Mutex
+}
+
+func (dc *dmClient) GetPublicKey() nike.PublicKey {
+	return dc.publicKey
+}
+
+func (dc *dmClient) GetToken() uint32 {
+	return dc.myToken
+}
+
+// GetIdentity returns the public identity associated with this channel manager.
+func (dc *dmClient) GetIdentity() codename.Identity {
+	return dc.me.Identity
+}
+
+// GetNickname returns the stored nickname if there is one
+func (dc *dmClient) GetNickname(id *id.ID) (string, bool) {
+	return dc.GetNickname(id)
+}
+
+// SetNickname saves the nickname
+func (dc *dmClient) SetNickname(nick string) {
+	dc.SetNickname(nick)
+}
+
+// ExportPrivateIdentity encrypts and exports the private identity to a portable
+// string.
+func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
+	jww.INFO.Printf("[DM] ExportPrivateIdentity()")
+	rng := dc.rng.GetStream()
+	defer rng.Close()
+	return dc.me.Export(password, rng)
 }
 
 // GetNickname returns the stored nickname if there is one

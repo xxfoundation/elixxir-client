@@ -27,15 +27,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// messageReceiveFunc is a function type for sendTracker.MessageReceive so it
-// can be mocked for testing where used.
-type messageReceiveFunc func(
-	messageID message.ID, r rounds.Round) bool
-
 // receiver struct for message handling
 type receiver struct {
 	c         *dmClient
-	api       Receiver
+	api       EventModel
 	checkSent messageReceiveFunc
 }
 

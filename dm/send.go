@@ -181,10 +181,33 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	if params.DebugTag == cmix.DefaultDebugTag {
 		params.DebugTag = directMessageDebugTag
 	}
+
+	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
+	uuid, err := dc.st.DenotePendingSend(*partnerEdwardsPubKey,
+		partnerToken, messageType, directMessage)
+	if err != nil {
+		sendPrint += fmt.Sprintf(", pending send failed %s",
+			err.Error())
+		errDenote := dc.st.FailedSend(uuid)
+		if errDenote != nil {
+			sendPrint += fmt.Sprintf(
+				", failed to denote failed dm send: %s",
+				errDenote.Error())
+		}
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
 	partnerRnd, partnerEphID, err := send(dc.net, partnerID, partnerPubKey,
 		dc.privateKey, directMessage, params, rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on partner send: %+v", err)
+		errDenote := dc.st.FailedSend(uuid)
+		if errDenote != nil {
+			sendPrint += fmt.Sprintf(
+				", failed to denote failed dm send: %s",
+				errDenote.Error())
+		}
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
@@ -201,12 +224,22 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 		params, rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on self send: %+v", err)
+		errDenote := dc.st.FailedSend(uuid)
+		if errDenote != nil {
+			sendPrint += fmt.Sprintf(
+				", failed to denote failed dm send: %s",
+				errDenote.Error())
+		}
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{}, err
 	}
 	sendPrint += fmt.Sprintf(", self send eph %v rnd %s MsgID %s",
 		myEphID, myRnd.ID, msgID)
-
+	err = dc.st.Sent(uuid, msgID, myRnd)
+	if err != nil {
+		sendPrint += fmt.Sprintf(", dm send denote failed: %s ",
+			err.Error())
+	}
 	return msgID, myRnd, myEphID, err
 
 }

@@ -281,6 +281,9 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	//Start the critical processing thread
 	multi.Add(c.crit.startProcessies())
 
+	//start the host pool thread
+	multi.Add(c.Sender.StartProcesses())
+
 	return multi, nil
 }
 

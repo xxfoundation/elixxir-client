@@ -34,6 +34,7 @@ type Sender interface {
 	UpdateNdf(ndf *ndf.NetworkDefinition)
 	SetGatewayFilter(f Filter)
 	GetHostParams() connect.HostParams
+	StartProcesses() stoppable.Stoppable
 }
 
 type sender struct {

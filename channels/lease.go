@@ -643,7 +643,6 @@ func (all *actionLeaseList) load(now time.Time) error {
 		}
 
 		for _, lm := range all.messagesByChannel[*channelID] {
-
 			// Check if the lease has expired
 			if lm.LeaseTrigger < now.UnixNano() {
 				waitForReplayDuration :=

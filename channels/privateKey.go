@@ -23,7 +23,7 @@ func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
 	jww.INFO.Printf("[CH] IsChannelAdmin in channel %s", channelID)
 	if _, err := loadChannelPrivateKey(channelID, m.kv); err != nil {
 		if m.kv.Exists(err) {
-			jww.WARN.Printf("[CH] Private key for channel ID %s found in " +
+			jww.WARN.Printf("[CH] Private key for channel ID %s found in "+
 				"storage, but an error was encountered while accessing it: %+v",
 				channelID, err)
 		}

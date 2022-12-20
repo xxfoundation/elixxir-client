@@ -14,13 +14,13 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20221215214627-7807bfdde33a
-	gitlab.com/elixxir/crypto v0.0.7-0.20221214192244-6783272c04a0
+	gitlab.com/elixxir/comms v0.0.4-0.20221215202150-4ff70a83d4a4
+	gitlab.com/elixxir/crypto v0.0.7-0.20221220181038-c77d1bf49838
 	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20221214192222-988b44a6958a
-	gitlab.com/xx_network/comms v0.0.4-0.20221215214252-1275cef8760e
+	gitlab.com/xx_network/comms v0.0.4-0.20221215201855-6a0b2aacc3bd
 	gitlab.com/xx_network/crypto v0.0.5-0.20221121220724-8eefdbb0eb46
-	gitlab.com/xx_network/primitives v0.0.4-0.20221209210320-376735467d58
+	gitlab.com/xx_network/primitives v0.0.4-0.20221219230308-4b5550a9247d
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c

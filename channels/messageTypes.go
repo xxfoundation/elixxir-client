@@ -45,6 +45,9 @@ const (
 	// Mute denotes that any future messages from the user are hidden. The
 	// messages are still received, but they are not visible.
 	Mute MessageType = 103
+
+	// AdminReplay denotes that the message contains an admin message.
+	AdminReplay MessageType = 104
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -63,6 +66,8 @@ func (mt MessageType) String() string {
 		return "Pinned"
 	case Mute:
 		return "Mute"
+	case AdminReplay:
+		return "AdminReplay"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}

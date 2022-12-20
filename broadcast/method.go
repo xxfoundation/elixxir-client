@@ -13,9 +13,22 @@ import "strconv"
 type Method uint8
 
 const (
-	// Symmetric messages can be sent to anyone in the broadcast.
+	// Symmetric messages can be sent by anyone in the channel to everyone else
+	// in the channel.
+	//
+	//  all -> all
 	Symmetric Method = iota
+
+	// RSAToPublic messages can be sent from the channel admin to everyone else
+	// in the channel.
+	//
+	//  admin -> all
 	RSAToPublic
+
+	// RSAToPrivate messages can be sent from anyone in the channel to the
+	// channel admin.
+	//
+	//  all -> admin
 	RSAToPrivate
 )
 

@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -71,11 +70,10 @@ func (m *manager) loadChannels() {
 	chMap := make(map[id.ID]*joinedChannel)
 
 	for i := range chList {
-		jc, err := loadJoinedChannel(
-			chList[i], m.kv, m.net, m.rng, m.events, m.broadcastMaker,
-			m.st.MessageReceive)
-		if err != nil {
-			jww.FATAL.Panicf("[CH] Failed to load channel %s: %+v", chList[i], err)
+		jc, err2 := m.loadJoinedChannel(chList[i])
+		if err2 != nil {
+			jww.FATAL.Panicf("[CH] Failed to load channel %s (%d of %d): %+v",
+				chList[i], i, len(chList), err2)
 		}
 		chMap[*chList[i]] = jc
 	}
@@ -110,23 +108,7 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 	}
 
 	// Connect to listeners
-	err = b.RegisterListener((&userListener{
-		chID:      channel.ReceptionID,
-		trigger:   m.events.triggerEvent,
-		checkSent: m.st.MessageReceive,
-	}).Listen, broadcast.Symmetric)
-	if err != nil {
-		return err
-	}
-
-	err = b.RegisterListener((&adminListener{
-		chID:      channel.ReceptionID,
-		trigger:   m.events.triggerAdminEvent,
-		checkSent: m.st.MessageReceive,
-	}).Listen, broadcast.RSAToPublic)
-	if err != nil {
-		return err
-	}
+	_, err = m.registerListeners(b, channel)
 
 	return nil
 }
@@ -154,6 +136,10 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 	if err != nil {
 		return err
 	}
+
+	m.processors.removeProcessors(channelID)
+
+	m.events.leases.RemoveChannel(channelID)
 
 	delete(m.channels, *channelID)
 
@@ -219,23 +205,22 @@ func (jc *joinedChannel) Store(kv *versioned.KV) error {
 }
 
 // loadJoinedChannel loads a given channel from ekv storage.
-func loadJoinedChannel(channelID *id.ID, kv *versioned.KV, net broadcast.Client,
-	rngGen *fastRNG.StreamGenerator, e *events,
-	broadcastMaker broadcast.NewBroadcastChannelFunc, mr messageReceiveFunc) (
-	*joinedChannel, error) {
-	obj, err := kv.Get(makeJoinedChannelKey(channelID), joinedChannelVersion)
+func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
+	obj, err := m.kv.Get(makeJoinedChannelKey(channelID), joinedChannelVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	jcd := &joinedChannelDisk{}
-
 	err = json.Unmarshal(obj.Data, jcd)
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := initBroadcast(jcd.Broadcast, e, net, broadcastMaker, rngGen, mr)
+	b, err := m.initBroadcast(jcd.Broadcast)
+	if err != nil {
+		return nil, err
+	}
 
 	jc := &joinedChannel{broadcast: b}
 	return jc, nil
@@ -251,32 +236,40 @@ func makeJoinedChannelKey(channelID *id.ID) string {
 	return joinedChannelKey + channelID.HexEncode()
 }
 
-func initBroadcast(c *cryptoBroadcast.Channel, e *events, net broadcast.Client,
-	broadcastMaker broadcast.NewBroadcastChannelFunc,
-	rngGen *fastRNG.StreamGenerator, mr messageReceiveFunc) (
-	broadcast.Channel, error) {
-	b, err := broadcastMaker(c, net, rngGen)
+func (m *manager) initBroadcast(
+	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
+	broadcastChan, err := m.broadcastMaker(channel, m.net, m.rng)
 	if err != nil {
 		return nil, err
 	}
 
-	err = b.RegisterListener((&userListener{
-		chID:      c.ReceptionID,
-		trigger:   e.triggerEvent,
-		checkSent: mr,
+	return m.registerListeners(broadcastChan, channel)
+}
+
+// registerListeners registers all the listeners on the broadcast channel.
+func (m *manager) registerListeners(broadcastChan broadcast.Channel,
+	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
+	// User message listener
+	p, err := broadcastChan.RegisterListener((&userListener{
+		chID:      channel.ReceptionID,
+		trigger:   m.events.triggerEvent,
+		checkSent: m.st.MessageReceive,
 	}).Listen, broadcast.Symmetric)
 	if err != nil {
 		return nil, err
 	}
+	m.processors.addProcessor(channel.ReceptionID, userProcessor, p)
 
-	err = b.RegisterListener((&adminListener{
-		chID:      c.ReceptionID,
-		trigger:   e.triggerAdminEvent,
-		checkSent: mr,
+	// Admin message listener
+	p, err = broadcastChan.RegisterListener((&adminListener{
+		chID:      channel.ReceptionID,
+		trigger:   m.events.triggerAdminEvent,
+		checkSent: m.st.MessageReceive,
 	}).Listen, broadcast.RSAToPublic)
 	if err != nil {
 		return nil, err
 	}
+	m.processors.addProcessor(channel.ReceptionID, adminProcessor, p)
 
-	return b, nil
+	return broadcastChan, nil
 }

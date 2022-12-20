@@ -55,7 +55,7 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 
 // RegisterListener registers a listener for broadcast messages.
 func (bc *broadcastClient) RegisterListener(
-	listenerCb ListenerFunc, method Method) error {
+	listenerCb ListenerFunc, method Method) (Processor, error) {
 	var tag string
 	switch method {
 	case Symmetric:
@@ -63,7 +63,7 @@ func (bc *broadcastClient) RegisterListener(
 	case RSAToPublic:
 		tag = asymmetricRSAToPublicBroadcastServiceTag
 	default:
-		return errors.Errorf(
+		return nil, errors.Errorf(
 			"cannot register listener for broadcast method %s", method)
 	}
 
@@ -79,7 +79,7 @@ func (bc *broadcastClient) RegisterListener(
 	}
 
 	bc.net.AddService(bc.channel.ReceptionID, service, p)
-	return nil
+	return p, nil
 }
 
 // Stop unregisters the listener callback and stops the channel's identity from

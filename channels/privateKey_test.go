@@ -32,7 +32,7 @@ func newPrivKeyTestManager() *manager {
 // in storage and returns false to one that is not.
 func Test_manager_IsChannelAdmin(t *testing.T) {
 	m := newPrivKeyTestManager()
-	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 178)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -57,7 +57,7 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 	password := "hunter2"
 	m1 := newPrivKeyTestManager()
 	m2 := newPrivKeyTestManager()
-	c, pk, err := m1.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
+	c, pk, err := m1.generateChannel("name", "desc", cryptoBroadcast.Public, 178)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -129,7 +129,7 @@ func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 // manager.ImportChannelAdminKey returns an error.
 func Test_manager_ImportChannelAdminKey_WrongPasswordError(t *testing.T) {
 	m := newPrivKeyTestManager()
-	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 178)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -149,7 +149,7 @@ func Test_manager_ImportChannelAdminKey_WrongPasswordError(t *testing.T) {
 // manager.ImportChannelAdminKey returns an error.
 func Test_manager_ImportChannelAdminKey_WrongChannelIdError(t *testing.T) {
 	m := newPrivKeyTestManager()
-	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 178)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -170,7 +170,7 @@ func Test_manager_ImportChannelAdminKey_WrongChannelIdError(t *testing.T) {
 // manager.VerifyChannelAdminKey returns an error.
 func Test_manager_VerifyChannelAdminKey_WrongPasswordError(t *testing.T) {
 	m := newPrivKeyTestManager()
-	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 178)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -191,7 +191,7 @@ func Test_manager_VerifyChannelAdminKey_WrongPasswordError(t *testing.T) {
 func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
 
 	m := newPrivKeyTestManager()
-	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 178)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -215,7 +215,7 @@ func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
 // manager.ExportChannelAdminKey returns an error.
 func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 	m := newPrivKeyTestManager()
-	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 18)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 178)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -240,7 +240,7 @@ func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 func Test_saveChannelPrivateKey_loadChannelPrivateKey(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+		"name", "description", cryptoBroadcast.Public, 178, &csprng.SystemRNG{})
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -280,7 +280,7 @@ func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
 func Test_deleteChannelPrivateKey(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	c, pk, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, 18, &csprng.SystemRNG{})
+		"name", "description", cryptoBroadcast.Public, 178, &csprng.SystemRNG{})
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}

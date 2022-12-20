@@ -103,7 +103,7 @@ type Manager interface {
 	// messageType that corresponds to a handler that does not return a unique
 	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
-		validUntil time.Duration, tracked bool,params cmix.CMIXParams) (
+		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
@@ -168,18 +168,16 @@ type Manager interface {
 		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
-	// DeleteMessage deletes the targeted message from user's view. Users may
-	// delete their own messages but only the channel admin can delete other
-	// user's messages. If the user is not an admin of the channel or if they
-	// are not the sender of the targetMessage, then the error NotAnAdminErr is
+	// DeleteMessage deletes the targeted message from storage. Users may delete
+	// their own messages but only the channel admin can delete other user's
+	// messages. If the user is not an admin of the channel or if they are not
+	// the sender of the targetMessage, then the error NotAnAdminErr is
 	// returned.
-	//
-	// If undoAction is true, then the targeted message is un-deleted.
 	//
 	// Clients will drop the deletion if they do not recognize the target
 	// message.
 	DeleteMessage(channelID *id.ID, targetMessage cryptoChannel.MessageID,
-		undoAction bool, params cmix.CMIXParams) (
+		params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// PinMessage pins the target message to the top of a channel view for all
@@ -187,22 +185,26 @@ type Manager interface {
 	// messages; if the user is not an admin of the channel, then the error
 	// NotAnAdminErr is returned.
 	//
-	// If undoAction is true, then the targeted message is unpinned.
+	// If undoAction is true, then the targeted message is unpinned. validUntil
+	// is the time the message will be pinned for; set this to ValidForever to
+	// pin indefinitely. validUntil is ignored if undoAction is true.
 	//
 	// Clients will drop the pin if they do not recognize the target message.
 	PinMessage(channelID *id.ID, targetMessage cryptoChannel.MessageID,
-		undoAction bool, params cmix.CMIXParams) (
+		undoAction bool, validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// MuteUser is used to mute a user in a channel. Muting a user will cause
-	// all future messages from the user being hidden from view. Muted users are
-	// also unable to send messages. Only the channel admin can mute a user; if
-	// the user is not an admin of the channel, then the error NotAnAdminErr is
-	// returned.
+	// all future messages from the user being dropped on reception. Muted users
+	// are also unable to send messages. Only the channel admin can mute a user;
+	// if the user is not an admin of the channel, then the error NotAnAdminErr
+	// is returned.
 	//
-	// If undoAction is true, then the targeted user will be unmuted.
+	// If undoAction is true, then the targeted user will be unmuted. validUntil
+	// is the time the user will be muted for; set this to ValidForever to mute
+	// the user indefinitely. validUntil is ignored if undoAction is true.
 	MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey, undoAction bool,
-		params cmix.CMIXParams) (
+		validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////
@@ -217,7 +219,7 @@ type Manager interface {
 	// and exports it to a portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
-	// GetStorageTag returns the tag at where this manager is stored. To be used
+	// GetStorageTag returns the tag where this manager is stored. To be used
 	// when loading the manager. The storage tag is derived from the public key.
 	GetStorageTag() string
 

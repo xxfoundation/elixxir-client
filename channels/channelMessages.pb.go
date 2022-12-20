@@ -51,10 +51,11 @@ type ChannelMessage struct {
 	// round with that have the same nickname, payload, and lease will not have
 	// the same message ID.
 	Nonce []byte `protobuf:"bytes,6,opt,name=Nonce,proto3" json:"Nonce,omitempty"`
-	// LocalTimestamp is the timestamp when the "send call" is made based upon
-	// the local clock. If this differs by more than 5 seconds +/- from when the
-	// round it sent on is queued, then a random mutation on the queued time
-	// (+/- 200ms) will be used by local clients instead.
+	// LocalTimestamp is the timestamp (unix nanoseconds) when the "send call"
+	// is made based upon the local clock. If this differs by more than 5
+	// seconds +/- from when the round it sent on is queued, then a random
+	// mutation on the queued time (+/- 200ms) will be used by local clients
+	// instead.
 	LocalTimestamp int64 `protobuf:"varint,7,opt,name=LocalTimestamp,proto3" json:"LocalTimestamp,omitempty"`
 }
 
@@ -152,7 +153,7 @@ type UserMessage struct {
 	// Signature is the signature proving this message has been sent by the
 	// owner of this user's public key.
 	//
-	//	Signature = Sig(User_ECCPublicKey, Message)
+	//  Signature = Sig(User_ECCPublicKey, Message)
 	Signature []byte `protobuf:"bytes,3,opt,name=Signature,proto3" json:"Signature,omitempty"`
 	// ECCPublicKey is the user's EC Public key. This is provided by the
 	// network.

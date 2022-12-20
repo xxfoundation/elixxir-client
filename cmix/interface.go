@@ -42,11 +42,10 @@ type Client interface {
 	// implementing a protocol on top.
 	//   recipient - cMix ID of the recipient.
 	//   fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
-	//      fingerprint, highest order bit must be 0 (panic otherwise). If your
+	//      fingerprint, the highest order bit must be 0 (panic otherwise). If your
 	//      system does not use key fingerprints, this must be random bits.
 	//   service - Reception Service. The backup way for a client to identify
-	//      me This is necessary to preserve the interaction
-	// between sendCmixHelper and critical messagesssages on receipt via trial hashing and to identify notifications.
+	//    messages on receipt via trial hashing and to identify notifications.
 	//      If unused, use message.GetRandomService to fill the field with
 	//      random data.
 	//   payload - Contents of the message. Cannot exceed the payload size for a

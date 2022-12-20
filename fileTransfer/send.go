@@ -128,7 +128,6 @@ func (m *manager) sendCmix(packet []store.Part) {
 
 	// Encrypt each part and to a TargetedCmixMessage
 	messages := make([]cmix.TargetedCmixMessage, 0, len(packet))
-	recipients := make([]*id.ID, 0, len(packet))
 	for _, p := range packet {
 		encryptedPart, mac, fp, err :=
 			p.GetEncryptedPart(m.cmix.GetMaxMessageLength())
@@ -140,7 +139,6 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 
 		validParts = append(validParts, p)
-		recipients = append(recipients, p.Recipient())
 		messages = append(messages, cmix.TargetedCmixMessage{
 			Recipient:   p.Recipient(),
 			Payload:     encryptedPart,

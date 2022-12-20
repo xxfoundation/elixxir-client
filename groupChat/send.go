@@ -116,8 +116,8 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 		m.getReceptionIdentity().ID, msg)
 
 	// Create cMix messages
-	messages := make([]cmix.TargetedCmixMessage, len(g.Members))
-	for i, member := range g.Members {
+	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
+	for _, member := range g.Members {
 		// Do not send to the sender
 		if m.getReceptionIdentity().ID.Cmp(member.ID) {
 			continue
@@ -129,7 +129,7 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 		if err != nil {
 			return nil, group.MessageID{}, err
 		}
-		messages[i] = cMixMsg
+		messages = append(messages, cMixMsg)
 	}
 
 	return messages, group.NewMessageID(g.ID, internalMessagePayload), nil

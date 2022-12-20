@@ -56,7 +56,7 @@ func NewHistoricalRoundsComm() *historicalRounds {
 const failedHistoricalRoundID = 7
 const completedHistoricalRoundID = 8
 
-//  Mock comms endpoint which returns historical rounds
+// Mock comms endpoint which returns historical rounds
 func (ht *historicalRounds) RequestHistoricalRounds(host *connect.Host,
 	message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error) {
 	// Return one successful and one failed mock round
@@ -119,9 +119,10 @@ func (t *testNetworkManagerGeneric) SendWithAssembler(recipient *id.ID, assemble
 
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-
-func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage,
-	p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, []ephemeral.Id{}, nil
+}
+func (t *testNetworkManagerGeneric) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, []ephemeral.Id{}, nil
 }
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {

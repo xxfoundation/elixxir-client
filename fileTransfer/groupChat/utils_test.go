@@ -116,8 +116,7 @@ func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	panic("implement me")
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
-	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
@@ -130,6 +129,11 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	}
 	m.handler.Unlock()
 	return rounds.Round{ID: 42}, []ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
@@ -219,9 +223,9 @@ func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Durat
 	return nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock Group Chat Manager                                                    //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type mockGcHandler struct {
 	services map[string]groupChat.Processor
 	sync.Mutex

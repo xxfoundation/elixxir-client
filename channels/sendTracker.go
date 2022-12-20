@@ -37,7 +37,7 @@ const (
 	// assumed to have failed. Tracking per round does not persist across runs
 	maxChecks = 3
 
-	oneSecond = 1000 * time.Millisecond
+	oneSecond = 1_000 * time.Millisecond
 )
 
 type tracked struct {
@@ -57,23 +57,19 @@ type trackedList struct {
 // were sent by this user diverts them as status updates on the previously sent
 // messages.
 type sendTracker struct {
-	byRound map[id.Round]trackedList
-
+	byRound     map[id.Round]trackedList
 	byMessageID map[message.ID]*tracked
-
-	unsent map[uint64]*tracked
-
-	mux sync.RWMutex
+	unsent      map[uint64]*tracked
 
 	trigger      triggerEventFunc
 	adminTrigger triggerAdminEventFunc
-	updateStatus updateStatusFunc
+	updateStatus UpdateFromUuidFunc
 
 	net Client
 
-	kv *versioned.KV
-
 	rngSrc *fastRNG.StreamGenerator
+	kv     *versioned.KV
+	mux    sync.RWMutex
 }
 
 // messageReceiveFunc is a function type for sendTracker.MessageReceive so it
@@ -85,7 +81,7 @@ type messageReceiveFunc func(
 // function with the cmix client, delayed on when the network goes healthy,
 // which will attempt to discover the status of all rounds that are outstanding.
 func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
-	adminTrigger triggerAdminEventFunc, updateStatus updateStatusFunc,
+	adminTrigger triggerAdminEventFunc, updateStatus UpdateFromUuidFunc,
 	rngSource *fastRNG.StreamGenerator) *sendTracker {
 	st := &sendTracker{
 		byRound:      make(map[id.Round]trackedList),
@@ -95,17 +91,18 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 		adminTrigger: adminTrigger,
 		updateStatus: updateStatus,
 		net:          net,
-		kv:           kv,
 		rngSrc:       rngSource,
+		kv:           kv,
 	}
 
 	if err := st.load(); err != nil && kv.Exists(err) {
-		jww.FATAL.Panicf("Failed to load channels sent tracker: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to load channels sent tracker: %+v", err)
 	}
 
 	// Denote all unsent messages as failed and clear
 	for uuid, t := range st.unsent {
-		updateStatus(uuid, t.MsgID, time.Time{}, rounds.Round{}, Failed)
+		status := Failed
+		updateStatus(uuid, &t.MsgID, nil, nil, nil, nil, &status)
 	}
 	st.unsent = make(map[uint64]*tracked)
 
@@ -219,16 +216,18 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 	umi.messageID = message.ID{}
 	n, err := stream.Read(umi.messageID[:])
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get generate random message ID: %+v", err)
+		jww.FATAL.Panicf(
+			"[CH] Failed to get generate random message ID: %+v", err)
 	} else if n != len(umi.messageID[:]) {
-		jww.FATAL.Panicf("Generated %d bytes for message ID; %d bytes required.",
+		jww.FATAL.Panicf(
+			"[CH] Generated %d bytes for message ID; %d bytes required.",
 			n, len(umi.messageID[:]))
 	}
 	stream.Close()
 
 	// Submit the message to the UI
-	uuid, err := st.trigger(channelID, umi, ts, receptionID.EphemeralIdentity{},
-		rounds.Round{}, Unsent)
+	uuid, err := st.trigger(channelID, umi, nil, ts,
+		receptionID.EphemeralIdentity{}, rounds.Round{}, Unsent)
 	if err != nil {
 		return 0, err
 	}
@@ -241,33 +240,34 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 // denotePendingAdminSend is called before the pending admin send. It tracks the
 // send internally and notifies the UI of the send.
 func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
-	cm *ChannelMessage) (uint64, error) {
+	cm *ChannelMessage, encryptedPayload []byte) (uint64, error) {
 	// For a timestamp for the message, use 1 second from now to approximate the
 	// lag due to round submission
 	ts := netTime.Now().Add(oneSecond)
 
-	// Create a random message ID so there will not be collisions in a database
-	// that requires a unique message ID
+	// Create a random message ID to avoid collisions in a database that
+	// requires a unique message ID
 	stream := st.rngSrc.GetStream()
-	randMid := message.ID{}
-	num, err := stream.Read(randMid[:])
-	if num != len(randMid[:]) || err != nil {
-		jww.FATAL.Panicf(
-			"Failed to get a random message ID, read len: %d, err: %+v",
-			num, err)
+	var randMessageID message.ID
+	if n, err := stream.Read(randMessageID[:]); err != nil {
+		jww.FATAL.Panicf("[CH] Failed to generate a random message ID on "+
+			"channel %s: %+v", channelID, err)
+	} else if n != message.IDLen {
+		jww.FATAL.Panicf("[CH] Failed to generate a random message ID on "+
+			"channel %s: generated %d bytes when %d bytes are required",
+			channelID, n, message.IDLen)
 	}
 	stream.Close()
 
 	// Submit the message to the UI
-	uuid, err := st.adminTrigger(channelID, cm, ts, randMid,
-		receptionID.EphemeralIdentity{}, rounds.Round{}, Unsent)
-
+	uuid, err := st.adminTrigger(channelID, cm, encryptedPayload, ts,
+		randMessageID, receptionID.EphemeralIdentity{}, rounds.Round{}, Unsent)
 	if err != nil {
 		return 0, err
 	}
 
 	// Track the message on disk
-	st.handleDenoteSend(uuid, channelID, randMid, rounds.Round{})
+	st.handleDenoteSend(uuid, channelID, randMessageID, rounds.Round{})
 	return uuid, nil
 }
 
@@ -287,7 +287,9 @@ func (st *sendTracker) handleDenoteSend(uuid uint64, channelID *id.ID,
 
 	err := st.storeUnsent()
 	if err != nil {
-		jww.FATAL.Panicf(err.Error())
+		jww.FATAL.Panicf("[CH] Failed to store unsent for message %s "+
+			"(UUID %d) in channel %s on round %d: %+v",
+			messageID, uuid, channelID, round.ID, err)
 	}
 }
 
@@ -304,7 +306,8 @@ func (st *sendTracker) send(
 	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED], msgID)
 
 	// Update the message in the UI
-	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
+	status := Sent
+	go st.updateStatus(t.UUID, &msgID, &ts, &round, nil, nil, &status)
 	return nil
 }
 
@@ -317,8 +320,8 @@ func (st *sendTracker) failedSend(uuid uint64) error {
 	}
 
 	// Update the message in the UI
-	go st.updateStatus(
-		t.UUID, message.ID{}, time.Time{}, rounds.Round{}, Failed)
+	status := Failed
+	go st.updateStatus(t.UUID, nil, nil, nil, nil, nil, &status)
 	return nil
 }
 
@@ -364,7 +367,8 @@ func (st *sendTracker) handleSend(uuid uint64,
 	// Store the changed list to disk
 	err := st.store()
 	if err != nil {
-		jww.FATAL.Panicf(err.Error())
+		jww.FATAL.Panicf("[CH] Failed to store changes for message %s "+
+			"(UUID %d) on round %d: %+v", messageID, uuid, round.ID, err)
 	}
 
 	return t, nil
@@ -386,7 +390,8 @@ func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
 	// Store the changed list to disk
 	err := st.storeUnsent()
 	if err != nil {
-		jww.FATAL.Panicf(err.Error())
+		jww.FATAL.Panicf(
+			"[CH] Failed to store changes for UUID %d: %+v", uuid, err)
 	}
 
 	return t, nil
@@ -433,11 +438,11 @@ func (st *sendTracker) MessageReceive(
 	}
 
 	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED], messageID)
-	go st.updateStatus(msgData.UUID, messageID, ts,
-		round, Delivered)
+	status := Delivered
+	go st.updateStatus(msgData.UUID, &messageID, &ts, &round, nil, nil, &status)
 
 	if err := st.storeSent(); err != nil {
-		jww.FATAL.Panicf("failed to store the updated sent list: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to store the updated sent list: %+v", err)
 	}
 
 	return true
@@ -471,7 +476,7 @@ func (rr *roundResults) callback(
 
 	if timedOut {
 		if rr.numChecks >= maxChecks {
-			jww.WARN.Printf("Channel messages sent on %d assumed to "+
+			jww.WARN.Printf("[CH] Channel messages sent on %d assumed to "+
 				"have failed after %d attempts to get round status", rr.round,
 				maxChecks)
 			status = Failed
@@ -485,22 +490,22 @@ func (rr *roundResults) callback(
 				getRoundResultsTimeout, rr.callback, []id.Round{rr.round}...)
 			return
 		}
-
 	}
 
 	registered.RoundCompleted = true
 	rr.st.byRound[rr.round] = registered
 	if err := rr.st.store(); err != nil {
-		jww.FATAL.Panicf("failed to store update after "+
-			"finalizing delivery of sent messages: %+v", err)
+		jww.FATAL.Panicf("[CH] Failed to store update after finalizing "+
+			"delivery of sent messages: %+v", err)
 	}
 
 	rr.st.mux.Unlock()
 	if status == Failed {
 		for i := range registered.List {
 			round := results[rr.round].Round
+			status = Failed
 			go rr.st.updateStatus(registered.List[i].UUID,
-				registered.List[i].MsgID, time.Time{}, round, Failed)
+				&registered.List[i].MsgID, nil, &round, nil, nil, &status)
 		}
 	}
 }

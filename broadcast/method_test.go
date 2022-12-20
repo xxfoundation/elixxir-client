@@ -5,16 +5,23 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package broadcast
 
-import "time"
+import "testing"
 
-// localTime describes a local time object, which gets time from the local clock
-// in milliseconds.
-type localTime struct{}
+// Consistency test of Method.String.
+func TestMethod_String(t *testing.T) {
+	tests := map[Method]string{
+		Symmetric:    "Symmetric",
+		RSAToPublic:  "RSAToPublic",
+		RSAToPrivate: "RSAToPrivate",
+		100:          "INVALID METHOD 100",
+	}
 
-// NowMs returns the current time in milliseconds.
-func (localTime) NowMs() int64 {
-	t := time.Now()
-	return (t.UnixNano() + int64(time.Millisecond)/2 + 1) / int64(time.Millisecond)
+	for method, expected := range tests {
+		if method.String() != expected {
+			t.Errorf("Invalid string for method %d."+
+				"\nexpected: %s\nreceived: %s", method, expected, method)
+		}
+	}
 }

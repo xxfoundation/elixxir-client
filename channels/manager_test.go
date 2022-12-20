@@ -18,6 +18,7 @@ import (
 
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -36,6 +37,14 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// Verify that manager adheres to the Manager interface.
+var _ Manager = (*manager)(nil)
+
+var mockAddServiceFn = func(sp xxdk.Service) error {
+	_, err := sp()
+	return err
+}
+
 func TestManager_JoinChannel(t *testing.T) {
 	rng := rand.New(rand.NewSource(64))
 
@@ -47,7 +56,7 @@ func TestManager_JoinChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -90,7 +99,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -127,10 +136,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 }
 
 func TestManager_GetChannels(t *testing.T) {
-	m := &manager{
-		channels: make(map[id.ID]*joinedChannel),
-		mux:      sync.RWMutex{},
-	}
+	m := &manager{channels: make(map[id.ID]*joinedChannel)}
 
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
@@ -237,7 +243,7 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -283,7 +289,7 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

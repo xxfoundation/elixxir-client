@@ -470,11 +470,11 @@ use the correct versions as listed below.
    [release page](https://github.com/protocolbuffers/protobuf/releases) or use
    the link from the table above to get the download for your OS.
 
-       wget https://github.com/protocolbuffers/protobuf/releases/download/v3.21.9/protoc-3.21.9-linux-x86_64.zip
+       wget https://github.com/protocolbuffers/protobuf/releases/download/v21.9/protoc-21.9-linux-x86_64.zip
 
 2. Extract the files to a folder, such as `$HOME/.local`.
 
-       unzip protoc-3.21.9-linux-x86_64.zip -d $HOME/.local
+       unzip protoc-21.9-linux-x86_64.zip -d $HOME/.local
 
 3. Add the selected directory to your environment’s `PATH` variable, make sure
    to include it in your `.profile` or `.bashrc` file. Also, include your go bin

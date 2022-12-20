@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -135,6 +136,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		kv:             m.kv,
 		net:            m.net,
 		rng:            m.rng,
+		events:         &events{processors: newProcessorList()},
 		broadcastMaker: m.broadcastMaker,
 	}
 
@@ -513,9 +515,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Errorf("Failed to add channel: %+v", err)
 	}
 
-	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
-		m.events, m.broadcastMaker,
-		func(cryptoChannel.MessageID, rounds.Round) bool { return false })
+	loadedJc, err := m.loadJoinedChannel(ch.ReceptionID)
 	if err != nil {
 		t.Errorf("Failed to load joinedChannel: %+v", err)
 	}
@@ -600,7 +600,7 @@ func newTestChannel(name, description string, rng csprng.Source,
 	level cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(
-		name, description, level, time.Now(), 1000, 512, rng)
+		name, description, level, netTime.Now(), 1000, 1024, rng)
 	return c, pk, err
 }
 
@@ -694,12 +694,14 @@ func (m *mockEventModel) UpdateFromUUID(uint64, *cryptoChannel.MessageID,
 	panic("implement me")
 }
 
-func (m *mockEventModel) UpdateFromMessageID(cryptoChannel.MessageID, *time.Time,
-	*rounds.Round, *bool, *bool, *SentStatus) uint64 {
+func (m *mockEventModel) UpdateFromMessageID(cryptoChannel.MessageID,
+	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) uint64 {
 	panic("implement me")
 }
 
-func (m *mockEventModel) GetMessage(
-	cryptoChannel.MessageID) (ModelMessage, error) {
+func (m *mockEventModel) GetMessage(cryptoChannel.MessageID) (ModelMessage, error) {
+	panic("implement me")
+}
+func (m *mockEventModel) DeleteMessage(cryptoChannel.MessageID) error {
 	panic("implement me")
 }

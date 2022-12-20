@@ -49,10 +49,9 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		ID:         rid,
 		Timestamps: make(map[states.Round]time.Time),
 	}
-	r.Timestamps[states.QUEUED] = time.Now()
-	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-		receptionID receptionID.EphemeralIdentity, round rounds.Round,
-		status SentStatus) (uint64, error) {
+	r.Timestamps[states.QUEUED] = netTime.Now()
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
+		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		oldUUID := uuidNum
 		uuidNum++
 		return oldUUID, nil
@@ -84,7 +83,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Payload:     []byte("hello"),
 		}})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	err = st.send(uuid, mid, rounds.Round{
@@ -92,7 +91,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		State: 1,
 	})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	process = st.MessageReceive(mid, r)
 	if !process {
@@ -109,7 +108,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Payload:     []byte("hello again"),
 		}})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	err = st.send(uuid2, mid, rounds.Round{
@@ -129,15 +128,14 @@ func TestSendTracker_failedSend(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	adminTrigger := func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-		messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round, status SentStatus) (uint64, error) {
+	adminTrigger := func(*id.ID, *ChannelMessage, []byte, time.Time,
+		cryptoChannel.MessageID, receptionID.EphemeralIdentity, rounds.Round,
+		SentStatus) (uint64, error) {
 		return 0, nil
 	}
 
-	updateStatus := func(uuid uint64, messageID *cryptoChannel.MessageID,
-		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-		status *SentStatus) {
+	updateStatus := func(_ uint64, _ *cryptoChannel.MessageID, _ *time.Time,
+		_ *rounds.Round, _ *bool, _ *bool, status *SentStatus) {
 		triggerCh <- *status
 	}
 
@@ -148,19 +146,20 @@ func TestSendTracker_failedSend(t *testing.T) {
 	cid := id.NewIdFromString("channel", id.User, t)
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
-	uuid, err := st.denotePendingAdminSend(cid, &ChannelMessage{
+	cm := &ChannelMessage{
 		Lease:       0,
 		RoundID:     uint64(rid),
 		PayloadType: 0,
 		Payload:     []byte("hello"),
-	})
+	}
+	uuid, err := st.denotePendingAdminSend(cid, cm, nil)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	err = st.failedSend(uuid)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	timeout := time.NewTicker(time.Second * 5)
@@ -198,9 +197,8 @@ func TestSendTracker_send(t *testing.T) {
 	triggerCh := make(chan bool)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-		receptionID receptionID.EphemeralIdentity, round rounds.Round,
-		status SentStatus) (uint64, error) {
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
+		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
 
@@ -228,7 +226,7 @@ func TestSendTracker_send(t *testing.T) {
 		messageID: mid,
 	})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	err = st.send(uuid, mid, rounds.Round{
@@ -236,7 +234,7 @@ func TestSendTracker_send(t *testing.T) {
 		State: 2,
 	})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	timeout := time.NewTicker(time.Second * 5)
@@ -299,9 +297,8 @@ func TestRoundResult_callback(t *testing.T) {
 		status *SentStatus) {
 		triggerCh <- true
 	}
-	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-		receptionID receptionID.EphemeralIdentity, round rounds.Round,
-		status SentStatus) (uint64, error) {
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
+		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
 
@@ -323,7 +320,7 @@ func TestRoundResult_callback(t *testing.T) {
 		messageID: mid,
 	})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	err = st.send(uuid, mid, rounds.Round{

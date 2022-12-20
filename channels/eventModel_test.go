@@ -15,8 +15,10 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
@@ -28,7 +30,8 @@ import (
 
 func Test_initEvents(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// verify the model is registered
 	if e.model != me {
@@ -41,9 +44,9 @@ func Test_initEvents(t *testing.T) {
 	}
 
 	// check that all the default callbacks are registered
-	if len(e.registered) != 6 {
+	if len(e.registered) != 7 {
 		t.Errorf("The correct number of default handlers are not "+
-			"registered; %d vs %d", len(e.registered), 6)
+			"registered; %d vs %d", len(e.registered), 7)
 		// If this fails, is means the default handlers have changed. edit the
 		// number here and add tests below. be suspicious if it goes down.
 	}
@@ -129,10 +132,15 @@ func TestReceiveMessageHandler_CheckSpace(t *testing.T) {
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Message Handlers                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
 func Test_events_RegisterReceiveHandler(t *testing.T) {
 	me := &MockEvent{}
 
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Test that a new reception handler can be registered.
 	mt := MessageType(42)
@@ -182,39 +190,51 @@ func Test_events_RegisterReceiveHandler(t *testing.T) {
 	}
 }
 
-type dummyMessageTypeHandler struct {
-	triggered   bool
-	channelID   *id.ID
-	messageID   cryptoChannel.MessageID
-	messageType MessageType
-	nickname    string
-	content     []byte
-	timestamp   time.Time
-	lease       time.Duration
-	round       rounds.Round
+func getFuncName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-func (dmth *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
-	channelID *id.ID, messageID cryptoChannel.MessageID,
-	messageType MessageType, nickname string, content []byte,
-	_ ed25519.PublicKey, _ uint8, timestamp time.Time, lease time.Duration,
-	round rounds.Round, _ SentStatus, _, _ bool) uint64 {
-	dmth.triggered = true
-	dmth.channelID = channelID
-	dmth.messageID = messageID
-	dmth.messageType = messageType
-	dmth.nickname = nickname
-	dmth.content = content
-	dmth.timestamp = timestamp
-	dmth.lease = lease
-	dmth.round = round
+////////////////////////////////////////////////////////////////////////////////
+// Message Triggers                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+type dummyMessageTypeHandler struct {
+	triggered        bool
+	channelID        *id.ID
+	messageID        cryptoChannel.MessageID
+	messageType      MessageType
+	nickname         string
+	content          []byte
+	encryptedPayload []byte
+	timestamp        time.Time
+	lease            time.Duration
+	round            rounds.Round
+}
+
+func (dh *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
+	channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
+	content, encryptedPayload []byte, _ ed25519.PublicKey, _ uint8, timestamp,
+	_ time.Time, lease time.Duration, round rounds.Round, _ SentStatus,
+	_, _ bool) uint64 {
+	dh.triggered = true
+	dh.channelID = channelID
+	dh.messageID = messageID
+	dh.messageType = messageType
+	dh.nickname = nickname
+	dh.content = content
+	dh.encryptedPayload = encryptedPayload
+	dh.timestamp = timestamp
+	dh.lease = lease
+	dh.round = round
 	return rand.Uint64()
 }
 
 func Test_events_triggerEvents(t *testing.T) {
 	me := &MockEvent{}
 
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	dummy := &dummyMessageTypeHandler{}
 
@@ -223,8 +243,7 @@ func Test_events_triggerEvents(t *testing.T) {
 	err := e.RegisterReceiveHandler(mt, NewReceiveMessageHandler(
 		"dummy", dummy.dummyMessageTypeReceiveMessage, true, false, true))
 	if err != nil {
-		t.Fatalf("Error on registration, should not have happened: "+
-			"%+v", err)
+		t.Fatalf("Error on registration, should not have happened: %+v", err)
 	}
 
 	// Craft the input for the event
@@ -234,15 +253,15 @@ func Test_events_triggerEvents(t *testing.T) {
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// Call the trigger
-	_, err = e.triggerEvent(
-		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err = e.triggerEvent(chID, umi, nil, netTime.Now(),
+		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Check the data is stored in the dummy
 	expected := &dummyMessageTypeHandler{true, chID, umi.GetMessageID(), mt,
-		umi.channelMessage.Nickname, umi.GetChannelMessage().Payload,
+		umi.channelMessage.Nickname, umi.GetChannelMessage().Payload, nil,
 		dummy.timestamp, time.Duration(umi.GetChannelMessage().Lease), r}
 	if !reflect.DeepEqual(expected, dummy) {
 		t.Errorf("Did not receive expected values."+
@@ -258,7 +277,8 @@ func Test_events_triggerEvents(t *testing.T) {
 func Test_events_triggerEvents_noChannel(t *testing.T) {
 	me := &MockEvent{}
 
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	dummy := &dummyMessageTypeHandler{}
 
@@ -274,8 +294,8 @@ func Test_events_triggerEvents_noChannel(t *testing.T) {
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// call the trigger
-	_, err := e.triggerEvent(
-		chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err := e.triggerEvent(chID, umi, nil, netTime.Now(),
+		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +308,8 @@ func Test_events_triggerEvents_noChannel(t *testing.T) {
 
 func Test_events_triggerAdminEvents(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 	dummy := &dummyMessageTypeHandler{}
 
 	// Register the handler
@@ -307,7 +328,7 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// Call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
+	_, err = e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -315,7 +336,7 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 
 	// Check the data is stored in the dummy
 	expected := &dummyMessageTypeHandler{true, chID, msgID, mt, AdminUsername,
-		cm.Payload, dummy.timestamp, time.Duration(cm.Lease), r}
+		cm.Payload, nil, dummy.timestamp, time.Duration(cm.Lease), r}
 	if !reflect.DeepEqual(expected, dummy) {
 		t.Errorf("Did not receive expected values."+
 			"\nexpected: %+v\nreceived: %+v", expected, dummy)
@@ -329,7 +350,8 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 
 func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 	dummy := &dummyMessageTypeHandler{}
 	mt := AdminText
 
@@ -341,7 +363,7 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// Call the trigger
-	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID,
+	_, err := e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -352,9 +374,9 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 		t.Errorf("The admin event was triggered when unregistered")
 	}
 }
-
-func Test_events_triggerActionEvent(t *testing.T) {
-	e := initEvents(&MockEvent{}, versioned.NewKV(ekv.MakeMemstore()))
+func TestEvents_triggerActionEvent(t *testing.T) {
+	e := initEvents(&MockEvent{}, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 	dummy := &dummyMessageTypeHandler{}
 
 	// Register the handler
@@ -373,16 +395,14 @@ func Test_events_triggerActionEvent(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// Call the trigger
-	_, err = e.triggerActionEvent(
-		chID, msgID, MessageType(cm.PayloadType), cm.Nickname, cm.Payload,
-		netTime.Now(), time.Duration(cm.Lease), r, Delivered, true)
+	_, err = e.triggerActionEvent(chID, msgID, MessageType(cm.PayloadType), cm.Nickname, cm.Payload, nil, netTime.Now(), netTime.Now(), time.Duration(cm.Lease), r, Delivered, true)
 	if err != nil {
-		t.Fatalf("%+v", err)
+		t.Fatal(err)
 	}
 
 	// Check the data is stored in the dummy
 	expected := &dummyMessageTypeHandler{true, chID, msgID, mt, cm.Nickname,
-		cm.Payload, dummy.timestamp, time.Duration(cm.Lease), r}
+		cm.Payload, nil, dummy.timestamp, time.Duration(cm.Lease), r}
 	if !reflect.DeepEqual(expected, dummy) {
 		t.Errorf("Did not receive expected values."+
 			"\nexpected: %+v\nreceived: %+v", expected, dummy)
@@ -396,7 +416,8 @@ func Test_events_triggerActionEvent(t *testing.T) {
 
 func Test_events_receiveTextMessage_Message(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID := &id.ID{1}
@@ -421,8 +442,8 @@ func Test_events_receiveTextMessage_Message(t *testing.T) {
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// Call the handler
-	e.receiveTextMessage(chID, msgID, Text, senderNickname, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	e.receiveTextMessage(chID, msgID, Text, senderNickname, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, cryptoChannel.MessageID{},
@@ -436,7 +457,8 @@ func Test_events_receiveTextMessage_Message(t *testing.T) {
 
 func Test_events_receiveTextMessage_Reply(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID := &id.ID{1}
@@ -462,8 +484,8 @@ func Test_events_receiveTextMessage_Reply(t *testing.T) {
 	}
 
 	// Call the handler
-	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, replyMsgId,
@@ -477,7 +499,8 @@ func Test_events_receiveTextMessage_Reply(t *testing.T) {
 
 func Test_events_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID := &id.ID{1}
@@ -503,8 +526,8 @@ func Test_events_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	}
 
 	// Call the handler
-	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, cryptoChannel.MessageID{},
@@ -518,7 +541,8 @@ func Test_events_receiveTextMessage_Reply_BadReply(t *testing.T) {
 
 func Test_events_receiveReaction(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID := &id.ID{1}
@@ -544,8 +568,8 @@ func Test_events_receiveReaction(t *testing.T) {
 	}
 
 	// Call the handler
-	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, replyMsgId, senderUsername,
@@ -559,7 +583,8 @@ func Test_events_receiveReaction(t *testing.T) {
 
 func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID := &id.ID{1}
@@ -584,8 +609,8 @@ func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	}
 
 	// Call the handler
-	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, 0, r, Delivered, false, false)
+	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, 0, r, Delivered, false, false)
 
 	// Check the results on the model
 	expected := eventReceive{nil, cryptoChannel.MessageID{},
@@ -599,7 +624,8 @@ func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 
 func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID := &id.ID{1}
@@ -625,8 +651,8 @@ func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 	}
 
 	// Call the handler
-	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, false, false)
+	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
 
 	// Check the results on the model
 	expected := eventReceive{nil, cryptoChannel.MessageID{},
@@ -641,15 +667,15 @@ func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 // Unit test of events.receiveDelete.
 func Test_events_receiveDelete(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID, _ := id.NewRandomID(prng, id.User)
 	targetMessageID := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
 	textPayload := &CMIXChannelDelete{
-		Version:    0,
-		MessageID:  targetMessageID[:],
-		UndoAction: false,
+		Version:   0,
+		MessageID: targetMessageID[:],
 	}
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
@@ -671,23 +697,21 @@ func Test_events_receiveDelete(t *testing.T) {
 		false, false, Text, 0}
 
 	// Call the handler
-	e.receiveDelete(chID, msgID, Delete, AdminUsername, textMarshaled, pi.PubKey,
-		pi.CodesetVersion, ts, lease, r, Delivered, true, false)
+	e.receiveDelete(chID, msgID, Delete, AdminUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, true, false)
 
 	// Check the results on the model
-	expected := eventReceive{chID, cryptoChannel.MessageID{},
-		targetMessageID, senderUsername, textMarshaled, ts, lease, r, Delivered,
-		false, true, Text, 0}
-	if !reflect.DeepEqual(expected, me.eventReceive) {
-		t.Errorf("Did not receive expected values."+
-			"\nexpected: %+v\nreceived: %+v", expected, me.eventReceive)
+	if !reflect.DeepEqual(me.eventReceive, eventReceive{}) {
+		t.Errorf("Message not deleted.\nexpected: %v\nreceived: %v",
+			eventReceive{}, me.eventReceive)
 	}
 }
 
 // Unit test of events.receivePinned.
 func Test_events_receivePinned(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID, _ := id.NewRandomID(prng, id.User)
@@ -718,8 +742,8 @@ func Test_events_receivePinned(t *testing.T) {
 		false, false, Text, 0}
 
 	// Call the handler
-	e.receivePinned(chID, msgID, Pinned, senderUsername, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, true, false)
+	e.receivePinned(chID, msgID, Pinned, senderUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, true, false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, cryptoChannel.MessageID{},
@@ -734,16 +758,17 @@ func Test_events_receivePinned(t *testing.T) {
 // Unit test of events.receivePinned.
 func Test_events_receiveMute(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
-	e := initEvents(me, versioned.NewKV(ekv.MakeMemstore()))
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
 	chID, _ := id.NewRandomID(prng, id.User)
 	targetMessageID := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
 	pubKey, _, _ := ed25519.GenerateKey(prng)
 	textPayload := &CMIXChannelMute{
-		Version:       0,
-		PubKey:        pubKey,
-		UndoAction:    false,
+		Version:    0,
+		PubKey:     pubKey,
+		UndoAction: false,
 	}
 	textMarshaled, err := proto.Marshal(textPayload)
 	if err != nil {
@@ -766,8 +791,8 @@ func Test_events_receiveMute(t *testing.T) {
 		false, false, Text, 0}
 
 	// Call the handler
-	e.receiveMute(chID, msgID, Mute, senderUsername, textMarshaled,
-		pi.PubKey, pi.CodesetVersion, ts, lease, r, Delivered, true, false)
+	e.receiveMute(chID, msgID, Mute, senderUsername, textMarshaled, nil,
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, true, false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, cryptoChannel.MessageID{},
@@ -779,8 +804,80 @@ func Test_events_receiveMute(t *testing.T) {
 	}
 }
 
-func getFuncName(i interface{}) string {
-	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+// Unit test of events.receiveAdminReplay.
+func Test_events_receiveAdminReplay(t *testing.T) {
+	me, prng := &MockEvent{}, csprng.NewSystemRNG()
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
+
+	// Craft the input for the event
+	chID, _ := id.NewRandomID(prng, id.User)
+	targetMessageID := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
+	textPayload := &CMIXChannelPinned{
+		Version:    0,
+		MessageID:  targetMessageID[:],
+		UndoAction: false,
+	}
+	textMarshaled, err := proto.Marshal(textPayload)
+	if err != nil {
+		t.Fatalf("Failed to proto marshal %T: %+v", textPayload, err)
+	}
+
+	ch, pk, err := newTestChannel("abc", "", prng, cryptoBroadcast.Public)
+	if err != nil {
+		t.Fatalf("Failed to generate channel: %+v", err)
+	}
+	cipherText, _, _, _, err :=
+		ch.EncryptRSAToPublic(textMarshaled, pk, 3072, prng)
+	if err != nil {
+		t.Fatalf("Failed to encrypt RSAToPublic: %+v", err)
+	}
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
+	senderUsername := "Alice"
+	ts := netTime.Now()
+	lease := 69 * time.Minute
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	content := []byte("someTest")
+	me.eventReceive = eventReceive{chID, cryptoChannel.MessageID{},
+		targetMessageID, senderUsername, content, ts, lease, r, Delivered,
+		false, false, Text, 0}
+
+	c := make(chan []byte)
+	e.processors.addProcessor(
+		chID, adminProcessor, &testAdminProcessor{adminMsgChan: c})
+
+	// Call the handler
+	e.receiveAdminReplay(chID, msgID, AdminReplay, senderUsername, cipherText,
+		nil, pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false,
+		false)
+
+	select {
+	case encrypted := <-c:
+		decrypted, err2 := ch.DecryptRSAToPublicInner(encrypted)
+		if err2 != nil {
+			t.Errorf("Failed to decrypt message: %+v", err2)
+		}
+
+		received := &CMIXChannelPinned{}
+		err = proto.Unmarshal(decrypted, received)
+		if err != nil {
+			t.Errorf("Failed to proto unmarshal message: %+v", err)
+		}
+
+		if !proto.Equal(textPayload, received) {
+			t.Errorf("Received admin message does not match expected."+
+				"\nexpected: %s\nreceived: %s", textPayload, received)
+		}
+
+	case <-time.After(15 * time.Millisecond):
+		t.Errorf("Timed out waiting for processor to be called.")
+	}
 }
 
 // //////////////////////////////////////////////////////////////////////////////
@@ -947,4 +1044,9 @@ func (m *MockEvent) GetMessage(cryptoChannel.MessageID) (ModelMessage, error) {
 		PubKey:          nil,
 		CodesetVersion:  m.codeset,
 	}, nil
+}
+
+func (m *MockEvent) DeleteMessage(cryptoChannel.MessageID) error {
+	m.eventReceive = eventReceive{}
+	return nil
 }

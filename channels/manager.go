@@ -144,13 +144,15 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel) *manager {
 	m := manager{
-		me:              identity,
-		kv:              kv,
-		net:             net,
-		rng:             rng,
-		events:          initEvents(model, kv),
-		broadcastMaker:  broadcast.NewBroadcastChannel,
+		me:             identity,
+		kv:             kv,
+		net:            net,
+		rng:            rng,
+		events:         initEvents(model, 512, kv, rng),
+		broadcastMaker: broadcast.NewBroadcastChannel,
 	}
+
+	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
 
 	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
 		m.events.triggerAdminEvent, model.UpdateFromUUID, rng)
@@ -160,6 +162,19 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	m.nicknameManager = loadOrNewNicknameManager(kv)
 
 	return &m
+}
+
+// adminReplayHandler registers a replayActionFunc with the lease system.
+func (m *manager) adminReplayHandler(channelID *id.ID, encryptedPayload []byte) {
+	messageID, r, _, err := m.replayAdminMessage(
+		channelID, encryptedPayload, cmix.GetDefaultCMIXParams())
+	if err != nil {
+		jww.ERROR.Printf("[CH] Failed to replay admin message: %+v", err)
+		return
+	}
+
+	jww.INFO.Printf("[CH] Replayed admin message on message %s in round %d",
+		messageID, r.ID)
 }
 
 // GenerateChannel creates a new channel with the user as the admin and returns
@@ -255,8 +270,7 @@ func (m *manager) ReplayChannel(channelID *id.ID) error {
 	jc.broadcast.Stop()
 
 	// Re-instantiate the broadcast, re-registering it from scratch
-	b, err := initBroadcast(c, m.events, m.net, m.broadcastMaker, m.rng,
-		m.st.MessageReceive)
+	b, err := m.initBroadcast(c)
 	if err != nil {
 		return err
 	}

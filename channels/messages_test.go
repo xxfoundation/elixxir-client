@@ -30,14 +30,14 @@ func Test_unmarshalUserMessageInternal(t *testing.T) {
 	}
 
 	if !proto.Equal(umi.userMessage, internal.userMessage) {
-		t.Errorf("Unmarshalled UserMessage does not match original." +
+		t.Errorf("Unmarshalled UserMessage does not match original."+
 			"\nexpected: %+v\nreceived: %+v",
 			internal.userMessage, umi.userMessage)
 	}
 
 	umi.userMessage = internal.userMessage
 	if !reflect.DeepEqual(umi, internal) {
-		t.Errorf("Unmarshalled userMessageInternal does not match original." +
+		t.Errorf("Unmarshalled userMessageInternal does not match original."+
 			"\nexpected: %+v\nreceived: %+v", internal, umi)
 	}
 }

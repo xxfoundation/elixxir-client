@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/primitives/id"
+	"strings"
 )
 
 // userMessageInternal is the internal structure of a UserMessage protobuf.
@@ -70,4 +71,15 @@ func (umi *userMessageInternal) GetChannelMessage() *ChannelMessage {
 // GetMessageID retrieves the messageID for the message.
 func (umi *userMessageInternal) GetMessageID() channel.MessageID {
 	return umi.messageID
+}
+
+// String adheres to the fmt.Stringer interface.
+func (umi *userMessageInternal) String() string {
+	fields := []string{
+		"userMessage:{" + umi.userMessage.String() + "}",
+		"channelMessage:{" + umi.channelMessage.String() + "}",
+		"messageID:" + umi.messageID.String(),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
 }

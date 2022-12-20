@@ -16,7 +16,7 @@ import (
 const (
 	// tenMsInNs is a prime close to one million to ensure that patterns do not
 	// arise due to cofactors with the message ID when doing the modulo.
-	tenMsInNs     = 10000019
+	tenMsInNs     = 10_000_019
 	halfTenMsInNs = tenMsInNs / 2
 	beforeGrace   = 25 * time.Second
 	afterGrace    = 2 * time.Second

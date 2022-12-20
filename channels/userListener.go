@@ -27,13 +27,13 @@ type userListener struct {
 }
 
 // Listen is called when a message is received for the user listener.
-func (ul *userListener) Listen(payload []byte,
+func (ul *userListener) Listen(payload, encryptedPayload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	// Decode the message as a user message
 	umi, err := unmarshalUserMessageInternal(payload, ul.chID)
 	if err != nil {
-		jww.WARN.Printf("[CH] Failed to unmarshal User Message on channel %s " +
+		jww.WARN.Printf("[CH] Failed to unmarshal User Message on channel %s "+
 			"in round %d: %+v", ul.chID, round.ID, err)
 		return
 	}
@@ -51,7 +51,7 @@ func (ul *userListener) Listen(payload []byte,
 
 	// Check the round to ensure the message is not a replay
 	if id.Round(cm.RoundID) != round.ID {
-		jww.WARN.Printf("[CH] Message %s for channel %s referenced round %d, " +
+		jww.WARN.Printf("[CH] Message %s for channel %s referenced round %d, "+
 			"but the message was found on round %d",
 			msgID, ul.chID, cm.RoundID, round.ID)
 		return
@@ -70,7 +70,8 @@ func (ul *userListener) Listen(payload []byte,
 		time.Unix(0, cm.LocalTimestamp), round.Timestamps[states.QUEUED], msgID)
 
 	// Submit the message to the event model for listening
-	uuid, err := ul.trigger(ul.chID, umi, ts, receptionID, round, Delivered)
+	uuid, err := ul.trigger(
+		ul.chID, umi, encryptedPayload, ts, receptionID, round, Delivered)
 	if err != nil {
 		jww.WARN.Printf(
 			"[CH] Error in passing off trigger for message (UUID: %d): %+v",

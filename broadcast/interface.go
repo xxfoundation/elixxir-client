@@ -21,7 +21,7 @@ import (
 
 // ListenerFunc is registered when creating a new broadcasting channel and
 // receives all new broadcast messages for the channel.
-type ListenerFunc func(payload []byte,
+type ListenerFunc func(payload, encryptedPayload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round)
 
 // Channel is the public-facing interface to interact with broadcast channels.
@@ -61,7 +61,7 @@ type Channel interface {
 	//
 	// The network must be healthy to send.
 	BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte,
-		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
+		cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error)
 
 	// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel
 	// with a function that builds the payload based upon the ID of the selected
@@ -71,16 +71,25 @@ type Channel interface {
 	// smaller and the channel rsa.PrivateKey must be passed in.
 	//
 	// The network must be healthy to send.
-	BroadcastRSAToPublicWithAssembler(
-		pk rsa.PrivateKey, assembler Assembler,
-		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
+	BroadcastRSAToPublicWithAssembler(pk rsa.PrivateKey, assembler Assembler,
+		cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error)
 
 	// RegisterListener registers a listener for broadcast messages.
-	RegisterListener(listenerCb ListenerFunc, method Method) error
+	RegisterListener(listenerCb ListenerFunc, method Method) (Processor, error)
 
 	// Stop unregisters the listener callback and stops the channel's identity
 	// from being tracked.
 	Stop()
+}
+
+// Processor handles channel message decryption and handling.
+type Processor interface {
+	message.Processor
+
+	// ProcessAdminMessage decrypts an admin message and sends the results on
+	// the callback.
+	ProcessAdminMessage(innerCiphertext []byte,
+		receptionID receptionID.EphemeralIdentity, round rounds.Round)
 }
 
 // Assembler assembles the message to send using the provided round ID.

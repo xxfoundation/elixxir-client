@@ -257,7 +257,23 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 		// modified until after the loop is complete. Otherwise, removing or
 		// moving elements during the loop can cause skipping of elements.
 		var lmToRemove, lmToUpdate []*leaseMessage
-		for e := all.leases.Front(); e != nil; e = e.Next() {
+
+		// Evaluates if the next element in the list needs to be triggered
+		activatingNow := func(e *list.Element) bool {
+			if e == nil {
+				return false
+			}
+
+			// Check if the lease trigger is in the past. Subtract a millisecond
+			// from the current time to account for clock jitter and/or low
+			// resolution clock.
+			return e.Value.(*leaseMessage).
+				LeaseTrigger <= netTime.Now().Add(-time.Millisecond).UnixNano()
+		}
+
+		// loop through all leases which need to be triggered
+		var e *list.Element
+		for ; activatingNow(e); e = e.Next() {
 			lm = e.Value.(*leaseMessage)
 
 			// Check if the real lease has been reached
@@ -292,6 +308,16 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 
 				go all.replayFn(lm.ChannelID, lm.EncryptedPayload)
 			}
+		}
+
+		// If there is next lease that has not been reached, set the alarm for
+		// next lease trigger
+		if e != nil {
+			alarmTime = netTime.Until(time.Unix(0, lm.LeaseTrigger))
+			timer.Reset(alarmTime)
+
+			jww.DEBUG.Printf("[CH] Lease alarm reset for %s for lease %+v",
+				alarmTime, lm)
 		}
 
 		// Remove all expired actions

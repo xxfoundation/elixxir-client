@@ -33,7 +33,7 @@ func init() {
 }
 
 // IsGuilty returns true if the error means the host
-// will get kickled out of the pool
+// will get kicked out of the pool
 func IsGuilty(err error) bool {
 	_, exists := errorMap[err.Error()]
 	return exists

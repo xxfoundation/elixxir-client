@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/randomness"
@@ -66,6 +67,7 @@ func (p *pool) Size() int {
 
 // IsReady returns true if there is at least one connected member of the hostPool
 func (p *pool) IsReady() error {
+	jww.TRACE.Printf("[IsReady] Length of Host List %d", len(p.hostList))
 	for i := 0; i < len(p.hostList); i++ {
 		if p.isConnected(p.hostList[i]) {
 			return nil
@@ -190,10 +192,12 @@ func (p *pool) GetPreferred(targets []*id.ID, rng io.Reader) []*connect.Host {
 func (p *pool) addOrReplace(rng io.Reader, host *connect.Host) *connect.Host {
 	// if the pool is not full, append to the end
 	if len(p.hostList) < cap(p.hostList) {
+		jww.TRACE.Printf("[AddOrReplace] Adding host %s to host list", host.GetId())
 		p.hostList = append(p.hostList, host)
 		p.hostMap[*host.GetId()] = uint(len(p.hostList) - 1)
 		return nil
 	} else {
+		jww.TRACE.Printf("[AddOrReplace] Internally replacing...")
 		selectedIndex := uint(randomness.ReadRangeUint32(0, uint32(len(p.hostList)), rng))
 		return p.internalReplace(selectedIndex, host)
 	}
@@ -236,36 +240,39 @@ func (p *pool) deepCopy() *pool {
 func (p *pool) selectNew(rng csprng.Source, allNodes map[id.ID]int,
 	currentlyAddingNodes map[id.ID]struct{}, numToSelect int) ([]*id.ID, map[id.ID]struct{}, error) {
 
-	//remove all nodes from the random list which will not be selected
-	for _, h := range p.hostList {
-		delete(allNodes, *h.GetId())
+	newList := make(map[id.ID]interface{})
+
+	//copy all nodes while removing nodes from the host list and
+	//from the processing list
+	for nid := range allNodes {
+		_, inPool := p.hostMap[nid]
+		_, inAdd := currentlyAddingNodes[nid]
+		if !(inPool || inAdd) {
+			newList[nid] = struct{}{}
+		}
 	}
 
-	//remove all nodes which are currently in processing from the list
-	for gwid := range currentlyAddingNodes {
-		delete(allNodes, gwid)
-	}
-
-	// error our if no nodes are left
-	if len(allNodes) == 0 {
+	// error out if no nodes are left
+	if len(newList) == 0 {
 		return nil, nil, errors.New("no nodes available for selection")
 	}
 
-	if numToSelect > len(allNodes) {
+	if numToSelect > len(newList) {
 		//return all nodes
-		selections := make([]*id.ID, 0, len(allNodes))
-		for gwID := range allNodes {
+		selections := make([]*id.ID, 0, len(newList))
+		for gwID := range newList {
 			localGwid := gwID.DeepCopy()
 			selections = append(selections, localGwid)
 			currentlyAddingNodes[*localGwid] = struct{}{}
+			jww.DEBUG.Printf("[SelectNew] Adding gwId %s to inProgress", localGwid)
 		}
 		return selections, currentlyAddingNodes, nil
 	}
 
-	// randomly select numToSelect indicies
+	// Randomly select numToSelect indices
 	toSelectMap := make(map[uint]struct{}, numToSelect)
 	for i := 0; i < numToSelect; i++ {
-		newSelection := uint(randomness.ReadRangeUint32(0, uint32(len(allNodes)), rng))
+		newSelection := uint(randomness.ReadRangeUint32(0, uint32(len(newList)), rng))
 		if _, exists := toSelectMap[newSelection]; exists {
 			i--
 			continue
@@ -277,7 +284,7 @@ func (p *pool) selectNew(rng csprng.Source, allNodes map[id.ID]int,
 	selections := make([]*id.ID, 0, numToSelect)
 	//select the new ones
 	index := uint(0)
-	for gwID := range allNodes {
+	for gwID := range newList {
 		localGwid := gwID.DeepCopy()
 		if _, exists := toSelectMap[index]; exists {
 			selections = append(selections, localGwid)

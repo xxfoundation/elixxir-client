@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -48,6 +49,7 @@ type hostPool struct {
 	filterMux sync.Mutex
 	filter    Filter
 	kv        *versioned.KV
+	addChan   chan commNetwork.NodeGateway
 
 	/* computed parameters*/
 	numNodesToTest int
@@ -76,7 +78,8 @@ var defaultFilter = func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]in
 
 func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	netDef *ndf.NetworkDefinition, getter HostManager,
-	storage storage.Session) (*hostPool, error) {
+	storage storage.Session, addChan chan commNetwork.NodeGateway) (
+	*hostPool, error) {
 	var err error
 
 	// Determine size of HostPool
@@ -122,6 +125,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		kv:            storage.GetKV().Prefix(hostListPrefix),
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
+		addChan: addChan,
 	}
 
 	hp.readPool.Store(p.deepCopy())
@@ -144,12 +148,13 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 
 func newTestingHostPool(params Params, rng *fastRNG.StreamGenerator,
 	netDef *ndf.NetworkDefinition, getter HostManager,
-	storage storage.Session, t *testing.T) (*hostPool, error) {
+	storage storage.Session, addChan chan commNetwork.NodeGateway,
+	t *testing.T) (*hostPool, error) {
 	if t == nil {
 		jww.FATAL.Panicf("can only be called in testing")
 	}
 
-	hp, err := newHostPool(params, rng, netDef, getter, storage)
+	hp, err := newHostPool(params, rng, netDef, getter, storage, addChan)
 	if err != nil {
 		return nil, err
 	}

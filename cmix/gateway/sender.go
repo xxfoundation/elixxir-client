@@ -14,6 +14,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
+	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -46,10 +47,11 @@ const RetryableError = "Nonfatal error occurred, please retry"
 // NewSender Create a new Sender object wrapping a HostPool object
 func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	ndf *ndf.NetworkDefinition, getter HostManager,
-	storage storage.Session) (Sender, error) {
+	storage storage.Session, addChan chan commNetwork.NodeGateway) (
+	Sender, error) {
 
 	hp, err := newHostPool(poolParams, rng, ndf,
-		getter, storage)
+		getter, storage, addChan)
 	if err != nil {
 		return nil, err
 	}
@@ -59,14 +61,15 @@ func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
 // NewSender Create a new Sender object wrapping a HostPool object
 func NewTestingSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	ndf *ndf.NetworkDefinition, getter HostManager,
-	storage storage.Session, t *testing.T) (Sender, error) {
+	storage storage.Session, addChan chan commNetwork.NodeGateway,
+	t *testing.T) (Sender, error) {
 
 	if t == nil {
 		jww.FATAL.Panicf("can only be called in testing")
 	}
 
 	hp, err := newTestingHostPool(poolParams, rng, ndf,
-		getter, storage, t)
+		getter, storage, addChan, t)
 	if err != nil {
 		return nil, err
 	}

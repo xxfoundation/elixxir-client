@@ -3,6 +3,7 @@ package gateway
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -22,12 +23,11 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 			return
 		// receives a request to add a node to the host pool
 		// if a specific node if is sent, it will send that id off
-		// to testing otherwise, it send a random one
+		// to testing otherwise, it sends a random one
 		case toAdd := <-hp.addRequest:
 
 			var hostList []*connect.Host
 			hostList, inProgress = hp.processAddRequest(toAdd, inProgress)
-
 			if len(hostList) == 0 {
 				jww.ERROR.Printf("Host list for testing is empty, this " +
 					"error should never occur")
@@ -68,10 +68,10 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 			// verify the new host is still in the NDF,
 			// due to how testing is async, it can get removed
 			if _, exists := hp.ndfMap[*newHost.GetId()]; !exists {
-				jww.WARN.Printf("New vetted host is not in NDF," +
-					"this is theoretically possible but extremely unlikely. " +
-					"If this is seen more than once, it is likley something is" +
-					"wrong")
+				jww.WARN.Printf("New vetted host (%s) is not in NDF, "+
+					"this is theoretically possible but extremely unlikely. "+
+					"If this is seen more than once, it is likely something is "+
+					"wrong", newHost.GetId())
 				//send a signal back to this thread to add a node to the pool
 				go func() {
 					hp.addRequest <- nil
@@ -80,7 +80,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 			}
 
 			// replace a node slated for replacement if required
-			//pop to remove list
+			// pop to remove list
 			toRemove := pop(toRemoveList)
 			if toRemove != nil {
 				//if this fails, handle the new host without removing a node
@@ -103,12 +103,13 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 
 				update = true
 			}
-		// tested gateways get passed back so they can be
+		// tested gateways get passed back, so they can be
 		// removed from the list of gateways which are being
 		// tested
 		case tested := <-hp.doneTesting:
 			for _, h := range tested {
 				delete(inProgress, *h.GetId())
+				jww.DEBUG.Printf("[Runner] Deleted %s from inProgress", h.GetId())
 			}
 		// new NDF updates come in over this channel
 		case newNDF := <-hp.newNdf:
@@ -149,20 +150,20 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 
 }
 
-func (hp *hostPool) processAddRequest(toAdd *id.ID, inProgress map[id.ID]struct{}) (
-	[]*connect.Host, map[id.ID]struct{}) {
-	//get the nodes to add
+func (hp *hostPool) processAddRequest(toAdd *id.ID,
+	inProgress map[id.ID]struct{}) ([]*connect.Host, map[id.ID]struct{}) {
+	// Get the nodes to add
 	var toTest []*id.ID
 
-	// add the given ID if it is in the NDF
+	// Add the given ID if it is in the NDF
 	if toAdd != nil {
-		//check if it is in the NDF
+		// Check if it is in the NDF
 		if _, exist := hp.ndfMap[*toAdd]; exist {
 			toTest = []*id.ID{toAdd}
 		}
 	}
 
-	//If there are no nodes to add, randomly select some
+	// If there are no nodes to add, randomly select some
 	if len(toTest) == 0 {
 		var err error
 		//if none sent, select random nodes to add
@@ -171,14 +172,15 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID, inProgress map[id.ID]struct{
 			hp.numNodesToTest)
 		stream.Close()
 		if err != nil {
-			jww.WARN.Printf("failed to select any nodes to test for adding, " +
-				"skipping add. this error may be the result of being disconnected " +
+			jww.DEBUG.Printf("[ProcessAndRequest] SelectNew returned error: %s", err)
+			jww.WARN.Printf("Failed to select any nodes to test for adding, " +
+				"skipping add. This error may be the result of being disconnected " +
 				"from the internet or very old network credentials")
 			return nil, inProgress
 		}
 	}
 
-	//get hosts for the selected nodes
+	// Get hosts for the selected nodes
 	hostList := make([]*connect.Host, 0, len(toTest))
 	for i := 0; i < len(toTest); i++ {
 		gwID := toTest[i]
@@ -195,43 +197,48 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID, inProgress map[id.ID]struct{
 func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 	newNDFMap := make(map[id.ID]int, len(hp.ndf.Gateways))
 
-	// make a list of all gateways
+	// Make a list of all gateways
 	for i := 0; i < len(newNdf.Gateways); i++ {
 		gw := newNdf.Gateways[i]
 
-		//Get the ID and bail if it cannot be retrieved
+		// Get the ID and bail if it cannot be retrieved
 		gwID, err := gw.GetGatewayId()
 		if err != nil {
-			jww.WARN.Printf("skipped gateway %d: %x, "+
-				"ID couldn't be unmarshaled, %+v", i,
+			jww.WARN.Printf("Skipped gateway %d: %x, "+
+				"ID couldn't be unmarshalled, %+v", i,
 				newNdf.Gateways[i].ID, err)
 			continue
 		}
 
-		//skip adding if the node is not active
+		// Skip adding if the node is not active
 		if newNdf.Nodes[i].Status != ndf.Active {
 			continue
 		}
 
-		// check if the ID exists, if it does not add its host
+		// Check if the ID exists, if it does not add its host
 		if _, exists := hp.manager.GetHost(gwID); !exists {
-			_, err = hp.manager.AddHost(gwID, gw.Address, []byte(gw.TlsCertificate),
-				hp.params.HostParams)
+			_, err = hp.manager.AddHost(gwID, gw.Address,
+				[]byte(gw.TlsCertificate), hp.params.HostParams)
 			if err != nil {
-				jww.WARN.Printf("skipped gateway %d: %s, "+
+				jww.WARN.Printf("Skipped gateway %d: %s, "+
 					"host could not be added, %+v", i,
 					gwID, err)
 				continue
 			}
+			hp.addChan <- network.NodeGateway{
+				Node:    newNdf.Nodes[i],
+				Gateway: gw,
+			}
 		}
 
-		// add to the new
+		// Add to the new
 		newNDFMap[*gwID] = i
 
 		// delete from the old so we can track which gateways are
 		// missing
 		delete(hp.ndfMap, *gwID)
 	}
+
 	return newNDFMap
 }
 

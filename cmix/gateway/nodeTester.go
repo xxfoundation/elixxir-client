@@ -11,12 +11,12 @@ import (
 func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 
 	for {
-
 		select {
 		case <-stop.Quit():
 			stop.ToStopped()
 			return
 		case queryList := <-hp.testNodes:
+			jww.DEBUG.Printf("[NodeTester] Received queryList of nodes to test: %v", queryList)
 			//test all nodes, find the best
 			resultList := make([]time.Duration, len(queryList))
 
@@ -24,8 +24,8 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 			for i := 0; i < len(queryList); i++ {
 				wg.Add(1)
 				go func(hostToQuery *connect.Host, index int) {
-					latency, pingged := hostToQuery.IsOnline()
-					if !pingged {
+					latency, pinged := hostToQuery.IsOnline()
+					if !pinged {
 						latency = 0
 					}
 					resultList[index] = latency
@@ -53,7 +53,7 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 				err := bestHost.Connect()
 				if err == nil {
 					select {
-					case hp.newHost <- nil:
+					case hp.newHost <- bestHost:
 					default:
 						jww.ERROR.Printf("failed to send best host to main thread, " +
 							"will be dropped, new addRequest to be sent")
@@ -71,6 +71,7 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 			// send the tested nodes back to be labeled as available again
 			select {
 			case hp.doneTesting <- queryList:
+				jww.DEBUG.Printf("[NodeTester] Completed testing query list %s", queryList)
 			default:
 				jww.ERROR.Printf("failed to send queryList to main thread, " +
 					"nodes are stuck in testing, this should never happen")

@@ -294,7 +294,7 @@ func Test_mutedUserManager_removeChannel(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	mum := newMutedUserManager(kv)
 
-	var channelID *id.ID
+	channelID := &id.ID{}
 	for i := 0; i < 20; i++ {
 		channelID = randChannelID(prng, t)
 		for j := 0; j < 50; j++ {

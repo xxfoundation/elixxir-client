@@ -1520,7 +1520,7 @@ func Test_leaseMessage_JSON(t *testing.T) {
 
 	lm := leaseMessage{
 		ChannelID:         channelID,
-		MessageID:         cryptoChannel.MakeMessageID(payload, channelID),
+		MessageID:         message.DeriveChannelMessageID(channelID, 7, payload),
 		Action:            randAction(prng),
 		Payload:           payload,
 		EncryptedPayload:  encrypted,

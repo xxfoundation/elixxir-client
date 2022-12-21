@@ -328,7 +328,7 @@ func (m *eventModel) ReceiveMessage(_ *id.ID, _ cryptoChannel.MessageID, _,
 	return 0
 }
 
-func (m *eventModel) ReceiveReply(channelID *id.ID, _ cryptoChannel.MessageID,
+func (m *eventModel) ReceiveReply(channelID *id.ID, _ ,
 	_ cryptoChannel.MessageID, _, _ string, _ ed25519.PublicKey, _ uint8,
 	_ time.Time, _ time.Duration, _ rounds.Round, _ channels.MessageType,
 	_ channels.SentStatus, _ bool) uint64 {

@@ -14,8 +14,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
@@ -42,11 +42,11 @@ func NewCommandStore(kv *versioned.KV) *CommandStore {
 }
 
 // SaveCommand stores the command message and its data to storage.
-func (cs *CommandStore) SaveCommand(channelID *id.ID,
-	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
-	content, encryptedPayload []byte, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp, localTimestamp time.Time, lease time.Duration,
-	round rounds.Round, status SentStatus, fromAdmin, userMuted bool) error {
+func (cs *CommandStore) SaveCommand(channelID *id.ID, messageID message.ID,
+	messageType MessageType, nickname string, content, encryptedPayload []byte,
+	pubKey ed25519.PublicKey, codeset uint8, timestamp,
+	localTimestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus, fromAdmin, userMuted bool) error {
 
 	m := CommandMessage{
 		ChannelID:        channelID,
@@ -122,7 +122,7 @@ type CommandMessage struct {
 	ChannelID *id.ID `json:"channelID"`
 
 	// MessageID is the ID of the message.
-	MessageID cryptoChannel.MessageID `json:"messageID"`
+	MessageID message.ID `json:"messageID"`
 
 	// MessageType is the Type of channel message.
 	MessageType MessageType `json:"messageType"`

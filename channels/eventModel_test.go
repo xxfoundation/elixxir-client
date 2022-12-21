@@ -395,7 +395,9 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	// Call the trigger
-	_, err = e.triggerActionEvent(chID, msgID, MessageType(cm.PayloadType), cm.Nickname, cm.Payload, nil, netTime.Now(), netTime.Now(), time.Duration(cm.Lease), r, Delivered, true)
+	_, err = e.triggerActionEvent(chID, msgID, MessageType(cm.PayloadType),
+		cm.Nickname, cm.Payload, nil, netTime.Now(), netTime.Now(),
+		time.Duration(cm.Lease), r, Delivered, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -880,9 +882,9 @@ func Test_events_receiveAdminReplay(t *testing.T) {
 	}
 }
 
-// //////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Mock Event Model                                                           //
-// //////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 type eventReceive struct {
 	channelID   *id.ID
 	messageID   cryptoChannel.MessageID

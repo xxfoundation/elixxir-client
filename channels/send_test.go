@@ -736,10 +736,13 @@ func (m *mockNameService) GetUsername() string { return "Alice" }
 func (m *mockNameService) GetChannelValidationSignature() ([]byte, time.Time) {
 	return []byte("fake validation sig"), netTime.Now()
 }
-func (m *mockNameService) GetChannelPubkey() ed25519.PublicKey { return []byte("fake pubkey") }
+func (m *mockNameService) GetChannelPubkey() ed25519.PublicKey {
+	return []byte("fake pubkey")
+}
 func (m *mockNameService) SignChannelMessage([]byte) ([]byte, error) {
 	return []byte("fake sig"), nil
 }
-func (m *mockNameService) ValidateChannelMessage(string, time.Time, ed25519.PublicKey, []byte) bool {
+func (m *mockNameService) ValidateChannelMessage(string, time.Time,
+	ed25519.PublicKey, []byte) bool {
 	return m.validChMsg
 }

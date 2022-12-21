@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package gateway
 
 import (
@@ -225,10 +232,12 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 					gwID, err)
 				continue
 			}
+
 			hp.addChan <- network.NodeGateway{
 				Node:    newNdf.Nodes[i],
 				Gateway: gw,
 			}
+
 		}
 
 		// Add to the new

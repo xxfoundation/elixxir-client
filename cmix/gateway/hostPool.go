@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package gateway
 
 import (
@@ -127,7 +134,6 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 			len(netDef.Gateways), int(params.PoolSize)),
 		addChan: addChan,
 	}
-
 	hp.readPool.Store(p.deepCopy())
 
 	//process the ndf
@@ -139,6 +145,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		jww.WARN.Printf("Starting host pool from scratch, "+
 			"cannot get old pool: %+v", err)
 	}
+
 	for i := range hl {
 		hp.addRequest <- hl[i]
 	}

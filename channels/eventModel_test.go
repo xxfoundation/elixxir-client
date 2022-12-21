@@ -811,7 +811,6 @@ func Test_events_receiveMute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-}
 
 	content := []byte("someTest")
 	me.eventReceive = eventReceive{chID, message.ID{}, targetMessageID,

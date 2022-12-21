@@ -1166,7 +1166,7 @@ func parseChannelsParameters(channelIdBytes, cmixParamsJSON []byte) (
 
 // constructChannelSendReport is a helper function which returns a JSON
 // marshalled ChannelSendReport.
-func constructChannelSendReport(messageID cryptoChannel.MessageID,
+func constructChannelSendReport(messageID cryptoMessage.ID,
 	roundID id.Round, ephID ephemeral.Id) ([]byte, error) {
 	// Construct send report
 	chanSendReport := ChannelSendReport{
@@ -1994,7 +1994,7 @@ func (tem *toEventModel) GetMessage(
 
 // DeleteMessage deletes the message with the given [channel.MessageID] from the
 // database.
-func (tem *toEventModel) DeleteMessage(messageID cryptoChannel.MessageID) error {
+func (tem *toEventModel) DeleteMessage(messageID cryptoMessage.ID) error {
 	return tem.em.DeleteMessage(messageID.Marshal())
 }
 

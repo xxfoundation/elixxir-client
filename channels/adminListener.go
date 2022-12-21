@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/primitives/id"
 )
 

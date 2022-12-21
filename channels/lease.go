@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/message"
@@ -338,10 +339,9 @@ func (all *actionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 }
 
 // AddMessage triggers the lease message for insertion.
-func (all *actionLeaseList) AddMessage(channelID *id.ID,
-	messageID message.ID, action MessageType,
-	payload, encryptedPayload []byte, timestamp, localTimestamp time.Time,
-	lease time.Duration, fromAdmin bool) {
+func (all *actionLeaseList) AddMessage(channelID *id.ID, messageID message.ID,
+	action MessageType, payload, encryptedPayload []byte, timestamp,
+	localTimestamp time.Time, lease time.Duration, fromAdmin bool) {
 	all.addLeaseMessage <- &leaseMessage{
 		ChannelID:         channelID,
 		MessageID:         messageID,

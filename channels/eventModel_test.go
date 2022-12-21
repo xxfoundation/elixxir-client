@@ -334,8 +334,8 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 	u, _, cm := builtTestUMI(t, mt)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
-	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID),
-		u.userMessage.Message)
+	msgID := message.
+		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
 	_, err = e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
@@ -370,8 +370,8 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 	u, _, cm := builtTestUMI(t, mt)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
-	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID),
-		u.userMessage.Message)
+	msgID := message.
+		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
 	_, err := e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
@@ -444,10 +444,7 @@ func Test_events_receiveTextMessage_Message(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
@@ -574,7 +571,6 @@ func Test_events_receiveReaction(t *testing.T) {
 	// Craft the input for the event
 	chID := &id.ID{1}
 	replyMsgId := message.DeriveChannelMessageID(chID, 420, []byte("blarg"))
-
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
 		Reaction:          "🍆",
@@ -585,7 +581,6 @@ func Test_events_receiveReaction(t *testing.T) {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
 	msgID := message.DeriveChannelMessageID(chID, 420, textMarshaled)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
 	lease := 69 * time.Minute
@@ -629,9 +624,7 @@ func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal the message proto: %+v", err)
 	}
-
 	msgID := message.DeriveChannelMessageID(chID, 420, textMarshaled)
-
 	senderUsername := "Alice"
 	ts := netTime.Now()
 	r := rounds.Round{ID: 420,
@@ -818,6 +811,7 @@ func Test_events_receiveMute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
 
 	content := []byte("someTest")
 	me.eventReceive = eventReceive{chID, message.ID{}, targetMessageID,

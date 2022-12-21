@@ -588,8 +588,8 @@ func (e *events) receiveReaction(channelID *id.ID, messageID message.ID,
 		jww.ERROR.Printf("[CH] Failed process reaction %s from %x on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, due to malformed "+
 			"reaction (%s), ignoring reaction",
-			messageID, pubKey, channelID, messageType, timestamp, lease,
-			round.ID, err)
+			messageID, pubKey, channelID, messageType, timestamp,
+			lease, round.ID, err)
 		return 0
 	}
 
@@ -609,8 +609,8 @@ func (e *events) receiveReaction(channelID *id.ID, messageID message.ID,
 		jww.ERROR.Printf("[CH] Failed process reaction %s from public key %x "+
 			"(codeset %d) on channel %s, type %s, ts: %s, lease: %s, "+
 			"round: %d, reacting to invalid message, ignoring reaction",
-			messageID, pubKey, codeset, channelID, messageType, timestamp,
-			lease, round.ID)
+			messageID, pubKey, codeset, channelID, messageType,
+			timestamp, lease, round.ID)
 	}
 	return 0
 }

@@ -132,8 +132,8 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 				message.ID, receptionID.EphemeralIdentity,
 				rounds.Round, SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-				*bool, *bool, *SentStatus) {
+			}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool,
+				*bool, *SentStatus) {
 			}, crng),
 	}
 

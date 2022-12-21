@@ -99,6 +99,12 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			errors.Errorf("user muted in channel %s", channelID)
 	}
 
+	// Reject the send if the user is muted in the channel they are sending to
+	if m.events.mutedUsers.isMuted(channelID, m.me.PubKey) {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf("user muted in channel %s", channelID)
+	}
+
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
 	log := fmt.Sprintf(
@@ -175,8 +181,8 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		}
 
 		// Make the messageID
-		messageID = message.DeriveChannelMessageID(channelID,
-			chMsg.RoundID, chMsgSerial)
+		messageID = message.
+			DeriveChannelMessageID(channelID, chMsg.RoundID, chMsgSerial)
 
 		// Sign the message
 		messageSig := ed25519.Sign(*m.me.Privkey, chMsgSerial)

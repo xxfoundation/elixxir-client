@@ -1217,7 +1217,8 @@ func (cm *ChannelsManager) GetStorageTag() string {
 // Parameters:
 //   - nickname - The new nickname.
 //   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
-func (cm *ChannelsManager) SetNickname(nickname string, channelIDBytes []byte) error {
+func (cm *ChannelsManager) SetNickname(
+	nickname string, channelIDBytes []byte) error {
 	channelID, err := id.Unmarshal(channelIDBytes)
 	if err != nil {
 		return err

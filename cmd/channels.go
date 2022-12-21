@@ -167,8 +167,8 @@ var channelsCmd = &cobra.Command{
 		err = makeChannelReceptionHandler(integrationChannelMessage,
 			chanManager)
 		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to create reception handler for message type %s: %+v",
-				channelsPrintHeader, channels.Text, err)
+			jww.FATAL.Panicf("[%s] Failed to create reception handler for " +
+				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
 		}
 
 		// Send message
@@ -246,8 +246,8 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 // channel.
 func sendMessageToChannel(chanManager channels.Manager,
 	channel *cryptoBroadcast.Channel, msgBody []byte) error {
-	jww.INFO.Printf("[%s] Sending message (%s) to channel %s", channelsPrintHeader, msgBody,
-		channel.Name)
+	jww.INFO.Printf("[%s] Sending message (%s) to channel %s",
+		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
 		channel.ReceptionID, integrationChannelMessage, msgBody, 5*time.Second,
 		true, cmix.GetDefaultCMIXParams())
@@ -255,9 +255,9 @@ func sendMessageToChannel(chanManager channels.Manager,
 		return errors.Errorf("%+v", err)
 	}
 
-	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with message ID %s on round %d",
-		channelsPrintHeader, msgBody,
-		channel.Name, channel.ReceptionID, chanMsgId, round.ID)
+	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with " +
+		"message ID %s on round %d", channelsPrintHeader, msgBody, channel.Name,
+		channel.ReceptionID, chanMsgId, round.ID)
 	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
 
 	return nil
@@ -397,13 +397,13 @@ func init() {
 	bindFlagHelper(channelsKeyPathFlag, channelsCmd)
 
 	channelsCmd.Flags().Bool(channelsJoinFlag, false,
-		"Determines if the channel created from the 'newChannel' or loaded " +
-		"from 'channelPath' flag will be joined.")
+		"Determines if the channel created from the 'newChannel' or loaded "+
+			"from 'channelPath' flag will be joined.")
 	bindFlagHelper(channelsJoinFlag, channelsCmd)
 
 	channelsCmd.Flags().Bool(channelsLeaveFlag, false,
-		"Determines if the channel created from the 'newChannel' or loaded " +
-		"from 'channelPath' flag will be left.")
+		"Determines if the channel created from the 'newChannel' or loaded "+
+			"from 'channelPath' flag will be left.")
 	bindFlagHelper(channelsLeaveFlag, channelsCmd)
 
 	channelsCmd.Flags().Bool(channelsNewFlag, false,

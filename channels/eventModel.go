@@ -67,6 +67,8 @@ func (ss SentStatus) String() string {
 	}
 }
 
+// AdminFakePubKey is the placeholder for the Ed25519 public key used when the
+// admin trigger calls a message handler.
 var AdminFakePubKey = ed25519.PublicKey{}
 
 // EventModel is an interface which an external party which uses the channels
@@ -220,10 +222,11 @@ type UpdateFromUuidFunc func(uuid uint64, messageID *message.ID,
 // events is an internal structure that processes events and stores the handlers
 // for those events.
 type events struct {
-	model      EventModel
-	registered map[MessageType]*ReceiveMessageHandler
-	leases     *actionLeaseList
-	mutedUsers *mutedUserManager
+	model        EventModel
+	registered   map[MessageType]*ReceiveMessageHandler
+	commandStore *CommandStore
+	leases       *actionLeaseList
+	mutedUsers   *mutedUserManager
 
 	// List of registered message processors
 	broadcast *processorList
@@ -330,8 +333,10 @@ func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
 	rng *fastRNG.StreamGenerator) *events {
 	e := &events{
 		model:            model,
+		commandStore:     NewCommandStore(kv),
 		broadcast:        newProcessorList(),
 		maxMessageLength: maxMessageLength,
+		mux:              sync.RWMutex{},
 	}
 
 	// Set up default message types
@@ -347,7 +352,8 @@ func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
 
 	// Initialise list of message leases
 	var err error
-	e.leases, err = newOrLoadActionLeaseList(e.triggerActionEvent, kv, rng)
+	e.leases, err = newOrLoadActionLeaseList(
+		e.triggerActionEvent, e.commandStore, kv, rng)
 	if err != nil {
 		jww.FATAL.Panicf("[CH] Failed to initialise lease list: %+v", err)
 	}

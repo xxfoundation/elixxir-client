@@ -125,7 +125,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
+	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (
+	Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run

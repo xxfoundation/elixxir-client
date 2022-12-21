@@ -50,7 +50,7 @@ func Test_newHostPool(t *testing.T) {
 
 	// Call the constructor
 	_, err := newHostPool(params, rng, testNdf, manager,
-		testStorage)
+		testStorage, nil)
 	if err != nil {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}

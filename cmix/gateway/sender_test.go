@@ -9,6 +9,7 @@ package gateway
 
 import (
 	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -26,8 +27,8 @@ func TestNewSender(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	params := DefaultParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
-
-	_, err := NewSender(params, rng, testNdf, manager, testStorage)
+	addChan := make(chan network.NodeGateway, len(testNdf.Gateways))
+	_, err := NewSender(params, rng, testNdf, manager, testStorage, addChan)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
 	}
@@ -41,9 +42,9 @@ func TestSender_SendToAny(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	params := DefaultParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
-
+	addChan := make(chan network.NodeGateway, len(testNdf.Gateways))
 	senderFace, err := NewSender(
-		params, rng, testNdf, manager, testStorage)
+		params, rng, testNdf, manager, testStorage, addChan)
 	s := senderFace.(*sender)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
@@ -110,8 +111,8 @@ func TestSender_SendToPreferred(t *testing.T) {
 	// Do not test proxy attempts code in this test
 	// (self contain to code specific in sendPreferred)
 	params.ProxyAttempts = 0
-
-	sFace, err := NewSender(params, rng, testNdf, manager, testStorage)
+	addChan := make(chan network.NodeGateway, len(testNdf.Gateways))
+	sFace, err := NewSender(params, rng, testNdf, manager, testStorage, addChan)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
 	}

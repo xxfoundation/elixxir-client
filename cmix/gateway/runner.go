@@ -201,7 +201,6 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID,
 	// If there are no nodes to add, randomly select some
 	if len(toTest) == 0 {
 		var err error
-		//if none sent, select random nodes to add
 		stream := hp.rng.GetStream()
 		toTest, inProgress, err = hp.writePool.selectNew(stream, hp.ndfMap, inProgress,
 			hp.numNodesToTest)

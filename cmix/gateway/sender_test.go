@@ -64,7 +64,7 @@ func TestSender_SendToAny(t *testing.T) {
 		gwHost, err := manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 		s.writePool.addOrReplace(stream, gwHost)
@@ -134,7 +134,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 		gwHost, err := manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 		s.writePool.addOrReplace(stream, gwHost)

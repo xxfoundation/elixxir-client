@@ -178,7 +178,7 @@ func (p *pool) GetPreferred(targets []*id.ID, rng io.Reader) []*connect.Host {
 		gwIdx := randomness.ReadRangeUint32(0, uint32(len(p.hostList)),
 			rng)
 		selected := p.hostList[gwIdx]
-		//check if it is already in the list, if not add it
+		//check if it is already in the list, if not Add it
 		gwID := selected.GetId()
 		if _, ok := checked[*gwID]; !ok {
 			checked[*gwID] = struct{}{}

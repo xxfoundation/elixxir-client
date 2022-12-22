@@ -14,12 +14,14 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"time"
 )
 
 func (hp *hostPool) runner(stop *stoppable.Single) {
 
 	inProgress := make(map[id.ID]struct{})
 	toRemoveList := make(map[id.ID]interface{}, 2*cap(hp.writePool.hostList))
+	online := newBucket(cap(hp.writePool.hostList))
 
 	for {
 		update := false
@@ -28,7 +30,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 		case <-stop.Quit():
 			stop.ToStopped()
 			return
-		// receives a request to add a node to the host pool
+		// receives a request to Add a node to the host pool
 		// if a specific node if is sent, it will send that id off
 		// to testing otherwise, it sends a random one
 		case toAdd := <-hp.addRequest:
@@ -41,11 +43,11 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				break input
 			}
 
-			//send the signal to the adding pool to add
+			//send the signal to the adding pool to Add
 			select {
 			case hp.testNodes <- hostList:
 			default:
-				jww.ERROR.Printf("Failed to send add message")
+				jww.ERROR.Printf("Failed to send Add message")
 			}
 		// handle request to remove a node from the host pool
 		case toRemove := <-hp.removeRequest:
@@ -61,16 +63,19 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 					" not in the host pool", toRemove)
 				break input
 			}
-			// add to the "to remove" list.  This will replace that
+
+			online.Add()
+
+			// Add to the "to remove" list.  This will replace that
 			// node on th next addition to the pool
 			toRemoveList[*toRemove] = struct{}{}
 
-			//send a signal back to this thread to add a node to the pool
+			//send a signal back to this thread to Add a node to the pool
 			go func() {
 				hp.addRequest <- nil
 			}()
 
-		// internal signal on reception of vetted node to add to pool
+		// internal signal on reception of vetted node to Add to pool
 		case newHost := <-hp.newHost:
 			// verify the new host is still in the NDF,
 			// due to how testing is async, it can get removed
@@ -79,12 +84,14 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 					"this is theoretically possible but extremely unlikely. "+
 					"If this is seen more than once, it is likely something is "+
 					"wrong", newHost.GetId())
-				//send a signal back to this thread to add a node to the pool
+				//send a signal back to this thread to Add a node to the pool
 				go func() {
 					hp.addRequest <- nil
 				}()
 				break input
 			}
+
+			online.Reset()
 
 			// replace a node slated for replacement if required
 			// pop to remove list
@@ -153,13 +160,23 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 					"not be available on load: %s", err)
 			}
 		}
+
+		//Wait the delay until next iteration. this will ensure
+		delay := online.GetDelay()
+		select {
+		case <-time.After(delay):
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
+		}
+
 	}
 
 }
 
 func (hp *hostPool) processAddRequest(toAdd *id.ID,
 	inProgress map[id.ID]struct{}) ([]*connect.Host, map[id.ID]struct{}) {
-	// Get the nodes to add
+	// Get the nodes to Add
 	var toTest []*id.ID
 
 	// Add the given ID if it is in the NDF
@@ -170,10 +187,10 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID,
 		}
 	}
 
-	// If there are no nodes to add, randomly select some
+	// If there are no nodes to Add, randomly select some
 	if len(toTest) == 0 {
 		var err error
-		//if none sent, select random nodes to add
+		//if none sent, select random nodes to Add
 		stream := hp.rng.GetStream()
 		toTest, inProgress, err = hp.writePool.selectNew(stream, hp.ndfMap, inProgress,
 			hp.numNodesToTest)
@@ -181,7 +198,7 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID,
 		if err != nil {
 			jww.DEBUG.Printf("[ProcessAndRequest] SelectNew returned error: %s", err)
 			jww.WARN.Printf("Failed to select any nodes to test for adding, " +
-				"skipping add. This error may be the result of being disconnected " +
+				"skipping Add. This error may be the result of being disconnected " +
 				"from the internet or very old network credentials")
 			return nil, inProgress
 		}
@@ -222,7 +239,7 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 			continue
 		}
 
-		// Check if the ID exists, if it does not add its host
+		// Check if the ID exists, if it does not Add its host
 		if _, exists := hp.manager.GetHost(gwID); !exists {
 			_, err = hp.manager.AddHost(gwID, gw.Address,
 				[]byte(gw.TlsCertificate), hp.params.HostParams)

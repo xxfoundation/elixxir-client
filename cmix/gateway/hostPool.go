@@ -75,7 +75,7 @@ type HostManager interface {
 // ID -> index in the NDF. There is no multithreading; the filter function can
 // either edit the passed map or make a new one and return it. The general
 // pattern is to loop through the map, then look up data about the nodes in the
-// NDF to make a filtering decision, then add them to a new map if they are
+// NDF to make a filtering decision, then Add them to a new map if they are
 // accepted.
 type Filter func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int
 
@@ -139,7 +139,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	//process the ndf
 	hp.ndfMap = hp.processNdf(hp.ndf)
 
-	//prime the host pool at add its first hosts
+	//prime the host pool at Add its first hosts
 	hl, err := getHostPreparedList(hp.kv, int(params.PoolSize))
 	if err != nil {
 		jww.WARN.Printf("Starting host pool from scratch, "+
@@ -174,7 +174,7 @@ func newTestingHostPool(params Params, rng *fastRNG.StreamGenerator,
 	if !exists {
 		return nil, errors.Errorf("impossible error")
 	}
-	//add one member to the host pool
+	//Add one member to the host pool
 	stream := rng.GetStream()
 	hp.writePool.addOrReplace(stream, h)
 	hp.readPool.Store(hp.writePool.deepCopy())
@@ -225,7 +225,7 @@ func (hp *hostPool) Add(gwId *id.ID) {
 	select {
 	case hp.addRequest <- gwId:
 	default:
-		jww.WARN.Printf("Failed to pass instruction to add %s", gwId)
+		jww.WARN.Printf("Failed to pass instruction to Add %s", gwId)
 	}
 }
 

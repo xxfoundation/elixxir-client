@@ -88,11 +88,11 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 			if bestHost == nil {
 				jww.WARN.Printf("No host selected, restarting the request process")
 				// if none of the hosts could be contacted, send a signal
-				// to add a new node to the pool
+				// to Add a new node to the pool
 				select {
 				case hp.addRequest <- nil:
 				default:
-					jww.WARN.Printf("Failed to send a signal to add hosts after " +
+					jww.WARN.Printf("Failed to send a signal to Add hosts after " +
 						"testing failure")
 				}
 			}

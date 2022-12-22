@@ -60,40 +60,39 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	if err != nil {
 		return err
 	}
-	declaredRemoteCert := gwTlsCertResp.GetCertificate()
 	remoteCertSignature := gwTlsCertResp.GetSignature()
-	declaredFingerprint := md5.Sum(declaredRemoteCert)
+	declaredFingerprint := md5.Sum(gwTlsCertResp.GetCertificate())
 
 	// Get remote certificate used for connection from the host object
-	usedRemoteCert, err := gwHost.GetRemoteCertificate()
+	actualRemoteCert, err := gwHost.GetRemoteCertificate()
 	if err != nil {
 		return err
 	}
-	usedFingerprint := md5.Sum(usedRemoteCert.Raw)
+	actualFingerprint := md5.Sum(actualRemoteCert.Raw)
 
 	// If the fingerprints of the used & declared certs do not match, return an error
-	if usedFingerprint != declaredFingerprint {
+	if actualFingerprint != declaredFingerprint {
 		return errors.Errorf("Declared & used remote certificates "+
 			"do not match\n\tDeclared: %+v\n\tUsed: %+v\n",
-			declaredFingerprint, usedFingerprint)
+			declaredFingerprint, actualFingerprint)
 	}
 
 	// Check if we have already verified this certificate for this host
 	storedFingerprint, err := cc.loadGatewayCertificateFingerprint(gwHost)
 	if err == nil {
-		if bytes.Compare(storedFingerprint, usedFingerprint[:]) == 0 {
+		if bytes.Compare(storedFingerprint, actualFingerprint[:]) == 0 {
 			return nil
 		}
 	}
 
 	// Verify received signature
-	err = verifyRemoteCertificate(usedRemoteCert.Raw, remoteCertSignature, gwHost)
+	err = verifyRemoteCertificate(actualRemoteCert.Raw, remoteCertSignature, gwHost)
 	if err != nil {
 		return err
 	}
 
 	// Store checked certificate fingerprint
-	return cc.storeGatewayCertificateFingerprint(usedFingerprint[:], gwHost)
+	return cc.storeGatewayCertificateFingerprint(actualFingerprint[:], gwHost)
 }
 
 // verifyRemoteCertificate verifies the RSA signature of a gateway on its tls certificate

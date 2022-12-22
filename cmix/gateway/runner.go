@@ -16,6 +16,13 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
+// runner is the primary long-running thread for handling events. It will
+// handle the following signals:
+//   - Requests to add hosts to the hostPool.
+//   - Requests to remove hosts from the hostPool.
+//   - Indications that a host has been tested (see nodeTester).
+//   - Indications that a new host that is ready to be added to the hostPool.
+//   - Indications that a new NDF has been received.
 func (hp *hostPool) runner(stop *stoppable.Single) {
 
 	inProgress := make(map[id.ID]struct{})
@@ -28,9 +35,10 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 		case <-stop.Quit():
 			stop.ToStopped()
 			return
-		// receives a request to add a node to the host pool
-		// if a specific node if is sent, it will send that id off
-		// to testing otherwise, it sends a random one
+		// Receives a request to add a node to the host pool if a
+		// specific node if is sent. It will send that node off
+		// to testing. If no specific node is sent (ie it receive nil),
+		// it  will send a random one
 		case toAdd := <-hp.addRequest:
 
 			var hostList []*connect.Host
@@ -41,52 +49,52 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				break input
 			}
 
-			//send the signal to the adding pool to add
+			// Send the signal to the adding pool to add
 			select {
 			case hp.testNodes <- hostList:
 			default:
 				jww.ERROR.Printf("Failed to send add message")
 			}
-		// handle request to remove a node from the host pool
+		// Handle requests to remove a node from the host pool
 		case toRemove := <-hp.removeRequest:
 
-			// if the host is already slated to be removed, ignore
+			// If the host is already slated to be removed, ignore
 			if _, exists := toRemoveList[*toRemove]; exists {
 				break input
 			}
 
-			// do not remove if it is not present in the pool
+			// Do not remove if it is not present in the pool
 			if !hp.writePool.Has(toRemove) {
 				jww.DEBUG.Printf("Skipping remove request for %s,"+
 					" not in the host pool", toRemove)
 				break input
 			}
-			// add to the "to remove" list.  This will replace that
+			// Add to the "to remove" list.  This will replace that
 			// node on th next addition to the pool
 			toRemoveList[*toRemove] = struct{}{}
 
-			//send a signal back to this thread to add a node to the pool
+			// Send a signal back to this thread to add a node to the pool
 			go func() {
 				hp.addRequest <- nil
 			}()
 
-		// internal signal on reception of vetted node to add to pool
+		// Internal signal on reception of vetted node to add to pool
 		case newHost := <-hp.newHost:
-			// verify the new host is still in the NDF,
+			// Verify the new host is still in the NDF,
 			// due to how testing is async, it can get removed
 			if _, exists := hp.ndfMap[*newHost.GetId()]; !exists {
 				jww.WARN.Printf("New vetted host (%s) is not in NDF, "+
 					"this is theoretically possible but extremely unlikely. "+
 					"If this is seen more than once, it is likely something is "+
 					"wrong", newHost.GetId())
-				//send a signal back to this thread to add a node to the pool
+				// Send a signal back to this thread to add a node to the pool
 				go func() {
 					hp.addRequest <- nil
 				}()
 				break input
 			}
 
-			// replace a node slated for replacement if required
+			// Replace a node slated for replacement if required
 			// pop to remove list
 			toRemove := pop(toRemoveList)
 			if toRemove != nil {
@@ -99,7 +107,6 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 						}()
 					}
 				} else {
-					// we can do
 					jww.WARN.Printf("Failed to replace %s due to %s, skipping "+
 						"addition to host pool", toRemove, err)
 				}
@@ -110,7 +117,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 
 				update = true
 			}
-		// tested gateways get passed back, so they can be
+		// Tested gateways get passed back, so they can be
 		// removed from the list of gateways which are being
 		// tested
 		case tested := <-hp.doneTesting:
@@ -118,14 +125,14 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				delete(inProgress, *h.GetId())
 				jww.DEBUG.Printf("[Runner] Deleted %s from inProgress", h.GetId())
 			}
-		// new NDF updates come in over this channel
+		// New NDF updates come in over this channel
 		case newNDF := <-hp.newNdf:
 			hp.ndf = newNDF.DeepCopy()
 
-			// process the new NDF map
+			// Process the new NDF map
 			newNDFMap := hp.processNdf(hp.ndf)
 
-			// remove all gateways which are not missing from the host pool
+			// Remove all gateways which are not missing from the host pool
 			// that are in the host pool
 			for gwID := range hp.ndfMap {
 				if hp.writePool.Has(&gwID) {
@@ -138,6 +145,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 
 		}
 
+		// Handle updates by writing host pool into storage
 		if update == true {
 			poolCopy := hp.writePool.deepCopy()
 			hp.readPool.Store(poolCopy)
@@ -157,6 +165,9 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 
 }
 
+// processAddRequest will return the host of the passed in node if it is
+// specified (ie it is not nil). If it is nil, it will select random nodes
+// for testing.
 func (hp *hostPool) processAddRequest(toAdd *id.ID,
 	inProgress map[id.ID]struct{}) ([]*connect.Host, map[id.ID]struct{}) {
 	// Get the nodes to add
@@ -201,6 +212,9 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID,
 	return hostList, inProgress
 }
 
+// processNdf is a helper function which processes a new NDF, converting it to
+// a map which maps the gateway's ID to the index it is in the NDF. This map is
+// returned, and may be set as hostPool.ndfMap's new value.
 func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 	newNDFMap := make(map[id.ID]int, len(hp.ndf.Gateways))
 
@@ -240,10 +254,10 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 
 		}
 
-		// Add to the new
+		// Add to the new map
 		newNDFMap[*gwID] = i
 
-		// delete from the old so we can track which gateways are
+		// Delete from the old ndf map so we can track which gateways are
 		// missing
 		delete(hp.ndfMap, *gwID)
 	}

@@ -15,6 +15,12 @@ import (
 	"time"
 )
 
+// connectivityFailure is a constant value indicating that the node being
+// processed in hostPool.nodeTester has failed its connectivity test.
+const connectivityFailure = 0
+
+// nodeTester is a long-running thread that tests the connectivity of nodes
+// that may be added to the hostPool.
 func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 
 	for {
@@ -24,7 +30,7 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 			return
 		case queryList := <-hp.testNodes:
 			jww.DEBUG.Printf("[NodeTester] Received queryList of nodes to test: %v", queryList)
-			//test all nodes, find the best
+			// Test all nodes, find the best
 			resultList := make([]time.Duration, len(queryList))
 
 			wg := sync.WaitGroup{}
@@ -33,61 +39,60 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 				go func(hostToQuery *connect.Host, index int) {
 					latency, pinged := hostToQuery.IsOnline()
 					if !pinged {
-						latency = 0
+						latency = connectivityFailure
 					}
 					resultList[index] = latency
 					wg.Done()
 				}(queryList[i], i)
 			}
 
-			//wait until all tests complete
+			// Wait until all tests complete
 			wg.Wait()
 
-			//find the fastest one which is not 0 (designated as failure)
+			// Find the fastest one which is not 0 (designated as failure)
 			lowestLatency := time.Hour
 			var bestHost *connect.Host
 			for i := 0; i < len(queryList); i++ {
-				if resultList[i] != 0 && resultList[i] < lowestLatency {
+				if resultList[i] != connectivityFailure && resultList[i] < lowestLatency {
 					lowestLatency = resultList[i]
 					bestHost = queryList[i]
 				}
 			}
 
 			if bestHost != nil {
-				//connect to the host then send it over to be
-				//added to the host pool
-
+				// Connect to the host then send it over to be added to the
+				// host pool
 				err := bestHost.Connect()
 				if err == nil {
 					select {
 					case hp.newHost <- bestHost:
 					default:
-						jww.ERROR.Printf("failed to send best host to main thread, " +
+						jww.ERROR.Printf("Failed to send best host to main thread, " +
 							"will be dropped, new addRequest to be sent")
 						bestHost = nil
 					}
 
 				} else {
 					bestHost = nil
-					jww.WARN.Printf("failed to send best host to main thead," +
+					jww.WARN.Printf("Failed to send best host to main thead," +
 						"will be dropped, new addRequest to be sent")
 				}
 
 			}
 
-			// send the tested nodes back to be labeled as available again
+			// Send the tested nodes back to be labeled as available again
 			select {
 			case hp.doneTesting <- queryList:
 				jww.DEBUG.Printf("[NodeTester] Completed testing query list %s", queryList)
 			default:
-				jww.ERROR.Printf("failed to send queryList to main thread, " +
+				jww.ERROR.Printf("Failed to send queryList to main thread, " +
 					"nodes are stuck in testing, this should never happen")
 				bestHost = nil
 			}
 
 			if bestHost == nil {
 				jww.WARN.Printf("No host selected, restarting the request process")
-				// if none of the hosts could be contacted, send a signal
+				// If none of the hosts could be contacted, send a signal
 				// to add a new node to the pool
 				select {
 				case hp.addRequest <- nil:

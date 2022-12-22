@@ -44,7 +44,7 @@ type sender struct {
 
 const RetryableError = "Nonfatal error occurred, please retry"
 
-// NewSender Create a new Sender object wrapping a HostPool object
+// NewSender creates a new Sender object wrapping a HostPool object
 func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	ndf *ndf.NetworkDefinition, getter HostManager,
 	storage storage.Session, addChan chan commNetwork.NodeGateway) (
@@ -58,7 +58,7 @@ func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	return &sender{hp}, nil
 }
 
-// NewSender Create a new Sender object wrapping a HostPool object
+// NewSender creates a new Sender object wrapping a HostPool object
 func NewTestingSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	ndf *ndf.NetworkDefinition, getter HostManager,
 	storage storage.Session, addChan chan commNetwork.NodeGateway,
@@ -77,8 +77,7 @@ func NewTestingSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	return &sender{hp}, nil
 }
 
-// SendToAny call given sendFunc to any Host in the HostPool, attempting with up
-// to numProxies destinations.
+// SendToAny will call the given send function to any connect.Host in the host pool.
 func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 	stop *stoppable.Single) (interface{}, error) {
 
@@ -123,9 +122,8 @@ func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 type SendToPreferredFunc func(host *connect.Host, target *id.ID,
 	timeout time.Duration) (interface{}, error)
 
-// SendToPreferred Call given sendFunc to any Host in the HostPool, attempting
-// with up to numProxies destinations. Returns an error if the timeout is
-// reached.
+// SendToPreferred calls the given send function to any connect.Host in the
+// host pool, attempting. Returns an error if the timeout is reached.
 func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
 

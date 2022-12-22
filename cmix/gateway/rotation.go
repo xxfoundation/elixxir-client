@@ -51,7 +51,7 @@ func (hp *hostPool) Rotation(stop *stoppable.Single) {
 			select {
 			case hp.addRequest <- nil:
 			default:
-				jww.WARN.Printf("Failed to send an add request after %s delay", delay)
+				jww.WARN.Printf("Failed to send an Add request after %s delay", delay)
 			}
 		}
 	}

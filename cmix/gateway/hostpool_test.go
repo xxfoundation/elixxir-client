@@ -43,7 +43,7 @@ func Test_newHostPool(t *testing.T) {
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, "", nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 	}
@@ -123,7 +123,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 		_, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 	}
@@ -135,7 +135,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %+v", err)
 	}
 
-	// Construct a list of new gateways/nodes to add to the NDF
+	// Construct a list of new gateways/nodes to Add to the NDF
 	newGatewayLen := len(testNdf.Gateways)
 	newGateways := make([]ndf.Gateway, newGatewayLen)
 	newNodes := make([]ndf.Node, newGatewayLen)
@@ -197,7 +197,7 @@ func TestHostPool_replaceHost(t *testing.T) {
 	// Add mock gateway to manager
 	_, err = manager.AddHost(gwIdOne, "", nil, connect.GetDefaultHostParams())
 	if err != nil {
-		t.Errorf("Could not add mock host to manager: %v", err)
+		t.Errorf("Could not Add mock host to manager: %v", err)
 	}
 
 	// "Replace" (insert) the host
@@ -235,7 +235,7 @@ func TestHostPool_replaceHost(t *testing.T) {
 	// Add second mock gateway to manager
 	_, err = manager.AddHost(gwIdTwo, "", nil, connect.GetDefaultHostParams())
 	if err != nil {
-		t.Errorf("Could not add mock host to manager: %v", err)
+		t.Errorf("Could not Add mock host to manager: %v", err)
 	}
 
 	// Replace the old host
@@ -344,7 +344,7 @@ func TestHostPool_ForceReplace(t *testing.T) {
 		_, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 	}
@@ -415,7 +415,7 @@ func TestHostPool_checkReplace(t *testing.T) {
 		_, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 	}
 
@@ -537,7 +537,7 @@ func TestHostPool_getPreferred(t *testing.T) {
 		_, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 		hostMap[*gwId] = true
@@ -607,7 +607,7 @@ func TestHostPool_forceAdd(t *testing.T) {
 		_, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 	}
@@ -619,23 +619,23 @@ func TestHostPool_forceAdd(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	// Construct a new gateway to add
+	// Construct a new gateway to Add
 	gwId := id.NewIdFromUInt(uint64(100), id.Gateway, t)
 	// Add mock gateway to manager
 	_, err = manager.AddHost(gwId, "", nil, connect.GetDefaultHostParams())
 	if err != nil {
-		t.Fatalf("Could not add mock host to manager: %v", err)
+		t.Fatalf("Could not Add mock host to manager: %v", err)
 	}
 
 	// forceAdd gateway
 	err = testPool.forceAdd(gwId)
 	if err != nil {
-		t.Errorf("Could not add gateways: %v", err)
+		t.Errorf("Could not Add gateways: %v", err)
 	}
 
 	// check that gateways have been added to the map
 	if _, ok := testPool.hostMap[*gwId]; !ok {
-		t.Errorf("Failed to forcefully add new gateway ID: %v", gwId)
+		t.Errorf("Failed to forcefully Add new gateway ID: %v", gwId)
 	}
 }
 
@@ -660,7 +660,7 @@ func TestHostPool_updateConns_AddGateways(t *testing.T) {
 		_, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
+			t.Fatalf("Could not Add mock host to manager: %v", err)
 		}
 
 	}
@@ -672,7 +672,7 @@ func TestHostPool_updateConns_AddGateways(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	// Construct a list of new gateways/nodes to add to NDF
+	// Construct a list of new gateways/nodes to Add to NDF
 	newGatewayLen := 10
 	newGateways := make([]ndf.Gateway, newGatewayLen)
 	newNodes := make([]ndf.Node, newGatewayLen)
@@ -735,7 +735,7 @@ func TestHostPool_updateConns_RemoveGateways(t *testing.T) {
 		_, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 	}
@@ -747,7 +747,7 @@ func TestHostPool_updateConns_RemoveGateways(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	// Construct a list of new gateways/nodes to add to NDF
+	// Construct a list of new gateways/nodes to Add to NDF
 	newGatewayLen := len(testNdf.Gateways)
 	newGateways := make([]ndf.Gateway, newGatewayLen)
 	newNodes := make([]ndf.Node, newGatewayLen)
@@ -849,7 +849,7 @@ func TestHostPool_removeGateway(t *testing.T) {
 		t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 	}
 
-	// Manually add host information
+	// Manually Add host information
 	hostPool.addGateway(gwId, ndfIndex)
 
 	// Call the removal

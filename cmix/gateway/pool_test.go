@@ -37,10 +37,10 @@ func TestHostPool_GetAny(t *testing.T) {
 		h, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
-		//add to the host pool
+		//Add to the host pool
 		testPool.addOrReplace(rng, h)
 
 	}
@@ -111,10 +111,10 @@ func TestHostPool_GetSpecific(t *testing.T) {
 		h, err = manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
-		//add to the host pool
+		//Add to the host pool
 		if i < poolLen {
 			testPool.addOrReplace(rng, h)
 		}
@@ -168,13 +168,13 @@ func TestHostPool_GetPreferred(t *testing.T) {
 		h, err := manager.AddHost(
 			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %+v", err)
+			t.Fatalf("Could not Add mock host to manager: %+v", err)
 		}
 
 		hostMap[*gwId] = true
 		targets = append(targets, gwId)
 
-		//add to the host pool
+		//Add to the host pool
 		if i < poolLen {
 			testPool.addOrReplace(rng, h)
 		}

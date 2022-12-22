@@ -14,6 +14,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"time"
 )
 
 // runner is the primary long-running thread for handling events. It will
@@ -27,6 +28,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 
 	inProgress := make(map[id.ID]struct{})
 	toRemoveList := make(map[id.ID]interface{}, 2*cap(hp.writePool.hostList))
+	online := newBucket(cap(hp.writePool.hostList))
 
 	for {
 		update := false
@@ -69,6 +71,9 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 					" not in the host pool", toRemove)
 				break input
 			}
+
+			online.Add()
+
 			// Add to the "to remove" list.  This will replace that
 			// node on th next addition to the pool
 			toRemoveList[*toRemove] = struct{}{}
@@ -93,6 +98,8 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				}()
 				break input
 			}
+
+			online.Reset()
 
 			// Replace a node slated for replacement if required
 			// pop to remove list
@@ -140,7 +147,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				}
 			}
 
-			// replace the ndfMap
+			// Replace the ndfMap
 			hp.ndfMap = newNDFMap
 
 		}
@@ -161,6 +168,16 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 					"not be available on load: %s", err)
 			}
 		}
+
+		// Wait the delay until next iteration.
+		delay := online.GetDelay()
+		select {
+		case <-time.After(delay):
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
+		}
+
 	}
 
 }

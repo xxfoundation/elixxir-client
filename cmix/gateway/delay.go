@@ -47,6 +47,7 @@ func getDelay(bucket float64, poolsize uint) time.Duration {
 	return top + bottom
 }
 
+// bucket is a leaky bucket implementation.
 type bucket struct {
 	//time until the entire bucket is leaked
 	leakRate time.Duration
@@ -55,6 +56,7 @@ type bucket struct {
 	poolsize uint
 }
 
+// newBucket initializes a new bucket.
 func newBucket(poolSize int) *bucket {
 	return &bucket{
 		leakRate: time.Duration(poolSize) * table[1],

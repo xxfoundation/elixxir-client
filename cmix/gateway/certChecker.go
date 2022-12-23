@@ -9,7 +9,6 @@ package gateway
 
 import (
 	"bytes"
-	"crypto/md5"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,6 +18,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"golang.org/x/crypto/blake2b"
 	"time"
 )
 
@@ -51,24 +51,27 @@ func newCertChecker(comms CertCheckerCommInterface, kv *versioned.KV) *certCheck
 // CheckRemoteCertificate attempts to verify the tls certificate for a given host
 func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	if !gwHost.IsWeb() {
-		jww.WARN.Printf("remote certificate verification is only " +
+		jww.TRACE.Printf("remote certificate verification is only " +
 			"implemented for web connections")
 		return nil
 	}
 	// Request signed certificate from the gateway
+	// NOTE: the remote certificate on the host is populated using the response
+	// after sending, so this must occur before getting the remote
+	// certificate from the host
 	gwTlsCertResp, err := cc.comms.GetGatewayTLSCertificate(gwHost, &pb.RequestGatewayCert{})
 	if err != nil {
 		return err
 	}
 	remoteCertSignature := gwTlsCertResp.GetSignature()
-	declaredFingerprint := md5.Sum(gwTlsCertResp.GetCertificate())
+	declaredFingerprint := blake2b.Sum256(gwTlsCertResp.GetCertificate())
 
 	// Get remote certificate used for connection from the host object
 	actualRemoteCert, err := gwHost.GetRemoteCertificate()
 	if err != nil {
 		return err
 	}
-	actualFingerprint := md5.Sum(actualRemoteCert.Raw)
+	actualFingerprint := blake2b.Sum256(actualRemoteCert.Raw)
 
 	// If the fingerprints of the used & declared certs do not match, return an error
 	if actualFingerprint != declaredFingerprint {
@@ -78,7 +81,7 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	}
 
 	// Check if we have already verified this certificate for this host
-	storedFingerprint, err := cc.loadGatewayCertificateFingerprint(gwHost)
+	storedFingerprint, err := cc.loadGatewayCertificateFingerprint(gwHost.GetId())
 	if err == nil {
 		if bytes.Compare(storedFingerprint, actualFingerprint[:]) == 0 {
 			return nil
@@ -92,7 +95,7 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	}
 
 	// Store checked certificate fingerprint
-	return cc.storeGatewayCertificateFingerprint(actualFingerprint[:], gwHost)
+	return cc.storeGatewayCertificateFingerprint(actualFingerprint[:], gwHost.GetId())
 }
 
 // verifyRemoteCertificate verifies the RSA signature of a gateway on its tls certificate
@@ -107,8 +110,8 @@ func verifyRemoteCertificate(cert, sig []byte, gwHost *connect.Host) error {
 
 // loadGatewayCertificateFingerprint retrieves the stored certificate
 // fingerprint for a given gateway, or returns an error if not found
-func (cc *certChecker) loadGatewayCertificateFingerprint(gwHost *connect.Host) ([]byte, error) {
-	key := getKey(gwHost.GetId())
+func (cc *certChecker) loadGatewayCertificateFingerprint(id *id.ID) ([]byte, error) {
+	key := getKey(id)
 	obj, err := cc.kv.Get(key, certCheckerStorageVer)
 	if err != nil {
 		return nil, err
@@ -117,8 +120,8 @@ func (cc *certChecker) loadGatewayCertificateFingerprint(gwHost *connect.Host) (
 }
 
 // storeGatewayCertificateFingerprint stores the certificate fingerprint for a given gateway
-func (cc *certChecker) storeGatewayCertificateFingerprint(fingerprint []byte, gwHost *connect.Host) error {
-	key := getKey(gwHost.GetId())
+func (cc *certChecker) storeGatewayCertificateFingerprint(fingerprint []byte, id *id.ID) error {
+	key := getKey(id)
 	return cc.kv.Set(key, &versioned.Object{
 		Version:   certCheckerStorageVer,
 		Timestamp: time.Now(),

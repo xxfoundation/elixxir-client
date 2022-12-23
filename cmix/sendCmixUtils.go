@@ -224,9 +224,9 @@ func recipientsToStrings(recipients []*id.ID) string {
 // recipientsFromTargetedMessage extracts the list of recipients from a
 // list of TargetedCmixMessage.
 func recipientsFromTargetedMessage(msgs []TargetedCmixMessage) []*id.ID {
-	idStrings := make([]*id.ID, 0, len(msgs))
-	for _, msg := range msgs {
-		idStrings = append(idStrings, msg.Recipient)
+	idStrings := make([]*id.ID, len(msgs))
+	for i, msg := range msgs {
+		idStrings[i] = msg.Recipient
 	}
 
 	return idStrings

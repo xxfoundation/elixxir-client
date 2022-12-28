@@ -64,6 +64,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				break input
 			}
 
+			// add to the leaky bucket detecting if we are offline
 			online.Add()
 
 			// Add to the "to remove" list.  This will replace that
@@ -91,6 +92,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				break input
 			}
 
+			//
 			online.Reset()
 
 			// replace a node slated for replacement if required

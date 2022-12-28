@@ -11,9 +11,12 @@ package nodes
 
 import (
 	"crypto"
+	"github.com/pkg/errors"
+	"gitlab.com/xx_network/crypto/tls"
+
+	"gitlab.com/xx_network/crypto/signature/rsa"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 func verifyNodeSignature(certContents string, hash crypto.Hash,

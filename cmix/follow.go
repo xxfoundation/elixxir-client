@@ -64,7 +64,7 @@ func (c *client) followNetwork(report ClientErrorReport,
 	stop *stoppable.Single) {
 
 	// Keep track of the current tracker period in order to detect changes
-	currentTrackPeriod := c.param.TrackNetworkPeriod
+	currentTrackPeriod := c.GetTrackNetworkPeriod()
 	ticker := time.NewTicker(currentTrackPeriod)
 	trackTicker := time.NewTicker(debugTrackPeriod)
 
@@ -134,8 +134,9 @@ func (c *client) followNetwork(report ClientErrorReport,
 			netTime.SetOffset(-estimatedSkew)
 
 			// Update ticker if tracker period changes
-			if c.param.TrackNetworkPeriod != currentTrackPeriod {
-				currentTrackPeriod = c.param.TrackNetworkPeriod
+			newTrackPeriod := c.GetTrackNetworkPeriod()
+			if newTrackPeriod != currentTrackPeriod {
+				currentTrackPeriod = newTrackPeriod
 				ticker.Reset(currentTrackPeriod)
 			}
 

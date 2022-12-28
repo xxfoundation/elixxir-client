@@ -285,6 +285,12 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	return multi, nil
 }
 
+// SetTrackNetworkPeriod allows changing the frequency that follower threads
+// are started.
+func (c *client) SetTrackNetworkPeriod(d time.Duration) {
+	c.param.TrackNetworkPeriod = d
+}
+
 // GetInstance returns the network instance object (NDF state).
 func (c *client) GetInstance() *commNetwork.Instance {
 	return c.instance

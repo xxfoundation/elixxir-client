@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/cmix/nodes"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -29,6 +28,10 @@ type Client interface {
 	// passed. The returned stoppable can be used to stop the follower.
 	// Only one follower may run at a time.
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
+
+	// SetTrackNetworkPeriod allows changing the frequency that follower threads
+	// are started.
+	SetTrackNetworkPeriod(d time.Duration)
 
 	/* === Sending ========================================================== */
 
@@ -340,9 +343,3 @@ type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint,
 // returns a format.message This is necessary to preserve the interaction
 // between sendCmixHelper and critical messages
 type messageAssembler func(rid id.Round) (format.Message, error)
-
-type clientCommsInterface interface {
-	followNetworkComms
-	SendCmixCommsInterface
-	nodes.RegisterNodeCommsInterface
-}

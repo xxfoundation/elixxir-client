@@ -63,6 +63,7 @@ type followNetworkComms interface {
 func (c *client) followNetwork(report ClientErrorReport,
 	stop *stoppable.Single) {
 
+	// Keep track of the current tracker period in order to detect changes
 	currentTrackPeriod := c.param.TrackNetworkPeriod
 	ticker := time.NewTicker(currentTrackPeriod)
 	trackTicker := time.NewTicker(debugTrackPeriod)
@@ -132,10 +133,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 			// invert the skew because we need to reverse it
 			netTime.SetOffset(-estimatedSkew)
 
-			//
+			// Update ticker if tracker period changes
 			if c.param.TrackNetworkPeriod != currentTrackPeriod {
 				currentTrackPeriod = c.param.TrackNetworkPeriod
-				ticker = time.NewTicker(currentTrackPeriod)
+				ticker.Reset(currentTrackPeriod)
 			}
 
 		case <-trackTicker.C:

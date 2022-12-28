@@ -16,8 +16,26 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-func verifyNodeSignature(pub string, hash crypto.Hash,
+func verifyNodeSignature(certContents string, hash crypto.Hash,
 	hashed []byte, sig []byte, opts *rsa.Options) error {
-	jww.WARN.Printf("node signature checking disabled for wasm")
-	return nil
+
+	// Load nodes certificate
+	gatewayCert, err := tls.LoadCertificate(certContents)
+	if err != nil {
+		return errors.Errorf("Unable to load nodes's certificate: %+v", err)
+	}
+
+	// Extract public key
+	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
+	if err != nil {
+		return errors.Errorf("Unable to load node's public key: %v", err)
+	}
+
+	startVerify := time.Now()
+	// Verify the response signature
+	err := rsa.Verify(nodePubKey, hash, hashed, sig, opts)
+
+	jww.INFO.Printf("Signature verification took: %s", time.Since(startVerify))
+
+	return err
 }

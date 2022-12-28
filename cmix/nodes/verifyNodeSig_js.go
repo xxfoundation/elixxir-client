@@ -37,7 +37,7 @@ func verifyNodeSignature(certContents string, hash crypto.Hash,
 
 	startVerify := time.Now()
 	// Verify the response signature
-	err := rsa.Verify(nodePubKey, hash, hashed, sig, opts)
+	err = rsa.Verify(nodePubKey, hash, hashed, sig, opts)
 
 	jww.INFO.Printf("Signature verification took: %s", time.Since(startVerify))
 

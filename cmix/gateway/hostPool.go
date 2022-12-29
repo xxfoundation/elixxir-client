@@ -58,6 +58,8 @@ type hostPool struct {
 	kv        *versioned.KV
 	addChan   chan commNetwork.NodeGateway
 
+	cc *certChecker
+
 	/* computed parameters*/
 	numNodesToTest int
 }
@@ -86,8 +88,8 @@ var defaultFilter = func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]in
 // newHostPool is a helper function which initializes a hostPool. This
 // will not initiate the long-running threads (see hostPool.StartProcesses).
 func newHostPool(params Params, rng *fastRNG.StreamGenerator,
-	netDef *ndf.NetworkDefinition, getter HostManager,
-	storage storage.Session, addChan chan commNetwork.NodeGateway) (
+	netDef *ndf.NetworkDefinition, getter HostManager, storage storage.Session,
+	addChan chan commNetwork.NodeGateway, comms CertCheckerCommInterface) (
 	*hostPool, error) {
 	var err error
 
@@ -135,6 +137,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
 		addChan: addChan,
+		cc:      newCertChecker(comms, storage.GetKV()),
 	}
 	hp.readPool.Store(p.deepCopy())
 
@@ -159,12 +162,12 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 func newTestingHostPool(params Params, rng *fastRNG.StreamGenerator,
 	netDef *ndf.NetworkDefinition, getter HostManager,
 	storage storage.Session, addChan chan commNetwork.NodeGateway,
-	t *testing.T) (*hostPool, error) {
+	comms CertCheckerCommInterface, t *testing.T) (*hostPool, error) {
 	if t == nil {
 		jww.FATAL.Panicf("can only be called in testing")
 	}
 
-	hp, err := newHostPool(params, rng, netDef, getter, storage, addChan)
+	hp, err := newHostPool(params, rng, netDef, getter, storage, addChan, comms)
 	if err != nil {
 		return nil, err
 	}

@@ -63,19 +63,26 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 				// Connect to the host then send it over to be added to the
 				// host pool
 				err := bestHost.Connect()
+
 				if err == nil {
-					select {
-					case hp.newHost <- bestHost:
-					default:
-						jww.ERROR.Printf("Failed to send best host to main thread, " +
-							"will be dropped, new addRequest to be sent")
+					// Check remote certificates for web hosts
+					err = hp.cc.CheckRemoteCertificate(bestHost)
+					if err == nil {
+						select {
+						case hp.newHost <- bestHost:
+						default:
+							jww.ERROR.Printf("failed to send best host to main thread, " +
+								"will be dropped, new addRequest to be sent")
+							bestHost = nil
+						}
+					} else {
+						jww.WARN.Printf("Remote certificate check for bestHost %s failed with error %+v, will be dropped", bestHost.GetId(), err)
 						bestHost = nil
 					}
 
 				} else {
+					jww.WARN.Printf("Failed to connect to bestHost %s with error %+v, will be dropped", bestHost.GetId(), err)
 					bestHost = nil
-					jww.WARN.Printf("Failed to send best host to main thead," +
-						"will be dropped, new addRequest to be sent")
 				}
 
 			}

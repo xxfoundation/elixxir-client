@@ -51,7 +51,7 @@ func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	Sender, error) {
 
 	hp, err := newHostPool(poolParams, rng, ndf,
-		getter, storage, addChan)
+		getter, storage, addChan, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func NewTestingSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	}
 
 	hp, err := newTestingHostPool(poolParams, rng, ndf,
-		getter, storage, addChan, t)
+		getter, storage, addChan, nil, t)
 	if err != nil {
 		return nil, err
 	}

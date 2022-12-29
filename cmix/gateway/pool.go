@@ -135,7 +135,7 @@ func (p *pool) GetAny(length uint32, excluded []*id.ID, rng io.Reader) []*connec
 
 // GetSpecific obtains a specific connect.Host from the pool if it exists,
 // it otherwise returns nil (and false on the bool) if it does not.
-// it will not return the host if it is in the pool but disconnected
+// It will not return the host if it is in the pool but disconnected
 func (p *pool) GetSpecific(target *id.ID) (*connect.Host, bool) {
 	if idx, exists := p.hostMap[*target]; exists {
 		h := p.hostList[idx]
@@ -193,9 +193,9 @@ func (p *pool) GetPreferred(targets []*id.ID, rng io.Reader) []*connect.Host {
 	return result
 }
 
-// addOrReplace adds the given host if the pool is not full, or replaces a random one if
-// the pool is full.
-// If a host was replaced, it returns it so it can be cleaned up
+// addOrReplace adds the given host if the pool is not full, or replaces a
+// random one if the pool is full. If a host was replaced, it returns it, so
+// it can be cleaned up.
 func (p *pool) addOrReplace(rng io.Reader, host *connect.Host) *connect.Host {
 	// if the pool is not full, append to the end
 	if len(p.hostList) < cap(p.hostList) {
@@ -210,8 +210,10 @@ func (p *pool) addOrReplace(rng io.Reader, host *connect.Host) *connect.Host {
 	}
 }
 
-// replaceSpecific
-func (p *pool) replaceSpecific(toReplace *id.ID, host *connect.Host) (*connect.Host, error) {
+// replaceSpecific will replace a specific gateway with the given ID with
+// the given host.
+func (p *pool) replaceSpecific(toReplace *id.ID,
+	host *connect.Host) (*connect.Host, error) {
 	selectedIndex, exists := p.hostMap[*toReplace]
 	if !exists {
 		return nil, errors.Errorf("Cannot replace %s, host does not "+
@@ -220,6 +222,8 @@ func (p *pool) replaceSpecific(toReplace *id.ID, host *connect.Host) (*connect.H
 	return p.internalReplace(selectedIndex, host), nil
 }
 
+// internalReplace places the given host into the hostList and the hostMap.
+// This will replace the data from the given index.
 func (p *pool) internalReplace(selectedIndex uint, host *connect.Host) *connect.Host {
 	toRemove := p.hostList[selectedIndex]
 	p.hostList[selectedIndex] = host
@@ -228,6 +232,7 @@ func (p *pool) internalReplace(selectedIndex uint, host *connect.Host) *connect.
 	return toRemove
 }
 
+// deepCopy returns a deep copy of the internal state of pool.
 func (p *pool) deepCopy() *pool {
 	pCopy := &pool{
 		hostMap:     make(map[id.ID]uint, len(p.hostMap)),
@@ -244,13 +249,15 @@ func (p *pool) deepCopy() *pool {
 	return pCopy
 }
 
+// selectNew will pull random nodes from the pool.
 func (p *pool) selectNew(rng csprng.Source, allNodes map[id.ID]int,
-	currentlyAddingNodes map[id.ID]struct{}, numToSelect int) ([]*id.ID, map[id.ID]struct{}, error) {
+	currentlyAddingNodes map[id.ID]struct{}, numToSelect int) ([]*id.ID,
+	map[id.ID]struct{}, error) {
 
 	newList := make(map[id.ID]interface{})
 
-	//copy all nodes while removing nodes from the host list and
-	//from the processing list
+	// Copy all nodes while removing nodes from the host list and
+	// from the processing list
 	for nid := range allNodes {
 		_, inPool := p.hostMap[nid]
 		_, inAdd := currentlyAddingNodes[nid]
@@ -259,13 +266,13 @@ func (p *pool) selectNew(rng csprng.Source, allNodes map[id.ID]int,
 		}
 	}
 
-	// error out if no nodes are left
+	// Error out if no nodes are left
 	if len(newList) == 0 {
 		return nil, nil, errors.New("no nodes available for selection")
 	}
 
 	if numToSelect > len(newList) {
-		//return all nodes
+		// Return all nodes
 		selections := make([]*id.ID, 0, len(newList))
 		for gwID := range newList {
 			localGwid := gwID.DeepCopy()
@@ -287,9 +294,9 @@ func (p *pool) selectNew(rng csprng.Source, allNodes map[id.ID]int,
 		toSelectMap[newSelection] = struct{}{}
 	}
 
-	//use the random indicies to choose gateways
+	// Use the random indices to choose gateways
 	selections := make([]*id.ID, 0, numToSelect)
-	//select the new ones
+	// Select the new ones
 	index := uint(0)
 	for gwID := range newList {
 		localGwid := gwID.DeepCopy()

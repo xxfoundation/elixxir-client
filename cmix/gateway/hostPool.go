@@ -77,7 +77,7 @@ type HostManager interface {
 // ID -> index in the NDF. There is no multithreading; the filter function can
 // either edit the passed map or make a new one and return it. The general
 // pattern is to loop through the map, then look up data about the nodes in the
-// NDF to make a filtering decision, then Add them to a new map if they are
+// NDF to make a filtering decision, then add them to a new map if they are
 // accepted.
 type Filter func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int
 
@@ -85,6 +85,8 @@ var defaultFilter = func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]in
 	return m
 }
 
+// newHostPool is a helper function which initializes a hostPool. This
+// will not initiate the long-running threads (see hostPool.StartProcesses).
 func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	netDef *ndf.NetworkDefinition, getter HostManager, storage storage.Session,
 	addChan chan commNetwork.NodeGateway, comms CertCheckerCommInterface) (
@@ -100,23 +102,23 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		}
 	}
 
-	//calculate the minimum input of buffers
+	// Calculate the minimum input of buffers
 	buffLen := 10 * len(netDef.Gateways)
 	if buffLen < int(params.MinBufferLength) {
 		buffLen = int(params.MinBufferLength)
 	}
 
-	// override rotation and tune parameters if the network is
+	// Override rotation and tune parameters if the network is
 	// too small
 	if int(params.PoolSize*params.MaxPings) > len(netDef.Gateways) {
 		params.EnableRotation = false
 		params.MaxPings = 1
 	}
 
-	//build the underlying pool
+	// Build the underlying pool
 	p := newPool(int(params.PoolSize))
 
-	//build the host pool
+	// Build the host pool
 	hp := &hostPool{
 		writePool:     p,
 		readPool:      atomic.Value{},
@@ -139,10 +141,10 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	}
 	hp.readPool.Store(p.deepCopy())
 
-	//process the ndf
+	// Process the ndf
 	hp.ndfMap = hp.processNdf(hp.ndf)
 
-	//prime the host pool at Add its first hosts
+	// Prime the host pool at add its first hosts
 	hl, err := getHostPreparedList(hp.kv, int(params.PoolSize))
 	if err != nil {
 		jww.WARN.Printf("Starting host pool from scratch, "+
@@ -156,6 +158,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	return hp, nil
 }
 
+// newTestingHostPool initializes a hostPool for testing purposes only.
 func newTestingHostPool(params Params, rng *fastRNG.StreamGenerator,
 	netDef *ndf.NetworkDefinition, getter HostManager,
 	storage storage.Session, addChan chan commNetwork.NodeGateway,
@@ -169,7 +172,7 @@ func newTestingHostPool(params Params, rng *fastRNG.StreamGenerator,
 		return nil, err
 	}
 
-	//overwrite is connected
+	// Overwrite is connected
 	hp.writePool.isConnected = func(host *connect.Host) bool { return true }
 
 	gwID, _ := hp.ndf.Gateways[0].GetGatewayId()
@@ -177,7 +180,7 @@ func newTestingHostPool(params Params, rng *fastRNG.StreamGenerator,
 	if !exists {
 		return nil, errors.Errorf("impossible error")
 	}
-	//Add one member to the host pool
+	// Add one member to the host pool
 	stream := rng.GetStream()
 	hp.writePool.addOrReplace(stream, h)
 	hp.readPool.Store(hp.writePool.deepCopy())
@@ -197,14 +200,14 @@ func (hp *hostPool) StartProcesses() stoppable.Stoppable {
 		multi.Add(stop)
 	}
 
-	//if rotation is enabled, start the rotation thread
+	// If rotation is enabled, start the rotation thread
 	if hp.params.EnableRotation {
 		rotationStop := stoppable.NewSingle("Rotation")
 		go hp.Rotation(rotationStop)
 		multi.Add(rotationStop)
 	}
 
-	//start the main thread
+	// Start the main thread
 	runnerStop := stoppable.NewSingle("Runner")
 	go hp.runner(runnerStop)
 	multi.Add(runnerStop)
@@ -228,7 +231,7 @@ func (hp *hostPool) Add(gwId *id.ID) {
 	select {
 	case hp.addRequest <- gwId:
 	default:
-		jww.WARN.Printf("Failed to pass instruction to Add %s", gwId)
+		jww.WARN.Printf("Failed to pass instruction to add %s", gwId)
 	}
 }
 

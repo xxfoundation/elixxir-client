@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -43,8 +44,9 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	var err error
+	addChan := make(chan network.NodeGateway, 1)
 	testManager.sender, err = gateway.NewTestingSender(p, testManager.rng,
-		testNdf, mockComms, testManager.session, t)
+		testNdf, mockComms, testManager.session, addChan, t)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -133,10 +135,11 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 	gwId.SetType(id.Gateway)
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
 	testManager.rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	addChan := make(chan network.NodeGateway, 1)
 
 	testManager.sender, _ = gateway.NewSender(p,
 		testManager.rng,
-		testNdf, mockComms, testManager.session)
+		testNdf, mockComms, testManager.session, addChan)
 	stop := stoppable.NewSingle("singleStoppable")
 
 	// Create a local channel so reception is possible
@@ -210,9 +213,11 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
+	addChan := make(chan network.NodeGateway, 1)
+
 	testManager.sender, _ = gateway.NewSender(p,
 		testManager.rng,
-		testNdf, mockComms, testManager.session)
+		testNdf, mockComms, testManager.session, addChan)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)
@@ -354,8 +359,10 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
+	addChan := make(chan network.NodeGateway, 1)
+
 	testManager.sender, _ = gateway.NewTestingSender(
-		p, testManager.rng, testNdf, mockComms, testManager.session, t)
+		p, testManager.rng, testNdf, mockComms, testManager.session, addChan, t)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)

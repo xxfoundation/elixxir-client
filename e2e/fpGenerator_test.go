@@ -125,7 +125,10 @@ func (m *mockFpgCmix) SendWithAssembler(recipient *id.ID, assembler cmix.Message
 	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockFpgCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
+func (m *mockFpgCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
 func (m *mockFpgCmix) AddIdentity(*id.ID, time.Time, bool) {}

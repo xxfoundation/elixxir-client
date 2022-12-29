@@ -87,7 +87,8 @@ func Test_newHostPool_HostListStore(t *testing.T) {
 	}
 
 	// Call the constructor
-	hp, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan)
+	mccc := &mockCertCheckerComm{}
+	hp, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan, mccc)
 	if err != nil {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
@@ -133,8 +134,9 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	}
 
 	// Call the constructor
+	mccc := &mockCertCheckerComm{}
 	testPool, err := newHostPool(
-		params, rng, testNdf, manager, testStorage, addGwChan)
+		params, rng, testNdf, manager, testStorage, addGwChan, mccc)
 	if err != nil {
 		t.Fatalf("Failed to create mock host pool: %+v", err)
 	}
@@ -199,7 +201,8 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	}
 
 	// Call the constructor
-	testPool, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan)
+	mccc := &mockCertCheckerComm{}
+	testPool, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan, mccc)
 	if err != nil {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}

@@ -250,8 +250,11 @@ func (m *mockNetManager) SendWithAssembler(recipient *id.ID, assembler cmix.Mess
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
-func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
-	rounds.Round, []ephemeral.Id, error) {
+func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
+
+func (m *mockNetManager) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
 

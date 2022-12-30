@@ -139,7 +139,6 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 
 		validParts = append(validParts, p)
-
 		messages = append(messages, cmix.TargetedCmixMessage{
 			Recipient:   p.Recipient(),
 			Payload:     encryptedPart,

@@ -175,8 +175,7 @@ func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	panic("implement me")
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
-	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 	round := m.round
@@ -193,6 +192,10 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	return rounds.Round{ID: round}, []ephemeral.Id{}, nil
 }
 
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
+}
 func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")

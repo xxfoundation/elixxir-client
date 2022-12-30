@@ -172,7 +172,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	return &m
 }
 
-// adminReplayHandler registers a replayActionFunc with the lease system.
+// adminReplayHandler registers a ReplayActionFunc with the lease system.
 func (m *manager) adminReplayHandler(channelID *id.ID, encryptedPayload []byte) {
 	messageID, r, _, err := m.replayAdminMessage(
 		channelID, encryptedPayload, cmix.GetDefaultCMIXParams())

@@ -270,8 +270,8 @@ func makeChannelReceptionHandler(msgType channels.MessageType,
 	// Construct receiver callback
 	cb := func(channelID *id.ID, _ message.ID, _ channels.MessageType, _ string,
 		content, _ []byte, _ ed25519.PublicKey, _ uint32, _ uint8, _,
-		_ time.Time, _ time.Duration, _ rounds.Round, _ channels.SentStatus, _,
-		_ bool) uint64 {
+		_ time.Time, _ time.Duration, _ id.Round, _ rounds.Round,
+		_ channels.SentStatus, _, _ bool) uint64 {
 		channelReceivedMessage, err := chanManager.GetChannel(channelID)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",

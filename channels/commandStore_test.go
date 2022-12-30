@@ -62,28 +62,29 @@ func TestCommandStore_SaveCommand_LoadCommand(t *testing.T) {
 			AddressSpaceSize:           prng.Uint32(),
 		}
 		e := &CommandMessage{
-			ChannelID:        randChannelID(prng, t),
-			MessageID:        randMessageID(prng, t),
-			MessageType:      randAction(prng),
-			Nickname:         "George",
-			Content:          randPayload(prng, t),
-			EncryptedPayload: randPayload(prng, t),
-			PubKey:           randPayload(prng, t),
-			Codeset:          uint8(prng.Uint32()),
-			Timestamp:        randTimestamp(prng),
-			LocalTimestamp:   randTimestamp(prng),
-			Lease:            randLease(prng),
-			Round:            rounds.MakeRound(ri),
-			Status:           SentStatus(prng.Uint32()),
-			FromAdmin:        prng.Int()%2 == 0,
-			UserMuted:        prng.Int()%2 == 0,
+			ChannelID:            randChannelID(prng, t),
+			MessageID:            randMessageID(prng, t),
+			MessageType:          randAction(prng),
+			Nickname:             "George",
+			Content:              randPayload(prng, t),
+			EncryptedPayload:     randPayload(prng, t),
+			PubKey:               randPayload(prng, t),
+			Codeset:              uint8(prng.Uint32()),
+			Timestamp:            randTimestamp(prng),
+			OriginatingTimestamp: randTimestamp(prng),
+			Lease:                randLease(prng),
+			OriginatingRound:     id.Round(i),
+			Round:                rounds.MakeRound(ri),
+			Status:               SentStatus(prng.Uint32()),
+			FromAdmin:            prng.Int()%2 == 0,
+			UserMuted:            prng.Int()%2 == 0,
 		}
 		expected[i] = e
 
 		err := cs.SaveCommand(e.ChannelID, e.MessageID, e.MessageType,
 			e.Nickname, e.Content, e.EncryptedPayload, e.PubKey, e.Codeset,
-			e.Timestamp, e.LocalTimestamp, e.Lease, e.Round, e.Status,
-			e.FromAdmin, e.UserMuted)
+			e.Timestamp, e.OriginatingTimestamp, e.Lease, e.OriginatingRound, e.Round,
+			e.Status, e.FromAdmin, e.UserMuted)
 		if err != nil {
 			t.Errorf("Failed to save message %d: %+v", i, err)
 		}
@@ -140,28 +141,29 @@ func TestCommandStore_DeleteCommand(t *testing.T) {
 			AddressSpaceSize:           prng.Uint32(),
 		}
 		e := &CommandMessage{
-			ChannelID:        randChannelID(prng, t),
-			MessageID:        randMessageID(prng, t),
-			MessageType:      randAction(prng),
-			Nickname:         "George",
-			Content:          randPayload(prng, t),
-			EncryptedPayload: randPayload(prng, t),
-			PubKey:           randPayload(prng, t),
-			Codeset:          uint8(prng.Uint32()),
-			Timestamp:        randTimestamp(prng),
-			LocalTimestamp:   randTimestamp(prng),
-			Lease:            randLease(prng),
-			Round:            rounds.MakeRound(ri),
-			Status:           SentStatus(prng.Uint32()),
-			FromAdmin:        prng.Int()%2 == 0,
-			UserMuted:        prng.Int()%2 == 0,
+			ChannelID:            randChannelID(prng, t),
+			MessageID:            randMessageID(prng, t),
+			MessageType:          randAction(prng),
+			Nickname:             "George",
+			Content:              randPayload(prng, t),
+			EncryptedPayload:     randPayload(prng, t),
+			PubKey:               randPayload(prng, t),
+			Codeset:              uint8(prng.Uint32()),
+			Timestamp:            randTimestamp(prng),
+			OriginatingTimestamp: randTimestamp(prng),
+			Lease:                randLease(prng),
+			OriginatingRound:     id.Round(i),
+			Round:                rounds.MakeRound(ri),
+			Status:               SentStatus(prng.Uint32()),
+			FromAdmin:            prng.Int()%2 == 0,
+			UserMuted:            prng.Int()%2 == 0,
 		}
 		expected[i] = e
 
 		err := cs.SaveCommand(e.ChannelID, e.MessageID, e.MessageType,
 			e.Nickname, e.Content, e.EncryptedPayload, e.PubKey, e.Codeset,
-			e.Timestamp, e.LocalTimestamp, e.Lease, e.Round, e.Status,
-			e.FromAdmin, e.UserMuted)
+			e.Timestamp, e.OriginatingTimestamp, e.Lease, e.OriginatingRound, e.Round,
+			e.Status, e.FromAdmin, e.UserMuted)
 		if err != nil {
 			t.Errorf("Failed to save message %d: %+v", i, err)
 		}
@@ -210,21 +212,21 @@ func TestCommandMessage_JsonMarshalUnmarshal(t *testing.T) {
 	}
 
 	m := CommandMessage{
-		ChannelID:        id.NewIdFromString("channelID", id.User, t),
-		MessageID:        message.ID{1, 2, 3},
-		MessageType:      Reaction,
-		Nickname:         "Nickname",
-		Content:          []byte("content"),
-		EncryptedPayload: []byte("EncryptedPayload"),
-		PubKey:           []byte("PubKey"),
-		Codeset:          12,
-		Timestamp:        netTime.Now().UTC().Round(0),
-		LocalTimestamp:   netTime.Now().UTC().Round(0),
-		Lease:            56*time.Second + 6*time.Minute + 12*time.Hour,
-		Round:            rounds.MakeRound(ri),
-		Status:           Delivered,
-		FromAdmin:        true,
-		UserMuted:        true,
+		ChannelID:            id.NewIdFromString("channelID", id.User, t),
+		MessageID:            message.ID{1, 2, 3},
+		MessageType:          Reaction,
+		Nickname:             "Nickname",
+		Content:              []byte("content"),
+		EncryptedPayload:     []byte("EncryptedPayload"),
+		PubKey:               []byte("PubKey"),
+		Codeset:              12,
+		Timestamp:            netTime.Now().UTC().Round(0),
+		OriginatingTimestamp: netTime.Now().UTC().Round(0),
+		Lease:                56*time.Second + 6*time.Minute + 12*time.Hour,
+		Round:                rounds.MakeRound(ri),
+		Status:               Delivered,
+		FromAdmin:            true,
+		UserMuted:            true,
 	}
 	data, err := json.Marshal(m)
 	if err != nil {

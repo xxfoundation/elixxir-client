@@ -30,6 +30,11 @@ type mockCmix struct {
 	payloadSize int
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(payloadSize int) cmix.Client {
 
 	return &mockCmix{

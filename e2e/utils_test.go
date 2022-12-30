@@ -154,6 +154,11 @@ type mockCmix struct {
 	instance      *network.Instance
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(myID *id.ID, handler *mockCmixHandler, t testing.TB) *mockCmix {
 	comms := &connect.ProtoComms{Manager: connect.NewManagerTesting(t)}
 	def := getNDF()

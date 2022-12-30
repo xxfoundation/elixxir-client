@@ -85,6 +85,12 @@ type testNetworkManagerGeneric struct {
 	instance *network.Instance
 	sender   gateway.Sender
 }
+
+func (t *testNetworkManagerGeneric) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}

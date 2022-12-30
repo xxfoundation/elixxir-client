@@ -34,6 +34,11 @@ type testNetworkManager struct {
 	responseProcessor message.Processor
 }
 
+func (tnm *testNetworkManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 

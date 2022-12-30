@@ -29,6 +29,10 @@ type Client interface {
 	// Only one follower may run at a time.
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 
+	// SetTrackNetworkPeriod allows changing the frequency that follower threads
+	// are started.
+	SetTrackNetworkPeriod(d time.Duration)
+
 	/* === Sending ========================================================== */
 
 	// GetMaxMessageLength returns the max message size for the current network.

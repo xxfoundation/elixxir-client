@@ -22,7 +22,9 @@ import (
 )
 
 type Params struct {
+	// TrackNetworkPeriod determines how frequently follower threads are started.
 	TrackNetworkPeriod time.Duration
+
 	// MaxCheckedRounds is the maximum number of rounds to check in a single
 	// iterations network updates.
 	MaxCheckedRounds uint

@@ -221,6 +221,11 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 
 type mockNetManager struct{}
 
+func (m *mockNetManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
 	// TODO implement me
 	panic("implement me")

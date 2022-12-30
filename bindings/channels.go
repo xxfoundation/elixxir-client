@@ -1516,9 +1516,9 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 		func(channelID *id.ID, messageID cryptoChannel.MessageID,
 			messageType channels.MessageType, nickname string, content,
 			encryptedPayload []byte, pubKey ed25519.PublicKey, codeset uint8,
-			timestamp, localTimestamp time.Time, lease time.Duration,
-			round rounds.Round, status channels.SentStatus, fromAdmin,
-			hidden bool) uint64 {
+			timestamp, originatingTimestamp time.Time, lease time.Duration,
+			originatingRound id.Round, round rounds.Round,
+			status channels.SentStatus, fromAdmin, hidden bool) uint64 {
 			rcm := ReceivedChannelMessageReport{
 				ChannelId:   channelID.Marshal(),
 				MessageId:   messageID.Marshal(),

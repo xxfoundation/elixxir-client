@@ -151,6 +151,11 @@ type mockCmix struct {
 	instance *network.Instance
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix() *mockCmix {
 	return &mockCmix{}
 }

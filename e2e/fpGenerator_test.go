@@ -110,6 +110,11 @@ type mockFpgCmix struct {
 	sync.Mutex
 }
 
+func (m *mockFpgCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockFpgCmix() *mockFpgCmix {
 	return &mockFpgCmix{
 		processors: make(map[id.ID]map[format.Fingerprint]message.Processor),

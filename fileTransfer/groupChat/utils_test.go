@@ -92,6 +92,11 @@ type mockCmix struct {
 	sync.Mutex
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(
 	myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *mockCmix {
 	return &mockCmix{
@@ -219,9 +224,9 @@ func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Durat
 	return nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock Group Chat Manager                                                    //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type mockGcHandler struct {
 	services map[string]groupChat.Processor
 	sync.Mutex

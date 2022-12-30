@@ -35,6 +35,11 @@ type testNetworkManager struct {
 	sync.RWMutex
 }
 
+func (tnm *testNetworkManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newTestNetworkManager(sendErr int) cmix.Client {
 	return &testNetworkManager{
 		receptionMessages: [][]format.Message{},

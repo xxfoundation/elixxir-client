@@ -56,7 +56,7 @@ func NewHistoricalRoundsComm() *historicalRounds {
 const failedHistoricalRoundID = 7
 const completedHistoricalRoundID = 8
 
-//  Mock comms endpoint which returns historical rounds
+// Mock comms endpoint which returns historical rounds
 func (ht *historicalRounds) RequestHistoricalRounds(host *connect.Host,
 	message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error) {
 	// Return one successful and one failed mock round
@@ -85,6 +85,12 @@ type testNetworkManagerGeneric struct {
 	instance *network.Instance
 	sender   gateway.Sender
 }
+
+func (t *testNetworkManagerGeneric) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}

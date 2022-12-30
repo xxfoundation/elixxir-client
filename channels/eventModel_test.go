@@ -212,10 +212,10 @@ type dummyMessageTypeHandler struct {
 }
 
 func (dh *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
-	channelID *id.ID,
-	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
-	content, encryptedPayload []byte, _ ed25519.PublicKey, _ uint8, timestamp,
-	_ time.Time, lease time.Duration, round rounds.Round, _ SentStatus,
+	channelID *id.ID, messageID cryptoChannel.MessageID,
+	messageType MessageType, nickname string, content, encryptedPayload []byte,
+	_ ed25519.PublicKey, _ uint8, timestamp, _ time.Time, lease time.Duration,
+	_ id.Round, round rounds.Round, _ SentStatus,
 	_, _ bool) uint64 {
 	dh.triggered = true
 	dh.channelID = channelID
@@ -397,7 +397,7 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 	// Call the trigger
 	_, err = e.triggerActionEvent(chID, msgID, MessageType(cm.PayloadType),
 		cm.Nickname, cm.Payload, nil, netTime.Now(), netTime.Now(),
-		time.Duration(cm.Lease), r, Delivered, true)
+		time.Duration(cm.Lease), r.ID, r, Delivered, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,7 +445,8 @@ func Test_events_receiveTextMessage_Message(t *testing.T) {
 
 	// Call the handler
 	e.receiveTextMessage(chID, msgID, Text, senderNickname, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, false,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, cryptoChannel.MessageID{},
@@ -487,7 +488,8 @@ func Test_events_receiveTextMessage_Reply(t *testing.T) {
 
 	// Call the handler
 	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, false,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, replyMsgId,
@@ -529,7 +531,8 @@ func Test_events_receiveTextMessage_Reply_BadReply(t *testing.T) {
 
 	// Call the handler
 	e.receiveTextMessage(chID, msgID, Text, senderUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, false,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, cryptoChannel.MessageID{},
@@ -571,7 +574,8 @@ func Test_events_receiveReaction(t *testing.T) {
 
 	// Call the handler
 	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, false,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, replyMsgId, senderUsername,
@@ -612,7 +616,8 @@ func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 
 	// Call the handler
 	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, 0, r, Delivered, false, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, 0, r.ID, r, Delivered, false,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{nil, cryptoChannel.MessageID{},
@@ -654,7 +659,8 @@ func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 
 	// Call the handler
 	e.receiveReaction(chID, msgID, Reaction, senderUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, false,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{nil, cryptoChannel.MessageID{},
@@ -700,7 +706,8 @@ func Test_events_receiveDelete(t *testing.T) {
 
 	// Call the handler
 	e.receiveDelete(chID, msgID, Delete, AdminUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, true, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, true,
+		false)
 
 	// Check the results on the model
 	if !reflect.DeepEqual(me.eventReceive, eventReceive{}) {
@@ -745,7 +752,8 @@ func Test_events_receivePinned(t *testing.T) {
 
 	// Call the handler
 	e.receivePinned(chID, msgID, Pinned, senderUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, true, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, true,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, cryptoChannel.MessageID{},
@@ -794,7 +802,8 @@ func Test_events_receiveMute(t *testing.T) {
 
 	// Call the handler
 	e.receiveMute(chID, msgID, Mute, senderUsername, textMarshaled, nil,
-		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, true, false)
+		pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered, true,
+		false)
 
 	// Check the results on the model
 	expected := eventReceive{chID, cryptoChannel.MessageID{},
@@ -856,8 +865,8 @@ func Test_events_receiveAdminReplay(t *testing.T) {
 
 	// Call the handler
 	e.receiveAdminReplay(chID, msgID, AdminReplay, senderUsername, cipherText,
-		nil, pi.PubKey, pi.CodesetVersion, ts, ts, lease, r, Delivered, false,
-		false)
+		nil, pi.PubKey, pi.CodesetVersion, ts, ts, lease, r.ID, r, Delivered,
+		false, false)
 
 	select {
 	case encrypted := <-c:

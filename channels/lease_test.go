@@ -817,9 +817,9 @@ func TestActionLeaseList_RemoveMessage(t *testing.T) {
 		Payload:   randPayload(prng, t),
 	}
 
-	err := all.RemoveMessage(exp.ChannelID, cryptoChannel.MessageID{},
-	exp.Action, randPayload(prng, t), exp.Payload, []byte{}, netTime.Now(),
-	netTime.Now(), 200*time.Hour, 5, rounds.Round{}, false)
+	err := all.RemoveMessage(exp.ChannelID, message.ID{}, exp.Action,
+		randPayload(prng, t), exp.Payload, []byte{}, netTime.Now(),
+		netTime.Now(), 200*time.Hour, 5, rounds.Round{}, false)
 	if err != nil {
 		t.Fatalf("Failed to remove message: %+v", err)
 	}

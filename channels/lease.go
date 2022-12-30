@@ -453,10 +453,10 @@ func (all *ActionLeaseList) addMessage(lmp *leaseMessagePacket) error {
 // addToLeaseMessageChan constructs the leaseMessagePacket and sends it on the
 // new lease message channel.
 func (all *ActionLeaseList) addToLeaseMessageChan(channelID *id.ID,
-	messageID cryptoChannel.MessageID, action MessageType,
-	payload, encryptedPayload []byte, timestamp, originatingTimestamp time.Time,
-	lease time.Duration, originatingRound id.Round, round rounds.Round,
-	fromAdmin bool, leaseTrigger time.Time) {
+	messageID message.ID, action MessageType, payload, encryptedPayload []byte,
+	timestamp, originatingTimestamp time.Time, lease time.Duration,
+	originatingRound id.Round, round rounds.Round, fromAdmin bool,
+	leaseTrigger time.Time) {
 	all.addLeaseMessage <- &leaseMessagePacket{
 		leaseMessage: &leaseMessage{
 			ChannelID:            channelID,
@@ -525,7 +525,7 @@ func (all *ActionLeaseList) findSortedPosition(leaseTrigger time.Time) *list.Ele
 // the message should be dropped. A message is dropped if its lease has expired
 // already or if it is older than an already stored replay for the command.
 func (all *ActionLeaseList) RemoveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, action MessageType, unsanitizedPayload,
+	messageID message.ID, action MessageType, unsanitizedPayload,
 	sanitizedPayload, encryptedPayload []byte, timestamp,
 	originatingTimestamp time.Time, lease time.Duration,
 	originatingRound id.Round, round rounds.Round, fromAdmin bool) error {

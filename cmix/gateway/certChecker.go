@@ -9,6 +9,7 @@ package gateway
 
 import (
 	"bytes"
+	"crypto"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -100,10 +101,9 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 
 // verifyRemoteCertificate verifies the RSA signature of a gateway on its tls certificate
 func verifyRemoteCertificate(cert, sig []byte, gwHost *connect.Host) error {
-	h, err := hash.NewCMixHash()
-	if err != nil {
-		return err
-	}
+	opts := rsa.NewDefaultOptions()
+	opts.Hash = crypto.SHA256
+	h := opts.Hash.New()
 	h.Write(cert)
 	return rsa.Verify(gwHost.GetPubKey(), hash.CMixHash, h.Sum(nil), sig, rsa.NewDefaultOptions())
 }

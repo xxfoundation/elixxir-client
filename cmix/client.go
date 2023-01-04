@@ -180,6 +180,10 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
+
+	// Enable host pool debugging
+	poolParams.DebugPrintPeriod = 5 * time.Second
+
 	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
 		c.session, nodeChan)
 	if err != nil {

@@ -37,13 +37,11 @@ type Params struct {
 	// to the hostpool runner
 	MinBufferLength uint32
 
-	// EnableRotation enables the system which auto rotates
-	// gateways regularly. this system will auto disable
-	// if the network size is less than 20
+	// EnableRotation enables the system which auto rotates/ gateways regularly.
+	// This system will auto disable if the network size is less than 20.
 	EnableRotation bool
 
-	// RotationPeriod is how long until a single
-	// host is rotated
+	// RotationPeriod is how long until a single host is rotated.
 	RotationPeriod time.Duration
 
 	// RotationPeriodVariability is the max that the rotation
@@ -52,6 +50,16 @@ type Params struct {
 
 	// HostParams is the parameters for the creation of new Host objects.
 	HostParams connect.HostParams
+
+	// DebugPrintPeriod is an OPTIONAL field that may be set by the caller.
+	// This may be set by the caller when passing Params into NewSender, as an
+	// example.
+	//
+	// This field indicates how often debug prints are printed by the hostPool's
+	// long-running thread. These debug prints will contain data on the
+	// hostPool's state (refer to debug.go). If this value is not set by the user,
+	// then by default debug prints will be disabled.
+	DebugPrintPeriod time.Duration
 }
 
 // DefaultParams returns a default set of PoolParams.
@@ -66,6 +74,7 @@ func DefaultParams() Params {
 		EnableRotation:            true,
 		RotationPeriod:            7 * time.Minute,
 		RotationPeriodVariability: 4 * time.Minute,
+		DebugPrintPeriod:          defaultPrintInterval,
 
 		HostParams: GetDefaultHostPoolHostParams(),
 	}

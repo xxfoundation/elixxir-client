@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/cmix/nodes"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -30,6 +29,10 @@ type Client interface {
 	// Only one follower may run at a time.
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 
+	// SetTrackNetworkPeriod allows changing the frequency that follower threads
+	// are started.
+	SetTrackNetworkPeriod(d time.Duration)
+
 	/* === Sending ========================================================== */
 
 	// GetMaxMessageLength returns the max message size for the current network.
@@ -43,10 +46,10 @@ type Client interface {
 	// implementing a protocol on top.
 	//   recipient - cMix ID of the recipient.
 	//   fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
-	//      fingerprint, highest order bit must be 0 (panic otherwise). If your
+	//      fingerprint, the highest order bit must be 0 (panic otherwise). If your
 	//      system does not use key fingerprints, this must be random bits.
 	//   service - Reception Service. The backup way for a client to identify
-	//      messages on receipt via trial hashing and to identify notifications.
+	//    messages on receipt via trial hashing and to identify notifications.
 	//      If unused, use message.GetRandomService to fill the field with
 	//      random data.
 	//   payload - Contents of the message. Cannot exceed the payload size for a
@@ -84,8 +87,8 @@ type Client interface {
 	// Will return an error if the network is unhealthy or if it fails to send
 	// (along with the reason). Blocks until successful send or err.
 	// WARNING: Do not roll your own crypto.
-	SendMany(messages []TargetedCmixMessage, p CMIXParams) (
-		rounds.Round, []ephemeral.Id, error)
+	SendMany(messages []TargetedCmixMessage,
+		params CMIXParams) (rounds.Round, []ephemeral.Id, error)
 
 	// SendWithAssembler sends a variable cmix payload to the provided recipient.
 	// The payload sent is based on the Complier function passed in, which accepts
@@ -104,6 +107,25 @@ type Client interface {
 	// WARNING: Do not roll your own crypto.
 	SendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 		cmixParams CMIXParams) (rounds.Round, ephemeral.Id, error)
+
+	// SendManyWithAssembler sends variable cMix payloads to the provided recipients.
+	// The payloads sent are based on the ManyMessageAssembler function passed in,
+	// which accepts a round ID and returns the necessary payload data.
+	// Returns the round IDs of the rounds the payloads were sent or an error if it
+	// fails.
+	// This does not have end-to-end encryption on it and is used exclusively as
+	// a send operation for higher order cryptographic protocols. Do not use unless
+	// implementing a protocol on top.
+	//
+	//	recipients - cMix IDs of the recipients.
+	//	assembler - ManyMessageAssembler function, accepting round ID and returning
+	// 	            a list of TargetedCmixMessage.
+	//
+	// Will return an error if the network is unhealthy or if it fails to send
+	// (along with the reason). Blocks until successful sends or errors.
+	// WARNING: Do not roll your own crypto.
+	SendManyWithAssembler(recipients []*id.ID, assembler ManyMessageAssembler,
+		params CMIXParams) (rounds.Round, []ephemeral.Id, error)
 
 	/* === Message Reception ================================================ */
 	/* Identities are all network identities which the client is currently
@@ -338,19 +360,22 @@ type Client interface {
 
 type ClientErrorReport func(source, message, trace string)
 
+// ManyMessageAssembler func accepts a round ID, returning a TargetedCmixMessage.
+// This allows users to pass in a payload which will contain the
+// round ID over which the message is sent.
+type ManyMessageAssembler func(rid id.Round) ([]TargetedCmixMessage, error)
+
+// manyMessageAssembler is an internal wrapper around ManyMessageAssembler which
+// returns a list of assembledCmixMessage.
+type manyMessageAssembler func(rid id.Round) ([]assembledCmixMessage, error)
+
 // MessageAssembler func accepts a round ID, returning fingerprint, service,
-// payload & mac. This allows users to pass in a paylaod which will contain the
+// payload & mac. This allows users to pass in a payload which will contain the
 // round ID over which the message is sent.
 type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, err error)
 
 // messageAssembler is an internal wrapper around MessageAssembler which
-// returns a format.message This is necessary to preserve the interaction
+// returns a format.Message This is necessary to preserve the interaction
 // between sendCmixHelper and critical messages
 type messageAssembler func(rid id.Round) (format.Message, error)
-
-type clientCommsInterface interface {
-	followNetworkComms
-	SendCmixCommsInterface
-	nodes.RegisterNodeCommsInterface
-}

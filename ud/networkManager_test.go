@@ -35,6 +35,11 @@ type testNetworkManager struct {
 	responseProcessor message.Processor
 }
 
+func (tnm *testNetworkManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 
@@ -176,7 +181,12 @@ func (tnm *testNetworkManager) SendToAny(sendFunc func(host *connect.Host) (inte
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }

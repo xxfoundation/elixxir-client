@@ -31,6 +31,11 @@ type mockCmix struct {
 	payloadSize int
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(payloadSize int) cmix.Client {
 
 	return &mockCmix{
@@ -82,7 +87,12 @@ func (m mockCmix) GetMaxMessageLength() int {
 	return 100
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }

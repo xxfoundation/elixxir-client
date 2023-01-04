@@ -99,6 +99,11 @@ type mockCmix struct {
 	sync.Mutex
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *mockCmix {
 	return &mockCmix{
 		myID:          myID,
@@ -122,8 +127,7 @@ func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	panic("implement me")
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
-	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
@@ -136,6 +140,11 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	}
 	m.handler.Unlock()
 	return rounds.Round{ID: 42}, []ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,

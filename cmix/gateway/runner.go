@@ -259,7 +259,7 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 			var gwAddr string
 			var cert []byte
 			gwAddr, cert, err = getConnectionInfo(gwID, gw.Address, gw.TlsCertificate)
-			if err != nil {
+			if err == nil {
 				_, err = hp.manager.AddHost(gwID, gwAddr,
 					cert, hp.params.HostParams)
 			}

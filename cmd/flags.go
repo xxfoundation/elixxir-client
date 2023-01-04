@@ -97,6 +97,17 @@ const (
 	broadcastSymmetricFlag   = "symmetric"
 	broadcastAsymmetricFlag  = "asymmetric"
 
+	///////////////// Channels subcommand flags ///////////////////////////////
+	channelsNameFlag             = "channelName"
+	channelsChanIdentityPathFlag = "channelIdentityPath"
+	channelsChanPathFlag         = "channelPath"
+	channelsDescriptionFlag      = "channelDescription"
+	channelsJoinFlag             = "joinChannel"
+	channelsKeyPathFlag          = "channelKeyPath"
+	channelsLeaveFlag            = "leaveChannel"
+	channelsNewFlag              = "newChannel"
+	channelsSendFlag             = "sendToChannel"
+
 	///////////////// Connection subcommand flags /////////////////////////////
 	connectionFlag              = "connect"
 	connectionStartServerFlag   = "startServer"

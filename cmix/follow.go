@@ -377,8 +377,8 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	c.SetFakeEarliestRound(earliestTrackedRound)
-	updatedEarliestRound, old, _ := identity.ER.Set(earliestTrackedRound)
-
+	updatedEarliestRound, _, _ := identity.ER.Set(earliestTrackedRound)
+	/* this code looks to be legacy, commenting out to disable and see what happens
 	// If there was no registered rounds for the identity
 	if old == 0 {
 		lastCheckedRound := gwRoundsState.GetLastChecked()
@@ -409,7 +409,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			}
 		}
 		identity.ER.Set(updatedEarliestRound)
-	}
+	}*/
 
 	// Loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are messages

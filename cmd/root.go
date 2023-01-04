@@ -1022,9 +1022,9 @@ func init() {
 		"", false, "Force sends to go over multiple rounds if possible")
 	viper.BindPFlag(splitSendsFlag, rootCmd.Flags().Lookup(splitSendsFlag))
 
-	rootCmd.Flags().BoolP(verifySendFlag, "", false,
+	rootCmd.PersistentFlags().BoolP(verifySendFlag, "", false,
 		"Ensure successful message sending by checking for round completion")
-	viper.BindPFlag(verifySendFlag, rootCmd.Flags().Lookup(verifySendFlag))
+	viper.BindPFlag(verifySendFlag, rootCmd.PersistentFlags().Lookup(verifySendFlag))
 
 	rootCmd.PersistentFlags().UintP(receiveCountFlag,
 		"", 1, "How many messages we should wait for before quitting")

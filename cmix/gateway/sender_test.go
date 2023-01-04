@@ -28,7 +28,8 @@ func TestNewSender(t *testing.T) {
 	params := DefaultParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 	addChan := make(chan network.NodeGateway, len(testNdf.Gateways))
-	_, err := NewSender(params, rng, testNdf, manager, testStorage, addChan)
+	mccc := &mockCertCheckerComm{}
+	_, err := NewSender(params, rng, testNdf, manager, testStorage, mccc, addChan)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
 	}
@@ -43,8 +44,10 @@ func TestSender_SendToAny(t *testing.T) {
 	params := DefaultParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
 	addChan := make(chan network.NodeGateway, len(testNdf.Gateways))
+	mccc := &mockCertCheckerComm{}
+
 	senderFace, err := NewSender(
-		params, rng, testNdf, manager, testStorage, addChan)
+		params, rng, testNdf, manager, testStorage, mccc, addChan)
 	s := senderFace.(*sender)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
@@ -111,8 +114,9 @@ func TestSender_SendToPreferred(t *testing.T) {
 	// Do not test proxy attempts code in this test
 	// (self contain to code specific in sendPreferred)
 	params.ProxyAttempts = 0
+	mccc := &mockCertCheckerComm{}
 	addChan := make(chan network.NodeGateway, len(testNdf.Gateways))
-	sFace, err := NewSender(params, rng, testNdf, manager, testStorage, addChan)
+	sFace, err := NewSender(params, rng, testNdf, manager, testStorage, mccc, addChan)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
 	}

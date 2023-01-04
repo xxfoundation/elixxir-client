@@ -5,7 +5,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package channels
+package emoji
 
 import "testing"
 

@@ -37,11 +37,14 @@ message ChannelMessage{
     // the same message ID.
     bytes Nonce = 6;
 
-    // LocalTimestamp is the timestamp when the "send call" is made based upon
-    // the local clock. If this differs by more than 5 seconds +/- from when the
-    // round it sent on is queued, then a random mutation on the queued time
-    // (+/- 200ms) will be used by local clients instead.
+    // LocalTimestamp is the timestamp (unix nanoseconds) when the "send call"
+    // is made based upon the local clock. If this differs by more than 5
+    // seconds +/- from when the round it sent on is queued, then a random
+    // mutation on the queued time (+/- 200ms) will be used by local clients
+    // instead.
     int64 LocalTimestamp = 7;
+
+    uint32 DMToken = 8;  // hash of private key
 }
 
 // UserMessage is a message sent by a user who is a member within the channel.

@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/excludedRounds"
@@ -277,7 +278,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler,
 
 		// Flip leading bits randomly to thwart a tagging attack.
 		// See cmix.SetGroupBits for more info.
-		// cmix.SetGroupBits(msg, grp, stream)
+		cmix.SetGroupBits(msg, grp, stream)
 
 		// Retrieve host and key information from round
 		firstGateway, roundKeys, err := processRound(

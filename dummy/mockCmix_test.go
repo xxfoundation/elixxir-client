@@ -8,6 +8,9 @@
 package dummy
 
 import (
+	"sync"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -19,8 +22,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 // mockCmix is a testing structure that adheres to cmix.Client.
@@ -96,12 +97,15 @@ func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.Man
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+func (m *mockCmix) AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
 	//TODO implement me
 	panic("implement me")
 }

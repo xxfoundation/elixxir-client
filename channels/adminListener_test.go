@@ -9,15 +9,16 @@ package channels
 
 import (
 	"bytes"
-	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/golang/protobuf/proto"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -25,21 +26,24 @@ import (
 type triggerAdminEventDummy struct {
 	gotData bool
 
-	chID        *id.ID
-	cm          *ChannelMessage
-	msgID       cryptoChannel.MessageID
-	receptionID receptionID.EphemeralIdentity
-	round       rounds.Round
+	chID             *id.ID
+	cm               *ChannelMessage
+	encryptedPayload []byte
+	msgID            message.ID
+	receptionID      receptionID.EphemeralIdentity
+	round            rounds.Round
 }
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
-	cm *ChannelMessage, _ time.Time, messageID cryptoChannel.MessageID,
+	cm *ChannelMessage, encryptedPayload []byte, _ time.Time,
+	messageID message.ID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	_ SentStatus) (uint64, error) {
 	taed.gotData = true
 
 	taed.chID = chID
 	taed.cm = cm
+	taed.encryptedPayload = encryptedPayload
 	taed.msgID = messageID
 	taed.receptionID = receptionID
 	taed.round = round
@@ -48,41 +52,32 @@ func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
 }
 
 // Tests the happy path.
-func TestAdminListener_Listen(t *testing.T) {
+func Test_adminListener_Listen(t *testing.T) {
 	// Build inputs
-	chID := &id.ID{}
-	chID[0] = 1
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
+	chID := &id.ID{1}
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	cm := &ChannelMessage{
 		Lease:       int64(time.Hour),
 		RoundID:     uint64(r.ID),
 		PayloadType: 42,
 		Payload:     []byte("blarg"),
 	}
-
 	cmSerial, err := proto.Marshal(cm)
 	if err != nil {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
-
-	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID), cmSerial)
 
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}
-
 	al := adminListener{
 		chID:    chID,
 		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
-			return false
-		},
 	}
 
 	// Call the listener
-	al.Listen(cmSerial, receptionID.EphemeralIdentity{}, r)
+	al.Listen(cmSerial, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -109,59 +104,14 @@ func TestAdminListener_Listen(t *testing.T) {
 	}
 }
 
-// Tests that the message is rejected when the round it came on doesn't match
-// the round in the channel message.
-func TestAdminListener_Listen_BadRound(t *testing.T) {
-	// Build inputs
-	chID := &id.ID{}
-	chID[0] = 1
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	cm := &ChannelMessage{
-		Lease: int64(time.Hour),
-		// Different from the round above
-		RoundID:     69,
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
-	}
-
-	cmSerial, err := proto.Marshal(cm)
-	if err != nil {
-		t.Fatalf("Failed to marshal proto: %+v", err)
-	}
-
-	// Build the listener
-	dummy := &triggerAdminEventDummy{}
-
-	al := adminListener{
-		chID:    chID,
-		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
-			return false
-		},
-	}
-
-	// Call the listener
-	al.Listen(cmSerial, receptionID.EphemeralIdentity{}, r)
-
-	// Check the results
-	if dummy.gotData {
-		t.Fatal(
-			"Payload handled when it should have failed due to a round issue.")
-	}
-}
-
 // Tests that the message is rejected when the channel message is malformed.
 func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 
 	// Build inputs
-	chID := &id.ID{}
-	chID[0] = 1
+	chID := &id.ID{1}
 
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	cmSerial := []byte("blarg")
 
@@ -171,13 +121,10 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	al := adminListener{
 		chID:    chID,
 		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
-			return false
-		},
 	}
 
 	// Call the listener
-	al.Listen(cmSerial, receptionID.EphemeralIdentity{}, r)
+	al.Listen(cmSerial, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -190,41 +137,20 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 // malformed.
 func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	// Build inputs
-	chID := &id.ID{}
-	chID[0] = 1
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = netTime.Now()
-
-	cm := &ChannelMessage{
-		Lease: int64(time.Hour),
-		// Different from the round above
-		RoundID:     69,
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
-	}
-
-	cmSerial, err := proto.Marshal(cm)
-	if err != nil {
-		t.Fatalf("Failed to marshal proto: %+v", err)
-	}
-
-	// Remove half the sized broadcast to make it malformed
-	chMsgSerialSized := cmSerial[:len(cmSerial)/2]
+	chID := &id.ID{1}
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	chMsgSerialSized := []byte("invalid")
 
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}
-
 	al := adminListener{
 		chID:    chID,
 		trigger: dummy.triggerAdminEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
-			return false
-		},
 	}
 
 	// Call the listener
-	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(chMsgSerialSized, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {

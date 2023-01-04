@@ -8,6 +8,7 @@
 package rounds
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -23,13 +24,13 @@ type Round struct {
 	ID id.Round
 
 	// State is the last known state of the round. Possible states are:
-	//   PENDING - not started yet
-	//   PRECOMPUTING - In the process of preparing to process messages
-	//   STANDBY - Completed precomputing but not yet scheduled to run
-	//	 QUEUED - Scheduled to run at a set time
-	//	 REALTIME - Running, actively handing messages
-	//	 COMPLETED - Successfully deleted messages
-	//	 FAILED - Failed to deliver messages
+	//  - PENDING - Not started yet.
+	//  - PRECOMPUTING - In the process of preparing to process messages.
+	//  - STANDBY - Completed precomputing but not yet scheduled to run.
+	//	- QUEUED - Scheduled to run at a set time.
+	//	- REALTIME - Running, actively handing messages.
+	//  - COMPLETED - Successfully deleted messages.
+	//	- FAILED - Failed to deliver messages.
 	State states.Round
 
 	// Topology contains the list of nodes in the round.
@@ -37,6 +38,7 @@ type Round struct {
 
 	// Timestamps of all events that have occurred in the round (see the above
 	// states).
+	//
 	// The QUEUED state's timestamp is different; it denotes when Realtime
 	// was/is scheduled to start, not whe the QUEUED state is entered.
 	Timestamps map[states.Round]time.Time
@@ -137,8 +139,31 @@ func (r Round) GetEndTimestamp() time.Time {
 	return time.Time{}
 }
 
-// String prints a formatted version of the client error string
+// String prints a formatted version of the client error string. This function
+// adheres to the [fmt.Stringer] interface.
 func (re *RoundError) String() string {
-	return fmt.Sprintf("ClientError(ClientID: %s, Err: %s)",
-		re.NodeID, re.Error)
+	return fmt.Sprintf(
+		"ClientError(ClientID: %s, Err: %s)", re.NodeID, re.Error)
+}
+
+// MarshalJSON handles the JSON marshaling of the Round. This function adheres
+// to the [json.Marshaler] interface.
+func (r Round) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.Raw)
+}
+
+// UnmarshalJSON handles the JSON unmarshalling of the Round. This function
+// adheres to the [json.Unmarshaler] interface.
+func (r *Round) UnmarshalJSON(b []byte) error {
+	var ri pb.RoundInfo
+	if err := json.Unmarshal(b, &ri); err != nil {
+		return err
+	}
+
+	// Only unmarshal if the RoundInfo is not nil
+	if len(ri.Topology) > 0 {
+		*r = MakeRound(&ri)
+	}
+
+	return nil
 }

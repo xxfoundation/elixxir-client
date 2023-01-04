@@ -243,8 +243,14 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 
 		// Check if the ID exists, if it does not Add its host
 		if _, exists := hp.manager.GetHost(gwID); !exists {
-			_, err = hp.manager.AddHost(gwID, gw.Address,
-				[]byte(gw.TlsCertificate), hp.params.HostParams)
+			var gwAddr string
+			var cert []byte
+			gwAddr, cert, err = getConnectionInfo(gwID, gw.Address, gw.TlsCertificate)
+			if err != nil {
+				_, err = hp.manager.AddHost(gwID, gwAddr,
+					cert, hp.params.HostParams)
+			}
+
 			if err != nil {
 				jww.WARN.Printf("Skipped gateway %d: %s, "+
 					"host could not be added, %+v", i,

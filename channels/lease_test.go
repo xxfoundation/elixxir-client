@@ -15,8 +15,8 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/randomness"
@@ -169,8 +169,8 @@ func TestActionLeaseList_StartProcesses_RegisterReplayFn(t *testing.T) {
 func TestActionLeaseList_updateLeasesThread(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
 	triggerChan := make(chan *leaseMessage, 3)
-	trigger := func(channelID *id.ID, _ cryptoChannel.MessageID,
-		messageType MessageType, nickname string, payload, _ []byte, timestamp,
+	trigger := func(channelID *id.ID, _ message.ID, messageType MessageType,
+		nickname string, payload, _ []byte, timestamp,
 		originatingTimestamp time.Time, lease time.Duration, _ id.Round,
 		_ rounds.Round, _ SentStatus, _ bool) (uint64, error) {
 		triggerChan <- &leaseMessage{
@@ -817,8 +817,8 @@ func TestActionLeaseList_RemoveMessage(t *testing.T) {
 		Payload:   randPayload(prng, t),
 	}
 
-	err := all.RemoveMessage(exp.ChannelID, cryptoChannel.MessageID{},
-		exp.Action, randPayload(prng, t), exp.Payload, []byte{}, netTime.Now(),
+	err := all.RemoveMessage(exp.ChannelID, message.ID{}, exp.Action,
+		randPayload(prng, t), exp.Payload, []byte{}, netTime.Now(),
 		netTime.Now(), 200*time.Hour, 5, rounds.Round{}, false)
 	if err != nil {
 		t.Fatalf("Failed to remove message: %+v", err)
@@ -1836,9 +1836,9 @@ func randChannelID(rng io.Reader, t *testing.T) *id.ID {
 }
 
 // randMessageID creates a new random channel.MessageID for testing.
-func randMessageID(rng io.Reader, t *testing.T) cryptoChannel.MessageID {
-	message := make([]byte, 256)
-	if _, err := rng.Read(message); err != nil {
+func randMessageID(rng io.Reader, t *testing.T) message.ID {
+	msg := make([]byte, 256)
+	if _, err := rng.Read(msg); err != nil {
 		t.Fatalf("Failed to generate random message: %+v", err)
 	}
 
@@ -1847,7 +1847,7 @@ func randMessageID(rng io.Reader, t *testing.T) cryptoChannel.MessageID {
 		t.Fatalf("Failed to generate new channel ID: %+v", err)
 	}
 
-	return cryptoChannel.MakeMessageID(message, channelID)
+	return message.DeriveChannelMessageID(channelID, 5, msg)
 }
 
 // randPayload creates a new random payload for testing.

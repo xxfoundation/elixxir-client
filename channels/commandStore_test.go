@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -213,7 +213,7 @@ func TestCommandMessage_JsonMarshalUnmarshal(t *testing.T) {
 
 	m := CommandMessage{
 		ChannelID:            id.NewIdFromString("channelID", id.User, t),
-		MessageID:            cryptoChannel.MessageID{1, 2, 3},
+		MessageID:            message.ID{1, 2, 3},
 		MessageType:          Reaction,
 		Nickname:             "Nickname",
 		Content:              []byte("content"),

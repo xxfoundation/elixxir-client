@@ -9,15 +9,16 @@ package channels
 
 import (
 	"bytes"
-	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/golang/protobuf/proto"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -28,14 +29,14 @@ type triggerAdminEventDummy struct {
 	chID             *id.ID
 	cm               *ChannelMessage
 	encryptedPayload []byte
-	msgID            cryptoChannel.MessageID
+	msgID            message.ID
 	receptionID      receptionID.EphemeralIdentity
 	round            rounds.Round
 }
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
 	cm *ChannelMessage, encryptedPayload []byte, _ time.Time,
-	messageID cryptoChannel.MessageID,
+	messageID message.ID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	_ SentStatus) (uint64, error) {
 	taed.gotData = true
@@ -66,7 +67,7 @@ func Test_adminListener_Listen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
-	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID), cmSerial)
 
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}

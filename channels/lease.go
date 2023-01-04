@@ -18,9 +18,9 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -361,11 +361,11 @@ func (all *ActionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 // AddMessage triggers the lease message for insertion. An error is returned if
 // the message should be dropped. A message is dropped if its lease has expired
 // already or if it is older than an already stored replay for the command.
-func (all *ActionLeaseList) AddMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, action MessageType, unsanitizedPayload,
-	sanitizedPayload, encryptedPayload []byte, timestamp,
-	originatingTimestamp time.Time, lease time.Duration,
-	originatingRound id.Round, round rounds.Round, fromAdmin bool) error {
+func (all *ActionLeaseList) AddMessage(channelID *id.ID, messageID message.ID,
+	action MessageType, unsanitizedPayload, sanitizedPayload,
+	encryptedPayload []byte, timestamp, originatingTimestamp time.Time,
+	lease time.Duration,originatingRound id.Round, round rounds.Round,
+	fromAdmin bool) error {
 
 	// Calculate lease trigger time
 	rng := all.rng.GetStream()
@@ -453,10 +453,10 @@ func (all *ActionLeaseList) addMessage(lmp *leaseMessagePacket) error {
 // addToLeaseMessageChan constructs the leaseMessagePacket and sends it on the
 // new lease message channel.
 func (all *ActionLeaseList) addToLeaseMessageChan(channelID *id.ID,
-	messageID cryptoChannel.MessageID, action MessageType,
-	payload, encryptedPayload []byte, timestamp, originatingTimestamp time.Time,
-	lease time.Duration, originatingRound id.Round, round rounds.Round,
-	fromAdmin bool, leaseTrigger time.Time) {
+	messageID message.ID, action MessageType, payload, encryptedPayload []byte,
+	timestamp, originatingTimestamp time.Time, lease time.Duration,
+	originatingRound id.Round, round rounds.Round, fromAdmin bool,
+	leaseTrigger time.Time) {
 	all.addLeaseMessage <- &leaseMessagePacket{
 		leaseMessage: &leaseMessage{
 			ChannelID:            channelID,
@@ -525,7 +525,7 @@ func (all *ActionLeaseList) findSortedPosition(leaseTrigger time.Time) *list.Ele
 // the message should be dropped. A message is dropped if its lease has expired
 // already or if it is older than an already stored replay for the command.
 func (all *ActionLeaseList) RemoveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, action MessageType, unsanitizedPayload,
+	messageID message.ID, action MessageType, unsanitizedPayload,
 	sanitizedPayload, encryptedPayload []byte, timestamp,
 	originatingTimestamp time.Time, lease time.Duration,
 	originatingRound id.Round, round rounds.Round, fromAdmin bool) error {

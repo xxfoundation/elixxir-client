@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 	"os"
@@ -267,10 +268,10 @@ func sendMessageToChannel(chanManager channels.Manager,
 func makeChannelReceptionHandler(msgType channels.MessageType,
 	chanManager channels.Manager) error {
 	// Construct receiver callback
-	cb := func(channelID *id.ID, _ cryptoChannel.MessageID,
-		_ channels.MessageType, _ string, content, _ []byte,
-		_ ed25519.PublicKey, _ uint8, _, _ time.Time, _ time.Duration,
-		_ id.Round, _ rounds.Round, _ channels.SentStatus, _, _ bool) uint64 {
+	cb := func(channelID *id.ID, _ message.ID, _ channels.MessageType, _ string,
+		content, _ []byte, _ ed25519.PublicKey, _ uint32, _ uint8, _,
+		_ time.Time, _ time.Duration, _ id.Round, _ rounds.Round,
+		_ channels.SentStatus, _, _ bool) uint64 {
 		channelReceivedMessage, err := chanManager.GetChannel(channelID)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",
@@ -318,19 +319,18 @@ func (m *eventModel) LeaveChannel(*id.ID) {
 	jww.WARN.Printf("LeaveChannel is unimplemented in the CLI event model!")
 }
 
-func (m *eventModel) ReceiveMessage(_ *id.ID, _ cryptoChannel.MessageID, _,
-	text string, _ ed25519.PublicKey, _ uint8, _ time.Time, _ time.Duration,
-	_ rounds.Round, _ channels.MessageType, _ channels.SentStatus,
-	_ bool) uint64 {
+func (m *eventModel) ReceiveMessage(_ *id.ID, _ message.ID, _, text string,
+	_ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time, _ time.Duration,
+	_ rounds.Round, _ channels.MessageType, _ channels.SentStatus, _ bool) uint64 {
 	jww.INFO.Printf("[%s] Received message (%s) from channel",
 		channelsPrintHeader, text)
 	fmt.Printf("Received message (%s) from channel\n", text)
 	return 0
 }
 
-func (m *eventModel) ReceiveReply(channelID *id.ID, _,
-	_ cryptoChannel.MessageID, _, _ string, _ ed25519.PublicKey, _ uint8,
-	_ time.Time, _ time.Duration, _ rounds.Round, _ channels.MessageType,
+func (m *eventModel) ReceiveReply(channelID *id.ID, _, _ message.ID, _,
+	_ string, _ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time,
+	_ time.Duration, _ rounds.Round, _ channels.MessageType,
 	_ channels.SentStatus, _ bool) uint64 {
 	c, err := m.api.GetChannel(channelID)
 	if err != nil {
@@ -341,10 +341,10 @@ func (m *eventModel) ReceiveReply(channelID *id.ID, _,
 	return 0
 }
 
-func (m *eventModel) ReceiveReaction(channelID *id.ID,
-	_ cryptoChannel.MessageID, _ cryptoChannel.MessageID, _, _ string,
-	_ ed25519.PublicKey, _ uint8, _ time.Time, _ time.Duration, _ rounds.Round,
-	_ channels.MessageType, _ channels.SentStatus, _ bool) uint64 {
+func (m *eventModel) ReceiveReaction(channelID *id.ID, _ , _ message.ID, _,
+	_ string, _ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time,
+	_ time.Duration, _ rounds.Round, _ channels.MessageType,
+	_ channels.SentStatus, _ bool) uint64 {
 	c, err := m.api.GetChannel(channelID)
 	if err != nil {
 		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s",
@@ -354,24 +354,23 @@ func (m *eventModel) ReceiveReaction(channelID *id.ID,
 	return 0
 }
 
-func (m *eventModel) UpdateFromUUID(uint64, *cryptoChannel.MessageID,
-	*time.Time, *rounds.Round, *bool, *bool, *channels.SentStatus) {
+func (m *eventModel) UpdateFromUUID(uint64, *message.ID, *time.Time,
+	*rounds.Round, *bool, *bool, *channels.SentStatus) {
 	jww.WARN.Printf("UpdateFromUUID is unimplemented in the CLI event model!")
 }
 
-func (m *eventModel) UpdateFromMessageID(cryptoChannel.MessageID, *time.Time,
-	*rounds.Round, *bool, *bool, *channels.SentStatus) uint64 {
+func (m *eventModel) UpdateFromMessageID(message.ID, *time.Time, *rounds.Round,
+	*bool, *bool, *channels.SentStatus) uint64 {
 	jww.WARN.Printf("UpdateFromMessageID is unimplemented in the CLI event model!")
 	return 0
 }
 
-func (m *eventModel) GetMessage(
-	cryptoChannel.MessageID) (channels.ModelMessage, error) {
+func (m *eventModel) GetMessage(message.ID) (channels.ModelMessage, error) {
 	jww.WARN.Printf("GetMessage is unimplemented in the CLI event model!")
 	return channels.ModelMessage{}, nil
 }
 
-func (m *eventModel) DeleteMessage(cryptoChannel.MessageID) error {
+func (m *eventModel) DeleteMessage(message.ID) error {
 	jww.WARN.Printf("DeleteMessage is unimplemented in the CLI event model!")
 	return nil
 }

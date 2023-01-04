@@ -8,6 +8,9 @@
 package groupChat
 
 import (
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
@@ -21,8 +24,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 // testNetworkManager is a test implementation of NetworkManager interface.
@@ -93,12 +94,12 @@ func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerp
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool, _ message.Processor) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool, _ message.Processor) {
 	// TODO implement me
 	panic("implement me")
 }

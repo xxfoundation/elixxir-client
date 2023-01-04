@@ -15,7 +15,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -100,11 +100,11 @@ func newReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
 // verifyReplay verifies if the replay is valid by checking if it is the newest
 // version (i.e. the originating round is newer). If it is not, verifyReplay
 // returns false. Otherwise, the replay is valid, and it returns true.
-func (rb *replayBlocker) verifyReplay(channelID *id.ID,
-	messageID cryptoChannel.MessageID, action MessageType, unsanitizedPayload,
-	sanitizedPayload, encryptedPayload []byte, timestamp,
-	originatingTimestamp time.Time, lease time.Duration,
-	originatingRound id.Round, round rounds.Round, fromAdmin bool) (bool, error) {
+func (rb *replayBlocker) verifyReplay(channelID *id.ID, messageID message.ID,
+	action MessageType, unsanitizedPayload, sanitizedPayload,
+	encryptedPayload []byte, timestamp, originatingTimestamp time.Time,
+	lease time.Duration, originatingRound id.Round, round rounds.Round,
+	fromAdmin bool) (bool, error) {
 	fp := newCommandFingerprint(channelID, action, sanitizedPayload)
 	unsanitizedFp := newCommandFingerprint(channelID, action, unsanitizedPayload)
 

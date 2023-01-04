@@ -78,7 +78,8 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 			cbChan <- payload
 		}
 
-		s, err := NewBroadcastChannel(channel, newMockCmix(cMixHandler), rngGen)
+		s, err := NewBroadcastChannel(channel, newMockCmix(cMixHandler),
+			rngGen)
 		if err != nil {
 			t.Errorf("Failed to create broadcast channel: %+v", err)
 		}

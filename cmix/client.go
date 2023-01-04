@@ -181,7 +181,7 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
 	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
-		c.session, nodeChan)
+		c.session, c.comms, nodeChan)
 	if err != nil {
 		return err
 	}

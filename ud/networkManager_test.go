@@ -9,6 +9,8 @@ package ud
 
 import (
 	"bytes"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -22,7 +24,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // testNetworkManager is a mock implementation of the udCmix interface.
@@ -123,11 +124,11 @@ func (tnm *testNetworkManager) GetMaxMessageLength() int {
 	return 700
 }
 
-func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool, _ message.Processor) {
 	return
 }
 
-func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool, _ message.Processor) {
 	return
 }
 

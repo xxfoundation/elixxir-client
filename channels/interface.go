@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -63,6 +64,14 @@ type Manager interface {
 	// ChannelDoesNotExistsErr if the channel was not previously joined.
 	LeaveChannel(channelID *id.ID) error
 
+	// EnableDirectMessages enables the token for direct messaging for this
+	// channel.
+	EnableDirectMessages(chId *id.ID) error
+
+	// DisableDirectMessages removes the token for direct messaging for a
+	// given channel.
+	DisableDirectMessages(chId *id.ID) error
+
 	// ReplayChannel replays all messages from the channel within the network's
 	// memory (~3 weeks) over the event model. It does this by wiping the
 	// underlying state tracking for message pickup for the channel, causing all
@@ -104,8 +113,7 @@ type Manager interface {
 	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
 		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
-
+		message.ID, rounds.Round, ephemeral.Id, error)
 	// SendMessage is used to send a formatted message over a channel.
 	//
 	// Due to the underlying encoding using compression, it is not possible to
@@ -116,7 +124,7 @@ type Manager interface {
 	// lasting forever if ValidForever is used.
 	SendMessage(channelID *id.ID, msg string, validUntil time.Duration,
 		params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendReply is used to send a formatted message over a channel.
 	//
@@ -129,9 +137,9 @@ type Manager interface {
 	//
 	// The message will auto delete validUntil after the round it is sent in,
 	// lasting forever if ValidForever is used.
-	SendReply(channelID *id.ID, msg string, replyTo cryptoChannel.MessageID,
+	SendReply(channelID *id.ID, msg string, replyTo message.ID,
 		validUntil time.Duration, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendReaction is used to send a reaction to a message over a channel. The
 	// reaction must be a single emoji with no other characters, and will be
@@ -140,8 +148,8 @@ type Manager interface {
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
 	SendReaction(channelID *id.ID, reaction string,
-		reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+		reactTo message.ID, params cmix.CMIXParams) (
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //
@@ -166,7 +174,7 @@ type Manager interface {
 	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendAdminGeneric(channelID *id.ID, messageType MessageType, msg []byte,
 		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// DeleteMessage deletes the targeted message from storage. Users may delete
 	// their own messages but only the channel admin can delete other user's
@@ -176,9 +184,9 @@ type Manager interface {
 	//
 	// Clients will drop the deletion if they do not recognize the target
 	// message.
-	DeleteMessage(channelID *id.ID, targetMessage cryptoChannel.MessageID,
+	DeleteMessage(channelID *id.ID, targetMessage message.ID,
 		params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// PinMessage pins the target message to the top of a channel view for all
 	// users in the specified channel. Only the channel admin can pin user
@@ -190,9 +198,9 @@ type Manager interface {
 	// pin indefinitely. validUntil is ignored if undoAction is true.
 	//
 	// Clients will drop the pin if they do not recognize the target message.
-	PinMessage(channelID *id.ID, targetMessage cryptoChannel.MessageID,
+	PinMessage(channelID *id.ID, targetMessage message.ID,
 		undoAction bool, validUntil time.Duration, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// MuteUser is used to mute a user in a channel. Muting a user will cause
 	// all future messages from the user being dropped on reception. Muted users
@@ -205,7 +213,7 @@ type Manager interface {
 	// the user indefinitely. validUntil is ignored if undoAction is true.
 	MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey, undoAction bool,
 		validUntil time.Duration, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////
 	// Other Channel Actions                                                  //

@@ -8,13 +8,14 @@
 package channels
 
 import (
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // adminListener adheres to the [broadcast.ListenerFunc] interface and is used
@@ -28,7 +29,8 @@ type adminListener struct {
 func (al *adminListener) Listen(payload, encryptedPayload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	// Get the message ID
-	messageID := channel.MakeMessageID(payload, al.chID)
+	messageID := message.
+		DeriveChannelMessageID(al.chID, uint64(round.ID), payload)
 
 	// Decode the message as a channel message
 	cm := &ChannelMessage{}

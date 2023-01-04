@@ -14,6 +14,9 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/broadcast"
@@ -28,8 +31,6 @@ import (
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -40,6 +41,8 @@ type manager struct {
 
 	// List of all channels
 	channels map[id.ID]*joinedChannel
+	// List of dmTokens for each channel
+	dmTokens map[id.ID]uint32
 	mux      sync.RWMutex
 
 	// External references
@@ -68,9 +71,11 @@ type Client interface {
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	AddIdentityWithHistory(
-		id *id.ID, validUntil, beginning time.Time, persistent bool)
+		id *id.ID, validUntil, beginning time.Time,
+		persistent bool, fallthroughProcessor message.Processor)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)
@@ -112,6 +117,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	}
 
 	m := setupManager(identity, kv, net, rng, model)
+	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
 }
@@ -138,6 +144,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 	}
 
 	m := setupManager(identity, kv, net, rng, model)
+	m.loadDMTokens()
 
 	return m, nil
 }
@@ -160,12 +167,12 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.loadChannels()
 
-	m.nicknameManager = loadOrNewNicknameManager(kv)
+	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
 	return &m
 }
 
-// adminReplayHandler registers a replayActionFunc with the lease system.
+// adminReplayHandler registers a ReplayActionFunc with the lease system.
 func (m *manager) adminReplayHandler(channelID *id.ID, encryptedPayload []byte) {
 	messageID, r, _, err := m.replayAdminMessage(
 		channelID, encryptedPayload, cmix.GetDefaultCMIXParams())
@@ -247,6 +254,22 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 	return nil
 }
 
+// EnableDirectMessages enables the token for direct messaging for this
+// channel.
+func (m *manager) EnableDirectMessages(chId *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.enableDirectMessageToken(chId)
+}
+
+// DisableDirectMessages removes the token for direct messaging for a given
+// channel.
+func (m *manager) DisableDirectMessages(chId *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.disableDirectMessageToken(chId)
+}
+
 // ReplayChannel replays all messages from the channel within the network's
 // memory (~3 weeks) over the event model. It does this by wiping the underlying
 // state tracking for message pickup for the channel, causing all messages to be
@@ -313,7 +336,7 @@ func (m *manager) GetChannel(channelID *id.ID) (*cryptoBroadcast.Channel, error)
 // GetIdentity returns the public identity of the user associated with this
 // channel manager.
 func (m *manager) GetIdentity() cryptoChannel.Identity {
-	return m.me.Identity
+	return m.me.GetIdentity()
 }
 
 // ExportPrivateIdentity encrypts the private identity using the password and

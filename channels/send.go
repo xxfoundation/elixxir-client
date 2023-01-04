@@ -18,7 +18,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/client/v4/emoji"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -90,11 +91,17 @@ func timeNow() string { return netTime.Now().Format("15:04:05.9999999") }
 // ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 
 	// Reject the send if the user is muted in the channel they are sending to
 	if m.events.mutedUsers.isMuted(channelID, m.me.PubKey) {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf("user muted in channel %s", channelID)
+	}
+
+	// Reject the send if the user is muted in the channel they are sending to
+	if m.events.mutedUsers.isMuted(channelID, m.me.PubKey) {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("user muted in channel %s", channelID)
 	}
 
@@ -117,10 +124,16 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Failed to get channel: %+v", err)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	nickname, _ := m.GetNickname(channelID)
+
+	// Retrieve token.
+	// Note that this may be nil if DM token have not been enabled,
+	// which is OK.
+	dmToken := m.getDmToken(channelID)
+
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
 		PayloadType:    uint32(messageType),
@@ -128,6 +141,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		Nickname:       nickname,
 		Nonce:          make([]byte, messageNonceSize),
 		LocalTimestamp: netTime.Now().UnixNano(),
+		DMToken:        dmToken,
 	}
 
 	// Generate random nonce to be used for message ID generation. This makes it
@@ -139,13 +153,13 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Failed to generate nonce: %+v", err)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
 		printErr = true
 		log += fmt.Sprintf(
 			"ERROR Got %d bytes for %d-byte nonce", n, messageNonceSize)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf(
 				"generated %d bytes for %d-byte nonce", n, messageNonceSize)
 	}
@@ -154,7 +168,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	// round
 
 	// Build the function pointer that will build the message
-	var messageID cryptoChannel.MessageID
+	var messageID message.ID
 	usrMsg := &UserMessage{ECCPublicKey: m.me.PubKey}
 	assemble := func(rid id.Round) ([]byte, error) {
 		// Build the message
@@ -167,7 +181,8 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		}
 
 		// Make the messageID
-		messageID = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
+		messageID = message.
+			DeriveChannelMessageID(channelID, chMsg.RoundID, chMsgSerial)
 
 		// Sign the message
 		messageSig := ed25519.Sign(*m.me.Privkey, chMsgSerial)
@@ -196,7 +211,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			printErr = true
 			log += fmt.Sprintf(
 				"ERROR Pending send failed at %s: %s", timeNow(), err)
-			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+			return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 		}
 	} else {
 		log += "Message not being tracked; skipping pending send. "
@@ -211,7 +226,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		if errDenote := m.st.failedSend(uuid); errDenote != nil {
 			log += fmt.Sprintf("Failed to denote failed broadcast: %s", err)
 		}
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	log += fmt.Sprintf(
@@ -222,7 +237,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		if err != nil {
 			printErr = true
 			log += fmt.Sprintf("ERROR Local broadcast failed: %s", err)
-			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+			return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 		}
 	}
 
@@ -239,7 +254,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 // lasting forever if ValidForever is used.
 func (m *manager) SendMessage(channelID *id.ID, msg string,
 	validUntil time.Duration, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendMessageTag)
 	jww.INFO.Printf("[CH] [%s] SendMessage to channel %s", tag, channelID)
 
@@ -253,7 +268,7 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(
@@ -272,9 +287,9 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if ValidForever is used.
 func (m *manager) SendReply(channelID *id.ID, msg string,
-	replyTo cryptoChannel.MessageID, validUntil time.Duration,
+	replyTo message.ID, validUntil time.Duration,
 	params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendReplyTag)
 	jww.INFO.Printf(
 		"[CH] [%s] SendReply on channel %s to %s", tag, channelID, replyTo)
@@ -288,7 +303,7 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(
@@ -301,15 +316,15 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 //
 // Clients will drop the reaction if they do not recognize the reactTo message.
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
-	reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	reactTo message.ID, params cmix.CMIXParams) (
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
 	jww.INFO.Printf(
 		"[CH] [%s] SendReaction on channel %s to %s", tag, channelID, reactTo)
 
-	if err := ValidateReaction(reaction); err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	if err := emoji.ValidateReaction(reaction); err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	react := &CMIXChannelReaction{
@@ -322,7 +337,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 
 	reactMarshaled, err := proto.Marshal(react)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(
@@ -331,7 +346,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 
 // replayAdminMessage is used to rebroadcast an admin message asa a norma user.
 func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
-	params cmix.CMIXParams) (cryptoChannel.MessageID,
+	params cmix.CMIXParams) (message.ID,
 	rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, encryptedPayload, SendAdminReplayTag)
@@ -366,7 +381,7 @@ func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
 // returns 0) cannot be tracked, or it will cause errors.
 func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
@@ -387,7 +402,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Failed to get channel: %+v", err)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	// Return an error if the user is not an admin
@@ -401,11 +416,10 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 				"storage, but an error was encountered while accessing it: %+v",
 				channelID, err)
 		}
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
-			NotAnAdminErr
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, NotAnAdminErr
 	}
 
-	var messageID cryptoChannel.MessageID
+	var messageID message.ID
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
 		PayloadType:    uint32(messageType),
@@ -424,13 +438,13 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Failed to generate nonce: %+v", err)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
 		printErr = true
 		log += fmt.Sprintf(
 			"ERROR Got %d bytes for %d-byte nonce", n, messageNonceSize)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf(
 				"generated %d bytes for %d-byte nonce", n, messageNonceSize)
 	}
@@ -449,7 +463,8 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 			return nil, err2
 		}
 
-		messageID = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
+		messageID = message.
+			DeriveChannelMessageID(channelID, chMsg.RoundID, chMsgSerial)
 
 		// Check if the message is too long
 		if len(chMsgSerial) > ch.broadcast.MaxRSAToPublicPayloadSize() {
@@ -465,7 +480,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	var uuid uint64
@@ -475,7 +490,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 		if err != nil {
 			printErr = true
 			log += fmt.Sprintf("ERROR Denoting send failed at %s: %s. ", timeNow(), err)
-			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+			return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 		}
 	} else {
 		log += "Message not being tracked; skipping pending send. "
@@ -489,7 +504,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 		if err != nil {
 			printErr = true
 			log += fmt.Sprintf("ERROR Local broadcast failed: %s", err)
-			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+			return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 		}
 	}
 
@@ -503,8 +518,8 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 //
 // Clients will drop the deletion if they do not recognize the target message.
 func (m *manager) DeleteMessage(channelID *id.ID,
-	targetMessage cryptoChannel.MessageID, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	targetMessage message.ID, params cmix.CMIXParams) (
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
 	jww.INFO.Printf("[CH] [%s] DeleteMessage in channel %s message %s",
@@ -516,14 +531,14 @@ func (m *manager) DeleteMessage(channelID *id.ID,
 	if !isChannelAdmin {
 		msg, err := m.events.model.GetMessage(targetMessage)
 		if err != nil {
-			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			return message.ID{}, rounds.Round{}, ephemeral.Id{},
 				errors.Errorf(
 					"failed to find targeted message %s to delete: %+v",
 					targetMessage, err)
 		}
 
 		if !bytes.Equal(msg.PubKey, m.me.PubKey) {
-			return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			return message.ID{}, rounds.Round{}, ephemeral.Id{},
 				errors.Errorf("can only delete message you are sender of " +
 					"or if you are the channel admin.")
 		}
@@ -538,7 +553,7 @@ func (m *manager) DeleteMessage(channelID *id.ID,
 
 	deleteMarshaled, err := proto.Marshal(deleteMessage)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	if isChannelAdmin {
@@ -557,9 +572,9 @@ func (m *manager) DeleteMessage(channelID *id.ID,
 //
 // Clients will drop the pin if they do not recognize the target message.
 func (m *manager) PinMessage(channelID *id.ID,
-	targetMessage cryptoChannel.MessageID, undoAction bool,
+	targetMessage message.ID, undoAction bool,
 	validUntil time.Duration, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
 	jww.INFO.Printf("[CH] [%s] PinMessage in channel %s message %s",
@@ -572,7 +587,7 @@ func (m *manager) PinMessage(channelID *id.ID,
 	}
 	pinnedMarshaled, err := proto.Marshal(pinnedMessage)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	params = params.SetDebugTag(tag)
@@ -590,7 +605,7 @@ func (m *manager) PinMessage(channelID *id.ID,
 // If undoAction is true, then the targeted user will be unmuted.
 func (m *manager) MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey,
 	undoAction bool, validUntil time.Duration, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, mutedUser, SendMuteTag)
 	jww.INFO.Printf("[CH] [%s] MuteUser in channel %s mute user %x",
 		tag, channelID, mutedUser)
@@ -605,7 +620,7 @@ func (m *manager) MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey,
 
 	mutedMarshaled, err := proto.Marshal(muteMessage)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendAdminGeneric(

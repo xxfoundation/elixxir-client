@@ -14,8 +14,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
@@ -42,28 +42,30 @@ func NewCommandStore(kv *versioned.KV) *CommandStore {
 }
 
 // SaveCommand stores the command message and its data to storage.
-func (cs *CommandStore) SaveCommand(channelID *id.ID,
-	messageID cryptoChannel.MessageID, messageType MessageType, nickname string,
-	content, encryptedPayload []byte, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp, localTimestamp time.Time, lease time.Duration,
-	round rounds.Round, status SentStatus, fromAdmin, userMuted bool) error {
+func (cs *CommandStore) SaveCommand(channelID *id.ID, messageID message.ID,
+	messageType MessageType, nickname string, content, encryptedPayload []byte,
+	pubKey ed25519.PublicKey, codeset uint8, timestamp,
+	originatingTimestamp time.Time, lease time.Duration,
+	originatingRound id.Round,round rounds.Round, status SentStatus, fromAdmin,
+	userMuted bool) error {
 
 	m := CommandMessage{
-		ChannelID:        channelID,
-		MessageID:        messageID,
-		MessageType:      messageType,
-		Nickname:         nickname,
-		Content:          content,
-		EncryptedPayload: encryptedPayload,
-		PubKey:           pubKey,
-		Codeset:          codeset,
-		Timestamp:        timestamp.Round(0),
-		LocalTimestamp:   localTimestamp.Round(0),
-		Lease:            lease,
-		Round:            round,
-		Status:           status,
-		FromAdmin:        fromAdmin,
-		UserMuted:        userMuted,
+		ChannelID:            channelID,
+		MessageID:            messageID,
+		MessageType:          messageType,
+		Nickname:             nickname,
+		Content:              content,
+		EncryptedPayload:     encryptedPayload,
+		PubKey:               pubKey,
+		Codeset:              codeset,
+		Timestamp:            timestamp.Round(0),
+		OriginatingTimestamp: originatingTimestamp.Round(0),
+		Lease:                lease,
+		OriginatingRound:     originatingRound,
+		Round:                round,
+		Status:               status,
+		FromAdmin:            fromAdmin,
+		UserMuted:            userMuted,
 	}
 
 	data, err := json.Marshal(m)
@@ -122,7 +124,7 @@ type CommandMessage struct {
 	ChannelID *id.ID `json:"channelID"`
 
 	// MessageID is the ID of the message.
-	MessageID cryptoChannel.MessageID `json:"messageID"`
+	MessageID message.ID `json:"messageID"`
 
 	// MessageType is the Type of channel message.
 	MessageType MessageType `json:"messageType"`
@@ -149,16 +151,21 @@ type CommandMessage struct {
 	// Timestamp is the time that the round was queued. It is set by the
 	// listener to be either ChannelMessage.LocalTimestamp or the timestamp for
 	// states.QUEUED of the round it was sent on, if that is significantly later
-	// than LocalTimestamp. If the message is a replay, then Timestamp will
+	// than OriginatingTimestamp. If the message is a replay, then Timestamp
+	// will
 	// always be the queued time of the round.
 	Timestamp time.Time `json:"timestamp"`
 
-	// LocalTimestamp is the time the sender queued the message for sending on
-	// their client.
-	LocalTimestamp time.Time `json:"localTimestamp"`
+	// OriginatingTimestamp is the time the sender queued the message for
+	// sending on their client.
+	OriginatingTimestamp time.Time `json:"originatingTimestamp"`
 
 	// Lease is how long the message should persist.
 	Lease time.Duration `json:"lease"`
+
+	// OriginatingRound is the ID of the round the message was originally sent
+	// on.
+	OriginatingRound id.Round `json:"originatingRound"`
 
 	// Round is the information about the round the message was sent on. For
 	// replay messages, this is the round of the most recent replay, not the

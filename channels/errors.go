@@ -37,9 +37,4 @@ var (
 	// registered per type.
 	MessageTypeAlreadyRegistered = errors.New(
 		"the given message type has already been registered")
-
-	// InvalidReaction is returned if the passed reaction string is an invalid
-	// emoji.
-	InvalidReaction = errors.New(
-		"The reaction is not valid, it must be a single emoji")
 )

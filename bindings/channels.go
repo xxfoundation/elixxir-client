@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -880,10 +881,8 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 	}
 
 	// Unmarshal message ID
-	messageID, err := cryptoChannel.UnmarshalMessageID(messageToReactTo)
-	if err != nil {
-		return nil, err
-	}
+	messageID := cryptoMessage.ID{}
+	copy(messageID[:], messageToReactTo)
 
 	// Send Reply
 	lease := time.Duration(validUntilMS) * time.Millisecond
@@ -928,10 +927,8 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	}
 
 	// Unmarshal message ID
-	messageID, err := cryptoChannel.UnmarshalMessageID(messageToReactTo)
-	if err != nil {
-		return nil, err
-	}
+	messageID := cryptoMessage.ID{}
+	copy(messageID[:], messageToReactTo)
 
 	// Send reaction
 	messageID, rnd, ephID, err :=
@@ -1036,11 +1033,8 @@ func (cm *ChannelsManager) DeleteMessage(channelIdBytes,
 	}
 
 	// Unmarshal message ID
-	targetedMessageID, err :=
-		cryptoChannel.UnmarshalMessageID(targetMessageIdBytes)
-	if err != nil {
-		return nil, err
-	}
+	targetedMessageID := cryptoMessage.ID{}
+	copy(targetedMessageID[:], targetMessageIdBytes)
 
 	// Send message deletion
 	messageID, rnd, ephID, err :=
@@ -1086,11 +1080,8 @@ func (cm *ChannelsManager) PinMessage(channelIdBytes,
 	}
 
 	// Unmarshal message ID
-	targetedMessageID, err :=
-		cryptoChannel.UnmarshalMessageID(targetMessageIdBytes)
-	if err != nil {
-		return nil, err
-	}
+	targetedMessageID := cryptoMessage.ID{}
+	copy(targetedMessageID[:], targetMessageIdBytes)
 
 	// Send message pin
 	validUntil := time.Duration(validUntilMS) * time.Millisecond
@@ -1175,7 +1166,7 @@ func parseChannelsParameters(channelIdBytes, cmixParamsJSON []byte) (
 
 // constructChannelSendReport is a helper function which returns a JSON
 // marshalled ChannelSendReport.
-func constructChannelSendReport(messageID cryptoChannel.MessageID,
+func constructChannelSendReport(messageID cryptoMessage.ID,
 	roundID id.Round, ephID ephemeral.Id) ([]byte, error) {
 	// Construct send report
 	chanSendReport := ChannelSendReport{
@@ -1513,12 +1504,12 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 
 	// Wrap callback around backend interface
 	cb := channels.MessageTypeReceiveMessage(
-		func(channelID *id.ID, messageID cryptoChannel.MessageID,
+		func(channelID *id.ID, messageID cryptoMessage.ID,
 			messageType channels.MessageType, nickname string, content,
-			encryptedPayload []byte, pubKey ed25519.PublicKey, codeset uint8,
-			timestamp, localTimestamp time.Time, lease time.Duration,
-			round rounds.Round, status channels.SentStatus, fromAdmin,
-			hidden bool) uint64 {
+			encryptedPayload []byte, pubKey ed25519.PublicKey, dmToken uint32,
+			codeset uint8, timestamp, originatingTimestamp time.Time,
+			lease time.Duration, originatingRound id.Round,round rounds.Round,
+			status channels.SentStatus, fromAdmin, hidden bool) uint64 {
 			rcm := ReceivedChannelMessageReport{
 				ChannelId:   channelID.Marshal(),
 				MessageId:   messageID.Marshal(),
@@ -1607,8 +1598,8 @@ type EventModel interface {
 	//  - int64 - A non-negative unique UUID for the message that it can be
 	//    referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveMessage(channelID, messageID []byte, nickname, text string,
-		pubKey []byte, codeset int, timestamp, lease, roundID, messageType,
-		status int64, hidden bool) int64
+		pubKey []byte, dmToken int32, codeset int, timestamp, lease, roundID,
+		messageType, status int64, hidden bool) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
 	// a given channel. It may be called multiple times on the same message. It
@@ -1658,8 +1649,8 @@ type EventModel interface {
 	//  - int64 - A non-negative unique UUID for the message that it can be
 	//    referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveReply(channelID, messageID, reactionTo []byte, nickname, text string,
-		pubKey []byte, codeset int, timestamp, lease, roundID, messageType,
-		status int64, hidden bool) int64
+		pubKey []byte, dmToken int32, codeset int, timestamp, lease, roundID,
+		messageType, status int64, hidden bool) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received on
 	// a given channel. It may be called multiple times on the same reaction. It
@@ -1709,8 +1700,8 @@ type EventModel interface {
 	//  - int64 - A non-negative unique UUID for the message that it can be
 	//    referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveReaction(channelID, messageID, reactionTo []byte, nickname,
-		reaction string, pubKey []byte, codeset int, timestamp, lease, roundID,
-		messageType, status int64, hidden bool) int64
+		reaction string, pubKey []byte, dmToken int32, codeset int, timestamp,
+		lease, roundID, messageType, status int64, hidden bool) int64
 
 	// UpdateFromUUID is called whenever a message at the UUID is modified.
 	//
@@ -1827,13 +1818,14 @@ func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 // messageType type is included in the call; it will always be [channels.Text]
 // (1) for this call, but it may be required in downstream databases.
 func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, nickname, text string,
-	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, messageType channels.MessageType,
+	messageID cryptoMessage.ID, nickname, text string, pubKey ed25519.PublicKey,
+	dmToken uint32, codeset uint8, timestamp time.Time, lease time.Duration,
+	round rounds.Round, messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) uint64 {
 	return uint64(tem.em.ReceiveMessage(channelID[:], messageID[:], nickname,
-		text, pubKey, int(codeset), timestamp.UnixNano(), int64(lease),
-		int64(round.ID), int64(messageType), int64(status), hidden))
+		text, pubKey, int32(dmToken), int(codeset), timestamp.UnixNano(),
+		int64(lease), int64(round.ID), int64(messageType), int64(status),
+		hidden))
 }
 
 // ReceiveReply is called whenever a message is received that is a reply on a
@@ -1856,14 +1848,16 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 // messageType type is included in the call; it will always be [channels.Text]
 // (1) for this call, but it may be required in downstream databases.
 func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID,
-	reactionTo cryptoChannel.MessageID, nickname, text string,
-	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, messageType channels.MessageType,
-	status channels.SentStatus, hidden bool) uint64 {
+	reactionTo cryptoMessage.ID, nickname, text string,
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	messageType channels.MessageType, status channels.SentStatus,
+	hidden bool) uint64 {
 
 	return uint64(tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
-		nickname, text, pubKey, int(codeset), timestamp.UnixNano(),
-		int64(lease), int64(round.ID), int64(messageType), int64(status),
+		nickname, text, pubKey, int32(dmToken), int(codeset),
+		timestamp.UnixNano(), int64(lease), int64(round.ID),
+		int64(messageType), int64(status),
 		hidden))
 
 }
@@ -1888,15 +1882,16 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID,
 // messageType type is included in the call; it will always be [channels.Text]
 // (1) for this call, but it may be required in downstream databases.
 func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID,
-	reactionTo cryptoChannel.MessageID, nickname, reaction string,
-	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
-	lease time.Duration, round rounds.Round, messageType channels.MessageType,
-	status channels.SentStatus, hidden bool) uint64 {
+	reactionTo cryptoMessage.ID, nickname, reaction string,
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	messageType channels.MessageType, status channels.SentStatus,
+	hidden bool) uint64 {
 
 	return uint64(tem.em.ReceiveReaction(channelID[:], messageID[:],
-		reactionTo[:], nickname, reaction, pubKey, int(codeset),
-		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(messageType),
-		int64(status), hidden))
+		reactionTo[:], nickname, reaction, pubKey, int32(dmToken),
+		int(codeset), timestamp.UnixNano(), int64(lease),
+		int64(round.ID), int64(messageType), int64(status), hidden))
 }
 
 // UpdateFromUUID is called whenever a message at the UUID is modified.
@@ -1905,8 +1900,8 @@ func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID,
 // may be updated based upon the UUID at a later date. If a nil value is passed,
 // then make no update.
 func (tem *toEventModel) UpdateFromUUID(uuid uint64,
-	messageID *cryptoChannel.MessageID, timestamp *time.Time,
-	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) {
+	messageID *cryptoMessage.ID, timestamp *time.Time, round *rounds.Round,
+	pinned, hidden *bool, status *channels.SentStatus) {
 	var mui MessageUpdateInfo
 
 	if messageID != nil {
@@ -1952,7 +1947,7 @@ func (tem *toEventModel) UpdateFromUUID(uuid uint64,
 // timestamp, round, pinned, hidden, and status are all nillable and may be
 // updated based upon the UUID at a later date. If a nil value is passed, then
 // make no update.
-func (tem *toEventModel) UpdateFromMessageID(messageID cryptoChannel.MessageID,
+func (tem *toEventModel) UpdateFromMessageID(messageID cryptoMessage.ID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 	status *channels.SentStatus) uint64 {
 	var mui MessageUpdateInfo
@@ -1989,7 +1984,7 @@ func (tem *toEventModel) UpdateFromMessageID(messageID cryptoChannel.MessageID,
 
 // GetMessage returns the message with the given [channel.MessageID].
 func (tem *toEventModel) GetMessage(
-	messageID cryptoChannel.MessageID) (channels.ModelMessage, error) {
+	messageID cryptoMessage.ID) (channels.ModelMessage, error) {
 	msgJSON, err := tem.em.GetMessage(messageID.Marshal())
 	if err != nil {
 		return channels.ModelMessage{}, err
@@ -2000,7 +1995,7 @@ func (tem *toEventModel) GetMessage(
 
 // DeleteMessage deletes the message with the given [channel.MessageID] from the
 // database.
-func (tem *toEventModel) DeleteMessage(messageID cryptoChannel.MessageID) error {
+func (tem *toEventModel) DeleteMessage(messageID cryptoMessage.ID) error {
 	return tem.em.DeleteMessage(messageID.Marshal())
 }
 

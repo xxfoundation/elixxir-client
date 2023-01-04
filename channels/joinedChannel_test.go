@@ -28,6 +28,7 @@ import (
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -619,12 +620,13 @@ func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
 
-func (m *mockBroadcastClient) IsHealthy() bool                                           { return true }
-func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool)                       {}
-func (m *mockBroadcastClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) {}
-func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor)     {}
-func (m *mockBroadcastClient) DeleteClientService(*id.ID)                                {}
-func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                     {}
+func (m *mockBroadcastClient) IsHealthy() bool                                        { return true }
+func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
+func (m *mockBroadcastClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
+}
+func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
+func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
+func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
 func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
 }
 func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
@@ -671,37 +673,55 @@ func (m *mockEventModel) LeaveChannel(c *id.ID) {
 	m.leftCh = c
 }
 
-func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID,
-	string, string, ed25519.PublicKey, uint8, time.Time, time.Duration,
+func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoMessage.ID,
+	string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration,
 	rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
+func (m *mockEventModel) ReceiveReply(*id.ID, cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
 	time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
+func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
 	time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) UpdateFromUUID(uint64, *cryptoChannel.MessageID,
+func (m *mockEventModel) ReceiveDM(cryptoMessage.ID, string,
+	string, ed25519.PublicKey, uint32, uint8, time.Time,
+	rounds.Round, MessageType, SentStatus) uint64 {
+	return 0
+}
+
+func (m *mockEventModel) ReceiveDMReply(cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
+	time.Time, rounds.Round, MessageType, SentStatus) uint64 {
+	return 0
+}
+
+func (m *mockEventModel) ReceiveDMReaction(cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
+	time.Time, rounds.Round, MessageType, SentStatus) uint64 {
+	return 0
+}
+
+func (m *mockEventModel) UpdateFromUUID(uint64, *cryptoMessage.ID,
 	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) {
 	panic("implement me")
 }
 
-func (m *mockEventModel) UpdateFromMessageID(cryptoChannel.MessageID,
+func (m *mockEventModel) UpdateFromMessageID(cryptoMessage.ID,
 	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) uint64 {
 	panic("implement me")
 }
 
-func (m *mockEventModel) GetMessage(cryptoChannel.MessageID) (ModelMessage, error) {
+func (m *mockEventModel) GetMessage(cryptoMessage.ID) (ModelMessage, error) {
 	panic("implement me")
 }
-func (m *mockEventModel) DeleteMessage(cryptoChannel.MessageID) error {
+func (m *mockEventModel) DeleteMessage(cryptoMessage.ID) error {
 	panic("implement me")
 }

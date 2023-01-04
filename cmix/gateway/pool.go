@@ -15,10 +15,15 @@ import (
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
+	"strings"
 )
 
-var errHostPoolNotReady = errors.New("Host pool is not ready, wait a " +
-	"little then try again. if this persists, you may have connectivity issues")
+var errHostPoolNotReady = "Host pool is not ready, wait a " +
+	"little then try again. if this persists, you may have connectivity issues"
+
+func IsHostPoolNotReadyError(err error) bool {
+	return strings.Contains(err.Error(), errHostPoolNotReady)
+}
 
 type Pool interface {
 	Get(id *id.ID) (*connect.Host, bool)
@@ -80,7 +85,7 @@ func (p *pool) IsReady() error {
 			return nil
 		}
 	}
-	return errHostPoolNotReady
+	return errors.New(errHostPoolNotReady)
 }
 
 // GetAny returns up to n host pool members randomly, excluding any which are

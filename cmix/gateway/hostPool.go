@@ -49,6 +49,9 @@ type hostPool struct {
 	// connects, and then returns over addNode
 	testNodes chan []*connect.Host
 
+	/*signaling channels*/
+	firstOnline chan bool
+
 	/* external objects*/
 	rng       *fastRNG.StreamGenerator
 	params    Params

@@ -36,8 +36,15 @@ func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Registration, error
 	// Do not send KeepAlive packets
 	hParam.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	hParam.MaxRetries = 3
-	perm.host, err = comms.AddHost(&id.ClientRegistration, def.Registration.ClientRegistrationAddress,
-		[]byte(def.Registration.TlsCertificate), hParam)
+
+	addr, cert, err := getConnectionInfo(def.Registration.ClientRegistrationAddress,
+		def.Registration.TlsCertificate)
+	if err != nil {
+		return nil, err
+	}
+
+	perm.host, err = comms.AddHost(&id.ClientRegistration, addr,
+		cert, hParam)
 
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create registration")

@@ -74,7 +74,8 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	rid, _, err := m.getCMix().SendMany(groupMessages, param)
 	if err != nil {
 		return rounds.Round{}, time.Time{}, group.MessageID{},
-			errors.Errorf(sendManyCmixErr, m.getReceptionIdentity().ID, g.Name, g.ID, err)
+			errors.Errorf(sendManyCmixErr, m.getReceptionIdentity().ID, g.Name,
+				g.ID, err)
 	}
 
 	jww.DEBUG.Printf("[GC] Sent message to %d members in group %s at %s.",
@@ -86,8 +87,6 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 	timestamp time.Time) ([]cmix.TargetedCmixMessage, group.MessageID, error) {
 
-	// Create list of cMix messages
-	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
 	rng := m.getRng().GetStream()
 	defer rng.Close()
 
@@ -117,6 +116,7 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 		m.getReceptionIdentity().ID, msg)
 
 	// Create cMix messages
+	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
 	for _, member := range g.Members {
 		// Do not send to the sender
 		if m.getReceptionIdentity().ID.Cmp(member.ID) {
@@ -124,8 +124,8 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 		}
 
 		// Add cMix message to list
-		cMixMsg, err := newCmixMsg(g, tag, timestamp, member, rng, maxCmixMessageLength,
-			internalMessagePayload)
+		cMixMsg, err := newCmixMsg(g, tag, timestamp, member, rng,
+			maxCmixMessageLength, internalMessagePayload)
 		if err != nil {
 			return nil, group.MessageID{}, err
 		}

@@ -71,31 +71,77 @@ type TargetedCmixMessage struct {
 // (along with the reason). Blocks until successful send or err.
 // WARNING: Do not roll your own crypto
 func (c *client) SendMany(messages []TargetedCmixMessage,
-	p CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	params CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if !c.Monitor.IsHealthy() {
 		return rounds.Round{}, []ephemeral.Id{}, errors.New(
 			"Cannot send cMix message when the network is not healthy")
 	}
 
-	acms := make([]assembledCmixMessage, len(messages))
-	for i := range messages {
-		msg := format.NewMessage(c.session.GetCmixGroup().GetP().ByteLen())
-		msg.SetKeyFP(messages[i].Fingerprint)
-		msg.SetContents(messages[i].Payload)
-		msg.SetMac(messages[i].Mac)
-		msg.SetSIH(messages[i].Service.Hash(msg.GetContents()))
-
-		acms[i] = assembledCmixMessage{
-			Recipient: messages[i].Recipient,
-			Message:   msg,
-		}
+	recipients := recipientsFromTargetedMessage(messages)
+	assembler := func(rid id.Round) ([]TargetedCmixMessage, error) {
+		return messages, nil
 	}
 
-	return sendManyCmixHelper(c.Sender, acms, p,
+	return c.sendManyWithAssembler(recipients, assembler, params)
+}
+
+// SendManyWithAssembler sends variable cMix payloads to the provided recipients.
+// The payloads sent are based on the ManyMessageAssembler function passed in,
+// which accepts a round ID and returns the necessary payload data.
+// Returns the round IDs of the rounds the payloads were sent or an error if it
+// fails.
+// This does not have end-to-end encryption on it and is used exclusively as
+// a send operation for higher order cryptographic protocols. Do not use unless
+// implementing a protocol on top.
+//
+//	recipients - cMix IDs of the recipients.
+//	assembler - ManyMessageAssembler function, accepting round ID and returning
+//	            a list of TargetedCmixMessage.
+//
+// Will return an error if the network is unhealthy or if it fails to send
+// (along with the reason). Blocks until successful sends or errors.
+// WARNING: Do not roll your own crypto.
+func (c *client) SendManyWithAssembler(recipients []*id.ID,
+	assembler ManyMessageAssembler, params CMIXParams) (
+	rounds.Round, []ephemeral.Id, error) {
+	return c.sendManyWithAssembler(recipients, assembler, params)
+}
+
+// sendManyWithAssembler wraps the passed in ManyMessageAssembler in a
+// manyMessageAssembler for sendManyCmixHelper.
+func (c *client) sendManyWithAssembler(recipients []*id.ID,
+	assembler ManyMessageAssembler, params CMIXParams) (rounds.Round,
+	[]ephemeral.Id, error) {
+
+	assemblerFunc := func(rid id.Round) ([]assembledCmixMessage, error) {
+		messages, err := assembler(rid)
+		if err != nil {
+			return nil, err
+		}
+
+		acms := make([]assembledCmixMessage, len(messages))
+		for i := range messages {
+			msg := format.NewMessage(c.session.GetCmixGroup().GetP().ByteLen())
+			msg.SetKeyFP(messages[i].Fingerprint)
+			msg.SetContents(messages[i].Payload)
+			msg.SetMac(messages[i].Mac)
+			msg.SetSIH(messages[i].Service.Hash(msg.GetContents()))
+
+			acms[i] = assembledCmixMessage{
+				Recipient: messages[i].Recipient,
+				Message:   msg,
+			}
+		}
+		return acms, nil
+	}
+
+	return sendManyCmixHelper(c.Sender, assemblerFunc, recipients, params,
 		c.instance, c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
 		c.session.GetTransmissionID(), c.comms, c.attemptTracker)
 }
 
+// assembledCmixMessage is a message structure containing the ready-to-send
+// Message (format.Message) and the Recipient that the message is intended.
 type assembledCmixMessage struct {
 	Recipient *id.ID
 	Message   format.Message
@@ -112,9 +158,9 @@ type assembledCmixMessage struct {
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
-	param CMIXParams, instance *network.Instance, grp *cyclic.Group,
-	registrar nodes.Registrar, rng *fastRNG.StreamGenerator,
+func sendManyCmixHelper(sender gateway.Sender, assembler manyMessageAssembler,
+	recipients []*id.ID, param CMIXParams, instance *network.Instance,
+	grp *cyclic.Group, registrar nodes.Registrar, rng *fastRNG.StreamGenerator,
 	events event.Reporter, senderId *id.ID, comms SendCmixCommsInterface,
 	attemptTracker attempts.SendAttemptTracker) (
 	rounds.Round, []ephemeral.Id, error) {
@@ -129,20 +175,13 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 
 	maxTimeout := sender.GetHostParams().SendTimeout
 
-	recipientString, msgDigests := messageListToStrings(msgs)
-
-	jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
-		"messages to [%s] (msgDigest: %s)", param.DebugTag, recipientString,
-		msgDigests)
-
 	stream := rng.GetStream()
 	defer stream.Close()
 
-	// flip leading bits randomly to thwart a tagging attack.
-	// See SetGroupBits for more info
-	for i := range msgs {
-		cmix.SetGroupBits(msgs[i].Message, grp, stream)
-	}
+	recipientsStr := recipientsToStrings(recipients)
+
+	jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
+		"messages to [%s]", param.DebugTag, recipientsStr)
 
 	numAttempts := 0
 	if !param.Probe {
@@ -151,17 +190,17 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 			numAttempts = optimalAttempts
 			jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
 				"messages to %s, sending non probe with %d optimalAttempts",
-				param.DebugTag, recipientString, numAttempts)
+				param.DebugTag, recipientsStr, numAttempts)
 		} else {
 			numAttempts = 4
 			jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
 				"messages to %s, sending non probe with %d non optimalAttempts, "+
-				"insufficient data", param.DebugTag, recipientString, numAttempts)
+				"insufficient data", param.DebugTag, recipientsStr, numAttempts)
 		}
 	} else {
 		jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix messages "+
 			"to %s, sending probe with %d Attempts, insufficient data",
-			param.DebugTag, recipientString, numAttempts)
+			param.DebugTag, recipientsStr, numAttempts)
 		defer attemptTracker.SubmitProbeAttempt(numAttempts)
 	}
 
@@ -171,16 +210,16 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 
 		if elapsed > param.Timeout {
 			jww.INFO.Printf("[SendMany-%s] No rounds to send to %s "+
-				"(msgDigest: %s) were found before timeout %s", param.DebugTag,
-				recipientString, msgDigests, param.Timeout)
+				"were found before timeout %s", param.DebugTag,
+				recipientsStr, param.Timeout)
 			return rounds.Round{}, []ephemeral.Id{},
 				errors.New("sending cMix message timed out")
 		}
 
 		if numRoundTries > 0 {
 			jww.INFO.Printf("[SendMany-%s] Attempt %d to find round to "+
-				"send message to %s (msgDigest: %s)", param.DebugTag,
-				numRoundTries+1, recipientString, msgDigests)
+				"send message to %s", param.DebugTag,
+				numRoundTries+1, recipientsStr)
 		}
 
 		remainingTime := param.Timeout - elapsed
@@ -190,6 +229,12 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 			remainingTime, attempted, numAttempts, sendTimeBuffer)
 		if bestRound == nil {
 			continue
+		}
+
+		msgs, err := assembler(id.Round(bestRound.ID))
+		if err != nil {
+			jww.ERROR.Printf("Failed to compile messages: %+v", err)
+			return rounds.Round{}, []ephemeral.Id{}, err
 		}
 
 		// Determine whether the selected round contains any nodes that are
@@ -211,9 +256,16 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 			continue
 		}
 
+		// flip leading bits randomly to thwart a tagging attack.
+		// See SetGroupBits for more info
+		for i := range msgs {
+			cmix.SetGroupBits(msgs[i].Message, grp, stream)
+		}
+
 		// Retrieve host and key information from round
+		msgDigests := messageListToDigestStrings(msgs)
 		firstGateway, roundKeys, err := processRound(
-			registrar, bestRound, recipientString, msgDigests)
+			registrar, bestRound, recipientsStr, msgDigests)
 		if err != nil {
 			jww.INFO.Printf("[SendMany-%s] Error processing round: %v",
 				param.DebugTag, err)
@@ -249,7 +301,7 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 
 		jww.INFO.Printf("[SendMany-%s]Sending to EphIDs [%s] (%s) on round %d, "+
 			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s", param.DebugTag,
-			ephemeralIDsString, recipientString, bestRound.ID, msgDigests,
+			ephemeralIDsString, recipientsStr, bestRound.ID, msgDigests,
 			encMsgsDigest, firstGateway)
 
 		// Wrap slots in the proper message type
@@ -272,7 +324,7 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 				host, wrappedMessage, timeout)
 			if err != nil {
 				err := handlePutMessageError(firstGateway, registrar,
-					recipientString, bestRound, err)
+					recipientsStr, bestRound, err)
 				return result, errors.WithMessagef(err,
 					"SendMany %s (via %s): %s",
 					target, host, unrecoverableError)
@@ -294,7 +346,7 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 				jww.ERROR.Printf("[SendMany-%s] SendMany failed to "+
 					"send to EphIDs [%s] (sources: %s) on round %d, trying "+
 					"a new round %+v", param.DebugTag, ephemeralIDsString,
-					recipientString, bestRound.ID, err)
+					recipientsStr, bestRound.ID, err)
 				jww.INFO.Printf("[SendMany-%s] Error received, "+
 					"continuing: %v", param.DebugTag, err)
 				continue
@@ -310,7 +362,7 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 		if gwSlotResp.Accepted {
 			m := fmt.Sprintf("[SendMany-%s] Successfully sent to EphIDs "+
 				"%s (sources: [%s]) in round %d (msgDigest: %s)",
-				param.DebugTag, ephemeralIDsString, recipientString,
+				param.DebugTag, ephemeralIDsString, recipientsStr,
 				bestRound.ID, msgDigests)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSendMany", "Metric", m)
@@ -319,7 +371,7 @@ func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
 			jww.FATAL.Panicf("[SendMany-%s] Gateway %s returned no "+
 				"error, but failed to accept message when sending to EphIDs "+
 				"[%s] (%s) on round %d", param.DebugTag, firstGateway,
-				ephemeralIDsString, recipientString, bestRound.ID)
+				ephemeralIDsString, recipientsStr, bestRound.ID)
 		}
 	}
 

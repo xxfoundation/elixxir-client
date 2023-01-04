@@ -85,6 +85,12 @@ type testNetworkManagerGeneric struct {
 	instance *network.Instance
 	sender   gateway.Sender
 }
+
+func (t *testNetworkManagerGeneric) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
@@ -119,9 +125,10 @@ func (t *testNetworkManagerGeneric) SendWithAssembler(recipient *id.ID, assemble
 
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-
-func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage,
-	p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, []ephemeral.Id{}, nil
+}
+func (t *testNetworkManagerGeneric) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, []ephemeral.Id{}, nil
 }
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {

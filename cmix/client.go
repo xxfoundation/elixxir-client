@@ -11,13 +11,14 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/attempts"
-	"gitlab.com/elixxir/client/v4/cmix/clockSkew"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/attempts"
+	"gitlab.com/elixxir/client/v4/cmix/clockSkew"
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix/address"
@@ -81,6 +82,9 @@ type client struct {
 	// Earliest tracked round
 	earliestRound *uint64
 
+	// Current Period of the follower
+	followerPeriod *int64
+
 	// Number of polls done in a period of time
 	tracker       *uint64
 	latencySum    uint64
@@ -109,6 +113,8 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	netTime.SetTimeSource(localTime{})
 
+	followerPeriod := int64(params.TrackNetworkPeriod)
+
 	// Create client object
 	c := &client{
 		param:          params,
@@ -122,6 +128,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		skewTracker:    clockSkew.New(params.ClockSkewClamp),
 		attemptTracker: attempts.NewSendAttempts(),
 		numNodes:       &numNodes,
+		followerPeriod: &followerPeriod,
 	}
 
 	if params.VerboseRoundTracking {
@@ -282,6 +289,17 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	multi.Add(c.crit.startProcessies())
 
 	return multi, nil
+}
+
+// SetTrackNetworkPeriod allows changing the frequency that follower threads
+// are started.
+func (c *client) SetTrackNetworkPeriod(d time.Duration) {
+	atomic.StoreInt64(c.followerPeriod, int64(d))
+}
+
+// GetTrackNetworkPeriod returns the current tracked network period.
+func (c *client) GetTrackNetworkPeriod() time.Duration {
+	return time.Duration(atomic.LoadInt64(c.followerPeriod))
 }
 
 // GetInstance returns the network instance object (NDF state).

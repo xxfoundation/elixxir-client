@@ -69,6 +69,12 @@ func (c *Cmix) StopNetworkFollower() error {
 	return nil
 }
 
+// SetTrackNetworkPeriod allows changing the frequency that follower threads
+// are started.
+func (c *Cmix) SetTrackNetworkPeriod(d time.Duration) {
+	c.api.SetTrackNetworkPeriod(d)
+}
+
 // WaitForNetwork will block until either the network is healthy or the passed
 // timeout is reached. It will return true if the network is healthy.
 func (c *Cmix) WaitForNetwork(timeoutMS int) bool {

@@ -35,6 +35,11 @@ type testNetworkManager struct {
 	sync.RWMutex
 }
 
+func (tnm *testNetworkManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newTestNetworkManager(sendErr int) cmix.Client {
 	return &testNetworkManager{
 		receptionMessages: [][]format.Message{},
@@ -44,7 +49,7 @@ func newTestNetworkManager(sendErr int) cmix.Client {
 	}
 }
 
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if tnm.sendErr == 1 {
 		return rounds.Round{}, nil, errors.New("SendManyCMIX error")
 	}
@@ -66,6 +71,9 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ c
 	return rounds.Round{}, nil, nil
 }
 
+func (tnm *testNetworkManager) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
 func (*testNetworkManager) AddService(*id.ID, message.Service, message.Processor) {}
 func (*testNetworkManager) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
 	return nil

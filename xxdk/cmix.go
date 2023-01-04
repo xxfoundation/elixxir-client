@@ -381,6 +381,12 @@ func (c *Cmix) StopNetworkFollower() error {
 	return c.followerServices.stop()
 }
 
+// SetTrackNetworkPeriod allows changing the frequency that follower threads
+// are started.
+func (c *Cmix) SetTrackNetworkPeriod(d time.Duration) {
+	c.network.SetTrackNetworkPeriod(d)
+}
+
 // NetworkFollowerStatus gets the state of the network follower. It returns a
 // status with the following values:
 //

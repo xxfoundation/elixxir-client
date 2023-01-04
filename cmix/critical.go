@@ -8,8 +8,9 @@
 package cmix
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/health"
@@ -88,9 +89,10 @@ func (c *critical) runCriticalMessages(stop *stoppable.Single) {
 }
 
 func (c *critical) handle(
-	msg format.Message, recipient *id.ID, rid id.Round, rtnErr error) {
+	msg format.Message, recipient *id.ID, rid id.Round, rtnErr error) bool {
 	if rtnErr != nil {
 		c.Failed(msg, recipient)
+		return false
 	} else {
 		sendResults := make(chan ds.EventReturn, 1)
 
@@ -110,13 +112,11 @@ func (c *critical) handle(
 			}
 
 			c.Failed(msg, recipient)
-			return
+			return success
 		}
 
-		jww.INFO.Printf("Successful resend of critical raw message to %s "+
-			"(msgDigest: %s) on round %d", recipient, msg.Digest(), rid)
-
 		c.Succeeded(msg, recipient)
+		return success
 	}
 
 }
@@ -128,15 +128,20 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 		localRid := recipient.DeepCopy()
 		go func(msg format.Message, recipient *id.ID, params CMIXParams) {
 			params.Stop = stop
+			params.Critical = false
 			jww.INFO.Printf("Resending critical raw message to %s "+
 				"(msgDigest: %s)", recipient, msg.Digest())
 
 			// Send the message
-			round, _, err := c.send(msg, recipient, params)
+			round, _, err := c.send(msg.Copy(), recipient, params)
 
 			// Pass to the handler
-			c.handle(msg, recipient, round.ID, err)
+			if c.handle(msg, recipient, round.ID, err) {
+				jww.INFO.Printf("Successful resend of "+
+					"critical raw message to "+
+					"%s (msgDigest: %s) on round %d",
+					recipient, msg.Digest(), round.ID)
+			}
 		}(msg, localRid, params)
 	}
-
 }

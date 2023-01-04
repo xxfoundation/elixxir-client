@@ -154,6 +154,11 @@ type mockCmix struct {
 	instance      *network.Instance
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(myID *id.ID, handler *mockCmixHandler, t testing.TB) *mockCmix {
 	comms := &connect.ProtoComms{Manager: connect.NewManagerTesting(t)}
 	def := getNDF()
@@ -210,8 +215,10 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAss
 	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
-
-func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}

@@ -198,6 +198,7 @@ type ModelMessage struct {
 	Round           id.Round          `json:"round"`
 	PubKey          ed25519.PublicKey `json:"pubKey"`
 	CodesetVersion  uint8             `json:"codesetVersion"`
+	DmToken         uint32            `json:"dmToken"`
 }
 
 // MessageTypeReceiveMessage defines handlers for messages of various message
@@ -480,7 +481,7 @@ func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
 type triggerActionEventFunc func(channelID *id.ID, messageID message.ID,
 	messageType MessageType, nickname string, payload, encryptedPayload []byte,
 	timestamp, originatingTimestamp time.Time, lease time.Duration,
-	originatingRound id.Round,round rounds.Round, status SentStatus,
+	originatingRound id.Round, round rounds.Round, status SentStatus,
 	fromAdmin bool) (uint64, error)
 
 // triggerActionEvent is an internal function that is used to trigger an action
@@ -494,7 +495,7 @@ type triggerActionEventFunc func(channelID *id.ID, messageID message.ID,
 func (e *events) triggerActionEvent(channelID *id.ID, messageID message.ID,
 	messageType MessageType, nickname string, payload, encryptedPayload []byte,
 	timestamp, originatingTimestamp time.Time, lease time.Duration,
-	originatingRound id.Round,round rounds.Round, status SentStatus,
+	originatingRound id.Round, round rounds.Round, status SentStatus,
 	fromAdmin bool) (uint64, error) {
 
 	// Get handler for message type
@@ -633,7 +634,7 @@ func (e *events) receiveReaction(channelID *id.ID, messageID message.ID,
 func (e *events) receiveDelete(channelID *id.ID, messageID message.ID,
 	messageType MessageType, _ string, content, _ []byte,
 	pubKey ed25519.PublicKey, _ uint32, codeset uint8, timestamp, _ time.Time,
-	lease time.Duration, _ id.Round,round rounds.Round, _ SentStatus, fromAdmin,
+	lease time.Duration, _ id.Round, round rounds.Round, _ SentStatus, fromAdmin,
 	_ bool) uint64 {
 	msgLog := sprintfReceiveMessage(channelID, messageID, messageType, pubKey,
 		codeset, timestamp, lease, round, fromAdmin)

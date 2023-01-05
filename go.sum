@@ -507,6 +507,8 @@ gitlab.com/xx_network/comms v0.0.4-0.20230105190210-8d53eafd39b0 h1:7vxOYNO/P+6m
 gitlab.com/xx_network/comms v0.0.4-0.20230105190210-8d53eafd39b0/go.mod h1:3bLNCD4r/PFvx9dirhIE9e4UqzTwwJxp7xgo2853MIc=
 gitlab.com/xx_network/comms v0.0.4-0.20230105204612-650d69126c7d h1:njdGg9nwpBHfhFp1RCA6wNZxOkg7+sFDnuj6ni66jWc=
 gitlab.com/xx_network/comms v0.0.4-0.20230105204612-650d69126c7d/go.mod h1:3bLNCD4r/PFvx9dirhIE9e4UqzTwwJxp7xgo2853MIc=
+gitlab.com/xx_network/comms v0.0.4-0.20230105215337-397aad15b2c5 h1:cToRsqsrfEGEVnmCT60QqQgzFwOWaIdTVZRVaL1WHek=
+gitlab.com/xx_network/comms v0.0.4-0.20230105215337-397aad15b2c5/go.mod h1:3bLNCD4r/PFvx9dirhIE9e4UqzTwwJxp7xgo2853MIc=
 gitlab.com/xx_network/crypto v0.0.5-0.20221121220724-8eefdbb0eb46 h1:6AHgUpWdJ72RVTTdJSvfThZiYTQNUnrPaTCl/EkRLpg=
 gitlab.com/xx_network/crypto v0.0.5-0.20221121220724-8eefdbb0eb46/go.mod h1:acWUBKCpae/XVaQF7J9RnLAlBT13i5r7gnON+mrIxBk=
 gitlab.com/xx_network/primitives v0.0.4-0.20221209210320-376735467d58 h1:HpeUIf1gIIelLH3LHxEf3/GalecbbtZnOnIegJHALoc=

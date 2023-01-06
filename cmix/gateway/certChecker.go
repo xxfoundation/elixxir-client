@@ -10,6 +10,7 @@ package gateway
 import (
 	"bytes"
 	"crypto"
+	"crypto/sha256"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,7 +20,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"golang.org/x/crypto/blake2b"
 	"time"
 )
 
@@ -65,7 +65,7 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 		return err
 	}
 	remoteCertSignature := gwTlsCertResp.GetSignature()
-	declaredFingerprint := blake2b.Sum256(gwTlsCertResp.GetCertificate())
+	declaredFingerprint := sha256.Sum256(gwTlsCertResp.GetCertificate())
 
 	// FIXME: http package does not set the tls certificate when compiled for js/wasm
 	// This is because the js implementation uses fetch in javascript, which does not get this information
@@ -78,7 +78,7 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	//	return err
 	//}
 	rawActualRemoteCert := gwTlsCertResp.Certificate //actualRemoteCert.Raw
-	actualFingerprint := blake2b.Sum256(rawActualRemoteCert)
+	actualFingerprint := sha256.Sum256(rawActualRemoteCert)
 
 	// If the fingerprints of the used & declared certs do not match, return an error
 	if actualFingerprint != declaredFingerprint {

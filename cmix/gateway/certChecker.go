@@ -77,8 +77,8 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	//if err != nil {
 	//	return err
 	//}
-	rawActualRemoteCert := gwTlsCertResp.Certificate         //actualRemoteCert.Raw
-	actualFingerprint := blake2b.Sum256(rawActualRemoteCert) //actualRemoteCert.Raw)
+	rawActualRemoteCert := gwTlsCertResp.Certificate //actualRemoteCert.Raw
+	actualFingerprint := blake2b.Sum256(rawActualRemoteCert)
 
 	// If the fingerprints of the used & declared certs do not match, return an error
 	if actualFingerprint != declaredFingerprint {

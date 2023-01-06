@@ -41,7 +41,6 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 					if !pinged {
 						latency = connectivityFailure
 					}
-					hostToQuery.Disconnect()
 					resultList[index] = latency
 					wg.Done()
 				}(queryList[i], i)

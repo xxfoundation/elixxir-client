@@ -9,6 +9,8 @@ package gateway
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/sha256"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -18,7 +20,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"golang.org/x/crypto/blake2b"
 	"time"
 )
 
@@ -64,14 +65,15 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 		return err
 	}
 	remoteCertSignature := gwTlsCertResp.GetSignature()
-	declaredFingerprint := blake2b.Sum256(gwTlsCertResp.GetCertificate())
+	declaredFingerprint := sha256.Sum256(gwTlsCertResp.GetCertificate())
 
 	// Get remote certificate used for connection from the host object
 	actualRemoteCert, err := gwHost.GetRemoteCertificate()
 	if err != nil {
 		return err
 	}
-	actualFingerprint := blake2b.Sum256(actualRemoteCert.Raw)
+	rawActualRemoteCert := actualRemoteCert.Raw
+	actualFingerprint := sha256.Sum256(rawActualRemoteCert)
 
 	// If the fingerprints of the used & declared certs do not match, return an error
 	if actualFingerprint != declaredFingerprint {
@@ -89,7 +91,7 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	}
 
 	// Verify received signature
-	err = verifyRemoteCertificate(actualRemoteCert.Raw, remoteCertSignature, gwHost)
+	err = verifyRemoteCertificate(rawActualRemoteCert, remoteCertSignature, gwHost)
 	if err != nil {
 		return err
 	}
@@ -100,10 +102,9 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 
 // verifyRemoteCertificate verifies the RSA signature of a gateway on its tls certificate
 func verifyRemoteCertificate(cert, sig []byte, gwHost *connect.Host) error {
-	h, err := hash.NewCMixHash()
-	if err != nil {
-		return err
-	}
+	opts := rsa.NewDefaultOptions()
+	opts.Hash = crypto.SHA256
+	h := opts.Hash.New()
 	h.Write(cert)
 	return rsa.Verify(gwHost.GetPubKey(), hash.CMixHash, h.Sum(nil), sig, rsa.NewDefaultOptions())
 }

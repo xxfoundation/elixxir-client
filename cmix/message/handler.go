@@ -38,11 +38,15 @@ type Handler interface {
 	DeleteFingerprint(clientID *id.ID, fingerprint format.Fingerprint)
 	DeleteClientFingerprints(clientID *id.ID)
 
-	// Triggers
+	// Services
 	AddService(clientID *id.ID, newService Service, response Processor)
 	DeleteService(clientID *id.ID, toDelete Service, response Processor)
 	DeleteClientService(clientID *id.ID)
 	TrackServices(triggerTracker ServicesTracker)
+
+	//Fallthrough
+	AddFallthrough(c *id.ID, p Processor)
+	RemoveFallthrough(c *id.ID)
 }
 
 type handler struct {
@@ -57,6 +61,7 @@ type handler struct {
 
 	FingerprintsManager
 	ServicesManager
+	FallthroughManager
 }
 
 func NewHandler(param Params, kv *versioned.KV, events event.Reporter,
@@ -78,6 +83,7 @@ func NewHandler(param Params, kv *versioned.KV, events event.Reporter,
 
 	m.FingerprintsManager = *newFingerprints(standardID)
 	m.ServicesManager = *NewServices()
+	m.FallthroughManager = newFallthroughManager()
 	return &m
 }
 
@@ -190,6 +196,12 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 				ecrMsg.Digest(), t)
 			go t.Process(ecrMsg, identity, round)
 		}
+		return true
+	}
+
+	// handle the fallthrough, if it exists
+	if p, exist := h.getFallthrough(identity.Source); exist {
+		p.Process(ecrMsg, identity, round)
 		return true
 	}
 

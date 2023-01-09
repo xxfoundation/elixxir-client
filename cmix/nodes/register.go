@@ -35,7 +35,6 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 	inProgress, attempts *sync.Map, index int) {
 
 	atomic.AddInt64(r.numberRunning, 1)
-
 	for {
 		select {
 		case <-r.pauser:
@@ -79,15 +78,6 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 				continue
 			}
 
-			// Keep track of how many times registering with this node
-			// has been attempted
-			numAttempts := uint(1)
-			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(
-				nidStr, numAttempts); hasValue {
-				numAttempts = nunAttemptsInterface.(uint)
-				attempts.Store(nidStr, numAttempts+1)
-			}
-
 			// No need to register with stale nodes
 			if isStale := gw.Node.Status == ndf.Stale; isStale {
 				jww.DEBUG.Printf(
@@ -104,16 +94,45 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 			// Process the result
 			if err != nil {
-				jww.ERROR.Printf("Failed to register node: %s", err.Error())
-				// If we have not reached the attempt limit for this gateway,
-				// then send it back into the channel to retry
-				if numAttempts < maxAttempts {
+				if gateway.IsHostPoolNotReadyError(err) {
+					jww.WARN.Printf("Failed to register node due to non ready host "+
+						"pool: %s", err.Error())
+
+					// retry registering without counting it against the node
 					go func() {
-						// Delay the send operation for a backoff
-						time.Sleep(delayTable[numAttempts-1])
 						r.c <- gw
 					}()
+
+					//wait 5 seconds to give the host pool a chance to resolve
+					select {
+					case <-time.NewTimer(5 * time.Second).C:
+					case <-stop.Quit():
+						stop.ToStopped()
+						return
+					}
+				} else {
+					jww.ERROR.Printf("Failed to register node: %s", err.Error())
+
+					// Keep track of how many times registering with this node
+					// has been attempted
+					numAttempts := uint(1)
+					if nunAttemptsInterface, hasValue := attempts.LoadOrStore(
+						nidStr, numAttempts); hasValue {
+						numAttempts = nunAttemptsInterface.(uint)
+						attempts.Store(nidStr, numAttempts+1)
+					}
+
+					// If we have not reached the attempt limit for this gateway,
+					// then send it back into the channel to retry
+					if numAttempts < maxAttempts {
+						go func() {
+							// Delay the send operation for a backoff
+							time.Sleep(delayTable[numAttempts-1])
+							r.c <- gw
+						}()
+					}
 				}
+
 			}
 			rng.Close()
 		}

@@ -47,11 +47,11 @@ const RetryableError = "Nonfatal error occurred, please retry"
 // NewSender creates a new Sender object wrapping a HostPool object
 func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
 	ndf *ndf.NetworkDefinition, getter HostManager,
-	storage storage.Session, addChan chan commNetwork.NodeGateway) (
-	Sender, error) {
+	storage storage.Session, comms CertCheckerCommInterface,
+	addChan chan commNetwork.NodeGateway) (Sender, error) {
 
 	hp, err := newHostPool(poolParams, rng, ndf,
-		getter, storage, addChan, nil)
+		getter, storage, addChan, comms)
 	if err != nil {
 		return nil, err
 	}

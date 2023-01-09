@@ -8,6 +8,8 @@
 package connect
 
 import (
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/cmix"
@@ -30,7 +32,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -151,6 +152,11 @@ type mockCmix struct {
 	instance *network.Instance
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix() *mockCmix {
 	return &mockCmix{}
 }
@@ -168,13 +174,15 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAss
 	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-
-func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, []ephemeral.Id{}, nil
 }
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)                       {}
-func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) {}
-func (m *mockCmix) RemoveIdentity(*id.ID)                                     {}
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, []ephemeral.Id{}, nil
+}
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor)                       {}
+func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {}
+func (m *mockCmix) RemoveIdentity(*id.ID)                                                        {}
 
 func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) {
 	return identity.TrackedID{Creation: netTime.Now().Add(-time.Minute)}, nil

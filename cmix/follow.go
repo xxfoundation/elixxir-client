@@ -47,12 +47,6 @@ import (
 
 const (
 	debugTrackPeriod = 1 * time.Minute
-
-	// Estimate the number of rounds per second in the network. Will need
-	// updated someday in order to correctly determine how far back to search
-	// rounds for messages as the network continues to grow, otherwise message
-	// drops occur.
-	estimatedRoundsPerSecond = 5
 )
 
 // followNetworkComms is a comms interface to make testing easier.
@@ -68,9 +62,11 @@ type followNetworkComms interface {
 // round status, and informs the client when messages can be retrieved.
 func (c *client) followNetwork(report ClientErrorReport,
 	stop *stoppable.Single) {
-	ticker := time.NewTicker(c.param.TrackNetworkPeriod)
-	TrackTicker := time.NewTicker(debugTrackPeriod)
-	rng := c.rng.GetStream()
+
+	// Keep track of the current tracker period in order to detect changes
+	currentTrackPeriod := c.GetTrackNetworkPeriod()
+	ticker := time.NewTicker(currentTrackPeriod)
+	trackTicker := time.NewTicker(debugTrackPeriod)
 
 	// abandon tracks rounds which data was not found out about in
 	// the verbose rounds debugging mode
@@ -85,7 +81,6 @@ func (c *client) followNetwork(report ClientErrorReport,
 	for {
 		select {
 		case <-stop.Quit():
-			rng.Close()
 			stop.ToStopped()
 			return
 		case <-ticker.C:
@@ -98,7 +93,7 @@ func (c *client) followNetwork(report ClientErrorReport,
 				// trigger the first separately because it will get network state
 				// updates
 				go func() {
-					c.follow(toTrack[0], report, rng, c.comms, stop, abandon,
+					c.follow(toTrack[0], report, c.comms, stop, abandon,
 						true)
 					wg.Done()
 				}()
@@ -106,7 +101,7 @@ func (c *client) followNetwork(report ClientErrorReport,
 				//trigger all others without getting network state updates
 				for i := 1; i < len(toTrack); i++ {
 					go func(index int) {
-						c.follow(toTrack[index], report, rng, c.comms, stop,
+						c.follow(toTrack[index], report, c.comms, stop,
 							dummyAbandon, false)
 						wg.Done()
 					}(i)
@@ -127,6 +122,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 				stream,
 				c.Space.GetAddressSpaceWithoutWait(),
 				operator)
+			if err != nil {
+				jww.ERROR.Printf("failed to operate on identities to "+
+					"track: %s", err)
+			}
 			stream.Close()
 
 			//update clock skew
@@ -134,13 +133,14 @@ func (c *client) followNetwork(report ClientErrorReport,
 			// invert the skew because we need to reverse it
 			netTime.SetOffset(-estimatedSkew)
 
-			if err != nil {
-				jww.ERROR.Printf("failed to operate on identities to "+
-					"track: %s", err)
-				continue
+			// Update ticker if tracker period changes
+			newTrackPeriod := c.GetTrackNetworkPeriod()
+			if newTrackPeriod != currentTrackPeriod {
+				currentTrackPeriod = newTrackPeriod
+				ticker.Reset(currentTrackPeriod)
 			}
 
-		case <-TrackTicker.C:
+		case <-trackTicker.C:
 			numPolls := atomic.SwapUint64(c.tracker, 0)
 			if c.numLatencies != 0 {
 				latencyAvg := time.Nanosecond * time.Duration(
@@ -167,7 +167,7 @@ func (c *client) followNetwork(report ClientErrorReport,
 
 // follow executes an iteration of the follower for a specific identity
 func (c *client) follow(identity receptionID.IdentityUse,
-	report ClientErrorReport, rng csprng.Source, comms followNetworkComms,
+	report ClientErrorReport, comms followNetworkComms,
 	stop *stoppable.Single, abandon func(round id.Round), getUpdates bool) {
 
 	// While polling with a fake identity, it is necessary to have populated
@@ -377,8 +377,8 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	c.SetFakeEarliestRound(earliestTrackedRound)
-	updatedEarliestRound, old, _ := identity.ER.Set(earliestTrackedRound)
-
+	updatedEarliestRound, _, _ := identity.ER.Set(earliestTrackedRound)
+	/* this code looks to be legacy, commenting out to disable and see what happens
 	// If there was no registered rounds for the identity
 	if old == 0 {
 		lastCheckedRound := gwRoundsState.GetLastChecked()
@@ -409,7 +409,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			}
 		}
 		identity.ER.Set(updatedEarliestRound)
-	}
+	}*/
 
 	// Loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are messages
@@ -498,10 +498,10 @@ func (c *client) follow(identity receptionID.IdentityUse,
 func (c *client) getFakeEarliestRound() id.Round {
 	rng := c.rng.GetStream()
 	b, err := csprng.Generate(8, rng)
+	rng.Close()
 	if err != nil {
 		jww.FATAL.Panicf("Could not get random number: %v", err)
 	}
-	rng.Close()
 
 	rangeVal := binary.LittleEndian.Uint64(b) % 800
 

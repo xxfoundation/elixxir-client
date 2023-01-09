@@ -87,7 +87,7 @@ func loginLegacy(net *Cmix, callbacks AuthCallbacks,
 	if err != nil {
 		return nil, err
 	}
-	net.GetCmix().AddIdentity(identity.ID, time.Time{}, true)
+	net.GetCmix().AddIdentity(identity.ID, time.Time{}, true, nil)
 
 	err = net.AddService(m.e2e.StartProcesses)
 	if err != nil {
@@ -173,7 +173,7 @@ func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 		return nil, err
 	}
 
-	net.network.AddIdentity(identity.ID, time.Time{}, true)
+	net.network.AddIdentity(identity.ID, time.Time{}, true, nil)
 	jww.INFO.Printf("Client logged in: \n\tReceptionID: %s", identity.ID)
 	return m, err
 }

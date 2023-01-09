@@ -136,10 +136,11 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
 	testManager.rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	addChan := make(chan network.NodeGateway, 1)
+	mccc := &mockCertCheckerComm{}
 
 	testManager.sender, _ = gateway.NewSender(p,
 		testManager.rng,
-		testNdf, mockComms, testManager.session, addChan)
+		testNdf, mockComms, testManager.session, mccc, addChan)
 	stop := stoppable.NewSingle("singleStoppable")
 
 	// Create a local channel so reception is possible
@@ -214,10 +215,11 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	addChan := make(chan network.NodeGateway, 1)
+	mccc := &mockCertCheckerComm{}
 
 	testManager.sender, _ = gateway.NewSender(p,
 		testManager.rng,
-		testNdf, mockComms, testManager.session, addChan)
+		testNdf, mockComms, testManager.session, mccc, addChan)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)

@@ -8,6 +8,11 @@
 package e2e
 
 import (
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -21,10 +26,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
 // Adds a list of cyphers with different fingerprints with fpGenerator.AddKey
@@ -110,6 +111,11 @@ type mockFpgCmix struct {
 	sync.Mutex
 }
 
+func (m *mockFpgCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockFpgCmix() *mockFpgCmix {
 	return &mockFpgCmix{
 		processors: make(map[id.ID]map[format.Fingerprint]message.Processor),
@@ -125,11 +131,15 @@ func (m *mockFpgCmix) SendWithAssembler(recipient *id.ID, assembler cmix.Message
 	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockFpgCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
-func (m *mockFpgCmix) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockFpgCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockFpgCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
+func (m *mockFpgCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
+func (m *mockFpgCmix) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool, _ message.Processor) {
 }
 func (m *mockFpgCmix) RemoveIdentity(*id.ID) {}
 func (m *mockFpgCmix) GetIdentity(*id.ID) (identity.TrackedID, error) {

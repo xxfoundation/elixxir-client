@@ -299,7 +299,7 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 }
 
 // pop selects an element from the map that tends to be an earlier insert,
-// removes it, and returns it
+// removes it, and returns it.
 func pop(m map[id.ID]interface{}) *id.ID {
 	for tr := range m {
 		delete(m, tr)

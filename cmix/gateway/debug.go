@@ -38,11 +38,11 @@ const (
 //		s3XJj1Bjv4...      | 2
 //		xwtYNogeq2...      | 0
 func (hp *hostPool) GoString() string {
+	// Extract the read pool
 	p := hp.readPool.Load().(*pool)
 
-	toPrint := fmt.Sprintf(debugHeader, hostPoolHeader)
-
 	// Print out the information from the host pool
+	toPrint := fmt.Sprintf(debugHeader, hostPoolHeader)
 	toPrint += fmt.Sprintf(hostPoolTableHeader)
 	for nodeId, position := range p.hostMap {
 		nodePrint := fmt.Sprintf("%s      | %s %s",
@@ -53,6 +53,10 @@ func (hp *hostPool) GoString() string {
 	return toPrint + lineEnd
 }
 
+// removedNodes is a tracker for recently removed nodes from the hostPool. This
+// is a map structure which keys the id.ID of the removed node to the timestamp
+// of when the node is removed. Nodes are added to the tracker in the
+// hostPool.runner thread.
 type removedNodes map[id.ID]time.Time
 
 // GoString is a stringer which will return a tabular format of the removedNodes.

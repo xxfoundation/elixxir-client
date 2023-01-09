@@ -20,11 +20,11 @@ type DummyTraffic struct {
 }
 
 // NewDummyTrafficManager creates a DummyTraffic manager and initialises the
-// dummy traffic sending thread. Note that the manager does not start sending
-// dummy traffic until true is passed into DummyTraffic.SetStatus. The time
-// duration between each sending operation and the amount of messages sent each
-// interval are randomly generated values with bounds defined by the given
-// parameters below.
+// dummy traffic sending thread. Note that the manager is by default paused,
+// and as such the sending thread must be started by calling DummyTraffic.Start.
+// The time duration between each sending operation and the amount of messages
+// sent each interval are randomly generated values with bounds defined by the
+// given parameters below.
 //
 // Parameters:
 //  - cmixId - a Cmix object ID in the tracker.
@@ -53,34 +53,48 @@ func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 	return &DummyTraffic{m}, net.api.AddService(m.StartDummyTraffic)
 }
 
-// SetStatus sets the state of the DummyTraffic manager's send thread by passing
-// in a boolean parameter. There may be a small delay in between this call and
-// the status of the sending thread to change accordingly. For example, passing
-// false into this call while the sending thread is currently sending messages
-// will not cancel nor halt the sending operation, but will pause the thread
-// once that operation has completed.
+// Pause will pause the Manager's sending thread, meaning messages will no
+// longer be sent. After calling Pause, the sending thread may only be resumed
+// by calling Resume.
 //
-// Parameters:
-//  - status - Input should be true if you want to send dummy messages and false
-//    if you want to pause dummy messages.
+// There may be a small delay between this call and the pause taking effect.
+// This is because Pause will not cancel the thread when it is in the process
+// of sending messages, but will instead wait for that thread to complete. The
+// thread will then be prevented from beginning another round of sending.
+func (dt *DummyTraffic) Pause() error {
+	return dt.m.Pause()
+}
+
+// Resume will resume the Manager's sending thread, meaning messages will
+// continue to be sent. This should typically be called only if the thread
+// has been paused by calling Pause previously.
 //
-// Returns:
-//  - error - if the DummyTraffic.SetStatus is called too frequently, causing
-//    the internal status channel to fill.
-func (dt *DummyTraffic) SetStatus(status bool) error {
-	return dt.m.SetStatus(status)
+// This will re-initialize the sending thread with a new randomly generated
+// interval between sending dummy messages. This means that there is zero
+// guarantee that the sending interval prior to pausing will be the same
+// sending interval after a call to Resume.
+func (dt *DummyTraffic) Resume() error {
+	return dt.m.Resume()
+}
+
+// Start will start the sending thread. This is meant to be called after
+// NewDummyTrafficManager.
+//
+// This will initialize the sending thread with a randomly generated interval
+// in between sending dummy messages.
+func (dt *DummyTraffic) Start() error {
+	return dt.m.Start()
 }
 
 // GetStatus returns the current state of the DummyTraffic manager's sending
-// thread. Note that this function does not return the status set by the most
-// recent call to SetStatus. Instead, this call returns the current status of
-// the sending thread. This is due to the small delay that may occur between
-// calling SetStatus and the sending thread taking into effect that status
-// change.
+// thread. Note that the status returned here may lag behind a user's earlier
+// call to pause the sending thread. This is a result of a small delay (see
+// DummyTraffic.Pause for more details)
 //
 // Returns:
-//   - bool - Returns true if sending thread is sending dummy messages and false
-//     if sending thread is paused/stopped and is not sending dummy messages.
+//   - bool - Returns true (dummy.Running) if the sending thread is sending
+//     messages and false (dummy.Paused) if the sending thread is not sending
+//     messages.
 func (dt *DummyTraffic) GetStatus() bool {
 	return dt.m.GetStatus()
 }

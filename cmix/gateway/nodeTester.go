@@ -65,20 +65,21 @@ func (hp *hostPool) nodeTester(stop *stoppable.Single) {
 				err := bestHost.Connect()
 
 				if err == nil {
+					// TODO: cert checker is broken in js, a new system is needed
 					// Check remote certificates for web hosts
-					err = hp.cc.CheckRemoteCertificate(bestHost)
-					if err == nil {
-						select {
-						case hp.newHost <- bestHost:
-						default:
-							jww.ERROR.Printf("failed to send best host to main thread, " +
-								"will be dropped, new addRequest to be sent")
-							bestHost = nil
-						}
-					} else {
-						jww.WARN.Printf("Remote certificate check for bestHost %s failed with error %+v, will be dropped", bestHost.GetId(), err)
+					//err = hp.cc.CheckRemoteCertificate(bestHost)
+					//if err == nil {
+					select {
+					case hp.newHost <- bestHost:
+					default:
+						jww.ERROR.Printf("failed to send best host to main thread, " +
+							"will be dropped, new addRequest to be sent")
 						bestHost = nil
 					}
+					//} else {
+					//	jww.WARN.Printf("Remote certificate check for bestHost %s failed with error %+v, will be dropped", bestHost.GetId(), err)
+					//	bestHost = nil
+					//}
 
 				} else {
 					jww.WARN.Printf("Failed to connect to bestHost %s with error %+v, will be dropped", bestHost.GetId(), err)

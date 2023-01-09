@@ -42,6 +42,7 @@ func (m *manager) loadDMTokens() {
 	if err != nil {
 		jww.ERROR.Printf("loading channel dmTokens: %v", err)
 		m.dmTokens = make(map[id.ID]uint32)
+		return
 	}
 	err = json.Unmarshal(obj.Data, &m.dmTokens)
 	if err != nil {
@@ -57,7 +58,6 @@ func (m *manager) enableDirectMessageToken(chId *id.ID) error {
 	token := m.me.GetDMToken()
 	m.dmTokens[*chId] = token
 	return m.saveDMTokens()
-
 }
 
 // disableDirectMessageToken is a helper functions for DisableDirectMessageToken

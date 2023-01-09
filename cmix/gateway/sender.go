@@ -14,13 +14,14 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/comms/network"
+	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -34,60 +35,79 @@ type Sender interface {
 	UpdateNdf(ndf *ndf.NetworkDefinition)
 	SetGatewayFilter(f Filter)
 	GetHostParams() connect.HostParams
+	StartProcesses() stoppable.Stoppable
 }
 
 type sender struct {
-	*HostPool
+	*hostPool
 }
 
 const RetryableError = "Nonfatal error occurred, please retry"
 
-// NewSender Create a new Sender object wrapping a HostPool object
-func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator,
-	ndf *ndf.NetworkDefinition, getter HostManager, storage storage.Session,
-	addGateway chan network.NodeGateway) (Sender, error) {
+// NewSender creates a new Sender object wrapping a HostPool object
+func NewSender(poolParams Params, rng *fastRNG.StreamGenerator,
+	ndf *ndf.NetworkDefinition, getter HostManager,
+	storage storage.Session, comms CertCheckerCommInterface,
+	addChan chan commNetwork.NodeGateway) (Sender, error) {
 
-	hostPool, err := newHostPool(
-		poolParams, rng, ndf, getter, storage, addGateway)
+	hp, err := newHostPool(poolParams, rng, ndf,
+		getter, storage, addChan, comms)
 	if err != nil {
 		return nil, err
 	}
-	return &sender{hostPool}, nil
+	return &sender{hp}, nil
 }
 
-// SendToAny call given sendFunc to any Host in the HostPool, attempting with up
-// to numProxies destinations.
+// NewSender creates a new Sender object wrapping a HostPool object
+func NewTestingSender(poolParams Params, rng *fastRNG.StreamGenerator,
+	ndf *ndf.NetworkDefinition, getter HostManager,
+	storage storage.Session, addChan chan commNetwork.NodeGateway,
+	t *testing.T) (Sender, error) {
+
+	if t == nil {
+		jww.FATAL.Panicf("can only be called in testing")
+	}
+
+	hp, err := newTestingHostPool(poolParams, rng, ndf,
+		getter, storage, addChan, nil, t)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sender{hp}, nil
+}
+
+// SendToAny will call the given send function to any connect.Host in the host pool.
 func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 	stop *stoppable.Single) (interface{}, error) {
 
-	proxies := s.getAny(s.poolParams.ProxyAttempts, nil)
+	p := s.getPool()
+
+	if err := p.IsReady(); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to SendToAny")
+	}
+
+	rng := s.rng.GetStream()
+
+	proxies := p.GetAny(s.params.ProxyAttempts, nil, rng)
+	rng.Close()
 	for proxy := range proxies {
-		result, err := sendFunc(proxies[proxy])
+		proxyHost := proxies[proxy]
+		result, err := sendFunc(proxyHost)
 		if stop != nil && !stop.IsRunning() {
 			return nil,
 				errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToAny")
 		} else if err == nil {
 			return result, nil
 		} else {
-			// Now we must check whether the Host should be replaced
-			replaced, checkReplaceErr := s.checkReplace(
-				proxies[proxy].GetId(), err)
-			if replaced {
-				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s "+
-					"with error %s", proxies[proxy].GetId(), err.Error())
-			} else {
-				if checkReplaceErr != nil {
-					jww.WARN.Printf("Unable to SendToAny via %s: %s. "+
-						"Unable to replace host: %+v",
-						proxies[proxy].GetId(), err.Error(), checkReplaceErr)
-				} else {
-					jww.WARN.Printf("Unable to SendToAny via %s: %s. "+
-						"Did not replace host.",
-						proxies[proxy].GetId(), err.Error())
-				}
+			// send a signal to remove from the host pool if it is a not
+			// allowed error
+			if IsGuilty(err) {
+				s.Remove(proxyHost)
 			}
 
-			// End for non-retryable errors
+			// If the send function denotes the error are recoverable,
+			// try another host
 			if !strings.Contains(err.Error(), RetryableError) {
 				return nil,
 					errors.WithMessage(err, "Received error with SendToAny")
@@ -102,16 +122,24 @@ func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 type SendToPreferredFunc func(host *connect.Host, target *id.ID,
 	timeout time.Duration) (interface{}, error)
 
-// SendToPreferred Call given sendFunc to any Host in the HostPool, attempting
-// with up to numProxies destinations. Returns an error if the timeout is
-// reached.
+// SendToPreferred calls the given send function to any connect.Host in the
+// host pool, attempting. Returns an error if the timeout is reached.
 func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
 
 	startTime := netTime.Now()
 
+	p := s.getPool()
+
+	if err := p.IsReady(); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to SendToPreferred")
+	}
+
+	rng := s.rng.GetStream()
+	defer rng.Close()
+
 	// get the hosts and shuffle randomly
-	targetHosts := s.getPreferred(targets)
+	targetHosts := p.GetPreferred(targets, rng)
 
 	// Attempt to send directly to targets if they are in the HostPool
 	for i := range targetHosts {
@@ -129,36 +157,27 @@ func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 		} else if err == nil {
 			return result, nil
 		} else {
-			// Now we must check whether the Host should be replaced
-			replaced, checkReplaceErr := s.checkReplace(targetHosts[i].GetId(), err)
-			if replaced {
-				jww.WARN.Printf("Unable to SendToPreferred first pass via %s, "+
-					"replaced a proxy %s with error %s",
-					targets[i], targetHosts[i].GetId(), err.Error())
-			} else {
-				if checkReplaceErr != nil {
-					jww.WARN.Printf("Unable to SendToPreferred first pass %s "+
-						"via %s: %s. Unable to replace host: %+v", targets[i],
-						targetHosts[i].GetId(), err.Error(), checkReplaceErr)
-				} else {
-					jww.WARN.Printf("Unable to SendToPreferred first pass %s "+
-						"via %s: %s. Did not replace host.",
-						targets[i], targetHosts[i].GetId(), err.Error())
-				}
+			// send a signal to remove from the host pool if it is a not
+			// allowed error
+			if IsGuilty(err) {
+				s.Remove(targetHosts[i])
 			}
 
-			// End for non-retryable errors
+			// If the send function denotes the error are recoverable,
+			// try another host
 			if !strings.Contains(err.Error(), RetryableError) {
-				return nil, errors.WithMessage(
-					err, "Received error with SendToPreferred")
+				return nil,
+					errors.WithMessage(err, "Received error with SendToAny")
 			}
 		}
 	}
 
+	//re-get the pool in case it has had an update
+	p = s.getPool()
 	// Build a list of proxies for every target
 	proxies := make([][]*connect.Host, len(targets))
 	for i := 0; i < len(targets); i++ {
-		proxies[i] = s.getAny(s.poolParams.ProxyAttempts, targets)
+		proxies[i] = p.GetAny(s.params.ProxyAttempts, targets, rng)
 	}
 
 	// Build a map of bad proxies
@@ -166,7 +185,7 @@ func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 
 	// Iterate between each target's list of proxies, using the next target for
 	// each proxy
-	for proxyIdx := uint32(0); proxyIdx < s.poolParams.ProxyAttempts; proxyIdx++ {
+	for proxyIdx := uint32(0); proxyIdx < s.params.ProxyAttempts; proxyIdx++ {
 		for targetIdx := range proxies {
 			// Return an error if the timeout duration is reached
 			if netTime.Since(startTime) > timeout {
@@ -203,23 +222,17 @@ func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 					target, proxy, err)
 				continue
 			} else {
-				// Check whether the Host should be replaced
-				replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err)
-				badProxies[proxy.String()] = nil
-				if replaced {
-					jww.WARN.Printf("Unable to SendToPreferred second pass "+
-						"via %s, replaced a proxy %s with error %s",
-						target, proxy.GetId(), err.Error())
-				} else {
-					if checkReplaceErr != nil {
-						jww.WARN.Printf("Unable to SendToPreferred second "+
-							"pass %s via %s: %s. Unable to replace host: %+v",
-							target, proxy.GetId(), err.Error(), checkReplaceErr)
-					} else {
-						jww.WARN.Printf("Unable to SendToPreferred second "+
-							"pass %s via %s: %s. Did not replace host.",
-							target, proxy.GetId(), err.Error())
-					}
+				// send a signal to remove from the host pool if it is a not
+				// allowed error
+				if IsGuilty(err) {
+					s.Remove(proxy)
+				}
+
+				// If the send function denotes the error are recoverable,
+				// try another host
+				if !strings.Contains(err.Error(), RetryableError) {
+					return nil,
+						errors.WithMessage(err, "Received error with SendToAny")
 				}
 
 				// End for non-retryable errors

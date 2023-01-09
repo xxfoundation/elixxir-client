@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -39,8 +40,9 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	testManager.sender, _ = gateway.NewSender(
-		p, rngGen, testNdf, mockComms, testManager.session, nil)
+	addChan := make(chan network.NodeGateway, 1)
+	testManager.sender, _ = gateway.NewTestingSender(
+		p, rngGen, testNdf, mockComms, testManager.session, addChan, t)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)

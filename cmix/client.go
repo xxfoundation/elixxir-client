@@ -186,9 +186,8 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
-	poolParams.ForceConnection = true
 	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
-		c.session, nodeChan)
+		c.session, c.comms, nodeChan)
 	if err != nil {
 		return err
 	}
@@ -287,6 +286,9 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 
 	//Start the critical processing thread
 	multi.Add(c.crit.startProcessies())
+
+	//start the host pool thread
+	multi.Add(c.Sender.StartProcesses())
 
 	return multi, nil
 }

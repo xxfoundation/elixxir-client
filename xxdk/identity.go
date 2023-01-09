@@ -16,7 +16,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -82,8 +82,9 @@ func (r ReceptionIdentity) GetDHKeyPrivate() (*cyclic.Int, error) {
 }
 
 // GetRSAPrivateKey returns the RSAPrivatePem.
-func (r ReceptionIdentity) GetRSAPrivateKey() (*rsa.PrivateKey, error) {
-	return rsa.LoadPrivateKeyFromPem(r.RSAPrivatePem)
+func (r ReceptionIdentity) GetRSAPrivateKey() (rsa.PrivateKey, error) {
+	sch := rsa.GetScheme()
+	return sch.UnmarshalPrivateKeyPEM(r.RSAPrivatePem)
 }
 
 // GetGroup returns the cyclic.Group.
@@ -99,8 +100,10 @@ func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	defer rng.Close()
 	grp := net.GetStorage().GetE2EGroup()
 
+	sch := rsa.GetScheme()
+
 	// Make RSA Key
-	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	rsaKey, err := sch.GenerateDefault(rng)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}
@@ -113,7 +116,7 @@ func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	privKey := diffieHellman.GeneratePrivateKey(len(grp.GetPBytes()), grp, rng)
 
 	// make the ID
-	newId, err := xx.NewID(rsaKey.GetPublic(), salt, id.User)
+	newId, err := xx.NewID(rsaKey.Public().GetOldRSA(), salt, id.User)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}
@@ -129,7 +132,7 @@ func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	}
 
 	// Create the identity object
-	rsaPem := rsa.CreatePrivateKeyPem(rsaKey)
+	rsaPem := rsaKey.MarshalPem()
 	I := ReceptionIdentity{
 		ID:            newId,
 		RSAPrivatePem: rsaPem,
@@ -185,7 +188,7 @@ func (r ReceptionIdentity) GetContact() contact.Contact {
 // buildReceptionIdentity creates a new ReceptionIdentity from the given
 // user.Info.
 func buildReceptionIdentity(receptionId *id.ID, receptionSalt []byte,
-	receptionRsa *rsa.PrivateKey, e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (
+	receptionRsa rsa.PrivateKey, e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (
 	ReceptionIdentity, error) {
 	saltCopy := make([]byte, len(receptionSalt))
 	copy(saltCopy, receptionSalt)
@@ -201,7 +204,7 @@ func buildReceptionIdentity(receptionId *id.ID, receptionSalt []byte,
 
 	return ReceptionIdentity{
 		ID:            receptionId.DeepCopy(),
-		RSAPrivatePem: rsa.CreatePrivateKeyPem(receptionRsa),
+		RSAPrivatePem: receptionRsa.MarshalPem(),
 		Salt:          saltCopy,
 		DHKeyPrivate:  privKey,
 		E2eGrp:        grp,
@@ -212,7 +215,7 @@ func buildReceptionIdentity(receptionId *id.ID, receptionSalt []byte,
 // network via a specific Cmix object.
 type TransmissionIdentity struct {
 	ID            *id.ID
-	RSAPrivatePem *rsa.PrivateKey
+	RSAPrivatePem rsa.PrivateKey
 	Salt          []byte
 
 	// Timestamp of when the user has registered with the network

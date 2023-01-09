@@ -29,7 +29,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/region"
@@ -253,8 +252,8 @@ func (c *Cmix) initComms() error {
 	// get the user from session
 	transmissionIdentity := c.GetTransmissionIdentity()
 	privKey := transmissionIdentity.RSAPrivatePem
-	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
-	privPEM := rsa.CreatePrivateKeyPem(privKey)
+	pubPEM := privKey.Public().MarshalPem()
+	privPEM := privKey.MarshalPem()
 
 	// start comms
 	c.comms, err = client.NewClientComms(transmissionIdentity.ID,

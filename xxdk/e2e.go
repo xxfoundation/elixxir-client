@@ -121,7 +121,7 @@ func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 	if err != nil {
 		return nil, err
 	}
-	generatedId, err := xx.NewID(privatePem.GetPublic(), identity.Salt, id.User)
+	generatedId, err := xx.NewID(privatePem.Public().GetOldRSA(), identity.Salt, id.User)
 	if err != nil {
 		return nil, err
 	}

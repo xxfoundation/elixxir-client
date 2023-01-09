@@ -67,17 +67,12 @@ func (cc *certChecker) CheckRemoteCertificate(gwHost *connect.Host) error {
 	remoteCertSignature := gwTlsCertResp.GetSignature()
 	declaredFingerprint := sha256.Sum256(gwTlsCertResp.GetCertificate())
 
-	// FIXME: http package does not set the tls certificate when compiled for js/wasm
-	// This is because the js implementation uses fetch in javascript, which does not get this information
-	// See https://cs.opensource.google/go/go/+/refs/tags/go1.19.4:src/net/http/roundtrip_js.go
-	// Potential fix (for firefox only) is acessing request security information via webRequest
-	// https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest#accessing_security_information
-	//// Get remote certificate used for connection from the host object
-	//actualRemoteCert, err := gwHost.GetRemoteCertificate()
-	//if err != nil {
-	//	return err
-	//}
-	rawActualRemoteCert := gwTlsCertResp.Certificate //actualRemoteCert.Raw
+	// Get remote certificate used for connection from the host object
+	actualRemoteCert, err := gwHost.GetRemoteCertificate()
+	if err != nil {
+		return err
+	}
+	rawActualRemoteCert := actualRemoteCert.Raw
 	actualFingerprint := sha256.Sum256(rawActualRemoteCert)
 
 	// If the fingerprints of the used & declared certs do not match, return an error

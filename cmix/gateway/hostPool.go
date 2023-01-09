@@ -58,8 +58,6 @@ type hostPool struct {
 	kv        *versioned.KV
 	addChan   chan commNetwork.NodeGateway
 
-	cc *certChecker
-
 	/* computed parameters*/
 	numNodesToTest int
 }
@@ -137,7 +135,6 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
 		addChan: addChan,
-		cc:      newCertChecker(comms, storage.GetKV()),
 	}
 	hp.readPool.Store(p.deepCopy())
 

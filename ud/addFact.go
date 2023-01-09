@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -53,7 +52,7 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	}
 	stream := m.getRng().GetStream()
 	defer stream.Close()
-	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
+	fSig, err := privKey.SignPSS(stream, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return "", err
 	}

@@ -17,8 +17,8 @@ import (
 // registerWithPermissioning returns an error if registration fails.
 func (c *Cmix) registerWithPermissioning() error {
 	// Get the users public key
-	transmissionPubKey := c.storage.GetTransmissionRSA().GetPublic()
-	receptionPubKey := c.storage.GetReceptionRSA().GetPublic()
+	transmissionPubKey := c.storage.GetTransmissionRSA().Public()
+	receptionPubKey := c.storage.GetReceptionRSA().Public()
 
 	// Load the registration code
 	regCode, err := c.storage.GetRegCode()

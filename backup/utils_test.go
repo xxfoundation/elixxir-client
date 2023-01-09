@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -48,16 +48,17 @@ type mockSession struct {
 	transmissionSalt                            []byte
 	receptionID                                 *id.ID
 	receptionSalt                               []byte
-	receptionRSA                                *rsa.PrivateKey
-	transmissionRSA                             *rsa.PrivateKey
+	receptionRSA                                rsa.PrivateKey
+	transmissionRSA                             rsa.PrivateKey
 	transmissionRegistrationValidationSignature []byte
 	receptionRegistrationValidationSignature    []byte
 	registrationTimestamp                       time.Time
 }
 
 func newMockSession(t testing.TB) *mockSession {
-	receptionRSA, _ := rsa.LoadPrivateKeyFromPem([]byte(privKey))
-	transmissionRSA, _ := rsa.LoadPrivateKeyFromPem([]byte(privKey))
+	sch := rsa.GetScheme()
+	receptionRSA, _ := sch.UnmarshalPrivateKeyPEM([]byte(privKey))
+	transmissionRSA, _ := sch.UnmarshalPrivateKeyPEM([]byte(privKey))
 
 	return &mockSession{
 		regCode:          "regCode",
@@ -73,13 +74,13 @@ func newMockSession(t testing.TB) *mockSession {
 	}
 
 }
-func (m mockSession) GetRegCode() (string, error)         { return m.regCode, nil }
-func (m mockSession) GetTransmissionID() *id.ID           { return m.transmissionID }
-func (m mockSession) GetTransmissionSalt() []byte         { return m.transmissionSalt }
-func (m mockSession) GetReceptionID() *id.ID              { return m.receptionID }
-func (m mockSession) GetReceptionSalt() []byte            { return m.receptionSalt }
-func (m mockSession) GetReceptionRSA() *rsa.PrivateKey    { return m.receptionRSA }
-func (m mockSession) GetTransmissionRSA() *rsa.PrivateKey { return m.transmissionRSA }
+func (m mockSession) GetRegCode() (string, error)        { return m.regCode, nil }
+func (m mockSession) GetTransmissionID() *id.ID          { return m.transmissionID }
+func (m mockSession) GetTransmissionSalt() []byte        { return m.transmissionSalt }
+func (m mockSession) GetReceptionID() *id.ID             { return m.receptionID }
+func (m mockSession) GetReceptionSalt() []byte           { return m.receptionSalt }
+func (m mockSession) GetReceptionRSA() rsa.PrivateKey    { return m.receptionRSA }
+func (m mockSession) GetTransmissionRSA() rsa.PrivateKey { return m.transmissionRSA }
 func (m mockSession) GetTransmissionRegistrationValidationSignature() []byte {
 	return m.transmissionRegistrationValidationSignature
 }

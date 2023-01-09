@@ -279,13 +279,13 @@ func TestBackup_AddJson(t *testing.T) {
 		RegistrationCode:      s.regCode,
 		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.transmissionRSA,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
 			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
 			Salt:                 s.transmissionSalt,
 			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.receptionRSA,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
 			RegistrarSignature:   s.receptionRegistrationValidationSignature,
 			Salt:                 s.receptionSalt,
 			ComputedID:           s.receptionID,
@@ -318,13 +318,13 @@ func TestBackup_AddJson_badJson(t *testing.T) {
 		RegistrationCode:      s.regCode,
 		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.transmissionRSA,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
 			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
 			Salt:                 s.transmissionSalt,
 			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.receptionRSA,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
 			RegistrarSignature:   s.receptionRegistrationValidationSignature,
 			Salt:                 s.receptionSalt,
 			ComputedID:           s.receptionID,
@@ -358,13 +358,13 @@ func TestBackup_assembleBackup(t *testing.T) {
 		RegistrationCode:      s.regCode,
 		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.transmissionRSA,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
 			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
 			Salt:                 s.transmissionSalt,
 			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.receptionRSA,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
 			RegistrarSignature:   s.receptionRegistrationValidationSignature,
 			Salt:                 s.receptionSalt,
 			ComputedID:           s.receptionID,

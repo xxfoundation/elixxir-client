@@ -11,9 +11,9 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"testing"
@@ -21,6 +21,8 @@ import (
 
 // Test loading user from a KV store
 func TestLoadUser(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	_, err := LoadUser(kv)
 
@@ -37,8 +39,11 @@ func TestLoadUser(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	ci := newCryptographicIdentity(uid, uid, salt, salt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey, kv)
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey, kv)
 	err = ci.save(kv)
 	if err != nil {
 		t.Errorf("Failed to save ci to kv: %+v", err)
@@ -52,6 +57,8 @@ func TestLoadUser(t *testing.T) {
 
 // Test NewUser function
 func TestNewUser(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
@@ -62,8 +69,11 @@ func TestNewUser(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}

@@ -11,9 +11,9 @@ import (
 	"crypto/ed25519"
 	"time"
 
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -22,7 +22,7 @@ import (
 
 type mockComms struct {
 	udHost            *connect.Host
-	userRsaPub        *rsa.PublicKey
+	userRsaPub        rsa.PublicKey
 	userEd25519PubKey []byte
 	udPrivKey         *ed25519.PrivateKey
 	username          string
@@ -66,7 +66,7 @@ func (m *mockComms) SetUDEd25519PrivateKey(key *ed25519.PrivateKey) {
 	m.udPrivKey = key
 }
 
-func (m *mockComms) SetUserRSAPubKey(userRsaPub *rsa.PublicKey) {
+func (m *mockComms) SetUserRSAPubKey(userRsaPub rsa.PublicKey) {
 	m.userRsaPub = userRsaPub
 }
 

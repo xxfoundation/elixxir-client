@@ -33,13 +33,13 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -377,8 +377,8 @@ func (m *mockStorage) GetTransmissionID() *id.ID                              { 
 func (m *mockStorage) GetTransmissionSalt() []byte                            { panic("implement me") }
 func (m *mockStorage) GetReceptionID() *id.ID                                 { panic("implement me") }
 func (m *mockStorage) GetReceptionSalt() []byte                               { panic("implement me") }
-func (m *mockStorage) GetReceptionRSA() *rsa.PrivateKey                       { panic("implement me") }
-func (m *mockStorage) GetTransmissionRSA() *rsa.PrivateKey                    { panic("implement me") }
+func (m *mockStorage) GetReceptionRSA() rsa.PrivateKey                        { panic("implement me") }
+func (m *mockStorage) GetTransmissionRSA() rsa.PrivateKey                     { panic("implement me") }
 func (m *mockStorage) IsPrecanned() bool                                      { panic("implement me") }
 func (m *mockStorage) SetUsername(string) error                               { panic("implement me") }
 func (m *mockStorage) GetUsername() (string, error)                           { panic("implement me") }

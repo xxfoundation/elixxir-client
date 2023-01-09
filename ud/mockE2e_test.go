@@ -24,8 +24,8 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
 	"time"
@@ -43,7 +43,7 @@ type mockE2e struct {
 	network   cmix.Client
 	mockStore mockStorage
 	t         testing.TB
-	key       *rsa.PrivateKey
+	key       rsa.PrivateKey
 }
 
 func (m mockE2e) GetBackupContainer() *xxdk.Container {
@@ -61,7 +61,7 @@ func (m mockE2e) GetReceptionIdentity() xxdk.ReceptionIdentity {
 
 	return xxdk.ReceptionIdentity{
 		ID:            id.NewIdFromString("test", id.User, m.t),
-		RSAPrivatePem: rsa.CreatePrivateKeyPem(m.key),
+		RSAPrivatePem: m.key.MarshalPem(),
 		Salt:          []byte("test"),
 		DHKeyPrivate:  dhPrivKey,
 		E2eGrp:        grp,

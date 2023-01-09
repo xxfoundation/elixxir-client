@@ -19,12 +19,12 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/chacha"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -157,7 +157,7 @@ func (m mockSender) GetHostParams() connect.HostParams {
 
 type mockSession struct {
 	isPrecanned     bool
-	privKey         *rsa.PrivateKey
+	privKey         rsa.PrivateKey
 	timeStamp       time.Time
 	salt            []byte
 	transmissionSig []byte
@@ -179,7 +179,7 @@ func (m mockSession) IsPrecanned() bool {
 	return m.isPrecanned
 }
 
-func (m mockSession) GetTransmissionRSA() *rsa.PrivateKey {
+func (m mockSession) GetTransmissionRSA() rsa.PrivateKey {
 	return m.privKey
 }
 
@@ -201,7 +201,7 @@ func (m mockSession) GetTransmissionRegistrationValidationSignature() []byte {
 
 // Mock client comms object adhering to RegisterNodeCommsInterface for testing.
 type MockClientComms struct {
-	rsaPrivKey *rsa.PrivateKey
+	rsaPrivKey rsa.PrivateKey
 	dhPrivKey  *cyclic.Int
 	rand       csprng.Source
 	grp        *cyclic.Group
@@ -235,20 +235,22 @@ func (m *MockClientComms) SendRequestClientKeyMessage(_ *connect.Host,
 	}
 
 	// Define hashing algorithm
-	opts := rsa.NewDefaultOptions()
+	opts := rsa.NewDefaultPSSOptions()
 	opts.Hash = hash.CMixHash
 	h := opts.Hash.New()
+
+	sch := rsa.GetScheme()
 
 	// Extract RSA pubkey
 	clientRsaPub := clientTransmissionConfirmation.RSAPubKey
 	// Assemble client public key into rsa.PublicKey
-	userPublicKey, err := rsa.LoadPublicKeyFromPem([]byte(clientRsaPub))
+	userPublicKey, err := sch.UnmarshalPublicKeyPEM([]byte(clientRsaPub))
 	if err != nil {
 		m.t.Fatalf("Failed to load public key: %+v", err)
 	}
 
 	// Parse user ID
-	userId, err := xx.NewID(userPublicKey, msg.GetSalt(), id.User)
+	userId, err := xx.NewID(userPublicKey.GetOldRSA(), msg.GetSalt(), id.User)
 	if err != nil {
 		m.t.Fatalf("Failed to generate user id: %+v", err)
 	}
@@ -298,7 +300,7 @@ func (m *MockClientComms) SendRequestClientKeyMessage(_ *connect.Host,
 	hashed := h.Sum(nil)
 
 	// Sign the nonce
-	signed, err := rsa.Sign(m.rand, m.rsaPrivKey, opts.Hash, hashed, opts)
+	signed, err := m.rsaPrivKey.SignPSS(m.rand, opts.Hash, hashed, opts)
 	if err != nil {
 		m.t.Fatalf("Failed to sign a request (as mock gateway): %+v", err)
 	}

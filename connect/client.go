@@ -12,13 +12,13 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 )
 
 // buildClientAuthRequest is a helper function which constructs a marshalled
 // IdentityAuthentication message.
 func buildClientAuthRequest(newPartner partner.Manager,
-	rng *fastRNG.StreamGenerator, rsaPrivKey *rsa.PrivateKey,
+	rng *fastRNG.StreamGenerator, rsaPrivKey rsa.PrivateKey,
 	salt []byte) ([]byte, error) {
 
 	// Create signature
@@ -28,7 +28,7 @@ func buildClientAuthRequest(newPartner partner.Manager,
 	signature, err := sign(stream, rsaPrivKey, connectionFp)
 
 	// Construct message
-	pemEncodedRsaPubKey := rsa.CreatePublicKeyPem(rsaPrivKey.GetPublic())
+	pemEncodedRsaPubKey := rsaPrivKey.Public().MarshalPem()
 	iar := &IdentityAuthentication{
 		Signature: signature,
 		RsaPubKey: pemEncodedRsaPubKey,

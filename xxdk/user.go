@@ -21,8 +21,8 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -35,19 +35,19 @@ const (
 // createNewUser generates an identity for cMix.
 func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.Info {
 	// CMIX Keygen
-	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
+	var transmissionRsaKey, receptionRsaKey rsa.PrivateKey
 	var transmissionSalt, receptionSalt []byte
 
 	e2eKeyBytes, transmissionSalt, receptionSalt,
 		transmissionRsaKey, receptionRsaKey := createKeys(rng, e2eGroup)
 
-	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
+	transmissionID, err := xx.NewID(transmissionRsaKey.Public().GetOldRSA(),
 		transmissionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	receptionID, err := xx.NewID(receptionRsaKey.GetPublic(),
+	receptionID, err := xx.NewID(receptionRsaKey.Public().GetOldRSA(),
 		receptionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
@@ -69,7 +69,8 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 
 func createKeys(rng *fastRNG.StreamGenerator, e2e *cyclic.Group) (
 	e2eKeyBytes, transmissionSalt, receptionSalt []byte,
-	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
+	transmissionRsaKey, receptionRsaKey rsa.PrivateKey) {
+	sch := rsa.GetScheme()
 	wg := sync.WaitGroup{}
 
 	wg.Add(3)
@@ -94,7 +95,7 @@ func createKeys(rng *fastRNG.StreamGenerator, e2e *cyclic.Group) (
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		transmissionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		transmissionRsaKey, err = sch.GenerateDefault(stream)
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
 		}
@@ -110,7 +111,7 @@ func createKeys(rng *fastRNG.StreamGenerator, e2e *cyclic.Group) (
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		receptionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		receptionRsaKey, err = sch.GenerateDefault(stream)
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
 		}
@@ -137,8 +138,10 @@ func createNewVanityUser(rng csprng.Source,
 
 	e2eKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, rng)
 
+	sch := rsa.GetScheme()
+
 	// RSA Keygen (4096 bit defaults)
-	transmissionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	transmissionRsaKey, err := sch.GenerateDefault(rng)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
@@ -152,13 +155,13 @@ func createNewVanityUser(rng csprng.Source,
 	if n != SaltSize {
 		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
 	}
-	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
+	transmissionID, err := xx.NewID(transmissionRsaKey.Public().GetOldRSA(),
 		transmissionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	receptionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	receptionRsaKey, err := sch.GenerateDefault(rng)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
@@ -212,7 +215,7 @@ func createNewVanityUser(rng csprng.Source,
 							n)
 					}
 					rID, err := xx.NewID(
-						receptionRsaKey.GetPublic(),
+						receptionRsaKey.Public().GetOldRSA(),
 						rSalt, id.User)
 					if err != nil {
 						jww.FATAL.Panicf(err.Error())
@@ -262,8 +265,10 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, grp *cyclic.Group)
 	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
 	userID.SetType(id.User)
 
+	sch := rsa.GetScheme()
+
 	// NOTE: not used... RSA Keygen (4096 bit defaults)
-	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	rsaKey, err := sch.GenerateDefault(rng)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}

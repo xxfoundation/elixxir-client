@@ -12,9 +12,9 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"time"
@@ -120,12 +120,12 @@ func (m mockSession) GetReceptionSalt() []byte {
 	panic("implement me")
 }
 
-func (m mockSession) GetReceptionRSA() *rsa.PrivateKey {
+func (m mockSession) GetReceptionRSA() rsa.PrivateKey {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m mockSession) GetTransmissionRSA() *rsa.PrivateKey {
+func (m mockSession) GetTransmissionRSA() rsa.PrivateKey {
 	//TODO implement me
 	panic("implement me")
 }

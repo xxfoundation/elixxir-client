@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 	"os"
@@ -93,7 +94,7 @@ var channelsCmd = &cobra.Command{
 
 		// Read or create new channel identity
 		if utils.Exists(path) {
-			// Load channel idenity
+			// Load channel identity
 			channelIdentity, err = readChannelIdentity(path)
 			if err != nil {
 				jww.FATAL.Panicf("[%s] Failed to read channel identity: %+v",
@@ -118,7 +119,7 @@ var channelsCmd = &cobra.Command{
 		// Construct channels manager
 		chanManager, err := channels.NewManager(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder)
+			mockEventModelBuilder, user.AddService)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)
@@ -166,8 +167,8 @@ var channelsCmd = &cobra.Command{
 		err = makeChannelReceptionHandler(integrationChannelMessage,
 			chanManager)
 		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to create reception handler for message type %s: %+v",
-				channelsPrintHeader, channels.Text, err)
+			jww.FATAL.Panicf("[%s] Failed to create reception handler for " +
+				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
 		}
 
 		// Send message
@@ -245,19 +246,18 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 // channel.
 func sendMessageToChannel(chanManager channels.Manager,
 	channel *cryptoBroadcast.Channel, msgBody []byte) error {
-	jww.INFO.Printf("[%s] Sending message (%s) to channel %s", channelsPrintHeader, msgBody,
-		channel.Name)
+	jww.INFO.Printf("[%s] Sending message (%s) to channel %s",
+		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
-		channel.ReceptionID, integrationChannelMessage,
-		msgBody, 5*time.Second,
-		cmix.GetDefaultCMIXParams())
+		channel.ReceptionID, integrationChannelMessage, msgBody, 5*time.Second,
+		true, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		return errors.Errorf("%+v", err)
 	}
 
-	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with message ID %s on round %d",
-		channelsPrintHeader, msgBody,
-		channel.Name, channel.ReceptionID, chanMsgId, round.ID)
+	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with " +
+		"message ID %s on round %d", channelsPrintHeader, msgBody, channel.Name,
+		channel.ReceptionID, chanMsgId, round.ID)
 	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
 
 	return nil
@@ -268,12 +268,10 @@ func sendMessageToChannel(chanManager channels.Manager,
 func makeChannelReceptionHandler(msgType channels.MessageType,
 	chanManager channels.Manager) error {
 	// Construct receiver callback
-	messageReceptionCb := func(channelID *id.ID,
-		messageID cryptoChannel.MessageID,
-		messageType channels.MessageType,
-		nickname string, content []byte, pubKey ed25519.PublicKey,
-		codeset uint8, timestamp time.Time, lease time.Duration,
-		round rounds.Round, status channels.SentStatus) uint64 {
+	cb := func(channelID *id.ID, _ message.ID, _ channels.MessageType, _ string,
+		content, _ []byte, _ ed25519.PublicKey, _ uint32, _ uint8, _,
+		_ time.Time, _ time.Duration, _ id.Round, _ rounds.Round,
+		_ channels.SentStatus, _, _ bool) uint64 {
 		channelReceivedMessage, err := chanManager.GetChannel(channelID)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",
@@ -286,7 +284,7 @@ func makeChannelReceptionHandler(msgType channels.MessageType,
 		return 0
 	}
 	return chanManager.RegisterReceiveHandler(msgType,
-		messageReceptionCb)
+		channels.NewReceiveMessageHandler("", cb, true, true, true))
 }
 
 // readChannelIdentity is a helper function to read a channel identity.
@@ -313,54 +311,68 @@ type eventModel struct {
 	api channels.Manager
 }
 
-func (m eventModel) JoinChannel(channel *cryptoBroadcast.Channel) {
+func (m *eventModel) JoinChannel(*cryptoBroadcast.Channel) {
 	jww.WARN.Printf("JoinChannel is unimplemented in the CLI event model!")
 }
 
-func (m eventModel) LeaveChannel(channelID *id.ID) {
+func (m *eventModel) LeaveChannel(*id.ID) {
 	jww.WARN.Printf("LeaveChannel is unimplemented in the CLI event model!")
 }
 
-func (m eventModel) ReceiveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, nickname, text string, pubKey ed25519.PublicKey,
-	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
-	mType channels.MessageType, status channels.SentStatus) uint64 {
+func (m *eventModel) ReceiveMessage(_ *id.ID, _ message.ID, _, text string,
+	_ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time, _ time.Duration,
+	_ rounds.Round, _ channels.MessageType, _ channels.SentStatus, _ bool) uint64 {
 	jww.INFO.Printf("[%s] Received message (%s) from channel",
 		channelsPrintHeader, text)
 	fmt.Printf("Received message (%s) from channel\n", text)
 	return 0
 }
 
-func (m *eventModel) ReceiveReply(channelID *id.ID,
-	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
-	nickname, text string, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
-	mType channels.MessageType, status channels.SentStatus) uint64 {
+func (m *eventModel) ReceiveReply(channelID *id.ID, _, _ message.ID, _,
+	_ string, _ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time,
+	_ time.Duration, _ rounds.Round, _ channels.MessageType,
+	_ channels.SentStatus, _ bool) uint64 {
 	c, err := m.api.GetChannel(channelID)
 	if err != nil {
-		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s", channelsPrintHeader, channelID)
+		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s",
+			channelsPrintHeader, channelID)
 	}
 	fmt.Printf("Received reply for channel %s\n", c.Name)
 	return 0
 }
 
-func (m *eventModel) ReceiveReaction(channelID *id.ID,
-	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
-	nickname, reaction string, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
-	mType channels.MessageType, status channels.SentStatus) uint64 {
+func (m *eventModel) ReceiveReaction(channelID *id.ID, _ , _ message.ID, _,
+	_ string, _ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time,
+	_ time.Duration, _ rounds.Round, _ channels.MessageType,
+	_ channels.SentStatus, _ bool) uint64 {
 	c, err := m.api.GetChannel(channelID)
 	if err != nil {
-		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s", channelsPrintHeader, channelID)
+		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s",
+			channelsPrintHeader, channelID)
 	}
 	fmt.Printf("Received reaction for channel %s\n", c.Name)
 	return 0
 }
 
-func (m eventModel) UpdateSentStatus(uuid uint64,
-	messageID cryptoChannel.MessageID, timestamp time.Time, round rounds.Round,
-	status channels.SentStatus) {
-	jww.WARN.Printf("UpdateSentStatus is unimplemented in the CLI event model!")
+func (m *eventModel) UpdateFromUUID(uint64, *message.ID, *time.Time,
+	*rounds.Round, *bool, *bool, *channels.SentStatus) {
+	jww.WARN.Printf("UpdateFromUUID is unimplemented in the CLI event model!")
+}
+
+func (m *eventModel) UpdateFromMessageID(message.ID, *time.Time, *rounds.Round,
+	*bool, *bool, *channels.SentStatus) uint64 {
+	jww.WARN.Printf("UpdateFromMessageID is unimplemented in the CLI event model!")
+	return 0
+}
+
+func (m *eventModel) GetMessage(message.ID) (channels.ModelMessage, error) {
+	jww.WARN.Printf("GetMessage is unimplemented in the CLI event model!")
+	return channels.ModelMessage{}, nil
+}
+
+func (m *eventModel) DeleteMessage(message.ID) error {
+	jww.WARN.Printf("DeleteMessage is unimplemented in the CLI event model!")
+	return nil
 }
 
 func init() {
@@ -385,11 +397,13 @@ func init() {
 	bindFlagHelper(channelsKeyPathFlag, channelsCmd)
 
 	channelsCmd.Flags().Bool(channelsJoinFlag, false,
-		"Determines if the channel channel created from the 'newChannel' or loaded from 'channelPath' flag will be joined.")
+		"Determines if the channel created from the 'newChannel' or loaded "+
+			"from 'channelPath' flag will be joined.")
 	bindFlagHelper(channelsJoinFlag, channelsCmd)
 
 	channelsCmd.Flags().Bool(channelsLeaveFlag, false,
-		"Determines if the channel created from the 'newChannel' or loaded from 'channelPath' flag will be left.")
+		"Determines if the channel created from the 'newChannel' or loaded "+
+			"from 'channelPath' flag will be left.")
 	bindFlagHelper(channelsLeaveFlag, channelsCmd)
 
 	channelsCmd.Flags().Bool(channelsNewFlag, false,

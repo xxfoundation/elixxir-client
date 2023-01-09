@@ -9,6 +9,11 @@ package e2e
 
 import (
 	"bytes"
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
@@ -25,10 +30,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
 func e2eMessagesEqual(received, expected e2eMessage, t *testing.T) bool {
@@ -154,6 +155,11 @@ type mockCmix struct {
 	instance      *network.Instance
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(myID *id.ID, handler *mockCmixHandler, t testing.TB) *mockCmix {
 	comms := &connect.ProtoComms{Manager: connect.NewManagerTesting(t)}
 	def := getNDF()
@@ -216,8 +222,8 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool, _ message.Processor) {
 }
 func (m *mockCmix) RemoveIdentity(*id.ID)                          {}
 func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { return identity.TrackedID{}, nil }

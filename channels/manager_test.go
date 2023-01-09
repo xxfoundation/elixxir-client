@@ -9,19 +9,22 @@ package channels
 
 import (
 	"fmt"
+	"math/rand"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"os"
-	"sync"
-	"testing"
-	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 )
@@ -32,6 +35,14 @@ func TestMain(m *testing.M) {
 	jww.SetStdoutThreshold(jww.LevelWarn)
 
 	os.Exit(m.Run())
+}
+
+// Verify that manager adheres to the Manager interface.
+var _ Manager = (*manager)(nil)
+
+var mockAddServiceFn = func(sp xxdk.Service) error {
+	_, err := sp()
+	return err
 }
 
 func TestManager_JoinChannel(t *testing.T) {
@@ -45,7 +56,7 @@ func TestManager_JoinChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -88,7 +99,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -125,10 +136,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 }
 
 func TestManager_GetChannels(t *testing.T) {
-	m := &manager{
-		channels: make(map[id.ID]*joinedChannel),
-		mux:      sync.RWMutex{},
-	}
+	m := &manager{channels: make(map[id.ID]*joinedChannel)}
 
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
@@ -221,4 +229,99 @@ func TestManager_GetChannel_BadChannel(t *testing.T) {
 			t.Errorf("Channel %d returned when it does not exist", i)
 		}
 	}
+}
+
+// Smoke test for EnableDirectMessageToken.
+func TestManager_EnableDirectMessageToken(t *testing.T) {
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+		new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, mockAddServiceFn)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
+
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), broadcast2.Public)
+	if err != nil {
+		t.Errorf("Failed to create new channel: %+v", err)
+	}
+
+	err = m.JoinChannel(ch)
+	if err != nil {
+		t.Fatalf("Join Channel Errored: %+v", err)
+	}
+
+	err = m.EnableDirectMessages(ch.ReceptionID)
+	if err != nil {
+		t.Fatalf("EnableDirectMessageToken error: %+v", err)
+	}
+
+	token := m.getDmToken(ch.ReceptionID)
+
+	expected := pi.GetDMToken()
+	if !reflect.DeepEqual(token, expected) {
+		t.Fatalf("EnableDirectMessageToken did not set token as expected."+
+			"\nExpected: %v"+
+			"\nReceived: %v", expected, token)
+	}
+
+}
+
+// Smoke test.
+func TestManager_DisableDirectMessageToken(t *testing.T) {
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+		new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, mockAddServiceFn)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
+
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), broadcast2.Public)
+	if err != nil {
+		t.Errorf("Failed to create new channel: %+v", err)
+	}
+
+	err = m.JoinChannel(ch)
+	if err != nil {
+		t.Fatalf("Join Channel Errored: %+v", err)
+	}
+
+	err = m.EnableDirectMessages(ch.ReceptionID)
+	if err != nil {
+		t.Fatalf("EnableDirectMessageToken error: %+v", err)
+	}
+
+	err = m.DisableDirectMessages(ch.ReceptionID)
+	if err != nil {
+		t.Fatalf("DisableDirectMessageToken error: %+v", err)
+	}
+
+	// Test that token is 0 when retrieved
+	token := m.getDmToken(ch.ReceptionID)
+	if token != 0 {
+		t.Fatalf("getDmToken expected to return nil after calling " +
+			"DisableDirectMessageToken")
+	}
+
 }

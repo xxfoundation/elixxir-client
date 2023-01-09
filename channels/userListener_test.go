@@ -10,16 +10,17 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/golang/protobuf/proto"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -29,13 +30,14 @@ type triggerEventDummy struct {
 
 	chID        *id.ID
 	umi         *userMessageInternal
-	msgID       cryptoChannel.MessageID
+	msgID       message.ID
 	receptionID receptionID.EphemeralIdentity
 	round       rounds.Round
 }
 
-func (ted *triggerEventDummy) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	_ time.Time, receptionID receptionID.EphemeralIdentity, round rounds.Round,
+func (ted *triggerEventDummy) triggerEvent(chID *id.ID,
+	umi *userMessageInternal, _ []byte, _ time.Time,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	_ SentStatus) (uint64, error) {
 	ted.gotData = true
 
@@ -49,7 +51,7 @@ func (ted *triggerEventDummy) triggerEvent(chID *id.ID, umi *userMessageInternal
 }
 
 // Tests the happy path.
-func TestUserListener_Listen(t *testing.T) {
+func Test_userListener_Listen(t *testing.T) {
 
 	// Build inputs
 	chID := &id.ID{}
@@ -76,7 +78,7 @@ func TestUserListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
+	msgID := message.DeriveChannelMessageID(chID, uint64(r.ID), cmSerial)
 
 	sig := ed25519.Sign(priv, cmSerial)
 	ns := &mockNameService{validChMsg: true}
@@ -99,13 +101,13 @@ func TestUserListener_Listen(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
 
 	// Call the listener
-	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -133,7 +135,7 @@ func TestUserListener_Listen(t *testing.T) {
 }
 
 // Tests that the message is rejected when the user signature is invalid.
-func TestUserListener_Listen_BadUserSig(t *testing.T) {
+func Test_userListener_Listen_BadUserSig(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -185,13 +187,13 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
 
 	// Call the listener
-	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -201,7 +203,7 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 
 // Tests that the message is rejected when the round in the message does not
 // match the round passed in.
-func TestUserListener_Listen_BadRound(t *testing.T) {
+func Test_userListener_Listen_BadRound(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -248,13 +250,13 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
 
 	// Call the listener
-	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -263,7 +265,7 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 }
 
 // Tests that the message is rejected when the user message is malformed.
-func TestUserListener_Listen_BadMessage(t *testing.T) {
+func Test_userListener_Listen_BadMessage(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -282,13 +284,13 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
 
 	// Call the listener
-	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -297,7 +299,7 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 }
 
 // Tests that the message is rejected when the sized broadcast is malformed.
-func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
+func Test_userListener_Listen_BadSizedBroadcast(t *testing.T) {
 	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
@@ -347,13 +349,13 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 		chID:    chID,
 		name:    ns,
 		trigger: dummy.triggerEvent,
-		checkSent: func(cryptoChannel.MessageID, rounds.Round) bool {
+		checkSent: func(message.ID, rounds.Round) bool {
 			return false
 		},
 	}
 
 	// Call the listener
-	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {

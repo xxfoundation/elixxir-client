@@ -29,6 +29,10 @@ type Client interface {
 	// Only one follower may run at a time.
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 
+	// SetTrackNetworkPeriod allows changing the frequency that follower threads
+	// are started.
+	SetTrackNetworkPeriod(d time.Duration)
+
 	/* === Sending ========================================================== */
 
 	// GetMaxMessageLength returns the max message size for the current network.
@@ -132,14 +136,22 @@ type Client interface {
 
 	// AddIdentity adds an identity to be tracked. If persistent is false,
 	// the identity will not be stored to disk and will be dropped on reload.
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	// If the fallthrough processor is not nil, it will be used to process
+	// messages for this id in the event there isn't a service or fingerprint
+	// that matches the message.
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 
 	// AddIdentityWithHistory adds an identity to be tracked. If persistent is
 	// false, the identity will not be stored to disk and will be dropped on
-	// reload. It will pickup messages slowly back in the history or up back
+	// reload. It will pick up messages slowly back in the history or up back
 	// until beginning or the start of message retention, which should be ~500
-	// houses back
-	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
+	// houses back.
+	// If the fallthrough processor is not nil, it will be used to process
+	// messages for this id in the event there isn't a service or fingerprint
+	// that matches the message.
+	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(id *id.ID)

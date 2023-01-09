@@ -85,6 +85,12 @@ type testNetworkManagerGeneric struct {
 	instance *network.Instance
 	sender   gateway.Sender
 }
+
+func (t *testNetworkManagerGeneric) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
@@ -159,10 +165,10 @@ func (t *testNetworkManagerGeneric) AddHealthCallback(f func(bool)) uint64 {
 	return 0
 }
 func (t *testNetworkManagerGeneric) AddIdentity(id *id.ID,
-	validUntil time.Time, persistent bool) {
+	validUntil time.Time, persistent bool, _ message.Processor) {
 }
 func (t *testNetworkManagerGeneric) AddIdentityWithHistory(id *id.ID, validUntil,
-	beginning time.Time, persistent bool) {
+	beginning time.Time, persistent bool, _ message.Processor) {
 }
 
 func (t *testNetworkManagerGeneric) RemoveIdentity(id *id.ID) {}

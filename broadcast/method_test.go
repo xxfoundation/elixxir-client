@@ -5,24 +5,23 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package broadcast
 
-//func TestClient_Follow(t *testing.T) {
-//	m, err := newTestClient(t)
-//	if err != nil {
-//		t.Fatalf("Failed to create test client: %+v", err)
-//	}
-//
-//	clientErrorReport := func(source, message, trace string) {
-//
-//	}
-//	s, err := m.Follow(clientErrorReport)
-//	if err != nil {
-//		t.Errorf("Failed to follow network: %+v", err)
-//	}
-//
-//	err = s.Close()
-//	if err != nil {
-//		t.Errorf("Failed to close follower: %+v", err)
-//	}
-//}
+import "testing"
+
+// Consistency test of Method.String.
+func TestMethod_String(t *testing.T) {
+	tests := map[Method]string{
+		Symmetric:    "Symmetric",
+		RSAToPublic:  "RSAToPublic",
+		RSAToPrivate: "RSAToPrivate",
+		100:          "INVALID METHOD 100",
+	}
+
+	for method, expected := range tests {
+		if method.String() != expected {
+			t.Errorf("Invalid string for method %d."+
+				"\nexpected: %s\nreceived: %s", method, expected, method)
+		}
+	}
+}

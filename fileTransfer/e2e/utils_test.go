@@ -8,6 +8,9 @@
 package e2e
 
 import (
+	"sync"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
@@ -40,8 +43,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"sync"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,6 +99,11 @@ type mockCmix struct {
 	sync.Mutex
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *mockCmix {
 	return &mockCmix{
 		myID:          myID,
@@ -146,10 +152,12 @@ func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)                       { panic("implement me") }
-func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) { panic("implement me") }
-func (m *mockCmix) RemoveIdentity(*id.ID)                                     { panic("implement me") }
-func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error)            { panic("implement me") }
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) { panic("implement me") }
+func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
+	panic("implement me")
+}
+func (m *mockCmix) RemoveIdentity(*id.ID)                          { panic("implement me") }
+func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { panic("implement me") }
 
 func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
 	m.Lock()

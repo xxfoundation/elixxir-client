@@ -9,7 +9,6 @@ package channels
 
 import (
 	"bytes"
-	"encoding/base64"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/ekv"
@@ -36,8 +35,7 @@ func TestStoreLoadIdentity(t *testing.T) {
 	}
 
 	if !bytes.Equal(loadedIdentity.Marshal(), privIdentity.Marshal()) {
-		t.Fatalf("Failed to load private identity.\nexpected: %s\nreceived: %s",
-			base64.StdEncoding.EncodeToString(privIdentity.Marshal()),
-			base64.StdEncoding.EncodeToString(loadedIdentity.Marshal()))
+		t.Fatalf("Failed to load private identity.\nexpected: %x\nreceived: %x",
+			privIdentity.Marshal(), loadedIdentity.Marshal())
 	}
 }

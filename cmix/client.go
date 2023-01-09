@@ -82,6 +82,9 @@ type client struct {
 	// Earliest tracked round
 	earliestRound *uint64
 
+	// Current Period of the follower
+	followerPeriod *int64
+
 	// Number of polls done in a period of time
 	tracker       *uint64
 	latencySum    uint64
@@ -110,6 +113,8 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	netTime.SetTimeSource(localTime{})
 
+	followerPeriod := int64(params.TrackNetworkPeriod)
+
 	// Create client object
 	c := &client{
 		param:          params,
@@ -123,6 +128,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		skewTracker:    clockSkew.New(params.ClockSkewClamp),
 		attemptTracker: attempts.NewSendAttempts(),
 		numNodes:       &numNodes,
+		followerPeriod: &followerPeriod,
 	}
 
 	if params.VerboseRoundTracking {
@@ -287,6 +293,17 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	return multi, nil
 }
 
+// SetTrackNetworkPeriod allows changing the frequency that follower threads
+// are started.
+func (c *client) SetTrackNetworkPeriod(d time.Duration) {
+	atomic.StoreInt64(c.followerPeriod, int64(d))
+}
+
+// GetTrackNetworkPeriod returns the current tracked network period.
+func (c *client) GetTrackNetworkPeriod() time.Duration {
+	return time.Duration(atomic.LoadInt64(c.followerPeriod))
+}
+
 // GetInstance returns the network instance object (NDF state).
 func (c *client) GetInstance() *commNetwork.Instance {
 	return c.instance
@@ -307,4 +324,39 @@ func (c *client) SetFakeEarliestRound(rnd id.Round) {
 // GetMaxMessageLength returns the maximum length of a cMix message.
 func (c *client) GetMaxMessageLength() int {
 	return c.maxMsgLen
+}
+
+// AddIdentity adds an identity to be tracked. If persistent is false,
+// the identity will not be stored to disk and will be dropped on reload.
+// If the fallthrough processor is not nil, it will be used to process
+// messages for this id in the event there isn't a service or fingerprint
+// that matches the message.
+func (c *client) AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
+	c.AddIdentityInternal(id, validUntil, persistent)
+	if fallthroughProcessor != nil {
+		c.Handler.AddFallthrough(id, fallthroughProcessor)
+	}
+}
+
+// AddIdentityWithHistory adds an identity to be tracked. If persistent is
+// false, the identity will not be stored to disk and will be dropped on
+// reload. It will pick up messages slowly back in the history or up back
+// until beginning or the start of message retention, which should be ~500
+// houses back.
+// If the fallthrough processor is not nil, it will be used to process
+// messages for this id in the event there isn't a service or fingerprint
+// that matches the message.
+func (c *client) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time,
+	persistent bool, fallthroughProcessor message.Processor) {
+	c.AddIdentityWithHistoryInternal(id, validUntil, beginning, persistent)
+	if fallthroughProcessor != nil {
+		c.Handler.AddFallthrough(id, fallthroughProcessor)
+	}
+}
+
+// RemoveIdentity removes a currently tracked identity.
+func (c *client) RemoveIdentity(id *id.ID) {
+	c.RemoveIdentityInternal(id)
+	c.Handler.RemoveFallthrough(id)
 }

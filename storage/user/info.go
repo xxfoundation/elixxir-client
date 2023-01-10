@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
+	oldrsa "gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -18,10 +19,10 @@ type Proto struct {
 	//General Identity
 	TransmissionID   *id.ID
 	TransmissionSalt []byte
-	TransmissionRSA  rsa.PrivateKey
+	TransmissionRSA  *oldrsa.PrivateKey
 	ReceptionID      *id.ID
 	ReceptionSalt    []byte
-	ReceptionRSA     rsa.PrivateKey
+	ReceptionRSA     *oldrsa.PrivateKey
 	Precanned        bool
 	// Timestamp in which user has registered with the network
 	RegistrationTimestamp int64
@@ -54,13 +55,14 @@ type Info struct {
 }
 
 func NewUserFromProto(proto *Proto) Info {
+	sch := rsa.GetScheme()
 	return Info{
 		TransmissionID:        proto.TransmissionID,
 		TransmissionSalt:      proto.TransmissionSalt,
-		TransmissionRSA:       proto.TransmissionRSA,
+		TransmissionRSA:       sch.Convert(&proto.TransmissionRSA.PrivateKey),
 		ReceptionID:           proto.ReceptionID,
 		ReceptionSalt:         proto.ReceptionSalt,
-		ReceptionRSA:          proto.ReceptionRSA,
+		ReceptionRSA:          sch.Convert(&proto.ReceptionRSA.PrivateKey),
 		Precanned:             proto.Precanned,
 		RegistrationTimestamp: proto.RegistrationTimestamp,
 		E2eDhPrivateKey:       proto.E2eDhPrivateKey,

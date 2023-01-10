@@ -251,7 +251,7 @@ func (c *Cmix) initComms() error {
 
 	// get the user from session
 	transmissionIdentity := c.GetTransmissionIdentity()
-	privKey := transmissionIdentity.RSAPrivatePem
+	privKey := transmissionIdentity.RSAPrivate
 	pubPEM := privKey.Public().MarshalPem()
 	privPEM := privKey.MarshalPem()
 

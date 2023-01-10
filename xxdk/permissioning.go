@@ -64,10 +64,10 @@ func (c *Cmix) ConstructProtoUserFile() ([]byte, error) {
 	Usr := user.Proto{
 		TransmissionID:               userInfo.TransmissionID,
 		TransmissionSalt:             userInfo.TransmissionSalt,
-		TransmissionRSA:              userInfo.TransmissionRSA,
+		TransmissionRSA:              userInfo.TransmissionRSA.GetOldRSA(),
 		ReceptionID:                  userInfo.ReceptionID,
 		ReceptionSalt:                userInfo.ReceptionSalt,
-		ReceptionRSA:                 userInfo.ReceptionRSA,
+		ReceptionRSA:                 userInfo.ReceptionRSA.GetOldRSA(),
 		Precanned:                    userInfo.Precanned,
 		RegistrationTimestamp:        userInfo.RegistrationTimestamp,
 		RegCode:                      regCode,

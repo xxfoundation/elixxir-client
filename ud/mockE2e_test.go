@@ -74,9 +74,9 @@ func (m mockE2e) GetRng() *fastRNG.StreamGenerator {
 
 func (m mockE2e) GetTransmissionIdentity() xxdk.TransmissionIdentity {
 	return xxdk.TransmissionIdentity{
-		ID:            id.NewIdFromString("test", id.User, m.t),
-		RSAPrivatePem: m.key,
-		Salt:          []byte("test"),
+		ID:         id.NewIdFromString("test", id.User, m.t),
+		RSAPrivate: m.key,
+		Salt:       []byte("test"),
 	}
 }
 

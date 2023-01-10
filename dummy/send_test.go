@@ -30,7 +30,7 @@ func TestManager_sendThread(t *testing.T) {
 			notStarted, stat)
 	}
 
-	err := m.SetStatus(true)
+	err := m.Start()
 	if err != nil {
 		t.Errorf("Failed to set status to true.")
 	}

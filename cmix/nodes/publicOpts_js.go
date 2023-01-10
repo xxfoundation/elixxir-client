@@ -10,7 +10,12 @@
 package nodes
 
 import (
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"crypto"
+	"io"
+
+	"github.com/pkg/errors"
+	"gitlab.com/elixxir/crypto/rsa"
+	"gitlab.com/xx_network/crypto/tls"
 )
 
 func useSHA() bool {

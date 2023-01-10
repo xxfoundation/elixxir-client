@@ -247,7 +247,7 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 
 	transIdentity := m.Cmix.GetTransmissionIdentity()
 	receptionIdentity := m.GetReceptionIdentity()
-	privatePem, err := receptionIdentity.GetRSAPrivateKey()
+	privateKey, err := receptionIdentity.GetRSAPrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -255,10 +255,10 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 	Usr := user.Proto{
 		TransmissionID:        transIdentity.ID,
 		TransmissionSalt:      transIdentity.Salt,
-		TransmissionRSA:       transIdentity.RSAPrivatePem,
+		TransmissionRSA:       transIdentity.RSAPrivate.GetOldRSA(),
 		ReceptionID:           receptionIdentity.ID,
 		ReceptionSalt:         receptionIdentity.Salt,
-		ReceptionRSA:          privatePem,
+		ReceptionRSA:          privateKey.GetOldRSA(),
 		Precanned:             m.GetStorage().IsPrecanned(),
 		RegistrationTimestamp: transIdentity.RegistrationTimestamp,
 		RegCode:               regCode,

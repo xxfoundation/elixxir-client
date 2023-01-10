@@ -214,9 +214,9 @@ func buildReceptionIdentity(receptionId *id.ID, receptionSalt []byte,
 // TransmissionIdentity represents the identity used to transmit over the
 // network via a specific Cmix object.
 type TransmissionIdentity struct {
-	ID            *id.ID
-	RSAPrivatePem rsa.PrivateKey
-	Salt          []byte
+	ID         *id.ID
+	RSAPrivate rsa.PrivateKey
+	Salt       []byte
 
 	// Timestamp of when the user has registered with the network
 	RegistrationTimestamp int64
@@ -228,7 +228,7 @@ func (t TransmissionIdentity) DeepCopy() TransmissionIdentity {
 	copy(saltCopy, t.Salt)
 	return TransmissionIdentity{
 		ID:                    t.ID.DeepCopy(),
-		RSAPrivatePem:         t.RSAPrivatePem,
+		RSAPrivate:            t.RSAPrivate,
 		Salt:                  saltCopy,
 		RegistrationTimestamp: t.RegistrationTimestamp,
 	}
@@ -241,7 +241,7 @@ func buildTransmissionIdentity(userInfo user.Info) TransmissionIdentity {
 	copy(saltCopy, userInfo.TransmissionSalt)
 	return TransmissionIdentity{
 		ID:                    userInfo.TransmissionID.DeepCopy(),
-		RSAPrivatePem:         userInfo.TransmissionRSA,
+		RSAPrivate:            userInfo.TransmissionRSA,
 		Salt:                  saltCopy,
 		RegistrationTimestamp: userInfo.RegistrationTimestamp,
 	}

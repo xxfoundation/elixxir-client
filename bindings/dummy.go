@@ -65,23 +65,14 @@ func (dt *DummyTraffic) Pause() error {
 	return dt.m.Pause()
 }
 
-// Resume will resume the Manager's sending thread, meaning messages will
-// continue to be sent. This should typically be called only if the thread
-// has been paused by calling Pause previously.
+// Start will start up the Manager's sending thread, meaning messages will
+//  be sent. This should be called after calling NewManager, as by default the
+//  thread is paused. This may also be called after a call to Pause.
 //
 // This will re-initialize the sending thread with a new randomly generated
 // interval between sending dummy messages. This means that there is zero
 // guarantee that the sending interval prior to pausing will be the same
-// sending interval after a call to Resume.
-func (dt *DummyTraffic) Resume() error {
-	return dt.m.Resume()
-}
-
-// Start will start the sending thread. This is meant to be called after
-// NewDummyTrafficManager.
-//
-// This will initialize the sending thread with a randomly generated interval
-// in between sending dummy messages.
+// sending interval after a call to Start.
 func (dt *DummyTraffic) Start() error {
 	return dt.m.Start()
 }

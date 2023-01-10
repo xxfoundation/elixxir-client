@@ -146,7 +146,7 @@ func TestManager_PauseResume(t *testing.T) {
 		t.Errorf("Should not have received messages when thread was pasued.")
 	}
 
-	err = m.Resume()
+	err = m.Start()
 	if err != nil {
 		t.Errorf("Resume returned an error: %+v", err)
 	}
@@ -167,7 +167,7 @@ func TestManager_PauseResume(t *testing.T) {
 
 	// Setting status to true multiple times does not interrupt sending
 	for i := 0; i < 3; i++ {
-		err = m.Resume()
+		err = m.Start()
 		if err != nil {
 			t.Errorf("Resume returned an error (%d): %+v", i, err)
 		}
@@ -226,7 +226,7 @@ func TestManager_Pause_ChannelError(t *testing.T) {
 
 	// Calling one more time causes an error
 	expectedErr := fmt.Sprintf(setStatusErr, true)
-	err := m.Resume()
+	err := m.Start()
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Resume returned unexpected error when channel is full."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -279,7 +279,7 @@ func TestManager_GetStatus(t *testing.T) {
 		t.Errorf("Should not have received messages when thread was pasued.")
 	}
 
-	err = m.Resume()
+	err = m.Start()
 	if err != nil {
 		t.Errorf("Resume returned an error: %+v", err)
 	}
@@ -298,7 +298,7 @@ func TestManager_GetStatus(t *testing.T) {
 
 	// Setting status to true multiple times does not interrupt sending
 	for i := 0; i < 3; i++ {
-		err = m.Resume()
+		err = m.Start()
 		if err != nil {
 			t.Errorf("Resume returned an error (%d): %+v", i, err)
 		}

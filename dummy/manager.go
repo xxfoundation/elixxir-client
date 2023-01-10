@@ -128,7 +128,7 @@ func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 
 // Pause will pause the Manager's sending thread, meaning messages will no
 // longer be sent. After calling Pause, the sending thread may only be resumed
-// by calling Resume.
+// by calling Start.
 //
 // There may be a small delay between this call and the pause taking effect.
 // This is because Pause will not cancel the thread when it is in the process
@@ -144,31 +144,22 @@ func (m *Manager) Pause() error {
 
 }
 
-// Resume will resume the Manager's sending thread, meaning messages will
-// continue to be sent. This should typically be called only if the thread
-// has been paused by calling Pause previously.
+// Start will start up the Manager's sending thread, meaning messages will
+//
+//	be sent. This should be called after calling NewManager, as by default the
+//	thread is paused. This may also be called after a call to Pause.
 //
 // This will re-initialize the sending thread with a new randomly generated
 // interval between sending dummy messages. This means that there is zero
 // guarantee that the sending interval prior to pausing will be the same
-// sending interval after a call to Resume.
-func (m *Manager) Resume() error {
-	// At the current time of implementation, both Resume and Start
-	// share the same code and thus operate identically under the
-	// hood. However, this may not always be the case, so they should
-	// remain two separate API calls.
-	return m.resume()
-
-}
-
-// Start will start the sending thread. This is meant to be called after
-// NewManager.
+// sending interval after a call to Start.
 func (m *Manager) Start() error {
-	// At the current time of implementation, both Resume and Start
-	// share the same code and thus operate identically under the
-	// hood. However, this may not always be the case, so they should
-	// remain two separate API calls.
-	return m.resume()
+	select {
+	case m.statusChan <- Running:
+		return nil
+	default:
+		return errors.Errorf(setStatusErr, Running)
+	}
 }
 
 // GetStatus returns the current state of the DummyTraffic manager's sending
@@ -186,16 +177,5 @@ func (m *Manager) GetStatus() bool {
 		return Running
 	default:
 		return Paused
-	}
-}
-
-// resume is a helper function that will send a signal to commence the sending
-// thread.
-func (m *Manager) resume() error {
-	select {
-	case m.statusChan <- Running:
-		return nil
-	default:
-		return errors.Errorf(setStatusErr, Running)
 	}
 }

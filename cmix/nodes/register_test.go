@@ -11,8 +11,8 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"testing"
@@ -29,8 +29,10 @@ func TestRegisterWithNodes(t *testing.T) {
 	stream := fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG).GetStream()
 	defer stream.Close()
 
+	sch := rsa.GetScheme()
+
 	/// Load private key
-	privKeyRsa, err := rsa.LoadPrivateKeyFromPem([]byte(privKey))
+	privKeyRsa, err := sch.UnmarshalPrivateKeyPEM([]byte(privKey))
 	if err != nil {
 		t.Fatalf("Failed to load private Key: %v", err)
 	}

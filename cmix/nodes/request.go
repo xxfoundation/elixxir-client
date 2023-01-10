@@ -23,7 +23,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/chacha"
-	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -129,16 +128,16 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 		return nil, err
 	}
 
-	var targetBytes [][]byte
+	var targetGateways [][]byte
 	for _, gwId := range targets {
-		targetBytes = append(targetBytes, gwId.Bytes())
+		targetGateways = append(targetGateways, gwId.Bytes())
 	}
 
 	// Construct signed key request message
 	signedRequest := &pb.SignedClientBatchKeyRequest{
 		ClientKeyRequest:          serializedMessage,
 		ClientKeyRequestSignature: &messages.RSASignature{Signature: clientSig},
-		Targets:                   targetBytes,
+		Targets:                   targetGateways,
 		Timeout:                   250,
 		UseSHA:                    useSHA(),
 	}
@@ -187,7 +186,7 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	jww.TRACE.Printf("[ClientKeyHMAC] EncryptedClientKeyHMAC: %+v", keyResponse.EncryptedClientKeyHMAC)
 
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(),
-		keyResponse.GetEncryptedClientKey(), opts.Hash.New,
+		keyResponse.GetEncryptedClientKey(), hash.CMixHash.New,
 		keyResponse.GetEncryptedClientKeyHMAC()) {
 		return nil, nil, 0, errors.New("Failed to verify client HMAC")
 	}

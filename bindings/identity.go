@@ -143,8 +143,8 @@ func GetPubkeyFromContact(marshaledContact []byte) ([]byte, error) {
 // pass in empty facts in order to clear the facts.
 //
 // Parameters:
-//   - marshaledContact - the JSON marshalled bytes of [contact.Contact]
-//   - factListJSON - the JSON marshalled bytes of [fact.FactList]
+//  - marshaledContact - the JSON marshalled bytes of [contact.Contact]
+//  - factListJSON - the JSON marshalled bytes of [fact.FactList]
 //
 // Returns:
 //   - []byte - marshalled bytes of the modified [contact.Contact]

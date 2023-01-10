@@ -8,10 +8,11 @@
 package rekey
 
 import (
-	"gitlab.com/elixxir/crypto/e2e"
 	"math/rand"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/crypto/e2e"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
@@ -258,9 +259,11 @@ func (m *mockNetManager) SendManyWithAssembler(recipients []*id.ID, assembler cm
 	return rounds.Round{}, nil, nil
 }
 
-func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
+func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool, _ message.Processor) {
+}
 
-func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool, _ message.Processor) {
 }
 
 func (m *mockNetManager) RemoveIdentity(id *id.ID) {}

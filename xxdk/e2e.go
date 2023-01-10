@@ -87,7 +87,7 @@ func loginLegacy(net *Cmix, callbacks AuthCallbacks,
 	if err != nil {
 		return nil, err
 	}
-	net.GetCmix().AddIdentity(identity.ID, time.Time{}, true)
+	net.GetCmix().AddIdentity(identity.ID, time.Time{}, true, nil)
 
 	err = net.AddService(m.e2e.StartProcesses)
 	if err != nil {
@@ -121,7 +121,7 @@ func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 	if err != nil {
 		return nil, err
 	}
-	generatedId, err := xx.NewID(privatePem.GetPublic(), identity.Salt, id.User)
+	generatedId, err := xx.NewID(privatePem.Public().GetOldRSA(), identity.Salt, id.User)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 		return nil, err
 	}
 
-	net.network.AddIdentity(identity.ID, time.Time{}, true)
+	net.network.AddIdentity(identity.ID, time.Time{}, true, nil)
 	jww.INFO.Printf("Client logged in: \n\tReceptionID: %s", identity.ID)
 	return m, err
 }
@@ -247,7 +247,7 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 
 	transIdentity := m.Cmix.GetTransmissionIdentity()
 	receptionIdentity := m.GetReceptionIdentity()
-	privatePem, err := receptionIdentity.GetRSAPrivateKey()
+	privateKey, err := receptionIdentity.GetRSAPrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -255,10 +255,10 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 	Usr := user.Proto{
 		TransmissionID:        transIdentity.ID,
 		TransmissionSalt:      transIdentity.Salt,
-		TransmissionRSA:       transIdentity.RSAPrivatePem,
+		TransmissionRSA:       transIdentity.RSAPrivate.GetOldRSA(),
 		ReceptionID:           receptionIdentity.ID,
 		ReceptionSalt:         receptionIdentity.Salt,
-		ReceptionRSA:          privatePem,
+		ReceptionRSA:          privateKey.GetOldRSA(),
 		Precanned:             m.GetStorage().IsPrecanned(),
 		RegistrationTimestamp: transIdentity.RegistrationTimestamp,
 		RegCode:               regCode,

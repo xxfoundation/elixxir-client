@@ -13,9 +13,9 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -86,7 +86,7 @@ type session interface {
 	IsPrecanned() bool
 	GetCmixGroup() *cyclic.Group
 	GetKV() *versioned.KV
-	GetTransmissionRSA() *rsa.PrivateKey
+	GetTransmissionRSA() rsa.PrivateKey
 	GetRegistrationTimestamp() time.Time
 	GetTransmissionSalt() []byte
 	GetTransmissionRegistrationValidationSignature() []byte

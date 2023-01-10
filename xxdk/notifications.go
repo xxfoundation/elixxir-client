@@ -12,7 +12,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -35,7 +34,7 @@ func (m *E2e) RegisterForNotifications(token string) error {
 	}
 
 	privKey := m.GetStorage().GetTransmissionRSA()
-	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
+	pubPEM := privKey.Public().MarshalPem()
 	regSig := m.GetStorage().GetTransmissionRegistrationValidationSignature()
 	regTS := m.GetStorage().GetRegistrationTimestamp()
 
@@ -105,8 +104,7 @@ func (m *E2e) getIidAndSig() ([]byte, []byte, error) {
 	}
 
 	stream := m.GetRng().GetStream()
-	sig, err := rsa.Sign(stream,
-		m.GetStorage().GetTransmissionRSA(),
+	sig, err := m.GetStorage().GetTransmissionRSA().SignPSS(stream,
 		hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err,

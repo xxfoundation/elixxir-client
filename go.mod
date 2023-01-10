@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/cloudflare/circl v1.2.0
+	github.com/forPelevin/gomoji v1.1.8
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
@@ -14,22 +15,23 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20230104180308-6cb01a739242
-	gitlab.com/elixxir/crypto v0.0.7-0.20221214192244-6783272c04a0
+	gitlab.com/elixxir/comms v0.0.4-0.20230109233320-a0c90d3324a0
+	gitlab.com/elixxir/crypto v0.0.7-0.20230109232445-64f3e6192c3a
 	gitlab.com/elixxir/ekv v0.2.1
-	gitlab.com/elixxir/primitives v0.0.3-0.20221214192222-988b44a6958a
-	gitlab.com/xx_network/comms v0.0.4-0.20221229210111-3cf0b9df563d
-	gitlab.com/xx_network/crypto v0.0.5-0.20221121220724-8eefdbb0eb46
-	gitlab.com/xx_network/primitives v0.0.4-0.20221209210320-376735467d58
+	gitlab.com/elixxir/primitives v0.0.3-0.20230109222259-f62b2a90b62c
+	gitlab.com/xx_network/comms v0.0.4-0.20230109222246-7de292982747
+	gitlab.com/xx_network/crypto v0.0.5-0.20230109222209-557b66d73c33
+	gitlab.com/xx_network/primitives v0.0.4-0.20221219230308-4b5550a9247d
 	go.uber.org/ratelimit v0.2.0
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c
+	golang.org/x/crypto v0.5.0
+	golang.org/x/net v0.5.0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 )
 
 require (
-	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20221221203224-436c7ab720af // indirect
+	filippo.io/edwards25519 v1.0.0 // indirect
+	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20221221204132-2ed1fec765f1 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -46,9 +48,12 @@ require (
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/oasisprotocol/curve25519-voi v0.0.0-20221003100820-41fad3beba17 // indirect
+	github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rs/cors v1.8.2 // indirect
 	github.com/sethvargo/go-diceware v0.3.0 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
@@ -62,9 +67,12 @@ require (
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	gitlab.com/xx_network/ring v0.0.3-0.20220902183151-a7d3b15bc981 // indirect
+	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
+	gitlab.com/yawning/nyquist.git v0.0.0-20221003103146-de5645224a22 // indirect
+	gitlab.com/yawning/x448.git v0.0.0-20221003101044-617eb9b7d9b7 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/sys v0.0.0-20220731174439-a90be440212d // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

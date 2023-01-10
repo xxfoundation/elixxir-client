@@ -41,7 +41,6 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 	var registerRequests []network.NodeGateway
 
 	atomic.AddInt64(r.numberRunning, 1)
-
 	for {
 		shouldProcess := false
 

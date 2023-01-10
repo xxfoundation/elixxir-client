@@ -17,8 +17,8 @@ import (
 // registerWithPermissioning returns an error if registration fails.
 func (c *Cmix) registerWithPermissioning() error {
 	// Get the users public key
-	transmissionPubKey := c.storage.GetTransmissionRSA().GetPublic()
-	receptionPubKey := c.storage.GetReceptionRSA().GetPublic()
+	transmissionPubKey := c.storage.GetTransmissionRSA().Public()
+	receptionPubKey := c.storage.GetReceptionRSA().Public()
 
 	// Load the registration code
 	regCode, err := c.storage.GetRegCode()
@@ -64,10 +64,10 @@ func (c *Cmix) ConstructProtoUserFile() ([]byte, error) {
 	Usr := user.Proto{
 		TransmissionID:               userInfo.TransmissionID,
 		TransmissionSalt:             userInfo.TransmissionSalt,
-		TransmissionRSA:              userInfo.TransmissionRSA,
+		TransmissionRSA:              userInfo.TransmissionRSA.GetOldRSA(),
 		ReceptionID:                  userInfo.ReceptionID,
 		ReceptionSalt:                userInfo.ReceptionSalt,
-		ReceptionRSA:                 userInfo.ReceptionRSA,
+		ReceptionRSA:                 userInfo.ReceptionRSA.GetOldRSA(),
 		Precanned:                    userInfo.Precanned,
 		RegistrationTimestamp:        userInfo.RegistrationTimestamp,
 		RegCode:                      regCode,

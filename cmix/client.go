@@ -186,9 +186,8 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
-	poolParams.ForceConnection = true
 	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
-		c.session, nodeChan)
+		c.session, c.comms, nodeChan)
 	if err != nil {
 		return err
 	}
@@ -288,6 +287,9 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	//Start the critical processing thread
 	multi.Add(c.crit.startProcessies())
 
+	//start the host pool thread
+	multi.Add(c.Sender.StartProcesses())
+
 	return multi, nil
 }
 
@@ -322,4 +324,39 @@ func (c *client) SetFakeEarliestRound(rnd id.Round) {
 // GetMaxMessageLength returns the maximum length of a cMix message.
 func (c *client) GetMaxMessageLength() int {
 	return c.maxMsgLen
+}
+
+// AddIdentity adds an identity to be tracked. If persistent is false,
+// the identity will not be stored to disk and will be dropped on reload.
+// If the fallthrough processor is not nil, it will be used to process
+// messages for this id in the event there isn't a service or fingerprint
+// that matches the message.
+func (c *client) AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
+	c.AddIdentityInternal(id, validUntil, persistent)
+	if fallthroughProcessor != nil {
+		c.Handler.AddFallthrough(id, fallthroughProcessor)
+	}
+}
+
+// AddIdentityWithHistory adds an identity to be tracked. If persistent is
+// false, the identity will not be stored to disk and will be dropped on
+// reload. It will pick up messages slowly back in the history or up back
+// until beginning or the start of message retention, which should be ~500
+// houses back.
+// If the fallthrough processor is not nil, it will be used to process
+// messages for this id in the event there isn't a service or fingerprint
+// that matches the message.
+func (c *client) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time,
+	persistent bool, fallthroughProcessor message.Processor) {
+	c.AddIdentityWithHistoryInternal(id, validUntil, beginning, persistent)
+	if fallthroughProcessor != nil {
+		c.Handler.AddFallthrough(id, fallthroughProcessor)
+	}
+}
+
+// RemoveIdentity removes a currently tracked identity.
+func (c *client) RemoveIdentity(id *id.ID) {
+	c.RemoveIdentityInternal(id)
+	c.Handler.RemoveFallthrough(id)
 }

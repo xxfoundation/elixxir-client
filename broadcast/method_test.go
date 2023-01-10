@@ -5,19 +5,23 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-//go:build js && wasm
+package broadcast
 
-package nodes
+import "testing"
 
-import (
-	"crypto"
+// Consistency test of Method.String.
+func TestMethod_String(t *testing.T) {
+	tests := map[Method]string{
+		Symmetric:    "Symmetric",
+		RSAToPublic:  "RSAToPublic",
+		RSAToPrivate: "RSAToPrivate",
+		100:          "INVALID METHOD 100",
+	}
 
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-)
-
-func verifyNodeSignature(pub string, hash crypto.Hash,
-	hashed []byte, sig []byte, opts *rsa.Options) error {
-	jww.WARN.Printf("node signature checking disabled for wasm")
-	return nil
+	for method, expected := range tests {
+		if method.String() != expected {
+			t.Errorf("Invalid string for method %d."+
+				"\nexpected: %s\nreceived: %s", method, expected, method)
+		}
+	}
 }

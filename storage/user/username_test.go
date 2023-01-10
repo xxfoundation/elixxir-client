@@ -11,9 +11,9 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
@@ -22,6 +22,8 @@ import (
 
 // Test normal function and errors for User's SetUsername function
 func TestUser_SetUsername(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
@@ -34,8 +36,11 @@ func TestUser_SetUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -64,6 +69,8 @@ func TestUser_SetUsername(t *testing.T) {
 
 // Test functionality of User's GetUsername function
 func TestUser_GetUsername(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
@@ -76,8 +83,11 @@ func TestUser_GetUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -100,6 +110,8 @@ func TestUser_GetUsername(t *testing.T) {
 
 // Test the loadUsername helper function
 func TestUser_loadUsername(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
@@ -112,8 +124,11 @@ func TestUser_loadUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}

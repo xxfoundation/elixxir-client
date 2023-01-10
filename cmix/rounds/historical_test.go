@@ -152,6 +152,11 @@ type testGWSender struct {
 	sync.RWMutex
 }
 
+func (t *testGWSender) StartProcesses() stoppable.Stoppable {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (t *testGWSender) getSendCnt() int {
 	t.RLock()
 	defer t.RUnlock()

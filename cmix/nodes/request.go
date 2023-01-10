@@ -23,7 +23,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/chacha"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -94,7 +94,7 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 	targets []*id.ID, dhPub *cyclic.Int) (*pb.SignedClientBatchKeyRequest, error) {
 
 	// Reconstruct client confirmation message
-	userPubKeyRSA := rsa.CreatePublicKeyPem(s.GetTransmissionRSA().GetPublic())
+	userPubKeyRSA := s.GetTransmissionRSA().Public().MarshalPem()
 	confirmation := &pb.ClientRegistrationConfirmation{
 		RSAPubKey: string(userPubKeyRSA),
 		Timestamp: s.GetRegistrationTimestamp().UnixNano(),
@@ -124,13 +124,7 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 	}
 
 	// Sign DH public key
-	opts := rsa.NewDefaultOptions()
-	opts.Hash = hash.CMixHash
-	h := opts.Hash.New()
-	h.Write(serializedMessage)
-	data := h.Sum(nil)
-	clientSig, err := rsa.Sign(rng, s.GetTransmissionRSA(), opts.Hash,
-		data, opts)
+	clientSig, err := signRegistrationRequest(rng, serializedMessage, s.GetTransmissionRSA())
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +140,7 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 		ClientKeyRequestSignature: &messages.RSASignature{Signature: clientSig},
 		Targets:                   targetBytes,
 		Timeout:                   250,
+		UseSHA:                    useSHA(),
 	}
 
 	return signedRequest, nil
@@ -156,19 +151,12 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	ngw network.NodeGateway, grp *cyclic.Group,
 	dhPrivKey *cyclic.Int) (*cyclic.Int, []byte, uint64, error) {
-	// Define hashing algorithm
-	opts := rsa.NewDefaultOptions()
-	opts.Hash = hash.CMixHash
-	h := opts.Hash.New()
 
-	// Hash the response
-	h.Reset()
-	h.Write(signedKeyResponse.GetKeyResponse())
-	hashedResponse := h.Sum(nil)
+	h := hash.CMixHash.New()
 
 	// Verify the response signature
-	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, opts.Hash, hashedResponse,
-		signedKeyResponse.GetKeyResponseSignedByGateway().GetSignature(), opts)
+	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, signedKeyResponse.KeyResponse,
+		signedKeyResponse.KeyResponseSignedByGateway.Signature)
 	if err != nil {
 		return nil, nil, 0,
 			errors.Errorf("Could not verify nodes's signature: %v", err)

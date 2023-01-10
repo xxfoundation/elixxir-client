@@ -10,7 +10,6 @@
 package nodes
 
 import (
-	"crypto"
 	"io"
 
 	"github.com/pkg/errors"
@@ -19,13 +18,12 @@ import (
 )
 
 func useSHA() bool {
-	return true
+	return false
 }
 
 func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) error {
 
 	opts := rsa.NewDefaultPSSOptions()
-	opts.Hash = crypto.SHA256
 
 	sch := rsa.GetScheme()
 
@@ -54,7 +52,7 @@ func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) err
 func signRegistrationRequest(rng io.Reader, toBeHashed []byte, privateKey rsa.PrivateKey) ([]byte, error) {
 
 	opts := rsa.NewDefaultPSSOptions()
-	opts.Hash = crypto.SHA256
+	opts.Hash = hash.CMixHash
 
 	h := opts.Hash.New()
 	h.Write(toBeHashed)

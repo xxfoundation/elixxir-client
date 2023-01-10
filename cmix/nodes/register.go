@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -38,7 +39,7 @@ import (
 func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 	inProgress, attempts *sync.Map, index int) {
 	timerCh := make(<-chan time.Time)
-	var registerRequests []network.NodeGateway
+	registerRequests := make([]network.NodeGateway, 0, r.bufferSize)
 
 	atomic.AddInt64(r.numberRunning, 1)
 	for {
@@ -109,7 +110,7 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 			if len(registerRequests) >= int(r.bufferSize) {
 				// Mark for processing if batch is full
 				shouldProcess = true
-			} else if len(registerRequests) == 1 { // TODO this was != 0 in historical rounds, am i missing something?
+			} else if len(registerRequests) == 1 {
 				// If this is the first round, start the timeout
 				timerCh = time.NewTimer(time.Duration(r.batchDelay) * time.Millisecond).C
 			}
@@ -144,15 +145,16 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 				}
 			}
 			jww.ERROR.Printf("Failed to register with batch of nodes %+v: %+v", registerRequests, err)
-		}
-		registerRequests = []network.NodeGateway{}
-		if index >= 2 {
-			if float64(r.NumRegisteredNodes()) > (float64(r.numnodesGetter()) * .7) {
-				<-stop.Quit()
-				stop.ToStopped()
-				return
+			if gateway.IsHostPoolNotReadyError(err) {
+				select {
+				case <-time.NewTimer(10 * time.Second).C:
+				case <-stop.Quit():
+					stop.ToStopped()
+					return
+				}
 			}
 		}
+		registerRequests = make([]network.NodeGateway, 0, r.bufferSize)
 	}
 }
 

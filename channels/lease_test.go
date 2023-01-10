@@ -1113,7 +1113,7 @@ func TestActionLeaseList_RemoveChannel(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		for len(all.messagesByChannel) < 5 {
+		for all.leases.Len() < 25 {
 			time.Sleep(time.Millisecond)
 		}
 		done <- struct{}{}
@@ -1121,7 +1121,7 @@ func TestActionLeaseList_RemoveChannel(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(80 * time.Millisecond):
+	case <-time.After(20 * time.Millisecond):
 		t.Errorf("Timed out waiting for messages to be added to message map.")
 	}
 
@@ -1137,8 +1137,10 @@ func TestActionLeaseList_RemoveChannel(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(500 * time.Millisecond):
-		t.Error("Timed out waiting for message to be removed from message map.")
+	case <-time.After(20 * time.Millisecond):
+		t.Errorf("Timed out waiting for message to be removed from message map. "+
+			"%d channels left in the message map when %d expected.",
+			len(all.messagesByChannel), 4)
 	}
 
 	if all.leases.Len() != 20 {

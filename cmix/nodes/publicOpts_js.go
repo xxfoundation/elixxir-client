@@ -22,12 +22,16 @@ func useSHA() bool {
 	return true
 }
 
-func verifyNodeSignature(certContents string, hashed []byte, sig []byte) error {
+func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) error {
 
 	opts := rsa.NewDefaultPSSOptions()
 	opts.Hash = crypto.SHA256
 
 	sch := rsa.GetScheme()
+
+	h := opts.Hash.New()
+	h.Write(toBeHashed)
+	hashed := h.Sum(nil)
 
 	// Load nodes certificate
 	gatewayCert, err := tls.LoadCertificate(certContents)
@@ -47,10 +51,14 @@ func verifyNodeSignature(certContents string, hashed []byte, sig []byte) error {
 	return nodePubKey.VerifyPSS(opts.Hash, hashed, sig, opts)
 }
 
-func signRegistrationRequest(rng io.Reader, hashed []byte, privateKey rsa.PrivateKey) ([]byte, error) {
+func signRegistrationRequest(rng io.Reader, toBeHashed []byte, privateKey rsa.PrivateKey) ([]byte, error) {
 
 	opts := rsa.NewDefaultPSSOptions()
 	opts.Hash = crypto.SHA256
+
+	h := opts.Hash.New()
+	h.Write(toBeHashed)
+	hashed := h.Sum(nil)
 
 	// Verify the response signature
 	return privateKey.SignPSS(rng, opts.Hash, hashed, opts)

@@ -137,10 +137,7 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 	}
 
 	// Sign DH public key
-	h := hash.CMixHash.New()
-	h.Write(serializedMessage)
-	data := h.Sum(nil)
-	clientSig, err := signRegistrationRequest(rng, data, s.GetTransmissionRSA())
+	clientSig, err := signRegistrationRequest(rng, serializedMessage, s.GetTransmissionRSA())
 	if err != nil {
 		return nil, err
 	}
@@ -163,13 +160,8 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	dhPrivKey *cyclic.Int) (*cyclic.Int, []byte, uint64, error) {
 	h := hash.CMixHash.New()
 
-	// Hash the response
-	h.Reset()
-	h.Write(signedKeyResponse.KeyResponse)
-	hashedResponse := h.Sum(nil)
-
 	// Verify the response signature
-	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, hashedResponse,
+	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, signedKeyResponse.KeyResponse,
 		signedKeyResponse.KeyResponseSignedByGateway.Signature)
 	if err != nil {
 		return nil, nil, 0,

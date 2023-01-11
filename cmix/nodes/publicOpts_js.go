@@ -11,9 +11,9 @@ package nodes
 
 import (
 	"crypto"
-	"io"
-
 	"gitlab.com/elixxir/crypto/rsa"
+	"hash"
+	"io"
 )
 
 func useSHA() bool {

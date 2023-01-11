@@ -8,6 +8,7 @@
 package nodes
 
 import (
+	"encoding/base64"
 	"io"
 	"time"
 
@@ -152,6 +153,16 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	dhPrivKey *cyclic.Int) (*cyclic.Int, []byte, uint64, error) {
 
 	h := hash.CMixHash.New()
+
+	if signedKeyResponse == nil || signedKeyResponse.KeyResponse == nil ||
+		signedKeyResponse.KeyResponseSignedByGateway == nil ||
+		signedKeyResponse.KeyResponseSignedByGateway.Signature == nil {
+		jww.TRACE.Printf("Failed to validate signed response from %s, response: %+v",
+			base64.StdEncoding.EncodeToString(ngw.Gateway.ID),
+			signedKeyResponse)
+		return nil, nil, 0, errors.Errorf("Invalid response for %s, missing data. "+
+			"could not be verified", base64.StdEncoding.EncodeToString(ngw.Gateway.ID))
+	}
 
 	// Verify the response signature
 	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, signedKeyResponse.KeyResponse,

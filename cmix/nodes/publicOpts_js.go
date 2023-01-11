@@ -10,52 +10,53 @@
 package nodes
 
 import (
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/crypto/hash"
-	newRSA "gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/tls"
+	"crypto"
+	"gitlab.com/elixxir/crypto/rsa"
+	"hash"
 	"io"
 )
 
 func useSHA() bool {
-	return false
+	return true
 }
 
-func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) error {
-
-	opts := rsa.NewDefaultOptions()
-	opts.Hash = hash.CMixHash
-
-	h := opts.Hash.New()
-	h.Write(toBeHashed)
-	hashed := h.Sum(nil)
-
-	// Load nodes certificate
-	gatewayCert, err := tls.LoadCertificate(certContents)
-	if err != nil {
-		return errors.Errorf("Unable to load nodes's certificate: %+v", err)
-	}
-
-	// Extract public key
-	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
-	if err != nil {
-		return errors.Errorf("Unable to load node's public key: %v", err)
-	}
-
-	// Verify the response signature
-	return rsa.Verify(nodePubKey, opts.Hash, hashed, sig, opts)
+func getHash() func() hash.Hash {
+	return crypto.SHA256.New
 }
 
-func signRegistrationRequest(rng io.Reader, toBeHashed []byte, privateKey newRSA.PrivateKey) ([]byte, error) {
+func verifyNodeSignature(certContents string, plaintext []byte, sig []byte) error {
+	/*
+		opts := rsa.NewDefaultPSSOptions()
+		opts.Hash = crypto.SHA256
 
-	opts := rsa.NewDefaultOptions()
-	opts.Hash = hash.CMixHash
+		sch := rsa.GetScheme()
 
-	h := opts.Hash.New()
-	h.Write(toBeHashed)
-	hashed := h.Sum(nil)
+		// Load nodes certificate
+		gatewayCert, err := tls.LoadCertificate(certContents)
+		if err != nil {
+			return errors.Errorf("Unable to load nodes's certificate: %+v", err)
+		}
+
+		// Extract public key
+		nodePubKeyOld, err := tls.ExtractPublicKey(gatewayCert)
+		if err != nil {
+			return errors.Errorf("Unable to load node's public key: %v", err)
+		}
+
+		nodePubKey := sch.ConvertPublic(&nodePubKeyOld.PublicKey)
+
+		// Verify the response signature
+		// fixme: the js version doesnt expect hashed data, so pass it plaintext. make the api the same
+		return nodePubKey.VerifyPSS(opts.Hash, plaintext, sig, opts)*/
+	return nil
+}
+
+func signRegistrationRequest(rng io.Reader, plaintext []byte, privateKey rsa.PrivateKey) ([]byte, error) {
+
+	opts := rsa.NewDefaultPSSOptions()
+	opts.Hash = crypto.SHA256
 
 	// Verify the response signature
-	return rsa.Sign(rng, privateKey.GetOldRSA(), opts.Hash, hashed, opts)
+	// fixme: the js version doesnt expect hashed data, so pass it plaintext. make the api the same
+	return privateKey.SignPSS(rng, opts.Hash, plaintext, opts)
 }

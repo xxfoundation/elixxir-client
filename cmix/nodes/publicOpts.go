@@ -11,8 +11,9 @@ package nodes
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/crypto/hash"
+	cHash "gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/tls"
+	"hash"
 	"io"
 
 	"gitlab.com/elixxir/crypto/rsa"
@@ -20,6 +21,10 @@ import (
 
 func useSHA() bool {
 	return false
+}
+
+func getHash() func() hash.Hash {
+	return cHash.CMixHash.New
 }
 
 func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) error {
@@ -53,7 +58,7 @@ func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) err
 func signRegistrationRequest(rng io.Reader, toBeHashed []byte, privateKey rsa.PrivateKey) ([]byte, error) {
 
 	opts := rsa.NewDefaultPSSOptions()
-	opts.Hash = hash.CMixHash
+	opts.Hash = cHash.CMixHash
 
 	h := opts.Hash.New()
 	h.Write(toBeHashed)

@@ -22,16 +22,12 @@ func useSHA() bool {
 	return true
 }
 
-func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) error {
+func verifyNodeSignature(certContents string, plaintext []byte, sig []byte) error {
 
 	opts := rsa.NewDefaultPSSOptions()
 	opts.Hash = crypto.SHA256
 
 	sch := rsa.GetScheme()
-
-	h := opts.Hash.New()
-	h.Write(toBeHashed)
-	hashed := h.Sum(nil)
 
 	// Load nodes certificate
 	gatewayCert, err := tls.LoadCertificate(certContents)
@@ -48,18 +44,16 @@ func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) err
 	nodePubKey := sch.ConvertPublic(&nodePubKeyOld.PublicKey)
 
 	// Verify the response signature
-	return nodePubKey.VerifyPSS(opts.Hash, hashed, sig, opts)
+	// fixme: the js version doesnt expect hashed data, so pass it plaintext. make the api the same
+	return nodePubKey.VerifyPSS(opts.Hash, plaintext, sig, opts)
 }
 
-func signRegistrationRequest(rng io.Reader, toBeHashed []byte, privateKey rsa.PrivateKey) ([]byte, error) {
+func signRegistrationRequest(rng io.Reader, plaintext []byte, privateKey rsa.PrivateKey) ([]byte, error) {
 
 	opts := rsa.NewDefaultPSSOptions()
 	opts.Hash = crypto.SHA256
 
-	h := opts.Hash.New()
-	h.Write(toBeHashed)
-	hashed := h.Sum(nil)
-
 	// Verify the response signature
-	return privateKey.SignPSS(rng, opts.Hash, hashed, opts)
+	// fixme: the js version doesnt expect hashed data, so pass it plaintext. make the api the same
+	return privateKey.SignPSS(rng, opts.Hash, plaintext, opts)
 }

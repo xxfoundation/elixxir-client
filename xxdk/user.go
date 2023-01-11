@@ -41,13 +41,13 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 	e2eKeyBytes, transmissionSalt, receptionSalt,
 		transmissionRsaKey, receptionRsaKey := createKeys(rng, e2eGroup)
 
-	transmissionID, err := xx.NewID(transmissionRsaKey.Public().GetOldRSA(),
+	transmissionID, err := xx.NewID(transmissionRsaKey.Public(),
 		transmissionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	receptionID, err := xx.NewID(receptionRsaKey.Public().GetOldRSA(),
+	receptionID, err := xx.NewID(receptionRsaKey.Public(),
 		receptionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
@@ -155,7 +155,7 @@ func createNewVanityUser(rng csprng.Source,
 	if n != SaltSize {
 		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
 	}
-	transmissionID, err := xx.NewID(transmissionRsaKey.Public().GetOldRSA(),
+	transmissionID, err := xx.NewID(transmissionRsaKey.Public(),
 		transmissionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
@@ -215,7 +215,7 @@ func createNewVanityUser(rng csprng.Source,
 							n)
 					}
 					rID, err := xx.NewID(
-						receptionRsaKey.Public().GetOldRSA(),
+						receptionRsaKey.Public(),
 						rSalt, id.User)
 					if err != nil {
 						jww.FATAL.Panicf(err.Error())

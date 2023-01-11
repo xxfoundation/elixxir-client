@@ -36,7 +36,7 @@ func verify(partnerId *id.ID, partnerPubKey rsa.PublicKey,
 
 	// Verify the partner's known ID against the information passed
 	// along the wire
-	partnerWireId, err := xx.NewID(partnerPubKey.GetOldRSA(), salt, id.User)
+	partnerWireId, err := xx.NewID(partnerPubKey, salt, id.User)
 	if err != nil {
 		return err
 	}

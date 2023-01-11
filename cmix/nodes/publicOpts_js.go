@@ -20,6 +20,10 @@ func useSHA() bool {
 	return true
 }
 
+func getHash() func() hash.Hash {
+	return crypto.SHA256.New
+}
+
 func verifyNodeSignature(certContents string, plaintext []byte, sig []byte) error {
 	/*
 		opts := rsa.NewDefaultPSSOptions()

@@ -20,7 +20,6 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
@@ -158,7 +157,7 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	ngw network.NodeGateway, grp *cyclic.Group,
 	dhPrivKey *cyclic.Int) (*cyclic.Int, []byte, uint64, error) {
-	h := hash.CMixHash.New()
+	h := getHash()()
 
 	// Verify the response signature
 	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, signedKeyResponse.KeyResponse,
@@ -193,7 +192,7 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	jww.TRACE.Printf("[ClientKeyHMAC] EncryptedClientKeyHMAC: %+v", keyResponse.EncryptedClientKeyHMAC)
 
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(),
-		keyResponse.EncryptedClientKey, hash.CMixHash.New,
+		keyResponse.EncryptedClientKey, getHash(),
 		keyResponse.EncryptedClientKeyHMAC) {
 		return nil, nil, 0, errors.New("Failed to verify client HMAC")
 	}

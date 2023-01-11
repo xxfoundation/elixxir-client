@@ -9,6 +9,7 @@ package nodes
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
@@ -123,7 +124,9 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 
 		err := registerWithNodes(registerRequests, s, r, stop)
 		if err != nil {
+			nodeIDList := ""
 			for _, ngw := range registerRequests {
+				nodeIDList += base64.StdEncoding.EncodeToString(ngw.Node.ID) + ", "
 				nidStr := hex.EncodeToString(ngw.Node.ID)
 
 				inProgress.Delete(nidStr)
@@ -144,7 +147,8 @@ func processNodeRegistration(r *registrar, s session, stop *stoppable.Single,
 					}()
 				}
 			}
-			jww.ERROR.Printf("Failed to register with batch of nodes %+v: %+v", registerRequests, err)
+
+			jww.ERROR.Printf("Failed to register with batch of nodes %+v, for %s", err, nodeIDList)
 			if gateway.IsHostPoolNotReadyError(err) {
 				select {
 				case <-time.NewTimer(10 * time.Second).C:

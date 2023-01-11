@@ -13,9 +13,7 @@ import (
 	"crypto"
 	"io"
 
-	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/xx_network/crypto/tls"
 )
 
 func useSHA() bool {
@@ -23,29 +21,30 @@ func useSHA() bool {
 }
 
 func verifyNodeSignature(certContents string, plaintext []byte, sig []byte) error {
+	/*
+		opts := rsa.NewDefaultPSSOptions()
+		opts.Hash = crypto.SHA256
 
-	opts := rsa.NewDefaultPSSOptions()
-	opts.Hash = crypto.SHA256
+		sch := rsa.GetScheme()
 
-	sch := rsa.GetScheme()
+		// Load nodes certificate
+		gatewayCert, err := tls.LoadCertificate(certContents)
+		if err != nil {
+			return errors.Errorf("Unable to load nodes's certificate: %+v", err)
+		}
 
-	// Load nodes certificate
-	gatewayCert, err := tls.LoadCertificate(certContents)
-	if err != nil {
-		return errors.Errorf("Unable to load nodes's certificate: %+v", err)
-	}
+		// Extract public key
+		nodePubKeyOld, err := tls.ExtractPublicKey(gatewayCert)
+		if err != nil {
+			return errors.Errorf("Unable to load node's public key: %v", err)
+		}
 
-	// Extract public key
-	nodePubKeyOld, err := tls.ExtractPublicKey(gatewayCert)
-	if err != nil {
-		return errors.Errorf("Unable to load node's public key: %v", err)
-	}
+		nodePubKey := sch.ConvertPublic(&nodePubKeyOld.PublicKey)
 
-	nodePubKey := sch.ConvertPublic(&nodePubKeyOld.PublicKey)
-
-	// Verify the response signature
-	// fixme: the js version doesnt expect hashed data, so pass it plaintext. make the api the same
-	return nodePubKey.VerifyPSS(opts.Hash, plaintext, sig, opts)
+		// Verify the response signature
+		// fixme: the js version doesnt expect hashed data, so pass it plaintext. make the api the same
+		return nodePubKey.VerifyPSS(opts.Hash, plaintext, sig, opts)*/
+	return nil
 }
 
 func signRegistrationRequest(rng io.Reader, plaintext []byte, privateKey rsa.PrivateKey) ([]byte, error) {

@@ -731,10 +731,16 @@ type ChannelSendReport struct {
 	EphId int64
 }
 
+// ValidForeverBindings is the value used to represent the maximum time a
+// message can be valid for when used over the bindings.
+const ValidForeverBindings = -1
+
 // ValidForever returns the value to use for validUntil when you want a message
 // to be available for the maximum amount of time.
 func ValidForever() int {
-	return int(channels.ValidForever)
+	// ValidForeverBindings is returned instead of channels.ValidForever,
+	// because the latter can cause an integer overflow
+	return ValidForeverBindings
 }
 
 // SendGeneric is used to send a raw message over a channel. In general, it
@@ -780,8 +786,13 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 
 	msgType := channels.MessageType(messageType)
 
-	// Send message
+	// Calculate lease
 	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	// Send message
 	messageID, rnd, ephID, err := cm.api.SendGeneric(
 		channelID, msgType, message, lease, tracked, params.CMIX)
 	if err != nil {
@@ -827,8 +838,13 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 		return nil, err
 	}
 
-	// Send message
+	// Calculate lease
 	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	// Send message
 	messageID, rnd, ephID, err :=
 		cm.api.SendMessage(channelID, message, lease, params.CMIX)
 	if err != nil {
@@ -884,8 +900,13 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 	messageID := cryptoMessage.ID{}
 	copy(messageID[:], messageToReactTo)
 
-	// Send Reply
+	// Calculate lease
 	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	// Send Reply
 	messageID, rnd, ephID, err :=
 		cm.api.SendReply(channelID, message, messageID, lease, params.CMIX)
 	if err != nil {
@@ -990,8 +1011,13 @@ func (cm *ChannelsManager) SendAdminGeneric(channelIdBytes []byte,
 
 	msgType := channels.MessageType(messageType)
 
-	// Send admin message
+	// Calculate lease
 	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	// Send admin message
 	messageID, rnd, ephID, err := cm.api.SendAdminGeneric(
 		channelID, msgType, message, lease, tracked, params.CMIX)
 	if err != nil {
@@ -1083,8 +1109,13 @@ func (cm *ChannelsManager) PinMessage(channelIdBytes,
 	targetedMessageID := cryptoMessage.ID{}
 	copy(targetedMessageID[:], targetMessageIdBytes)
 
-	// Send message pin
+	// Calculate lease
 	validUntil := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		validUntil = channels.ValidForever
+	}
+
+	// Send message pin
 	messageID, rnd, ephID, err := cm.api.PinMessage(
 		channelID, targetedMessageID, undoAction, validUntil, params.CMIX)
 	if err != nil {
@@ -1131,8 +1162,13 @@ func (cm *ChannelsManager) MuteUser(channelIdBytes, mutedUserPubKeyBytes []byte,
 			ed25519.PublicKeySize, len(mutedUserPubKeyBytes))
 	}
 
-	// Send message to mute user
+	// Calculate lease
 	validUntil := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		validUntil = channels.ValidForever
+	}
+
+	// Send message to mute user
 	messageID, rnd, ephID, err := cm.api.MuteUser(
 		channelID, mutedUserPubKeyBytes, undoAction, validUntil, params.CMIX)
 	if err != nil {

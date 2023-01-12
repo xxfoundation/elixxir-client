@@ -53,7 +53,10 @@ type Params struct {
 	// HostParams is the parameters for the creation of new Host objects.
 	HostParams connect.HostParams
 
-	Filter Filter
+	// GatewayFilter is the function which will be used to filter gateways
+	// before connecting.  This must be set before initializing a HostPool and
+	// cannot be changed.  If no filter is set, the defaultFilter will be used.
+	GatewayFilter Filter
 }
 
 // DefaultParams returns a default set of PoolParams.

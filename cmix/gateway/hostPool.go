@@ -116,8 +116,8 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	// Build the underlying pool
 	p := newPool(int(params.PoolSize))
 
-	if params.Filter == nil {
-		params.Filter = defaultFilter
+	if params.GatewayFilter == nil {
+		params.GatewayFilter = defaultFilter
 	}
 
 	// Build the host pool
@@ -134,7 +134,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		rng:           rng,
 		params:        params,
 		manager:       getter,
-		filter:        params.Filter,
+		filter:        params.GatewayFilter,
 		kv:            storage.GetKV().Prefix(hostListPrefix),
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),

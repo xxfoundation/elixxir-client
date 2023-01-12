@@ -268,7 +268,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	allowedIds := set.New()
 	allowedId := id.NewIdFromUInt(27, id.Gateway, t)
 	allowedIds.Insert(allowedId.String())
-	params.Filter = func(unfiltered map[id.ID]int, ndf *ndf.NetworkDefinition) map[id.ID]int {
+	params.GatewayFilter = func(unfiltered map[id.ID]int, ndf *ndf.NetworkDefinition) map[id.ID]int {
 		filteredIds := map[id.ID]int{}
 		for gwId, index := range unfiltered {
 			if allowedIds.Has(gwId.String()) {

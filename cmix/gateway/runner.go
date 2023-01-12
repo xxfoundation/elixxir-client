@@ -8,6 +8,7 @@
 package gateway
 
 import (
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -42,15 +43,16 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 		// to testing. If no specific node is sent (ie it receive nil),
 		// it  will send a random one
 		case toAdd := <-hp.addRequest:
-
+			fmt.Println(toAdd)
 			var hostList []*connect.Host
 			hostList, inProgress = hp.processAddRequest(toAdd, inProgress)
 			if len(hostList) == 0 {
-				jww.ERROR.Printf("Host list for testing is empty, this " +
-					"error should never occur")
+				jww.ERROR.Printf("Host list for testing is empty; this " +
+					"error should not occur unless an ndf filter was set")
 				break input
 			}
-
+			fmt.Printf("hostList: %+v\n", hostList)
+			fmt.Printf("inProgress: %+v\n", inProgress)
 			// Send the signal to the adding pool to add
 			select {
 			case hp.testNodes <- hostList:
@@ -179,9 +181,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 			stop.ToStopped()
 			return
 		}
-
 	}
-
 }
 
 // processAddRequest will return the host of the passed in node if it is
@@ -211,7 +211,7 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID,
 			jww.DEBUG.Printf("[ProcessAndRequest] SelectNew returned error: %s", err)
 			jww.WARN.Printf("Failed to select any nodes to test for adding, " +
 				"skipping add. This error may be the result of being disconnected " +
-				"from the internet or very old network credentials")
+				"from the internet, very old network credentials, or a set filter")
 			return nil, inProgress
 		}
 	}
@@ -263,19 +263,16 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 				_, err = hp.manager.AddHost(gwID, gwAddr,
 					cert, hp.params.HostParams)
 			}
-
 			if err != nil {
 				jww.WARN.Printf("Skipped gateway %d: %s, "+
 					"host could not be added, %+v", i,
 					gwID, err)
 				continue
 			}
-
 			hp.addChan <- network.NodeGateway{
 				Node:    newNdf.Nodes[i],
 				Gateway: gw,
 			}
-
 		}
 
 		// Add to the new map
@@ -286,7 +283,7 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 		delete(hp.ndfMap, *gwID)
 	}
 
-	return newNDFMap
+	return hp.filter(newNDFMap, newNdf)
 }
 
 // pop selects an element from the map that tends to be an earlier insert,

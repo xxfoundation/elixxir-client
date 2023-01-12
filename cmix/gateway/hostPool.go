@@ -116,6 +116,10 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	// Build the underlying pool
 	p := newPool(int(params.PoolSize))
 
+	if params.Filter == nil {
+		params.Filter = defaultFilter
+	}
+
 	// Build the host pool
 	hp := &hostPool{
 		writePool:     p,
@@ -130,7 +134,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		rng:           rng,
 		params:        params,
 		manager:       getter,
-		filter:        defaultFilter,
+		filter:        params.Filter,
 		kv:            storage.GetKV().Prefix(hostListPrefix),
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
@@ -241,14 +245,6 @@ func (hp *hostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	default:
 		jww.WARN.Printf("Failed to update the HostPool's NDF")
 	}
-}
-
-// SetGatewayFilter sets the filter used to filter gateways from the ID map.
-func (hp *hostPool) SetGatewayFilter(f Filter) {
-	hp.filterMux.Lock()
-	defer hp.filterMux.Unlock()
-
-	hp.filter = f
 }
 
 // GetHostParams returns a copy of the connect.HostParams struct.

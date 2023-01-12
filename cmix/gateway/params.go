@@ -52,6 +52,8 @@ type Params struct {
 
 	// HostParams is the parameters for the creation of new Host objects.
 	HostParams connect.HostParams
+
+	Filter Filter
 }
 
 // DefaultParams returns a default set of PoolParams.

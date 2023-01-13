@@ -173,15 +173,15 @@ type EventModel interface {
 	UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 		round *rounds.Round, pinned, hidden *bool, status *SentStatus) uint64
 
-	// MuteUser is called whenever a user is muted or unmuted.
-	MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
-
 	// GetMessage returns the message with the given channel.MessageID.
 	GetMessage(messageID message.ID) (ModelMessage, error)
 
 	// DeleteMessage deletes the message with the given [channel.MessageID] from
 	// the database.
 	DeleteMessage(messageID message.ID) error
+
+	// MuteUser is called whenever a user is muted or unmuted.
+	MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 }
 
 // ModelMessage contains a message and all of its information.

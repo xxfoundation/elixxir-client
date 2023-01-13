@@ -8,6 +8,7 @@
 package gateway
 
 import (
+	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -81,6 +82,23 @@ type Filter func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int
 
 var defaultFilter = func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
 	return m
+}
+
+func GatewayWhitelistFilter(gwIds []string) Filter {
+	allowedGwids := set.New()
+	for _, gwid := range gwIds {
+		allowedGwids.Insert(gwid)
+	}
+	jww.INFO.Printf("Gateway filter created to allow the following"+
+		" IDs:\n%+v", allowedGwids)
+	return func(gwIds map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
+		for gwid, _ := range gwIds {
+			if !allowedGwids.Has(gwid.String()) {
+				delete(gwIds, gwid)
+			}
+		}
+		return gwIds
+	}
 }
 
 // newHostPool is a helper function which initializes a hostPool. This

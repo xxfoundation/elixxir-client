@@ -454,6 +454,9 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	}
 	cmixParams.Network.VerboseRoundTracking = viper.GetBool(
 		verboseRoundTrackingFlag)
+
+	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
+
 	return cmixParams, e2eParams
 }
 

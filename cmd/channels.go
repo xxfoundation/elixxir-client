@@ -167,7 +167,7 @@ var channelsCmd = &cobra.Command{
 		err = makeChannelReceptionHandler(integrationChannelMessage,
 			chanManager)
 		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to create reception handler for " +
+			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
 				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
 		}
 
@@ -255,7 +255,7 @@ func sendMessageToChannel(chanManager channels.Manager,
 		return errors.Errorf("%+v", err)
 	}
 
-	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with " +
+	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with "+
 		"message ID %s on round %d", channelsPrintHeader, msgBody, channel.Name,
 		channel.ReceptionID, chanMsgId, round.ID)
 	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
@@ -341,7 +341,7 @@ func (m *eventModel) ReceiveReply(channelID *id.ID, _, _ message.ID, _,
 	return 0
 }
 
-func (m *eventModel) ReceiveReaction(channelID *id.ID, _ , _ message.ID, _,
+func (m *eventModel) ReceiveReaction(channelID *id.ID, _, _ message.ID, _,
 	_ string, _ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time,
 	_ time.Duration, _ rounds.Round, _ channels.MessageType,
 	_ channels.SentStatus, _ bool) uint64 {
@@ -373,6 +373,10 @@ func (m *eventModel) GetMessage(message.ID) (channels.ModelMessage, error) {
 func (m *eventModel) DeleteMessage(message.ID) error {
 	jww.WARN.Printf("DeleteMessage is unimplemented in the CLI event model!")
 	return nil
+}
+
+func (m *eventModel) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+	jww.WARN.Printf("MuteUser is unimplemented in the CLI event model!")
 }
 
 func init() {

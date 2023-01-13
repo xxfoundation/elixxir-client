@@ -27,6 +27,8 @@ require (
 	golang.org/x/net v0.5.0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
+	gorm.io/driver/sqlite v1.4.4
+	gorm.io/gorm v1.24.3
 )
 
 require (
@@ -43,9 +45,12 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/compress v1.11.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
+	github.com/mattn/go-sqlite3 v1.14.15 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20221003100820-41fad3beba17 // indirect

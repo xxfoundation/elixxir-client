@@ -1789,7 +1789,6 @@ type EventModel interface {
 	//  - channelID - The bytes of the [id.ID] of the channel the user is being
 	//    muted in.
 	//  - pubKey - The Ed25519 public key of the user that is muted or unmuted.
-
 	MuteUser(channelID, pubkey []byte, unmute bool)
 }
 
@@ -2044,7 +2043,7 @@ func (tem *toEventModel) DeleteMessage(messageID cryptoMessage.ID) error {
 	return tem.em.DeleteMessage(messageID.Marshal())
 }
 
-// MuteUser mutes or unmutes the given user
+// MuteUser is called when the given user is muted or unmuted.
 func (tem *toEventModel) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
 	tem.em.MuteUser(channelID.Marshal(), pubKey, unmute)
 }

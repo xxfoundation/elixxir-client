@@ -69,7 +69,7 @@ func newImpl(dbFilePath string,
 
 	// Initialize the database schema
 	// WARNING: Order is important. Do not change without database testing
-	err = db.AutoMigrate()
+	err = db.AutoMigrate(&Channel{}, &Message{})
 	if err != nil {
 		return nil, err
 	}

@@ -52,6 +52,7 @@ func (i *impl) JoinChannel(channel *cryptoBroadcast.Channel) {
 	if err != nil {
 		jww.ERROR.Printf("%+v", errors.WithMessagef(parentErr,
 			"Unable to create Channel: %+v", err))
+		return
 	}
 	jww.DEBUG.Printf("Successfully joined channel: %s", channel.ReceptionID)
 }
@@ -277,6 +278,11 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 		PubKey:          result.Pubkey,
 		CodesetVersion:  result.CodesetVersion,
 	}, nil
+}
+
+// MuteUser is called whenever a user is muted or unmuted.
+func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+	// TODO
 }
 
 // DeleteMessage removes a message with the given messageID from storage.

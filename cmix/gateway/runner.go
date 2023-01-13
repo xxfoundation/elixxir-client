@@ -8,7 +8,6 @@
 package gateway
 
 import (
-	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -43,7 +42,6 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 		// to testing. If no specific node is sent (ie it receive nil),
 		// it  will send a random one
 		case toAdd := <-hp.addRequest:
-			fmt.Println(toAdd)
 			var hostList []*connect.Host
 			hostList, inProgress = hp.processAddRequest(toAdd, inProgress)
 			if len(hostList) == 0 {
@@ -51,8 +49,6 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 					"error should not occur unless an ndf filter was set")
 				break input
 			}
-			fmt.Printf("hostList: %+v\n", hostList)
-			fmt.Printf("inProgress: %+v\n", inProgress)
 			// Send the signal to the adding pool to add
 			select {
 			case hp.testNodes <- hostList:

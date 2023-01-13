@@ -1544,7 +1544,7 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 			messageType channels.MessageType, nickname string, content,
 			encryptedPayload []byte, pubKey ed25519.PublicKey, dmToken uint32,
 			codeset uint8, timestamp, originatingTimestamp time.Time,
-			lease time.Duration, originatingRound id.Round,round rounds.Round,
+			lease time.Duration, originatingRound id.Round, round rounds.Round,
 			status channels.SentStatus, fromAdmin, hidden bool) uint64 {
 			rcm := ReceivedChannelMessageReport{
 				ChannelId:   channelID.Marshal(),
@@ -1782,6 +1782,14 @@ type EventModel interface {
 	// Parameters:
 	//  - messageID - The bytes of the [channel.MessageID] of the message.
 	DeleteMessage(messageID []byte) error
+
+	// MuteUser mutes the given user or unmutes them.
+	//
+	// Parameters:
+	//  - channelID - The bytes of the [id.ID] of the channel the user is being
+	//    muted in.
+	//  - pubKey - The Ed25519 public key of the user that is muted or unmuted.
+	MuteUser(channelID, pubkey []byte, unmute bool)
 }
 
 // MessageUpdateInfo contains the updated information for a channel message.
@@ -2033,6 +2041,11 @@ func (tem *toEventModel) GetMessage(
 // database.
 func (tem *toEventModel) DeleteMessage(messageID cryptoMessage.ID) error {
 	return tem.em.DeleteMessage(messageID.Marshal())
+}
+
+// MuteUser is called when the given user is muted or unmuted.
+func (tem *toEventModel) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+	tem.em.MuteUser(channelID.Marshal(), pubKey, unmute)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

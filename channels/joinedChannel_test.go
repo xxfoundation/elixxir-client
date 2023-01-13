@@ -725,3 +725,7 @@ func (m *mockEventModel) GetMessage(cryptoMessage.ID) (ModelMessage, error) {
 func (m *mockEventModel) DeleteMessage(cryptoMessage.ID) error {
 	panic("implement me")
 }
+
+func (m *mockEventModel) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+	panic("implement me")
+}

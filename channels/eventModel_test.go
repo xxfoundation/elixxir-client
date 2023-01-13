@@ -225,7 +225,7 @@ func (dh *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
 	channelID *id.ID, messageID message.ID, messageType MessageType,
 	nickname string, content, encryptedPayload []byte, _ ed25519.PublicKey,
 	_ uint32, _ uint8, timestamp, _ time.Time, lease time.Duration,
-	_ id.Round,round rounds.Round, _ SentStatus, _, _ bool) uint64 {
+	_ id.Round, round rounds.Round, _ SentStatus, _, _ bool) uint64 {
 	dh.triggered = true
 	dh.channelID = channelID
 	dh.messageID = messageID
@@ -910,9 +910,9 @@ func Test_events_receiveAdminReplay(t *testing.T) {
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock Event Model                                                           //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type eventReceive struct {
 	channelID   *id.ID
 	messageID   message.ID
@@ -1082,6 +1082,10 @@ func (m *MockEvent) GetMessage(message.ID) (ModelMessage, error) {
 		PubKey:          nil,
 		CodesetVersion:  m.codeset,
 	}, nil
+}
+
+func (m *MockEvent) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+	return
 }
 
 func (m *MockEvent) DeleteMessage(message.ID) error {

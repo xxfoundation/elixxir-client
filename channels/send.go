@@ -522,8 +522,8 @@ func (m *manager) DeleteMessage(channelID *id.ID,
 	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
-	jww.INFO.Printf("[CH] [%s] DeleteMessage in channel %s message %s",
-		tag, channelID, targetMessage)
+	jww.INFO.Printf("[CH] [%s] Delete message %s in channel %s",
+		tag, targetMessage, channelID)
 
 	// Load private key from storage. If it does not exist, then check if the
 	// user is the sender of the message to delete.
@@ -577,8 +577,14 @@ func (m *manager) PinMessage(channelID *id.ID,
 	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, targetMessage.Bytes(), SendDeleteTag)
-	jww.INFO.Printf("[CH] [%s] PinMessage in channel %s message %s",
-		tag, channelID, targetMessage)
+
+	if !undoAction {
+		jww.INFO.Printf("[CH] [%s] Pin message %s in channel %s for %s",
+			tag, targetMessage, channelID, validUntil)
+	} else {
+		jww.INFO.Printf("[CH] [%s] Unpin message %s in channel %s for %s",
+			tag, targetMessage, channelID, validUntil)
+	}
 
 	pinnedMessage := &CMIXChannelPinned{
 		Version:    cmixChannelPinVersion,
@@ -607,8 +613,14 @@ func (m *manager) MuteUser(channelID *id.ID, mutedUser ed25519.PublicKey,
 	undoAction bool, validUntil time.Duration, params cmix.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, mutedUser, SendMuteTag)
-	jww.INFO.Printf("[CH] [%s] MuteUser in channel %s mute user %x",
-		tag, channelID, mutedUser)
+
+	if !undoAction {
+		jww.INFO.Printf("[CH] [%s] Mute user %x in channel %s for %s",
+			tag, mutedUser, channelID, validUntil)
+	} else {
+		jww.INFO.Printf("[CH] [%s] Unmute user %x in channel %s for %s",
+			tag, mutedUser, channelID, validUntil)
+	}
 
 	muteMessage := &CMIXChannelMute{
 		Version:    cmixChannelPinVersion,

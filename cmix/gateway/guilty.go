@@ -13,6 +13,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
+	"strings"
 )
 
 // List of errors that initiate a Host replacement
@@ -31,17 +32,13 @@ var errorsList = []string{
 	"NetworkError when attempting to fetch resource.",
 }
 
-var errorMap = make(map[string]struct{})
-
-func init() {
-	for _, str := range errorsList {
-		errorMap[str] = struct{}{}
-	}
-}
-
 // IsGuilty returns true if the error means the host
 // will get kicked out of the pool
 func IsGuilty(err error) bool {
-	_, exists := errorMap[err.Error()]
-	return exists
+	for i := range errorsList {
+		if strings.Contains(err.Error(), errorsList[i]) {
+			return true
+		}
+	}
+	return false
 }

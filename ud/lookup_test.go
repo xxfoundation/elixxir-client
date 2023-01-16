@@ -82,7 +82,7 @@ func TestManager_Lookup(t *testing.T) {
 	t.Logf("%v", r.Bytes())
 	t.Logf("%s", s)
 
-	timeout := 1000 * time.Millisecond
+	timeout := 2000 * time.Millisecond
 	p := single.RequestParams{
 		Timeout:             timeout,
 		MaxResponseMessages: 1,

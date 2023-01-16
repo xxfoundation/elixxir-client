@@ -50,6 +50,11 @@ func newImpl(dbFilePath string,
 		return nil, errors.Errorf("Unable to initialize database backend: %+v", err)
 	}
 
+	// Force-enable foreign keys as an oddity of SQLite
+	if result := db.Exec("PRAGMA foreign_keys = ON", nil); result.Error != nil {
+		return nil, result.Error
+	}
+
 	// Get and configure the internal database ConnPool
 	sqlDb, err := db.DB()
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -221,10 +222,19 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 		msgToUpdate.Round = uint64(round.ID)
 	}
 
-	// When updating with struct it will only update non-zero fields by default
+	// Build a transaction to prevent race conditions
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Where("message_id = ?",
-		messageID.Bytes()).Updates(msgToUpdate).Error
+	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		currentMessage := &Message{}
+		err := tx.Take(currentMessage, "message_id = ?", messageID.Bytes()).Error
+		if err != nil {
+			return err
+		}
+
+		// When updating with struct it will only update non-zero fields by default
+		msgToUpdate.Id = currentMessage.Id
+		return tx.Updates(msgToUpdate).Error
+	})
 	cancel()
 
 	if err != nil {

@@ -22,7 +22,7 @@ type Message struct {
 	Id              uint64        `gorm:"primaryKey;autoIncrement:true"`
 	Nickname        string        `gorm:"not null"`
 	MessageId       []byte        `gorm:"uniqueIndex;not null"`
-	ChannelId       []byte        `gorm:"index;not null;references channels(id)"`
+	ChannelId       []byte        `gorm:"index;not null"`
 	ParentMessageId []byte        `gorm:"index"`
 	Timestamp       time.Time     `gorm:"index;not null"`
 	Lease           time.Duration `gorm:"not null"`
@@ -47,5 +47,5 @@ type Channel struct {
 	Name        string `gorm:"not null"`
 	Description string `gorm:"not null"`
 
-	Messages []Message `gorm:"foreignKey:ChannelId;constraint:OnDelete:CASCADE"`
+	Messages []Message `gorm:"constraint:OnDelete:CASCADE"`
 }

@@ -48,6 +48,7 @@ test:
 
 wasm-test:
   stage: test
+  image: $DOCKER_IMAGE
   except:
     - tags
   script:

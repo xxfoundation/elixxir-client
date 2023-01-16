@@ -8,6 +8,9 @@
 package pickup
 
 import (
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -20,9 +23,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/utils"
-	"testing"
-	"time"
 )
 
 func newManager(t *testing.T) *pickup {
@@ -162,7 +162,7 @@ func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {
 }
 
 func getNDF() *ndf.NetworkDefinition {
-	cert, _ := utils.ReadFile(testkeys.GetNodeCertPath())
+	cert := testkeys.GetNodeCert()
 	nodeID := id.NewIdFromBytes([]byte("gateway"), &testing.T{})
 	return &ndf.NetworkDefinition{
 		Nodes: []ndf.Node{

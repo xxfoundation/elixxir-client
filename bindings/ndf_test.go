@@ -83,10 +83,7 @@ func TestDownloadSignedNdfWithUrl(t *testing.T) {
 // Error case: Pass in the incorrect cert forcing a verification failure.
 func TestDownloadSignedNdfWithUrl_BadCert(t *testing.T) {
 	// Load an unintended cert
-	badCert, err := utils.ReadFile(testkeys.GetGatewayCertPath())
-	if err != nil {
-		t.Fatalf("Failed to read test certificate: %v", err)
-	}
+	badCert := testkeys.GetGatewayCert()
 
 	// Download and attempt to verify with unintended cert
 	_, err = DownloadAndVerifySignedNdfWithUrl("https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json",

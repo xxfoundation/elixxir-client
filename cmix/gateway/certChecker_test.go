@@ -5,11 +5,6 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// NOTE: file access not available in wasm, and this reads test keys from
-// the comms repo...
-
-//go:build !js || !wasm
-
 package gateway
 
 import (
@@ -29,7 +24,7 @@ func Test_certChecker_loadStore(t *testing.T) {
 	cc := newCertChecker(&mockCertCheckerComm{}, kv)
 
 	// FIXME: This should load from a variable not disk.
-	gwCert := testkeys.LoadFromPath(testkeys.GetGatewayCertPath())
+	gwCert := testkeys.GetGatewayCert()
 	gwID := id.NewIdFromString("testid01", id.Gateway, t)
 
 	expectedFp := blake2b.Sum256(gwCert)

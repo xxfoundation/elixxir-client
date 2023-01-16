@@ -15,14 +15,13 @@ package gateway
 
 import (
 	"bytes"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
-	"testing"
 )
 
 // Test load & store functions for cert checker

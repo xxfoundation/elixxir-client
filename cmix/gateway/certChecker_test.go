@@ -1,3 +1,16 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
+// NOTE: file access not available in wasm, and this reads test keys from
+// the comms repo...
+
+//go:build !js || !wasm
+// +build !js !wasm
+
 package gateway
 
 import (
@@ -25,6 +38,7 @@ func Test_certChecker_loadStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	cc := newCertChecker(&mockCertCheckerComm{}, kv)
 
+	// FIXME: This should load from a variable not disk.
 	gwCert := testkeys.LoadFromPath(testkeys.GetGatewayCertPath())
 	gwID := id.NewIdFromString("testid01", id.Gateway, t)
 

@@ -25,14 +25,6 @@ import (
 	"testing"
 )
 
-type mockCertCheckerComm struct {
-}
-
-func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(host *connect.Host,
-	message *pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {
-	return &pb.GatewayCertificate{}, nil
-}
-
 // Test load & store functions for cert checker
 func Test_certChecker_loadStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())

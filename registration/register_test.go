@@ -5,6 +5,10 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: reading files on disk is not available in wasm.
+//go:build !js || !wasm
+// +build !js !wasm
+
 package registration
 
 import (

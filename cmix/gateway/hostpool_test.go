@@ -8,19 +8,21 @@
 package gateway
 
 import (
+	"os"
+	"reflect"
+	"testing"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"os"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -234,4 +236,12 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 		len(newNdf.Gateways) != len(testPool.ndf.Gateways) {
 		t.Errorf("Host pool NDF not updated to new NDF.")
 	}
+}
+
+type mockCertCheckerComm struct {
+}
+
+func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(host *connect.Host,
+	message *pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {
+	return &pb.GatewayCertificate{}, nil
 }

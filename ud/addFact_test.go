@@ -5,6 +5,10 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: ud is not available in wasm
+//go:build !js || !wasm
+// +build !js !wasm
+
 package ud
 
 import (

@@ -7,13 +7,14 @@
 
 // NOTE: storage/user is not available in wasm because not disk read/write.
 //go:build !js || !wasm
-// +build !js !wasm
 
 package user
 
 import (
 	"bytes"
 	"crypto/rand"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -21,7 +22,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
 )
 
 // Test for NewCryptographicIdentity function

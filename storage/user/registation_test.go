@@ -7,13 +7,16 @@
 
 // NOTE: storage/user is not available in wasm because not disk read/write.
 //go:build !js || !wasm
-// +build !js !wasm
 
 package user
 
 import (
 	"bytes"
 	"encoding/binary"
+	"math/rand"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -22,9 +25,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 // Test User GetRegistrationValidationSignature function

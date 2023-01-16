@@ -197,10 +197,15 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 		nid := topology.GetNodeAtIndex(i)
 		k, ok := r.nodes[*nid]
 		if !ok {
+			gwID := nid.DeepCopy()
+			gwID.SetType(id.Gateway)
 			r.c <- network.NodeGateway{
 				Node: ndf.Node{
 					ID:     nid.Marshal(),
 					Status: ndf.Active, // Must be active because it is in a round
+				},
+				Gateway: ndf.Gateway{
+					ID: gwID.Marshal(),
 				},
 			}
 

@@ -40,7 +40,7 @@ func (m *manager) saveDMTokens() error {
 func (m *manager) loadDMTokens() {
 	obj, err := m.kv.Get(dmStoreKey, dmStoreVersion)
 	if err != nil {
-		jww.ERROR.Printf("loading channel dmTokens: %v", err)
+		jww.INFO.Printf("loading new dmTokens for channels: %v", err)
 		m.dmTokens = make(map[id.ID]uint32)
 		return
 	}

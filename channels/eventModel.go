@@ -179,6 +179,9 @@ type EventModel interface {
 	// DeleteMessage deletes the message with the given [channel.MessageID] from
 	// the database.
 	DeleteMessage(messageID message.ID) error
+
+	// MuteUser is called whenever a user is muted or unmuted.
+	MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 }
 
 // ModelMessage contains a message and all of its information.
@@ -812,6 +815,8 @@ func (e *events) receiveMute(channelID *id.ID, messageID message.ID,
 		}
 		e.mutedUsers.muteUser(channelID, mutedUser)
 	}
+
+	e.model.MuteUser(channelID, mutedUser, undoAction)
 
 	return 0
 }

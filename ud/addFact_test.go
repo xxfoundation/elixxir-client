@@ -7,18 +7,18 @@
 
 // NOTE: ud is not available in wasm
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ud
 
 import (
+	"os"
+	"testing"
+
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {

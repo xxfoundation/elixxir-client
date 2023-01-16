@@ -7,7 +7,6 @@
 
 // NOTE: connect is not supported in WASM at this time.
 //go:build !js || !wasm
-// +build !js !wasm
 
 package connect
 

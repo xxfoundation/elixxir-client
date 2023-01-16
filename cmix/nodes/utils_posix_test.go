@@ -5,9 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// NOTE: download and verify of ndf is not available in wasm.
 //go:build !js || !wasm
-// +build !js !wasm
 
 package nodes
 

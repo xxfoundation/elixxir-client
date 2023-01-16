@@ -9,7 +9,6 @@
 // the comms repo...
 
 //go:build !js || !wasm
-// +build !js !wasm
 
 package gateway
 

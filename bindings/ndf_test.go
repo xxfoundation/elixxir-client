@@ -5,6 +5,10 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: download and verify of ndf is not available in wasm.
+//go:build !js || !wasm
+// +build !js !wasm
+
 package bindings
 
 import (
@@ -61,7 +65,7 @@ func TestDownloadSignedNdfWithUrl(t *testing.T) {
 		"https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json",
 		testCert)
 	if err != nil {
-		t.Errorf("Failed to download signed NDF: %v", err)
+		t.Fatalf("Failed to download signed NDF: %v", err)
 	}
 	fmt.Printf("content: %s\n", string(content))
 

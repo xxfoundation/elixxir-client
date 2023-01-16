@@ -292,7 +292,7 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 
 // MuteUser is called whenever a user is muted or unmuted.
 func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-	// TODO
+	i.muteCb(channelID, pubKey, unmute)
 }
 
 // DeleteMessage removes a message with the given messageID from storage.

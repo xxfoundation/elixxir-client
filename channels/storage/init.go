@@ -9,31 +9,37 @@
 package storage
 
 import (
+	"crypto/ed25519"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/channels"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"time"
 )
 
+// MuteCallback is a callback provided for the MuteUser method of the impl.
+type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
+
 // impl implements the channels.EventModel interface with an underlying DB.
 type impl struct {
 	db     *gorm.DB // Stored database connection
 	cipher cryptoChannel.Cipher
+	muteCb MuteCallback
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string,
-	encryption cryptoChannel.Cipher) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption)
+func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
+	muteCb MuteCallback) (channels.EventModel, error) {
+	model, err := newImpl(dbFilePath, encryption, muteCb)
 	return channels.EventModel(model), err
 }
 
-func newImpl(dbFilePath string,
-	encryption cryptoChannel.Cipher) (*impl, error) {
+func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
+	muteCb MuteCallback) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -51,8 +57,8 @@ func newImpl(dbFilePath string,
 	}
 
 	// Force-enable foreign keys as an oddity of SQLite
-	if result := db.Exec("PRAGMA foreign_keys = ON", nil); result.Error != nil {
-		return nil, result.Error
+	if err = db.Exec("PRAGMA foreign_keys = ON", nil).Error; err != nil {
+		return nil, err
 	}
 
 	// Get and configure the internal database ConnPool
@@ -64,13 +70,13 @@ func newImpl(dbFilePath string,
 
 	// TODO: Configure these options appropriately for mobile client. Maybe they should be configurable?
 	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
-	sqlDb.SetMaxIdleConns(10)
+	sqlDb.SetMaxIdleConns(5)
 	// SetMaxOpenConns sets the maximum number of open connections to the Database.
-	sqlDb.SetMaxOpenConns(50)
+	sqlDb.SetMaxOpenConns(10)
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be idle.
-	sqlDb.SetConnMaxIdleTime(10 * time.Minute)
+	sqlDb.SetConnMaxIdleTime(5 * time.Minute)
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
-	sqlDb.SetConnMaxLifetime(12 * time.Hour)
+	sqlDb.SetConnMaxLifetime(10 * time.Minute)
 
 	// Initialize the database schema
 	// WARNING: Order is important. Do not change without database testing
@@ -83,6 +89,7 @@ func newImpl(dbFilePath string,
 	di := &impl{
 		db:     db,
 		cipher: encryption,
+		muteCb: muteCb,
 	}
 
 	jww.INFO.Println("Database backend initialized successfully!")

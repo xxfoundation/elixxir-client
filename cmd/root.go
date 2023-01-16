@@ -553,6 +553,7 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	}
 
 	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
+	cmixParams.Network.WhitelistedGateways = append(cmixParams.Network.WhitelistedGateways, "c6wptSinakErZHrk0SlgGQXExETPYYLB2CwpLNze6FMB")
 	fmt.Println(cmixParams.Network.WhitelistedGateways)
 
 	return user

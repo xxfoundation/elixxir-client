@@ -56,7 +56,8 @@ type Params struct {
 	// GatewayFilter is the function which will be used to filter gateways
 	// before connecting.  This must be set before initializing a HostPool and
 	// cannot be changed.  If no filter is set, the defaultFilter will be used.
-	GatewayFilter Filter
+	GatewayFilter          Filter
+	ReconnectNotDisconnect bool
 }
 
 // DefaultParams returns a default set of PoolParams.
@@ -71,6 +72,7 @@ func DefaultParams() Params {
 		EnableRotation:            true,
 		RotationPeriod:            7 * time.Minute,
 		RotationPeriodVariability: 4 * time.Minute,
+		ReconnectNotDisconnect:    true,
 
 		HostParams: GetDefaultHostPoolHostParams(),
 	}

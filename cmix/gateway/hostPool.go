@@ -24,6 +24,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 type hostPool struct {
@@ -237,6 +238,18 @@ func (hp *hostPool) StartProcesses() stoppable.Stoppable {
 // Remove triggers the node to be removed from the host pool and disconnects,
 // if the node is present
 func (hp *hostPool) Remove(h *connect.Host) {
+	jww.DEBUG.Printf("Removal request triggered for host %s", h.GetId().String())
+	if hp.params.ReconnectNotDisconnect {
+		go func() {
+			time.Sleep(5 * time.Second)
+			jww.INFO.Printf("Attempting to reconnect")
+			err := h.Connect()
+			if err != nil {
+				jww.ERROR.Printf("Failed to connect: %+v", err)
+			}
+		}()
+		return
+	}
 	h.Disconnect()
 	select {
 	case hp.removeRequest <- h.GetId():

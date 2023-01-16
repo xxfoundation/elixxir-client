@@ -19,9 +19,9 @@ import (
 
 // Series of interdependent smoke tests of the impl object and its methods.
 func TestImpl(t *testing.T) {
-	jww.SetStdoutThreshold(jww.LevelTrace)
+	jww.SetStdoutThreshold(jww.LevelDebug)
 
-	model, err := newImpl("", nil)
+	model, err := newImpl("", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -292,6 +292,10 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 
 // MuteUser is called whenever a user is muted or unmuted.
 func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+	if i.muteCb == nil {
+		jww.WARN.Printf("No MuteUser callback registered!")
+		return
+	}
 	i.muteCb(channelID, pubKey, unmute)
 }
 

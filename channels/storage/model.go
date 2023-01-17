@@ -27,11 +27,13 @@ type Message struct {
 	Timestamp       time.Time     `gorm:"index;not null"`
 	Lease           time.Duration `gorm:"not null"`
 	Status          uint8         `gorm:"not null"`
-	Hidden          bool          `gorm:"not null"`
-	Pinned          bool          `gorm:"index;not null"`
 	Text            []byte        `gorm:"not null"`
 	Type            uint16        `gorm:"not null"`
 	Round           uint64        `gorm:"not null"`
+
+	// Pointer to enforce zero-value reading in ORM.
+	Hidden *bool `gorm:"not null"`
+	Pinned *bool `gorm:"index;not null"`
 
 	// User cryptographic Identity struct -- could be pulled out
 	Pubkey         []byte `gorm:"not null"`

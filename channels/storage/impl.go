@@ -82,30 +82,13 @@ func (i *impl) ReceiveMessage(channelID *id.ID, messageID message.ID, nickname,
 	text string, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
-	textBytes := []byte(text)
-	var err error
-
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt([]byte(text))
-		if err != nil {
-			jww.ERROR.Printf("Failed to encrypt message: %+v", err)
-			return 0
-		}
-	}
-
-	msgToInsert := buildMessage(
-		channelID.Marshal(), messageID.Bytes(), nil, nickname,
-		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
-		messageType, false, hidden, status)
-
-	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Create(msgToInsert).Error
-	cancel()
-
+	uuid, err := i.receiveHelper(channelID, messageID, nil,
+		nickname, text, pubKey, dmToken, codeset, timestamp, lease,
+		round, messageType, status, hidden)
 	if err != nil {
 		jww.ERROR.Printf("Failed to receive message: %+v", err)
 	}
-	return msgToInsert.Id
+	return uuid
 }
 
 // ReceiveReply is called whenever a message is received that is a reply on a
@@ -114,30 +97,13 @@ func (i *impl) ReceiveReply(channelID *id.ID, messageID, reactionTo message.ID,
 	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
-	textBytes := []byte(text)
-	var err error
-
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt([]byte(text))
-		if err != nil {
-			jww.ERROR.Printf("Failed to encrypt reply: %+v", err)
-			return 0
-		}
-	}
-
-	msgToInsert := buildMessage(
-		channelID.Marshal(), messageID.Bytes(), reactionTo.Bytes(), nickname,
-		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
-		messageType, false, hidden, status)
-
-	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Create(msgToInsert).Error
-	cancel()
-
+	uuid, err := i.receiveHelper(channelID, messageID, reactionTo.Bytes(),
+		nickname, text, pubKey, dmToken, codeset, timestamp, lease,
+		round, messageType, status, hidden)
 	if err != nil {
 		jww.ERROR.Printf("Failed to receive reply: %+v", err)
 	}
-	return msgToInsert.Id
+	return uuid
 }
 
 // ReceiveReaction is called whenever a reaction to a message is received on a
@@ -146,30 +112,13 @@ func (i *impl) ReceiveReaction(channelID *id.ID, messageID, reactionTo message.I
 	nickname, reaction string, pubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
 	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
-	textBytes := []byte(reaction)
-	var err error
-
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt([]byte(reaction))
-		if err != nil {
-			jww.ERROR.Printf("Failed to encrypt reaction: %+v", err)
-			return 0
-		}
-	}
-
-	msgToInsert := buildMessage(
-		channelID.Marshal(), messageID.Bytes(), reactionTo.Bytes(), nickname,
-		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
-		messageType, false, hidden, status)
-
-	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Create(msgToInsert).Error
-	cancel()
-
+	uuid, err := i.receiveHelper(channelID, messageID, reactionTo.Bytes(),
+		nickname, reaction, pubKey, dmToken, codeset, timestamp, lease,
+		round, messageType, status, hidden)
 	if err != nil {
-		jww.ERROR.Printf("Failed to receive reaction: %+v", err)
+		jww.ERROR.Printf("Failed to receive message: %+v", err)
 	}
-	return msgToInsert.Id
+	return uuid
 }
 
 // UpdateFromUUID is called whenever a message at the UUID is modified.
@@ -280,8 +229,8 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 		Timestamp:       result.Timestamp,
 		Lease:           result.Lease,
 		Status:          channels.SentStatus(result.Status),
-		Hidden:          result.Hidden,
-		Pinned:          result.Pinned,
+		Hidden:          *result.Hidden,
+		Pinned:          *result.Pinned,
 		Content:         result.Text,
 		Type:            channels.MessageType(result.Type),
 		Round:           id.Round(result.Round),
@@ -312,6 +261,41 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 	return nil
 }
 
+// receiveHelper is a generic helper for receiving a Message.
+// Returns UUID of the received Message as defined by the database.
+func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
+	parentMsgId []byte, nickname, text string,
+	pubKey ed25519.PublicKey, dmToken uint32,
+	codeset uint8, timestamp time.Time,
+	lease time.Duration, round rounds.Round,
+	messageType channels.MessageType,
+	status channels.SentStatus, hidden bool) (uint64, error) {
+	textBytes := []byte(text)
+	var err error
+
+	// Handle encryption of input text
+	if i.cipher != nil {
+		textBytes, err = i.cipher.Encrypt([]byte(text))
+		if err != nil {
+			return 0, errors.Errorf("Failed to encrypt message: %+v", err)
+		}
+	}
+
+	msgToInsert := buildMessage(
+		channelID.Marshal(), messageID.Bytes(), parentMsgId, nickname,
+		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
+		messageType, false, hidden, status)
+
+	ctx, cancel := newContext()
+	err = i.db.WithContext(ctx).Create(msgToInsert).Error
+	cancel()
+
+	if err != nil {
+		return 0, errors.Errorf("Failed to insert message: %+v", err)
+	}
+	return msgToInsert.Id, nil
+}
+
 // buildMessage is a private helper that converts typical [channels.EventModel]
 // inputs into a basic Message structure for insertion into storage.
 //
@@ -331,8 +315,8 @@ func buildMessage(channelID, messageID, parentID []byte, nickname string,
 		Timestamp:       timestamp,
 		Lease:           lease,
 		Status:          uint8(status),
-		Hidden:          hidden,
-		Pinned:          pinned,
+		Hidden:          &hidden,
+		Pinned:          &pinned,
 		Text:            text,
 		Type:            uint16(mType),
 		Round:           uint64(round),

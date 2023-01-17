@@ -12,6 +12,7 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
@@ -94,7 +95,6 @@ type Manager struct {
 func NewManager(maxNumMessages int,
 	avgSendDelta, randomRange time.Duration,
 	net *xxdk.Cmix) *Manager {
-
 	return newManager(maxNumMessages, avgSendDelta, randomRange, net.GetCmix(),
 		net.GetStorage(), net.GetRng())
 }
@@ -122,7 +122,9 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle(dummyTrafficStoppableName)
 	go m.sendThread(stop)
-
+	jww.INFO.Printf("Dummy Traffic loop started {maxNumMessages: %d, "+
+		"avgSendDelta: %s, randomRange: %s}", m.maxNumMessages, m.avgSendDelta,
+		m.randomRange)
 	return stop, nil
 }
 

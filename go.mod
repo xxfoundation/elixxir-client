@@ -19,7 +19,7 @@ require (
 	gitlab.com/elixxir/crypto v0.0.7-0.20230113153754-4be32f0a0a89
 	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20230109222259-f62b2a90b62c
-	gitlab.com/xx_network/comms v0.0.4-0.20230113175018-2f702c678890
+	gitlab.com/xx_network/comms v0.0.4-0.20230117150447-9607df7c3c52
 	gitlab.com/xx_network/crypto v0.0.5-0.20230109222209-557b66d73c33
 	gitlab.com/xx_network/primitives v0.0.4-0.20221219230308-4b5550a9247d
 	go.uber.org/ratelimit v0.2.0
@@ -31,7 +31,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0 // indirect
-	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20230113173356-72b6dd25209f // indirect
+	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20230117150303-26f76d6c1157 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect

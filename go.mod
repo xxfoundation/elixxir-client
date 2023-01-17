@@ -8,12 +8,14 @@ require (
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
+	github.com/ostafen/clover/v2 v2.0.0-alpha.2
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.6.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
+	github.com/thedevsaddam/gojsonq v2.3.0+incompatible
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
 	gitlab.com/elixxir/comms v0.0.4-0.20230109233320-a0c90d3324a0
 	gitlab.com/elixxir/crypto v0.0.7-0.20230113183154-9f9619d36db2
@@ -35,15 +37,26 @@ require (
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
+	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
+	github.com/dgraph-io/badger/v3 v3.2103.2 // indirect
+	github.com/dgraph-io/ristretto v0.1.0 // indirect
+	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/elliotchance/orderedmap v1.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/glog v1.0.0 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/flatbuffers v2.0.6+incompatible // indirect
+	github.com/google/orderedcode v0.0.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/klauspost/compress v1.11.7 // indirect
+	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -55,6 +68,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rs/cors v1.8.2 // indirect
+	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sethvargo/go-diceware v0.3.0 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
@@ -65,11 +79,14 @@ require (
 	github.com/ttacon/builder v0.0.0-20170518171403-c099f663e1c2 // indirect
 	github.com/ttacon/libphonenumber v1.2.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
+	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	gitlab.com/xx_network/ring v0.0.3-0.20220902183151-a7d3b15bc981 // indirect
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
 	gitlab.com/yawning/nyquist.git v0.0.0-20221003103146-de5645224a22 // indirect
 	gitlab.com/yawning/x448.git v0.0.0-20221003101044-617eb9b7d9b7 // indirect
+	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/text v0.6.0 // indirect

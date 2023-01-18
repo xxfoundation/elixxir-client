@@ -53,7 +53,9 @@ func TestNick(t *testing.T) {
 	nnm.SetNickname(expectedName)
 
 	name, ok := nnm.GetNickname(nil)
+	require.True(t, ok)
 	require.Equal(t, name, expectedName)
 	name2, ok := nnm.GetNickname(partnerID)
+	require.True(t, ok)
 	require.Equal(t, name2, expectedName)
 }

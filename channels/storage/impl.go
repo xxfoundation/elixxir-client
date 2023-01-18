@@ -138,16 +138,28 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 		msgToUpdate.Round = uint64(round.ID)
 	}
 	msgToUpdate.Id = uuid
+	currentMessage := &Message{Id: msgToUpdate.Id}
 
-	// When updating with struct it will only update non-zero fields by default
+	// Build a transaction to prevent race conditions
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Updates(msgToUpdate).Error
+	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Take(currentMessage).Error
+		if err != nil {
+			return err
+		}
+
+		// When updating with struct it will only update non-zero fields by default
+		return tx.Updates(msgToUpdate).Error
+	})
 	cancel()
 
 	if err != nil {
 		jww.ERROR.Printf("%+v", errors.WithMessagef(parentErr,
 			"Unable to create Channel: %+v", err))
 	}
+	channelId := &id.ID{}
+	copy(channelId[:], currentMessage.ChannelId)
+	go i.msgCb(msgToUpdate.Id, channelId, true)
 }
 
 // UpdateFromMessageID is called whenever a message with the message ID is
@@ -170,11 +182,11 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)
 	}
+	currentMessage := &Message{}
 
 	// Build a transaction to prevent race conditions
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		currentMessage := &Message{}
 		err := tx.Take(currentMessage, "message_id = ?", messageID.Bytes()).Error
 		if err != nil {
 			return err
@@ -190,6 +202,10 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 		jww.ERROR.Printf("%+v", errors.WithMessagef(parentErr,
 			"Unable to create Channel: %+v", err))
 	}
+	channelId := &id.ID{}
+	copy(channelId[:], currentMessage.ChannelId)
+	go i.msgCb(msgToUpdate.Id, channelId, true)
+
 	return msgToUpdate.Id
 }
 
@@ -293,6 +309,8 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 	if err != nil {
 		return 0, errors.Errorf("Failed to insert message: %+v", err)
 	}
+
+	go i.msgCb(msgToInsert.Id, channelID, false)
 	return msgToInsert.Id, nil
 }
 

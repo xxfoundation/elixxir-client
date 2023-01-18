@@ -21,6 +21,11 @@ import (
 	"time"
 )
 
+// MessageReceivedCallback is called any time a message is received or updated.
+//
+// update is true if the row is old and was edited.
+type MessageReceivedCallback func(uuid uint64, channelID *id.ID, update bool)
+
 // MuteCallback is a callback provided for the MuteUser method of the impl.
 type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 
@@ -28,18 +33,30 @@ type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 type impl struct {
 	db     *gorm.DB // Stored database connection
 	cipher cryptoChannel.Cipher
+	msgCb  MessageReceivedCallback
 	muteCb MuteCallback
+}
+
+// NewWASMEventModelBuilder returns a [channels.EventModelBuilder] which allows
+// the channel manager to define the path but the callback is the same
+// across the board.
+func NewWASMEventModelBuilder(encryption cryptoChannel.Cipher,
+	msgCb MessageReceivedCallback, muteCb MuteCallback) channels.EventModelBuilder {
+	fn := func(path string) (channels.EventModel, error) {
+		return NewEventModel(path, encryption, msgCb, muteCb)
+	}
+	return fn
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
 func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
-	muteCb MuteCallback) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption, muteCb)
+	msgCb MessageReceivedCallback, muteCb MuteCallback) (channels.EventModel, error) {
+	model, err := newImpl(dbFilePath, encryption, msgCb, muteCb)
 	return channels.EventModel(model), err
 }
 
 func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
-	muteCb MuteCallback) (*impl, error) {
+	msgCb MessageReceivedCallback, muteCb MuteCallback) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -89,6 +106,7 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 	di := &impl{
 		db:     db,
 		cipher: encryption,
+		msgCb:  msgCb,
 		muteCb: muteCb,
 	}
 

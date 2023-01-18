@@ -8,7 +8,6 @@
 package emoji
 
 import (
-	"fmt"
 	"github.com/forPelevin/gomoji"
 	"github.com/pkg/errors"
 )
@@ -19,10 +18,6 @@ var (
 	InvalidReaction = errors.New(
 		"The reaction is not valid, it must be a single emoji")
 )
-
-// fixme: for the above error print, maybe simply say it is an unsupported emoji?
-
-// fixme: alternative solution for emoji problem: expose this to frontned and have them call it
 
 // ValidateReaction checks that the reaction only contains a single emoji.
 func ValidateReaction(reaction string) error {
@@ -35,7 +30,6 @@ func ValidateReaction(reaction string) error {
 		return InvalidReaction
 	} else if emojisList[0].Character != reaction {
 		// Non-emoji characters found alongside an emoji
-		fmt.Print(emojisList[0].Character)
 		return InvalidReaction
 	}
 

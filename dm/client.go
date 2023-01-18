@@ -135,12 +135,12 @@ func (dc *dmClient) GetIdentity() codename.Identity {
 
 // GetNickname returns the stored nickname if there is one
 func (dc *dmClient) GetNickname(id *id.ID) (string, bool) {
-	return dc.GetNickname(id)
+	return dc.nm.GetNickname(id)
 }
 
 // SetNickname saves the nickname
 func (dc *dmClient) SetNickname(nick string) {
-	dc.SetNickname(nick)
+	dc.nm.SetNickname(nick)
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

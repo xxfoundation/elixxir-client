@@ -77,8 +77,6 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	}
 
 	// Register the listener
-	// TODO: For now we are not doing send tracking. Add it when
-	// hitting WASM.
 	dmc.register(receiver, dmc.st.CheckIfSent)
 
 	return dmc

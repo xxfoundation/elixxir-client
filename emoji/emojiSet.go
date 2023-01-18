@@ -27,7 +27,7 @@ type Set struct {
 	backendEmojiList map[string]struct{}
 }
 
-// NewSet constructs an EmojiSet.
+// NewSet constructs a Set.
 func NewSet() *Set {
 	return &Set{
 		replacementMap: map[string]string{

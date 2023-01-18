@@ -19,7 +19,7 @@ import (
 type Set struct {
 	// replacementMap contains a list of emoji code-points in the front end list
 	// that must be replaced to adhere to backend recognized code-points.
-	replacementMap map[codepoint]codepoint
+	replacementMap map[codepoint]skin
 
 	// supportedEmojis contains a list of all Unicode codepoints for the emojis
 	// that are supported. This allows for quick lookup when comparing against
@@ -30,17 +30,20 @@ type Set struct {
 // NewSet constructs a Set.
 func NewSet() *Set {
 	return &Set{
-		replacementMap: map[codepoint]codepoint{
-			"❤️": "❤", // In Unicode: "\u2764\ufe0f":"\u2764"
+		replacementMap: map[codepoint]skin{
+			"2764-fe0f": {
+				Unified: "2764", // Has codepoint "2764-fe0f" in front-end
+				Native:  "❤",
+			},
 		},
 		supportedEmojis: emojiListToMap(gomoji.AllEmojis()),
 	}
 }
 
-// SanitizeFrontendEmojiList will sanitize the list of emojis that front end
+// SanitizeFrontEndEmojis will sanitize the list of emojis that front end
 // supports. It will be sanitized by modifying the list to determine the union
 // of supported emojis between front end (EmojiMart) and backend (gomoji.emojiMap).
-func (s *Set) SanitizeFrontendEmojiList(frontendEmojiSetJson []byte) ([]byte, error) {
+func (s *Set) SanitizeFrontEndEmojis(frontendEmojiSetJson []byte) ([]byte, error) {
 
 	// Unmarshal front end's JSON
 	var frontEndEmojiSet emojiMartData
@@ -63,13 +66,13 @@ func (s *Set) SanitizeFrontendEmojiList(frontendEmojiSetJson []byte) ([]byte, er
 // incompatible and have replacements (as defined in Set) are replaced.
 func (s *Set) findIncompatibleEmojis(set *emojiMartData) (emojisToRemove []emojiID) {
 	// Iterate over all emojis in the emojiMartData.Emojis list
-	for char, Emoji := range set.Emojis {
+	for id, Emoji := range set.Emojis {
 		var newSkins []skin
 		for _, Skin := range Emoji.Skins {
 			// Determine if the emoji's codepoint should be replaced or removed
 			replacement, replace := s.replace(Skin.Unified)
 			if replace {
-				newSkins = append(newSkins, skin{replacement, Skin.Native})
+				newSkins = append(newSkins, replacement)
 			} else if !s.remove(Skin.Unified) {
 				newSkins = append(newSkins, Skin)
 			}
@@ -79,10 +82,10 @@ func (s *Set) findIncompatibleEmojis(set *emojiMartData) (emojisToRemove []emoji
 			// Write to the set the possible edits (if emojis were replaced
 			// or removed)
 			Emoji.Skins = newSkins
-			set.Emojis[char] = Emoji
+			set.Emojis[id] = Emoji
 		} else {
 			// If all skins have been removed, then mark the emoji for removal
-			emojisToRemove = append(emojisToRemove, char)
+			emojisToRemove = append(emojisToRemove, id)
 		}
 	}
 
@@ -112,8 +115,8 @@ func removeIncompatibleEmojis(set *emojiMartData, emojisToRemove []emojiID) {
 
 	// Remove all incompatible emojis from the emojiMartData.Aliases list
 	for alias, id := range set.Aliases {
-		for _, char := range emojisToRemove {
-			if id == char {
+		for _, removedId := range emojisToRemove {
+			if id == removedId {
 				delete(set.Aliases, alias)
 			}
 		}
@@ -123,7 +126,7 @@ func removeIncompatibleEmojis(set *emojiMartData, emojisToRemove []emojiID) {
 // replace returns whether the front end Unicode codepoint must be replaced.
 // It will return a boolean on whether this codepoint needs to be replaced
 // and what the codepoint must be replaced with.
-func (s *Set) replace(code codepoint) (replacement codepoint, replace bool) {
+func (s *Set) replace(code codepoint) (replacement skin, replace bool) {
 	replacement, replace = s.replacementMap[code]
 	return replacement, replace
 }
@@ -138,8 +141,8 @@ func (s *Set) remove(code codepoint) bool {
 // Unicode codepoint.
 func emojiListToMap(list []gomoji.Emoji) map[codepoint]struct{} {
 	emojiMap := make(map[codepoint]struct{}, len(list))
-	for _, emoji := range list {
-		emojiMap[backToFrontCodePoint(emoji.CodePoint)] = struct{}{}
+	for _, e := range list {
+		emojiMap[backToFrontCodePoint(e.CodePoint)] = struct{}{}
 	}
 	return emojiMap
 }

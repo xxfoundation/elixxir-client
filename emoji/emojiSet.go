@@ -52,23 +52,22 @@ func (es *Set) SanitizeFrontendEmojiList(frontendEmojiSetJson []byte) ([]byte, e
 	// Go through all emojis front end supports and determine
 	// what can be supported on the backend
 	var emojisToRemove []string
-	for char, emoji := range frontEndEmojiSet.Emojis {
-
+	for char, Emoji := range frontEndEmojiSet.Emojis {
 		var newSkins []skin
-		for _, skin := range emoji.Skins {
+		for _, Skin := range Emoji.Skins {
 			// Determine if we must replace or remove an emoji
-			replacement, replace := es.replace(skin.Unified)
+			replacement, replace := es.replace(Skin.Unified)
 			if replace {
-				newSkins = append(newSkins, skin{replacement, skin.Native})
-			} else if !es.remove(skin.Unified) {
-				newSkins = append(newSkins, skin)
+				newSkins = append(newSkins, skin{replacement, Skin.Native})
+			} else if !es.remove(Skin.Unified) {
+				newSkins = append(newSkins, Skin)
 			}
 		}
 
 		if len(newSkins) > 0 {
 			// Write to the set the possible edits (possible no edits were made)
-			emoji.Skins = newSkins
-			frontEndEmojiSet.Emojis[char] = emoji
+			Emoji.Skins = newSkins
+			frontEndEmojiSet.Emojis[char] = Emoji
 		} else {
 			emojisToRemove = append(emojisToRemove, char)
 		}

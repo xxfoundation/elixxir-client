@@ -113,10 +113,6 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 	}
 }
 
-func NewSendTracker(kv *versioned.KV) SendTracker {
-	return &sendTracker{kv: kv}
-}
-
 type nickMgr struct {
 	storeKey string
 	ekv      *versioned.KV

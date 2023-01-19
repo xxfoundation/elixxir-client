@@ -25,6 +25,7 @@ func SupportedEmojis() []gomoji.Emoji {
 }
 
 // ValidateReaction checks that the reaction only contains a single emoji.
+// Returns InvalidReaction if the emoji is invalid.
 func ValidateReaction(reaction string) error {
 	emojisList := gomoji.CollectAll(reaction)
 	if len(emojisList) < 1 {

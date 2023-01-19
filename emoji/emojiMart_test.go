@@ -86,5 +86,5 @@ func Test_emojiMartDataJSON_Example(t *testing.T) {
 		t.Fatalf("Failed to unamrshal: %+v", err)
 	}
 
-	t.Logf("emojiMart:\n %+v\n", emojiMart)
+	t.Logf("emojiMart: %+v\n", emojiMart)
 }

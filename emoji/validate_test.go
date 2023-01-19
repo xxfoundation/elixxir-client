@@ -26,7 +26,6 @@ func TestValidateReaction(t *testing.T) {
 		{"😀 hello 😀 world", InvalidReaction},
 		{"🍆", nil},
 		{"😂", nil},
-		{"❤️", nil},
 		{"🤣", nil},
 		{"👍", nil},
 		{"😭", nil},

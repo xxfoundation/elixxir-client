@@ -29,7 +29,7 @@ func TestMakeDebugTag(t *testing.T) {
 func TestCalcDMPayloadLen(t *testing.T) {
 	net := &mockClient{}
 	plen := calcDMPayloadLen(net)
-	require.Equal(t, 2110, plen)
+	require.Equal(t, 4060, plen)
 }
 
 func TestCreateCMIXFields(t *testing.T) {

@@ -8,8 +8,10 @@
 package dm
 
 import (
+	"os"
 	"testing"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -18,6 +20,11 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 )
+
+func TestMain(m *testing.M) {
+	jww.SetStdoutThreshold(jww.LevelInfo)
+	os.Exit(m.Run())
+}
 
 func TestE2EDMs(t *testing.T) {
 	netA, netB := createLinkedNets()
@@ -62,9 +69,9 @@ func TestE2EDMs(t *testing.T) {
 	dmToken := rcvA1.DMToken
 	replyTo := rcvA1.MessageID
 	clientB.SendReply(&pubKey, dmToken, "whatup?", replyTo, params)
-	require.Equal(t, 1, len(receiverA.Msgs))
-	rcvB1 := receiverA.Msgs[0]
-	replyTo2 := rcvB1.MessageID
+	require.Equal(t, 3, len(receiverA.Msgs))
+	rcvB1 := receiverA.Msgs[2]
+	replyTo2 := rcvB1.ReplyTo
 	require.Equal(t, replyTo, replyTo2)
 	require.Equal(t, "whatup?", rcvB1.Message)
 
@@ -72,8 +79,8 @@ func TestE2EDMs(t *testing.T) {
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
 	clientA.SendReaction(&pubKey, dmToken, "😀", replyTo2, params)
-	require.Equal(t, 2, len(receiverB.Msgs))
-	rcvA2 := receiverB.Msgs[1]
-	require.Equal(t, replyTo2, rcvA2.MessageID)
+	require.Equal(t, 4, len(receiverB.Msgs))
+	rcvA2 := receiverB.Msgs[3]
+	require.Equal(t, replyTo2, rcvA2.ReplyTo)
 	require.Equal(t, "😀", rcvA2.Message)
 }

@@ -72,8 +72,10 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 	ephemeral.Id, error) {
 
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+
 	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
-	jww.INFO.Printf("[DM][%s] SendReply(%s, to %s)", tag, partnerPubKey,
+	jww.INFO.Printf("[DM][%s] SendReply(%s, to %s)", tag, pubKeyStr,
 		replyTo)
 	txt := &Text{
 		Version:        textVersion,
@@ -105,7 +107,8 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 	rounds.Round, ephemeral.Id, error) {
 	tag := makeDebugTag(*partnerPubKey, []byte(reaction),
 		SendReactionTag)
-	jww.INFO.Printf("[DM][%s] SendReaction(%s, to %s)", tag, *partnerPubKey,
+	jww.INFO.Printf("[DM][%s] SendReaction(%s, to %s)", tag,
+		base64.RawStdEncoding.EncodeToString(*partnerPubKey),
 		reactTo)
 
 	if err := emoji.ValidateReaction(reaction); err != nil {

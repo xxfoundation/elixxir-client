@@ -79,7 +79,6 @@ version_check:
     stage: version_check
     only:
         - master
-        - release
     image: $DOCKER_IMAGE
     script:
         - GITTAG=$(git describe --tags)

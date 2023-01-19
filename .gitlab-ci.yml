@@ -75,16 +75,6 @@ tag:
         - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
         - git push origin_tags --tags
 
-version_check:
-    stage: version_check
-    only:
-        - master
-    image: $DOCKER_IMAGE
-    script:
-        - GITTAG=$(git describe --tags)
-        - CODEVERS=$(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) 
-        - if [[ $GITTAG != $CODEVERS ]]; then echo "VERSION NUMBER BAD $GITTAG != $CODEVER"; exit -1; fi
-
 bindings-ios:
   stage: build
   dependencies: []

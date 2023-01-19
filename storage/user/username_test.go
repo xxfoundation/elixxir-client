@@ -1,29 +1,46 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package user
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"testing"
 )
 
 // Test normal function and errors for User's SetUsername function
 func TestUser_SetUsername(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	sch := rsa.GetScheme()
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
 	rsalt := []byte("rsalt")
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -52,12 +69,25 @@ func TestUser_SetUsername(t *testing.T) {
 
 // Test functionality of User's GetUsername function
 func TestUser_GetUsername(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	sch := rsa.GetScheme()
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
 	rsalt := []byte("rsalt")
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -80,19 +110,32 @@ func TestUser_GetUsername(t *testing.T) {
 
 // Test the loadUsername helper function
 func TestUser_loadUsername(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	sch := rsa.GetScheme()
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
 	rsalt := []byte("rsalt")
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
 
 	u1 := "zezima"
 
-	err = u.kv.Set(usernameKey, currentUsernameVersion, &versioned.Object{
+	err = u.kv.Set(usernameKey, &versioned.Object{
 		Version:   currentUsernameVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte(u1),

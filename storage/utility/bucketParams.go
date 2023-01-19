@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/rateLimiting"
 	"sync"
@@ -99,7 +99,7 @@ func (s *BucketParamStore) save() error {
 	}
 
 	// Store object into storage
-	return s.kv.Set(bucketParamsKey, bucketParamsVersion, object)
+	return s.kv.Set(bucketParamsKey, object)
 }
 
 // load extracts the bucket params from store and loads it into the

@@ -1,16 +1,15 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
-
-// Call ./generate.sh to generate the protocol buffer code
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 syntax = "proto3";
 
-package parse;
-option go_package = "ud";
+package ud;
+
+option go_package = "gitlab.com/elixxir/client/ud";
 
 // Contains the Hash and its Type
 message HashFact {

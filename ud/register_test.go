@@ -1,17 +1,20 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"reflect"
 	"testing"
@@ -28,35 +31,29 @@ func (t *testRegisterComm) SendRegisterUser(_ *connect.Host, msg *pb.UDBUserRegi
 
 // Happy path.
 func TestManager_register(t *testing.T) {
-	isReg := uint32(0)
-
-	comms, err := client.NewClientComms(nil, nil, nil, nil)
-	if err != nil {
-		t.Errorf("Failed to start client comms: %+v", err)
-	}
-
-	// Set up manager
-	m := &Manager{
-		comms:      comms,
-		net:        newTestNetworkManager(t),
-		rng:        fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		storage:    storage.InitTestingSession(t),
-		registered: &isReg,
-	}
+	m, _ := newTestManager(t)
 
 	c := &testRegisterComm{}
+	prng := NewPrng(42)
 
-	err = m.register("testUser", c)
+	mockSig := []byte("mock")
+
+	err := m.register("testUser", mockSig, prng, c)
 	if err != nil {
 		t.Errorf("register() returned an error: %+v", err)
 	}
 
 	// Check if the UDBUserRegistration contents are correct
-	m.isCorrect("testUser", c.msg, t)
+	isCorrect("testUser", mockSig, c.msg, m, t)
 
 	// Verify the signed identity data
-	pubKey := m.storage.User().GetCryptographicIdentity().GetTransmissionRSA().GetPublic()
-	err = rsa.Verify(pubKey, hash.CMixHash, c.msg.IdentityRegistration.Digest(),
+	pubKeyPem := m.user.GetReceptionIdentity().RSAPrivatePem
+	privKey, err := rsa.LoadPrivateKeyFromPem(pubKeyPem)
+	if err != nil {
+		t.Fatalf("Failed to load public key: %+v", err)
+	}
+
+	err = rsa.Verify(privKey.GetPublic(), hash.CMixHash, c.msg.IdentityRegistration.Digest(),
 		c.msg.IdentitySignature, nil)
 	if err != nil {
 		t.Errorf("Failed to verify signed identity data: %+v", err)
@@ -64,7 +61,7 @@ func TestManager_register(t *testing.T) {
 
 	// Verify the signed fact
 	usernameFact, _ := fact.NewFact(fact.Username, "testUser")
-	err = rsa.Verify(pubKey, hash.CMixHash, factID.Fingerprint(usernameFact),
+	err = rsa.Verify(privKey.GetPublic(), hash.CMixHash, factID.Fingerprint(usernameFact),
 		c.msg.Frs.FactSig, nil)
 	if err != nil {
 		t.Errorf("Failed to verify signed fact data: %+v", err)
@@ -73,18 +70,25 @@ func TestManager_register(t *testing.T) {
 
 // isCorrect checks if the UDBUserRegistration has all the expected fields minus
 // any signatures.
-func (m *Manager) isCorrect(username string, msg *pb.UDBUserRegistration, t *testing.T) {
-	user := m.storage.User()
-	cryptoUser := m.storage.User().GetCryptographicIdentity()
-
-	if !bytes.Equal(user.GetTransmissionRegistrationValidationSignature(), msg.PermissioningSignature) {
+func isCorrect(username string, mockSig []byte, msg *pb.UDBUserRegistration, m *Manager, t *testing.T) {
+	if !bytes.Equal(mockSig, msg.PermissioningSignature) {
 		t.Errorf("PermissioningSignature incorrect.\n\texpected: %v\n\treceived: %v",
-			user.GetTransmissionRegistrationValidationSignature(), msg.PermissioningSignature)
+			mockSig, msg.PermissioningSignature)
 	}
 
-	if string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())) != msg.RSAPublicPem {
+	identity := m.user.GetReceptionIdentity()
+	privKey, err := rsa.LoadPrivateKeyFromPem(identity.RSAPrivatePem)
+	if err != nil {
+		t.Fatalf("Failed to load private key: %v", err)
+	}
+
+	pubKeyPem := rsa.CreatePublicKeyPem(privKey.GetPublic())
+
+	if string(pubKeyPem) !=
+		msg.RSAPublicPem {
 		t.Errorf("RSAPublicPem incorrect.\n\texpected: %v\n\treceived: %v",
-			string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())), msg.RSAPublicPem)
+			string(pubKeyPem),
+			msg.RSAPublicPem)
 	}
 
 	if username != msg.IdentityRegistration.Username {
@@ -92,19 +96,27 @@ func (m *Manager) isCorrect(username string, msg *pb.UDBUserRegistration, t *tes
 			username, msg.IdentityRegistration.Username)
 	}
 
-	if !bytes.Equal(m.storage.E2e().GetDHPublicKey().Bytes(), msg.IdentityRegistration.DhPubKey) {
+	dhKeyPriv, err := identity.GetDHKeyPrivate()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	grp := m.user.GetE2E().GetGroup()
+	dhKeyPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))
+
+	if !bytes.Equal(dhKeyPub.Bytes(), msg.IdentityRegistration.DhPubKey) {
 		t.Errorf("IdentityRegistration DhPubKey incorrect.\n\texpected: %#v\n\treceived: %#v",
-			m.storage.E2e().GetDHPublicKey().Bytes(), msg.IdentityRegistration.DhPubKey)
+			dhKeyPub.Bytes(), msg.IdentityRegistration.DhPubKey)
 	}
 
-	if !bytes.Equal(cryptoUser.GetTransmissionSalt(), msg.IdentityRegistration.Salt) {
+	if !bytes.Equal(identity.Salt, msg.IdentityRegistration.Salt) {
 		t.Errorf("IdentityRegistration Salt incorrect.\n\texpected: %#v\n\treceived: %#v",
-			cryptoUser.GetTransmissionSalt(), msg.IdentityRegistration.Salt)
+			identity.Salt, msg.IdentityRegistration.Salt)
 	}
 
-	if !bytes.Equal(cryptoUser.GetTransmissionID().Marshal(), msg.Frs.UID) {
+	if !bytes.Equal(identity.ID.Marshal(), msg.Frs.UID) {
 		t.Errorf("Frs UID incorrect.\n\texpected: %v\n\treceived: %v",
-			cryptoUser.GetTransmissionID().Marshal(), msg.Frs.UID)
+			identity.ID.Marshal(), msg.Frs.UID)
 	}
 
 	if !reflect.DeepEqual(&pb.Fact{Fact: username}, msg.Frs.Fact) {

@@ -1,21 +1,21 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"testing"
 )
 
 // Unit test for StoreCyclicKey
 func TestStoreCyclicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	x := grp.NewInt(77)
@@ -28,7 +28,7 @@ func TestStoreCyclicKey(t *testing.T) {
 
 // Unit test for LoadCyclicKey
 func TestLoadCyclicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	x := grp.NewInt(77)
@@ -50,7 +50,7 @@ func TestLoadCyclicKey(t *testing.T) {
 
 // Unit test for DeleteCyclicKey
 func TestDeleteCyclicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	x := grp.NewInt(77)

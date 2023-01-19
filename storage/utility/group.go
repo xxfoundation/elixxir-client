@@ -1,14 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -29,11 +29,11 @@ func StoreGroup(kv *versioned.KV, grp *cyclic.Group, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentE2EMessageVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadGroup(kv *versioned.KV, key string) (*cyclic.Group, error) {
-	vo, err := kv.Get(key, currentE2EMessageVersion)
+	vo, err := kv.Get(key, currentGroupVersion)
 	if err != nil {
 		return nil, err
 	}

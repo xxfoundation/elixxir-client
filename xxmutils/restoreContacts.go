@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package xxmutils
 
@@ -11,6 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strings"
 	"sync"
@@ -18,17 +21,13 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/v4/interfaces"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/ud"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
-
-type LookupCallback func(c contact.Contact, myErr error)
 
 // RestoreContactsFromBackup takes as input the jason output of the
 // `NewClientFromBackup` function, unmarshals it into IDs, looks up
@@ -38,8 +37,8 @@ type LookupCallback func(c contact.Contact, myErr error)
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
-	udManager *ud.Manager, lookupCB LookupCallback,
+func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
+	udManager *ud.Manager,
 	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
 
@@ -59,7 +58,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	}
 
 	store := stateStore{
-		apiStore: client.GetStorage(),
+		apiStore: user.GetStorage(),
 	}
 
 	// Unmarshal IDs and then check restore state
@@ -68,9 +67,6 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 		return nil, nil, nil, err
 	}
 	lookupIDs, resetContacts, restored := checkRestoreState(idList, store)
-
-	jww.INFO.Printf("restoring %d backup partner IDs", len(lookupIDs))
-	jww.DEBUG.Printf("backup partner IDs to restore: %+v", lookupIDs)
 
 	// State variables, how many we have looked up successfully
 	// and how many we have already reset.
@@ -98,9 +94,8 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	rsWg := &sync.WaitGroup{}
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
-		go LookupContacts(lookupCh, foundCh, failCh, udManager, lookupCB,
-			lcWg)
-		go ResetSessions(resetContactCh, restoredCh, failCh, *client,
+		go LookupContacts(lookupCh, foundCh, failCh, user, udManager.GetContact(), lcWg)
+		go ResetSessions(resetContactCh, restoredCh, failCh, user,
 			rsWg)
 	}
 
@@ -131,7 +126,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 
 	// Event Processing
 	done := false
-	var err error = nil
+	var err error
 	for !done {
 		// NOTE: Timer is reset every loop
 		timeoutTimer := time.NewTimer(restoreTimeout)
@@ -179,13 +174,13 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
-	failCh chan failure, udManager *ud.Manager, extLookupCB LookupCallback,
+	failCh chan failure, user *xxdk.E2e, udContact contact.Contact,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
 	// contacts channel.
 	for lookupID := range in {
-		c, err := LookupContact(lookupID, udManager, extLookupCB)
+		c, err := LookupContact(lookupID, user, udContact)
 		if err == nil {
 			out <- c
 			continue
@@ -206,12 +201,10 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
-	client api.Client, wg *sync.WaitGroup) {
+	user *xxdk.E2e, wg *sync.WaitGroup) {
 	defer wg.Done()
-	me := client.GetUser().GetContact()
-	msg := "Account reset from backup"
 	for c := range in {
-		_, err := client.ResetSession(*c, me, msg)
+		_, err := user.GetAuth().Reset(*c)
 		if err == nil {
 			out <- c
 			continue
@@ -227,8 +220,8 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func LookupContact(userID *id.ID, udManager *ud.Manager,
-	extLookupCB LookupCallback) (*contact.Contact, error) {
+func LookupContact(userID *id.ID, user *xxdk.E2e, udContact contact.Contact) (
+	*contact.Contact, error) {
 	// This is a little wonky, but wait until we get called then
 	// set the result to the contact objects details if there is
 	// no error
@@ -236,30 +229,18 @@ func LookupContact(userID *id.ID, udManager *ud.Manager,
 	var result *contact.Contact
 	var err error
 	lookupCB := func(c contact.Contact, myErr error) {
-		if myErr == nil {
-			newOwnership := make([]byte, len(c.OwnershipProof))
-			copy(newOwnership, c.OwnershipProof)
-			newFacts, _, _ := fact.UnstringifyFactList(
-				c.Facts.Stringify())
-			result = &contact.Contact{
-				ID:             c.ID.DeepCopy(),
-				DhPubKey:       c.DhPubKey.DeepCopy(),
-				OwnershipProof: newOwnership,
-				Facts:          newFacts,
-			}
-		} else {
+		defer waiter.Unlock()
+		if myErr != nil {
 			err = myErr
-			result = nil
 		}
-		waiter.Unlock()
-		extLookupCB(c, myErr)
+		result = &c
 	}
 	// Take lock once to make sure I will wait
 	waiter.Lock()
 
 	// in MS, so 90 seconds
-	timeout := time.Duration(90 * time.Second)
-	udManager.Lookup(userID, lookupCB, timeout)
+	_, _, err = ud.Lookup(user, udContact, lookupCB, userID,
+		single.GetDefaultRequestParams())
 
 	// Now force a wait for callback to exit
 	waiter.Lock()
@@ -290,7 +271,7 @@ type failure struct {
 const stateStoreFmt = "restoreContactsFromBackup/v1/%s"
 
 type stateStore struct {
-	apiStore *storage.Session
+	apiStore storage.Session
 	// TODO: We could put a syncmap or something here instead of
 	// 1-key-per-id
 }
@@ -306,7 +287,7 @@ func (s stateStore) set(user *contact.Contact, state restoreState) error {
 	data = append(data, user.Marshal()...)
 	val := &versioned.Object{
 		Version:   0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 	return s.apiStore.Set(key, val)

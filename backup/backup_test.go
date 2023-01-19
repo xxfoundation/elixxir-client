@@ -1,44 +1,41 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package backup
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"reflect"
-	"sort"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/interfaces/params"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// Tests that Backup.initializeBackup returns a new Backup with a copy of the
+// Tests that Backup.InitializeBackup returns a new Backup with a copy of the
 // key and the callback.
-func Test_initializeBackup(t *testing.T) {
+func Test_InitializeBackup(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
-	b, err := initializeBackup(expectedPassword, cb, nil,
-		storage.InitTestingSession(t), &interfaces.BackupContainer{},
-		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
+	b, err := InitializeBackup(expectedPassword, cb, &xxdk.Container{},
+		newMockE2e(t),
+		newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
-		t.Errorf("initializeBackup returned an error: %+v", err)
+		t.Errorf("InitializeBackup returned an error: %+v", err)
 	}
 
 	select {
@@ -48,7 +45,7 @@ func Test_initializeBackup(t *testing.T) {
 	}
 
 	// Check that the key, salt, and params were saved to storage
-	key, salt, _, err := loadBackup(b.store.GetKV())
+	key, salt, _, err := loadBackup(b.kv)
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params: %+v", err)
 	}
@@ -77,17 +74,17 @@ func Test_initializeBackup(t *testing.T) {
 	}
 }
 
-// Initialises a new backup and then tests that Backup.resumeBackup overwrites
-// the callback but keeps the password.
-func Test_resumeBackup(t *testing.T) {
+// Initialises a new backup and then tests that ResumeBackup overwrites the
+// callback but keeps the password.
+func Test_ResumeBackup(t *testing.T) {
 	// Start the first backup
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan1 := make(chan []byte)
 	cb1 := func(encryptedBackup []byte) { cbChan1 <- encryptedBackup }
-	s := storage.InitTestingSession(t)
 	expectedPassword := "MySuperSecurePassword"
-	b, err := initializeBackup(expectedPassword, cb1, nil, s,
-		&interfaces.BackupContainer{},
-		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
+	b, err := InitializeBackup(expectedPassword, cb1, &xxdk.Container{},
+		newMockE2e(t), newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
 		t.Errorf("Failed to initialize new Backup: %+v", err)
 	}
@@ -98,8 +95,8 @@ func Test_resumeBackup(t *testing.T) {
 		t.Error("Timed out waiting for callback.")
 	}
 
-	// Get key and salt to compare to later
-	key1, salt1, _, err := loadBackup(b.store.GetKV())
+	// get key and salt to compare to later
+	key1, salt1, _, err := loadBackup(b.kv)
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params from newly "+
 			"initialized backup: %+v", err)
@@ -108,14 +105,14 @@ func Test_resumeBackup(t *testing.T) {
 	// Resume the backup with a new callback
 	cbChan2 := make(chan []byte)
 	cb2 := func(encryptedBackup []byte) { cbChan2 <- encryptedBackup }
-	b2, err := resumeBackup(cb2, nil, s, &interfaces.BackupContainer{},
-		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
+	b2, err := ResumeBackup(cb2, &xxdk.Container{}, newMockE2e(t), newMockSession(t),
+		newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
-		t.Errorf("resumeBackup returned an error: %+v", err)
+		t.Errorf("ResumeBackup returned an error: %+v", err)
 	}
 
 	// Get key, salt, and parameters of resumed backup
-	key2, salt2, _, err := loadBackup(b.store.GetKV())
+	key2, salt2, _, err := loadBackup(b.kv)
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params from resumed "+
 			"backup: %+v", err)
@@ -145,14 +142,16 @@ func Test_resumeBackup(t *testing.T) {
 	}
 }
 
-// Error path: Tests that Backup.resumeBackup returns an error if no password is
+// Error path: Tests that ResumeBackup returns an error if no password is
 // present in storage.
 func Test_resumeBackup_NoKeyError(t *testing.T) {
 	expectedErr := "object not found"
 	s := storage.InitTestingSession(t)
-	_, err := resumeBackup(nil, nil, s, &interfaces.BackupContainer{}, nil)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("resumeBackup did not return the expected error when no "+
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	_, err := ResumeBackup(nil, &xxdk.Container{}, newMockE2e(t), newMockSession(t),
+		newMockUserDiscovery(), s.GetKV(), rngGen)
+	if err == nil || s.GetKV().Exists(err) {
+		t.Errorf("ResumeBackup did not return the expected error when no "+
 			"password is present.\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -197,7 +196,7 @@ func TestBackup_TriggerBackup_NoKey(t *testing.T) {
 		t.Errorf("backup not called")
 	}
 
-	err := deleteBackup(b.store.GetKV())
+	err := deleteBackup(b.kv)
 	if err != nil {
 		t.Errorf("Failed to delete key, salt, and params: %+v", err)
 	}
@@ -242,7 +241,7 @@ func TestBackup_StopBackup(t *testing.T) {
 	}
 
 	// Make sure key, salt, and params are deleted
-	key, salt, p, err := loadBackup(b.store.GetKV())
+	key, salt, p, err := loadBackup(b.kv)
 	if err == nil || len(key) != 0 || len(salt) != 0 || p != (backup.Params{}) {
 		t.Errorf("Loaded key, salt, and params that should be deleted.")
 	}
@@ -272,77 +271,79 @@ func TestBackup_IsBackupRunning(t *testing.T) {
 
 func TestBackup_AddJson(t *testing.T) {
 	b := newTestBackup("MySuperSecurePassword", nil, t)
-	s := b.store
+	s := b.session.(*mockSession)
+	e2e := b.e2e.(*mockE2e)
 	json := "{'data': {'one': 1}}"
 
-	expectedCollatedBackup := backup.Backup{
-		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+	expected := backup.Backup{
+		RegistrationCode:      s.regCode,
+		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
-			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
-			Salt:                 s.GetUser().TransmissionSalt,
-			ComputedID:           s.GetUser().TransmissionID,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
+			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
+			Salt:                 s.transmissionSalt,
+			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
-			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
-			Salt:                 s.GetUser().ReceptionSalt,
-			ComputedID:           s.GetUser().ReceptionID,
-			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
-			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
+			RegistrarSignature:   s.receptionRegistrationValidationSignature,
+			Salt:                 s.receptionSalt,
+			ComputedID:           s.receptionID,
+			DHPrivateKey:         e2e.historicalDHPrivkey,
+			DHPublicKey:          e2e.historicalDHPubkey,
 		},
 		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
-			FactList: s.GetUd().GetFacts(),
+			FactList: b.ud.(*mockUserDiscovery).facts,
 		},
-		Contacts:   backup.Contacts{Identities: s.E2e().GetPartners()},
+		Contacts:   backup.Contacts{Identities: e2e.partnerIDs},
 		JSONParams: json,
 	}
 
 	b.AddJson(json)
 
 	collatedBackup := b.assembleBackup()
-	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+	if !reflect.DeepEqual(expected, collatedBackup) {
 		t.Errorf("Collated backup does not match expected."+
-			"\nexpected: %+v\nreceived: %+v",
-			expectedCollatedBackup, collatedBackup)
+			"\nexpected: %+v\nreceived: %+v", expected, collatedBackup)
 	}
 }
 
 func TestBackup_AddJson_badJson(t *testing.T) {
 	b := newTestBackup("MySuperSecurePassword", nil, t)
-	s := b.store
+	s := b.session.(*mockSession)
+	e2e := b.e2e.(*mockE2e)
 	json := "abc{'i'm a bad json: 'one': 1'''}}"
 
-	expectedCollatedBackup := backup.Backup{
-		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+	expected := backup.Backup{
+		RegistrationCode:      s.regCode,
+		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
-			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
-			Salt:                 s.GetUser().TransmissionSalt,
-			ComputedID:           s.GetUser().TransmissionID,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
+			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
+			Salt:                 s.transmissionSalt,
+			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
-			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
-			Salt:                 s.GetUser().ReceptionSalt,
-			ComputedID:           s.GetUser().ReceptionID,
-			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
-			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
+			RegistrarSignature:   s.receptionRegistrationValidationSignature,
+			Salt:                 s.receptionSalt,
+			ComputedID:           s.receptionID,
+			DHPrivateKey:         e2e.historicalDHPrivkey,
+			DHPublicKey:          e2e.historicalDHPubkey,
 		},
 		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
-			FactList: s.GetUd().GetFacts(),
+			FactList: b.ud.(*mockUserDiscovery).facts,
 		},
-		Contacts:   backup.Contacts{Identities: s.E2e().GetPartners()},
+		Contacts:   backup.Contacts{Identities: e2e.partnerIDs},
 		JSONParams: json,
 	}
 
 	b.AddJson(json)
 
 	collatedBackup := b.assembleBackup()
-	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+	if !reflect.DeepEqual(expected, collatedBackup) {
 		t.Errorf("Collated backup does not match expected."+
-			"\nexpected: %+v\nreceived: %+v",
-			expectedCollatedBackup, collatedBackup)
+			"\nexpected: %+v\nreceived: %+v", expected, collatedBackup)
 	}
 }
 
@@ -350,73 +351,51 @@ func TestBackup_AddJson_badJson(t *testing.T) {
 // results.
 func TestBackup_assembleBackup(t *testing.T) {
 	b := newTestBackup("MySuperSecurePassword", nil, t)
-	s := b.store
+	s := b.session.(*mockSession)
+	e2e := b.e2e.(*mockE2e)
 
-	rng := csprng.NewSystemRNG()
-	for i := 0; i < 10; i++ {
-		recipient, _ := id.NewRandomID(rng, id.User)
-		dhKey := s.E2e().GetGroup().NewInt(int64(i + 10))
-		pubKey := diffieHellman.GeneratePublicKey(dhKey, s.E2e().GetGroup())
-		_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
-		theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
-		p := params.GetDefaultE2ESessionParams()
-
-		err := s.E2e().AddPartner(
-			recipient, pubKey, dhKey, mySidhPriv, theirSidhPub, p, p)
-		if err != nil {
-			t.Errorf("Failed to add partner %s: %+v", recipient, err)
-		}
-	}
-
-	expectedCollatedBackup := backup.Backup{
-		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+	expected := backup.Backup{
+		RegistrationCode:      s.regCode,
+		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
-			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
-			Salt:                 s.GetUser().TransmissionSalt,
-			ComputedID:           s.GetUser().TransmissionID,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
+			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
+			Salt:                 s.transmissionSalt,
+			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
-			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
-			Salt:                 s.GetUser().ReceptionSalt,
-			ComputedID:           s.GetUser().ReceptionID,
-			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
-			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
+			RegistrarSignature:   s.receptionRegistrationValidationSignature,
+			Salt:                 s.receptionSalt,
+			ComputedID:           s.receptionID,
+			DHPrivateKey:         e2e.historicalDHPrivkey,
+			DHPublicKey:          e2e.historicalDHPubkey,
 		},
 		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
-			FactList: s.GetUd().GetFacts(),
+			FactList: b.ud.(*mockUserDiscovery).facts,
 		},
-		Contacts: backup.Contacts{Identities: s.E2e().GetPartners()},
+		Contacts: backup.Contacts{Identities: e2e.partnerIDs},
 	}
 
 	collatedBackup := b.assembleBackup()
 
-	sort.Slice(expectedCollatedBackup.Contacts.Identities, func(i, j int) bool {
-		return bytes.Compare(expectedCollatedBackup.Contacts.Identities[i].Bytes(),
-			expectedCollatedBackup.Contacts.Identities[j].Bytes()) == -1
-	})
-
-	sort.Slice(collatedBackup.Contacts.Identities, func(i, j int) bool {
-		return bytes.Compare(collatedBackup.Contacts.Identities[i].Bytes(),
-			collatedBackup.Contacts.Identities[j].Bytes()) == -1
-	})
-
-	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+	if !reflect.DeepEqual(expected, collatedBackup) {
 		t.Errorf("Collated backup does not match expected."+
 			"\nexpected: %+v\nreceived: %+v",
-			expectedCollatedBackup, collatedBackup)
+			expected, collatedBackup)
 	}
 }
 
 // newTestBackup creates a new Backup for testing.
 func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
-	b, err := initializeBackup(
+	b, err := InitializeBackup(
 		password,
 		cb,
-		nil,
-		storage.InitTestingSession(t),
-		&interfaces.BackupContainer{},
+		&xxdk.Container{},
+		newMockE2e(t),
+		newMockSession(t),
+		newMockUserDiscovery(),
+		versioned.NewKV(ekv.MakeMemstore()),
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	)
 	if err != nil {
@@ -429,13 +408,16 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 // Tests that Backup.InitializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Benchmark_InitializeBackup(t *testing.B) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
 	for i := 0; i < t.N; i++ {
-		_, err := initializeBackup(expectedPassword, cb, nil,
-			storage.InitTestingSession(t), &interfaces.BackupContainer{},
-			fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
+		_, err := InitializeBackup(expectedPassword, cb,
+			&xxdk.Container{},
+			newMockE2e(t),
+			newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 		if err != nil {
 			t.Errorf("InitializeBackup returned an error: %+v", err)
 		}

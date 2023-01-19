@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 // Package dummy allows for the sending of dummy messages to dummy recipients
@@ -12,29 +12,40 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"sync/atomic"
 	"time"
 )
 
+// Manager related thread handling constants.
 const (
+	// The name of the Manager's stoppable.Stoppable
 	dummyTrafficStoppableName = "DummyTraffic"
-	statusChanLen             = 100
+
+	// The amount of statuses in queue that can be placed
+	// by Manager.SetStatus.
+	statusChanLen = 100
 )
 
-// Thread status.
+// The thread status values.
 const (
-	notStarted uint32 = iota
-	running
-	paused
-	stopped
+	notStarted uint32 = iota // Sending thread has not been started
+	running                  // Sending thread is currently operating
+	paused                   // Sending thread is temporarily halted.
+	stopped                  // Sending thread is halted.
 )
 
-// Error messages.
+const (
+	Paused  = false
+	Running = true
+)
+
+// Error messages for Manager.
 const (
 	setStatusErr = "Failed to change status of dummy traffic send thread to %t: channel full"
 )
@@ -56,76 +67,117 @@ type Manager struct {
 	// Pauses/Resumes the dummy send thread when triggered
 	statusChan chan bool
 
-	// Client interfaces
-	client *api.Client
-	store  *storage.Session
-	net    interfaces.NetworkManager
-	rng    *fastRNG.StreamGenerator
+	totalSent *uint64
+
+	// Interfaces
+	net   cmix.Client
+	store storage.Session
+
+	// Generates
+	rng *fastRNG.StreamGenerator
 }
 
-// NewManager creates a new dummy Manager with the specified average send delta
-// and the range used for generating random durations.
-func NewManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	client *api.Client) *Manager {
-	return newManager(maxNumMessages, avgSendDelta, randomRange, client,
-		client.GetStorage(), client.GetNetworkInterface(), client.GetRng())
+// NewManager creates a DummyTraffic manager and initialises the
+// dummy traffic sending thread. Note that the manager is by default paused,
+// and as such the sending thread must be started by calling DummyTraffic.Start.
+// The time duration between each sending operation and the amount of messages
+// sent each interval are randomly generated values with bounds defined by the
+// given parameters below.
+//
+// Params:
+//   - maxNumMessages - the upper bound of the random number of messages sent
+//     each sending cycle.
+//   - avgSendDeltaMS - the average duration, in milliseconds, to wait
+//     between sends.
+//   - randomRangeMS - the upper bound of the interval between sending cycles,
+//     in milliseconds. Sends occur every avgSendDeltaMS +/- a random duration
+//     with an upper bound of randomRangeMS.
+func NewManager(maxNumMessages int,
+	avgSendDelta, randomRange time.Duration,
+	net *xxdk.Cmix) *Manager {
+	return newManager(maxNumMessages, avgSendDelta, randomRange, net.GetCmix(),
+		net.GetStorage(), net.GetRng())
 }
 
 // newManager builds a new dummy Manager from fields explicitly passed in. This
-// function is a helper function for NewManager to make it easier to test.
+// function is a helper function for NewManager.
 func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	client *api.Client, store *storage.Session, net interfaces.NetworkManager,
-	rng *fastRNG.StreamGenerator) *Manager {
+	net cmix.Client, store storage.Session, rng *fastRNG.StreamGenerator) *Manager {
+	numSent := uint64(8)
 	return &Manager{
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
 		randomRange:    randomRange,
 		status:         notStarted,
 		statusChan:     make(chan bool, statusChanLen),
-		client:         client,
-		store:          store,
 		net:            net,
+		store:          store,
 		rng:            rng,
+		totalSent:      &numSent,
 	}
 }
 
 // StartDummyTraffic starts the process of sending dummy traffic. This function
-// matches the api.Service type.
+// adheres to xxdk.Service.
 func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle(dummyTrafficStoppableName)
 	go m.sendThread(stop)
-
+	jww.INFO.Printf("Dummy Traffic loop started {maxNumMessages: %d, "+
+		"avgSendDelta: %s, randomRange: %s}", m.maxNumMessages, m.avgSendDelta,
+		m.randomRange)
 	return stop, nil
 }
 
-// SetStatus sets the state of the dummy traffic send thread, which determines
-// if the thread is running or paused. The possible statuses are:
-//  true  = send thread is sending dummy messages
-//  false = send thread is paused/stopped and not sending dummy messages
-// Returns an error if the channel is full.
-// Note that this function cannot change the status of the send thread if it has
-// yet to be started via StartDummyTraffic or if it has been stopped.
-func (m *Manager) SetStatus(status bool) error {
+// Pause will pause the Manager's sending thread, meaning messages will no
+// longer be sent. After calling Pause, the sending thread may only be resumed
+// by calling Start.
+//
+// There may be a small delay between this call and the pause taking effect.
+// This is because Pause will not cancel the thread when it is in the process
+// of sending messages, but will instead wait for that thread to complete. The
+// thread will then be prevented from beginning another round of sending.
+func (m *Manager) Pause() error {
 	select {
-	case m.statusChan <- status:
+	case m.statusChan <- Paused:
 		return nil
 	default:
-		return errors.Errorf(setStatusErr, status)
+		return errors.Errorf(setStatusErr, Paused)
+	}
+
+}
+
+// Start will start up the Manager's sending thread, meaning messages will
+//
+//	be sent. This should be called after calling NewManager, as by default the
+//	thread is paused. This may also be called after a call to Pause.
+//
+// This will re-initialize the sending thread with a new randomly generated
+// interval between sending dummy messages. This means that there is zero
+// guarantee that the sending interval prior to pausing will be the same
+// sending interval after a call to Start.
+func (m *Manager) Start() error {
+	select {
+	case m.statusChan <- Running:
+		return nil
+	default:
+		return errors.Errorf(setStatusErr, Running)
 	}
 }
 
-// GetStatus returns the current state of the dummy traffic send thread. It has
-// the following return values:
-//  true  = send thread is sending dummy messages
-//  false = send thread is paused/stopped and not sending dummy messages
-// Note that this function does not return the status set by SetStatus directly;
-// it returns the current status of the send thread, which means any call to
-// SetStatus will have a small delay before it is returned by GetStatus.
+// GetStatus returns the current state of the DummyTraffic manager's sending
+// thread. Note that the status returned here may lag behind a user's earlier
+// call to pause the sending thread. This is a result of a small delay (see
+// DummyTraffic.Pause for more details)
+//
+// Returns:
+//   - bool - Returns true (dummy.Running) if the sending thread is sending
+//     messages and false (dummy.Paused) if the sending thread is not sending
+//     messages.
 func (m *Manager) GetStatus() bool {
 	switch atomic.LoadUint32(&m.status) {
 	case running:
-		return true
+		return Running
 	default:
-		return false
+		return Paused
 	}
 }

@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package utility
 
 import (
@@ -6,7 +13,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 )
@@ -72,7 +79,7 @@ func NewBlockStore(numBlocks, blockSize int, kv *versioned.KV) (*BlockStore, err
 func LoadBlockStore(kv *versioned.KV) (*BlockStore, [][]byte, error) {
 	bs := &BlockStore{kv: kv}
 
-	// Get BlockStore parameters from storage
+	// get BlockStore parameters from storage
 	err := bs.load()
 	if err != nil {
 		return nil, nil, err
@@ -81,7 +88,7 @@ func LoadBlockStore(kv *versioned.KV) (*BlockStore, [][]byte, error) {
 	// LoadBlockStore each block from storage and join together into single slice
 	var data, block [][]byte
 	for i := bs.firstSaved; i <= bs.lastSaved; i++ {
-		// Get the block from storage
+		// get the block from storage
 		block, err = bs.loadBlock(i)
 		if err != nil {
 			return nil, nil, err
@@ -155,7 +162,7 @@ func (bs *BlockStore) saveBlock() error {
 	}
 
 	// Save to storage
-	err = bs.kv.Set(bs.getKey(bs.lastSaved), blockVersion, &obj)
+	err = bs.kv.Set(bs.getKey(bs.lastSaved), &obj)
 	if err != nil {
 		return errors.Errorf(bKvSaveErr, bs.lastSaved, err)
 	}
@@ -165,7 +172,7 @@ func (bs *BlockStore) saveBlock() error {
 
 // loadBlock loads the block with the index from storage.
 func (bs *BlockStore) loadBlock(i int) ([][]byte, error) {
-	// Get the data from the kv
+	// get the data from the kv
 	obj, err := bs.kv.Get(bs.getKey(i), blockVersion)
 	if err != nil {
 		return nil, errors.Errorf(bKvLoadErr, i, err)
@@ -214,7 +221,7 @@ func (bs *BlockStore) save() error {
 	}
 
 	// Save to storage
-	err := bs.kv.Set(blockStoreKey, blockStoreVersion, &obj)
+	err := bs.kv.Set(blockStoreKey, &obj)
 	if err != nil {
 		return errors.Errorf(bsKvSaveErr, err)
 	}
@@ -230,7 +237,7 @@ func (bs *BlockStore) save() error {
 
 // load loads BlockStore parameters from storage.
 func (bs *BlockStore) load() error {
-	// Get the data from the kv
+	// get the data from the kv
 	obj, err := bs.kv.Get(blockStoreKey, blockStoreVersion)
 	if err != nil {
 		return errors.Errorf(bsKvLoadErr, err)

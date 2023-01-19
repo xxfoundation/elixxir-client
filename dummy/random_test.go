@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package dummy
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// Consistency test: tests that intRng returns the expected int when using a
+// Consistency test: tests that randomInt returns the expected int when using a
 // PRNG and that the result is not larger than the max.
 func Test_intRng_Consistency(t *testing.T) {
 	expectedInts := []int{15, 1, 35, 13, 42, 52, 57, 3, 48}
@@ -22,9 +22,9 @@ func Test_intRng_Consistency(t *testing.T) {
 	max := 64
 
 	for i, expected := range expectedInts {
-		v, err := intRng(max, prng)
+		v, err := randomInt(max, prng)
 		if err != nil {
-			t.Errorf("intRng returned an error (%d): %+v", i, err)
+			t.Errorf("randomInt returned an error (%d): %+v", i, err)
 		}
 
 		if v != expected {
@@ -40,7 +40,7 @@ func Test_intRng_Consistency(t *testing.T) {
 	}
 }
 
-// Consistency test: tests that durationRng returns the expected int when using
+// Consistency test: tests that randomDuration returns the expected int when using
 // a PRNG and that the result is within the allowed range.
 func Test_durationRng_Consistency(t *testing.T) {
 	expectedDurations := []time.Duration{
@@ -52,9 +52,9 @@ func Test_durationRng_Consistency(t *testing.T) {
 	base, randomRange := time.Minute, 15*time.Second
 
 	for i, expected := range expectedDurations {
-		v, err := durationRng(base, randomRange, prng)
+		v, err := randomDuration(base, randomRange, prng)
 		if err != nil {
-			t.Errorf("durationRng returned an error (%d): %+v", i, err)
+			t.Errorf("randomDuration returned an error (%d): %+v", i, err)
 		}
 
 		if v != expected {
@@ -75,16 +75,16 @@ func Test_durationRng_Consistency(t *testing.T) {
 // when using a PRNG and that the result is not larger than the max payload.
 func Test_newRandomPayload_Consistency(t *testing.T) {
 	expectedPayloads := []string{
-		"l7ufS7Ry6J9bFITyUgnJ",
-		"Ut/Xm012Qpthegyfnw07pVsMwNYUTIiFNQ==",
-		"CD9h",
-		"GSnh",
-		"joE=",
-		"uoQ+6NY+jE/+HOvqVG2PrBPdGqwEzi6ih3xVec+ix44bC6+uiBuCpw==",
-		"qkNGWnhiBhaXiu0M48bE8657w+BJW1cS/v2+DBAoh+EA2s0tiF9pLLYH2gChHBxwcec=",
-		"suEpcF4nPwXJIyaCjisFbg==",
-		"R/3zREEO1MEWAj+o41drb+0n/4l0usDK/ZrQVpKxNhnnOJZN/ceejVNDc2Yc/WbXTw==",
-		"bkt1IQ==",
+		"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVLf15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWA==",
+		"CD9h03W8ArQd9PkZKeGP2p5vguVOdI6B555LvW/jTNy6hD7o1j6MT/4c6+pUbY+sE90arATOLqKHfFV5z6LHjg==",
+		"GwuvrogbgqdREIpC7TyQPKpDRlp4YgYWl4rtDOPGxPOue8PgSVtXEv79vgwQKIfhANrNLYhfaSy2B9oAoRwccA==",
+		"ceeWotwtwlpbdLLhKXBeJz8FySMmgo4rBW44F2WOEGFJiUf980RBDtTBFgI/qONXa2/tJ/+JdLrAyv2a0FaSsQ==",
+		"NhnnOJZN/ceejVNDc2Yc/WbXT+weG4lJGrcjbkt1IWKQzyvrQsPKJzKFYPGqwGfOpui/RtSrK0aAQCxfsoIOiA==",
+		"XTJg8d6XgoPUoJo2+WwglBdG4+1NpkaprotPp7T8OiC6+hp17TJ6hriww5rxz9KztRIZ6nlTOr9EjSxHnTJgdQ==",
+		"M5BZFMjMHPCdo54Okp0CSry8sWk5e7c05+8KbgHxhU3rX+Qk/vesIQiR9ZdeKSqiuKoEfGHNszNz6+csJ6CYwA==",
+		"IZfa5rcyw1HfZo+HTiyfHOCcqGAX5+IXSDA/9BwbI+EcSO0XU51oX3byp5i8ZN4OXbKGSyrTwmzmOCNCdloT1g==",
+		"luUt92D2w0ZeKaDcpGrDoNVwEzvCFXH19UpkMQVRP9hCmxlK4bqfKoOGrnKzZh/oLCrGTb9GFRgk4jBTEmN8mQ==",
+		"wrh9bfDdXvKDZxkHLWcvYfqgvob0V5Iew3wORgzw1wPQfcX1ZhpFATNAmnEramar17plIkyiaXjZpc5i/rEagw==",
 	}
 
 	prng := NewPrng(42)

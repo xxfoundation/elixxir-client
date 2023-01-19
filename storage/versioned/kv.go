@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package versioned
 
@@ -53,8 +53,8 @@ func NewKV(data ekv.KeyValue) *KV {
 // Make sure to inspect the version returned in the versioned object
 func (v *KV) Get(key string, version uint64) (*Object, error) {
 	key = v.makeKey(key, version)
-	jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
-	// Get raw data
+	jww.TRACE.Printf("get %p with key %v", v.r.data, key)
+	// get raw data
 	result := Object{}
 	err := v.r.data.Get(key, &result)
 	if err != nil {
@@ -88,9 +88,9 @@ func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	for version != 0 {
 		version--
 		key = v.makeKey(baseKey, version)
-		jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
+		jww.TRACE.Printf("get %p with key %v", v.r.data, key)
 
-		// Get raw data
+		// get raw data
 		result = &Object{}
 		err := v.r.data.Get(key, result)
 		// Break when we find the *newest* version of the object
@@ -131,8 +131,10 @@ func (v *KV) Delete(key string, version uint64) error {
 // Set upserts new data into the storage
 // When calling this, you are responsible for prefixing the key with the correct
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
-func (v *KV) Set(key string, version uint64, object *Object) error {
-	key = v.makeKey(key, version)
+// The [Object] should contain the versioning if you are maintaining such
+// a functionality.
+func (v *KV) Set(key string, object *Object) error {
+	key = v.makeKey(key, object.Version)
 	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }
@@ -151,6 +153,11 @@ func (v *KV) Prefix(prefix string) *KV {
 	return &kvPrefix
 }
 
+func (v *KV) IsMemStore() bool {
+	_, success := v.r.data.(*ekv.Memstore)
+	return success
+}
+
 //Returns the key with all prefixes appended
 func (v *KV) GetFullKey(key string, version uint64) string {
 	return v.makeKey(key, version)
@@ -158,4 +165,10 @@ func (v *KV) GetFullKey(key string, version uint64) string {
 
 func (v *KV) makeKey(key string, version uint64) string {
 	return fmt.Sprintf("%s%s_%d", v.prefix, key, version)
+}
+
+// Exists returns false if the error indicates the element doesn't
+// exist.
+func (v *KV) Exists(err error) bool {
+	return ekv.Exists(err)
 }

@@ -1,16 +1,16 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
 import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/rateLimiting"
 	"time"
@@ -42,7 +42,7 @@ func NewStoredBucket(capacity, leaked uint32, leakDuration time.Duration,
 		kv: kv.Prefix(bucketStorePrefix),
 	}
 
-	bs.save(0, time.Now().UnixNano())
+	bs.save(0, netTime.Now().UnixNano())
 
 	return rateLimiting.CreateBucket(capacity, leaked, leakDuration, bs.save)
 }
@@ -68,7 +68,7 @@ func (s *BucketStore) save(inBucket uint32, timestamp int64) {
 		Data:      data,
 	}
 
-	err = s.kv.Set(bucketStoreKey, bucketStoreVersion, &obj)
+	err = s.kv.Set(bucketStoreKey, &obj)
 
 	if err != nil {
 		jww.ERROR.Printf("Failed to store %s bucket data: %v",

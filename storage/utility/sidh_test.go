@@ -1,15 +1,15 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -19,7 +19,7 @@ import (
 // TestStoreLoadDeleteSIDHPublicKey tests the load/store/delete functions
 // for SIDH Public Keys
 func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
 	myRng := rng.GetStream()
@@ -50,7 +50,7 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 		t.Errorf("Should not load deleted key: %+v", err)
 	}
 
-	// Now do the same for Type B keys
+	// Now do the same for Tag B keys
 
 	x2 := NewSIDHPublicKey(sidh.KeyVariantSidhB)
 	p2 := NewSIDHPrivateKey(sidh.KeyVariantSidhB)
@@ -85,7 +85,7 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 // TestStoreLoadDeleteSIDHPublicKey tests the load/store/delete functions
 // for SIDH Private Keys
 func TestStoreLoadDeleteSIDHPrivateKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
 	myRng := rng.GetStream()
@@ -114,7 +114,7 @@ func TestStoreLoadDeleteSIDHPrivateKey(t *testing.T) {
 		t.Errorf("Should not load deleted key: %+v", err)
 	}
 
-	// Now do the same for Type B keys
+	// Now do the same for Tag B keys
 
 	p2 := NewSIDHPrivateKey(sidh.KeyVariantSidhB)
 	p2.Generate(myRng)

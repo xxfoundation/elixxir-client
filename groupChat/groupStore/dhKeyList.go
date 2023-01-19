@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupStore
 
@@ -96,7 +96,7 @@ func DeserializeDhKeyList(data []byte) (DhKeyList, error) {
 			return nil, errors.Errorf(idUnmarshalErr, err)
 		}
 
-		// Get length of DH key
+		// get length of DH key
 		keyLen := int(binary.LittleEndian.Uint64(buff.Next(8)))
 
 		// Read and decode DH key

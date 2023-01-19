@@ -1,13 +1,21 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package backup
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/ekv"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 )
 
 func Test_storeJson_loadJson(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	json := "{'data': {'one': 1}}"
 
 	err := storeJson(json, kv)

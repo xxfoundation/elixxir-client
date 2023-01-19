@@ -1,14 +1,17 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
+// This file is compiled for all architectures except WebAssembly.
+//go:build !js || !wasm
 
 package utility
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -43,5 +46,5 @@ func SaveNDF(kv *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 		Data:      marshaled,
 	}
 
-	return kv.Set(key, currentNDFVersion, &obj)
+	return kv.Set(key, &obj)
 }

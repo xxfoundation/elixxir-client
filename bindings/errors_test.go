@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -25,8 +25,8 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 		errToUserErr[exampleErr] = userErrs[i]
 	}
 
-	// Check if a mapped common error returns the expected user friendly error
-	received := ErrorStringToUserFriendlyMessage(backendErrs[0])
+	// Check if a mapped common error returns the expected user-friendly error
+	received := CreateUserFriendlyErrorMessage(backendErrs[0])
 	if strings.Compare(received, userErrs[0]) != 0 {
 		t.Errorf("Unexpected user friendly message returned from common error mapping."+
 			"\n\tExpected: %s"+
@@ -38,7 +38,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	expected := "Could not poll network: "
 	rpcPrefix := "rpc error: desc = "
 	rpcErr := expected + rpcPrefix + context.DeadlineExceeded.Error()
-	received = ErrorStringToUserFriendlyMessage(rpcErr)
+	received = CreateUserFriendlyErrorMessage(rpcErr)
 	if strings.Compare(expected, received) != 0 {
 		t.Errorf("Rpc error parsed unxecpectedly with error "+
 			"\n\"%s\" "+
@@ -49,7 +49,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	// Test RPC error where server side error information is provided
 	serverSideError := "Could not parse message! Please try again with a properly crafted message"
 	rpcErr = rpcPrefix + serverSideError
-	received = ErrorStringToUserFriendlyMessage(rpcErr)
+	received = CreateUserFriendlyErrorMessage(rpcErr)
 	if strings.Compare(serverSideError, received) != 0 {
 		t.Errorf("RPC error parsed unexpectedly with error "+
 			"\n\"%s\" "+
@@ -60,7 +60,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	// Test uncommon error, should return highest level message
 	expected = "failed to register with permissioning"
 	uncommonErr := expected + ": sendRegistrationMessage: Unable to contact Identity Server"
-	received = ErrorStringToUserFriendlyMessage(uncommonErr)
+	received = CreateUserFriendlyErrorMessage(uncommonErr)
 	if strings.Compare(received, UnrecognizedCode+expected) != 0 {
 		t.Errorf("Uncommon error parsed unexpectedly with error "+
 			"\n\"%s\" "+
@@ -71,7 +71,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	// Test fully unrecognizable and un-parsable message,
 	// should hardcoded error message
 	uncommonErr = "failed to register with permissioning"
-	received = ErrorStringToUserFriendlyMessage(uncommonErr)
+	received = CreateUserFriendlyErrorMessage(uncommonErr)
 	if strings.Compare(UnrecognizedCode+": "+uncommonErr, received) != 0 {
 		t.Errorf("Uncommon error parsed unexpectedly with error "+
 			"\n\"%s\" "+

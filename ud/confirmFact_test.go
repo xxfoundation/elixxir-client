@@ -1,8 +1,13 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
@@ -22,20 +27,9 @@ func (t *testComm) SendConfirmFact(_ *connect.Host, message *pb.FactConfirmReque
 
 // Happy path.
 func TestManager_confirmFact(t *testing.T) {
-	isReg := uint32(1)
 
-	comms, err := client.NewClientComms(nil, nil, nil, nil)
-	if err != nil {
-		t.Errorf("Failed to start client comms: %+v", err)
-	}
-
-	// Set up manager
-	m := &Manager{
-		comms:      comms,
-		net:        newTestNetworkManager(t),
-		registered: &isReg,
-		storage:    storage.InitTestingSession(t),
-	}
+	// Create our Manager object
+	m, _ := newTestManager(t)
 
 	c := &testComm{}
 
@@ -45,7 +39,7 @@ func TestManager_confirmFact(t *testing.T) {
 	}
 
 	// Set up store for expected state
-	err = m.storage.GetUd().StoreUnconfirmedFact(expectedRequest.ConfirmationID, fact.Fact{})
+	err := m.store.StoreUnconfirmedFact(expectedRequest.ConfirmationID, fact.Fact{})
 	if err != nil {
 		t.Fatalf("StoreUnconfirmedFact error: %v", err)
 	}

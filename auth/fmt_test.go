@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package auth
 
@@ -13,7 +13,7 @@ import (
 	"reflect"
 	"testing"
 
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
+	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -58,7 +58,7 @@ func TestNewBaseFormat(t *testing.T) {
 
 /* Tests the setter/getter methods for baseFormat */
 
-// Set/Get PubKey tests
+// Set/get PubKey tests
 func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
@@ -86,7 +86,7 @@ func TestBaseFormat_SetGetPubKey(t *testing.T) {
 
 }
 
-// Set/Get EcrPayload tests
+// Set/get EcrPayload tests
 func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
@@ -201,7 +201,7 @@ func TestNewEcrFormat(t *testing.T) {
 
 /* Tests the setter/getter methods for ecrFormat */
 
-// Set/Get ownership tests
+// Set/get ownership tests
 func TestEcrFormat_SetGetOwnership(t *testing.T) {
 	// Construct message
 	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
@@ -237,7 +237,7 @@ func TestEcrFormat_SetGetOwnership(t *testing.T) {
 	ecrMsg.SetOwnership([]byte("ownership"))
 }
 
-// Set/Get payload tests
+// Set/get payload tests
 func TestEcrFormat_SetGetPayload(t *testing.T) {
 	// Construct message
 	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
@@ -358,7 +358,7 @@ func TestNewRequestFormat(t *testing.T) {
 
 /* Setter/Getter tests for RequestFormat */
 
-// Unit test for Get/SetID
+// Unit test for get/SetID
 func TestRequestFormat_SetGetID(t *testing.T) {
 	// Construct message
 	payloadSize := id.ArrIDLen*2 - 1 + sidhinterface.PubKeyByteSize + 1
@@ -399,7 +399,7 @@ func TestRequestFormat_SetGetID(t *testing.T) {
 
 }
 
-// Unit test for Get/SetMsgPayload
+// Unit test for get/SetMsgPayload
 func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 	// Construct message
 	payloadSize := id.ArrIDLen*3 - 1 + sidhinterface.PubKeyByteSize + 1

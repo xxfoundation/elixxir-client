@@ -1,27 +1,29 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"time"
+
+	"gitlab.com/elixxir/client/v4/xxdk"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
-	ft "gitlab.com/elixxir/client/fileTransfer"
-	"gitlab.com/elixxir/client/interfaces"
+	ft "gitlab.com/elixxir/client/v4/fileTransfer"
+	ftE2e "gitlab.com/elixxir/client/v4/fileTransfer/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
-	"io/ioutil"
-	"time"
 )
 
 const callbackPeriod = 25 * time.Millisecond
@@ -33,38 +35,42 @@ var ftCmd = &cobra.Command{
 	Short: "Send and receive file for cMix client",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		// Initialise a new client
-		client := initClient()
+		cmixParams, e2eParams := initParams()
+		authCbs := makeAuthCallbacks(
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Print user's reception ID and save contact file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		writeContact(user.GetContact())
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", identity.ID)
+		writeContact(identity.GetContact())
 
 		// Start the network follower
-		err := client.StartNetworkFollower(5 * time.Second)
+		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to start the network follower: %+v", err)
 		}
 
 		// Initialize the file transfer manager
-		maxThroughput := viper.GetInt("maxThroughput")
-		m, receiveChan := initFileTransferManager(client, maxThroughput)
+		maxThroughput := viper.GetInt(fileMaxThroughputFlag)
+		m, receiveChan := initFileTransferManager(user, maxThroughput)
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		user.GetCmix().AddHealthCallback(
+			func(isConnected bool) {
+				connected <- isConnected
+			})
 		waitUntilConnected(connected)
 
 		// After connection, wait until registered with at least 85% of nodes
 		for numReg, total := 1, 100; numReg < (total*3)/4; {
 			time.Sleep(1 * time.Second)
 
-			numReg, total, err = client.GetNodeRegistrationStatus()
+			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
-				jww.FATAL.Panicf("Failed to get node registration status: %+v",
-					err)
+				jww.FATAL.Panicf(
+					"Failed to get node registration status: %+v", err)
 			}
 
 			jww.INFO.Printf("Registering with nodes (%d/%d)...", numReg, total)
@@ -77,13 +83,13 @@ var ftCmd = &cobra.Command{
 
 		// If set, send the file to the recipient
 		sendDone := make(chan struct{})
-		if viper.IsSet("sendFile") {
-			recipientContactPath := viper.GetString("sendFile")
-			filePath := viper.GetString("filePath")
-			fileType := viper.GetString("fileType")
-			filePreviewPath := viper.GetString("filePreviewPath")
-			filePreviewString := viper.GetString("filePreviewString")
-			retry := float32(viper.GetFloat64("retry"))
+		if viper.IsSet(fileSendFlag) {
+			recipientContactPath := viper.GetString(fileSendFlag)
+			filePath := viper.GetString(filePathFlag)
+			fileType := viper.GetString(fileTypeFlag)
+			filePreviewPath := viper.GetString(filePreviewPathFlag)
+			filePreviewString := viper.GetString(filePreviewStringFlag)
+			retry := float32(viper.GetFloat64(fileRetry))
 
 			sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 				recipientContactPath, retry, m, sendDone)
@@ -104,7 +110,7 @@ var ftCmd = &cobra.Command{
 		receiveQuit <- struct{}{}
 
 		// Stop network follower
-		err = client.StopNetworkFollower()
+		err = user.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf("[FT] Failed to stop network follower: %+v", err)
 		}
@@ -117,7 +123,7 @@ var ftCmd = &cobra.Command{
 // receivedFtResults is used to return received new file transfer results on a
 // channel from a callback.
 type receivedFtResults struct {
-	tid      ftCrypto.TransferID
+	tid      *ftCrypto.TransferID
 	fileName string
 	fileType string
 	sender   *id.ID
@@ -128,12 +134,12 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *api.Client, maxThroughput int) (
-	*ft.Manager, chan receivedFtResults) {
+func initFileTransferManager(user *xxdk.E2e, maxThroughput int) (
+	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
 	receiveChan := make(chan receivedFtResults, 100)
-	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+	receiveCB := func(tid *ftCrypto.TransferID, fileName, fileType string,
 		sender *id.ID, size uint32, preview []byte) {
 		receiveChan <- receivedFtResults{
 			tid, fileName, fileType, sender, size, preview}
@@ -147,24 +153,31 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 	}
 
 	// Create new manager
-	manager, err := ft.NewManager(client, receiveCB, p)
+	manager, err := ft.NewManager(p, user)
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new file transfer manager: %+v", err)
 	}
 
 	// Start the file transfer sending and receiving threads
-	err = client.AddService(manager.StartProcesses)
+	err = user.AddService(manager.StartProcesses)
 	if err != nil {
 		jww.FATAL.Panicf("[FT] Failed to start file transfer threads: %+v", err)
 	}
 
-	return manager, receiveChan
+	e2eParams := ftE2e.DefaultParams()
+	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager, user)
+	if err != nil {
+		jww.FATAL.Panicf(
+			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)
+	}
+
+	return e2eFt, receiveChan
 }
 
 // sendFile sends the file to the recipient and prints the progress.
 func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
-	recipientContactPath string, retry float32, m *ft.Manager,
+	recipientContactPath string, retry float32, m *ftE2e.Wrapper,
 	done chan struct{}) {
 
 	// Get file from path
@@ -200,16 +213,16 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	var sendStart time.Time
 
 	// Create sent progress callback that prints the results
-	progressCB := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
+	progressCB := func(completed bool, arrived, total uint16,
+		st ft.SentTransfer, _ ft.FilePartTracker, err error) {
 		jww.INFO.Printf("[FT] Sent progress callback for %q "+
-			"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}",
-			fileName, completed, sent, arrived, total, err)
-		if (sent == 0 && arrived == 0) || (arrived == total) || completed ||
+			"{completed: %t, arrived: %d, total: %d, err: %v}",
+			fileName, completed, arrived, total, err)
+		if arrived == 0 || (arrived == total) || completed ||
 			err != nil {
 			fmt.Printf("Sent progress callback for %q "+
-				"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}\n",
-				fileName, completed, sent, arrived, total, err)
+				"{completed: %t, arrived: %d, total: %d, err: %v}\n",
+				fileName, completed, arrived, total, err)
 		}
 
 		if completed {
@@ -232,7 +245,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	sendStart = netTime.Now()
 
 	// Send the file
-	tid, err := m.Send(fileName, fileType, fileData, recipient.ID, retry,
+	tid, err := m.Send(recipient.ID, fileName, fileType, fileData, retry,
 		filePreviewData, progressCB, callbackPeriod)
 	if err != nil {
 		jww.FATAL.Panicf("[FT] Failed to send file %q to %s: %+v",
@@ -247,7 +260,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 // receiveNewFileTransfers waits to receive new file transfers and prints its
 // information to the log.
 func receiveNewFileTransfers(receive chan receivedFtResults, done,
-	quit chan struct{}, m *ft.Manager) {
+	quit chan struct{}, m *ftE2e.Wrapper) {
 	jww.INFO.Print("[FT] Starting thread waiting to receive NewFileTransfer " +
 		"E2E message.")
 	for {
@@ -276,12 +289,12 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 
 // newReceiveProgressCB creates a new reception progress callback that prints
 // the results to the log.
-func newReceiveProgressCB(tid ftCrypto.TransferID, fileName string,
+func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 	done chan struct{}, receiveStart time.Time,
-	m *ft.Manager) interfaces.ReceivedProgressCallback {
+	m *ftE2e.Wrapper) ft.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		jww.INFO.Printf("[FT] Receive progress callback for transfer %s "+
+		rt ft.ReceivedTransfer, t ft.FilePartTracker, err error) {
+		jww.INFO.Printf("[FT] Received progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
 
@@ -295,7 +308,7 @@ func newReceiveProgressCB(tid ftCrypto.TransferID, fileName string,
 			receivedFile, err2 := m.Receive(tid)
 			if err2 != nil {
 				jww.FATAL.Panicf(
-					"[FT] Failed to receive file %s: %+v", tid, err)
+					"[FT] Failed to receive file %s: %+v", tid, err2)
 			}
 			jww.INFO.Printf("[FT] Completed receiving file %q in %s.",
 				fileName, netTime.Since(receiveStart))
@@ -332,43 +345,34 @@ func getContactFromFile(path string) contact.Contact {
 
 // init initializes commands and flags for Cobra.
 func init() {
-	ftCmd.Flags().String("sendFile", "",
-		"Sends a file to a recipient with with the contact file at this path.")
-	bindPFlagCheckErr("sendFile")
+	ftCmd.Flags().String(fileSendFlag, "",
+		"Sends a file to a recipient with the contact file at this path.")
+	bindFlagHelper(fileSendFlag, ftCmd)
 
-	ftCmd.Flags().String("filePath", "",
+	ftCmd.Flags().String(filePathFlag, "",
 		"The path to the file to send. Also used as the file name.")
-	bindPFlagCheckErr("filePath")
+	bindFlagHelper(filePathFlag, ftCmd)
 
-	ftCmd.Flags().String("fileType", "txt",
+	ftCmd.Flags().String(fileTypeFlag, "txt",
 		"8-byte file type.")
-	bindPFlagCheckErr("fileType")
+	bindFlagHelper(fileTypeFlag, ftCmd)
 
-	ftCmd.Flags().String("filePreviewPath", "",
+	ftCmd.Flags().String(filePreviewPathFlag, "",
 		"The path to the file preview to send. Set either this flag or "+
 			"filePreviewString.")
-	bindPFlagCheckErr("filePreviewPath")
+	bindFlagHelper(filePreviewPathFlag, ftCmd)
 
-	ftCmd.Flags().String("filePreviewString", "",
+	ftCmd.Flags().String(filePreviewStringFlag, "",
 		"File preview data. Set either this flag or filePreviewPath.")
-	bindPFlagCheckErr("filePreviewString")
+	bindFlagHelper(filePreviewStringFlag, ftCmd)
 
-	ftCmd.Flags().Int("maxThroughput", 0,
+	ftCmd.Flags().Int(fileMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	bindPFlagCheckErr("maxThroughput")
+	bindFlagHelper(fileMaxThroughputFlag, ftCmd)
 
-	ftCmd.Flags().Float64("retry", 0.5,
+	ftCmd.Flags().Float64(fileRetry, 0.5,
 		"Retry rate.")
-	bindPFlagCheckErr("retry")
+	bindFlagHelper(fileRetry, ftCmd)
 
 	rootCmd.AddCommand(ftCmd)
-}
-
-// bindPFlagCheckErr binds the key to a pflag.Flag used by Cobra and prints an
-// error if one occurs.
-func bindPFlagCheckErr(key string) {
-	err := viper.BindPFlag(key, ftCmd.Flags().Lookup(key))
-	if err != nil {
-		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
-	}
 }

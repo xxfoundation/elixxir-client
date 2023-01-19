@@ -1,14 +1,17 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"os"
 	"testing"
@@ -31,28 +34,8 @@ func (rFC *testAFC) SendRegisterFact(*connect.Host, *pb.FactRegisterRequest) (
 
 // Test that the addFact function completes successfully
 func TestAddFact(t *testing.T) {
-	isReg := uint32(1)
 
-	// Create a new Private Key to use for signing the Fact
-	rng := csprng.NewSystemRNG()
-	cpk, err := rsa.GenerateKey(rng, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	comms, err := client.NewClientComms(nil, nil, nil, nil)
-	if err != nil {
-		t.Errorf("Failed to start client comms: %+v", err)
-	}
-
-	// Create our Manager object
-	m := Manager{
-		comms:      comms,
-		net:        newTestNetworkManager(t),
-		privKey:    cpk,
-		registered: &isReg,
-		storage:    storage.InitTestingSession(t),
-	}
+	m, _ := newTestManager(t)
 
 	// Create our test fact
 	USCountryCode := "US"
@@ -68,7 +51,7 @@ func TestAddFact(t *testing.T) {
 	tAFC := testAFC{}
 	uid := &id.ID{}
 	// Run addFact and see if it returns without an error!
-	_, err = m.addFact(f, uid, &tAFC)
+	_, err := m.addFact(f, uid, &tAFC)
 	if err != nil {
 		t.Fatal(err)
 	}

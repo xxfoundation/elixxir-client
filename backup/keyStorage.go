@@ -1,17 +1,16 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package backup
 
 import (
 	"bytes"
-
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -39,7 +38,7 @@ func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error 
 		Data:      marshalBackup(key, salt, params),
 	}
 
-	return kv.Set(cryptoStorageKey, cryptoStorageVersion, obj)
+	return kv.Set(cryptoStorageKey, obj)
 }
 
 // loadBackup loads the key, salt, and params from storage.
@@ -77,7 +76,7 @@ func marshalBackup(key, salt []byte, params backup.Params) []byte {
 // unmarshalBackup unmarshalls the byte slice into a key, salt, and params.
 func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err error) {
 	buff := bytes.NewBuffer(buf)
-	// Get key
+	// get key
 	key = make([]byte, keyLen)
 	n, err := buff.Read(key)
 	if err != nil || n != keyLen {
@@ -85,7 +84,7 @@ func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err er
 		return
 	}
 
-	// Get salt
+	// get salt
 	salt = make([]byte, saltLen)
 	n, err = buff.Read(salt)
 	if err != nil || n != saltLen {
@@ -93,7 +92,7 @@ func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err er
 		return
 	}
 
-	// Get params from remaining bytes
+	// get params from remaining bytes
 	err = params.Unmarshal(buff.Bytes())
 	if err != nil {
 		err = errors.Errorf("reading params failed: %+v", err)

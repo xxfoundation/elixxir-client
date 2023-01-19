@@ -1,22 +1,23 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupChat
 
 import (
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/e2e"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 // Error messages.
@@ -29,20 +30,20 @@ const (
 )
 
 // ResendRequest allows a groupChat request to be sent again.
-func (m Manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error) {
-	g, exists := m.gs.Get(groupID)
+func (m *manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error) {
+	g, exists := m.GetGroup(groupID)
 	if !exists {
 		return nil, NotSent, errors.Errorf(resendGroupIdErr, groupID)
 	}
 
-	jww.DEBUG.Printf("Resending group requests for group %s.", groupID)
+	jww.INFO.Printf("[GC] Resending group requests for group %s.", groupID)
 
 	return m.sendRequests(g)
 }
 
 // sendRequests sends group requests to each member in the group except for the
 // leader/sender
-func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
+func (m *manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 	// Build request message
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,
@@ -94,45 +95,38 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 			errors.Errorf(sendRequestAllErr, len(errs), strings.Join(errs, "\n"))
 	}
 
+	// Convert roundIdMap to List
+	roundList := roundIdMap2List(roundIDs)
+
 	// If some sends returned an error, then return a list of round IDs for the
 	// successful sends and a list of errors for the failed ones
 	if len(errs) > 0 {
-		return roundIdMap2List(roundIDs), PartialSent,
+		return roundList, PartialSent,
 			errors.Errorf(sendRequestPartialErr, len(errs), n,
 				strings.Join(errs, "\n"))
 	}
 
-	jww.DEBUG.Printf("Sent group request to %d members in group %q with ID %s.",
+	jww.DEBUG.Printf(
+		"[GC] Sent group request to %d members in group %q with ID %s.",
 		len(g.Members), g.Name, g.ID)
 
 	// If all sends succeeded, return a list of roundIDs
-	return roundIdMap2List(roundIDs), AllSent, nil
+	return roundList, AllSent, nil
 }
 
 // sendRequest sends the group request to the user via E2E.
-func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error) {
-	sendMsg := message.Send{
-		Recipient:   memberID,
-		Payload:     request,
-		MessageType: message.GroupCreationRequest,
-	}
-
-	recipent, err := m.store.E2e().GetPartner(memberID)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to send request to %s "+
-			"because e2e relationship could not be found", memberID)
-	}
-
-	p := params.GetDefaultE2E()
-	p.IdentityPreimage = recipent.GetGroupRequestPreimage()
+func (m *manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error) {
+	p := e2e.GetDefaultParams()
+	p.LastServiceTag = catalog.GroupRq
 	p.DebugTag = "group.Request"
 
-	rounds, _, _, err := m.net.SendE2E(sendMsg, p, nil)
+	sendReport, err := m.getE2eHandler().SendE2E(
+		catalog.GroupCreationRequest, memberID, request, p)
 	if err != nil {
 		return nil, errors.Errorf(sendE2eErr, memberID, err)
 	}
 
-	return rounds, nil
+	return sendReport.RoundList, nil
 }
 
 // roundIdMap2List converts the map of round IDs to a list of round IDs.

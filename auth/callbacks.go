@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package auth
 
@@ -12,66 +12,35 @@ import (
 	"sync"
 )
 
-type callbackMap struct {
-	generalCallback  []interface{}
-	specificCallback map[id.ID]interface{}
-	overrideCallback []interface{}
-	mux              sync.RWMutex
+// partnerCallbacks is a thread-safe wrapper for Callbacks specific to partnerIds
+// For auth operations with a specific partner, these Callbacks will be used instead
+type partnerCallbacks struct {
+	callbacks map[id.ID]Callbacks
+	sync.RWMutex
 }
 
-func newCallbackMap() *callbackMap {
-	return &callbackMap{
-		generalCallback:  make([]interface{}, 0),
-		specificCallback: make(map[id.ID]interface{}),
-		overrideCallback: make([]interface{}, 0),
+// AddPartnerCallback that overrides the generic auth callback for the given partnerId
+func (p *partnerCallbacks) AddPartnerCallback(partnerId *id.ID, cb Callbacks) {
+	p.Lock()
+	defer p.Unlock()
+	if _, ok := p.callbacks[*partnerId]; !ok {
+		p.callbacks[*partnerId] = cb
 	}
 }
 
-//adds a general callback. This will be preempted by any specific callback
-func (cm *callbackMap) AddGeneral(cb interface{}) {
-	cm.mux.Lock()
-	cm.generalCallback = append(cm.generalCallback, cb)
-	cm.mux.Unlock()
-}
-
-//adds an override callback. This will NOT be preempted by any callback
-func (cm *callbackMap) AddOverride(cb interface{}) {
-	cm.mux.Lock()
-	cm.overrideCallback = append(cm.overrideCallback, cb)
-	cm.mux.Unlock()
-}
-
-// adds a callback for a specific user ID. Only only callback can exist for a
-// user ID. False will be returned if a callback already exists and the new
-// one was not added
-func (cm *callbackMap) AddSpecific(id *id.ID, cb interface{}) bool {
-	cm.mux.Lock()
-	defer cm.mux.Unlock()
-	if _, ok := cm.specificCallback[*id]; ok {
-		return false
+// DeletePartnerCallback that overrides the generic auth callback for the given partnerId
+func (p *partnerCallbacks) DeletePartnerCallback(partnerId *id.ID) {
+	p.Lock()
+	defer p.Unlock()
+	if _, ok := p.callbacks[*partnerId]; ok {
+		delete(p.callbacks, *partnerId)
 	}
-	cm.specificCallback[*id] = cb
-	return true
 }
 
-// removes a callback for a specific user ID if it exists.
-func (cm *callbackMap) RemoveSpecific(id *id.ID) {
-	cm.mux.Lock()
-	defer cm.mux.Unlock()
-	delete(cm.specificCallback, *id)
-}
+// getPartnerCallback returns the Callbacks for the given partnerId
+func (p *partnerCallbacks) getPartnerCallback(partnerId *id.ID) Callbacks {
+	p.RLock()
+	defer p.RUnlock()
 
-//get all callback which fit with the passed id
-func (cm *callbackMap) Get(id *id.ID) []interface{} {
-	cm.mux.RLock()
-	defer cm.mux.RUnlock()
-	cbList := cm.overrideCallback
-
-	if specific, ok := cm.specificCallback[*id]; ok {
-		cbList = append(cbList, specific)
-	} else {
-		cbList = append(cbList, cm.generalCallback...)
-	}
-
-	return cbList
+	return p.callbacks[*partnerId]
 }

@@ -1,16 +1,16 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package clientVersion
 
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -113,5 +113,5 @@ func (s *Store) save() error {
 		Data:      []byte(s.version.String()),
 	}
 
-	return s.kv.Set(storeKey, storeVersion, &obj)
+	return s.kv.Set(storeKey, &obj)
 }

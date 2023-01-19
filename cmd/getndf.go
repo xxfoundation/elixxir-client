@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Package cmd initializes the CLI and config parsers as well as the logger.
 package cmd
@@ -13,18 +13,18 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	// "gitlab.com/elixxir/crypto/contact"
-	// "gitlab.com/elixxir/client/interfaces/message"
-	// "gitlab.com/elixxir/client/switchboard"
-	// "gitlab.com/elixxir/client/ud"
-	// "gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/comms/client"
+
+	// "gitlab.com/elixxir/crypto/contact"
+	// "gitlab.com/elixxir/client/v4/interfaces/message"
+	// "gitlab.com/elixxir/client/v4/switchboard"
+	// "gitlab.com/elixxir/client/v4/ud"
+	// "gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/comms/connect"
 	//"time"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
@@ -42,50 +42,50 @@ var getNDFCmd = &cobra.Command{
 		"and print it.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if viper.GetString("env") != "" {
+		if viper.IsSet(ndfEnvFlag) {
 			var ndfJSON []byte
 			var err error
-			switch viper.GetString("env") {
+			switch viper.GetString(ndfEnvFlag) {
 			case mainnet:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 			case release:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(releaseUrl, releaseCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(releaseUrl, releaseCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 
 			case dev:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(devUrl, devCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(devUrl, devCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 			case testnet:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(testNetUrl, testNetCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(testNetUrl, testNetCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 			default:
 				jww.FATAL.Panicf("env flag with unknown flag (%s)",
-					viper.GetString("env"))
+					viper.GetString(ndfEnvFlag))
 			}
 			// Print to stdout
 			fmt.Printf("%s", ndfJSON)
 		} else {
 
 			// Note: getndf prints to stdout, so we default to not do that
-			logLevel := viper.GetUint("logLevel")
-			logPath := viper.GetString("log")
+			logLevel := viper.GetUint(logLevelFlag)
+			logPath := viper.GetString(logFlag)
 			if logPath == "-" || logPath == "" {
 				logPath = "getndf.log"
 			}
 			initLog(logLevel, logPath)
 			jww.INFO.Printf(Version())
-			gwHost := viper.GetString("gwhost")
-			permHost := viper.GetString("permhost")
-			certPath := viper.GetString("cert")
+			gwHost := viper.GetString(ndfGwHostFlag)
+			permHost := viper.GetString(ndfPermHostFlag)
+			certPath := viper.GetString(ndfCertFlag)
 
 			// Load the certificate
 			var cert []byte
@@ -99,38 +99,34 @@ var getNDFCmd = &cobra.Command{
 					opensslCertDL)
 			}
 
-			params := connect.GetDefaultHostParams()
-			params.AuthEnabled = false
-			comms, _ := client.NewClientComms(nil, nil, nil, nil)
 			// Gateway lookup
 			if gwHost != "" {
-				host, _ := connect.NewHost(&id.TempGateway, gwHost,
-					cert, params)
-				dummyID := ephemeral.ReservedIDs[0]
-				pollMsg := &pb.GatewayPoll{
-					Partial: &pb.NDFHash{
-						Hash: nil,
-					},
-					LastUpdate:    uint64(0),
-					ReceptionID:   dummyID[:],
-					ClientVersion: []byte(api.SEMVER),
-				}
-				resp, err := comms.SendPoll(host, pollMsg)
+				ndfJSon, err := xxdk.DownloadNdfFromGateway(gwHost, cert)
 				if err != nil {
-					jww.FATAL.Panicf("Unable to poll %s for NDF:"+
-						" %+v",
-						gwHost, err)
+					jww.FATAL.Panicf("%v", err)
 				}
-				fmt.Printf("%s", resp.PartialNDF.Ndf)
+				fmt.Printf("%s", ndfJSon)
 				return
 			}
 
 			if permHost != "" {
+				// Establish parameters for gRPC
+				params := connect.GetDefaultHostParams()
+				params.AuthEnabled = false
+
+				// Construct client's gRPC comms object
+				comms, _ := client.NewClientComms(nil, nil, nil, nil)
+
+				// Establish host for scheduling server
 				host, _ := connect.NewHost(&id.Permissioning, permHost,
 					cert, params)
+
+				// Construct a dummy message
 				pollMsg := &pb.NDFHash{
 					Hash: []byte("DummyUserRequest"),
 				}
+
+				// Send request to scheduling and get response
 				resp, err := comms.RequestNdf(host, pollMsg)
 				if err != nil {
 					jww.FATAL.Panicf("Unable to ask %s for NDF:"+
@@ -147,25 +143,22 @@ var getNDFCmd = &cobra.Command{
 }
 
 func init() {
-	getNDFCmd.Flags().StringP("gwhost", "", "",
+	getNDFCmd.Flags().StringP(ndfGwHostFlag, "", "",
 		"Poll this gateway host:port for the NDF")
-	viper.BindPFlag("gwhost",
-		getNDFCmd.Flags().Lookup("gwhost"))
-	getNDFCmd.Flags().StringP("permhost", "", "",
+	bindFlagHelper(ndfGwHostFlag, getNDFCmd)
+
+	getNDFCmd.Flags().StringP(ndfPermHostFlag, "", "",
 		"Poll this registration host:port for the NDF")
-	viper.BindPFlag("permhost",
-		getNDFCmd.Flags().Lookup("permhost"))
+	bindFlagHelper(ndfPermHostFlag, getNDFCmd)
 
-	getNDFCmd.Flags().StringP("cert", "", "",
+	getNDFCmd.Flags().StringP(ndfCertFlag, "", "",
 		"Check with the TLS certificate at this path")
-	viper.BindPFlag("cert",
-		getNDFCmd.Flags().Lookup("cert"))
+	bindFlagHelper(ndfCertFlag, getNDFCmd)
 
-	getNDFCmd.Flags().StringP("env", "", "",
+	getNDFCmd.Flags().StringP(ndfEnvFlag, "", "",
 		"Downloads and verifies a signed NDF from a specified environment. "+
 			"Accepted environment flags include mainnet, release, testnet, and dev")
-	viper.BindPFlag("env",
-		getNDFCmd.Flags().Lookup("env"))
+	bindFlagHelper(ndfEnvFlag, getNDFCmd)
 
 	rootCmd.AddCommand(getNDFCmd)
 }

@@ -1,180 +1,164 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupChat
 
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api"
-	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/preimage"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/edge"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/catalog"
+	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
-)
-
-const (
-	rawMessageBuffSize   = 100
-	receiveStoppableName = "GroupChatReceive"
-	receiveListenerName  = "GroupChatReceiveListener"
-	requestStoppableName = "GroupChatRequest"
-	requestListenerName  = "GroupChatRequestListener"
-	groupStoppableName   = "GroupChat"
+	"sync"
 )
 
 // Error messages.
 const (
-	newGroupStoreErr = "failed to create new group store: %+v"
-	joinGroupErr     = "failed to join new group %s: %+v"
-	leaveGroupErr    = "failed to leave group %s: %+v"
+	// NewManager
+	newGroupStoreErr     = "failed to create new group store: %+v"
+	errAddDefaultService = "could not add default service: %+v"
+
+	// manager.JoinGroup
+	joinGroupErr = "failed to join new group %s: %+v"
+
+	// manager.LeaveGroup
+	leaveGroupErr = "failed to leave group %s: %+v"
 )
 
-// Manager handles the list of groups a user is a part of.
-type Manager struct {
-	client *api.Client
-	store  *storage.Session
-	swb    interfaces.Switchboard
-	net    interfaces.NetworkManager
-	rng    *fastRNG.StreamGenerator
-	gs     *gs.Store
+const defaultServiceTag = "default"
 
+// manager handles the list of groups a user is a part of.
+type manager struct {
+	// Group storage
+	gs *gs.Store
+
+	// List of registered processors
+	services    map[string]Processor
+	servicesMux sync.Mutex
+
+	// Callback that is called when a new group request is received
 	requestFunc RequestCallback
-	receiveFunc ReceiveCallback
+
+	user groupE2e
 }
 
-// NewManager generates a new group chat manager. This functions satisfies the
-// GroupChat interface.
-func NewManager(client *api.Client, requestFunc RequestCallback,
-	receiveFunc ReceiveCallback) (*Manager, error) {
-	return newManager(
-		client,
-		client.GetUser().ReceptionID.DeepCopy(),
-		client.GetStorage().E2e().GetDHPublicKey(),
-		client.GetStorage(),
-		client.GetSwitchboard(),
-		client.GetNetworkInterface(),
-		client.GetRng(),
-		client.GetStorage().GetKV(),
-		requestFunc,
-		receiveFunc,
-	)
-}
+// NewManager creates a new group chat manager
+func NewManager(user groupE2e,
+	requestFunc RequestCallback, receiveFunc Processor) (GroupChat, error) {
 
-// newManager creates a new group chat manager from api.Client parts for easier
-// testing.
-func newManager(client *api.Client, userID *id.ID, userDhKey *cyclic.Int,
-	store *storage.Session, swb interfaces.Switchboard,
-	net interfaces.NetworkManager, rng *fastRNG.StreamGenerator,
-	kv *versioned.KV, requestFunc RequestCallback,
-	receiveFunc ReceiveCallback) (*Manager, error) {
+	// Initialize a member object
+	handler := user.GetE2E()
+	member := group.Member{
+		ID:    user.GetReceptionIdentity().ID,
+		DhKey: handler.GetHistoricalDHPubkey(),
+	}
 
 	// Load the group chat storage or create one if one does not exist
-	gStore, err := gs.NewOrLoadStore(
-		kv, group.Member{ID: userID, DhKey: userDhKey})
+	kv := user.GetStorage().GetKV()
+	gStore, err := gs.NewOrLoadStore(kv, member)
 	if err != nil {
 		return nil, errors.Errorf(newGroupStoreErr, err)
 	}
 
-	return &Manager{
-		client:      client,
-		store:       store,
-		swb:         swb,
-		net:         net,
-		rng:         rng,
+	// Define the manager object
+	m := &manager{
 		gs:          gStore,
+		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
-		receiveFunc: receiveFunc,
-	}, nil
+		user:        user,
+	}
+
+	// Register listener for incoming e2e group chat requests
+	handler.RegisterListener(
+		&id.ZeroUser, catalog.GroupCreationRequest, &requestListener{m})
+
+	// Register notifications listener for incoming e2e group chat requests
+	err = handler.AddService(catalog.GroupRq, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.AddService(defaultServiceTag, receiveFunc)
+	if err != nil {
+		return nil, errors.Errorf(errAddDefaultService, err)
+	}
+
+	return m, nil
 }
 
-// StartProcesses starts the reception worker.
-func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
-	// Start group reception worker
-	receiveStop := stoppable.NewSingle(receiveStoppableName)
-	receiveChan := make(chan message.Receive, rawMessageBuffSize)
-	m.swb.RegisterChannel(receiveListenerName, &id.ID{},
-		message.Raw, receiveChan)
-	go m.receive(receiveChan, receiveStop)
-
-	// Start group request worker
-	requestStop := stoppable.NewSingle(requestStoppableName)
-	requestChan := make(chan message.Receive, rawMessageBuffSize)
-	m.swb.RegisterChannel(requestListenerName, &id.ID{},
-		message.GroupCreationRequest, requestChan)
-	go m.receiveRequest(requestChan, requestStop)
-
-	// Create a multi stoppable
-	multiStoppable := stoppable.NewMulti(groupStoppableName)
-	multiStoppable.Add(receiveStop)
-	multiStoppable.Add(requestStop)
-
-	return multiStoppable, nil
-}
-
-// JoinGroup adds the group to the list of group chats the user is a part of.
+// JoinGroup adds the group to storage, and enables requisite services.
 // An error is returned if the user is already part of the group or if the
 // maximum number of groups have already been joined.
-func (m Manager) JoinGroup(g gs.Group) error {
+func (m *manager) JoinGroup(g gs.Group) error {
 	if err := m.gs.Add(g); err != nil {
 		return errors.Errorf(joinGroupErr, g.ID, err)
 	}
 
-	edgeStore := m.store.GetEdge()
-	edgeStore.Add(edge.Preimage{
-		Data:   g.ID[:],
-		Type:   preimage.Group,
-		Source: g.ID[:],
-	}, m.store.GetUser().ReceptionID)
+	// Add all services for this group
+	m.addAllServices(g)
 
-	jww.DEBUG.Printf("Joined group %q with ID %s.", g.Name, g.ID)
-
+	jww.INFO.Printf("[GC] Joined group %q with ID %s.", g.Name, g.ID)
 	return nil
 }
 
 // LeaveGroup removes a group from a list of groups the user is a part of.
-func (m Manager) LeaveGroup(groupID *id.ID) error {
+func (m *manager) LeaveGroup(groupID *id.ID) error {
 	if err := m.gs.Remove(groupID); err != nil {
 		return errors.Errorf(leaveGroupErr, groupID, err)
 	}
 
-	edgeStore := m.store.GetEdge()
-	err := edgeStore.Remove(edge.Preimage{
-		Data:   groupID[:],
-		Type:   preimage.Group,
-		Source: groupID[:],
-	}, m.store.GetUser().ReceptionID)
+	m.deleteAllServices(groupID)
 
-	jww.DEBUG.Printf("Left group with ID %s.", groupID)
-
-	return err
+	jww.INFO.Printf("[GC] Left group with ID %s.", groupID)
+	return nil
 }
 
 // GetGroups returns a list of all registered groupChat IDs.
-func (m Manager) GetGroups() []*id.ID {
-	jww.DEBUG.Print("Getting list of all groups.")
+func (m *manager) GetGroups() []*id.ID {
+	jww.DEBUG.Print("[GC] Getting list of all groups.")
 	return m.gs.GroupIDs()
 }
 
 // GetGroup returns the group with the matching ID or returns false if none
 // exist.
-func (m Manager) GetGroup(groupID *id.ID) (gs.Group, bool) {
-	jww.DEBUG.Printf("Getting group with ID %s.", groupID)
+func (m *manager) GetGroup(groupID *id.ID) (gs.Group, bool) {
+	jww.DEBUG.Printf("[GC] Getting group with ID %s.", groupID)
 	return m.gs.Get(groupID)
 }
 
 // NumGroups returns the number of groups the user is a part of.
-func (m Manager) NumGroups() int {
+func (m *manager) NumGroups() int {
 	return m.gs.Len()
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Internal getters /////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+func (m *manager) getCMix() groupCmix {
+	return m.user.GetCmix()
+}
+
+func (m *manager) getE2eHandler() groupE2eHandler {
+	return m.user.GetE2E()
+}
+
+func (m *manager) getReceptionIdentity() xxdk.ReceptionIdentity {
+	return m.user.GetReceptionIdentity()
+}
+
+func (m *manager) getRng() *fastRNG.StreamGenerator {
+	return m.user.GetRng()
+}
+
+func (m *manager) getE2eGroup() *cyclic.Group {
+	return m.user.GetStorage().GetE2EGroup()
 }

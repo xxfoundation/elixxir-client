@@ -1,14 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package clientVersion
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -19,7 +19,7 @@ import (
 
 // Happy path.
 func TestNewStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expected := &Store{
 		version: version.New(42, 43, "44"),
 		kv:      kv.Prefix(prefix),
@@ -38,7 +38,7 @@ func TestNewStore(t *testing.T) {
 
 // Happy path.
 func TestLoadStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	ver := version.New(1, 2, "3A")
 
 	expected := &Store{
@@ -64,14 +64,14 @@ func TestLoadStore(t *testing.T) {
 // Error path: an error is returned when the loaded Store has an invalid version
 // that fails to be parsed.
 func TestLoadStore_ParseVersionError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	obj := versioned.Object{
 		Version:   storeVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte("invalid version"),
 	}
 
-	err := kv.Prefix(prefix).Set(storeKey, storeVersion, &obj)
+	err := kv.Prefix(prefix).Set(storeKey, &obj)
 	if err != nil {
 		t.Fatalf("Failed to save Store: %+v", err)
 	}
@@ -85,7 +85,7 @@ func TestLoadStore_ParseVersionError(t *testing.T) {
 
 // Happy path.
 func TestStore_Get(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expected := version.New(1, 2, "3A")
 
 	s := &Store{
@@ -95,14 +95,14 @@ func TestStore_Get(t *testing.T) {
 
 	test := s.Get()
 	if !reflect.DeepEqual(expected, test) {
-		t.Errorf("Get() failed to return the expected version."+
+		t.Errorf("get() failed to return the expected version."+
 			"\nexpected: %s\nreceived: %s", &expected, &test)
 	}
 }
 
 // Happy path.
 func TestStore_CheckUpdateRequired(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	storedVersion := version.New(1, 2, "3")
 	newVersion := version.New(2, 3, "4")
 	s, err := NewStore(storedVersion, kv)
@@ -129,7 +129,7 @@ func TestStore_CheckUpdateRequired(t *testing.T) {
 
 // Happy path: the new version is equal to the stored version.
 func TestStore_CheckUpdateRequired_EqualVersions(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	storedVersion := version.New(2, 3, "3")
 	newVersion := version.New(2, 3, "4")
 	s, err := NewStore(storedVersion, kv)
@@ -156,7 +156,7 @@ func TestStore_CheckUpdateRequired_EqualVersions(t *testing.T) {
 
 // Error path: new version is older than stored version.
 func TestStore_CheckUpdateRequired_NewVersionTooOldError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	storedVersion := version.New(2, 3, "4")
 	newVersion := version.New(1, 2, "3")
 	s, err := NewStore(storedVersion, kv)
@@ -184,7 +184,7 @@ func TestStore_CheckUpdateRequired_NewVersionTooOldError(t *testing.T) {
 
 // Happy path.
 func TestStore_update(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	ver1 := version.New(1, 2, "3A")
 	ver2 := version.New(1, 5, "patch5")
 
@@ -206,7 +206,7 @@ func TestStore_update(t *testing.T) {
 
 // Happy path.
 func TestStore_save(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	ver := version.New(1, 2, "3A")
 
 	s := &Store{

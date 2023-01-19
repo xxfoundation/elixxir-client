@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package utility
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"testing"
@@ -214,7 +214,7 @@ func (sv *StateVector) Next() (uint32, error) {
 
 	// Save to storage
 	if err := sv.save(); err != nil {
-		return 0, errors.Errorf(saveNextErr, sv, err)
+		jww.FATAL.Panicf(saveNextErr, sv, err)
 	}
 
 	return nextKey, nil
@@ -296,6 +296,9 @@ func (sv *StateVector) GetUsedKeyNums() []uint32 {
 // DeepCopy creates a deep copy of the StateVector without a storage backend.
 // The deep copy can only be used for functions that do not access storage.
 func (sv *StateVector) DeepCopy() *StateVector {
+	sv.mux.RLock()
+	defer sv.mux.RUnlock()
+
 	newSV := &StateVector{
 		vect:           make([]uint64, len(sv.vect)),
 		firstAvailable: sv.firstAvailable,
@@ -385,7 +388,7 @@ func (sv *StateVector) save() error {
 		Data:      data,
 	}
 
-	return sv.kv.Set(sv.key, currentStateVectorVersion, &obj)
+	return sv.kv.Set(sv.key, &obj)
 }
 
 // Delete remove the StateVector from storage.

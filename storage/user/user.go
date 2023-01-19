@@ -1,23 +1,24 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package user
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
 )
 
 type User struct {
-	ci *CryptographicIdentity
+	*CryptographicIdentity
 
 	transmissionRegValidationSig []byte
 	receptionRegValidationSig    []byte
@@ -33,11 +34,13 @@ type User struct {
 
 // builds a new user.
 func NewUser(kv *versioned.KV, transmissionID, receptionID *id.ID, transmissionSalt,
-	receptionSalt []byte, transmissionRsa, receptionRsa *rsa.PrivateKey, isPrecanned bool) (*User, error) {
+	receptionSalt []byte, transmissionRsa, receptionRsa rsa.PrivateKey, isPrecanned bool,
+	e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int) (*User, error) {
 
-	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt, receptionSalt, transmissionRsa, receptionRsa, isPrecanned, kv)
+	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt,
+		receptionSalt, transmissionRsa, receptionRsa, isPrecanned, e2eDhPrivateKey, e2eDhPublicKey, kv)
 
-	return &User{ci: ci, kv: kv}, nil
+	return &User{CryptographicIdentity: ci, kv: kv}, nil
 }
 
 func LoadUser(kv *versioned.KV) (*User, error) {
@@ -47,15 +50,11 @@ func LoadUser(kv *versioned.KV) (*User, error) {
 			"due to failure to load cryptographic identity")
 	}
 
-	u := &User{ci: ci, kv: kv}
+	u := &User{CryptographicIdentity: ci, kv: kv}
 	u.loadTransmissionRegistrationValidationSignature()
 	u.loadReceptionRegistrationValidationSignature()
 	u.loadUsername()
 	u.loadRegistrationTimestamp()
 
 	return u, nil
-}
-
-func (u *User) GetCryptographicIdentity() *CryptographicIdentity {
-	return u.ci
 }

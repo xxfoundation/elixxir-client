@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package registration
 
@@ -33,11 +33,18 @@ func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Registration, error
 	//add the registration host to comms
 	hParam := connect.GetDefaultHostParams()
 	hParam.AuthEnabled = false
-	// Client will not send KeepAlive packets
+	// Do not send KeepAlive packets
 	hParam.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	hParam.MaxRetries = 3
-	perm.host, err = comms.AddHost(&id.ClientRegistration, def.Registration.ClientRegistrationAddress,
-		[]byte(def.Registration.TlsCertificate), hParam)
+
+	addr, cert, err := getConnectionInfo(def.Registration.ClientRegistrationAddress,
+		def.Registration.TlsCertificate)
+	if err != nil {
+		return nil, err
+	}
+
+	perm.host, err = comms.AddHost(&id.ClientRegistration, addr,
+		cert, hParam)
 
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create registration")

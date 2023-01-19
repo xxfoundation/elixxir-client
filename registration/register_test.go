@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package registration
 
@@ -14,9 +14,9 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/elixxir/crypto/registration"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 	"testing"
@@ -27,7 +27,8 @@ var expectedSignatureOne = []byte{7, 15, 58, 201, 193, 112, 205, 247, 7, 200, 21
 var expectedSignatureTwo = []byte{97, 206, 133, 26, 212, 226, 126, 58, 99, 225, 29, 219, 143, 47, 86, 153, 2, 43, 151, 157, 37, 150, 30, 81, 206, 141, 255, 164, 203, 254, 173, 35, 77, 150, 7, 208, 79, 82, 39, 163, 81, 230, 188, 149, 161, 54, 113, 241, 80, 97, 198, 225, 93, 130, 169, 46, 76, 115, 202, 101, 219, 201, 233, 60, 85, 181, 153, 153, 192, 56, 41, 119, 7, 211, 202, 245, 95, 150, 186, 162, 48, 77, 15, 192, 15, 196, 29, 68, 169, 212, 47, 46, 115, 242, 171, 86, 57, 170, 127, 23, 166, 36, 42, 174, 70, 73, 65, 255, 254, 199, 16, 165, 57, 77, 91, 145, 132, 180, 211, 123, 210, 161, 7, 114, 180, 130, 242, 52, 27, 211, 138, 163, 38, 233, 122, 102, 172, 217, 40, 99, 203, 255, 239, 147, 20, 249, 52, 109, 45, 106, 16, 41, 221, 45, 29, 125, 197, 42, 80, 167, 165, 82, 10, 54, 19, 114, 240, 127, 212, 126, 86, 125, 35, 142, 130, 172, 144, 7, 238, 215, 29, 105, 70, 171, 217, 161, 214, 26, 30, 201, 119, 191, 77, 81, 86, 118, 15, 180, 185, 20, 220, 236, 183, 67, 242, 255, 93, 16, 1, 31, 177, 211, 189, 231, 125, 83, 213, 65, 3, 209, 186, 70, 76, 51, 109, 153, 24, 81, 200, 57, 43, 8, 91, 24, 64, 118, 108, 237, 8, 204, 206, 95, 215, 72, 160, 42, 214, 133, 140, 86, 206, 0, 152, 139, 67, 234}
 
 func NewMockRegSender(key, cert []byte) (*MockRegistrationSender, error) {
-	privKey, err := rsa.LoadPrivateKeyFromPem(key)
+	sch := rsa.GetScheme()
+	privKey, err := sch.UnmarshalPrivateKeyPEM(key)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +61,7 @@ type MockRegistrationSender struct {
 	reg *pb.ClientRegistration
 	// param passed to SendRegistrationMessage
 	host    *connect.Host
-	privKey *rsa.PrivateKey
+	privKey rsa.PrivateKey
 	prngOne *CountingReader
 	prngTwo *CountingReader
 
@@ -72,13 +73,13 @@ type MockRegistrationSender struct {
 }
 
 func (s *MockRegistrationSender) SendRegistrationMessage(host *connect.Host, message *pb.ClientRegistration) (*pb.SignedClientRegistrationConfirmations, error) {
-	transSig, err := registration.SignWithTimestamp(s.prngOne, s.privKey,
+	transSig, err := registration.SignWithTimestamp(s.prngOne, s.privKey.GetOldRSA(),
 		s.mockTS.UnixNano(), message.ClientTransmissionRSAPubKey)
 	if err != nil {
 		return nil, errors.Errorf("Failed to sign transmission: %v", err)
 	}
 
-	receptionSig, err := registration.SignWithTimestamp(s.prngTwo, s.privKey,
+	receptionSig, err := registration.SignWithTimestamp(s.prngTwo, s.privKey.GetOldRSA(),
 		s.mockTS.UnixNano(), message.ClientReceptionRSAPubKey)
 	if err != nil {
 		return nil, errors.Errorf("Failed to sign reception: %v", err)
@@ -129,6 +130,8 @@ func (s *MockRegistrationSender) GetHost(*id.ID) (*connect.Host, bool) {
 // Shows that registration gets RPCs with the correct parameters
 func TestRegisterWithPermissioning(t *testing.T) {
 
+	sch := rsa.GetScheme()
+
 	certData, err := utils.ReadFile(testkeys.GetNodeCertPath())
 	if err != nil {
 		t.Fatalf("Could not load certificate: %v", err)
@@ -139,7 +142,7 @@ func TestRegisterWithPermissioning(t *testing.T) {
 		t.Fatalf("Could not load private key: %v", err)
 	}
 
-	key, err := rsa.LoadPrivateKeyFromPem(keyData)
+	key, err := sch.UnmarshalPrivateKeyPEM(keyData)
 	if err != nil {
 		t.Fatalf("Could not load public key")
 	}
@@ -150,7 +153,7 @@ func TestRegisterWithPermissioning(t *testing.T) {
 	}
 
 	regCode := "flooble doodle"
-	sig1, sig2, regTimestamp, err := register(sender, sender.getHost, key.GetPublic(), key.GetPublic(), regCode)
+	sig1, sig2, regTimestamp, err := register(sender, sender.getHost, key.Public(), key.Public(), regCode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -178,6 +181,7 @@ func TestRegisterWithPermissioning(t *testing.T) {
 // Shows that returning an error from the registration server results in an
 // error from register
 func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
+	sch := rsa.GetScheme()
 	certData, err := utils.ReadFile(testkeys.GetNodeCertPath())
 	if err != nil {
 		t.Fatalf("Could not load certificate: %v", err)
@@ -188,7 +192,7 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 		t.Fatalf("Could not load private key: %v", err)
 	}
 
-	key, err := rsa.LoadPrivateKeyFromPem(keyData)
+	key, err := sch.UnmarshalPrivateKeyPEM(keyData)
 	if err != nil {
 		t.Fatalf("Could not load public key")
 	}
@@ -199,7 +203,7 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	}
 
 	sender.errInReply = "failure occurred on registration"
-	_, _, _, err = register(sender, nil, key.GetPublic(), key.GetPublic(), "")
+	_, _, _, err = register(sender, nil, key.Public(), key.Public(), "")
 	if err == nil {
 		t.Error("no error if registration fails on registration")
 	}
@@ -208,6 +212,8 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 // Shows that returning an error from the RPC (e.g. context deadline exceeded)
 // results in an error from register
 func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	certData, err := utils.ReadFile(testkeys.GetNodeCertPath())
 	if err != nil {
 		t.Fatalf("Could not load certificate: %v", err)
@@ -218,7 +224,7 @@ func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
 		t.Fatalf("Could not load private key: %v", err)
 	}
 
-	key, err := rsa.LoadPrivateKeyFromPem(keyData)
+	key, err := sch.UnmarshalPrivateKeyPEM(keyData)
 	if err != nil {
 		t.Fatalf("Could not load public key")
 	}
@@ -228,7 +234,7 @@ func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
 		t.Fatalf("Failed to create mock sender: %v", err)
 	}
 	sender.errSendRegistration = errors.New("connection problem")
-	_, _, _, err = register(sender, nil, key.GetPublic(), key.GetPublic(), "")
+	_, _, _, err = register(sender, nil, key.Public(), key.Public(), "")
 	if err == nil {
 		t.Error("no error if e.g. context deadline exceeded")
 	}

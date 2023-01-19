@@ -1,24 +1,29 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package user
 
 import (
-	"bytes"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"math/rand"
 	"testing"
 )
 
 // Test loading user from a KV store
 func TestLoadUser(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	sch := rsa.GetScheme()
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	_, err := LoadUser(kv)
 
 	if err == nil {
@@ -27,7 +32,18 @@ func TestLoadUser(t *testing.T) {
 
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
-	ci := newCryptographicIdentity(uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false, kv)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey, kv)
 	err = ci.save(kv)
 	if err != nil {
 		t.Errorf("Failed to save ci to kv: %+v", err)
@@ -41,28 +57,24 @@ func TestLoadUser(t *testing.T) {
 
 // Test NewUser function
 func TestNewUser(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	sch := rsa.GetScheme()
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	transmission, _ := sch.Generate(prng, 64)
+	reception, _ := sch.Generate(prng, 64)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
-	}
-}
-
-// Test GetCryptographicIdentity function from user
-func TestUser_GetCryptographicIdentity(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	uid := id.NewIdFromString("test", id.User, t)
-	rsalt := []byte("reception salt")
-	tsalt := []byte("transmission salt")
-	u, err := NewUser(kv, uid, uid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
-	if err != nil || u == nil {
-		t.Errorf("Failed to create new user: %+v", err)
-	}
-
-	ci := u.GetCryptographicIdentity()
-	if bytes.Compare(ci.transmissionSalt, tsalt) != 0 {
-		t.Errorf("Cryptographic Identity not retrieved properly")
 	}
 }

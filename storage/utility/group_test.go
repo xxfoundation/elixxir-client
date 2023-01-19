@@ -1,14 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/large"
@@ -17,7 +17,7 @@ import (
 
 // Unit test for StoreGroup
 func TestStoreGroup(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	err := StoreGroup(vkv, grp, "testKey")
@@ -28,7 +28,7 @@ func TestStoreGroup(t *testing.T) {
 
 // Unit test for LoadGroup
 func TestLoadGroup(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 

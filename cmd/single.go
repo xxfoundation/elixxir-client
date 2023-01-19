@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Package cmd initializes the CLI and config parsers as well as the logger.
 package cmd
@@ -11,15 +11,18 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/utils"
-	"time"
 )
 
 // singleCmd is the single-use subcommand that allows for sending and responding
@@ -30,68 +33,56 @@ var singleCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client := initClient()
+		cmixParams, e2eParams := initParams()
+		authCbs := makeAuthCallbacks(
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Write user contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		jww.INFO.Printf("User Transmission: %s", user.TransmissionID)
-		writeContact(user.GetContact())
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", identity.ID)
+		writeContact(identity.GetContact())
 
-		// Set up reception handler
-		swBoard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10000)
-		listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.XxMessage, recvCh)
-		jww.INFO.Printf("Message ListenerID: %v", listenerID)
-
-		// Set up auth request handler, which simply prints the user ID of the
-		// requester
-		authMgr := client.GetAuthRegistrar()
-		authMgr.AddGeneralRequestCallback(printChanRequest)
-
-		// If unsafe channels, then add auto-acceptor
-		if viper.GetBool("unsafe-channel-creation") {
-			authMgr.AddGeneralRequestCallback(func(
-				requester contact.Contact) {
-				jww.INFO.Printf("Got request: %s", requester.ID)
-				_, err := client.ConfirmAuthenticatedChannel(requester)
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-			})
-		}
-
-		err := client.StartNetworkFollower(5 * time.Second)
+		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		user.GetCmix().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
 
-		// Make single-use manager and start receiving process
-		singleMng := single.NewManager(client)
-
-		// Get the tag
-		tag := viper.GetString("tag")
+		// get the tag
+		tag := viper.GetString(singleTagFlag)
 
 		// Register the callback
-		callbackChan := make(chan responseCallbackChan)
-		callback := func(payload []byte, c single.Contact) {
-			callbackChan <- responseCallbackChan{payload, c}
+		receiver := &Receiver{
+			recvCh: make(chan struct {
+				request *single.Request
+				ephID   receptionID.EphemeralIdentity
+				round   []rounds.Round
+			}),
 		}
-		singleMng.RegisterCallback(tag, callback)
-		err = client.AddService(singleMng.StartProcesses)
+
+		dhKeyPriv, err := identity.GetDHKeyPrivate()
 		if err != nil {
-			jww.FATAL.Panicf("Could not add single use process: %+v", err)
+			jww.FATAL.Panicf("%+v", err)
 		}
+
+		myID := identity.ID
+		listener := single.Listen(tag, myID,
+			dhKeyPriv,
+			user.GetCmix(),
+			user.GetStorage().GetE2EGroup(),
+			receiver)
 
 		for numReg, total := 1, 100; numReg < (total*3)/4; {
 			time.Sleep(1 * time.Second)
-			numReg, total, err = client.GetNodeRegistrationStatus()
+			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -99,68 +90,83 @@ var singleCmd = &cobra.Command{
 				numReg, total)
 		}
 
-		timeout := viper.GetDuration("timeout")
+		timeout := viper.GetDuration(singleTimeoutFlag)
 
 		// If the send flag is set, then send a message
-		if viper.GetBool("send") {
-			// Get message details
-			payload := []byte(viper.GetString("message"))
-			partner := readSingleUseContact("contact")
-			maxMessages := uint8(viper.GetUint("maxMessages"))
+		if viper.GetBool(singleSendFlag) {
+			// get message details
+			payload := []byte(viper.GetString(messageFlag))
+			partner := readSingleUseContact(singleContactFlag)
+			maxMessages := uint8(viper.GetUint(singleMaxMessagesFlag))
 
-			sendSingleUse(singleMng, partner, payload, maxMessages, timeout, tag)
+			sendSingleUse(user.Cmix, partner, payload,
+				maxMessages, timeout, tag)
 		}
 
-		// If the reply flag is set, then start waiting for a message and reply
-		// when it is received
-		if viper.GetBool("reply") {
-			replySingleUse(singleMng, timeout, callbackChan)
+		// If the reply flag is set, then start waiting for a
+		// message and reply when it is received
+		if viper.GetBool(singleReplyFlag) {
+			replySingleUse(timeout, receiver)
 		}
+		listener.Stop()
 	},
 }
 
 func init() {
 	// Single-use subcommand options
 
-	singleCmd.Flags().Bool("send", false, "Sends a single-use message.")
-	_ = viper.BindPFlag("send", singleCmd.Flags().Lookup("send"))
+	singleCmd.Flags().Bool(singleSendFlag, false, "Sends a single-use message.")
+	bindFlagHelper(singleSendFlag, singleCmd)
 
-	singleCmd.Flags().Bool("reply", false,
+	singleCmd.Flags().Bool(singleReplyFlag, false,
 		"Listens for a single-use message and sends a reply.")
-	_ = viper.BindPFlag("reply", singleCmd.Flags().Lookup("reply"))
+	bindFlagHelper(singleReplyFlag, singleCmd)
 
-	singleCmd.Flags().StringP("contact", "c", "",
+	singleCmd.Flags().StringP(singleContactFlag, "c", "",
 		"Path to contact file to send message to.")
-	_ = viper.BindPFlag("contact", singleCmd.Flags().Lookup("contact"))
+	bindFlagHelper(singleContactFlag, singleCmd)
 
-	singleCmd.Flags().StringP("tag", "", "testTag",
+	singleCmd.Flags().StringP(singleTagFlag, "", "testTag",
 		"The tag that specifies the callback to trigger on reception.")
-	_ = viper.BindPFlag("tag", singleCmd.Flags().Lookup("tag"))
+	bindFlagHelper(singleTagFlag, singleCmd)
 
-	singleCmd.Flags().Uint8("maxMessages", 1,
+	singleCmd.Flags().Uint8(singleMaxMessagesFlag, 1,
 		"The max number of single-use response messages.")
-	_ = viper.BindPFlag("maxMessages", singleCmd.Flags().Lookup("maxMessages"))
+	bindFlagHelper(singleMaxMessagesFlag, singleCmd)
 
-	singleCmd.Flags().DurationP("timeout", "t", 30*time.Second,
+	singleCmd.Flags().DurationP(singleTimeoutFlag, "t", 30*time.Second,
 		"Duration before stopping to wait for single-use message.")
-	_ = viper.BindPFlag("timeout", singleCmd.Flags().Lookup("timeout"))
+	bindFlagHelper(singleTimeoutFlag, singleCmd)
 
 	rootCmd.AddCommand(singleCmd)
 }
 
-// sendSingleUse sends a single use message.
-func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
-	maxMessages uint8, timeout time.Duration, tag string) {
-	// Construct callback
-	callbackChan := make(chan struct {
+type Response struct {
+	callbackChan chan struct {
 		payload []byte
 		err     error
-	})
-	callback := func(payload []byte, err error) {
-		callbackChan <- struct {
+	}
+}
+
+func (r *Response) Callback(payload []byte, receptionID receptionID.EphemeralIdentity,
+	round []rounds.Round, err error) {
+	jww.DEBUG.Printf("Payload: %v, receptionID: %v, round: %v, err: %v",
+		payload, receptionID, round, err)
+	r.callbackChan <- struct {
+		payload []byte
+		err     error
+	}{payload: payload, err: err}
+}
+
+// sendSingleUse sends a single use message.
+func sendSingleUse(net *xxdk.Cmix, partner contact.Contact, payload []byte,
+	maxMessages uint8, timeout time.Duration, tag string) {
+	// Construct callback
+	callback := &Response{
+		callbackChan: make(chan struct {
 			payload []byte
 			err     error
-		}{payload: payload, err: err}
+		}),
 	}
 
 	jww.INFO.Printf("Sending single-use message to contact: %+v", partner)
@@ -170,15 +176,26 @@ func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
 
 	// Send single-use message
 	fmt.Printf("Sending single-use transmission message: %s\n", payload)
-	jww.DEBUG.Printf("Sending single-use transmission to %s: %s", partner.ID, payload)
-	err := m.TransmitSingleUse(partner, payload, tag, maxMessages, callback, timeout)
+	jww.DEBUG.Printf("Sending single-use transmission to %s: %s",
+		partner.ID, payload)
+	params := single.GetDefaultRequestParams()
+	params.MaxResponseMessages = maxMessages
+	rng := net.GetRng().GetStream()
+	defer rng.Close()
+
+	e2eGrp := net.GetStorage().GetE2EGroup()
+	rnd, ephID, err := single.TransmitRequest(partner, tag, payload, callback, params,
+		net.GetCmix(), rng, e2eGrp)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to transmit single-use message: %+v", err)
 	}
 
+	jww.INFO.Printf("Single Use request sent on round %v with id %v", rnd,
+		ephID)
+
 	// Wait for callback to be called
 	fmt.Println("Waiting for response.")
-	results := <-callbackChan
+	results := <-callback.callbackChan
 	if results.payload != nil {
 		fmt.Printf("Message received: %s\n", results.payload)
 		jww.DEBUG.Printf("Received single-use reply payload: %s", results.payload)
@@ -193,31 +210,36 @@ func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
 
 // replySingleUse responds to any single-use message it receives by replying\
 // with the same payload.
-func replySingleUse(m *single.Manager, timeout time.Duration, callbackChan chan responseCallbackChan) {
-
+func replySingleUse(timeout time.Duration, receiver *Receiver) {
 	// Wait to receive a message or stop after timeout occurs
 	fmt.Println("Waiting for single-use message.")
 	timer := time.NewTimer(timeout)
 	select {
-	case results := <-callbackChan:
-		if results.payload != nil {
-			fmt.Printf("Single-use transmission received: %s\n", results.payload)
+	case results := <-receiver.recvCh:
+		payload := results.request.GetPayload()
+		if payload != nil {
+			fmt.Printf("Single-use transmission received: %s\n", payload)
 			jww.DEBUG.Printf("Received single-use transmission from %s: %s",
-				results.c.GetPartner(), results.payload)
+				results.request.GetPartner(), payload)
 		} else {
 			jww.ERROR.Print("Failed to receive single-use payload.")
 		}
 
 		// Create new payload from repeated received payloads so that each
 		// message part contains the same payload
-		payload := makeResponsePayload(m, results.payload, results.c.GetMaxParts())
+		resPayload := makeResponsePayload(payload, results.request.GetMaxParts(),
+			results.request.GetMaxResponsePartSize())
 
 		fmt.Printf("Sending single-use response message: %s\n", payload)
-		jww.DEBUG.Printf("Sending single-use response to %s: %s", results.c.GetPartner(), payload)
-		err := m.RespondSingleUse(results.c, payload, timeout)
+		jww.DEBUG.Printf("Sending single-use response to %s: %s",
+			results.request.GetPartner(), payload)
+		roundId, err := results.request.Respond(resPayload, cmix.GetDefaultCMIXParams(),
+			30*time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to send response: %+v", err)
 		}
+
+		jww.INFO.Printf("response sent on roundID: %v", roundId)
 
 	case <-timer.C:
 		fmt.Println("Timed out!")
@@ -225,21 +247,36 @@ func replySingleUse(m *single.Manager, timeout time.Duration, callbackChan chan 
 	}
 }
 
-// responseCallbackChan structure used to collect information sent to the
-// response callback.
-type responseCallbackChan struct {
-	payload []byte
-	c       single.Contact
+type Receiver struct {
+	recvCh chan struct {
+		request *single.Request
+		ephID   receptionID.EphemeralIdentity
+		round   []rounds.Round
+	}
+}
+
+func (r *Receiver) Callback(req *single.Request, ephID receptionID.EphemeralIdentity,
+	round []rounds.Round) {
+	r.recvCh <- struct {
+		request *single.Request
+		ephID   receptionID.EphemeralIdentity
+		round   []rounds.Round
+	}{
+		request: req,
+		ephID:   ephID,
+		round:   round,
+	}
+
 }
 
 // makeResponsePayload generates a new payload that will span the max number of
 // message parts in the contact. Each resulting message payload will contain a
 // copy of the supplied payload with spaces taking up any remaining data.
-func makeResponsePayload(m *single.Manager, payload []byte, maxParts uint8) []byte {
+func makeResponsePayload(payload []byte, maxParts uint8, maxSizePerPart int) []byte {
 	payloads := make([][]byte, maxParts)
-	payloadPart := makeResponsePayloadPart(m, payload)
+	payloadPart := makeResponsePayloadPart(payload, maxSizePerPart)
 	for i := range payloads {
-		payloads[i] = make([]byte, m.GetMaxResponsePayloadSize())
+		payloads[i] = make([]byte, maxSizePerPart)
 		copy(payloads[i], payloadPart)
 	}
 	return bytes.Join(payloads, []byte{})
@@ -247,8 +284,8 @@ func makeResponsePayload(m *single.Manager, payload []byte, maxParts uint8) []by
 
 // makeResponsePayloadPart creates a single response payload by coping the given
 // payload and filling the rest with spaces.
-func makeResponsePayloadPart(m *single.Manager, payload []byte) []byte {
-	payloadPart := make([]byte, m.GetMaxResponsePayloadSize())
+func makeResponsePayloadPart(payload []byte, maxSize int) []byte {
+	payloadPart := make([]byte, maxSize)
 	for i := range payloadPart {
 		payloadPart[i] = ' '
 	}
@@ -260,7 +297,7 @@ func makeResponsePayloadPart(m *single.Manager, payload []byte) []byte {
 // readSingleUseContact opens the contact specified in the CLI flags. Panics if
 // no file provided or if an error occurs while reading or unmarshalling it.
 func readSingleUseContact(key string) contact.Contact {
-	// Get path
+	// get path
 	filePath := viper.GetString(key)
 	if filePath == "" {
 		jww.FATAL.Panicf("Failed to read contact file: no file path provided.")

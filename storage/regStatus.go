@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package storage
 
@@ -11,7 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -56,7 +56,7 @@ func (rs RegistrationStatus) marshalBinary() []byte {
 }
 
 // creates a new registration status and stores it
-func (s *Session) newRegStatus() error {
+func (s *session) newRegStatus() error {
 	s.regStatus = NotStarted
 
 	now := netTime.Now()
@@ -77,7 +77,7 @@ func (s *Session) newRegStatus() error {
 }
 
 // loads registration status from disk.
-func (s *Session) loadRegStatus() error {
+func (s *session) loadRegStatus() error {
 	obj, err := s.Get(registrationStatusKey)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to load registration status")
@@ -88,7 +88,7 @@ func (s *Session) loadRegStatus() error {
 
 // sets the registration status to the passed status if it is greater than the
 // current stats, otherwise returns an error
-func (s *Session) ForwardRegistrationStatus(regStatus RegistrationStatus) error {
+func (s *session) ForwardRegistrationStatus(regStatus RegistrationStatus) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -117,7 +117,7 @@ func (s *Session) ForwardRegistrationStatus(regStatus RegistrationStatus) error 
 
 // sets the registration status to the passed status if it is greater than the
 // current stats, otherwise returns an error
-func (s *Session) GetRegistrationStatus() RegistrationStatus {
+func (s *session) GetRegistrationStatus() RegistrationStatus {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.regStatus

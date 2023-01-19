@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
@@ -12,7 +12,7 @@ package utility
 func TestNewKnownRounds(t *testing.T) {
 	// Set up expected value
 	size := 10
-	rootKv := versioned.NewKV(make(ekv.Memstore))
+	rootKv := versioned.NewKV(ekv.MakeMemstore())
 	expectedKR := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),
 		kv:     rootKv.Prefix(knownRoundsPrefix),
@@ -37,7 +37,7 @@ func TestNewKnownRounds(t *testing.T) {
 func TestLoadKnownRounds(t *testing.T) {
 	// Set up expected value
 	size := 10
-	rootKv := versioned.NewKV(make(ekv.Memstore))
+	rootKv := versioned.NewKV(ekv.MakeMemstore())
 	expectedKR := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),
 		kv:     rootKv.Prefix(knownRoundsPrefix),
@@ -76,7 +76,7 @@ func TestKnownRounds_save(t *testing.T) {
 	size := 10
 	expectedKR := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),
-		kv:     versioned.NewKV(make(ekv.Memstore)),
+		kv:     versioned.NewKV(ekv.MakeMemstore()),
 		key:    "testKey",
 	}
 	for i := 0; i < (size * 64); i++ {
@@ -99,9 +99,9 @@ func TestKnownRounds_save(t *testing.T) {
 		t.Errorf("save() returned an error: %v", err)
 	}
 
-	obj, err := expectedKR.kv.Get(expectedKR.key)
+	obj, err := expectedKR.kv.get(expectedKR.key)
 	if err != nil {
-		t.Errorf("Get() returned an error: %v", err)
+		t.Errorf("get() returned an error: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedData, obj.Data) {
@@ -116,7 +116,7 @@ func TestKnownRounds_save(t *testing.T) {
 // 	size := 10
 // 	expectedKR := &KnownRounds{
 // 		rounds: knownRounds.NewKnownRound(size),
-// 		kv:     versioned.NewKV(make(ekv.Memstore)),
+// 		kv:     versioned.NewKV(ekv.MakeMemstore()),
 // 		key:    "testKey",
 // 	}
 // 	for i := 0; i < (size * 64); i++ {
@@ -148,7 +148,7 @@ func TestKnownRounds_save(t *testing.T) {
 
 func TestKnownRounds_Smoke(t *testing.T) {
 	k := knownRounds.NewKnownRound(10)
-	kr, err := NewKnownRounds(versioned.NewKV(make(ekv.Memstore)), "testKey", k)
+	kr, err := NewKnownRounds(versioned.NewKV(ekv.MakeMemstore()), "testKey", k)
 	if err != nil {
 		t.Fatalf("Failed to create new KnownRounds: %v", err)
 	}

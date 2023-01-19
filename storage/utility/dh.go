@@ -1,14 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -29,7 +29,7 @@ func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentCyclicVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadCyclicKey(kv *versioned.KV, key string) (*cyclic.Int, error) {

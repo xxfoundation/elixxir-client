@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package storage
 
@@ -17,10 +17,10 @@ func TestSession_SetGetNDF(t *testing.T) {
 	testNdf := getNDF()
 	sess.SetNDF(testNdf)
 
-	if !reflect.DeepEqual(testNdf, sess.ndf) {
+	if !reflect.DeepEqual(testNdf, sess.GetNDF()) {
 		t.Errorf("SetNDF error: "+
 			"Unexpected value after setting ndf:"+
-			"Expected: %v\n\tReceived: %v", testNdf, sess.ndf)
+			"Expected: %v\n\tReceived: %v", testNdf, sess.GetNDF())
 	}
 
 	receivedNdf := sess.GetNDF()

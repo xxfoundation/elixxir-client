@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupStore
 
@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -126,7 +126,7 @@ func (s *Store) saveGroupList() error {
 	}
 
 	// Save to storage
-	return s.kv.Set(groupListStorageKey, groupListVersion, obj)
+	return s.kv.Set(groupListStorageKey, obj)
 }
 
 // serializeGroupIdList serializes the list of group IDs.
@@ -248,6 +248,19 @@ func (s *Store) GroupIDs() []*id.ID {
 	}
 
 	return idList
+}
+
+// Groups returns a list of all groups.
+func (s *Store) Groups() []Group {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	groupList := make([]Group, 0, len(s.list))
+	for _, g := range s.list {
+		groupList = append(groupList, g)
+	}
+
+	return groupList
 }
 
 // Get returns the Group for the given group ID. Returns false if no Group is

@@ -1,19 +1,20 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2021 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/utils"
-	"strings"
-	"testing"
 )
 
 var testCert = `-----BEGIN CERTIFICATE-----

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Handles command-line version functionality
 
@@ -13,17 +13,17 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
 // Change this value to set the version for this build
-const currentVersion = "4.1.0"
+const currentVersion = "4.4.4"
 
 func Version() string {
-	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", api.SEMVER,
-		api.GITVERSION)
-	out += fmt.Sprintf("Dependencies:\n\n%s\n", api.DEPENDENCIES)
+	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", xxdk.SEMVER,
+		xxdk.GITVERSION)
+	out += fmt.Sprintf("Dependencies:\n\n%s\n", xxdk.DEPENDENCIES)
 	return out
 }
 

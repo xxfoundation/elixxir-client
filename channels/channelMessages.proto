@@ -1,0 +1,66 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+
+option go_package = "gitlab.com/elixxir/client/channels";
+
+package channels;
+
+// ChannelMessage is transmitted by the channel. Effectively it is a command for
+// the channel sent by a user with admin access of the channel.
+message ChannelMessage{
+    // Lease is the length that this channel message will take effect.
+    int64 Lease = 1;
+
+    // The round this message was sent on.
+    uint64 RoundID = 2;
+
+    // The type the below payload is. This may be some form of channel command,
+    // such as BAN<username1>.
+    uint32 PayloadType = 3;
+
+    // Payload is the actual message payload. It will be processed differently
+    // based on the PayloadType.
+    bytes Payload = 4;
+
+    // nickname is the name which the user is using for this message it will not
+    // be longer than 24 characters.
+    string Nickname = 5;
+
+    // Nonce is 32 bits of randomness to ensure that two messages in the same
+    // round with that have the same nickname, payload, and lease will not have
+    // the same message ID.
+    bytes Nonce = 6;
+
+    // LocalTimestamp is the timestamp (unix nanoseconds) when the "send call"
+    // is made based upon the local clock. If this differs by more than 5
+    // seconds +/- from when the round it sent on is queued, then a random
+    // mutation on the queued time (+/- 200ms) will be used by local clients
+    // instead.
+    int64 LocalTimestamp = 7;
+
+    uint32 DMToken = 8;  // hash of private key
+}
+
+// UserMessage is a message sent by a user who is a member within the channel.
+message UserMessage {
+    // Message contains the contents of the message. This is typically what the
+    // end-user has submitted to the channel. This is a serialization of the
+    // ChannelMessage.
+    bytes Message = 1;
+
+    // Signature is the signature proving this message has been sent by the
+    // owner of this user's public key.
+    //
+    //  Signature = Sig(User_ECCPublicKey, Message)
+    bytes Signature = 3;
+
+    // ECCPublicKey is the user's EC Public key. This is provided by the
+    // network.
+    bytes ECCPublicKey = 5;
+}

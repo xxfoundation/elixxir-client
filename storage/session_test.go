@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package storage
 
@@ -33,7 +33,7 @@ func TestSession_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to set: %+v", err)
 	}
-	o, err := s.Get("testkey")
+	o, err := s.get("testkey")
 	if err != nil {
 		t.Errorf("Failed to get key")
 	}

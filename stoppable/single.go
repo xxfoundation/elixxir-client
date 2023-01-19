@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package stoppable
 
@@ -110,6 +110,10 @@ func (s *Single) Close() error {
 
 		// Send on quit channel
 		s.quit <- struct{}{}
+
+		jww.TRACE.Printf("Sent to quit channel for single stoppable %q.",
+			s.Name())
+
 	})
 
 	if err != nil {

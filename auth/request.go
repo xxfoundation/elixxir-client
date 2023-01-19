@@ -1,193 +1,174 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package auth
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/preimage"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/auth"
-	"gitlab.com/elixxir/client/storage/e2e"
-	"gitlab.com/elixxir/client/storage/edge"
-	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 const terminator = ";"
 
-func RequestAuth(partner, me contact.Contact, rng io.Reader,
-	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+// Error constant strings. Any changes to these should go over usages of the
+// affected messages in other applications (if applicable)
+const (
+	// ErrChannelExists is a message returned in state.Request when an
+	// authenticated channel exists between the partner and me.
+	ErrChannelExists = "Authenticated channel already established with partner"
+)
+
+// Request sends a contact request from the user identity in the imported e2e
+// structure to the passed contact, as well as the passed facts (will error if
+// they are too long).
+// The other party must accept the request by calling Confirm in order to be
+// able to send messages using e2e.Handler.SendE2e. When the other party does so,
+// the "confirm" callback will get called.
+// The round the request is initially sent on will be returned, but the request
+// will be listed as a critical message, so the underlying cmix client will
+// auto resend it in the event of failure.
+// A request cannot be sent for a contact who has already received a request or
+// who is already a partner.
+func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Round, error) {
 	// check that an authenticated channel does not already exist
-	if _, err := storage.E2e().GetPartner(partner.ID); err == nil ||
-		!strings.Contains(err.Error(), e2e.NoPartnerErrorStr) {
-		return 0, errors.Errorf("Authenticated channel already " +
-			"established with partner")
+	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
+		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
+		return 0, errors.Errorf(ErrChannelExists)
 	}
 
-	return requestAuth(partner, me, rng, false, storage, net)
+	return s.request(partner, myfacts, false)
 }
 
-func ResetSession(partner, me contact.Contact, rng io.Reader,
-	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+// request internal helper
+func (s *state) request(partner contact.Contact, myfacts fact.FactList,
+	reset bool) (id.Round, error) {
 
-	// Delete authenticated channel if it exists.
-	if err := storage.E2e().DeletePartner(partner.ID); err != nil {
-		jww.WARN.Printf("Unable to delete partner when "+
-			"resetting session: %+v", err)
-	} else {
-		// Delete any stored sent/received requests
-		storage.Auth().Delete(partner.ID)
-	}
+	jww.INFO.Printf("request(...) called")
 
-	rqType, _, _, err := storage.Auth().GetRequest(partner.ID)
-	if err == nil && rqType == auth.Sent {
-		return 0, errors.New("Cannot reset a session after " +
-			"sending request, caller must resend request instead")
-	}
+	//do key generation
+	rng := s.rng.GetStream()
+	defer rng.Close()
 
-	// Try to initiate a clean session request
-	return requestAuth(partner, me, rng, true, storage, net)
-}
+	me := s.e2e.GetReceptionID()
 
-// requestAuth internal helper
-func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
-	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+	dhGrp := s.e2e.GetGroup()
 
-	/*edge checks generation*/
-	// check that the request is being sent from the proper ID
-	if !me.ID.Cmp(storage.GetUser().ReceptionID) {
-		return 0, errors.Errorf("Authenticated channel request " +
-			"can only be sent from user's identity")
-	}
+	dhPriv, dhPub := genDHKeys(dhGrp, rng)
+	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(
+		sidh.KeyVariantSidhA, rng)
 
-	//denote if this is a resend of an old request
-	resend := false
+	historicalDHPriv := s.e2e.GetHistoricalDHPrivkey()
+	historicalDHPub := diffieHellman.GeneratePublicKey(historicalDHPriv,
+		dhGrp)
 
-	//lookup if an ongoing request is occurring
-	rqType, sr, _, err := storage.Auth().GetRequest(partner.ID)
-	if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
-		return 0, errors.WithMessage(err,
-			"Cannot send a request after receiving unknown error "+
-				"on requesting contact status")
-	} else if err == nil {
-		switch rqType {
-		case auth.Receive:
-			if reset {
-				storage.Auth().DeleteRequest(partner.ID)
-			} else {
-				return 0, errors.Errorf("Cannot send a " +
-					"request after receiving a request")
-			}
-		case auth.Sent:
-			resend = true
-		default:
-			return 0, errors.Errorf("Cannot send a request after "+
-				"a stored request with unknown rqType: %d",
-				rqType)
-		}
-	}
-
-	/*cryptographic generation*/
-	var dhPriv, dhPub *cyclic.Int
-	var sidhPriv *sidh.PrivateKey
-	var sidhPub *sidh.PublicKey
-
-	// NOTE: E2E group is the group used for DH key exchange, not cMix
-	dhGrp := storage.E2e().GetGroup()
-	// origin DH Priv key is the DH Key corresponding to the public key
-	// registered with user discovery
-	originDHPrivKey := storage.E2e().GetDHPrivateKey()
-
-	// If we are resending (valid sent request), reuse those keys
-	if resend {
-		dhPriv = sr.GetMyPrivKey()
-		dhPub = sr.GetMyPubKey()
-		sidhPriv = sr.GetMySIDHPrivKey()
-		sidhPub = sr.GetMySIDHPubKey()
-
-	} else {
-		dhPriv, dhPub = genDHKeys(dhGrp, rng)
-		sidhPriv, sidhPub = util.GenerateSIDHKeyPair(
-			sidh.KeyVariantSidhA, rng)
-	}
-
-	jww.TRACE.Printf("RequestAuth MYPUBKEY: %v", dhPub.Bytes())
-	jww.TRACE.Printf("RequestAuth THEIRPUBKEY: %v",
-		partner.DhPubKey.Bytes())
-
-	cMixPrimeSize := storage.Cmix().GetGroup().GetP().ByteLen()
-	cMixPayloadSize := getMixPayloadSize(cMixPrimeSize)
-
-	sender := storage.GetUser().ReceptionID
-
-	//generate ownership proof
 	if !dhGrp.Inside(partner.DhPubKey.GetLargeInt()) {
 		return 0, errors.Errorf("partner's DH public key is not in the E2E "+
 			"group; E2E group fingerprint is %d and DH key has %d",
 			dhGrp.GetFingerprint(), partner.DhPubKey.GetGroupFingerprint())
 	}
-	ownership := cAuth.MakeOwnershipProof(originDHPrivKey, partner.DhPubKey,
-		dhGrp)
+	ownership := cAuth.MakeOwnershipProof(historicalDHPriv,
+		partner.DhPubKey, dhGrp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 
-	// cMix fingerprint so the recipient can recognize this is a
-	// request message.
+	// Add the sent request and use the return to build the
+	// send. This will replace the send with an old one if one was
+	// in process, wasting the key generation above. This is
+	// considered a reasonable loss due to the increase in code
+	// simplicity of this approach
+	sr, err := s.store.AddSent(partner.ID, partner.DhPubKey, dhPriv, dhPub,
+		sidhPriv, sidhPub, confirmFp, reset)
+	if err != nil {
+		if sr == nil {
+			return 0, err
+		} else {
+			jww.INFO.Printf("Resending request to %s from %s as "+
+				"one was already sent", partner.ID, me)
+			dhPriv = sr.GetMyPrivKey()
+			dhPub = sr.GetMyPubKey()
+			//sidhPriv = sr.GetMySIDHPrivKey()
+			sidhPub = sr.GetMySIDHPubKey()
+		}
+	}
+
+	// cMix fingerprint. Used in old versions by the recipient can recognize
+	// this is a request message. Unchanged for backwards compatability
+	// (the SIH is used now)
 	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
 	// My fact data so we can display in the interface.
-	msgPayload := []byte(me.Facts.Stringify() + terminator)
+	msgPayload := []byte(myfacts.Stringify() + terminator)
 
 	// Create the request packet.
-	request, mac, err := createRequestAuth(sender, msgPayload, ownership,
+	request, mac, err := createRequestAuth(me, msgPayload, ownership,
 		dhPriv, dhPub, partner.DhPubKey, sidhPub,
-		dhGrp, cMixPayloadSize)
+		s.e2e.GetGroup(), s.net.GetMaxMessageLength())
 	if err != nil {
 		return 0, err
 	}
 	contents := request.Marshal()
 
-	storage.GetEdge().Add(edge.Preimage{
-		Data:   preimage.Generate(confirmFp[:], preimage.Confirm),
-		Type:   preimage.Confirm,
-		Source: partner.ID[:],
-	}, me.ID)
+	jww.TRACE.Printf("AuthRequest MYPUBKEY: %v", dhPub.TextVerbose(16, 0))
+	jww.TRACE.Printf("AuthRequest PARTNERPUBKEY: %v",
+		partner.DhPubKey.TextVerbose(16, 0))
+	jww.TRACE.Printf("AuthRequest MYSIDHPUBKEY: %s",
+		util.StringSIDHPubKey(sidhPub))
 
-	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", request.GetEcrPayload())
-	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
+	jww.TRACE.Printf("AuthRequest HistoricalPUBKEY: %v",
+		historicalDHPub.TextVerbose(16, 0))
 
-	/*store state*/
-	//fixme: channel is bricked if the first store succedes but the second
-	//       fails
-	//store the in progress auth if this is not a resend.
-	if !resend {
-		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey,
-			dhPriv, dhPub, sidhPriv, sidhPub, confirmFp)
-		if err != nil {
-			return 0, errors.Errorf(
-				"Failed to store auth request: %s", err)
-		}
+	jww.TRACE.Printf("AuthRequest ECRPAYLOAD: %v", request.GetEcrPayload())
+	jww.TRACE.Printf("AuthRequest MAC: %v", mac)
+
+	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s, confirmFp: %s",
+		partner.ID, format.DigestContents(contents), confirmFp)
+
+	p := cmix.GetDefaultCMIXParams()
+	p.DebugTag = "auth.Request"
+	tag := s.params.RequestTag
+	if reset {
+		tag = s.params.ResetRequestTag
+	}
+	svc := message.Service{
+		Identifier: partner.ID.Marshal(),
+		Tag:        tag,
+		Metadata:   nil,
+	}
+	round, _, err := s.net.Send(partner.ID, requestfp, svc, contents, mac, p)
+	if err != nil {
+		// if the send fails just set it to failed, it will
+		// but automatically retried
+		return 0, errors.WithMessagef(err, "Auth Request with %s "+
+			"(msgDigest: %s) failed to transmit: %+v", partner.ID,
+			format.DigestContents(contents), err)
 	}
 
-	cMixParams := params.GetDefaultCMIX()
-	rndID, err := sendAuthRequest(partner.ID, contents, mac, cMixPrimeSize,
-		requestfp, net, cMixParams, reset)
-	return rndID, err
+	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
+		" on round %d", partner.ID, format.DigestContents(contents), round.ID)
+	jww.INFO.Print(em)
+	s.event.Report(1, "Auth", "RequestSent", em)
+	return round.ID, nil
+
 }
 
 // genDHKeys is a short helper to generate a Diffie-Helman Keypair
@@ -241,4 +222,29 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	baseFmt.SetPubKey(myDHPub)
 
 	return &baseFmt, mac, nil
+}
+
+func (s *state) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
+	return s.store.GetReceivedRequest(partner)
+}
+
+func (s *state) VerifyOwnership(received, verified contact.Contact,
+	e2e e2e.Handler) bool {
+	return VerifyOwnership(received, verified, e2e)
+}
+
+func (s *state) DeleteRequest(partnerID *id.ID) error {
+	return s.store.DeleteRequest(partnerID)
+}
+
+func (s *state) DeleteAllRequests() error {
+	return s.store.DeleteAllRequests()
+}
+
+func (s *state) DeleteSentRequests() error {
+	return s.store.DeleteSentRequests()
+}
+
+func (s *state) DeleteReceiveRequests() error {
+	return s.store.DeleteReceiveRequests()
 }

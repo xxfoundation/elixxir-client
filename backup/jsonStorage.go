@@ -1,7 +1,14 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package backup
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -17,7 +24,7 @@ func storeJson(json string, kv *versioned.KV) error {
 		Data:      []byte(json),
 	}
 
-	return kv.Set(jsonStorageKey, jsonStorageVersion, obj)
+	return kv.Set(jsonStorageKey, obj)
 }
 
 func loadJson(kv *versioned.KV) string {

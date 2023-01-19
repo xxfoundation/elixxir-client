@@ -10,15 +10,26 @@ package dm
 import (
 	"testing"
 
+	"math/rand"
+
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
 func TestMakeDebugTag(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+	partner, _ := codename.GenerateIdentity(rng)
+	dtag := makeDebugTag(partner.PubKey, []byte("hi"), "baseTag")
+
+	require.Equal(t, "baseTag-pY7752Fc7oa4", dtag)
 }
 
 func TestCalcDMPayloadLen(t *testing.T) {
+	net := &mockClient{}
+	plen := calcDMPayloadLen(net)
+	require.Equal(t, 2110, plen)
 }
 
 func TestCreateCMIXFields(t *testing.T) {

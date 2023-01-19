@@ -342,7 +342,7 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID, partnerPubKey nike.Publ
 	return net.SendManyWithAssembler([]*id.ID{partnerID, myID}, assemble, params)
 }
 
-// makeChaDebugTag is a debug helper that creates non-unique msg identifier.
+// makeDebugTag is a debug helper that creates non-unique msg identifier.
 //
 // This is set as the debug tag on messages and enables some level of tracing a
 // message (if its contents/chan/type are unique).

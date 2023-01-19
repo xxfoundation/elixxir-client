@@ -38,11 +38,12 @@ type category struct {
 
 // emoji adheres to the emoji field of the Emoji Mart JSON file.
 type emoji struct {
-	ID       emojiID  `json:"id"`
-	Name     string   `json:"name"`
-	Keywords []string `json:"keywords"`
-	Skins    []skin   `json:"skins"`
-	Version  float32  `json:"version"`
+	Emoticons []string `json:"emoticons,omitempty"`
+	ID        emojiID  `json:"id"`
+	Name      string   `json:"name"`
+	Keywords  []string `json:"keywords"`
+	Skins     []skin   `json:"skins"`
+	Version   float32  `json:"version"`
 }
 
 // skin adheres to the skin field within the emoji field of the Emoji Mart JSON

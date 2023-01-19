@@ -10,7 +10,7 @@ package emoji
 import (
 	_ "embed"
 	"encoding/json"
-	"gitlab.com/xx_network/primitives/utils"
+	"github.com/nsf/jsondiff"
 	"reflect"
 	"testing"
 )
@@ -62,11 +62,9 @@ func Test_emojiMartData_JSON_Marshal_Unmarshal(t *testing.T) {
 	}
 }
 
-// Tests that the example front end JSON can be marshalled into the custom
-// emojiMartData object. Also tests the emojiMartData object can be marshalled
-// back into JSON without losing data.
+// Tests that the Emoji Mart example JSON can be JSON unmarshalled and
+// marshalled and that the result is semantically identical to the original.
 func Test_emojiMartDataJSON_Example(t *testing.T) {
-
 	emojiMart := &emojiMartSet{}
 	err := json.Unmarshal(emojiMartJson, emojiMart)
 	if err != nil {
@@ -78,8 +76,9 @@ func Test_emojiMartDataJSON_Example(t *testing.T) {
 		t.Fatalf("Failed to marshal: %+v", err)
 	}
 
-	utils.WriteFileDef("marshalled-EmojiMart.json")
-
-	t.Logf("original: %d\nmarshalled: %d", len(emojiMartJson), len(marshalled))
-
+	opts := jsondiff.DefaultConsoleOptions()
+	d, s := jsondiff.Compare(emojiMartJson, marshalled, &opts)
+	if d != jsondiff.FullMatch {
+		t.Errorf("Diff failed for marshalled JSON: %s\nDifferences: %s", d, s)
+	}
 }

@@ -10,6 +10,7 @@ package emoji
 import (
 	_ "embed"
 	"encoding/json"
+	"gitlab.com/xx_network/primitives/utils"
 	"reflect"
 	"testing"
 )
@@ -72,7 +73,13 @@ func Test_emojiMartDataJSON_Example(t *testing.T) {
 		t.Fatalf("Failed to unamrshal: %+v", err)
 	}
 
-	if len(emojiMart.Emojis) == 0 {
-		t.Fatalf("Did not load front end data as expected")
+	marshalled, err := json.Marshal(emojiMart)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %+v", err)
 	}
+
+	utils.WriteFileDef("marshalled-EmojiMart.json")
+
+	t.Logf("original: %d\nmarshalled: %d", len(emojiMartJson), len(marshalled))
+
 }

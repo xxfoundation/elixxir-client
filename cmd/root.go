@@ -1162,6 +1162,26 @@ func init() {
 		"JSON file containing the backed up partner IDs")
 	viper.BindPFlag(backupIdListFlag, rootCmd.Flags().Lookup(backupIdListFlag))
 
+	// Alternative UD Flags
+	rootCmd.PersistentFlags().Bool(alternateUdFlag, false,
+		"Sets a codepath for contacting an alternate UD.")
+	bindPersistentFlag(alternateUdFlag, rootCmd)
+
+	rootCmd.PersistentFlags().String(alternateUdCertFlag, "",
+		"Path to the certificate for an alternative UD. Command must have "+
+			"--alternateUd for this flag to be read.")
+	bindPersistentFlag(alternateUdCertFlag, rootCmd)
+
+	rootCmd.PersistentFlags().String(altUdAddressFlag, "",
+		"Address of an alternative UD. Command must have "+
+			"--alternateUd for this flag to be read.")
+	bindPersistentFlag(altUdAddressFlag, rootCmd)
+
+	rootCmd.PersistentFlags().String(altUdContactFileFlag, "",
+		"Path to the contact file for an alternative UD. Command must have "+
+			"--alternateUd for this flag to be read.")
+	bindPersistentFlag(altUdContactFileFlag, rootCmd)
+
 }
 
 // initConfig reads in config file and ENV variables if set.

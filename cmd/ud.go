@@ -10,6 +10,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -247,9 +248,32 @@ var udCmd = &cobra.Command{
 	},
 }
 
-// getUdContactInfo is a helper function which retrieves the necessary information
-// to contact UD.
-func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string, err error) {
+// getUdContactInfo is a helper function which retrieves the necessary
+// information to contact UD.
+func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string,
+	err error) {
+	// Check if we are using an alternate UD with specified flags for contact
+	// information
+	if viper.IsSet(alternateUdFlag) {
+		altUdCertPath := viper.GetString(alternateUdCertFlag)
+		address = viper.GetString(altUdAddressFlag)
+		altUdContactFilePath := viper.GetString(altUdContactFileFlag)
+
+		cert, err = utils.ReadFile(altUdCertPath)
+		if err != nil {
+			return nil, nil, "", errors.Errorf(
+				"Failed to read alternative UD cert: %+v", err)
+		}
+
+		contactFile, err = utils.ReadFile(altUdContactFilePath)
+		if err != nil {
+			return nil, nil, "", errors.Errorf(
+				"Failed to read alternative UD contact file: %+v", err)
+		}
+
+		return
+	}
+
 	// Retrieve address
 	address = user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Address
 

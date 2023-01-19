@@ -18,17 +18,12 @@ import (
 // NOTE: This does not include writing the file due to limitations of the
 // embed.FS interface.
 func BenchmarkSet_SanitizeFrontendEmojiList(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		backendSet := NewSet()
+	backendSet := NewSet()
 
-		// Read front end example from file
-		unsanitizedSetJson, err := content.ReadFile("emojiMart.json")
-		if err != nil {
-			b.Fatalf("Failed to read emoji-Mart.json: %+v", err)
-		}
+	for i := 0; i < b.N; i++ {
 
 		// Sanitize front end example
-		_, err = backendSet.SanitizeFrontEndEmojis(unsanitizedSetJson)
+		_, err := backendSet.SanitizeFrontEndEmojis(emojiMartJson)
 		if err != nil {
 			b.Fatalf("Failed to Sanitize front end emojis: %+v", err)
 		}
@@ -42,21 +37,15 @@ func TestSet_SanitizeFrontEndEmojis_FrontEndExample(t *testing.T) {
 
 	backendSet := NewSet()
 
-	// Read front end example from file
-	unsanitizedSetJson, err := content.ReadFile("emojiMart.json")
-	if err != nil {
-		t.Fatalf("Failed to read emoji-Mart.json: %+v", err)
-	}
-
 	// Sanitize front end example
-	sanitizedSetJson, err := backendSet.SanitizeFrontEndEmojis(unsanitizedSetJson)
+	sanitizedSetJson, err := backendSet.SanitizeFrontEndEmojis(emojiMartJson)
 	if err != nil {
 		t.Fatalf("Failed to Sanitize front end emojis: %+v", err)
 	}
 
 	// Unmarshal front end example
 	unsanitizedSet := &emojiMartData{}
-	err = json.Unmarshal(unsanitizedSetJson, unsanitizedSet)
+	err = json.Unmarshal(emojiMartJson, unsanitizedSet)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal unsanitized set: %+v", err)
 	}
@@ -100,15 +89,9 @@ func TestSet_SanitizeFrontEndEmojis_FrontEndExample(t *testing.T) {
 func TestSet_findIncompatibleEmojis_FrontEndExample(t *testing.T) {
 	backendSet := NewSet()
 
-	// Read front end example from file
-	unsanitizedSetJson, err := content.ReadFile("emojiMart.json")
-	if err != nil {
-		t.Fatalf("Failed to read emoji-Mart.json: %+v", err)
-	}
-
 	// Unmarshal front end example
 	unsanitizedSet := &emojiMartData{}
-	err = json.Unmarshal(unsanitizedSetJson, unsanitizedSet)
+	err := json.Unmarshal(emojiMartJson, unsanitizedSet)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal unsanitized set: %+v", err)
 	}

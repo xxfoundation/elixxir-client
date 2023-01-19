@@ -8,20 +8,17 @@
 package emoji
 
 import (
-	"embed"
 	_ "embed"
 	"encoding/json"
 	"reflect"
 	"testing"
 )
 
-// content is used to perform file IO. This allows file operations to be
-// performed within tests without introducing incompatibility with
-// generating WASM.
-//
 //go:embed emojiMart.json
-var content embed.FS
+var emojiMartJson []byte
 
+// Tests that marshaling the emojiMartData object and unmarshalling that JSON
+// data back into an object does not cause loss in data.
 func Test_emojiMartData_JSON_Marshal_Unmarshal(t *testing.T) {
 	exampleData := emojiMartData{
 		Categories: []category{
@@ -74,14 +71,13 @@ func Test_emojiMartData_JSON_Marshal_Unmarshal(t *testing.T) {
 
 }
 
+// Tests that the example front end JSON can be marshalled into the custom
+// emojiMartData object. Also tests the emojiMartData object can be marshalled
+// back into JSON without losing data.
 func Test_emojiMartDataJSON_Example(t *testing.T) {
-	jsonData, err := content.ReadFile("emojiMart.json")
-	if err != nil {
-		t.Fatalf("Failed to read emoji-Mart.json: %+v", err)
-	}
 
 	emojiMart := &emojiMartData{}
-	err = json.Unmarshal(jsonData, emojiMart)
+	err := json.Unmarshal(emojiMartJson, emojiMart)
 	if err != nil {
 		t.Fatalf("Failed to unamrshal: %+v", err)
 	}

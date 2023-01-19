@@ -15,19 +15,19 @@ import (
 )
 
 // Set contains the set of emoji's that the backend supports. This object will
-// be used to sanitize the list of emojis front end may support.
+// be used to remove all unsupported emojis in the given Emoji Mart JSON set.
 type Set struct {
-	// replacementMap contains a list of emoji code-points in the front end list
+	// replacementMap contains a list of emoji code-points in the Emoji Mart set
 	// that must be replaced to adhere to backend recognized code-points.
 	replacementMap map[codepoint]skin
 
 	// supportedEmojis contains a list of all Unicode codepoints for the emojis
 	// that are supported. This allows for quick lookup when comparing against
-	// the frontend list of emojis.
+	// the Emoji Mart of emojis.
 	supportedEmojis map[codepoint]struct{}
 }
 
-// NewSet constructs a Set.
+// NewSet initialises a new Emoji Set with all supported backend emojis.
 func NewSet() *Set {
 	return &Set{
 		replacementMap: map[codepoint]skin{
@@ -40,16 +40,17 @@ func NewSet() *Set {
 	}
 }
 
-// SanitizeFrontEndEmojis will sanitize the list of emojis that front end
-// supports. It will be sanitized by modifying the list to determine the union
-// of supported emojis between front end (EmojiMart) and backend (gomoji.emojiMap).
-func (s *Set) SanitizeFrontEndEmojis(frontendEmojiSetJson []byte) ([]byte, error) {
+// SanitizeEmojiMartSet removes all unsupported emojis from the Emoji Mart set
+// JSON. It also replaces any mismatched codepoints (where the same Emoji has
+// two different codepoints).
+func (s *Set) SanitizeEmojiMartSet(frontendEmojiSetJson []byte) ([]byte, error) {
 
-	// Unmarshal front end's JSON
-	var frontEndEmojiSet emojiMartData
+	// Unmarshal the Emoji Mart set JSON
+	var frontEndEmojiSet emojiMartSet
 	err := json.Unmarshal(frontendEmojiSetJson, &frontEndEmojiSet)
 	if err != nil {
-		return nil, errors.Errorf("Failed to unmarshal front end emoji JSON: %+v", err)
+		return nil, errors.Errorf(
+			"failed to unmarshal Emoji Mart set JSON: %+v", err)
 	}
 
 	// Find all incompatible emojis in the front end set
@@ -61,11 +62,11 @@ func (s *Set) SanitizeFrontEndEmojis(frontendEmojiSetJson []byte) ([]byte, error
 	return json.Marshal(frontEndEmojiSet)
 }
 
-// findIncompatibleEmojis returns a list of emojis in the emojiMartData that are
-// not supported by the Set. Also, any emojiMartData emoji codepoints that are
+// findIncompatibleEmojis returns a list of emojis in the emojiMartSet that are
+// not supported by the Set. Also, any emojiMartSet emoji codepoints that are
 // incompatible and have replacements (as defined in Set) are replaced.
-func (s *Set) findIncompatibleEmojis(set *emojiMartData) (emojisToRemove []emojiID) {
-	// Iterate over all emojis in the emojiMartData.Emojis list
+func (s *Set) findIncompatibleEmojis(set *emojiMartSet) (emojisToRemove []emojiID) {
+	// Iterate over all emojis in the emojiMartSet.Emojis list
 	for id, Emoji := range set.Emojis {
 		var newSkins []skin
 		for _, Skin := range Emoji.Skins {
@@ -93,14 +94,14 @@ func (s *Set) findIncompatibleEmojis(set *emojiMartData) (emojisToRemove []emoji
 }
 
 // removeIncompatibleEmojis removes all the emojis in emojisToRemove from the
-// emojiMartData set.
-func removeIncompatibleEmojis(set *emojiMartData, emojisToRemove []emojiID) {
-	// Remove all incompatible emojis from the emojiMartData.Emojis list
+// emojiMartSet set.
+func removeIncompatibleEmojis(set *emojiMartSet, emojisToRemove []emojiID) {
+	// Remove all incompatible emojis from the emojiMartSet.Emojis list
 	for _, char := range emojisToRemove {
 		delete(set.Emojis, char)
 	}
 
-	// Remove all incompatible emojis from the emojiMartData.Categories list
+	// Remove all incompatible emojis from the emojiMartSet.Categories list
 	for _, cat := range set.Categories {
 		// Iterate over the emoji list backwards to make removal of elements
 		// from the slice easier
@@ -113,7 +114,7 @@ func removeIncompatibleEmojis(set *emojiMartData, emojisToRemove []emojiID) {
 		}
 	}
 
-	// Remove all incompatible emojis from the emojiMartData.Aliases list
+	// Remove all incompatible emojis from the emojiMartSet.Aliases list
 	for alias, id := range set.Aliases {
 		for _, removedId := range emojisToRemove {
 			if id == removedId {

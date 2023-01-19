@@ -23,24 +23,15 @@ import (
 var content embed.FS
 
 func Test_emojiMartData_JSON_Marshal_Unmarshal(t *testing.T) {
-	exampleData := emojiMartData{
+	exampleData := emojiMartSet{
 		Categories: []category{
-			{
-				Id: "100",
-				Emojis: []emojiID{
-					"100",
-				},
-			},
-			{
-				Id: "21",
-			},
-			{
-				Id: "20",
-			},
+			{ID: "100", Emojis: []emojiID{"100"}},
+			{ID: "21"},
+			{ID: "20"},
 		},
 		Emojis: map[emojiID]emoji{
 			"100": {
-				Id:       "100",
+				ID:       "100",
 				Name:     "Hundred Points",
 				Keywords: []string{"hunna"},
 				Skins:    nil,
@@ -60,7 +51,7 @@ func Test_emojiMartData_JSON_Marshal_Unmarshal(t *testing.T) {
 		t.Fatalf("Failed to marshal: %+v", err)
 	}
 
-	unmarshalData := emojiMartData{}
+	unmarshalData := emojiMartSet{}
 	err = json.Unmarshal(marshaled, &unmarshalData)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal: %+v", err)
@@ -71,7 +62,6 @@ func Test_emojiMartData_JSON_Marshal_Unmarshal(t *testing.T) {
 			"\nExpected: %+v"+
 			"\nReceived: %+v", exampleData, unmarshalData)
 	}
-
 }
 
 func Test_emojiMartDataJSON_Example(t *testing.T) {
@@ -80,7 +70,7 @@ func Test_emojiMartDataJSON_Example(t *testing.T) {
 		t.Fatalf("Failed to read emoji-Mart.json: %+v", err)
 	}
 
-	emojiMart := &emojiMartData{}
+	emojiMart := &emojiMartSet{}
 	err = json.Unmarshal(jsonData, emojiMart)
 	if err != nil {
 		t.Fatalf("Failed to unamrshal: %+v", err)
@@ -89,5 +79,4 @@ func Test_emojiMartDataJSON_Example(t *testing.T) {
 	if len(emojiMart.Emojis) == 0 {
 		t.Fatalf("Did not load front end data as expected")
 	}
-
 }

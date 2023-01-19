@@ -28,7 +28,7 @@ func BenchmarkSet_SanitizeFrontendEmojiList(b *testing.B) {
 		}
 
 		// Sanitize front end example
-		_, err = backendSet.SanitizeFrontEndEmojis(unsanitizedSetJson)
+		_, err = backendSet.SanitizeEmojiMartSet(unsanitizedSetJson)
 		if err != nil {
 			b.Fatalf("Failed to Sanitize front end emojis: %+v", err)
 		}
@@ -36,7 +36,7 @@ func BenchmarkSet_SanitizeFrontendEmojiList(b *testing.B) {
 	}
 }
 
-// Comprehensive test of Set.SanitizeFrontEndEmojis using the front end example
+// Comprehensive test of Set.SanitizeEmojiMartSet using the front end example
 // JSON file (emojiMart.json).
 func TestSet_SanitizeFrontEndEmojis_FrontEndExample(t *testing.T) {
 
@@ -49,20 +49,20 @@ func TestSet_SanitizeFrontEndEmojis_FrontEndExample(t *testing.T) {
 	}
 
 	// Sanitize front end example
-	sanitizedSetJson, err := backendSet.SanitizeFrontEndEmojis(unsanitizedSetJson)
+	sanitizedSetJson, err := backendSet.SanitizeEmojiMartSet(unsanitizedSetJson)
 	if err != nil {
 		t.Fatalf("Failed to Sanitize front end emojis: %+v", err)
 	}
 
 	// Unmarshal front end example
-	unsanitizedSet := &emojiMartData{}
+	unsanitizedSet := &emojiMartSet{}
 	err = json.Unmarshal(unsanitizedSetJson, unsanitizedSet)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal unsanitized set: %+v", err)
 	}
 
 	// Unmarshal sanitization of front end example
-	sanitizedSet := &emojiMartData{}
+	sanitizedSet := &emojiMartSet{}
 	err = json.Unmarshal(sanitizedSetJson, sanitizedSet)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal sanitized set: +%v", err)
@@ -107,7 +107,7 @@ func TestSet_findIncompatibleEmojis_FrontEndExample(t *testing.T) {
 	}
 
 	// Unmarshal front end example
-	unsanitizedSet := &emojiMartData{}
+	unsanitizedSet := &emojiMartSet{}
 	err = json.Unmarshal(unsanitizedSetJson, unsanitizedSet)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal unsanitized set: %+v", err)
@@ -119,14 +119,14 @@ func TestSet_findIncompatibleEmojis_FrontEndExample(t *testing.T) {
 	}
 }
 
-// Tests Set.findIncompatibleEmojis using a custom emojiMartData object.
+// Tests Set.findIncompatibleEmojis using a custom emojiMartSet object.
 // There is one ID  with skins that should be marked as removable as all skins
 // are invalid when compared against backend. There is another ID that should
 // not be removed, and should not be returned by set.findIncompatibleEmojis.
 func TestSet_findIncompatibleEmojis_RemovableExample(t *testing.T) {
 	backendSet := NewSet()
 
-	// Construct custom emojiMartData.
+	// Construct custom emojiMartSet.
 	toBeRemovedId := emojiID("shouldBeRemoved")
 	emd := constructRemovableEmojiSet(toBeRemovedId)
 
@@ -145,12 +145,12 @@ func TestSet_findIncompatibleEmojis_RemovableExample(t *testing.T) {
 	}
 }
 
-// Tests that removeIncompatibleEmojis will modify the passed in emojiMartData
+// Tests that removeIncompatibleEmojis will modify the passed in emojiMartSet
 // according to the list of emojis to remove.
 func TestSet_removeIncompatibleEmojis(t *testing.T) {
 	backendSet := NewSet()
 
-	// Construct custom emojiMartData.
+	// Construct custom emojiMartSet.
 	toBeRemovedId := emojiID("shouldBeRemoved")
 	emd := constructRemovableEmojiSet(toBeRemovedId)
 
@@ -164,21 +164,21 @@ func TestSet_removeIncompatibleEmojis(t *testing.T) {
 		for _, e := range cat.Emojis {
 			if e == toBeRemovedId {
 				t.Fatalf("EmojiId %s was never removed from "+
-					"emojiMartData.Categories", toBeRemovedId)
+					"emojiMartSet.Categories", toBeRemovedId)
 			}
 		}
 	}
 
 	// Test that the emoji map has been modified
 	if _, exists := emd.Emojis[toBeRemovedId]; exists {
-		t.Fatalf("EmojiId %s was not removed from emojiMartData.Emojis",
+		t.Fatalf("EmojiId %s was not removed from emojiMartSet.Emojis",
 			toBeRemovedId)
 	}
 
 	// Test that the alias list has been modified
 	for _, id := range emd.Aliases {
 		if id == toBeRemovedId {
-			t.Fatalf("EmojiId %s twas not removed from emojiMartData.Aliases",
+			t.Fatalf("EmojiId %s twas not removed from emojiMartSet.Aliases",
 				toBeRemovedId)
 		}
 	}
@@ -220,12 +220,12 @@ func TestBackToFrontCodePoint(t *testing.T) {
 }
 
 // constructRemovableEmojiSet is a utility function which will return an
-// emojiMartData object used for testing. This object will contain data
+// emojiMartSet object used for testing. This object will contain data
 // that should be marked as removable by Set.findIncompatibleEmojis. This
 // removable data from Set.findIncompatibleEmojis can be passed to
 // removeIncompatibleEmojis.
-func constructRemovableEmojiSet(toBeRemovedId emojiID) *emojiMartData {
-	return &emojiMartData{
+func constructRemovableEmojiSet(toBeRemovedId emojiID) *emojiMartSet {
+	return &emojiMartSet{
 		Categories: []category{
 			{Emojis: []emojiID{
 				toBeRemovedId,

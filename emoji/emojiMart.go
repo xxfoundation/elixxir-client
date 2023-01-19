@@ -7,47 +7,46 @@
 
 package emoji
 
-// emojiID represents the alias for an emoji. For example, the alias for
-// the emoji 💯 would be "100". This adheres strictly to how emoji-mart
-// categorizes their emojis within the categories section of their
-// JSON file.
+// emojiID represents the alias for an emoji in Emoji Mart. For example, the
+// alias for the emoji 💯 would be "100". This adheres strictly to how Emoji
+// Mart categorizes their emojis within the categories section of their JSON
+// file.
 type emojiID string
 
-// codepoint represents the Unicode codepoint for an emoji.
-// For example, the emoji 💯 would have the codepoint "1f4af".
+// codepoint represents the Unicode codepoint or codepoints for an emoji. They
+// are in lowercase and if there are multiple codepoints, they are seperated by
+// a dash ("-"). For example, the emoji 💯 would have the codepoint "1f4af".
 type codepoint string
 
-// emojiMartData adheres to the JSON file format provided by front end.
-// Specifically, this adheres to the emoji-mart library for Typescript.
+// emojiMartSet is a representation of the JSON file format containing the emoji
+// list in Emoji Mart.
 //
 // Doc: https://github.com/missive/emoji-mart/
 // JSON example: https://github.com/missive/emoji-mart/blob/main/packages/emoji-mart-data/sets/14/native.json
-type emojiMartData struct {
+type emojiMartSet struct {
 	Categories []category             `json:"categories"`
 	Emojis     map[emojiID]emoji      `json:"emojis"`
 	Aliases    map[string]emojiID     `json:"aliases"`
 	Sheet      map[string]interface{} `json:"sheet"`
 }
 
-// category adheres to the category field within the JSON file that is provided
-// by the emoji-mart library (see emojiMartData for more detail).
+// category adheres to the category field of the Emoji Mart JSON file.
 type category struct {
 	Emojis []emojiID `json:"emojis"`
-	Id     string    `json:"id"`
+	ID     string    `json:"id"`
 }
 
-// emoji adheres to the emoji field found within the JSON file that is provided
-// by the emoji-mart library (see emojiMartData for more detail).
+// emoji adheres to the emoji field of the Emoji Mart JSON file.
 type emoji struct {
-	Id       emojiID  `json:"id"`
+	ID       emojiID  `json:"id"`
 	Name     string   `json:"name"`
 	Keywords []string `json:"keywords"`
 	Skins    []skin   `json:"skins"`
 	Version  float32  `json:"version"`
 }
 
-// skin adheres to the skin field within the emoji field of the JSON file that
-// is provided  by the emoji-mart library (see emojiMartData for more detail).
+// skin adheres to the skin field within the emoji field of the Emoji Mart JSON
+// file.
 type skin struct {
 	Unified codepoint `json:"unified"`
 	Native  string    `json:"native"`

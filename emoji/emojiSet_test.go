@@ -27,7 +27,6 @@ func BenchmarkSet_SanitizeFrontendEmojiList(b *testing.B) {
 		if err != nil {
 			b.Fatalf("Failed to Sanitize front end emojis: %+v", err)
 		}
-
 	}
 }
 
@@ -128,8 +127,8 @@ func TestSet_findIncompatibleEmojis_RemovableExample(t *testing.T) {
 	}
 }
 
-// Tests that removeIncompatibleEmojis will modify the passed in emojiMartSet
-// according to the list of emojis to remove.
+// Tests that Set.removeIncompatibleEmojis will modify the passed in
+// emojiMartSet according to the list of emojis to remove.
 func TestSet_removeIncompatibleEmojis(t *testing.T) {
 	backendSet := NewSet()
 
@@ -146,7 +145,7 @@ func TestSet_removeIncompatibleEmojis(t *testing.T) {
 	for _, cat := range emd.Categories {
 		for _, e := range cat.Emojis {
 			if e == toBeRemovedId {
-				t.Fatalf("EmojiId %s was never removed from "+
+				t.Fatalf("EmojiID %q was never removed from "+
 					"emojiMartSet.Categories", toBeRemovedId)
 			}
 		}
@@ -165,12 +164,11 @@ func TestSet_removeIncompatibleEmojis(t *testing.T) {
 				toBeRemovedId)
 		}
 	}
-
 }
 
 // Tests backToFrontCodePoint converts backend Unicode codepoints to their
 // front end equivalent.
-func TestBackToFrontCodePoint(t *testing.T) {
+func Test_backToFrontCodePoint(t *testing.T) {
 	// Input for backend codepoints and their front end formatted pairings
 	tests := []struct {
 		input  string
@@ -194,19 +192,17 @@ func TestBackToFrontCodePoint(t *testing.T) {
 	for _, test := range tests {
 		received := backToFrontCodePoint(test.input)
 		if received != test.output {
-			t.Fatalf("Failed convert backend codepoint %s to frontend codepoint.."+
-				"\nExpected: %s"+
-				"\nReceived: %s", test.input, test.output, received)
+			t.Fatalf("Incorrect codepoint for %q.\nexpected: %s\nreceived: %s",
+				test.input, test.output, received)
 		}
 	}
 
 }
 
-// constructRemovableEmojiSet is a utility function which will return an
-// emojiMartSet object used for testing. This object will contain data
-// that should be marked as removable by Set.findIncompatibleEmojis. This
-// removable data from Set.findIncompatibleEmojis can be passed to
-// removeIncompatibleEmojis.
+// constructRemovableEmojiSet returns an emojiMartSet object used for testing.
+// This object will contain data that should be marked as removable by
+// Set.findIncompatibleEmojis. This removable data from
+// Set.findIncompatibleEmojis can be passed to removeIncompatibleEmojis.
 func constructRemovableEmojiSet(toBeRemovedId emojiID) *emojiMartSet {
 	return &emojiMartSet{
 		Categories: []category{
@@ -221,24 +217,19 @@ func constructRemovableEmojiSet(toBeRemovedId emojiID) *emojiMartSet {
 		},
 		Emojis: map[emojiID]emoji{
 			toBeRemovedId: {
-				Skins: []skin{
-					{
-						Unified: "00A9 FE0F 20F3",
-						Native:  "",
-					},
-					{
-						Unified: "AAAA FE0F 20F3",
-						Native:  "",
-					},
-				},
+				Skins: []skin{{
+					Unified: "00A9 FE0F 20F3",
+					Native:  "",
+				}, {
+					Unified: "AAAA FE0F 20F3",
+					Native:  "",
+				}},
 			},
 			"shouldNotBeRemoved": {
-				Skins: []skin{
-					{
-						Unified: "1f9e1",
-						Native:  "🧡",
-					},
-				},
+				Skins: []skin{{
+					Unified: "1f9e1",
+					Native:  "🧡",
+				}},
 			},
 		},
 		Aliases: map[string]emojiID{

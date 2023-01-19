@@ -149,7 +149,7 @@ func emojiListToMap(list []gomoji.Emoji) map[codepoint]struct{} {
 }
 
 // backToFrontCodePoint converts Unicode codepoint format found in gomoji.Emoji
-// to the one passed in by frontend. The specific conversion is making it
+// to the one found in the Emoji Mart JSON. The specific conversion is making it
 // lowercase and replacing " " with "-".
 func backToFrontCodePoint(code string) codepoint {
 	return codepoint(strings.ToLower(strings.ReplaceAll(code, " ", "-")))

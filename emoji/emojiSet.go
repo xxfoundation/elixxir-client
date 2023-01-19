@@ -36,7 +36,7 @@ func NewSet() *Set {
 				Native:  "❤",
 			},
 		},
-		supportedEmojis: emojiListToMap(gomoji.AllEmojis()),
+		supportedEmojis: emojiListToMap(SupportedEmojis()),
 	}
 }
 

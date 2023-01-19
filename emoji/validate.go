@@ -19,6 +19,11 @@ var (
 		"The reaction is not valid, it must be a single emoji")
 )
 
+// SupportedEmojis returns a list of emojis that are supported by the backend.
+func SupportedEmojis() []gomoji.Emoji {
+	return gomoji.AllEmojis()
+}
+
 // ValidateReaction checks that the reaction only contains a single emoji.
 func ValidateReaction(reaction string) error {
 	emojisList := gomoji.CollectAll(reaction)

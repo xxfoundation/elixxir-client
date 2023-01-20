@@ -188,7 +188,7 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 	poolParams.MaxPings = 50
 
 	// Enable host pool debugging
-	poolParams.DebugPrintPeriod = 5 * time.Second
+	poolParams.DebugPrintPeriod = 30 * time.Second
 
 	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
 		c.session, c.comms, nodeChan)

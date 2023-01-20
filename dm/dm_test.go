@@ -21,11 +21,19 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
+// TestMain sets the log level so we see important debug messages
 func TestMain(m *testing.M) {
 	jww.SetStdoutThreshold(jww.LevelInfo)
 	os.Exit(m.Run())
 }
 
+// TestE2EDMs does a full End-to-End smoke test of DMs: Sending,
+// Replying to what was sent, and reacting to that reply.
+//
+// NOTE: A lot of the "hard" work is actually done in
+// interfaces_test.go which mocks the necessary network and receiver
+// interfaces to enable sending and receiving without a cMix
+// connection.
 func TestE2EDMs(t *testing.T) {
 	netA, netB := createLinkedNets()
 

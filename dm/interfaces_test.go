@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
+// createLinkedNets links 2 clients together.
 func createLinkedNets() (*mockClient, *mockClient) {
 	client1 := newMockClient()
 	client2 := newMockClient()
@@ -31,6 +32,7 @@ func createLinkedNets() (*mockClient, *mockClient) {
 	return client1, client2
 }
 
+// newMockClient creates a client that can send messages
 func newMockClient() *mockClient {
 	return &mockClient{
 		rndID:       uint64(0),
@@ -49,6 +51,11 @@ func (mc *mockClient) GetMaxMessageLength() int {
 	tmpMsg := format.NewMessage(2048)
 	return tmpMsg.ContentsSize()
 }
+
+// This calls the assembler (encryption) function and returns mocked
+// but valid round IDs, etc.
+// When otherClient is not nil, this sends the messages to the linked
+// receiver.
 func (mc *mockClient) SendManyWithAssembler(recipients []*id.ID,
 	assembler cmix.ManyMessageAssembler,
 	params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
@@ -108,6 +115,11 @@ func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback,
 func (mc *mockClient) AddHealthCallback(func(bool)) uint64 { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)         {}
 
+// mockReceiver stores the messages sent to it for testing/debugging
+// NOTE: when sending remember the sender sees the sent message twice.
+//
+//	the receiver receives it only once. See TestE2EDMs test in dm_test.go
+//	for details
 func newMockReceiver() *mockReceiver {
 	return &mockReceiver{
 		Msgs: make([]mockMessage, 0),

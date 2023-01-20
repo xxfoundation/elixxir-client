@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// These strings should never change, so lock them with a test.
+// TestStatusString strings should never change, so lock them with a test.
 func TestStatusString(t *testing.T) {
 	unsent := Unsent
 	sent := Sent

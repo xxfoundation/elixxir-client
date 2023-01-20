@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -228,11 +227,11 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	if len(missingNodes) == topology.Len() {
 		return nil, errors.New("Must have at least one registered node to create mixCypher")
 	}
-	var edPub nike.PublicKey
+	var edPub []byte
 	if len(missingNodes) > 0 {
 		// Generate temp ed25519 for this send
-		var privateKey nike.PrivateKey
-		privateKey, edPub = ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
+		priv, pub := ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
+		edPub = pub.Bytes()
 		currentNdf := r.session.GetNDF()
 		for nid, keyIndex := range missingNodes {
 			for _, n := range currentNdf.Nodes { // TODO: any more efficient way to get the corresponding keys?
@@ -241,7 +240,7 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 					if err != nil {
 						return nil, err
 					}
-					secret := privateKey.DeriveSecret(nodePubKey)
+					secret := priv.DeriveSecret(nodePubKey)
 					h := hash.CMixHash.New()
 					h.Write(secret)
 					k := r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
@@ -256,7 +255,7 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 		keys:          keys,
 		g:             r.session.GetCmixGroup(),
 		ephemeralKeys: ephemeralKeys,
-		ephemeralKey:  edPub.Bytes(),
+		ephemeralKey:  edPub,
 	}
 
 	return rk, nil

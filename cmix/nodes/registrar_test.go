@@ -145,14 +145,24 @@ func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 
 	circuit := connect.NewCircuit(nodeIds)
 	result, err := r.GetNodeKeys(circuit)
-	if err == nil {
-		t.Error("GetNodeKeys did not return an error when keys " +
-			"should be missing.")
+	if err != nil {
+		t.Fatalf("Should no longer error when some keys are missing")
 	}
-	if result != nil {
-		t.Errorf("Expected nil value for result due to " +
-			"missing keys!")
+	mc, ok := result.(*mixCypher)
+	if !ok {
+		t.Fatalf("Failed conversion to *mixCypher")
 	}
+	if mc.ephemeralKey == nil {
+		t.Errorf("Did not set ephemeral key when keys are missing")
+	}
+	//if err == nil {
+	//	t.Error("GetNodeKeys did not return an error when keys " +
+	//		"should be missing.")
+	//}
+	//if result != nil {
+	//	t.Errorf("Expected nil value for result due to " +
+	//		"missing keys!")
+	//}
 }
 
 func Test_registrar_HasNode(t *testing.T) {

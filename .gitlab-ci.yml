@@ -71,9 +71,17 @@ tag:
         - master
     image: $DOCKER_IMAGE
     script:
-        - git remote add origin_tags git@$GITLAB_SERVER:elixxir/client.git || true
-        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
-        - git push origin_tags --tags
+        # Get the version number from the built binary
+        - export TAG=$(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
+        # Poll the GitLab API to see if the tag exists
+        - 'TAG_JSON=$(curl --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags/$TAG")'
+        # Debug information
+        - echo $TAG_JSON
+        # If the API says the tag doesn't exist, create it for the current commit
+        # 
+        # Note: if we want to fail because this is not a unique version number, we can simply do "else; echo non-unique version && return -1; fi" instead of "fi".
+        # That would be a much cleaner way (IMO) to do the unique version number check Ben wanted than the previous horrible Git hack.
+        - 'if echo $TAG_JSON | grep -q "404 Tag Not Found"; then curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags?tag_name=$TAG&ref=$CI_COMMIT_SHA"; fi'
 
 bindings-ios:
   stage: build

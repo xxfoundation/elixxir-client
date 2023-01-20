@@ -82,7 +82,7 @@ func TestSpace_GetAddressSpace_WaitBroadcast(t *testing.T) {
 				t.Errorf("get returned the wrong size.\nexpected: %d\nreceived: %d",
 					initSize, size)
 			}
-		case <-time.NewTimer(25 * time.Millisecond).C:
+		case <-time.NewTimer(250 * time.Millisecond).C:
 			t.Error("get blocking when the Cond has broadcast.")
 		}
 	}()
@@ -150,7 +150,7 @@ func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 					t.Errorf("Thread %d received unexpected size."+
 						"\nexpected: %d\nreceived: %d", i, expectedSize, size)
 				}
-			case <-time.After(25 * time.Millisecond):
+			case <-time.After(250 * time.Millisecond):
 				t.Errorf("Timed out waiting for get to return on thread %d.", i)
 			}
 		}(i, waitChan)

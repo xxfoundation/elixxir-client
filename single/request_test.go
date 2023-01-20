@@ -129,7 +129,7 @@ func TestTransmitRequest(t *testing.T) {
 // Tests that waitForTimeout returns and does not call the callback when the
 // kill channel is used.
 func Test_waitForTimeout(t *testing.T) {
-	timeout := 30 * time.Millisecond
+	timeout := 300 * time.Millisecond
 	cbChan := make(chan error, 1)
 	cb := func(
 		_ []byte, _ receptionID.EphemeralIdentity, _ []rounds.Round, err error) {

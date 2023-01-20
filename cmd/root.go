@@ -456,7 +456,6 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 		verboseRoundTrackingFlag)
 
 	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
-	fmt.Println(cmixParams.Network.WhitelistedGateways)
 
 	return cmixParams, e2eParams
 }
@@ -553,7 +552,6 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	}
 
 	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
-	fmt.Println(cmixParams.Network.WhitelistedGateways)
 
 	return user
 }

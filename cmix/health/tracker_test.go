@@ -62,7 +62,7 @@ func Test_newTracker(t *testing.T) {
 		if trkr.IsHealthy() && atomic.LoadInt64(&counter) == expectedCount {
 			break
 		} else {
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 

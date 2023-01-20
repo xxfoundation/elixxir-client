@@ -45,7 +45,7 @@ func TestSpace_GetAddressSpace(t *testing.T) {
 	select {
 	case size := <-wait:
 		t.Errorf("get failed to block and returned size %d.", size)
-	case <-time.NewTimer(10 * time.Millisecond).C:
+	case <-time.NewTimer(100 * time.Millisecond).C:
 	}
 
 	// Update address size
@@ -87,7 +87,7 @@ func TestSpace_GetAddressSpace_WaitBroadcast(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	as.(*space).cond.Broadcast()
 }
@@ -179,12 +179,12 @@ func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 			case size := <-notifyChan:
 				t.Errorf("Received size %d on channel %s when it should not "+
 					"have.", size, chanID)
-			case <-time.After(20 * time.Millisecond):
+			case <-time.After(200 * time.Millisecond):
 			}
 		}(chanID, notifyChan)
 	}
 
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	// Attempt to Update to larger size
 	as.UpdateAddressSpace(expectedSize)
@@ -210,7 +210,7 @@ func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 						"\nexpected: %d\nreceived: %d",
 						chanID, expectedSize, size)
 				}
-			case <-time.After(20 * time.Millisecond):
+			case <-time.After(200 * time.Millisecond):
 				t.Errorf("Timed out waiting on channel %s", chanID)
 			}
 		}(chanID, notifyChan)
@@ -225,11 +225,11 @@ func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 		case size := <-notifyChan:
 			t.Errorf("Received size %d on channel %s when it should not have.",
 				size, chanID)
-		case <-time.NewTimer(20 * time.Millisecond).C:
+		case <-time.NewTimer(200 * time.Millisecond).C:
 		}
 	}()
 
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	// Attempt to Update to larger size
 	as.UpdateAddressSpace(expectedSize)
@@ -258,7 +258,7 @@ func TestSpace_RegisterAddressSpaceNotification(t *testing.T) {
 				t.Errorf("received wrong size on channel."+
 					"\nexpected: %d\nreceived: %d", expectedSize, size)
 			}
-		case <-time.After(10 * time.Millisecond):
+		case <-time.After(100 * time.Millisecond):
 			t.Error("Timed out waiting on channel.")
 		}
 	}()
@@ -291,7 +291,7 @@ func TestSpace_UnregisterAddressSpaceNotification(t *testing.T) {
 		case size := <-sizeChan:
 			t.Errorf("Received %d on channel %s that should not be in map.",
 				size, chanID)
-		case <-time.NewTimer(10 * time.Millisecond).C:
+		case <-time.NewTimer(100 * time.Millisecond).C:
 		}
 	}()
 

@@ -19,14 +19,16 @@ import (
 
 // mixCypher is an implementation of the MixCypher interface.
 type mixCypher struct {
-	keys []*key
-	g    *cyclic.Group
+	keys          []*key
+	g             *cyclic.Group
+	ephemeralKeys []bool
+	ephemeralKey  []byte
 }
 
 // Encrypt encrypts the given message for CMIX. Panics if the passed message is
 // not sized correctly for the group.
 func (mc *mixCypher) Encrypt(msg format.Message, salt []byte, roundID id.Round) (
-	format.Message, [][]byte) {
+	format.Message, [][]byte, []bool, []byte) {
 
 	if msg.GetPrimeByteLen() != mc.g.GetP().ByteLen() {
 		jww.FATAL.Panicf("Cannot encrypt message when its size (%d) is not "+
@@ -49,8 +51,13 @@ func (mc *mixCypher) Encrypt(msg format.Message, salt []byte, roundID id.Round) 
 	}
 
 	KMAC := cmix.GenerateKMACs(salt, keys, roundID, h)
+	for i, isEpehemeral := range mc.ephemeralKeys {
+		if isEpehemeral {
+			KMAC[i] = make([]byte, 64)
+		}
+	}
 
-	return ecrMsg, KMAC
+	return ecrMsg, KMAC, mc.ephemeralKeys, mc.ephemeralKey
 }
 
 func (mc *mixCypher) MakeClientGatewayAuthMAC(salt, digest []byte) []byte {

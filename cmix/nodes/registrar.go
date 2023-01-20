@@ -8,6 +8,7 @@
 package nodes
 
 import (
+	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
@@ -15,6 +16,9 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/nike"
+	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -126,8 +130,8 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	return multi
 }
 
-//PauseNodeRegistrations stops all node registrations
-//and returns a function to resume them
+// PauseNodeRegistrations stops all node registrations
+// and returns a function to resume them
 func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 	r.runnerLock.Lock()
 	defer r.runnerLock.Unlock()
@@ -190,6 +194,8 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	defer r.mux.RUnlock()
 
 	keys := make([]*key, topology.Len())
+	ephemeralKeys := make([]bool, topology.Len())
+	missingNodes := make(map[id.ID]int)
 
 	// Get keys for every node. If it cannot be found, then add it to the
 	// missing nodes list so that it can be.
@@ -209,16 +215,48 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 				},
 			}
 
-			return nil, errors.Errorf(
-				"cannot get key for %s, triggered registration", nid)
+			jww.WARN.Println(errors.Errorf(
+				"cannot get key for %s, triggered registration", nid))
+			missingNodes[*nid] = i
+			ephemeralKeys[i] = true
 		} else {
 			keys[i] = k
 		}
 	}
 
+	// Cannot attempt to send without at least one registered node
+	if len(missingNodes) == topology.Len() {
+		return nil, errors.New("Must have at least one registered node to create mixCypher")
+	}
+	var edPub nike.PublicKey
+	if len(missingNodes) > 0 {
+		// Generate temp ed25519 for this send
+		var privateKey nike.PrivateKey
+		privateKey, edPub = ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
+		currentNdf := r.session.GetNDF()
+		for nid, keyIndex := range missingNodes {
+			for _, n := range currentNdf.Nodes { // TODO: any more efficient way to get the corresponding keys?
+				if bytes.Compare(n.ID, nid[:]) == 0 {
+					nodePubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(n.Ed25519)
+					if err != nil {
+						return nil, err
+					}
+					secret := privateKey.DeriveSecret(nodePubKey)
+					h := hash.CMixHash.New()
+					h.Write(secret)
+					k := r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
+					keys[keyIndex] = newKey(nil, k, &nid, uint64(time.Now().Add(time.Second*5).UnixNano()), nil)
+					break
+				}
+			}
+		}
+	}
+
 	rk := &mixCypher{
-		keys: keys,
-		g:    r.session.GetCmixGroup(),
+		keys:          keys,
+		g:             r.session.GetCmixGroup(),
+		ephemeralKeys: ephemeralKeys,
+		ephemeralKey:  edPub.Bytes(),
 	}
 
 	return rk, nil

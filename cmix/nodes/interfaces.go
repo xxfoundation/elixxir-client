@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"time"
 )
 
@@ -63,7 +64,7 @@ type MixCypher interface {
 	// Encrypt encrypts the given message for cMix. Panics if the passed
 	// message is not sized correctly for the group.
 	Encrypt(msg format.Message, salt []byte, roundID id.Round) (
-		format.Message, [][]byte)
+		format.Message, [][]byte, []bool, []byte)
 
 	// MakeClientGatewayAuthMAC generates the MAC the gateway will
 	// check when receiving a cMix message.
@@ -88,4 +89,5 @@ type session interface {
 	GetRegistrationTimestamp() time.Time
 	GetTransmissionSalt() []byte
 	GetTransmissionRegistrationValidationSignature() []byte
+	GetNDF() *ndf.NetworkDefinition
 }

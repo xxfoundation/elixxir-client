@@ -107,11 +107,11 @@ func Test_mixCypher_Encrypt_Consistency(t *testing.T) {
 	prng.Read(contents)
 	msg.SetContents(contents)
 
-	rk := mixCypher{keys, cmixGrp}
+	rk := mixCypher{keys: keys, g: cmixGrp}
 
 	rid := id.Round(42)
 
-	encMsg, kmacs := rk.Encrypt(msg, salt, rid)
+	encMsg, kmacs, _, _ := rk.Encrypt(msg, salt, rid)
 
 	if !bytes.Equal(encMsg.Marshal(), expectedPayload) {
 		t.Errorf("Encrypted messages do not match.\nexpected: %v\nreceived: %v",

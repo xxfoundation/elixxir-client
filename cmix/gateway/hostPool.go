@@ -34,7 +34,7 @@ type hostPool struct {
 	ndf    *ndf.NetworkDefinition
 
 	/*Runner inputs*/
-	// a send on this channel adds a node to the host pool
+	// Sending on this channel adds a node to the host pool
 	// if a nil id is sent, a few random nodes are tested
 	// and the best is added
 	// if a specific id is sent, that id is added
@@ -44,12 +44,12 @@ type hostPool struct {
 	doneTesting   chan []*connect.Host
 	newNdf        chan *ndf.NetworkDefinition
 
-	/*worker inputs*/
+	/*Worker inputs*/
 	// tests the list of nodes. Finds the one with the lowest ping,
 	// connects, and then returns over addNode
 	testNodes chan []*connect.Host
 
-	/* external objects*/
+	/* External objects*/
 	rng       *fastRNG.StreamGenerator
 	params    Params
 	manager   HostManager
@@ -58,7 +58,7 @@ type hostPool struct {
 	kv        *versioned.KV
 	addChan   chan commNetwork.NodeGateway
 
-	/* computed parameters*/
+	/* Computed parameters*/
 	numNodesToTest int
 }
 

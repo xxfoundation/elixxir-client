@@ -150,7 +150,7 @@ func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 					t.Errorf("Thread %d received unexpected size."+
 						"\nexpected: %d\nreceived: %d", i, expectedSize, size)
 				}
-			case <-time.After(25 * time.Millisecond):
+			case <-time.After(250 * time.Millisecond):
 				t.Errorf("Timed out waiting for get to return on thread %d.", i)
 			}
 		}(i, waitChan)

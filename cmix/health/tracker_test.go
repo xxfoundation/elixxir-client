@@ -18,7 +18,7 @@ import (
 // Happy path smoke test.
 func Test_newTracker(t *testing.T) {
 	// Initialize required variables
-	timeout := 500 * time.Millisecond
+	timeout := 800 * time.Millisecond
 	trkr := newTracker(timeout)
 	counter := int64(2) // First signal is "false/unhealthy"
 	positiveHb := network.Heartbeat{

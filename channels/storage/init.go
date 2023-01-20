@@ -37,17 +37,6 @@ type impl struct {
 	muteCb MuteCallback
 }
 
-// NewWASMEventModelBuilder returns a [channels.EventModelBuilder] which allows
-// the channel manager to define the path but the callback is the same
-// across the board.
-func NewWASMEventModelBuilder(encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, muteCb MuteCallback) channels.EventModelBuilder {
-	fn := func(path string) (channels.EventModel, error) {
-		return NewEventModel(path, encryption, msgCb, muteCb)
-	}
-	return fn
-}
-
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
 func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
 	msgCb MessageReceivedCallback, muteCb MuteCallback) (channels.EventModel, error) {

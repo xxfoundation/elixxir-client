@@ -17,7 +17,6 @@ import (
 
 	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 var testCert = `-----BEGIN CERTIFICATE-----
@@ -86,7 +85,7 @@ func TestDownloadSignedNdfWithUrl_BadCert(t *testing.T) {
 	badCert := testkeys.GetGatewayCert()
 
 	// Download and attempt to verify with unintended cert
-	_, err = DownloadAndVerifySignedNdfWithUrl("https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json",
+	_, err := DownloadAndVerifySignedNdfWithUrl("https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json",
 		string(badCert))
 	if err == nil {
 		t.Fatalf("Expected failure, should not be able to verify with " +

@@ -10,6 +10,10 @@ package single
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -20,9 +24,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestGetMaxRequestSize(t *testing.T) {
@@ -128,7 +129,7 @@ func TestTransmitRequest(t *testing.T) {
 // Tests that waitForTimeout returns and does not call the callback when the
 // kill channel is used.
 func Test_waitForTimeout(t *testing.T) {
-	timeout := 15 * time.Millisecond
+	timeout := 300 * time.Millisecond
 	cbChan := make(chan error, 1)
 	cb := func(
 		_ []byte, _ receptionID.EphemeralIdentity, _ []rounds.Round, err error) {

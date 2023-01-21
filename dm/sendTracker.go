@@ -29,15 +29,6 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-type triggerEventFunc func(msgID message.ID, messageType MessageType,
-	nick string, plaintext []byte, dmToken uint32,
-	partnerPubKey ed25519.PublicKey, ts time.Time,
-	_ receptionID.EphemeralIdentity, round rounds.Round,
-	status Status) (uint64, error)
-
-type updateStatusFunc func(uuid uint64, messageID message.ID,
-	timestamp time.Time, round rounds.Round, status Status)
-
 const (
 	sendTrackerStorageKey     = "dmSendTrackerStorageKey"
 	sendTrackerStorageVersion = 0
@@ -53,6 +44,15 @@ const (
 
 	oneSecond = 1000 * time.Millisecond
 )
+
+type triggerEventFunc func(msgID message.ID, messageType MessageType,
+	nick string, plaintext []byte, dmToken uint32,
+	partnerPubKey ed25519.PublicKey, ts time.Time,
+	_ receptionID.EphemeralIdentity, round rounds.Round,
+	status Status) (uint64, error)
+
+type updateStatusFunc func(uuid uint64, messageID message.ID,
+	timestamp time.Time, round rounds.Round, status Status)
 
 type tracked struct {
 	MsgID      message.ID
@@ -87,6 +87,12 @@ type sendTracker struct {
 	kv *versioned.KV
 
 	rngSrc *fastRNG.StreamGenerator
+}
+
+// NewSendTracker returns an uninitialized SendTracker object. The DM
+// Client will call Init to initialize it.
+func NewSendTracker(kv *versioned.KV) SendTracker {
+	return &sendTracker{kv: kv}
 }
 
 // messageReceiveFunc is a function type for sendTracker.MessageReceive so it
@@ -141,77 +147,6 @@ func (st *sendTracker) Init(net cMixClient, trigger triggerEventFunc,
 				getRoundResultsTimeout, rr.callback, rr.round)
 		}
 	})
-}
-
-// store writes the list of rounds that have been.
-func (st *sendTracker) store() error {
-	if err := st.storeSent(); err != nil {
-		return err
-	}
-
-	return st.storeUnsent()
-}
-
-func (st *sendTracker) storeSent() error {
-	// Save sent messages
-	data, err := json.Marshal(&st.byRound)
-	if err != nil {
-		return err
-	}
-	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
-		Version:   sendTrackerStorageVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	})
-}
-
-// store writes the list of rounds that have been.
-func (st *sendTracker) storeUnsent() error {
-	// Save unsent messages
-	data, err := json.Marshal(&st.unsent)
-	if err != nil {
-		return err
-	}
-
-	return st.kv.Set(sendTrackerUnsentStorageKey, &versioned.Object{
-		Version:   sendTrackerUnsentStorageVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	})
-}
-
-// load will get the stored rounds to be checked from disk and builds internal
-// datastructures.
-func (st *sendTracker) load() error {
-	obj, err := st.kv.Get(sendTrackerStorageKey, sendTrackerStorageVersion)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(obj.Data, &st.byRound)
-	if err != nil {
-		return err
-	}
-
-	for rid := range st.byRound {
-		roundList := st.byRound[rid].List
-		for j := range roundList {
-			st.byMessageID[roundList[j].MsgID] = roundList[j]
-		}
-	}
-
-	obj, err = st.kv.Get(
-		sendTrackerUnsentStorageKey, sendTrackerUnsentStorageVersion)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(obj.Data, &st.unsent)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // DenotePendingSend is called before the pending send. It tracks the send
@@ -433,6 +368,77 @@ func (st *sendTracker) CheckIfSent(
 	}
 
 	return true
+}
+
+// store writes the list of rounds that have been.
+func (st *sendTracker) store() error {
+	if err := st.storeSent(); err != nil {
+		return err
+	}
+
+	return st.storeUnsent()
+}
+
+func (st *sendTracker) storeSent() error {
+	// Save sent messages
+	data, err := json.Marshal(&st.byRound)
+	if err != nil {
+		return err
+	}
+	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
+		Version:   sendTrackerStorageVersion,
+		Timestamp: netTime.Now(),
+		Data:      data,
+	})
+}
+
+// store writes the list of rounds that have been.
+func (st *sendTracker) storeUnsent() error {
+	// Save unsent messages
+	data, err := json.Marshal(&st.unsent)
+	if err != nil {
+		return err
+	}
+
+	return st.kv.Set(sendTrackerUnsentStorageKey, &versioned.Object{
+		Version:   sendTrackerUnsentStorageVersion,
+		Timestamp: netTime.Now(),
+		Data:      data,
+	})
+}
+
+// load will get the stored rounds to be checked from disk and builds internal
+// datastructures.
+func (st *sendTracker) load() error {
+	obj, err := st.kv.Get(sendTrackerStorageKey, sendTrackerStorageVersion)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(obj.Data, &st.byRound)
+	if err != nil {
+		return err
+	}
+
+	for rid := range st.byRound {
+		roundList := st.byRound[rid].List
+		for j := range roundList {
+			st.byMessageID[roundList[j].MsgID] = roundList[j]
+		}
+	}
+
+	obj, err = st.kv.Get(
+		sendTrackerUnsentStorageKey, sendTrackerUnsentStorageVersion)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(obj.Data, &st.unsent)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // roundResults represents a round which results are waiting on from the cMix

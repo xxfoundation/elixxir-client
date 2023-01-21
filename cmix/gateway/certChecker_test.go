@@ -1,31 +1,30 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package gateway
 
 import (
 	"bytes"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
-	"testing"
 )
-
-type mockCertCheckerComm struct {
-}
-
-func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(host *connect.Host,
-	message *pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {
-	return &pb.GatewayCertificate{}, nil
-}
 
 // Test load & store functions for cert checker
 func Test_certChecker_loadStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	cc := newCertChecker(&mockCertCheckerComm{}, kv)
 
-	gwCert := testkeys.LoadFromPath(testkeys.GetGatewayCertPath())
+	// FIXME: This should load from a variable not disk.
+	gwCert := testkeys.GetGatewayCert()
 	gwID := id.NewIdFromString("testid01", id.Gateway, t)
 
 	expectedFp := blake2b.Sum256(gwCert)

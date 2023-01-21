@@ -4,17 +4,21 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
+// sqlite requires cgo, which is not available in wasm
+//go:build !js || !wasm
+
 package storage
 
 import (
+	"testing"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
 )
 
 // Series of interdependent smoke tests of the impl object and its methods.

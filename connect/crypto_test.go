@@ -6,6 +6,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 // NOTE: connect is not supported in WASM at this time.
+// The tests here require a hash that is not SHA and the consistency
+// test requires a different hash ehre.
 //go:build !js || !wasm
 
 package connect

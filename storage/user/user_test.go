@@ -5,9 +5,6 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// NOTE: storage/user is not available in wasm because not disk read/write.
-//go:build !js || !wasm
-
 package user
 
 import (

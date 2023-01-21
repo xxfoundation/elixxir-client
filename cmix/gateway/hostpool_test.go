@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
@@ -105,6 +106,25 @@ func Test_newHostPool_HostListStore(t *testing.T) {
 		t.Errorf("Failed to save expected host list to storage."+
 			"\nexpected: %+v\nreceived: %+v", addedIDs, hostList)
 	}
+}
+
+func TestPrint(t *testing.T) {
+	p := pool{
+		hostMap: make(map[id.ID]uint),
+	}
+
+	for i := uint(0); i < 5; i++ {
+		p.hostMap[*id.NewIdFromUInt(uint64(i), id.Gateway, t)] = i
+
+	}
+
+	data, err := json.Marshal(p.hostMap)
+	if err != nil {
+		t.Fatalf("Failed to marshal map: %+v", err)
+	}
+
+	t.Logf("%s", string(data))
+
 }
 
 // Unit test.

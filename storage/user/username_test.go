@@ -5,9 +5,6 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// NOTE: storage/user is not available in wasm because not disk read/write.
-//go:build !js || !wasm
-
 package user
 
 import (
@@ -40,8 +37,8 @@ func TestUser_SetUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -87,8 +84,8 @@ func TestUser_GetUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -128,8 +125,8 @@ func TestUser_loadUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)

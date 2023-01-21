@@ -7,7 +7,6 @@
 
 // NOTE: download and verify of ndf is not available in wasm.
 //go:build !js || !wasm
-// +build !js !wasm
 
 package bindings
 
@@ -18,7 +17,6 @@ import (
 
 	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 var testCert = `-----BEGIN CERTIFICATE-----
@@ -84,13 +82,10 @@ func TestDownloadSignedNdfWithUrl(t *testing.T) {
 // Error case: Pass in the incorrect cert forcing a verification failure.
 func TestDownloadSignedNdfWithUrl_BadCert(t *testing.T) {
 	// Load an unintended cert
-	badCert, err := utils.ReadFile(testkeys.GetGatewayCertPath())
-	if err != nil {
-		t.Fatalf("Failed to read test certificate: %v", err)
-	}
+	badCert := testkeys.GetGatewayCert()
 
 	// Download and attempt to verify with unintended cert
-	_, err = DownloadAndVerifySignedNdfWithUrl("https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json",
+	_, err := DownloadAndVerifySignedNdfWithUrl("https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json",
 		string(badCert))
 	if err == nil {
 		t.Fatalf("Expected failure, should not be able to verify with " +

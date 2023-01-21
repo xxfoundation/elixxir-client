@@ -5,10 +5,16 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: ud is not available in wasm
+//go:build !js || !wasm
+
 package ud
 
 import (
 	"bytes"
+	"reflect"
+	"testing"
+
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
@@ -16,8 +22,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"reflect"
-	"testing"
 )
 
 type testRegisterComm struct {

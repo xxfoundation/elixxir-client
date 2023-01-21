@@ -77,8 +77,6 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	}
 
 	// Register the listener
-	// TODO: For now we are not doing send tracking. Add it when
-	// hitting WASM.
 	dmc.register(receiver, dmc.st.CheckIfSent)
 
 	return dmc
@@ -113,10 +111,6 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 	}
 }
 
-func NewSendTracker(kv *versioned.KV) SendTracker {
-	return &sendTracker{kv: kv}
-}
-
 type nickMgr struct {
 	storeKey string
 	ekv      *versioned.KV
@@ -139,12 +133,12 @@ func (dc *dmClient) GetIdentity() codename.Identity {
 
 // GetNickname returns the stored nickname if there is one
 func (dc *dmClient) GetNickname(id *id.ID) (string, bool) {
-	return dc.GetNickname(id)
+	return dc.nm.GetNickname(id)
 }
 
 // SetNickname saves the nickname
 func (dc *dmClient) SetNickname(nick string) {
-	dc.SetNickname(nick)
+	dc.nm.SetNickname(nick)
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

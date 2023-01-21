@@ -126,8 +126,6 @@ func (sp *selfProcessor) String() string {
 func (sp *selfProcessor) Process(msg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
-	jww.INFO.Printf("selfProcessor: %v", msg)
-
 	ciphertext := reconstructCiphertext(msg)
 
 	partnerPublicKey, payload, err := dm.Cipher.DecryptSelf(ciphertext,
@@ -312,9 +310,8 @@ func (r *receiver) receiveReaction(messageID message.ID,
 		tag := makeDebugTag(pubKey, content, SendReactionTag)
 		jww.INFO.Printf("[%s] DM - Received reaction from %s "+
 			"to %s", tag,
-			base64.StdEncoding.EncodeToString(pubKey),
-			base64.StdEncoding.EncodeToString(
-				react.ReactionMessageID))
+			base64.RawStdEncoding.EncodeToString(pubKey),
+			reactTo)
 
 		return r.api.ReceiveReaction(messageID, reactTo, nickname,
 			react.Reaction, pubKey, dmToken, codeset, timestamp,

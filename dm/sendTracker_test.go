@@ -1,331 +1,328 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 package dm
 
-// type mockClient struct{}
+import (
+	"crypto/ed25519"
+	"testing"
+	"time"
 
-// func (mc *mockClient) GetMaxMessageLength() int {
-// 	return 2048
-// }
-// func (mc *mockClient) SendWithAssembler(*id.ID, cmix.MessageAssembler,
-// 	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-// 	return rounds.Round{}, ephemeral.Id{}, nil
-// }
-// func (mc *mockClient) IsHealthy() bool {
-// 	return true
-// }
-// func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool, message.Processor)                       {}
-// func (mc *mockClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {}
-// func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
-// func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
-// func (mc *mockClient) RemoveIdentity(*id.ID)                                                        {}
-// func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
-// func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                          { return 0 }
-// func (mc *mockClient) RemoveHealthCallback(uint64)                                                  {}
+	"github.com/stretchr/testify/require"
 
-// // Test MessageReceive basic logic.
-// func TestSendTracker_MessageReceive(t *testing.T) {
-// 	kv := versioned.NewKV(ekv.MakeMemstore())
-// 	uuidNum := uint64(0)
-// 	rid := id.Round(2)
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/elixxir/crypto/nike/ecdh"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+)
 
-// 	r := rounds.Round{
-// 		ID:         rid,
-// 		Timestamps: make(map[states.Round]time.Time),
-// 	}
-// 	r.Timestamps[states.QUEUED] = time.Now()
-// 	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-// 		receptionID receptionID.EphemeralIdentity, round rounds.Round,
-// 		status SentStatus) (uint64, error) {
-// 		oldUUID := uuidNum
-// 		uuidNum++
-// 		return oldUUID, nil
-// 	}
+// Test MessageReceive basic logic.
+func TestSendTracker_MessageReceive(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	uuidNum := uint64(0)
+	rid := id.Round(2)
 
-// 	updateStatus := func(uuid uint64, messageID cryptoMessage.ID,
-// 		timestamp time.Time, round rounds.Round, status SentStatus) {
-// 	}
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	rng := crng.GetStream()
+	// me, _ := codename.GenerateIdentity(rng)
+	partner, _ := codename.GenerateIdentity(rng)
+	rng.Close()
 
-// 	cid := id.NewIdFromString("channel", id.User, t)
+	r := rounds.Round{
+		ID:         rid,
+		Timestamps: make(map[states.Round]time.Time),
+	}
+	r.Timestamps[states.QUEUED] = time.Now()
+	trigger := func(msgID message.ID, messageType MessageType,
+		nick string, plaintext []byte, dmToken uint32,
+		partnerPubKey ed25519.PublicKey, ts time.Time,
+		_ receptionID.EphemeralIdentity, round rounds.Round,
+		status Status) (uint64, error) {
+		oldUUID := uuidNum
+		uuidNum++
+		return oldUUID, nil
+	}
 
-// 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	updateStatus := func(uuid uint64, messageID message.ID,
+		timestamp time.Time, round rounds.Round, status Status) {
+	}
 
-// 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus, crng)
+	cid := id.NewIdFromString("channel", id.User, t)
 
-// 	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
-// 		[]byte("hello"))
-// 	process := st.MessageReceive(mid, r)
-// 	if process {
-// 		t.Fatalf("Did not receive expected result from MessageReceive")
-// 	}
+	st := NewSendTracker(kv)
+	st.Init(&mockClient{}, trigger, updateStatus, crng)
 
-// 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
-// 		userMessage: &UserMessage{},
-// 		channelMessage: &ChannelMessage{
-// 			Lease:       netTime.Now().UnixNano(),
-// 			RoundID:     uint64(rid),
-// 			PayloadType: 0,
-// 			Payload:     []byte("hello"),
-// 		}})
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
+	directMessage := &DirectMessage{
+		RoundID:     uint64(rid),
+		PayloadType: 0,
+		Payload:     []byte("hello"),
+	}
+	mid := message.DeriveDirectMessageID(cid, directMessage)
+	process := st.CheckIfSent(mid, r)
+	require.False(t, process)
 
-// 	err = st.send(uuid, mid, rounds.Round{
-// 		ID:    rid,
-// 		State: 1,
-// 	})
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
-// 	process = st.MessageReceive(mid, r)
-// 	if !process {
-// 		t.Fatalf("Did not receive expected result from MessageReceive")
-// 	}
+	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
+		0, directMessage)
+	require.NoError(t, err)
 
-// 	cid2 := id.NewIdFromString("channel two", id.User, t)
-// 	uuid2, err := st.denotePendingSend(cid2, &userMessageInternal{
-// 		userMessage: &UserMessage{},
-// 		channelMessage: &ChannelMessage{
-// 			Lease:       netTime.Now().UnixNano(),
-// 			RoundID:     uint64(rid),
-// 			PayloadType: 0,
-// 			Payload:     []byte("hello again"),
-// 		}})
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
+	err = st.Sent(uuid, mid, rounds.Round{
+		ID:    rid,
+		State: 1,
+	})
+	require.NoError(t, err)
 
-// 	err = st.send(uuid2, mid, rounds.Round{
-// 		ID:    rid,
-// 		State: 1,
-// 	})
-// 	process = st.MessageReceive(mid, r)
-// 	if !process {
-// 		t.Fatalf("Did not receive expected result from MessageReceive")
-// 	}
-// }
+	process = st.CheckIfSent(mid, r)
+	require.True(t, process)
 
-// // Test failedSend function, confirming that data is stored appropriately and
-// // callbacks are called.
-// func TestSendTracker_failedSend(t *testing.T) {
-// 	triggerCh := make(chan SentStatus)
+	directMessage2 := &DirectMessage{
+		RoundID:     uint64(rid),
+		PayloadType: 0,
+		Payload:     []byte("hello again"),
+	}
+	uuid2, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
+		0, directMessage2)
+	require.NoError(t, err)
 
-// 	kv := versioned.NewKV(ekv.MakeMemstore())
+	err = st.Sent(uuid2, mid, rounds.Round{
+		ID:    rid,
+		State: 1,
+	})
+	require.NoError(t, err)
+	process = st.CheckIfSent(mid, r)
+	require.True(t, process)
+}
 
-// 	adminTrigger := func(chID *id.ID, cm *ChannelMessage, ts time.Time,
-// 		messageID cryptoMessage.ID, receptionID receptionID.EphemeralIdentity,
-// 		round rounds.Round, status SentStatus) (uint64, error) {
-// 		return 0, nil
-// 	}
+// Test failedSend function, confirming that data is stored appropriately and
+// callbacks are called.
+func TestSendTracker_failedSend(t *testing.T) {
+	triggerCh := make(chan Status)
 
-// 	updateStatus := func(uuid uint64, messageID cryptoMessage.ID,
-// 		timestamp time.Time, round rounds.Round, status SentStatus) {
-// 		triggerCh <- status
-// 	}
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
-// 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	rng := crng.GetStream()
+	// me, _ := codename.GenerateIdentity(rng)
+	partner, _ := codename.GenerateIdentity(rng)
+	rng.Close()
+	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
 
-// 	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, updateStatus, crng)
+	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
+		partner.GetDMToken())
 
-// 	cid := id.NewIdFromString("channel", id.User, t)
-// 	rid := id.Round(2)
-// 	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
-// 		[]byte("hello"))
-// 	uuid, err := st.denotePendingAdminSend(cid, &ChannelMessage{
-// 		Lease:       0,
-// 		RoundID:     uint64(rid),
-// 		PayloadType: 0,
-// 		Payload:     []byte("hello"),
-// 	})
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
+	updateStatus := func(uuid uint64, messageID message.ID,
+		timestamp time.Time, round rounds.Round, status Status) {
+		triggerCh <- status
+	}
 
-// 	err = st.failedSend(uuid)
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
+	st := &sendTracker{kv: kv}
+	st.Init(&mockClient{}, emptyTrigger, updateStatus, crng)
 
-// 	timeout := time.NewTicker(time.Second * 5)
-// 	select {
-// 	case s := <-triggerCh:
-// 		if s != Failed {
-// 			t.Fatalf("Did not receive failed from failed message")
-// 		}
-// 	case <-timeout.C:
-// 		t.Fatal("Timed out waiting for trigger chan")
-// 	}
+	rid := id.Round(2)
+	directMessage := &DirectMessage{
+		RoundID:     uint64(rid),
+		PayloadType: 0,
+		Payload:     []byte("hello"),
+	}
+	mid := message.DeriveDirectMessageID(partnerID, directMessage)
+	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
+		0, directMessage)
+	require.NoError(t, err)
 
-// 	trackedRound, ok := st.byRound[rid]
-// 	if ok {
-// 		t.Fatal("Should not have found a tracked round")
-// 	}
-// 	if len(trackedRound.List) != 0 {
-// 		t.Fatal("Did not find expected number of trackedRounds")
-// 	}
+	err = st.FailedSend(uuid)
+	require.NoError(t, err)
 
-// 	_, ok = st.byMessageID[mid]
-// 	if ok {
-// 		t.Error("Should not have found tracked message")
-// 	}
+	timeout := time.NewTicker(time.Second * 5)
+	select {
+	case s := <-triggerCh:
+		if s != Failed {
+			t.Fatalf("Did not receive failed from failed message")
+		}
+	case <-timeout.C:
+		t.Fatal("Timed out waiting for trigger chan")
+	}
 
-// 	_, ok = st.unsent[uuid]
-// 	if ok {
-// 		t.Fatal("Should not have found an unsent")
-// 	}
-// }
+	trackedRound, ok := st.byRound[rid]
+	require.False(t, ok)
+	require.Equal(t, len(trackedRound.List), 0)
 
-// // Test send tracker send function, confirming that data is stored appropriately
-// // // and callbacks are called
-// func TestSendTracker_send(t *testing.T) {
-// 	triggerCh := make(chan bool)
+	_, ok = st.byMessageID[mid]
+	require.False(t, ok)
 
-// 	kv := versioned.NewKV(ekv.MakeMemstore())
-// 	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-// 		receptionID receptionID.EphemeralIdentity, round rounds.Round,
-// 		status SentStatus) (uint64, error) {
-// 		return 0, nil
-// 	}
+	_, ok = st.unsent[uuid]
+	require.False(t, ok)
+}
 
-// 	updateStatus := func(uuid uint64, messageID cryptoMessage.ID,
-// 		timestamp time.Time, round rounds.Round, status SentStatus) {
-// 		triggerCh <- true
-// 	}
+// Test send tracker send function, confirming that data is stored appropriately
+// // and callbacks are called
+func TestSendTracker_send(t *testing.T) {
+	triggerCh := make(chan bool)
 
-// 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	rng := crng.GetStream()
+	// me, _ := codename.GenerateIdentity(rng)
+	partner, _ := codename.GenerateIdentity(rng)
+	rng.Close()
+	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
 
-// 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus, crng)
+	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
+		partner.GetDMToken())
 
-// 	cid := id.NewIdFromString("channel", id.User, t)
-// 	rid := id.Round(2)
-// 	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
-// 		[]byte("hello"))
-// 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
-// 		userMessage: &UserMessage{},
-// 		channelMessage: &ChannelMessage{
-// 			Lease:       0,
-// 			RoundID:     uint64(rid),
-// 			PayloadType: 0,
-// 			Payload:     []byte("hello"),
-// 		},
-// 		messageID: mid,
-// 	})
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
-// 	err = st.send(uuid, mid, rounds.Round{
-// 		ID:    rid,
-// 		State: 2,
-// 	})
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
+	updateStatus := func(uuid uint64, messageID message.ID,
+		timestamp time.Time, round rounds.Round, status Status) {
+		triggerCh <- true
+	}
 
-// 	timeout := time.NewTicker(time.Second * 5)
-// 	select {
-// 	case <-triggerCh:
-// 	case <-timeout.C:
-// 		t.Fatal("Timed out waiting for trigger chan")
-// 	}
+	st := &sendTracker{kv: kv}
+	st.Init(&mockClient{}, emptyTrigger, updateStatus, crng)
 
-// 	trackedRound, ok := st.byRound[rid]
-// 	if !ok {
-// 		t.Fatal("Should have found a tracked round")
-// 	}
-// 	if len(trackedRound.List) != 1 {
-// 		t.Fatal("Did not find expected number of trackedRounds")
-// 	}
-// 	if trackedRound.List[0].MsgID != mid {
-// 		t.Fatalf("Did not find expected message ID in trackedRounds")
-// 	}
+	rid := id.Round(2)
+	directMessage := &DirectMessage{
+		RoundID:     uint64(rid),
+		PayloadType: 0,
+		Payload:     []byte("hello"),
+	}
+	mid := message.DeriveDirectMessageID(partnerID, directMessage)
+	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
+		0, directMessage)
+	require.NoError(t, err)
 
-// 	trackedMsg, ok := st.byMessageID[mid]
-// 	if !ok {
-// 		t.Error("Should have found tracked message")
-// 	}
-// 	if trackedMsg.MsgID != mid {
-// 		t.Fatalf("Did not find expected message ID in byMessageID")
-// 	}
-// }
+	err = st.Sent(uuid, mid, rounds.Round{
+		ID:    rid,
+		State: 1,
+	})
+	require.NoError(t, err)
 
-// // Test loading stored byRound map from storage.
-// func TestSendTracker_load_store(t *testing.T) {
-// 	kv := versioned.NewKV(ekv.MakeMemstore())
+	timeout := time.NewTicker(time.Second * 5)
+	select {
+	case <-triggerCh:
+	case <-timeout.C:
+		t.Fatal("Timed out waiting for trigger chan")
+	}
 
-// 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	trackedRound, ok := st.byRound[rid]
+	if !ok {
+		t.Fatal("Should have found a tracked round")
+	}
+	require.Equal(t, len(trackedRound.List), 1)
+	require.Equal(t, trackedRound.List[0].MsgID, mid)
 
-// 	st := loadSendTracker(&mockClient{}, kv, nil, nil, nil, crng)
-// 	cid := id.NewIdFromString("channel", id.User, t)
-// 	rid := id.Round(2)
-// 	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
-// 		[]byte("hello"))
-// 	st.byRound[rid] = trackedList{
-// 		List:           []*tracked{{MsgID: mid, ChannelID: cid, RoundID: rid}},
-// 		RoundCompleted: false,
-// 	}
-// 	err := st.store()
-// 	if err != nil {
-// 		t.Fatalf("Failed to store byRound: %+v", err)
-// 	}
+	trackedMsg, ok := st.byMessageID[mid]
+	require.True(t, ok)
+	require.Equal(t, trackedMsg.MsgID, mid)
+}
 
-// 	st2 := loadSendTracker(&mockClient{}, kv, nil, nil, nil, crng)
-// 	if len(st2.byRound) != len(st.byRound) {
-// 		t.Fatalf("byRound was not properly loaded")
-// 	}
-// }
+// Test loading stored byRound map from storage.
+func TestSendTracker_load_store(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
-// func TestRoundResult_callback(t *testing.T) {
-// 	kv := versioned.NewKV(ekv.MakeMemstore())
-// 	triggerCh := make(chan bool)
-// 	update := func(uuid uint64, messageID cryptoMessage.ID,
-// 		timestamp time.Time, round rounds.Round, status SentStatus) {
-// 		triggerCh <- true
-// 	}
-// 	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
-// 		receptionID receptionID.EphemeralIdentity, round rounds.Round,
-// 		status SentStatus) (uint64, error) {
-// 		return 0, nil
-// 	}
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	rng := crng.GetStream()
+	// me, _ := codename.GenerateIdentity(rng)
+	partner, _ := codename.GenerateIdentity(rng)
+	rng.Close()
+	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
 
-// 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
+		partner.GetDMToken())
 
-// 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, update, crng)
+	st := &sendTracker{kv: kv}
+	st.Init(&mockClient{}, nil, nil, crng)
 
-// 	cid := id.NewIdFromString("channel", id.User, t)
-// 	rid := id.Round(2)
-// 	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid), []byte("hello"))
-// 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
-// 		userMessage: &UserMessage{},
-// 		channelMessage: &ChannelMessage{
-// 			Lease:       0,
-// 			RoundID:     uint64(rid),
-// 			PayloadType: 0,
-// 			Payload:     []byte("hello"),
-// 		},
-// 		messageID: mid,
-// 	})
-// 	if err != nil {
-// 		t.Fatalf(err.Error())
-// 	}
+	rid := id.Round(2)
+	directMessage := &DirectMessage{
+		RoundID:     uint64(rid),
+		PayloadType: 0,
+		Payload:     []byte("hello"),
+	}
+	mid := message.DeriveDirectMessageID(partnerID, directMessage)
+	st.byRound[rid] = trackedList{
+		List: []*tracked{{MsgID: mid,
+			partnerKey: partner.PubKey,
+			RoundID:    rid}},
+		RoundCompleted: false,
+	}
+	err := st.store()
+	require.NoError(t, err)
 
-// 	err = st.send(uuid, mid, rounds.Round{
-// 		ID:    rid,
-// 		State: 2,
-// 	})
+	st2 := &sendTracker{kv: kv}
+	st2.Init(&mockClient{}, nil, nil, crng)
+	require.Equal(t, len(st2.byRound), len(st.byRound))
+}
 
-// 	rr := roundResults{
-// 		round:     rid,
-// 		st:        st,
-// 		numChecks: 0,
-// 	}
+func TestRoundResult_callback(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	triggerCh := make(chan bool)
+	update := func(uuid uint64, messageID message.ID,
+		timestamp time.Time, round rounds.Round, status Status) {
+		triggerCh <- true
+	}
 
-// 	rr.callback(true, false, map[id.Round]cmix.RoundResult{
-// 		rid: {Status: cmix.Succeeded, Round: rounds.Round{ID: rid, State: 0}}})
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	rng := crng.GetStream()
+	// me, _ := codename.GenerateIdentity(rng)
+	partner, _ := codename.GenerateIdentity(rng)
+	rng.Close()
+	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
 
-// 	timeout := time.NewTicker(time.Second * 5)
-// 	select {
-// 	case <-triggerCh:
-// 	case <-timeout.C:
-// 		t.Fatal("Did not receive update")
-// 	}
-// }
+	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
+		partner.GetDMToken())
+
+	st := &sendTracker{kv: kv}
+	st.Init(&mockClient{}, emptyTrigger, update, crng)
+
+	rid := id.Round(2)
+	directMessage := &DirectMessage{
+		RoundID:     uint64(rid),
+		PayloadType: 0,
+		Payload:     []byte("hello"),
+	}
+	mid := message.DeriveDirectMessageID(partnerID, directMessage)
+	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
+		0, directMessage)
+	require.NoError(t, err)
+
+	err = st.Sent(uuid, mid, rounds.Round{
+		ID:    rid,
+		State: 2,
+	})
+	require.NoError(t, err)
+
+	rr := roundResults{
+		round:     rid,
+		st:        st,
+		numChecks: 0,
+	}
+
+	rr.callback(true, false, map[id.Round]cmix.RoundResult{
+		rid: {Status: cmix.Succeeded, Round: rounds.Round{ID: rid,
+			State: 0}}})
+
+	timeout := time.NewTicker(time.Second * 5)
+	select {
+	case <-triggerCh:
+	case <-timeout.C:
+		t.Fatal("Did not receive update")
+	}
+}
+
+func emptyTrigger(msgID message.ID, messageType MessageType,
+	nick string, plaintext []byte, dmToken uint32,
+	partnerPubKey ed25519.PublicKey, ts time.Time,
+	_ receptionID.EphemeralIdentity, round rounds.Round,
+	status Status) (uint64, error) {
+	return 0, nil
+}

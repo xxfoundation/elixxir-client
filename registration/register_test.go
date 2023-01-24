@@ -9,6 +9,9 @@ package registration
 
 import (
 	"bytes"
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -18,9 +21,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/utils"
-	"testing"
-	"time"
 )
 
 var expectedSignatureOne = []byte{7, 15, 58, 201, 193, 112, 205, 247, 7, 200, 21, 185, 22, 82, 81, 114, 245, 179, 56, 157, 67, 209, 153, 59, 232, 119, 40, 84, 70, 246, 63, 211, 175, 190, 184, 152, 218, 74, 190, 232, 234, 106, 44, 249, 6, 86, 133, 191, 252, 74, 162, 114, 85, 211, 145, 41, 182, 33, 101, 86, 214, 106, 192, 8, 137, 153, 4, 17, 81, 202, 163, 117, 185, 75, 41, 5, 174, 50, 111, 234, 0, 94, 234, 105, 222, 74, 70, 225, 71, 81, 66, 203, 160, 128, 217, 93, 47, 132, 50, 40, 86, 115, 223, 200, 207, 103, 197, 35, 49, 82, 144, 142, 161, 104, 209, 163, 59, 19, 30, 132, 38, 91, 96, 21, 116, 200, 71, 108, 193, 68, 12, 33, 143, 146, 21, 6, 208, 222, 58, 91, 178, 217, 224, 168, 18, 222, 149, 165, 195, 1, 220, 63, 109, 153, 51, 151, 229, 158, 82, 172, 26, 67, 60, 128, 157, 64, 104, 131, 255, 88, 16, 208, 175, 211, 2, 221, 140, 200, 120, 169, 70, 142, 95, 183, 3, 213, 23, 125, 37, 157, 167, 88, 80, 25, 209, 184, 156, 91, 21, 242, 140, 250, 116, 227, 114, 214, 49, 98, 196, 58, 194, 9, 177, 223, 62, 88, 123, 14, 196, 224, 118, 247, 245, 103, 42, 239, 16, 170, 62, 255, 246, 244, 228, 1, 149, 146, 205, 47, 169, 21, 105, 0, 148, 137, 158, 170, 45, 16, 239, 179, 180, 120, 90, 131, 105, 16}
@@ -132,15 +132,9 @@ func TestRegisterWithPermissioning(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	certData, err := utils.ReadFile(testkeys.GetNodeCertPath())
-	if err != nil {
-		t.Fatalf("Could not load certificate: %v", err)
-	}
+	certData := testkeys.GetNodeCert()
 
-	keyData, err := utils.ReadFile(testkeys.GetNodeKeyPath())
-	if err != nil {
-		t.Fatalf("Could not load private key: %v", err)
-	}
+	keyData := testkeys.GetNodeKey()
 
 	key, err := sch.UnmarshalPrivateKeyPEM(keyData)
 	if err != nil {
@@ -182,15 +176,8 @@ func TestRegisterWithPermissioning(t *testing.T) {
 // error from register
 func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	sch := rsa.GetScheme()
-	certData, err := utils.ReadFile(testkeys.GetNodeCertPath())
-	if err != nil {
-		t.Fatalf("Could not load certificate: %v", err)
-	}
-
-	keyData, err := utils.ReadFile(testkeys.GetNodeKeyPath())
-	if err != nil {
-		t.Fatalf("Could not load private key: %v", err)
-	}
+	certData := testkeys.GetNodeCert()
+	keyData := testkeys.GetNodeKey()
 
 	key, err := sch.UnmarshalPrivateKeyPEM(keyData)
 	if err != nil {
@@ -214,15 +201,9 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
 	sch := rsa.GetScheme()
 
-	certData, err := utils.ReadFile(testkeys.GetNodeCertPath())
-	if err != nil {
-		t.Fatalf("Could not load certificate: %v", err)
-	}
+	certData := testkeys.GetNodeCert()
 
-	keyData, err := utils.ReadFile(testkeys.GetNodeKeyPath())
-	if err != nil {
-		t.Fatalf("Could not load private key: %v", err)
-	}
+	keyData := testkeys.GetNodeKey()
 
 	key, err := sch.UnmarshalPrivateKeyPEM(keyData)
 	if err != nil {

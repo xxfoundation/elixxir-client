@@ -45,7 +45,7 @@ func Test_manager_store(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -92,7 +92,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -176,7 +176,7 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -222,7 +222,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -259,7 +259,7 @@ func Test_manager_removeChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -305,7 +305,7 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -338,7 +338,7 @@ func Test_manager_getChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -380,7 +380,7 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -414,7 +414,7 @@ func Test_manager_getChannels(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -495,7 +495,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -601,7 +601,7 @@ func newTestChannel(name, description string, rng csprng.Source,
 	level cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(
-		name, description, level, netTime.Now(), 1000, 1024, rng)
+		name, description, level, netTime.Now(), 1000, rng)
 	return c, pk, err
 }
 
@@ -723,5 +723,9 @@ func (m *mockEventModel) GetMessage(cryptoMessage.ID) (ModelMessage, error) {
 	panic("implement me")
 }
 func (m *mockEventModel) DeleteMessage(cryptoMessage.ID) error {
+	panic("implement me")
+}
+
+func (m *mockEventModel) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
 	panic("implement me")
 }

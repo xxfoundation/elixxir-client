@@ -10,6 +10,10 @@ package user
 import (
 	"bytes"
 	"encoding/binary"
+	"math/rand"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -18,9 +22,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 // Test User GetRegistrationValidationSignature function
@@ -37,8 +38,8 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -85,8 +86,8 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -141,8 +142,8 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -197,8 +198,8 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -259,8 +260,8 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
 
 	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)

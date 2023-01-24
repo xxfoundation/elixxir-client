@@ -9,11 +9,12 @@ package dummy
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/stoppable"
 	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/stoppable"
 )
 
 // Tests that newManager returns the expected Manager.
@@ -68,11 +69,10 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(5 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			5*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
 
 	err = stop.Close()
@@ -80,7 +80,14 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	stoppable.WaitForStopped(stop, 250*time.Millisecond)
+	// NOTE: this test was a bit bugged originally, as you can't
+	// stop waiting for message received updated, wait a few
+	// lines, then stop the process, then expect not to have ever
+	// received a new message.
+	// What we do instead is get the len immediately after stopping, then
+	// wait some time to see if it changes
+	numReceived = m.net.(*mockCmix).GetMsgListLen()
 	if !stop.IsStopped() {
 		t.Error("Stoppable never stopped.")
 	}

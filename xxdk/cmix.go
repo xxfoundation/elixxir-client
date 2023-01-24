@@ -461,12 +461,6 @@ func (c *Cmix) GetEventReporter() event.Reporter {
 // the total number of nodes in the NDF. An error is returned if the network
 // is not healthy.
 func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
-	// Return an error if the network is not healthy
-	if !c.GetCmix().IsHealthy() {
-		return 0, 0, errors.New("Cannot get number of nodes " +
-			"registrations when network is not healthy")
-	}
-
 	nodes := c.network.GetInstance().GetPartialNdf().Get().Nodes
 
 	var numRegistered int

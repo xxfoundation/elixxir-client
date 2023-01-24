@@ -8,6 +8,7 @@
 package cmix
 
 import (
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"strconv"
 	"strings"
 	"time"
@@ -73,6 +74,8 @@ func handlePutMessageError(firstGateway *id.ID, nodes nodes.Registrar,
 		return errors.WithMessagef(err, "Failed to send to [%s] via %s "+
 			"due to failed authentication, retrying...",
 			recipientString, firstGateway)
+	} else if strings.Contains(err.Error(), "EOF") {
+		return errors.WithMessage(err, gateway.RetryableError)
 	}
 
 	return errors.WithMessage(err, "Failed to put cMix message")

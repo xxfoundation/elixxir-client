@@ -8,11 +8,12 @@
 package connect
 
 import (
+	"io"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
 )
 
 // Sign creates a signature authenticating an identity for a connection.

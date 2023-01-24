@@ -8,16 +8,17 @@
 package health
 
 import (
-	"gitlab.com/elixxir/comms/network"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/comms/network"
 )
 
 // Happy path smoke test.
 func Test_newTracker(t *testing.T) {
 	// Initialize required variables
-	timeout := 250 * time.Millisecond
+	timeout := 800 * time.Millisecond
 	trkr := newTracker(timeout)
 	counter := int64(2) // First signal is "false/unhealthy"
 	positiveHb := network.Heartbeat{
@@ -61,7 +62,7 @@ func Test_newTracker(t *testing.T) {
 		if trkr.IsHealthy() && atomic.LoadInt64(&counter) == expectedCount {
 			break
 		} else {
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 

@@ -49,7 +49,8 @@ type Sent struct {
 // NewOrLoadSent attempts to load Sent from storage. Or if none exist, then a
 // new Sent is returned. If running transfers were loaded from storage, a list
 // of unsent parts is returned.
-func NewOrLoadSent(kv *versioned.KV) (s *Sent, unsentParts, sentParts []*Part, err error) {
+func NewOrLoadSent(
+	kv *versioned.KV) (s *Sent, unsentParts, sentParts []*Part, err error) {
 	s = &Sent{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
 		kv:        kv.Prefix(sentTransfersStorePrefix),

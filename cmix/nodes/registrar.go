@@ -192,9 +192,12 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
-	keys := make([]*key, topology.Len())
-	ephemeralKeys := make([]bool, topology.Len())
-	missingNodes := make(map[id.ID]int)
+	rk := &mixCypher{
+		keys:          make([]*key, topology.Len()),
+		g:             r.session.GetCmixGroup(),
+		ephemeralKeys: make([]bool, topology.Len()),
+	}
+	missingNodes := 0
 
 	// Get keys for every node. If it cannot be found, then add it to the
 	// missing nodes list so that it can be.
@@ -216,53 +219,51 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 
 			jww.WARN.Println(errors.Errorf(
 				"cannot get key for %s, triggered registration", nid))
-			missingNodes[*nid] = i
-			ephemeralKeys[i] = true
+			missingNodes += 1
+			rk.ephemeralKeys[i] = true
+			var err error
+			rk.keys[i], err = r.handleMissingNode(rk, *nid)
+			if err != nil {
+				return nil, errors.WithMessage(err, "Failed to handle missing node")
+			}
 		} else {
-			keys[i] = k
+			rk.keys[i] = k
 		}
 	}
 
 	// Cannot attempt to send without at least one registered node
-	if len(missingNodes) == topology.Len() {
+	if missingNodes == topology.Len() {
 		return nil, errors.New("Must have at least one registered node to create mixCypher")
-	}
-	var edPub []byte
-	if len(missingNodes) > 0 {
-		// Generate temp ed25519 for this send
-		priv, pub := ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
-		jww.INFO.Printf("Generated ephemeral keypair for sending to unregistered nodes")
-		edPub = pub.Bytes()
-		currentNdf := r.session.GetNDF()
-		for nid, keyIndex := range missingNodes {
-			for _, n := range currentNdf.Nodes { // TODO: any more efficient way to get the corresponding keys?
-				if bytes.Compare(n.ID, nid[:]) == 0 {
-					nodePubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(n.Ed25519)
-					if err != nil {
-						return nil, errors.WithMessagef(err, "Failed to unmarshal binary pubkey %+v", n.Ed25519)
-					}
-					secret := priv.DeriveSecret(nodePubKey)
-					nodeSecretHash := hash.CMixHash.New()
-					nodeSecretHash.Reset()
-					nodeSecretHash.Write(r.session.GetTransmissionID().Bytes())
-					nodeSecretHash.Write(secret)
-					hashBytes := nodeSecretHash.Sum(nil)
-					k := r.session.GetCmixGroup().NewIntFromBytes(hashBytes)
-					keys[keyIndex] = &key{nil, k, nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""} //newKey(r.kv, k, &nid, uint64(time.Now().Add(time.Second*5).UnixNano()), nil)
-					break
-				}
-			}
-		}
-	}
-
-	rk := &mixCypher{
-		keys:          keys,
-		g:             r.session.GetCmixGroup(),
-		ephemeralKeys: ephemeralKeys,
-		ephemeralKey:  edPub,
 	}
 
 	return rk, nil
+}
+
+func (r *registrar) handleMissingNode(rk *mixCypher, missingNodeID id.ID) (*key, error) {
+	if rk.ephemeralEdPrivKey == nil {
+		// Generate temp ed25519 for this send
+		rk.ephemeralEdPrivKey, rk.ephemeralEdPubKey = ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
+		jww.INFO.Printf("Generated ephemeral keypair for sending to unregistered nodes")
+	}
+
+	currentNdf := r.session.GetNDF()
+	for _, n := range currentNdf.Nodes {
+		if bytes.Compare(n.ID, missingNodeID[:]) == 0 {
+			nodePubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(n.Ed25519)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "Failed to unmarshal binary pubkey %+v", n.Ed25519)
+			}
+			secret := rk.ephemeralEdPrivKey.DeriveSecret(nodePubKey)
+			nodeSecretHash := hash.CMixHash.New()
+			nodeSecretHash.Reset()
+			nodeSecretHash.Write(r.session.GetTransmissionID().Bytes())
+			nodeSecretHash.Write(secret)
+			hashBytes := nodeSecretHash.Sum(nil)
+			k := r.session.GetCmixGroup().NewIntFromBytes(hashBytes)
+			return &key{nil, k, nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""}, nil
+		}
+	}
+	return nil, errors.Errorf("Could not find missing node %s in NDF", missingNodeID.String())
 }
 
 // HasNode returns true if the registrar has the node.

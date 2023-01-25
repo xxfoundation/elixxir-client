@@ -52,14 +52,6 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 			return
 
 		case gw := <-r.c:
-			ipc := 0
-			inProgress.Range(func(_, _ any) bool {
-				ipc++
-				return true
-			})
-			if len(r.nodes) >= 2 || ipc >= 2 {
-				continue
-			}
 			rng := r.rng.GetStream()
 
 			// Pull node information from channel
@@ -159,11 +151,6 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, s session, r *registrar,
 	rng csprng.Source, stop *stoppable.Single) error {
-	jww.INFO.Printf("TEST PRINT")
-	if r.NumRegisteredNodes() >= 2 {
-		return errors.New("Registered nodes capped")
-	}
-
 	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
 		jww.ERROR.Printf("registerWithNode failed to decode node ID: %v", err)

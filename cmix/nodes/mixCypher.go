@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
@@ -19,10 +20,11 @@ import (
 
 // mixCypher is an implementation of the MixCypher interface.
 type mixCypher struct {
-	keys          []*key
-	g             *cyclic.Group
-	ephemeralKeys []bool
-	ephemeralKey  []byte
+	keys               []*key
+	g                  *cyclic.Group
+	ephemeralKeys      []bool
+	ephemeralEdPrivKey nike.PrivateKey
+	ephemeralEdPubKey  nike.PublicKey
 }
 
 // Encrypt encrypts the given message for CMIX. Panics if the passed message is
@@ -57,7 +59,7 @@ func (mc *mixCypher) Encrypt(msg format.Message, salt []byte, roundID id.Round) 
 		}
 	}
 
-	return ecrMsg, KMAC, mc.ephemeralKeys, mc.ephemeralKey
+	return ecrMsg, KMAC, mc.ephemeralKeys, mc.ephemeralEdPubKey.Bytes()
 }
 
 func (mc *mixCypher) MakeClientGatewayAuthMAC(salt, digest []byte) []byte {

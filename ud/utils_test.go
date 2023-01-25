@@ -9,21 +9,21 @@ package ud
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/storage/user"
-	"gitlab.com/elixxir/client/storage/versioned"
-	store "gitlab.com/elixxir/client/ud/store"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/single"
+	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	store "gitlab.com/elixxir/client/v4/ud/store"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"io"
 	"math/rand"
 	"testing"
@@ -42,9 +42,11 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 		t.Fatalf("Failed to initialize store %v", err)
 	}
 
+	sch := rsa.GetScheme()
+
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	stream := rngGen.GetStream()
-	privKey, err := rsa.GenerateKey(stream, 1024)
+	privKey, err := sch.Generate(stream, 1024)
 	stream.Close()
 
 	// Create our Manager object
@@ -155,7 +157,7 @@ func getGroup() *cyclic.Group {
 
 type mockUser struct {
 	testing *testing.T
-	key     *rsa.PrivateKey
+	key     rsa.PrivateKey
 }
 
 func (m mockUser) PortableUserInfo() user.Info {

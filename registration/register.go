@@ -12,11 +12,11 @@ import (
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/registration"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-func (perm *Registration) Register(transmissionPublicKey, receptionPublicKey *rsa.PublicKey,
+func (perm *Registration) Register(transmissionPublicKey, receptionPublicKey rsa.PublicKey,
 	registrationCode string) (transmissionSig []byte, receptionSig []byte, regTimestamp int64, err error) {
 	return register(perm.comms, perm.host, transmissionPublicKey, receptionPublicKey, registrationCode)
 }
@@ -29,13 +29,13 @@ type registrationMessageSender interface {
 //register registers the user with optional registration code
 // Returns an error if registration fails.
 func register(comms registrationMessageSender, host *connect.Host,
-	transmissionPublicKey, receptionPublicKey *rsa.PublicKey,
+	transmissionPublicKey, receptionPublicKey rsa.PublicKey,
 	registrationCode string) (
 	transmissionSig []byte, receptionSig []byte, regTimestamp int64, err error) {
 
 	// Send the message
-	transmissionPem := string(rsa.CreatePublicKeyPem(transmissionPublicKey))
-	receptionPem := string(rsa.CreatePublicKeyPem(receptionPublicKey))
+	transmissionPem := string(transmissionPublicKey.MarshalPem())
+	receptionPem := string(receptionPublicKey.MarshalPem())
 	response, err := comms.
 		SendRegistrationMessage(host,
 			&pb.ClientRegistration{

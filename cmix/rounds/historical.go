@@ -13,9 +13,9 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -210,7 +210,8 @@ func processHistoricalRoundsResponse(response *pb.HistoricalRoundsResponse,
 		// The interface has missing returns returned as nil, such roundRequests
 		// need to be removed as processing so that the network follower will
 		// pick them up in the future.
-		if roundInfo == nil {
+		if roundInfo == nil || roundInfo.ID == 0 ||
+			roundInfo.Topology == nil || len(roundInfo.Topology) == 0 {
 			var errMsg string
 			roundRequests[i].numAttempts++
 

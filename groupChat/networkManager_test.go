@@ -8,21 +8,22 @@
 package groupChat
 
 import (
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 // testNetworkManager is a test implementation of NetworkManager interface.
@@ -35,6 +36,11 @@ type testNetworkManager struct {
 	sync.RWMutex
 }
 
+func (tnm *testNetworkManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newTestNetworkManager(sendErr int) cmix.Client {
 	return &testNetworkManager{
 		receptionMessages: [][]format.Message{},
@@ -44,7 +50,7 @@ func newTestNetworkManager(sendErr int) cmix.Client {
 	}
 }
 
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if tnm.sendErr == 1 {
 		return rounds.Round{}, nil, errors.New("SendManyCMIX error")
 	}
@@ -66,6 +72,9 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ c
 	return rounds.Round{}, nil, nil
 }
 
+func (tnm *testNetworkManager) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
 func (*testNetworkManager) AddService(*id.ID, message.Service, message.Processor) {}
 func (*testNetworkManager) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
 	return nil
@@ -93,12 +102,12 @@ func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerp
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool, _ message.Processor) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool, _ message.Processor) {
 	// TODO implement me
 	panic("implement me")
 }

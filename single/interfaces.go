@@ -8,16 +8,17 @@
 package single
 
 import (
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	cMixMsg "gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	cMixMsg "gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // Receiver contains the callback interface for any handler which
@@ -69,7 +70,8 @@ type Cmix interface {
 	DeleteClientFingerprints(identity *id.ID)
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+		fallthroughProcessor message.Processor)
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
 		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
 		rounds.Round, ephemeral.Id, error)

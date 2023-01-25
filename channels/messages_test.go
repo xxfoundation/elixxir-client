@@ -8,31 +8,38 @@
 package channels
 
 import (
-	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
 )
 
-func TestUnmarshalUserMessageInternal(t *testing.T) {
+func Test_unmarshalUserMessageInternal(t *testing.T) {
 	internal, usrMsg, _ := builtTestUMI(t, 7)
-
-	chID := &id.ID{}
+	channelID := &id.ID{}
 
 	usrMsgMarshaled, err := proto.Marshal(usrMsg)
 	if err != nil {
 		t.Fatalf("Failed to marshal user message: %+v", err)
 	}
 
-	umi, err := unmarshalUserMessageInternal(usrMsgMarshaled, chID)
+	umi, err := unmarshalUserMessageInternal(usrMsgMarshaled, channelID)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal user message: %+v", err)
 	}
 
-	if !umi.GetMessageID().Equals(internal.messageID) {
-		t.Errorf("Message IDs were changed in the unmarshal "+
-			"process, %s vs %s", internal.messageID, umi.GetMessageID())
+	if !proto.Equal(umi.userMessage, internal.userMessage) {
+		t.Errorf("Unmarshalled UserMessage does not match original."+
+			"\nexpected: %+v\nreceived: %+v",
+			internal.userMessage, umi.userMessage)
+	}
+
+	umi.userMessage = internal.userMessage
+	if !reflect.DeepEqual(umi, internal) {
+		t.Errorf("Unmarshalled userMessageInternal does not match original."+
+			"\nexpected: %+v\nreceived: %+v", internal, umi)
 	}
 }
 
@@ -64,7 +71,7 @@ func TestUnmarshalUserMessageInternal_BadChannelMessage(t *testing.T) {
 	}
 }
 
-func TestNewUserMessageInternal_BadChannelMessage(t *testing.T) {
+func Test_newUserMessageInternal_BadChannelMessage(t *testing.T) {
 	_, usrMsg, _ := builtTestUMI(t, 7)
 
 	usrMsg.Message = []byte("Malformed")
@@ -111,7 +118,7 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 
 	chID := &id.ID{}
 
-	expected := channel.MakeMessageID(usrMsg.Message, chID)
+	expected := message.DeriveChannelMessageID(chID, 42, usrMsg.Message)
 
 	if !reflect.DeepEqual(expected, received) {
 		t.Fatalf("GetMessageID did not return expected data."+
@@ -120,12 +127,12 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 	}
 }
 
-// Ensures the serialization hasn't changed, changing the message IDs. The
-// protocol is tolerant of this because only the sender seralizes, but
-// it would be good to know when this changes. If this test breaks, report it,
-// but it should be safe to update the expected
+// Ensures the serialization has not changed, changing the message IDs. The
+// protocol is tolerant of this because only the sender serializes, but it would
+// be good to know when this changes. If this test breaks, report it, but it
+// should be safe to update the expected.
 func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
-	expected := "ChMsgID-LrGYLFCaPamZk44X+c/b08qtmJIorgNnoE68v1HYrf8="
+	expected := "MsgID-/9l5HhCSBPgz+CPw+PUBxO4EqmkCrG8z8/39ZUWj+ks="
 
 	internal, _, _ := builtTestUMI(t, 7)
 
@@ -138,7 +145,8 @@ func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
 	}
 }
 
-func builtTestUMI(t *testing.T, mt MessageType) (*userMessageInternal, *UserMessage, *ChannelMessage) {
+func builtTestUMI(t *testing.T, mt MessageType) (
+	*userMessageInternal, *UserMessage, *ChannelMessage) {
 	channelMsg := &ChannelMessage{
 		Lease:       69,
 		RoundID:     42,

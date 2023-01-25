@@ -10,8 +10,8 @@ package connect
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -64,8 +64,10 @@ func (a serverListener) Hear(item receive.Message) {
 	newPartner := a.conn.GetPartner()
 	connectionFp := newPartner.ConnectionFingerprint().Bytes()
 
+	sch := rsa.GetScheme()
+
 	// Process the PEM encoded public key to an rsa.PublicKey object
-	partnerPubKey, err := rsa.LoadPublicKeyFromPem(iar.RsaPubKey)
+	partnerPubKey, err := sch.UnmarshalPublicKeyPEM(iar.RsaPubKey)
 	if err != nil {
 		a.handleAuthConfirmationErr(err, item.Sender)
 	}

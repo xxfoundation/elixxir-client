@@ -9,7 +9,7 @@ package gateway
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"strings"

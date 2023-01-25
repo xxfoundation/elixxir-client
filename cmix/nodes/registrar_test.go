@@ -9,8 +9,8 @@ package nodes
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/storage"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -30,8 +30,11 @@ func TestLoadRegistrar_New(t *testing.T) {
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
+	addChan := make(chan commNetwork.NodeGateway, 1)
+	mccc := &mockCertCheckerComm{}
+
 	sender, err := gateway.NewSender(gateway.DefaultPoolParams(), rngGen,
-		getNDF(), newMockManager(), session, nil)
+		getNDF(), newMockManager(), session, mccc, addChan)
 	if err != nil {
 		t.Fatalf("Failed to create new sender: %+v", err)
 	}

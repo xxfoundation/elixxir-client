@@ -9,13 +9,18 @@ package single
 
 import (
 	"bytes"
+	"io"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	cmixMsg "gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/single/message"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	cmixMsg "gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/single/message"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -25,10 +30,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 // Error messages.
@@ -185,7 +186,8 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 		}
 	}
 
-	net.AddIdentity(sendingID.Source, timeStart.Add(params.Timeout), false)
+	net.AddIdentity(sendingID.Source, timeStart.Add(params.Timeout),
+		false, nil)
 
 	// Send the payload
 	svc := cmixMsg.Service{

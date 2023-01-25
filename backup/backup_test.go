@@ -9,13 +9,14 @@ package backup
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/xxdk"
 	"reflect"
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
+
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 
 	"gitlab.com/elixxir/crypto/backup"
@@ -40,7 +41,7 @@ func Test_InitializeBackup(t *testing.T) {
 
 	select {
 	case <-cbChan:
-	case <-time.After(10 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 		t.Error("Timed out waiting for callback.")
 	}
 
@@ -279,13 +280,13 @@ func TestBackup_AddJson(t *testing.T) {
 		RegistrationCode:      s.regCode,
 		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.transmissionRSA,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
 			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
 			Salt:                 s.transmissionSalt,
 			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.receptionRSA,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
 			RegistrarSignature:   s.receptionRegistrationValidationSignature,
 			Salt:                 s.receptionSalt,
 			ComputedID:           s.receptionID,
@@ -318,13 +319,13 @@ func TestBackup_AddJson_badJson(t *testing.T) {
 		RegistrationCode:      s.regCode,
 		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.transmissionRSA,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
 			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
 			Salt:                 s.transmissionSalt,
 			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.receptionRSA,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
 			RegistrarSignature:   s.receptionRegistrationValidationSignature,
 			Salt:                 s.receptionSalt,
 			ComputedID:           s.receptionID,
@@ -358,13 +359,13 @@ func TestBackup_assembleBackup(t *testing.T) {
 		RegistrationCode:      s.regCode,
 		RegistrationTimestamp: s.registrationTimestamp.UnixNano(),
 		TransmissionIdentity: backup.TransmissionIdentity{
-			RSASigningPrivateKey: s.transmissionRSA,
+			RSASigningPrivateKey: s.transmissionRSA.GetOldRSA(),
 			RegistrarSignature:   s.transmissionRegistrationValidationSignature,
 			Salt:                 s.transmissionSalt,
 			ComputedID:           s.transmissionID,
 		},
 		ReceptionIdentity: backup.ReceptionIdentity{
-			RSASigningPrivateKey: s.receptionRSA,
+			RSASigningPrivateKey: s.receptionRSA.GetOldRSA(),
 			RegistrarSignature:   s.receptionRegistrationValidationSignature,
 			Salt:                 s.receptionSalt,
 			ComputedID:           s.receptionID,

@@ -8,7 +8,7 @@
 package message
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -116,10 +116,12 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 // AddService adds a service which can call a message handing function or be
 // used for notifications. In general a single service can only be registered
 // for the same identifier/tag pair.
-//   preimage - the preimage which is triggered on
-//   type - a descriptive string of the service. Generally used in notifications
-//   source - a byte buffer of related data. Mostly used in notifications.
-//     Example: Sender ID
+//
+//	preimage - the preimage which is triggered on
+//	type - a descriptive string of the service. Generally used in notifications
+//	source - a byte buffer of related data. Mostly used in notifications.
+//	  Example: Sender ID
+//
 // There can be multiple "default" services, they must use the "default" tag
 // and the identifier must be the client reception ID.
 // A service may have a nil response unless it is default.
@@ -140,7 +142,7 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service, respo
 
 	// Handle default tag behavior
 	if newService.Tag == sih.Default {
-		if !bytes.Equal(newService.Identifier, clientID[:]) {
+		if !hmac.Equal(newService.Identifier, clientID[:]) {
 			jww.FATAL.Panicf("Cannot accept a malformed 'Default' " +
 				"service, Identifier must match clientID")
 		}

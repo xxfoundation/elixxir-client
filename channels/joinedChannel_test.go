@@ -11,21 +11,24 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"sort"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/broadcast"
-	clientCmix "gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/broadcast"
+	clientCmix "gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -39,15 +42,15 @@ func Test_manager_store(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -86,15 +89,15 @@ func Test_manager_loadChannels(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -103,7 +106,8 @@ func Test_manager_loadChannels(t *testing.T) {
 
 	for i := range expected {
 		ch, _, err := newTestChannel(
-			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i), m.rng.GetStream(), cryptoBroadcast.Public)
+			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i),
+			m.rng.GetStream(), cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
@@ -133,6 +137,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		kv:             m.kv,
 		net:            m.net,
 		rng:            m.rng,
+		events:         &events{broadcast: newProcessorList()},
 		broadcastMaker: m.broadcastMaker,
 	}
 
@@ -168,15 +173,15 @@ func Test_manager_addChannel(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -214,15 +219,15 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -251,15 +256,15 @@ func Test_manager_removeChannel(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -297,15 +302,15 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -330,15 +335,15 @@ func Test_manager_getChannel(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -372,15 +377,15 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -406,15 +411,15 @@ func Test_manager_getChannels(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -423,7 +428,8 @@ func Test_manager_getChannels(t *testing.T) {
 
 	for i := range expected {
 		ch, _, err := newTestChannel(
-			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i), m.rng.GetStream(), cryptoBroadcast.Public)
+			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i),
+			m.rng.GetStream(), cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
@@ -486,15 +492,15 @@ func Test_loadJoinedChannel(t *testing.T) {
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("NewManager error: %+v", err)
 	}
 
 	m := mFace.(*manager)
@@ -510,10 +516,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Errorf("Failed to add channel: %+v", err)
 	}
 
-	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
-		m.events, m.broadcastMaker, func(messageID cryptoChannel.MessageID, r rounds.Round) bool {
-			return false
-		})
+	loadedJc, err := m.loadJoinedChannel(ch.ReceptionID)
 	if err != nil {
 		t.Errorf("Failed to load joinedChannel: %+v", err)
 	}
@@ -589,7 +592,6 @@ func Test_makeJoinedChannelKey_Consistency(t *testing.T) {
 				binary.BigEndian.Uint64(chID[:8]), expected, key)
 		}
 	}
-
 }
 
 // newTestChannel creates a new cryptoBroadcast.Channel in the same way that
@@ -599,7 +601,7 @@ func newTestChannel(name, description string, rng csprng.Source,
 	level cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(
-		name, description, level, time.Now(), 1000, 512, rng)
+		name, description, level, netTime.Now(), 1000, rng)
 	return c, pk, err
 }
 
@@ -618,9 +620,9 @@ func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
 
-func (m *mockBroadcastClient) IsHealthy() bool                     { return true }
-func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockBroadcastClient) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockBroadcastClient) IsHealthy() bool                                        { return true }
+func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
+func (m *mockBroadcastClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
 }
 func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
 func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
@@ -642,31 +644,88 @@ func mockEventModelBuilder(string) (EventModel, error) {
 type mockEventModel struct {
 	joinedCh *cryptoBroadcast.Channel
 	leftCh   *id.ID
+
+	// Used to prevent fix race condition
+	sync.Mutex
 }
 
-func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) { m.joinedCh = c }
-func (m *mockEventModel) LeaveChannel(c *id.ID)                  { m.leftCh = c }
+func (m *mockEventModel) getJoinedCh() *cryptoBroadcast.Channel {
+	m.Lock()
+	defer m.Unlock()
+	return m.joinedCh
+}
 
-func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string,
-	string, ed25519.PublicKey, uint8, time.Time, time.Duration, rounds.Round,
-	MessageType, SentStatus) uint64 {
+func (m *mockEventModel) getLeftCh() *id.ID {
+	m.Lock()
+	defer m.Unlock()
+	return m.leftCh
+}
+
+func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) {
+	m.Lock()
+	defer m.Unlock()
+	m.joinedCh = c
+}
+
+func (m *mockEventModel) LeaveChannel(c *id.ID) {
+	m.Lock()
+	defer m.Unlock()
+	m.leftCh = c
+}
+
+func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoMessage.ID,
+	string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration,
+	rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+func (m *mockEventModel) ReceiveReply(*id.ID, cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
+	time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
-	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
+func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
+	time.Time, time.Duration, rounds.Round, MessageType, SentStatus, bool) uint64 {
 	return 0
 }
 
-func (m *mockEventModel) UpdateSentStatus(uint64, cryptoChannel.MessageID,
-	time.Time, rounds.Round, SentStatus) {
-	// TODO implement me
+func (m *mockEventModel) ReceiveDM(cryptoMessage.ID, string,
+	string, ed25519.PublicKey, uint32, uint8, time.Time,
+	rounds.Round, MessageType, SentStatus) uint64 {
+	return 0
+}
+
+func (m *mockEventModel) ReceiveDMReply(cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
+	time.Time, rounds.Round, MessageType, SentStatus) uint64 {
+	return 0
+}
+
+func (m *mockEventModel) ReceiveDMReaction(cryptoMessage.ID,
+	cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8,
+	time.Time, rounds.Round, MessageType, SentStatus) uint64 {
+	return 0
+}
+
+func (m *mockEventModel) UpdateFromUUID(uint64, *cryptoMessage.ID,
+	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) {
+	panic("implement me")
+}
+
+func (m *mockEventModel) UpdateFromMessageID(cryptoMessage.ID,
+	*time.Time, *rounds.Round, *bool, *bool, *SentStatus) uint64 {
+	panic("implement me")
+}
+
+func (m *mockEventModel) GetMessage(cryptoMessage.ID) (ModelMessage, error) {
+	panic("implement me")
+}
+func (m *mockEventModel) DeleteMessage(cryptoMessage.ID) error {
+	panic("implement me")
+}
+
+func (m *mockEventModel) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
 	panic("implement me")
 }

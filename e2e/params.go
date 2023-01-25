@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
 )
 
 type Params struct {

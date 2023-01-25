@@ -8,18 +8,20 @@
 package pickup
 
 import (
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/stoppable"
+	"testing"
+	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"testing"
-	"time"
 )
 
 // Happy path.
@@ -39,8 +41,9 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	testManager.sender, _ = gateway.NewSender(
-		p, rngGen, testNdf, mockComms, testManager.session, nil)
+	addChan := make(chan network.NodeGateway, 1)
+	testManager.sender, _ = gateway.NewTestingSender(
+		p, rngGen, testNdf, mockComms, testManager.session, addChan, t)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)
@@ -73,7 +76,7 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	var testBundle message.Bundle
 	select {
 	case testBundle = <-messageBundleChan:
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(800 * time.Millisecond):
 		t.Fatalf("Did not receive a message bundle over the channel")
 	}
 

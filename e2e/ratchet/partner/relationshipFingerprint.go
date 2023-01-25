@@ -9,8 +9,8 @@ package partner
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/storage/versioned"
+	session2 "gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"

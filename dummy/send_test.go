@@ -9,7 +9,7 @@ package dummy
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -30,7 +30,7 @@ func TestManager_sendThread(t *testing.T) {
 			notStarted, stat)
 	}
 
-	err := m.SetStatus(true)
+	err := m.Start()
 	if err != nil {
 		t.Errorf("Failed to set status to true.")
 	}

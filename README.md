@@ -462,19 +462,19 @@ use the correct versions as listed below.
 
 |                      | Version | Download                                                            | Documentation                                                           |
 |----------------------|--------:|---------------------------------------------------------------------|-------------------------------------------------------------------------|
-| `protoc`             |  3.15.6 | https://github.com/protocolbuffers/protobuf/releases/tag/v3.15.6    | https://developers.google.com/protocol-buffers/docs/gotutorial          |
-| `protoc-gen-go`      |  1.27.1 | https://github.com/protocolbuffers/protobuf-go/releases/tag/v1.27.1 | https://pkg.go.dev/google.golang.org/protobuf@v1.27.1/cmd/protoc-gen-go |
+| `protoc`             |  3.21.9 | https://github.com/protocolbuffers/protobuf/releases/tag/v3.21.9    | https://developers.google.com/protocol-buffers/docs/gotutorial          |
+| `protoc-gen-go`      |  1.28.1 | https://github.com/protocolbuffers/protobuf-go/releases/tag/v1.28.1 | https://pkg.go.dev/google.golang.org/protobuf@v1.28.1/cmd/protoc-gen-go |
 | `protoc-gen-go-grpc` |   1.2.0 | https://github.com/grpc/grpc-go/releases/tag/v1.2.0                 | https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc        |
 
 1. Download the correct release of `protoc` from the
    [release page](https://github.com/protocolbuffers/protobuf/releases) or use
    the link from the table above to get the download for your OS.
 
-       wget https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
+       wget https://github.com/protocolbuffers/protobuf/releases/download/v21.9/protoc-21.9-linux-x86_64.zip
 
 2. Extract the files to a folder, such as `$HOME/.local`.
 
-       unzip protoc-3.15.6-linux-x86_64.zip -d $HOME/.local
+       unzip protoc-21.9-linux-x86_64.zip -d $HOME/.local
 
 3. Add the selected directory to your environment’s `PATH` variable, make sure
    to include it in your `.profile` or `.bashrc` file. Also, include your go bin
@@ -492,18 +492,18 @@ use the correct versions as listed below.
 
    Which prints the current version
 
-       libprotoc 3.15.6
+       libprotoc 3.21.9
 
 5. Next, download `protoc-gen-go` and `protoc-gen-go-grpc` using the version
    found in the table above.
 
-       go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.27
+       go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
 6. Check that `protoc-gen-go` is installed with the correct version.
 
        protoc-gen-go --version
-       protoc-gen-go v1.27.1
+       protoc-gen-go v1.28.1
 
 7. Check that `protoc-gen-go-grpc` is installed with the correct version.
 

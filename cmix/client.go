@@ -11,26 +11,27 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
-	"gitlab.com/elixxir/client/cmix/attempts"
-	"gitlab.com/elixxir/client/cmix/clockSkew"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strconv"
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix/attempts"
+	"gitlab.com/elixxir/client/v4/cmix/clockSkew"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/address"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/health"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/nodes"
-	"gitlab.com/elixxir/client/cmix/pickup"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/v4/cmix/address"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/health"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/cmix/pickup"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
 	commClient "gitlab.com/elixxir/comms/client"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -81,6 +82,9 @@ type client struct {
 	// Earliest tracked round
 	earliestRound *uint64
 
+	// Current Period of the follower
+	followerPeriod *int64
+
 	// Number of polls done in a period of time
 	tracker       *uint64
 	latencySum    uint64
@@ -109,6 +113,8 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	netTime.SetTimeSource(localTime{})
 
+	followerPeriod := int64(params.TrackNetworkPeriod)
+
 	// Create client object
 	c := &client{
 		param:          params,
@@ -122,6 +128,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		skewTracker:    clockSkew.New(params.ClockSkewClamp),
 		attemptTracker: attempts.NewSendAttempts(),
 		numNodes:       &numNodes,
+		followerPeriod: &followerPeriod,
 	}
 
 	if params.VerboseRoundTracking {
@@ -179,9 +186,12 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
-	poolParams.ForceConnection = true
+
+	// Enable host pool debugging
+	poolParams.DebugPrintPeriod = 30 * time.Second
+
 	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
-		c.session, nodeChan)
+		c.session, c.comms, nodeChan)
 	if err != nil {
 		return err
 	}
@@ -241,11 +251,11 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 // Started Threads are:
 //   - Network Follower (/network/follow.go)
 //   - Historical Round Retrieval (/network/rounds/historical.go)
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//	 - health tracker (/network/health)
-//	 - Garbled Messages (/network/message/inProgress.go)
-//	 - Critical Messages (/network/message/critical.go)
+//   - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//   - Message Handling Worker Group (/network/message/handle.go)
+//   - health tracker (/network/health)
+//   - Garbled Messages (/network/message/inProgress.go)
+//   - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/address/tracker.go)
 func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("networkManager")
@@ -281,7 +291,21 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	//Start the critical processing thread
 	multi.Add(c.crit.startProcessies())
 
+	//start the host pool thread
+	multi.Add(c.Sender.StartProcesses())
+
 	return multi, nil
+}
+
+// SetTrackNetworkPeriod allows changing the frequency that follower threads
+// are started.
+func (c *client) SetTrackNetworkPeriod(d time.Duration) {
+	atomic.StoreInt64(c.followerPeriod, int64(d))
+}
+
+// GetTrackNetworkPeriod returns the current tracked network period.
+func (c *client) GetTrackNetworkPeriod() time.Duration {
+	return time.Duration(atomic.LoadInt64(c.followerPeriod))
 }
 
 // GetInstance returns the network instance object (NDF state).
@@ -304,4 +328,39 @@ func (c *client) SetFakeEarliestRound(rnd id.Round) {
 // GetMaxMessageLength returns the maximum length of a cMix message.
 func (c *client) GetMaxMessageLength() int {
 	return c.maxMsgLen
+}
+
+// AddIdentity adds an identity to be tracked. If persistent is false,
+// the identity will not be stored to disk and will be dropped on reload.
+// If the fallthrough processor is not nil, it will be used to process
+// messages for this id in the event there isn't a service or fingerprint
+// that matches the message.
+func (c *client) AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
+	c.AddIdentityInternal(id, validUntil, persistent)
+	if fallthroughProcessor != nil {
+		c.Handler.AddFallthrough(id, fallthroughProcessor)
+	}
+}
+
+// AddIdentityWithHistory adds an identity to be tracked. If persistent is
+// false, the identity will not be stored to disk and will be dropped on
+// reload. It will pick up messages slowly back in the history or up back
+// until beginning or the start of message retention, which should be ~500
+// houses back.
+// If the fallthrough processor is not nil, it will be used to process
+// messages for this id in the event there isn't a service or fingerprint
+// that matches the message.
+func (c *client) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time,
+	persistent bool, fallthroughProcessor message.Processor) {
+	c.AddIdentityWithHistoryInternal(id, validUntil, beginning, persistent)
+	if fallthroughProcessor != nil {
+		c.Handler.AddFallthrough(id, fallthroughProcessor)
+	}
+}
+
+// RemoveIdentity removes a currently tracked identity.
+func (c *client) RemoveIdentity(id *id.ID) {
+	c.RemoveIdentityInternal(id)
+	c.Handler.RemoveFallthrough(id)
 }

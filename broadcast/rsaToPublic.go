@@ -10,9 +10,9 @@ package broadcast
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -35,13 +35,10 @@ const (
 // or smaller and the channel [rsa.PrivateKey] must be passed in.
 //
 // The network must be healthy to send.
-func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
-	payload []byte, cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-	// Confirm network health
-
-	assemble := func(rid id.Round) ([]byte, error) {
-		return payload, nil
-	}
+func (bc *broadcastClient) BroadcastRSAtoPublic(
+	pk rsa.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
+	[]byte, rounds.Round, ephemeral.Id, error) {
+	assemble := func(rid id.Round) ([]byte, error) { return payload, nil }
 	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, cMixParams)
 }
 
@@ -55,12 +52,13 @@ func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 // The network must be healthy to send.
 func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 	pk rsa.PrivateKey, assembler Assembler,
-	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
 	if !bc.net.IsHealthy() {
-		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
+		return nil, rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
+	var singleEncryptedPayload []byte
 	assemble := func(rid id.Round) (fp format.Fingerprint,
 		service message.Service, encryptedPayload, mac []byte, err error) {
 		payload, err := assembler(rid)
@@ -82,16 +80,16 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 		copy(finalPayload[internalPayloadSizeLength:], payload)
 
 		// Encrypt payload
-		encryptedPayload, mac, fp, err =
-			bc.channel.EncryptRSAToPublic(finalPayload, pk, bc.net.GetMaxMessageLength(),
-				bc.rng.GetStream())
+		singleEncryptedPayload, encryptedPayload, mac, fp, err =
+			bc.channel.EncryptRSAToPublic(finalPayload, pk,
+				bc.net.GetMaxMessageLength(), bc.rng.GetStream())
 		if err != nil {
 			return format.Fingerprint{}, message.Service{}, nil,
-				nil, errors.WithMessage(err, "Failed to encrypt "+
-					"asymmetric broadcast message")
+				nil, errors.WithMessage(err,
+					"Failed to encrypt asymmetric broadcast message")
 		}
 
-		// Create service using asymmetric broadcast service tag & channel
+		// Create service using asymmetric broadcast service tag and channel
 		// reception ID allows anybody with this info to listen for messages on
 		// this channel
 		service = message.Service{
@@ -117,5 +115,7 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 		return
 	}
 
-	return bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
+	r, ephID, err :=
+		bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
+	return singleEncryptedPayload, r, ephID, err
 }

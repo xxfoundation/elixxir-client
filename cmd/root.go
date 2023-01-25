@@ -27,11 +27,11 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/backup"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/backup"
+	"gitlab.com/elixxir/client/v4/xxdk"
 
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -774,7 +774,8 @@ func waitUntilConnected(connected chan bool) {
 				isConnected)
 			break
 		case <-timeoutTimer.C:
-			jww.FATAL.Panicf("timeout on connection after %s", waitTimeout*time.Second)
+			jww.FATAL.Panicf("timeout on connection after %s",
+				waitTimeout*time.Second)
 		}
 	}
 
@@ -795,6 +796,25 @@ func waitUntilConnected(connected chan bool) {
 			}
 		}
 	}()
+}
+
+func waitForRegistration(user *xxdk.Cmix, threshhold float32) {
+	// After connection, make sure we have registered with
+	// at least 85% of the nodes
+	var err error
+	for numReg, total := 0, 100; numReg < int(threshhold*float32(total)); {
+		jww.INFO.Printf("%d < %d", numReg,
+			int(threshhold*float32(total)))
+		time.Sleep(1 * time.Second)
+		numReg, total, err = user.GetNodeRegistrationStatus()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		jww.INFO.Printf("Registering with nodes (%d/%d)...",
+			numReg, total)
+	}
+
 }
 
 func parseRecipient(idStr string) *id.ID {
@@ -1022,9 +1042,9 @@ func init() {
 		"", false, "Force sends to go over multiple rounds if possible")
 	viper.BindPFlag(splitSendsFlag, rootCmd.Flags().Lookup(splitSendsFlag))
 
-	rootCmd.Flags().BoolP(verifySendFlag, "", false,
+	rootCmd.PersistentFlags().BoolP(verifySendFlag, "", false,
 		"Ensure successful message sending by checking for round completion")
-	viper.BindPFlag(verifySendFlag, rootCmd.Flags().Lookup(verifySendFlag))
+	viper.BindPFlag(verifySendFlag, rootCmd.PersistentFlags().Lookup(verifySendFlag))
 
 	rootCmd.PersistentFlags().UintP(receiveCountFlag,
 		"", 1, "How many messages we should wait for before quitting")

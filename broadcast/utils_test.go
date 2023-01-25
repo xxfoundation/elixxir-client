@@ -14,10 +14,10 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -99,7 +99,8 @@ func (m *mockCmix) IsHealthy() bool {
 	return m.health
 }
 
-func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool) {
+func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool,
+	_ message.Processor) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
@@ -110,7 +111,8 @@ func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool) {
 	m.handler.processorMap[*id] = make(map[string][]message.Processor)
 }
 
-func (m *mockCmix) AddIdentityWithHistory(id *id.ID, _, _ time.Time, _ bool) {
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, _, _ time.Time, _ bool,
+	_ message.Processor) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 

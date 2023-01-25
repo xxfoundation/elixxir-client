@@ -14,9 +14,9 @@ import (
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -26,8 +26,13 @@ import (
 func (m *Manager) RemoveFact(f fact.Fact) error {
 	jww.INFO.Printf("ud.RemoveFact(%s)", f.Stringify())
 	m.factMux.Lock()
-	defer m.factMux.Unlock()
-	return m.removeFact(f, m.comms)
+	err := m.removeFact(f, m.comms)
+	m.factMux.Unlock()
+	if err != nil {
+		return err
+	}
+	m.user.GetBackupContainer().TriggerBackup("Removed fact")
+	return nil
 }
 
 // removeFact is a helper function which contacts the UD service
@@ -53,7 +58,7 @@ func (m *Manager) removeFact(f fact.Fact,
 	}
 	stream := m.getRng().GetStream()
 	defer stream.Close()
-	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
+	fSig, err := privKey.SignPSS(stream, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}
@@ -94,7 +99,7 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 }
 
 // permanentDeleteAccount is a helper function for PermanentDeleteAccount.
-func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey *rsa.PrivateKey,
+func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey rsa.PrivateKey,
 	rFC removeUserComms, udHost *connect.Host) error {
 
 	// Construct the message to send
@@ -110,7 +115,7 @@ func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey *r
 	// Sign our inFact for putting into the request
 	stream := m.getRng().GetStream()
 	defer stream.Close()
-	fsig, err := rsa.Sign(stream, privateKey, hash.CMixHash, fHash, nil)
+	fsig, err := privateKey.SignPSS(stream, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}

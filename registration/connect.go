@@ -5,24 +5,17 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package cmix
+//go:build !js || !wasm
 
-//func TestClient_Follow(t *testing.T) {
-//	m, err := newTestClient(t)
-//	if err != nil {
-//		t.Fatalf("Failed to create test client: %+v", err)
-//	}
-//
-//	clientErrorReport := func(source, message, trace string) {
-//
-//	}
-//	s, err := m.Follow(clientErrorReport)
-//	if err != nil {
-//		t.Errorf("Failed to follow network: %+v", err)
-//	}
-//
-//	err = s.Close()
-//	if err != nil {
-//		t.Errorf("Failed to close follower: %+v", err)
-//	}
-//}
+// This file is compiled for all architectures except WebAssembly.
+package registration
+
+// getAddress returns the correct connection info. For non webassembly,
+// it is a simple pass through. For webassembly, it does not
+// return the cert
+func getConnectionInfo(regAddr, certificate string) (addr string, cert []byte, err error) {
+	addr = regAddr
+	cert = []byte(certificate)
+
+	return addr, cert, nil
+}

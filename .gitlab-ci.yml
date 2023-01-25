@@ -17,6 +17,7 @@ stages:
   - test
   - build
   - trigger_integration
+  - version_check
 
 test:
   stage: test
@@ -27,7 +28,6 @@ test:
     - git clean -ffdx
     - go mod vendor -v
     - go build ./...
-    - go mod tidy
     - mkdir -p testdata
 
     # Test coverage
@@ -45,6 +45,19 @@ test:
     paths:
       - vendor/
       - testdata/
+
+wasm-test:
+  stage: test
+  image: $DOCKER_IMAGE
+  except:
+    - tags
+  script:
+    - export PATH=/root/go/bin:$PATH
+    - go mod vendor
+    # Remove some environment vars to deal with: https://github.com/agnivade/wasmbrowsertest/issues/40
+    - unset SSH_PRIVATE_KEY
+    - unset $(env | grep '=' | awk -F= '{print $1}' | grep -v PATH | grep -v GO | grep -v HOME)
+    - GOOS=js GOARCH=wasm go test ./... -v
 
 build:
   stage: build
@@ -71,9 +84,17 @@ tag:
         - master
     image: $DOCKER_IMAGE
     script:
-        - git remote add origin_tags git@$GITLAB_SERVER:elixxir/client.git || true
-        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
-        - git push origin_tags -f --tags
+        # Get the version number from the built binary
+        - export TAG=$(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
+        # Poll the GitLab API to see if the tag exists
+        - 'TAG_JSON=$(curl --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags/$TAG")'
+        # Debug information
+        - echo $TAG_JSON
+        # If the API says the tag doesn't exist, create it for the current commit
+        # 
+        # Note: if we want to fail because this is not a unique version number, we can simply do "else; echo non-unique version && return -1; fi" instead of "fi".
+        # That would be a much cleaner way (IMO) to do the unique version number check Ben wanted than the previous horrible Git hack.
+        - 'if echo $TAG_JSON | grep -q "404 Tag Not Found"; then curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags?tag_name=$TAG&ref=$CI_COMMIT_SHA"; fi'
 
 bindings-ios:
   stage: build
@@ -90,9 +111,9 @@ bindings-ios:
     - go get golang.org/x/mobile/bind
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - gomobile init
-    - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/bindings
+    - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - ls
-    - zip -r iOS.zip Bindings.xcframework
+    - zip -r -y iOS.zip Bindings.xcframework
   artifacts:
     paths:
       - iOS.zip
@@ -114,7 +135,7 @@ bindings-android:
     - go get golang.org/x/mobile/bind
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - gomobile init
-    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/v4/bindings
   artifacts:
     paths:
       - bindings.aar

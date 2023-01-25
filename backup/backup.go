@@ -8,11 +8,11 @@
 package backup
 
 import (
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -21,7 +21,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 )
 
 // Error messages.
@@ -69,8 +69,8 @@ type Session interface {
 	GetTransmissionSalt() []byte
 	GetReceptionID() *id.ID
 	GetReceptionSalt() []byte
-	GetReceptionRSA() *rsa.PrivateKey
-	GetTransmissionRSA() *rsa.PrivateKey
+	GetReceptionRSA() rsa.PrivateKey
+	GetTransmissionRSA() rsa.PrivateKey
 	GetTransmissionRegistrationValidationSignature() []byte
 	GetReceptionRegistrationValidationSignature() []byte
 	GetRegistrationTimestamp() time.Time
@@ -286,7 +286,7 @@ func (b *Backup) assembleBackup() backup.Backup {
 
 	// Get transmission identity
 	bu.TransmissionIdentity = backup.TransmissionIdentity{
-		RSASigningPrivateKey: b.session.GetTransmissionRSA(),
+		RSASigningPrivateKey: b.session.GetTransmissionRSA().GetOldRSA(),
 		RegistrarSignature:   b.session.GetTransmissionRegistrationValidationSignature(),
 		Salt:                 b.session.GetTransmissionSalt(),
 		ComputedID:           b.session.GetTransmissionID(),
@@ -294,7 +294,7 @@ func (b *Backup) assembleBackup() backup.Backup {
 
 	// Get reception identity
 	bu.ReceptionIdentity = backup.ReceptionIdentity{
-		RSASigningPrivateKey: b.session.GetReceptionRSA(),
+		RSASigningPrivateKey: b.session.GetReceptionRSA().GetOldRSA(),
 		RegistrarSignature:   b.session.GetReceptionRegistrationValidationSignature(),
 		Salt:                 b.session.GetReceptionSalt(),
 		ComputedID:           b.session.GetReceptionID(),

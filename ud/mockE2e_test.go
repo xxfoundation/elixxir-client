@@ -9,23 +9,23 @@ package ud
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
 	"time"
@@ -43,7 +43,11 @@ type mockE2e struct {
 	network   cmix.Client
 	mockStore mockStorage
 	t         testing.TB
-	key       *rsa.PrivateKey
+	key       rsa.PrivateKey
+}
+
+func (m mockE2e) GetBackupContainer() *xxdk.Container {
+	return &xxdk.Container{}
 }
 
 func (m mockE2e) GetE2E() e2e.Handler {
@@ -57,7 +61,7 @@ func (m mockE2e) GetReceptionIdentity() xxdk.ReceptionIdentity {
 
 	return xxdk.ReceptionIdentity{
 		ID:            id.NewIdFromString("test", id.User, m.t),
-		RSAPrivatePem: rsa.CreatePrivateKeyPem(m.key),
+		RSAPrivatePem: m.key.MarshalPem(),
 		Salt:          []byte("test"),
 		DHKeyPrivate:  dhPrivKey,
 		E2eGrp:        grp,
@@ -70,9 +74,9 @@ func (m mockE2e) GetRng() *fastRNG.StreamGenerator {
 
 func (m mockE2e) GetTransmissionIdentity() xxdk.TransmissionIdentity {
 	return xxdk.TransmissionIdentity{
-		ID:            id.NewIdFromString("test", id.User, m.t),
-		RSAPrivatePem: m.key,
-		Salt:          []byte("test"),
+		ID:         id.NewIdFromString("test", id.User, m.t),
+		RSAPrivate: m.key,
+		Salt:       []byte("test"),
 	}
 }
 

@@ -9,28 +9,40 @@ package channels
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/broadcast"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"math/rand"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
+	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"os"
-	"sync"
-	"testing"
-	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 )
 
 func TestMain(m *testing.M) {
-	// Many tests trigger WARN prints;, set the out threshold so the WARN prints
+	// Many tests trigger WARN prints; set the out threshold so the WARN prints
 	// can be seen in the logs
 	jww.SetStdoutThreshold(jww.LevelWarn)
+
 	os.Exit(m.Run())
+}
+
+// Verify that manager adheres to the Manager interface.
+var _ Manager = (*manager)(nil)
+
+var mockAddServiceFn = func(sp xxdk.Service) error {
+	_, err := sp()
+	return err
 }
 
 func TestManager_JoinChannel(t *testing.T) {
@@ -41,10 +53,10 @@ func TestManager_JoinChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -60,19 +72,18 @@ func TestManager_JoinChannel(t *testing.T) {
 
 	err = m.JoinChannel(ch)
 	if err != nil {
-		t.Fatalf("Join Channel Errored: %s", err)
+		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
 	if _, exists := m.channels[*ch.ReceptionID]; !exists {
 		t.Errorf("Channel %s not added to channel map.", ch.Name)
 	}
 
-	//wait because the event model is called in another thread
+	// Wait because the event model is called in another thread
 	time.Sleep(1 * time.Second)
 
-	if mem.joinedCh == nil {
-		t.Errorf("the channel join call was not propogated to the event " +
-			"model")
+	if mem.getJoinedCh() == nil {
+		t.Error("The channel join call was not propagated to the event model.")
 	}
 }
 
@@ -85,10 +96,10 @@ func TestManager_LeaveChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder)
+		mockEventModelBuilder, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -104,41 +115,37 @@ func TestManager_LeaveChannel(t *testing.T) {
 
 	err = m.JoinChannel(ch)
 	if err != nil {
-		t.Fatalf("Join Channel Errored: %s", err)
+		t.Fatalf("Join Channel Errored: %+v", err)
 	}
 
 	err = m.LeaveChannel(ch.ReceptionID)
 	if err != nil {
-		t.Fatalf("Leave Channel Errored: %s", err)
+		t.Fatalf("Leave Channel Errored: %+v", err)
 	}
 
 	if _, exists := m.channels[*ch.ReceptionID]; exists {
 		t.Errorf("Channel %s still in map.", ch.Name)
 	}
 
-	//wait because the event model is called in another thread
+	// Wait because the event model is called in another thread
 	time.Sleep(1 * time.Second)
 
-	if mem.leftCh == nil {
-		t.Errorf("the channel join call was not propogated to the event " +
-			"model")
+	if mem.getLeftCh() == nil {
+		t.Error("The channel join call was not propagated to the event model.")
 	}
 }
 
 func TestManager_GetChannels(t *testing.T) {
-	m := &manager{
-		channels: make(map[id.ID]*joinedChannel),
-		mux:      sync.RWMutex{},
-	}
+	m := &manager{channels: make(map[id.ID]*joinedChannel)}
 
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-	numtests := 10
+	n := 10
 
 	chList := make(map[id.ID]interface{})
 
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("testChannel_%d", numtests)
+		name := fmt.Sprintf("testChannel_%d", n)
 		s := rng.GetStream()
 		tc, _, err := newTestChannel(name, "blarg", s, broadcast2.Public)
 		s.Close()
@@ -170,12 +177,12 @@ func TestManager_GetChannel(t *testing.T) {
 
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-	numtests := 10
+	n := 10
 
-	chList := make([]*id.ID, 0, numtests)
+	chList := make([]*id.ID, 0, n)
 
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("testChannel_%d", numtests)
+		name := fmt.Sprintf("testChannel_%d", n)
 		s := rng.GetStream()
 		tc, _, err := newTestChannel(name, "blarg", s, broadcast2.Public)
 		s.Close()
@@ -206,9 +213,9 @@ func TestManager_GetChannel_BadChannel(t *testing.T) {
 		mux:      sync.RWMutex{},
 	}
 
-	numtests := 10
+	n := 10
 
-	chList := make([]*id.ID, 0, numtests)
+	chList := make([]*id.ID, 0, n)
 
 	for i := 0; i < 10; i++ {
 		chId := &id.ID{}
@@ -219,7 +226,102 @@ func TestManager_GetChannel_BadChannel(t *testing.T) {
 	for i, receivedCh := range chList {
 		_, err := m.GetChannel(receivedCh)
 		if err == nil {
-			t.Errorf("Channel %d returned when it doesnt exist", i)
+			t.Errorf("Channel %d returned when it does not exist", i)
 		}
 	}
+}
+
+// Smoke test for EnableDirectMessageToken.
+func TestManager_EnableDirectMessageToken(t *testing.T) {
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+		new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, mockAddServiceFn)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
+
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), broadcast2.Public)
+	if err != nil {
+		t.Errorf("Failed to create new channel: %+v", err)
+	}
+
+	err = m.JoinChannel(ch)
+	if err != nil {
+		t.Fatalf("Join Channel Errored: %+v", err)
+	}
+
+	err = m.EnableDirectMessages(ch.ReceptionID)
+	if err != nil {
+		t.Fatalf("EnableDirectMessageToken error: %+v", err)
+	}
+
+	token := m.getDmToken(ch.ReceptionID)
+
+	expected := pi.GetDMToken()
+	if !reflect.DeepEqual(token, expected) {
+		t.Fatalf("EnableDirectMessageToken did not set token as expected."+
+			"\nExpected: %v"+
+			"\nReceived: %v", expected, token)
+	}
+
+}
+
+// Smoke test.
+func TestManager_DisableDirectMessageToken(t *testing.T) {
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+		new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, mockAddServiceFn)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
+
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), broadcast2.Public)
+	if err != nil {
+		t.Errorf("Failed to create new channel: %+v", err)
+	}
+
+	err = m.JoinChannel(ch)
+	if err != nil {
+		t.Fatalf("Join Channel Errored: %+v", err)
+	}
+
+	err = m.EnableDirectMessages(ch.ReceptionID)
+	if err != nil {
+		t.Fatalf("EnableDirectMessageToken error: %+v", err)
+	}
+
+	err = m.DisableDirectMessages(ch.ReceptionID)
+	if err != nil {
+		t.Fatalf("DisableDirectMessageToken error: %+v", err)
+	}
+
+	// Test that token is 0 when retrieved
+	token := m.getDmToken(ch.ReceptionID)
+	if token != 0 {
+		t.Fatalf("getDmToken expected to return nil after calling " +
+			"DisableDirectMessageToken")
+	}
+
 }

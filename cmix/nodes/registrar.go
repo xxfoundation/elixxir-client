@@ -10,9 +10,9 @@ package nodes
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
@@ -197,10 +197,15 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 		nid := topology.GetNodeAtIndex(i)
 		k, ok := r.nodes[*nid]
 		if !ok {
+			gwID := nid.DeepCopy()
+			gwID.SetType(id.Gateway)
 			r.c <- network.NodeGateway{
 				Node: ndf.Node{
 					ID:     nid.Marshal(),
 					Status: ndf.Active, // Must be active because it is in a round
+				},
+				Gateway: ndf.Gateway{
+					ID: gwID.Marshal(),
 				},
 			}
 

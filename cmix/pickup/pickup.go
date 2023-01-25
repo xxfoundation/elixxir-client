@@ -10,13 +10,13 @@ package pickup
 import (
 	"strconv"
 
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/pickup/store"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/pickup/store"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -80,12 +80,10 @@ func (m *pickup) StartProcessors() stoppable.Stoppable {
 	}
 
 	// Start the periodic unchecked round worker
-	if !m.params.RealtimeOnly {
-		stopper := stoppable.NewSingle("UncheckRound")
-		go m.processUncheckedRounds(
-			m.params.UncheckRoundPeriod, backOffTable, stopper)
-		multi.Add(stopper)
-	}
+	stopper := stoppable.NewSingle("UncheckRound")
+	go m.processUncheckedRounds(
+		m.params.UncheckRoundPeriod, backOffTable, stopper)
+	multi.Add(stopper)
 
 	return multi
 }

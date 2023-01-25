@@ -10,21 +10,24 @@ package user
 import (
 	"bytes"
 	"encoding/binary"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/rsa"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Test User GetRegistrationValidationSignature function
 func TestUser_GetRegistrationValidationSignature(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
@@ -35,8 +38,11 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -68,6 +74,8 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 
 // Test SetRegistrationValidationSignature setter
 func TestUser_SetRegistrationValidationSignature(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
@@ -78,8 +86,11 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -119,6 +130,8 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 
 // Test loading registrationValidationSignature from the KV store
 func TestUser_loadRegistrationValidationSignature(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
@@ -129,8 +142,11 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -170,6 +186,8 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 
 // Test User's getter/setter functions for TimeStamp
 func TestUser_GetRegistrationTimestamp(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
@@ -180,8 +198,11 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -227,6 +248,8 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 
 // Test loading registrationTimestamp from the KV store
 func TestUser_loadRegistrationTimestamp(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
@@ -237,8 +260,11 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
-		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}

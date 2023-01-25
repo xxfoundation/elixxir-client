@@ -8,14 +8,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage/versioned"
-	store "gitlab.com/elixxir/client/ud/store"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	store "gitlab.com/elixxir/client/v4/ud/store"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 )
@@ -79,7 +79,8 @@ func TestChannelIDTracking(t *testing.T) {
 
 	// comms AddHost
 	stream := rngGen.GetStream()
-	privKey, err := rsa.GenerateKey(stream, 1024)
+	sch := rsa.GetScheme()
+	privKey, err := sch.Generate(stream, 1024)
 	require.NoError(t, err)
 
 	tnm := newTestNetworkManager(t)
@@ -123,7 +124,7 @@ func TestChannelIDTracking(t *testing.T) {
 	rsaPrivKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
 	require.NoError(t, err)
 
-	comms.SetUserRSAPubKey(rsaPrivKey.GetPublic())
+	comms.SetUserRSAPubKey(rsaPrivKey.Public())
 	comms.SetUDEd25519PrivateKey(&udPrivKey)
 	comms.SetUsername(username)
 

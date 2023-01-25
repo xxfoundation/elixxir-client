@@ -15,7 +15,7 @@ package channels;
 // the channel sent by a user with admin access of the channel.
 message ChannelMessage{
     // Lease is the length that this channel message will take effect.
-    int64  Lease = 1;
+    int64 Lease = 1;
 
     // The round this message was sent on.
     uint64 RoundID = 2;
@@ -26,10 +26,10 @@ message ChannelMessage{
 
     // Payload is the actual message payload. It will be processed differently
     // based on the PayloadType.
-    bytes  Payload = 4;
+    bytes Payload = 4;
 
-    // nickname is the name which the user is using for this message
-    // it will not be longer than 24 characters
+    // nickname is the name which the user is using for this message it will not
+    // be longer than 24 characters.
     string Nickname = 5;
 
     // Nonce is 32 bits of randomness to ensure that two messages in the same
@@ -37,11 +37,14 @@ message ChannelMessage{
     // the same message ID.
     bytes Nonce = 6;
 
-    // LocalTimestamp is the timestamp when the "send call" is made based upon the
-    // local clock. If this differs by more than 5 seconds +/- from when the round
-    // it sent on is queued, then a random mutation on the queued time (+/- 200ms)
-    // will be used by local clients instead
+    // LocalTimestamp is the timestamp (unix nanoseconds) when the "send call"
+    // is made based upon the local clock. If this differs by more than 5
+    // seconds +/- from when the round it sent on is queued, then a random
+    // mutation on the queued time (+/- 200ms) will be used by local clients
+    // instead.
     int64 LocalTimestamp = 7;
+
+    uint32 DMToken = 8;  // hash of private key
 }
 
 // UserMessage is a message sent by a user who is a member within the channel.
@@ -49,15 +52,15 @@ message UserMessage {
     // Message contains the contents of the message. This is typically what the
     // end-user has submitted to the channel. This is a serialization of the
     // ChannelMessage.
-    bytes  Message = 1;
+    bytes Message = 1;
 
     // Signature is the signature proving this message has been sent by the
     // owner of this user's public key.
     //
     //  Signature = Sig(User_ECCPublicKey, Message)
-    bytes  Signature = 3;
+    bytes Signature = 3;
 
     // ECCPublicKey is the user's EC Public key. This is provided by the
     // network.
-    bytes  ECCPublicKey = 5;
+    bytes ECCPublicKey = 5;
 }

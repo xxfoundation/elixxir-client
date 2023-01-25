@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"

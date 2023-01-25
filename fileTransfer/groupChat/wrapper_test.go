@@ -9,8 +9,8 @@ package groupChat
 
 import (
 	"bytes"
-	ft "gitlab.com/elixxir/client/fileTransfer"
-	"gitlab.com/elixxir/client/groupChat"
+	ft "gitlab.com/elixxir/client/v4/fileTransfer"
+	"gitlab.com/elixxir/client/v4/groupChat"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -122,7 +122,6 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 							"\nsent:     %q\nreceived: %q",
 							fileData, receivedFile)
 					}
-					wg.Done()
 				}
 			}
 			err3 := m2.RegisterReceivedProgressCallback(
@@ -163,6 +162,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			speed := fileSizeKb * float32(time.Second) / (float32(sendTime))
 			t.Logf("Completed receiving file %q in %s (%.2f kb @ %.2f kb/s).",
 				fileName, sendTime, fileSizeKb, speed)
+			wg.Done()
 		}
 	}()
 

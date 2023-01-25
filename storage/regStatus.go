@@ -11,7 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 

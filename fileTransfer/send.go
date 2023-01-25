@@ -10,11 +10,11 @@ package fileTransfer
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/fileTransfer/sentRoundTracker"
-	"gitlab.com/elixxir/client/fileTransfer/store"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/fileTransfer/sentRoundTracker"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
@@ -139,7 +139,6 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 
 		validParts = append(validParts, p)
-
 		messages = append(messages, cmix.TargetedCmixMessage{
 			Recipient:   p.Recipient(),
 			Payload:     encryptedPart,

@@ -9,19 +9,20 @@ package cmix
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/cmix/attempts"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/primitives/states"
 	"strings"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix/attempts"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/primitives/states"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/nodes"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/nodes"
+	"gitlab.com/elixxir/client/v4/event"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cmix"
@@ -42,18 +43,20 @@ import (
 // This does not have end-to-end encryption on it and is used exclusively as
 // a send for higher order cryptographic protocols. Do not use unless
 // implementing a protocol on top.
-//   recipient - cMix ID of the recipient.
-//   fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
-//      fingerprint, highest order bit must be 0 (panic otherwise). If your
-//      system does not use key fingerprints, this must be random bits.
-//   service - Reception Service. The backup way for a client to identify
-//      messages on receipt via trial hashing and to identify notifications.
-//      If unused, use message.GetRandomService to fill the field with
-//      random data.
-//   payload - Contents of the message. Cannot exceed the payload size for a
-//      cMix message (panic otherwise).
-//   mac - 256-bit field to store a 255-bit mac, highest order bit must be 0
-//      (panic otherwise). If used, fill with random bits.
+//
+//	recipient - cMix ID of the recipient.
+//	fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
+//	   fingerprint, highest order bit must be 0 (panic otherwise). If your
+//	   system does not use key fingerprints, this must be random bits.
+//	service - Reception Service. The backup way for a client to identify
+//	   messages on receipt via trial hashing and to identify notifications.
+//	   If unused, use message.GetRandomService to fill the field with
+//	   random data.
+//	payload - Contents of the message. Cannot exceed the payload size for a
+//	   cMix message (panic otherwise).
+//	mac - 256-bit field to store a 255-bit mac, highest order bit must be 0
+//	   (panic otherwise). If used, fill with random bits.
+//
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful sends or errors.
 // WARNING: Do not roll your own crypto.
@@ -68,32 +71,37 @@ func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	return c.sendWithAssembler(recipient, assembler, cmixParams)
 }
 
-// SendWithAssembler sends a variable cmix payload to the provided recipient.
-// The payload sent is based on the Complier function passed in, which accepts
-// a round ID and returns the necessary payload data.
+// SendWithAssembler sends a variable cMix payload to the provided recipient.
+// The payload sent is based on the MessageAssembler function passed in, which
+// accepts a round ID and returns the necessary payload data.
 // Returns the round ID of the round the payload was sent or an error if it
 // fails.
 // This does not have end-to-end encryption on it and is used exclusively as
-// a send for higher order cryptographic protocols. Do not use unless
+// a send operation for higher order cryptographic protocols. Do not use unless
 // implementing a protocol on top.
-//   recipient - cMix ID of the recipient.
-//   assembler - MessageAssembler function, accepting round ID and returning fingerprint
-//   format.Fingerprint, service message.Service, payload, mac []byte
+//
+//	recipient - cMix ID of the recipient.
+//	assembler - MessageAssembler function, accepting round ID and returning
+//	fingerprint	format.Fingerprint, service message.Service, payload, mac []byte
+//
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful sends or errors.
 // WARNING: Do not roll your own crypto.
-func (c *client) SendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
+func (c *client) SendWithAssembler(recipient *id.ID, assembler MessageAssembler,
+	cmixParams CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	// Critical messaging and assembler-based message payloads are not compatible
 	if cmixParams.Critical {
-		return rounds.Round{}, ephemeral.Id{}, errors.New("Cannot send critical messages with a message assembler")
+		return rounds.Round{}, ephemeral.Id{},
+			errors.New("Cannot send critical messages with a message assembler")
 	}
 	return c.sendWithAssembler(recipient, assembler, cmixParams)
 }
 
-// sendWithAssembler wraps the passed in MessageAssembler in a messageAssembler for sendCmixHelper,
-// and sets up critical message handling where applicable.
-func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
+// sendWithAssembler wraps the passed in MessageAssembler in a messageAssembler
+// for sendCmixHelper, and sets up critical message handling where applicable.
+func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
+	cmixParams CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	if !c.Monitor.IsHealthy() {
 		return rounds.Round{}, ephemeral.Id{}, errors.New(
@@ -152,10 +160,12 @@ func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient *id.ID,
-	cmixParams CMIXParams, instance *network.Instance, grp *cyclic.Group,
-	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Reporter,
-	senderId *id.ID, comms SendCmixCommsInterface, attemptTracker attempts.SendAttemptTracker) (rounds.Round, ephemeral.Id, format.Message, error) {
+func sendCmixHelper(sender gateway.Sender, assembler messageAssembler,
+	recipient *id.ID, cmixParams CMIXParams, instance *network.Instance,
+	grp *cyclic.Group, nodes nodes.Registrar, rng *fastRNG.StreamGenerator,
+	events event.Reporter, senderId *id.ID, comms SendCmixCommsInterface,
+	attemptTracker attempts.SendAttemptTracker) (
+	rounds.Round, ephemeral.Id, format.Message, error) {
 
 	if cmixParams.RoundTries == 0 {
 		return rounds.Round{}, ephemeral.Id{}, format.Message{},

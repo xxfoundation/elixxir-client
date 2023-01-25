@@ -8,23 +8,24 @@
 package rekey
 
 import (
-	"gitlab.com/elixxir/crypto/e2e"
 	"math/rand"
 	"testing"
 	"time"
 
+	"gitlab.com/elixxir/crypto/e2e"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/stoppable"
-	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	session2 "gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	network2 "gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -221,6 +222,11 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 
 type mockNetManager struct{}
 
+func (m *mockNetManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
 	// TODO implement me
 	panic("implement me")
@@ -245,14 +251,19 @@ func (m *mockNetManager) SendWithAssembler(recipient *id.ID, assembler cmix.Mess
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
-func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
-	rounds.Round, []ephemeral.Id, error) {
+func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
 
-func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
+func (m *mockNetManager) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
 
-func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool, _ message.Processor) {
+}
+
+func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool, _ message.Processor) {
 }
 
 func (m *mockNetManager) RemoveIdentity(id *id.ID) {}

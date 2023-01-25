@@ -13,13 +13,13 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	clientE2e "gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	clientE2e "gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -79,7 +79,7 @@ func ConnectWithAuthentication(recipient contact.Contact, user *xxdk.E2e,
 // the server. This will wait until the round it sends on completes or a
 // timeout occurs.
 func connectWithAuthentication(conn Connection, timeStart time.Time,
-	recipient contact.Contact, salt []byte, myRsaPrivKey *rsa.PrivateKey,
+	recipient contact.Contact, salt []byte, myRsaPrivKey rsa.PrivateKey,
 	rng *fastRNG.StreamGenerator,
 	net cmix.Client, p xxdk.E2EParams) (AuthenticatedConnection, error) {
 	// Construct message to prove your identity to the server

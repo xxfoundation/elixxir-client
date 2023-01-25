@@ -9,8 +9,8 @@ package auth
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/v4/auth/store"
+	"gitlab.com/elixxir/client/v4/cmix/message"
 )
 
 // sentRequestHandler interface which allows the lower level to register

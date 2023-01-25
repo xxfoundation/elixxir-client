@@ -8,40 +8,41 @@
 package e2e
 
 import (
+	"sync"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	userStorage "gitlab.com/elixxir/client/storage/user"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	userStorage "gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"sync"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,6 +99,11 @@ type mockCmix struct {
 	sync.Mutex
 }
 
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func newMockCmix(myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *mockCmix {
 	return &mockCmix{
 		myID:          myID,
@@ -121,8 +127,7 @@ func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	panic("implement me")
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
-	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
@@ -137,15 +142,22 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	return rounds.Round{ID: 42}, []ephemeral.Id{}, nil
 }
 
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)                       { panic("implement me") }
-func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) { panic("implement me") }
-func (m *mockCmix) RemoveIdentity(*id.ID)                                     { panic("implement me") }
-func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error)            { panic("implement me") }
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) { panic("implement me") }
+func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
+	panic("implement me")
+}
+func (m *mockCmix) RemoveIdentity(*id.ID)                          { panic("implement me") }
+func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { panic("implement me") }
 
 func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
 	m.Lock()
@@ -365,8 +377,8 @@ func (m *mockStorage) GetTransmissionID() *id.ID                              { 
 func (m *mockStorage) GetTransmissionSalt() []byte                            { panic("implement me") }
 func (m *mockStorage) GetReceptionID() *id.ID                                 { panic("implement me") }
 func (m *mockStorage) GetReceptionSalt() []byte                               { panic("implement me") }
-func (m *mockStorage) GetReceptionRSA() *rsa.PrivateKey                       { panic("implement me") }
-func (m *mockStorage) GetTransmissionRSA() *rsa.PrivateKey                    { panic("implement me") }
+func (m *mockStorage) GetReceptionRSA() rsa.PrivateKey                        { panic("implement me") }
+func (m *mockStorage) GetTransmissionRSA() rsa.PrivateKey                     { panic("implement me") }
 func (m *mockStorage) IsPrecanned() bool                                      { panic("implement me") }
 func (m *mockStorage) SetUsername(string) error                               { panic("implement me") }
 func (m *mockStorage) GetUsername() (string, error)                           { panic("implement me") }

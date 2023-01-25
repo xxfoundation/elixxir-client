@@ -10,7 +10,7 @@ package gateway
 import (
 	"bytes"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -77,7 +77,7 @@ func unmarshalHostList(data []byte) ([]*id.ID, error) {
 	buff := bytes.NewBuffer(data)
 	list := make([]*id.ID, 0, len(data)/id.ArrIDLen)
 
-	// Read each ID from data, unmarshal, and add to list
+	// Read each ID from data, unmarshal, and Add to list
 	length := id.ArrIDLen
 	for n := buff.Next(length); len(n) == length; n = buff.Next(length) {
 		hid, err := id.Unmarshal(n)

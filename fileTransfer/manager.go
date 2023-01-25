@@ -11,17 +11,17 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/fileTransfer/callbackTracker"
-	"gitlab.com/elixxir/client/fileTransfer/store"
-	"gitlab.com/elixxir/client/fileTransfer/store/fileMessage"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/fileTransfer/callbackTracker"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store"
+	"gitlab.com/elixxir/client/v4/fileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -146,8 +146,8 @@ type FtE2e interface {
 // transfer manager for easier testing.
 type Cmix interface {
 	GetMaxMessageLength() int
-	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round,
-		[]ephemeral.Id, error)
+	SendMany(messages []cmix.TargetedCmixMessage,
+		p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error)
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)

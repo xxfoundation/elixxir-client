@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -307,6 +307,12 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 			jww.ERROR.Printf("Failed to load message %s from store, "+
 				"this may happen on occasion due to replays to increase "+
 				"reliability: %v", h, err)
+		}
+
+		if m != nil && h != mb.handler.HashMessage(m) {
+			jww.WARN.Printf("MessageHash mismatch, possible"+
+				" deserialization failure: %v != %v",
+				mb.handler.HashMessage(m), h)
 		}
 	}
 

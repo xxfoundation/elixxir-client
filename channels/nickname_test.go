@@ -1,18 +1,19 @@
 package channels
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/id"
 	"strconv"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Unit test. Tests that once you set a nickname with SetNickname, you can
 // retrieve the nickname using GetNickname.
 func TestNicknameManager_SetGetNickname(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	nm := loadOrNewNicknameManager(kv)
+	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -35,7 +36,7 @@ func TestNicknameManager_SetGetNickname(t *testing.T) {
 // retrieve the nickname using GetNickname after a reload.
 func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	nm := loadOrNewNicknameManager(kv)
+	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -46,7 +47,7 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 		}
 	}
 
-	nm2 := loadOrNewNicknameManager(kv)
+	nm2 := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -56,7 +57,8 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 		}
 		expected := "nickname#" + strconv.Itoa(i)
 		if nick != expected {
-			t.Fatalf("Nickname %d not found, expected: %s, received: %s ", i, expected, nick)
+			t.Fatalf("Nickname %d not found, expected: %s, received: %s ",
+				i, expected, nick)
 		}
 	}
 }
@@ -65,7 +67,7 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 // if no nickname has been set with the channel ID.
 func TestNicknameManager_GetNickname_Error(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	nm := loadOrNewNicknameManager(kv)
+	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -82,7 +84,7 @@ func TestNicknameManager_GetNickname_Error(t *testing.T) {
 // GetNickname returns a false boolean.
 func TestNicknameManager_DeleteNickname(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	nm := loadOrNewNicknameManager(kv)
+	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -104,5 +106,4 @@ func TestNicknameManager_DeleteNickname(t *testing.T) {
 				"that are not set.")
 		}
 	}
-
 }

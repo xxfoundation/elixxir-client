@@ -13,10 +13,11 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
+	oldRsa "gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -28,10 +29,10 @@ const cryptographicIdentityKey = "cryptographicIdentity"
 type CryptographicIdentity struct {
 	transmissionID     *id.ID
 	transmissionSalt   []byte
-	transmissionRsaKey *rsa.PrivateKey
+	transmissionRsaKey rsa.PrivateKey
 	receptionID        *id.ID
 	receptionSalt      []byte
-	receptionRsaKey    *rsa.PrivateKey
+	receptionRsaKey    rsa.PrivateKey
 	isPrecanned        bool
 	e2eDhPrivateKey    *cyclic.Int
 	e2eDhPublicKey     *cyclic.Int
@@ -40,20 +41,20 @@ type CryptographicIdentity struct {
 type ciDisk struct {
 	TransmissionID     *id.ID
 	TransmissionSalt   []byte
-	TransmissionRsaKey *rsa.PrivateKey
+	TransmissionRsaKey *oldRsa.PrivateKey
 	ReceptionID        *id.ID
 	ReceptionSalt      []byte
-	ReceptionRsaKey    *rsa.PrivateKey
+	ReceptionRsaKey    *oldRsa.PrivateKey
 	IsPrecanned        bool
 }
 
 type ciDiskV1 struct {
 	TransmissionID     *id.ID
 	TransmissionSalt   []byte
-	TransmissionRsaKey *rsa.PrivateKey
+	TransmissionRsaKey *oldRsa.PrivateKey
 	ReceptionID        *id.ID
 	ReceptionSalt      []byte
-	ReceptionRsaKey    *rsa.PrivateKey
+	ReceptionRsaKey    *oldRsa.PrivateKey
 	IsPrecanned        bool
 	E2eDhPrivateKey    []byte
 	E2eDhPublicKey     []byte
@@ -61,7 +62,7 @@ type ciDiskV1 struct {
 
 func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 	transmissionSalt, receptionSalt []byte,
-	transmissionRsa, receptionRsa *rsa.PrivateKey,
+	transmissionRsa, receptionRsa rsa.PrivateKey,
 	isPrecanned bool, e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int,
 	kv *versioned.KV) *CryptographicIdentity {
 
@@ -103,9 +104,11 @@ func loadOriginalCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity
 		return nil, err
 	}
 
+	sch := rsa.GetScheme()
+
 	result.isPrecanned = decodable.IsPrecanned
-	result.receptionRsaKey = decodable.ReceptionRsaKey
-	result.transmissionRsaKey = decodable.TransmissionRsaKey
+	result.receptionRsaKey = sch.Convert(&decodable.ReceptionRsaKey.PrivateKey)
+	result.transmissionRsaKey = sch.Convert(&decodable.TransmissionRsaKey.PrivateKey)
 	result.transmissionSalt = decodable.TransmissionSalt
 	result.transmissionID = decodable.TransmissionID
 	result.receptionID = decodable.ReceptionID
@@ -135,9 +138,11 @@ func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error)
 		return nil, err
 	}
 
+	sch := rsa.GetScheme()
+
 	result.isPrecanned = decodable.IsPrecanned
-	result.receptionRsaKey = decodable.ReceptionRsaKey
-	result.transmissionRsaKey = decodable.TransmissionRsaKey
+	result.receptionRsaKey = sch.Convert(&decodable.ReceptionRsaKey.PrivateKey)
+	result.transmissionRsaKey = sch.Convert(&decodable.TransmissionRsaKey.PrivateKey)
 	result.transmissionSalt = decodable.TransmissionSalt
 	result.transmissionID = decodable.TransmissionID
 	result.receptionID = decodable.ReceptionID
@@ -196,10 +201,10 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 	encodable := &ciDiskV1{
 		TransmissionID:     ci.transmissionID,
 		TransmissionSalt:   ci.transmissionSalt,
-		TransmissionRsaKey: ci.transmissionRsaKey,
+		TransmissionRsaKey: &oldRsa.PrivateKey{PrivateKey: *ci.transmissionRsaKey.GetGoRSA()},
 		ReceptionID:        ci.receptionID,
 		ReceptionSalt:      ci.receptionSalt,
-		ReceptionRsaKey:    ci.receptionRsaKey,
+		ReceptionRsaKey:    &oldRsa.PrivateKey{PrivateKey: *ci.receptionRsaKey.GetGoRSA()},
 		IsPrecanned:        ci.isPrecanned,
 		E2eDhPrivateKey:    dhPriv,
 		E2eDhPublicKey:     dhPub,
@@ -235,11 +240,11 @@ func (ci *CryptographicIdentity) GetReceptionSalt() []byte {
 	return ci.receptionSalt
 }
 
-func (ci *CryptographicIdentity) GetReceptionRSA() *rsa.PrivateKey {
+func (ci *CryptographicIdentity) GetReceptionRSA() rsa.PrivateKey {
 	return ci.receptionRsaKey
 }
 
-func (ci *CryptographicIdentity) GetTransmissionRSA() *rsa.PrivateKey {
+func (ci *CryptographicIdentity) GetTransmissionRSA() rsa.PrivateKey {
 	return ci.transmissionRsaKey
 }
 

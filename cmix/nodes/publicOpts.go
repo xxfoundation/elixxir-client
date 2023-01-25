@@ -10,15 +10,32 @@
 package nodes
 
 import (
-	"crypto"
 	"github.com/pkg/errors"
+	cHash "gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/tls"
+	"hash"
+	"io"
 
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 )
 
-func verifyNodeSignature(certContents string, hash crypto.Hash,
-	hashed []byte, sig []byte, opts *rsa.Options) error {
+func useSHA() bool {
+	return false
+}
+
+func getHash() func() hash.Hash {
+	return cHash.CMixHash.New
+}
+
+func verifyNodeSignature(certContents string, toBeHashed []byte, sig []byte) error {
+
+	opts := rsa.NewDefaultPSSOptions()
+
+	sch := rsa.GetScheme()
+
+	h := opts.Hash.New()
+	h.Write(toBeHashed)
+	hashed := h.Sum(nil)
 
 	// Load nodes certificate
 	gatewayCert, err := tls.LoadCertificate(certContents)
@@ -27,11 +44,26 @@ func verifyNodeSignature(certContents string, hash crypto.Hash,
 	}
 
 	// Extract public key
-	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
+	nodePubKeyOld, err := tls.ExtractPublicKey(gatewayCert)
 	if err != nil {
 		return errors.Errorf("Unable to load node's public key: %v", err)
 	}
 
+	nodePubKey := sch.ConvertPublic(&nodePubKeyOld.PublicKey)
+
 	// Verify the response signature
-	return rsa.Verify(nodePubKey, hash, hashed, sig, opts)
+	return nodePubKey.VerifyPSS(opts.Hash, hashed, sig, opts)
+}
+
+func signRegistrationRequest(rng io.Reader, toBeHashed []byte, privateKey rsa.PrivateKey) ([]byte, error) {
+
+	opts := rsa.NewDefaultPSSOptions()
+	opts.Hash = cHash.CMixHash
+
+	h := opts.Hash.New()
+	h.Write(toBeHashed)
+	hashed := h.Sum(nil)
+
+	// Verify the response signature
+	return privateKey.SignPSS(rng, opts.Hash, hashed, opts)
 }

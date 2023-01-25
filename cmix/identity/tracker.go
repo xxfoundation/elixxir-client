@@ -17,11 +17,11 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/cmix/address"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/v4/cmix/address"
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -56,9 +56,9 @@ const (
 
 type Tracker interface {
 	StartProcesses() stoppable.Stoppable
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
-	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
-	RemoveIdentity(id *id.ID)
+	AddIdentityInternal(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentityWithHistoryInternal(id *id.ID, validUntil, beginning time.Time, persistent bool)
+	RemoveIdentityInternal(id *id.ID)
 	ForEach(n int, rng io.Reader, addressSize uint8,
 		operator func([]receptionID.IdentityUse) error) error
 	GetIdentity(get *id.ID) (TrackedID, error)
@@ -136,8 +136,8 @@ func (t *manager) StartProcesses() stoppable.Stoppable {
 	return stop
 }
 
-// AddIdentity adds an identity to be tracked.
-func (t *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+// AddIdentityInternal adds an identity to be tracked.
+func (t *manager) AddIdentityInternal(id *id.ID, validUntil time.Time, persistent bool) {
 	lastGeneration := netTime.Now().Add(-GenerationDelta)
 	t.newIdentity <- TrackedID{
 		NextGeneration: netTime.Now().Add(-time.Second),
@@ -149,8 +149,8 @@ func (t *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) 
 	}
 }
 
-// AddIdentityWithHistory adds an identity to be tracked which will slowly pick up history.
-func (t *manager) AddIdentityWithHistory(id *id.ID, validUntil, historicalBeginning time.Time, persistent bool) {
+// AddIdentityWithHistoryInternal adds an identity to be tracked which will slowly pick up history.
+func (t *manager) AddIdentityWithHistoryInternal(id *id.ID, validUntil, historicalBeginning time.Time, persistent bool) {
 	retention := netTime.Now().Add(-NetworkRetention)
 	if historicalBeginning.Before(retention) {
 		historicalBeginning = retention
@@ -171,8 +171,8 @@ func (t *manager) AddIdentityWithHistory(id *id.ID, validUntil, historicalBeginn
 	}
 }
 
-// RemoveIdentity removes a currently tracked identity.
-func (t *manager) RemoveIdentity(id *id.ID) {
+// RemoveIdentityInternal removes a currently tracked identity.
+func (t *manager) RemoveIdentityInternal(id *id.ID) {
 	t.deleteIdentity <- id
 }
 

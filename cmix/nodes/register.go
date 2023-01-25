@@ -88,6 +88,11 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 			// Register with this node
 			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
+			if stoppable.CheckErr(err) {
+				jww.ERROR.Printf("Failed to register node: %s", err)
+				stop.ToStopped()
+				return
+			}
 
 			// Remove from in progress immediately (success or failure)
 			inProgress.Delete(nidStr)
@@ -132,7 +137,6 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 						}()
 					}
 				}
-
 			}
 			rng.Close()
 		}
@@ -187,13 +191,12 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		if err != nil {
 			return errors.Errorf("Failed to request key: %v", err)
 		}
-
 	}
 
 	r.add(nodeID, transmissionKey, validUntil, keyId)
 
 	jww.INFO.Printf("Completed registration with node %s,"+
-		" took %d", nodeID, time.Since(start))
+		" took %s", nodeID, time.Since(start))
 
 	return nil
 }

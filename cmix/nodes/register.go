@@ -171,12 +171,7 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	start := time.Now()
 	// TODO: should move this to a pre-canned user initialization
 	if s.IsPrecanned() {
-		userNum := int(s.GetTransmissionID().Bytes()[7])
-		h := sha256.New()
-		h.Reset()
-		h.Write([]byte(strconv.Itoa(4000 + userNum)))
-
-		transmissionKey = r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
+		transmissionKey = getPrecannedTransmissionKey(s, r)
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
 		// Request key from server
@@ -195,4 +190,15 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		" took %d", nodeID, time.Since(start))
 
 	return nil
+}
+
+func getPrecannedTransmissionKey(s session, r *registrar) *cyclic.Int {
+	userNum := int(s.GetTransmissionID().Bytes()[7])
+	h := sha256.New()
+	h.Reset()
+	h.Write([]byte(strconv.Itoa(4000 + userNum)))
+	var transmissionKey *cyclic.Int
+	transmissionKey = r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
+	jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
+	return transmissionKey
 }

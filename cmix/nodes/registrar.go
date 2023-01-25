@@ -240,6 +240,9 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 }
 
 func (r *registrar) handleMissingNode(rk *mixCypher, missingNodeID id.ID) (*key, error) {
+	if r.session.IsPrecanned() {
+		return &key{nil, getPrecannedTransmissionKey(r.session, r), nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""}, nil
+	}
 	if rk.ephemeralEdPrivKey == nil {
 		// Generate temp ed25519 for this send
 		rk.ephemeralEdPrivKey, rk.ephemeralEdPubKey = ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())

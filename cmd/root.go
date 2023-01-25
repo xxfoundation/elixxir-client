@@ -130,12 +130,12 @@ var rootCmd = &cobra.Command{
 		jww.INFO.Printf("Network followers started!")
 
 		// Wait until connected or crash on timeout
-		connected := make(chan bool, 10)
-		user.GetCmix().AddHealthCallback(
-			func(isConnected bool) {
-				connected <- isConnected
-			})
-		waitUntilConnected(connected)
+		//connected := make(chan bool, 10)
+		//user.GetCmix().AddHealthCallback(
+		//	func(isConnected bool) {
+		//		connected <- isConnected
+		//	})
+		//waitUntilConnected(connected)
 
 		// After connection, make sure we have registered with at least
 		// 85% of the nodes
@@ -143,15 +143,21 @@ var rootCmd = &cobra.Command{
 		total := 100
 		jww.INFO.Printf("Registering with nodes...")
 
-		for numReg < (total*3)/4 {
-			time.Sleep(1 * time.Second)
-			numReg, total, err = user.GetNodeRegistrationStatus()
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			jww.INFO.Printf("Registering with nodes (%d/%d)...",
-				numReg, total)
+		//for numReg < (total*4)/10 {
+		//	time.Sleep(1 * time.Second)
+		//	numReg, total, err = user.GetNodeRegistrationStatus()
+		//	if err != nil {
+		//		jww.FATAL.Panicf("%+v", err)
+		//	}
+		//	jww.INFO.Printf("Registering with nodes (%d/%d)...",
+		//		numReg, total)
+		//}
+		numReg, total, err = user.GetNodeRegistrationStatus()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
 		}
+		jww.INFO.Printf("Registering with nodes (%d/%d)...",
+			numReg, total)
 
 		user.GetBackupContainer().TriggerBackup("Integration test.")
 

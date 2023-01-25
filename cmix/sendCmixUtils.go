@@ -149,7 +149,9 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	}
 
 	encMsg, kmacs, ephemeralKeys, ephemeralKey := mixCrypt.Encrypt(msg, salt, id.Round(bestRound.ID))
-
+	if ephemeralKey != nil {
+		jww.INFO.Printf("Sending with ephemeral keys %+v, ephemeral key %+v", ephemeralKeys, ephemeralKey)
+	}
 	// Build the message payload
 	msgPacket := &pb.Slot{
 		SenderID:      senderId.Bytes(),

@@ -231,6 +231,7 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	if len(missingNodes) > 0 {
 		// Generate temp ed25519 for this send
 		priv, pub := ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
+		jww.INFO.Printf("Generated ephemeral keypair for sending to unregistered nodes")
 		edPub = pub.Bytes()
 		currentNdf := r.session.GetNDF()
 		for nid, keyIndex := range missingNodes {
@@ -238,13 +239,16 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 				if bytes.Compare(n.ID, nid[:]) == 0 {
 					nodePubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(n.Ed25519)
 					if err != nil {
-						return nil, err
+						return nil, errors.WithMessagef(err, "Failed to unmarshal binary pubkey %+v", n.Ed25519)
 					}
 					secret := priv.DeriveSecret(nodePubKey)
-					h := hash.CMixHash.New()
-					h.Write(secret)
-					k := r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
-					keys[keyIndex] = newKey(nil, k, &nid, uint64(time.Now().Add(time.Second*5).UnixNano()), nil)
+					nodeSecretHash := hash.CMixHash.New()
+					nodeSecretHash.Reset()
+					nodeSecretHash.Write(r.session.GetTransmissionID().Bytes())
+					nodeSecretHash.Write(secret)
+					hashBytes := nodeSecretHash.Sum(nil)
+					k := r.session.GetCmixGroup().NewIntFromBytes(hashBytes)
+					keys[keyIndex] = &key{nil, k, nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""} //newKey(r.kv, k, &nid, uint64(time.Now().Add(time.Second*5).UnixNano()), nil)
 					break
 				}
 			}

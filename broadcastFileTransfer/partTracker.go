@@ -8,8 +8,8 @@
 package broadcastFileTransfer
 
 import (
-	"gitlab.com/elixxir/client/broadcastFileTransfer/store"
-	"gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 )
 
 // sentFilePartTracker contains utility.StateVector that tracks which parts have

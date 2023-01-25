@@ -9,7 +9,7 @@ package store
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/broadcastFileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"

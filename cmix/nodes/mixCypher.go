@@ -59,7 +59,12 @@ func (mc *mixCypher) Encrypt(msg format.Message, salt []byte, roundID id.Round) 
 		}
 	}
 
-	return ecrMsg, KMAC, mc.ephemeralKeys, mc.ephemeralEdPubKey.Bytes()
+	var edPubBytes []byte
+	if mc.ephemeralEdPubKey != nil {
+		edPubBytes = mc.ephemeralEdPubKey.Bytes()
+	}
+
+	return ecrMsg, KMAC, mc.ephemeralKeys, edPubBytes
 }
 
 func (mc *mixCypher) MakeClientGatewayAuthMAC(salt, digest []byte) []byte {

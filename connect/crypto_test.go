@@ -80,7 +80,7 @@ func TestSignVerify_Consistency(t *testing.T) {
 	salt := make([]byte, 32)
 	copy(salt, "salt")
 
-	partnerId, err := xx.NewID(privKey.Public().GetOldRSA(), salt, id.User)
+	partnerId, err := xx.NewID(privKey.Public(), salt, id.User)
 	if err != nil {
 		t.Fatalf("NewId error: %v", err)
 	}

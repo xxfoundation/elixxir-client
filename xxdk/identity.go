@@ -116,7 +116,7 @@ func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	privKey := diffieHellman.GeneratePrivateKey(len(grp.GetPBytes()), grp, rng)
 
 	// make the ID
-	newId, err := xx.NewID(rsaKey.Public().GetOldRSA(), salt, id.User)
+	newId, err := xx.NewID(rsaKey.Public(), salt, id.User)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}

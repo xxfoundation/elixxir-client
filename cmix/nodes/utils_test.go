@@ -249,7 +249,7 @@ func (m *MockClientComms) SendRequestClientKeyMessage(_ *connect.Host,
 	}
 
 	// Parse user ID
-	userId, err := xx.NewID(userPublicKey.GetOldRSA(), msg.GetSalt(), id.User)
+	userId, err := xx.NewID(userPublicKey, msg.GetSalt(), id.User)
 	if err != nil {
 		m.t.Fatalf("Failed to generate user id: %+v", err)
 	}

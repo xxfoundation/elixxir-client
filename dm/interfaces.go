@@ -203,8 +203,8 @@ type EventModel interface {
 // cmixClient are the required cmix functions we need for direct messages
 type cMixClient interface {
 	GetMaxMessageLength() int
-	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
-		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
+	SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler,
+		params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error)
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
 		fallthroughProcessor message.Processor)
 	AddIdentityWithHistory(

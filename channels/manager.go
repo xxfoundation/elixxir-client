@@ -95,12 +95,25 @@ type EventModelBuilder func(path string) (EventModel, error)
 // This type must match [Cmix.AddService].
 type AddServiceFn func(sp xxdk.Service) error
 
-// NewManager creates a new channel Manager from a [channel.PrivateIdentity]. It
+// NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
+func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
+	addService AddServiceFn) (Manager, error) {
+	model, err := modelBuilder(getStorageTag(identity.PubKey))
+	if err != nil {
+		return nil, errors.Errorf("Failed to build event model: %+v", err)
+	}
+
+	return NewManager(identity, kv, net, rng, model, addService)
+}
+
+// NewManager creates a new channel Manager from a [cryptoChannel.PrivateIdentity]. It
 // prefixes the KV with a tag derived from the public key that can be retried
 // for reloading using [Manager.GetStorageTag].
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
-	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
+	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	addService AddServiceFn) (Manager, error) {
+
 	// Prefix the kv with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
@@ -109,11 +122,6 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	if err := storeIdentity(kv, identity); err != nil {
 		return nil, err
-	}
-
-	model, err := modelBuilder(storageTag)
-	if err != nil {
-		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
 	m := setupManager(identity, kv, net, rng, model)
@@ -125,7 +133,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (
+	rng *fastRNG.StreamGenerator, model EventModel) (
 	Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
@@ -138,15 +146,22 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 		return nil, err
 	}
 
+	m := setupManager(identity, kv, net, rng, model)
+	m.loadDMTokens()
+
+	return m, nil
+}
+
+// LoadManagerBuilder restores a channel Manager from disk stored at the given storage
+// tag.
+func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
+	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	m := setupManager(identity, kv, net, rng, model)
-	m.loadDMTokens()
-
-	return m, nil
+	return LoadManager(storageTag, kv, net, rng, model)
 }
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,

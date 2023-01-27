@@ -8,11 +8,12 @@
 package connect
 
 import (
+	"io"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
 )
 
 // Sign creates a signature authenticating an identity for a connection.
@@ -36,7 +37,7 @@ func verify(partnerId *id.ID, partnerPubKey rsa.PublicKey,
 
 	// Verify the partner's known ID against the information passed
 	// along the wire
-	partnerWireId, err := xx.NewID(partnerPubKey.GetOldRSA(), salt, id.User)
+	partnerWireId, err := xx.NewID(partnerPubKey, salt, id.User)
 	if err != nil {
 		return err
 	}

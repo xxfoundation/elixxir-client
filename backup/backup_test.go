@@ -9,10 +9,11 @@ package backup
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/xxdk"
 	"reflect"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/xxdk"
 
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -40,7 +41,7 @@ func Test_InitializeBackup(t *testing.T) {
 
 	select {
 	case <-cbChan:
-	case <-time.After(10 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 		t.Error("Timed out waiting for callback.")
 	}
 

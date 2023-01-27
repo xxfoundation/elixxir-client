@@ -8,21 +8,23 @@
 package gateway
 
 import (
+	"os"
+	"reflect"
+	"testing"
+	"time"
+
 	"encoding/json"
 	"github.com/golang-collections/collections/set"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"os"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -364,4 +366,12 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	if testCount != 1 {
 		t.Fatalf("Did not receive expected test count")
 	}
+}
+
+type mockCertCheckerComm struct {
+}
+
+func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(host *connect.Host,
+	message *pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {
+	return &pb.GatewayCertificate{}, nil
 }

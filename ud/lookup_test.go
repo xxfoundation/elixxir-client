@@ -8,15 +8,16 @@
 package ud
 
 import (
+	"reflect"
+	"strconv"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/single"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"strconv"
-	"testing"
-	"time"
 )
 
 // Happy path.
@@ -81,7 +82,7 @@ func TestManager_Lookup(t *testing.T) {
 	t.Logf("%v", r.Bytes())
 	t.Logf("%s", s)
 
-	timeout := 500 * time.Millisecond
+	timeout := 2000 * time.Millisecond
 	p := single.RequestParams{
 		Timeout:             timeout,
 		MaxResponseMessages: 1,

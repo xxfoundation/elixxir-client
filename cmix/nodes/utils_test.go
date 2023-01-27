@@ -8,6 +8,9 @@
 package nodes
 
 import (
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -17,7 +20,6 @@ import (
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/comms/connect"
@@ -28,8 +30,6 @@ import (
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"testing"
-	"time"
 )
 
 const (
@@ -235,8 +235,7 @@ func (m *MockClientComms) SendRequestClientKeyMessage(_ *connect.Host,
 	}
 
 	// Define hashing algorithm
-	opts := rsa.NewDefaultPSSOptions()
-	opts.Hash = hash.CMixHash
+	opts := getDefaultPSSOptions()
 	h := opts.Hash.New()
 
 	sch := rsa.GetScheme()
@@ -250,7 +249,7 @@ func (m *MockClientComms) SendRequestClientKeyMessage(_ *connect.Host,
 	}
 
 	// Parse user ID
-	userId, err := xx.NewID(userPublicKey.GetOldRSA(), msg.GetSalt(), id.User)
+	userId, err := xx.NewID(userPublicKey, msg.GetSalt(), id.User)
 	if err != nil {
 		m.t.Fatalf("Failed to generate user id: %+v", err)
 	}

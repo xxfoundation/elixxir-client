@@ -117,7 +117,7 @@ var channelsCmd = &cobra.Command{
 		}
 
 		// Construct channels manager
-		chanManager, err := channels.NewManager(channelIdentity,
+		chanManager, err := channels.NewManagerBuilder(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
 			mockEventModelBuilder, user.AddService)
 		if err != nil {

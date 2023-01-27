@@ -164,17 +164,19 @@ var channelsCmd = &cobra.Command{
 		}
 
 		// Register a callback for the expected message to be received.
+		receiveDone := make(chan struct{})
 		err = makeChannelReceptionHandler(integrationChannelMessage,
-			chanManager)
+			chanManager, receiveDone)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
 				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
 		}
 
 		// Send message
+		sendDone := make(chan struct{})
 		if viper.GetBool(channelsSendFlag) {
 			msgBody := []byte(viper.GetString(messageFlag))
-			err = sendMessageToChannel(chanManager, channel, msgBody)
+			err = sendMessageToChannel(chanManager, channel, msgBody, sendDone)
 			if err != nil {
 				jww.FATAL.Panicf("[%s] Failed to send message: %+v",
 					channelsPrintHeader, err)
@@ -190,6 +192,24 @@ var channelsCmd = &cobra.Command{
 			}
 
 			fmt.Printf("Successfully left channel %s\n", channel.Name)
+		}
+
+		// Wait for reception
+		select {
+		case <-receiveDone:
+			jww.INFO.Printf("[FT] Finished receiving from channel(s). " +
+				"Stopping threads and network follower.")
+
+		case <-sendDone:
+			jww.INFO.Printf("[CHAN] Finished sending to channel(s). " +
+				"Stopping threads and network follower.")
+
+		}
+
+		// Stop network follower
+		err = user.StopNetworkFollower()
+		if err != nil {
+			jww.WARN.Printf("[FT] Failed to stop network follower: %+v", err)
 		}
 
 	},
@@ -245,7 +265,7 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 // sendMessageToChannel is a helper function which will send a message to a
 // channel.
 func sendMessageToChannel(chanManager channels.Manager,
-	channel *cryptoBroadcast.Channel, msgBody []byte) error {
+	channel *cryptoBroadcast.Channel, msgBody []byte, done chan struct{}) error {
 	jww.INFO.Printf("[%s] Sending message (%s) to channel %s",
 		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
@@ -260,13 +280,15 @@ func sendMessageToChannel(chanManager channels.Manager,
 		channel.ReceptionID, chanMsgId, round.ID)
 	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
 
+	done <- struct{}{}
+
 	return nil
 }
 
 // makeChannelReceptionHandler is a helper function which will register with the
 // channels.Manager a reception callback for the given message type.
 func makeChannelReceptionHandler(msgType channels.MessageType,
-	chanManager channels.Manager) error {
+	chanManager channels.Manager, done chan struct{}) error {
 	// Construct receiver callback
 	cb := func(channelID *id.ID, _ message.ID, _ channels.MessageType, _ string,
 		content, _ []byte, _ ed25519.PublicKey, _ uint32, _ uint8, _,
@@ -281,6 +303,7 @@ func makeChannelReceptionHandler(msgType channels.MessageType,
 			channelsPrintHeader, content, channelReceivedMessage.Name)
 		fmt.Printf("Received message (%s) from %s\n",
 			content, channelReceivedMessage.Name)
+		done <- struct{}{}
 		return 0
 	}
 	return chanManager.RegisterReceiveHandler(msgType,

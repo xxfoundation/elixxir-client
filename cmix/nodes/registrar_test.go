@@ -14,10 +14,12 @@ import (
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"testing"
 	"time"
 )
@@ -126,11 +128,30 @@ func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 	r := makeTestRegistrar(&MockClientComms{}, t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
-	// Set up the circuit
+	_, nodeEdPub := ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
 	numIds := 10
-	nodeIds := make([]*id.ID, numIds)
+	r.session.GetNDF().Nodes = []ndf.Node{}
 	for i := 0; i < numIds; i++ {
-		nodeIds[i] = id.NewIdFromUInt(uint64(i)+1, id.Node, t)
+		nid := id.NewIdFromUInt(uint64(i), id.Node, t)
+		r.session.GetNDF().Nodes = append(r.session.GetNDF().Nodes, ndf.Node{
+			ID:             nid.Bytes(),
+			Address:        "0.0.0.0",
+			TlsCertificate: "",
+			Status:         ndf.Active,
+			Ed25519:        nodeEdPub.Bytes(),
+		})
+	}
+
+	// Set up the circuit
+	ndfNodes := r.session.GetNDF().Nodes
+	nodeIds := make([]*id.ID, numIds)
+
+	for i := 0; i < numIds; i++ {
+		var err error
+		nodeIds[i], err = ndfNodes[i].GetNodeId()
+		if err != nil {
+			t.Fatalf("Failed to get ID for node in NDF: %+v", err)
+		}
 		k := grp.NewInt(int64(i) + 1)
 
 		// Only add every other nodes so there are missing nodes
@@ -146,13 +167,13 @@ func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 	circuit := connect.NewCircuit(nodeIds)
 	result, err := r.GetNodeKeys(circuit)
 	if err != nil {
-		t.Fatalf("Should no longer error when some keys are missing")
+		t.Fatalf("Should no longer error when some keys are missing: %+v", err)
 	}
 	mc, ok := result.(*mixCypher)
 	if !ok {
 		t.Fatalf("Failed conversion to *mixCypher")
 	}
-	if mc.ephemeralKey == nil {
+	if mc.ephemeralEdPrivKey == nil {
 		t.Errorf("Did not set ephemeral key when keys are missing")
 	}
 	//if err == nil {

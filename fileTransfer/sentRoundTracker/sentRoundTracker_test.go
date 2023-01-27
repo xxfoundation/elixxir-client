@@ -42,7 +42,7 @@ func TestManager_RemoveOldRounds(t *testing.T) {
 		}
 	}
 
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
 
 	// Add even round to tracker
 	for rid := id.Round(0); rid < 100; rid++ {

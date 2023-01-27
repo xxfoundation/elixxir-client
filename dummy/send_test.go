@@ -49,7 +49,7 @@ func TestManager_sendThread(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(10 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:

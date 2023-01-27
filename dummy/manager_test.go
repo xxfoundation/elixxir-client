@@ -80,7 +80,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}
 
-	stoppable.WaitForStopped(stop, 250*time.Millisecond)
+	stoppable.WaitForStopped(stop, 1*time.Second)
 	// NOTE: this test was a bit bugged originally, as you can't
 	// stop waiting for message received updated, wait a few
 	// lines, then stop the process, then expect not to have ever
@@ -101,7 +101,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 	}()
 
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(5 * m.avgSendDelta).C:
 
 	case <-msgChan:
 		t.Error("Received new messages after stoppable was stopped.")

@@ -322,10 +322,6 @@ type Client interface {
 	SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc,
 		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
 
-	// SetGatewayFilter sets a function which will be used to filter gateways
-	// before connecting.
-	SetGatewayFilter(f gateway.Filter)
-
 	// GetHostParams returns the host params used when connecting to gateways.
 	GetHostParams() connect.HostParams
 

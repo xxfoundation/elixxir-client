@@ -348,6 +348,12 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	require.Equal(t, len(newNdf.Gateways), len(testPool.ndf.Gateways))
 	require.Equal(t, allowedIds.Len(), len(testPool.ndfMap))
 
+	for gwid, _ := range testPool.ndfMap {
+		if !allowedIds.Has(gwid.String()) {
+			t.Fatalf("id in NDF map not in allowed IDs")
+		}
+	}
+
 	done := false
 	testCount := 0
 	for !done {

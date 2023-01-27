@@ -54,88 +54,88 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{
 		Gateways: []ndf.Gateway{{
 			ID:      id.NewIdFromUInt(0, id.Gateway, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 		}, {
 			ID:      id.NewIdFromUInt(1, id.Gateway, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 		}, {
 			ID:      id.NewIdFromUInt(2, id.Gateway, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 		}, {
 			ID:      id.NewIdFromUInt(3, id.Gateway, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 		}, {
 			ID:      id.NewIdFromUInt(4, id.Gateway, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 		}, {
 			ID:      id.NewIdFromUInt(5, id.Gateway, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 		}, {
 			ID:      id.NewIdFromUInt(6, id.Gateway, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 		}, {
 			ID:      id.NewIdFromUInt(7, id.Gateway, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 		}, {
 			ID:      id.NewIdFromUInt(8, id.Gateway, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 		}, {
 			ID:      id.NewIdFromUInt(9, id.Gateway, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 		}, {
 			ID:      id.NewIdFromUInt(10, id.Gateway, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 		}, {
 			ID:      id.NewIdFromUInt(11, id.Gateway, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 		}},
 		Nodes: []ndf.Node{{
 			ID:      id.NewIdFromUInt(0, id.Node, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(1, id.Node, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(2, id.Node, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(3, id.Node, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(4, id.Node, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(5, id.Node, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(6, id.Node, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(7, id.Node, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(8, id.Node, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(9, id.Node, face)[:],
-			Address: "0.0.0.1",
+			Address: "0.0.0.1:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(10, id.Node, face)[:],
-			Address: "0.0.0.2",
+			Address: "0.0.0.2:11420",
 			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(11, id.Node, face)[:],
-			Address: "0.0.0.3",
+			Address: "0.0.0.3:11420",
 			Status:  ndf.Active,
 		}},
 	}

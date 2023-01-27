@@ -240,10 +240,12 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	// Construct a new Ndf different from original one above
 	newNdf := getTestNdf(t)
 	newGateway := ndf.Gateway{
-		ID: id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
+		ID:      id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
+		Address: "0.0.0.3:11420",
 	}
 	newNode := ndf.Node{
-		ID: id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		ID:      id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		Address: "0.0.0.3:11420",
 	}
 	newNdf.Gateways = append(newNdf.Gateways, newGateway)
 	newNdf.Nodes = append(newNdf.Nodes, newNode)
@@ -291,15 +293,13 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	allowedIds := set.New()
 	allowedId := id.NewIdFromUInt(27, id.Gateway, t)
 	allowedIds.Insert(allowedId.String())
+	whitelist := []string{allowedId.String()}
+
+	f := GatewayWhitelistFilter(whitelist)
 	params.GatewayFilter = func(unfiltered map[id.ID]int, ndf *ndf.NetworkDefinition) map[id.ID]int {
-		filteredIds := map[id.ID]int{}
-		for gwId, index := range unfiltered {
-			if allowedIds.Has(gwId.String()) {
-				filteredIds[gwId] = index
-			}
-		}
 		doneCh <- true
-		return filteredIds
+		filtered := f(unfiltered, ndf)
+		return filtered
 	}
 	testPool, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan, mccc)
 	if err != nil {
@@ -315,10 +315,13 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	// Construct a new Ndf different from original one above
 	newNdf := getTestNdf(t)
 	newGateway := ndf.Gateway{
-		ID: allowedId.Bytes(),
+		ID:      allowedId.Bytes(),
+		Address: "0.0.0.3:11420",
 	}
 	newNode := ndf.Node{
-		ID: id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		ID:      id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		Address: "0.0.0.3:11420",
+		Status:  ndf.Active,
 	}
 	newNdf.Gateways = append(newNdf.Gateways, newGateway)
 	newNdf.Nodes = append(newNdf.Nodes, newNode)

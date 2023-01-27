@@ -127,6 +127,15 @@ var channelsCmd = &cobra.Command{
 
 		mockEventModel.api = chanManager
 
+		// Register a callback for the expected message to be received.
+		receiveDone := make(chan struct{})
+		err = makeChannelReceptionHandler(integrationChannelMessage,
+			chanManager, receiveDone)
+		if err != nil {
+			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
+				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
+		}
+
 		// Load in channel info
 		var channel *cryptoBroadcast.Channel
 		chanPath := viper.GetString(channelsChanPathFlag)
@@ -163,15 +172,6 @@ var channelsCmd = &cobra.Command{
 			fmt.Printf("Successfully joined channel %s\n", channel.Name)
 		}
 
-		// Register a callback for the expected message to be received.
-		receiveDone := make(chan struct{})
-		err = makeChannelReceptionHandler(integrationChannelMessage,
-			chanManager, receiveDone)
-		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
-				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
-		}
-
 		// Send message
 		sendDone := make(chan struct{})
 		if viper.GetBool(channelsSendFlag) {
@@ -197,7 +197,7 @@ var channelsCmd = &cobra.Command{
 		// Wait for reception
 		select {
 		case <-receiveDone:
-			jww.INFO.Printf("[FT] Finished receiving from channel(s). " +
+			jww.INFO.Printf("[CHAN] Finished receiving from channel(s). " +
 				"Stopping threads and network follower.")
 
 		case <-sendDone:
@@ -209,8 +209,10 @@ var channelsCmd = &cobra.Command{
 		// Stop network follower
 		err = user.StopNetworkFollower()
 		if err != nil {
-			jww.WARN.Printf("[FT] Failed to stop network follower: %+v", err)
+			jww.WARN.Printf("[CHAN] Failed to stop network follower: %+v", err)
 		}
+
+		jww.INFO.Printf("[CHAN] Completed execution...")
 
 	},
 }
@@ -272,6 +274,9 @@ func sendMessageToChannel(chanManager channels.Manager,
 		channel.ReceptionID, integrationChannelMessage, msgBody, 5*time.Second,
 		true, cmix.GetDefaultCMIXParams())
 	if err != nil {
+		go func() {
+			done <- struct{}{}
+		}()
 		return errors.Errorf("%+v", err)
 	}
 
@@ -279,8 +284,9 @@ func sendMessageToChannel(chanManager channels.Manager,
 		"message ID %s on round %d", channelsPrintHeader, msgBody, channel.Name,
 		channel.ReceptionID, chanMsgId, round.ID)
 	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
-
-	done <- struct{}{}
+	go func() {
+		done <- struct{}{}
+	}()
 
 	return nil
 }

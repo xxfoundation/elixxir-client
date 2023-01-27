@@ -84,6 +84,8 @@ var defaultFilter = func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]in
 	return m
 }
 
+// GatewayWhitelistFilter accepts a list of gateway ID strings in base64 format,
+// and returns a filter function for use in a hostpool
 func GatewayWhitelistFilter(gwIds []string) Filter {
 	allowedGwids := set.New()
 	for _, gwid := range gwIds {

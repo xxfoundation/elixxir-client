@@ -8,6 +8,7 @@
 package gateway
 
 import (
+	"github.com/stretchr/testify/require"
 	"os"
 	"reflect"
 	"testing"
@@ -343,15 +344,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Check that the host pool's NDF has been modified properly
-	if len(newNdf.Nodes) != len(testPool.ndf.Nodes) ||
-		len(newNdf.Gateways) != len(testPool.ndf.Gateways) ||
-		allowedIds.Len() != len(testPool.ndfMap) {
-		t.Errorf("Host pool NDF not updated to new NDF.")
-	}
-
-	if len(testPool.ndfMap) != allowedIds.Len() {
-		t.Errorf("Did not properly apply filter")
-	}
+	require.Equal(t, len(newNdf.Nodes), len(testPool.ndf.Nodes))
+	require.Equal(t, len(newNdf.Gateways), len(testPool.ndf.Gateways))
+	require.Equal(t, allowedIds.Len(), len(testPool.ndfMap))
 
 	done := false
 	testCount := 0

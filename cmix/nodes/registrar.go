@@ -126,8 +126,8 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	return multi
 }
 
-//PauseNodeRegistrations stops all node registrations
-//and returns a function to resume them
+// PauseNodeRegistrations stops all node registrations
+// and returns a function to resume them
 func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 	r.runnerLock.Lock()
 	defer r.runnerLock.Unlock()

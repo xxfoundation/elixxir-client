@@ -273,7 +273,8 @@ func (p *pool) selectNew(rng csprng.Source, allNodes map[id.ID]int,
 
 	// Error out if no nodes are left
 	if len(newList) == 0 {
-		return nil, nil, errors.New("no nodes available for selection")
+		// currentlyAddingNodes is used as passed state, we want to preserve this even if there's an error here.
+		return nil, currentlyAddingNodes, errors.New("no nodes available for selection")
 	}
 
 	if numToSelect > len(newList) {

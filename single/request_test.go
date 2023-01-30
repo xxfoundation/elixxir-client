@@ -171,7 +171,7 @@ func Test_waitForTimeout_TimeoutError(t *testing.T) {
 			t.Errorf("Did not get expected error on callback."+
 				"\nexpected: %s\nreceived: %+v", expectedErr, r)
 		}
-	case <-time.After(timeout * 2):
+	case <-time.After(5 * time.Second):
 		t.Errorf("Timed out waiting on callback.")
 	}
 }

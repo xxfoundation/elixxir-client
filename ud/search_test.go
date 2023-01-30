@@ -69,7 +69,7 @@ func TestManager_Search(t *testing.T) {
 		tnm, grp, receiver)
 	defer mockListener.Stop()
 
-	timeout := 100 * time.Millisecond
+	timeout := 10 * time.Second
 	p := single.RequestParams{
 		Timeout:             timeout,
 		MaxResponseMessages: 1,

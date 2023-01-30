@@ -255,11 +255,9 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	// Update pool with the new Ndf
 	testPool.UpdateNdf(newNdf)
 
-	time.Sleep(1 * time.Second)
-
 	c := make(chan struct{})
 	go func() {
-		for len(newNdf.Nodes) == len(testPool.ndf.Nodes) {
+		for len(newNdf.Nodes) != len(testPool.ndf.Nodes) {
 			time.Sleep(50 * time.Millisecond)
 		}
 		c <- struct{}{}

@@ -47,18 +47,15 @@ func Lookup(user udE2e,
 // lookup is a helper function which sends a lookup request to the user discovery
 // service. It will construct a contact object off of the returned public key.
 // The callback will be called on that contact object.
-func lookup(net udCmix, rng csprng.Source, uid *id.ID,
-	grp *cyclic.Group, udContact contact.Contact,
-	callback lookupCallback,
-	p single.RequestParams) (
+func lookup(net udCmix, rng csprng.Source, uid *id.ID, grp *cyclic.Group,
+	udContact contact.Contact, callback lookupCallback, p single.RequestParams) (
 	[]id.Round, receptionID.EphemeralIdentity, error) {
 	// Build the request and marshal it
 	request := &LookupSend{UserID: uid.Marshal()}
 	requestMarshaled, err := proto.Marshal(request)
 	if err != nil {
-		return []id.Round{},
-			receptionID.EphemeralIdentity{}, errors.WithMessage(err,
-				"Failed to form outgoing lookup request.")
+		return []id.Round{}, receptionID.EphemeralIdentity{},
+			errors.WithMessage(err, "Failed to form outgoing lookup request.")
 	}
 
 	response := lookupResponse{
@@ -67,9 +64,8 @@ func lookup(net udCmix, rng csprng.Source, uid *id.ID,
 		grp: grp,
 	}
 
-	return single.TransmitRequest(udContact, LookupTag, requestMarshaled,
-		response, p, net, rng,
-		grp)
+	return single.TransmitRequest(
+		udContact, LookupTag, requestMarshaled, response, p, net, rng, grp)
 }
 
 // lookupResponse processes the lookup response. The returned public key
@@ -82,8 +78,7 @@ type lookupResponse struct {
 }
 
 func (m lookupResponse) Callback(payload []byte,
-	receptionID receptionID.EphemeralIdentity,
-	rounds []rounds.Round, err error) {
+	_ receptionID.EphemeralIdentity, _ []rounds.Round, err error) {
 
 	if err != nil {
 		go m.cb(contact.Contact{}, errors.WithMessage(err, "Failed to lookup."))
@@ -97,9 +92,8 @@ func (m lookupResponse) Callback(payload []byte,
 			"failed unmarshal: %s", err)
 	}
 	if lr.Error != "" {
-		err = errors.Errorf("User Discovery returned an error on lookup: %s",
-			lr.Error)
-		go m.cb(contact.Contact{}, err)
+		go m.cb(contact.Contact{}, errors.Errorf(
+			"User Discovery returned an error on lookup: %s", lr.Error))
 		return
 	}
 

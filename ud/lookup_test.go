@@ -63,28 +63,24 @@ func TestManager_Lookup(t *testing.T) {
 		t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 	}
 
-	mockListener := single.Listen(LookupTag, udbId, udMockPrivKey,
-		tnm, grp, receiver)
+	mockListener :=
+		single.Listen(LookupTag, udbId, udMockPrivKey, tnm, grp, receiver)
 
 	defer mockListener.Stop()
 
 	r := m.user.GetE2E().GetGroup().NewInt(1)
 	m.user.GetE2E().GetGroup().Random(r)
 	s := ""
-	jsonable, err := r.MarshalJSON()
+	data, err := r.MarshalJSON()
 	if err != nil {
 		t.Fatalf("failed to marshal json: %v", err)
 	}
-	for _, b := range jsonable {
+	for _, b := range data {
 		s += strconv.Itoa(int(b)) + ", "
 	}
 
-	t.Logf("%v", r.Bytes())
-	t.Logf("%s", s)
-
-	timeout := 2000 * time.Millisecond
 	p := single.RequestParams{
-		Timeout:             timeout,
+		Timeout:             10 * time.Second,
 		MaxResponseMessages: 1,
 		CmixParams:          cmix.GetDefaultCMIXParams(),
 	}

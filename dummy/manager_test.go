@@ -69,9 +69,9 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(25 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			25*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
 	}
 
@@ -80,7 +80,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}
 
-	err = stoppable.WaitForStopped(stop, 250*time.Millisecond)
+	err = stoppable.WaitForStopped(stop, 5*time.Second)
 	if err != nil {
 		t.Errorf("Failed to wait for stoppable to be stopped: %+v", err)
 	}

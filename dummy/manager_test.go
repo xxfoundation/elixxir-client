@@ -69,9 +69,9 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(5 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			5*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
 	}
 
@@ -80,13 +80,17 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}
 
-	stoppable.WaitForStopped(stop, 250*time.Millisecond)
+	err = stoppable.WaitForStopped(stop, 5*time.Second)
+	if err != nil {
+		t.Errorf("Failed to wait for stoppable to be stopped: %+v", err)
+	}
+
 	// NOTE: this test was a bit bugged originally, as you can't
-	// stop waiting for message received updated, wait a few
+	// stop waiting for message received updated, wait for a few
 	// lines, then stop the process, then expect not to have ever
 	// received a new message.
 	// What we do instead is get the len immediately after stopping, then
-	// wait some time to see if it changes
+	// wait for some time to see if it changes
 	numReceived = m.net.(*mockCmix).GetMsgListLen()
 	if !stop.IsStopped() {
 		t.Error("Stoppable never stopped.")

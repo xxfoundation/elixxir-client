@@ -338,23 +338,19 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	newNdf.Gateways = append(newNdf.Gateways, newGateway)
 	newNdf.Nodes = append(newNdf.Nodes, newNode)
 
-	timeout := time.NewTimer(time.Second)
 	select {
-	case <-timeout.C:
+	case <-time.After(2 * time.Second):
 		t.Fatalf("Did not run filter before timeout")
 	case <-doneCh:
-		t.Log("Received from filter channel 1")
 	}
 
 	// Update pool with the new Ndf
 	testPool.UpdateNdf(newNdf)
 
-	timeout.Reset(5 * time.Second)
 	select {
-	case <-timeout.C:
+	case <-time.After(5 * time.Second):
 		t.Fatalf("Did not run filter before timeout")
 	case <-doneCh:
-		t.Log("Received from filter channel 2")
 	}
 	time.Sleep(time.Second)
 
@@ -380,12 +376,12 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		}
 	}
 	if testCount != 1 {
-		t.Fatalf("Did not receive expected test count")
+		t.Fatalf("Did not receive expected test count." +
+			"\nexpected: %d\nreceived: %d", 1, testCount)
 	}
 }
 
-type mockCertCheckerComm struct {
-}
+type mockCertCheckerComm struct{}
 
 func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(*connect.Host,
 	*pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {

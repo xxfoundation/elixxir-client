@@ -109,7 +109,7 @@ func Test_newTracker(t *testing.T) {
 		if c != expectedCount {
 			t.Errorf("Expected counter to be %d, got %d", expectedCount, c)
 		}
-	case <-time.After(timeout):
+	case <-time.After(5 * time.Second):
 		t.Errorf("Timed out waiting for counter to be expected value."+
 			"\nexpected: %d\nreceived: %d",
 			expectedCount, atomic.LoadInt64(&counter))

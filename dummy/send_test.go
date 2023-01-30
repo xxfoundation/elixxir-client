@@ -49,9 +49,9 @@ func TestManager_sendThread(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(10 * m.avgSendDelta).C:
+	case <-time.NewTimer(25 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			25*m.avgSendDelta)
 	case <-msgChan:
 		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}

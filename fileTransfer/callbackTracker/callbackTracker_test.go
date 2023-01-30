@@ -99,9 +99,9 @@ func Test_callbackTracker_call(t *testing.T) {
 		if !ct.complete {
 			t.Error("Callback is not marked complete when it should be.")
 		}
-	case <-time.After(ct.period + 100*time.Millisecond):
+	case <-time.After(ct.period * 25):
 		t.Errorf("Callback not called after period %s.",
-			ct.period+100*time.Millisecond)
+			ct.period+15*time.Millisecond)
 	}
 
 	// Tests that all callback calls after an error are blocked

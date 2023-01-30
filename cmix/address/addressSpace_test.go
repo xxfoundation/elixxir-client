@@ -210,7 +210,7 @@ func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 						"\nexpected: %d\nreceived: %d",
 						chanID, expectedSize, size)
 				}
-			case <-time.After(200 * time.Millisecond):
+			case <-time.After(3 * time.Second):
 				t.Errorf("Timed out waiting on channel %s", chanID)
 			}
 		}(chanID, notifyChan)

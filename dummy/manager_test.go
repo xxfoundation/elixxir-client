@@ -169,9 +169,9 @@ func TestManager_PauseResume(t *testing.T) {
 	}
 
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
 		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}

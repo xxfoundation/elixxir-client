@@ -234,7 +234,9 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	stop := stoppable.NewSingle("tester")
 	go testPool.runner(stop)
 	defer func() {
-		stop.Close()
+		if err = stop.Close(); err != nil {
+			t.Fatalf("Failed to close stoppable: %+v", err)
+		}
 	}()
 
 	// Construct a new Ndf different from original one above
@@ -255,11 +257,24 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	// Check that the host pool's NDF has been modified properly
-	if len(newNdf.Nodes) != len(testPool.ndf.Nodes) ||
-		len(newNdf.Gateways) != len(testPool.ndf.Gateways) ||
-		len(newNdf.Gateways) != len(testPool.ndfMap) {
-		t.Errorf("Host pool NDF not updated to new NDF.")
+	c := make(chan struct{})
+	go func() {
+		for len(newNdf.Nodes) == len(testPool.ndf.Nodes) {
+			time.Sleep(50 * time.Millisecond)
+		}
+		c <- struct{}{}
+	}()
+
+	select {
+	case <-c:
+		// Check that the host pool's NDF has been modified properly
+		if len(newNdf.Nodes) != len(testPool.ndf.Nodes) ||
+			len(newNdf.Gateways) != len(testPool.ndf.Gateways) ||
+			len(newNdf.Gateways) != len(testPool.ndfMap) {
+			t.Errorf("Host pool NDF not updated to new NDF.")
+		}
+	case <-time.After(5 * time.Second):
+		t.Errorf("Timed out waiting for NDF to update.")
 	}
 }
 
@@ -309,7 +324,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	stop := stoppable.NewSingle("tester")
 	go testPool.runner(stop)
 	defer func() {
-		stop.Close()
+		if err = stop.Close(); err != nil {
+			t.Fatalf("Failed to close stoppable: %+v", err)
+		}
 	}()
 
 	// Construct a new Ndf different from original one above
@@ -351,8 +368,8 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	require.Equal(t, len(newNdf.Gateways), len(testPool.ndf.Gateways))
 	require.Equal(t, allowedIds.Len(), len(testPool.ndfMap))
 
-	for gwid, _ := range testPool.ndfMap {
-		if !allowedIds.Has(gwid.String()) {
+	for gwID := range testPool.ndfMap {
+		if !allowedIds.Has(gwID.String()) {
 			t.Fatalf("id in NDF map not in allowed IDs")
 		}
 	}
@@ -375,7 +392,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 type mockCertCheckerComm struct {
 }
 
-func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(host *connect.Host,
-	message *pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {
+func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(*connect.Host,
+	*pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {
 	return &pb.GatewayCertificate{}, nil
 }

@@ -126,7 +126,6 @@ func TestSender_SendToPreferred(t *testing.T) {
 	defer stream.Close()
 
 	var preferredHost *connect.Host
-
 	// Put 3 gateways into the pool
 	for i := 0; i < cap(s.writePool.hostList); i++ {
 		gw := testNdf.Gateways[i]

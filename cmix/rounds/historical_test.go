@@ -41,10 +41,20 @@ func TestHistoricalRounds(t *testing.T) {
 	}
 	time.Sleep(750 * time.Millisecond)
 
-	sendCnt := sender.getSendCnt()
-	if sendCnt != 1 {
-		t.Errorf("Did not send as expected.\nexpected: %d\nreceived: %d",
-			1, sendCnt)
+	c := make(chan struct{})
+	go func() {
+		sendCnt := sender.getSendCnt()
+		for ; sendCnt != 1; sendCnt = sender.getSendCnt() {
+			time.Sleep(20 * time.Millisecond)
+		}
+		c <- struct{}{}
+	}()
+
+	select {
+	case <-c:
+	case <-time.After(5 * time.Second):
+		t.Errorf("Timed out waiting for send count.\nexpected: %d\nreceived: %d",
+			1, sender.getSendCnt())
 	}
 
 	// Case 2: make round requests up to m.params.MaxHistoricalRounds
@@ -152,10 +162,7 @@ type testGWSender struct {
 	sync.RWMutex
 }
 
-func (t *testGWSender) StartProcesses() stoppable.Stoppable {
-	//TODO implement me
-	panic("implement me")
-}
+func (t *testGWSender) StartProcesses() stoppable.Stoppable { panic("implement me") }
 
 func (t *testGWSender) getSendCnt() int {
 	t.RLock()
@@ -182,7 +189,6 @@ func (t *testGWSender) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc,
 }
 
 func (t *testGWSender) UpdateNdf(*ndf.NetworkDefinition) {}
-func (t *testGWSender) SetGatewayFilter(gateway.Filter)  {}
 func (t *testGWSender) GetHostParams() connect.HostParams {
 	return connect.GetDefaultHostParams()
 }

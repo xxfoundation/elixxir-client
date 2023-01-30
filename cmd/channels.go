@@ -127,15 +127,6 @@ var channelsCmd = &cobra.Command{
 
 		mockEventModel.api = chanManager
 
-		// Register a callback for the expected message to be received.
-		receiveDone := make(chan struct{})
-		err = makeChannelReceptionHandler(integrationChannelMessage,
-			chanManager, receiveDone)
-		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
-				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
-		}
-
 		// Load in channel info
 		var channel *cryptoBroadcast.Channel
 		chanPath := viper.GetString(channelsChanPathFlag)
@@ -172,15 +163,25 @@ var channelsCmd = &cobra.Command{
 			fmt.Printf("Successfully joined channel %s\n", channel.Name)
 		}
 
+		// Register a callback for the expected message to be received.
+		receiveMessage := make(chan receivedMessage)
+		err = makeChannelReceptionHandler(integrationChannelMessage,
+			chanManager, receiveMessage)
+		if err != nil {
+			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
+				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
+		}
+
 		// Send message
-		sendDone := make(chan struct{})
 		if viper.GetBool(channelsSendFlag) {
-			msgBody := []byte(viper.GetString(messageFlag))
-			err = sendMessageToChannel(chanManager, channel, msgBody, sendDone)
-			if err != nil {
-				jww.FATAL.Panicf("[%s] Failed to send message: %+v",
-					channelsPrintHeader, err)
-			}
+			go func() {
+				msgBody := []byte(viper.GetString(messageFlag))
+				err = sendMessageToChannel(chanManager, channel, msgBody)
+				if err != nil {
+					jww.FATAL.Panicf("[%s] Failed to send message: %+v",
+						channelsPrintHeader, err)
+				}
+			}()
 		}
 
 		// Leave channel
@@ -194,17 +195,41 @@ var channelsCmd = &cobra.Command{
 			fmt.Printf("Successfully left channel %s\n", channel.Name)
 		}
 
-		// Wait for reception
-		select {
-		case <-receiveDone:
-			jww.INFO.Printf("[CHAN] Finished receiving from channel(s). " +
-				"Stopping threads and network follower.")
+		// Wait for reception. There should be 4 operations for the
+		// integration test:
+		waitTime := viper.GetDuration(waitTimeoutFlag) * time.Second
+		maxReceiveCnt := viper.GetInt(receiveCountFlag)
+		receiveCnt := 0
+		for done := false; viper.IsSet(channelsSendFlag) && !done; {
+			if maxReceiveCnt != 0 && receiveCnt >= maxReceiveCnt {
+				done = true
+				continue
+			}
 
-		case <-sendDone:
-			jww.INFO.Printf("[CHAN] Finished sending to channel(s). " +
-				"Stopping threads and network follower.")
+			select {
+			case m := <-receiveMessage:
+				channelID, content := m.chanId, m.content
+				channelReceivedMessage, err := chanManager.GetChannel(channelID)
+				if err != nil {
+					jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",
+						channelsPrintHeader, channelID, err)
+				}
+				jww.INFO.Printf("[%s] Received message (%s) from %s",
+					channelsPrintHeader, content, channelReceivedMessage.Name)
+				fmt.Printf("Received from %s this message: %s\n",
+					channelReceivedMessage.Name, content)
 
+				receiveCnt++
+			case <-time.After(waitTime):
+				done = true
+			}
 		}
+
+		if maxReceiveCnt == 0 {
+			maxReceiveCnt = receiveCnt
+		}
+		fmt.Printf("Received %d/%d messages\n", receiveCnt,
+			maxReceiveCnt)
 
 		// Stop network follower
 		err = user.StopNetworkFollower()
@@ -267,26 +292,18 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 // sendMessageToChannel is a helper function which will send a message to a
 // channel.
 func sendMessageToChannel(chanManager channels.Manager,
-	channel *cryptoBroadcast.Channel, msgBody []byte, done chan struct{}) error {
+	channel *cryptoBroadcast.Channel, msgBody []byte) error {
 	jww.INFO.Printf("[%s] Sending message (%s) to channel %s",
 		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
 		channel.ReceptionID, integrationChannelMessage, msgBody, 5*time.Second,
 		true, cmix.GetDefaultCMIXParams())
 	if err != nil {
-		go func() {
-			done <- struct{}{}
-		}()
 		return errors.Errorf("%+v", err)
 	}
-
 	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with "+
 		"message ID %s on round %d", channelsPrintHeader, msgBody, channel.Name,
 		channel.ReceptionID, chanMsgId, round.ID)
-	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
-	go func() {
-		done <- struct{}{}
-	}()
 
 	return nil
 }
@@ -294,22 +311,16 @@ func sendMessageToChannel(chanManager channels.Manager,
 // makeChannelReceptionHandler is a helper function which will register with the
 // channels.Manager a reception callback for the given message type.
 func makeChannelReceptionHandler(msgType channels.MessageType,
-	chanManager channels.Manager, done chan struct{}) error {
+	chanManager channels.Manager, receiveMessage chan receivedMessage) error {
 	// Construct receiver callback
 	cb := func(channelID *id.ID, _ message.ID, _ channels.MessageType, _ string,
 		content, _ []byte, _ ed25519.PublicKey, _ uint32, _ uint8, _,
 		_ time.Time, _ time.Duration, _ id.Round, _ rounds.Round,
 		_ channels.SentStatus, _, _ bool) uint64 {
-		channelReceivedMessage, err := chanManager.GetChannel(channelID)
-		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",
-				channelsPrintHeader, channelID, err)
+		receiveMessage <- receivedMessage{
+			chanId:  channelID,
+			content: content,
 		}
-		jww.INFO.Printf("[%s] Received message (%s) from %s",
-			channelsPrintHeader, content, channelReceivedMessage.Name)
-		fmt.Printf("Received message (%s) from %s\n",
-			content, channelReceivedMessage.Name)
-		done <- struct{}{}
 		return 0
 	}
 	return chanManager.RegisterReceiveHandler(msgType,
@@ -333,6 +344,15 @@ func readChannelIdentity(path string) (cryptoChannel.PrivateIdentity, error) {
 	}
 
 	return channelIdentity, nil
+}
+
+// receivedMessage is a structure containing the information for a received
+// message. This is passed from the channel's reception callback to
+// the main thread which waits to receive receiveCountFlag messages, or
+// until waitTimeoutFlag seconds have passed.
+type receivedMessage struct {
+	chanId  *id.ID
+	content []byte
 }
 
 // eventModel is the CLI implementation of the channels.EventModel interface.

@@ -56,7 +56,11 @@ func (srt *Manager) Has(rid id.Round) bool {
 // Insert adds the round to the tracker with the current time. Returns true if
 // the round was added.
 func (srt *Manager) Insert(rid id.Round) bool {
-	timeNow := netTime.Now()
+	return srt.insert(rid, netTime.Now())
+}
+
+// insert is used for testing with custom times.
+func (srt *Manager) insert(rid id.Round, timeNow time.Time) bool {
 	srt.mux.Lock()
 	defer srt.mux.Unlock()
 

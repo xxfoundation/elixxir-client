@@ -257,7 +257,9 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 
 	c := make(chan struct{})
 	go func() {
-		for len(newNdf.Nodes) != len(testPool.ndf.Nodes) {
+		for len(newNdf.Nodes) != len(testPool.ndf.Nodes) ||
+			len(newNdf.Gateways) != len(testPool.ndf.Gateways) ||
+			len(newNdf.Gateways) != len(testPool.ndfMap) {
 			time.Sleep(50 * time.Millisecond)
 		}
 		c <- struct{}{}
@@ -265,14 +267,9 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 
 	select {
 	case <-c:
-		// Check that the host pool's NDF has been modified properly
-		if len(newNdf.Nodes) != len(testPool.ndf.Nodes) ||
-			len(newNdf.Gateways) != len(testPool.ndf.Gateways) ||
-			len(newNdf.Gateways) != len(testPool.ndfMap) {
-			t.Errorf("Host pool NDF not updated to new NDF.")
-		}
 	case <-time.After(5 * time.Second):
-		t.Errorf("Timed out waiting for NDF to update.")
+		t.Errorf("Timed out waiting for NDF to update. " +
+			"Host pool NDF not updated to new NDF.")
 	}
 }
 

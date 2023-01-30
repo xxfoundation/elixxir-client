@@ -75,7 +75,7 @@ func TestSender_SendToAny(t *testing.T) {
 
 	s.writePool.isConnected = func(host *connect.Host) bool { return true }
 
-	//update the read pool
+	// update the read pool
 	s.readPool.Store(s.writePool)
 
 	// Test sendToAny with test interfaces
@@ -150,7 +150,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	s.writePool.isConnected = func(host *connect.Host) bool { return true }
 
-	//update the read pool
+	// Update the read pool
 	s.readPool.Store(s.writePool)
 
 	// Happy path

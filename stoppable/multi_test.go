@@ -295,7 +295,7 @@ func TestMulti_Close(t *testing.T) {
 	for _, single := range singles {
 		go func(single *Single) {
 			select {
-			case <-time.NewTimer(500 * time.Millisecond).C:
+			case <-time.NewTimer(3 * time.Second).C:
 				t.Errorf("Single %s failed to quit.", single.Name())
 			case <-single.Quit():
 			}

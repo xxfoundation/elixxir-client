@@ -9,6 +9,7 @@ package sentRoundTracker
 
 import (
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
 	"testing"
 	"time"
@@ -34,20 +35,19 @@ func Test_NewSentRoundTracker(t *testing.T) {
 // newer rounds.
 func TestManager_RemoveOldRounds(t *testing.T) {
 	srt := NewManager(50 * time.Millisecond)
+	timeNow := netTime.Now().Add(-50 * time.Millisecond)
 
 	// Add odd round to tracker
 	for rid := id.Round(0); rid < 100; rid++ {
 		if rid%2 != 0 {
-			srt.Insert(rid)
+			srt.insert(rid, timeNow)
 		}
 	}
-
-	time.Sleep(150 * time.Millisecond)
 
 	// Add even round to tracker
 	for rid := id.Round(0); rid < 100; rid++ {
 		if rid%2 == 0 {
-			srt.Insert(rid)
+			srt.insert(rid, timeNow.Add(100*time.Millisecond))
 		}
 	}
 

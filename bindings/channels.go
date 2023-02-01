@@ -10,13 +10,13 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/channels/storage"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+
 	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/elixxir/client/v4/channels/storage"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -1869,7 +1869,11 @@ type EventModel interface {
 	// Parameters:
 	//  - uuid - The unique identifier of the message in the database.
 	//  - messageUpdateInfoJSON - JSON of [MessageUpdateInfo].
-	UpdateFromUUID(uuid int64, messageUpdateInfoJSON []byte)
+	//
+	// Returns:
+	//  - Returns an error if the message cannot be updated. It must return the
+	//	  error from GetNoMessageErr if the message does not exist.
+	UpdateFromUUID(uuid int64, messageUpdateInfoJSON []byte) error
 
 	// UpdateFromMessageID is called whenever a message with the message ID is
 	// modified.
@@ -1886,7 +1890,10 @@ type EventModel interface {
 	// Returns:
 	//  - int64 - A non-negative unique UUID for the message that it can be
 	//    referenced by later with [EventModel.UpdateFromUUID].
-	UpdateFromMessageID(messageID []byte, messageUpdateInfoJSON []byte) int64
+	//  - Returns an error if the message cannot be updated. It must return the
+	//	  error from GetNoMessageErr if the message does not exist.
+	UpdateFromMessageID(
+		messageID []byte, messageUpdateInfoJSON []byte) (int64, error)
 
 	// GetMessage returns the message with the given [channel.MessageID].
 	//
@@ -1895,6 +1902,8 @@ type EventModel interface {
 	//
 	// Returns:
 	//  - JSON of [channels.ModelMessage].
+	//  - Returns an error if the message cannot be gotten. It must return the
+	//	  error from GetNoMessageErr if the message does not exist.
 	GetMessage(messageID []byte) ([]byte, error)
 
 	// DeleteMessage deletes the message with the given [channel.MessageID] from
@@ -1902,6 +1911,8 @@ type EventModel interface {
 	//
 	// Parameters:
 	//  - messageID - The bytes of the [channel.MessageID] of the message.
+	//  - Returns an error if the message cannot be deleted. It must return the
+	//	  error from GetNoMessageErr if the message does not exist.
 	DeleteMessage(messageID []byte) error
 
 	// MuteUser mutes the given user or unmutes them.
@@ -1911,6 +1922,13 @@ type EventModel interface {
 	//    muted in.
 	//  - pubKey - The Ed25519 public key of the user that is muted or unmuted.
 	MuteUser(channelID, pubkey []byte, unmute bool)
+}
+
+// GetNoMessageErr returns the error channels.NoMessageErr, which must be
+// returned by EventModel.UpdateFromUUID, EventModel.UpdateFromMessageID, and
+// EventModel.GetMessage when the message cannot be found.
+func GetNoMessageErr() string {
+	return channels.NoMessageErr
 }
 
 // MessageUpdateInfo contains the updated information for a channel message.
@@ -2064,9 +2082,12 @@ func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID,
 // messageID, timestamp, round, pinned, hidden, and status are all nillable and
 // may be updated based upon the UUID at a later date. If a nil value is passed,
 // then make no update.
+//
+// Returns an error if the message cannot be updated. It must return the error
+// from GetNoMessageErr if the message does not exist.
 func (tem *toEventModel) UpdateFromUUID(uuid uint64,
 	messageID *cryptoMessage.ID, timestamp *time.Time, round *rounds.Round,
-	pinned, hidden *bool, status *channels.SentStatus) {
+	pinned, hidden *bool, status *channels.SentStatus) error {
 	var mui MessageUpdateInfo
 
 	if messageID != nil {
@@ -2096,11 +2117,11 @@ func (tem *toEventModel) UpdateFromUUID(uuid uint64,
 
 	muiJSON, err := json.Marshal(mui)
 	if err != nil {
-		jww.FATAL.Panicf(
-			"[CH] Failed to JSON marshal MessageUpdateInfo: %+v", err)
+		return errors.Errorf(
+			"failed to JSON marshal MessageUpdateInfo: %+v", err)
 	}
 
-	tem.em.UpdateFromUUID(int64(uuid), muiJSON)
+	return tem.em.UpdateFromUUID(int64(uuid), muiJSON)
 }
 
 // UpdateFromMessageID is called whenever a message with the message ID is
@@ -2112,9 +2133,12 @@ func (tem *toEventModel) UpdateFromUUID(uuid uint64,
 // timestamp, round, pinned, hidden, and status are all nillable and may be
 // updated based upon the UUID at a later date. If a nil value is passed, then
 // make no update.
+//
+// Returns an error if the message cannot be updated. It must return the error
+// from GetNoMessageErr if the message does not exist.
 func (tem *toEventModel) UpdateFromMessageID(messageID cryptoMessage.ID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-	status *channels.SentStatus) uint64 {
+	status *channels.SentStatus) (uint64, error) {
 	var mui MessageUpdateInfo
 
 	if timestamp != nil {
@@ -2140,14 +2164,20 @@ func (tem *toEventModel) UpdateFromMessageID(messageID cryptoMessage.ID,
 
 	muiJSON, err := json.Marshal(mui)
 	if err != nil {
-		jww.FATAL.Panicf(
-			"[CH] Failed to JSON marshal MessageUpdateInfo: %+v", err)
+		return 0, errors.Errorf(
+			"failed to JSON marshal MessageUpdateInfo: %+v", err)
 	}
 
-	return uint64(tem.em.UpdateFromMessageID(messageID.Marshal(), muiJSON))
+	uuid, err := tem.em.UpdateFromMessageID(messageID.Marshal(), muiJSON)
+	return uint64(uuid), err
 }
 
 // GetMessage returns the message with the given [channel.MessageID].
+//
+// It must return the error from GetNoMessageErr if the message does not exist.
+//
+// Returns an error if the message cannot be gotten. It must return the error
+// from GetNoMessageErr if the message does not exist.
 func (tem *toEventModel) GetMessage(
 	messageID cryptoMessage.ID) (channels.ModelMessage, error) {
 	msgJSON, err := tem.em.GetMessage(messageID.Marshal())
@@ -2160,6 +2190,9 @@ func (tem *toEventModel) GetMessage(
 
 // DeleteMessage deletes the message with the given [channel.MessageID] from the
 // database.
+//
+// Returns an error if the message cannot be deleted. It must return the error
+// from GetNoMessageErr if the message does not exist.
 func (tem *toEventModel) DeleteMessage(messageID cryptoMessage.ID) error {
 	return tem.em.DeleteMessage(messageID.Marshal())
 }

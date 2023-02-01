@@ -69,8 +69,8 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 
 	*t = Transaction{
 		Timestamp: transactionData.Timestamp,
-		Key:       t.Key,
-		Value:     t.Value,
+		Key:       transactionData.Key,
+		Value:     transactionData.Value,
 	}
 
 	return nil

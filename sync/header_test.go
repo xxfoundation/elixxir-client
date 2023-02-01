@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-const expectedJsonOutput = `{"version":0,"entries":{"key0":"val0","key1":"val1","key2":"val2","key3":"val3","key4":"val4","key5":"val5","key6":"val6","key7":"val7","key8":"val8","key9":"val9"}}`
+const expectedHeaderJson = `{"version":0,"entries":{"key0":"val0","key1":"val1","key2":"val2","key3":"val3","key4":"val4","key5":"val5","key6":"val6","key7":"val7","key8":"val8","key9":"val9"}}`
 
 // Unit test of NewHeader.
 func TestNewHeader(t *testing.T) {
@@ -79,7 +79,7 @@ func TestHeader_MarshalJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that marshaled data
-	require.Equal(t, expectedJsonOutput, string(marshaledData))
+	require.Equal(t, expectedHeaderJson, string(marshaledData))
 }
 
 // Smoke test for Header.UnmarshalJSON. Ensures that
@@ -112,6 +112,6 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 
 	// Ensure that newHeader's marshalled data matches the expected JSON output
 	// (if no data has been lost, this should be the case)
-	require.Equal(t, expectedJsonOutput, string(newHeaderData))
+	require.Equal(t, expectedHeaderJson, string(newHeaderData))
 
 }

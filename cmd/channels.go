@@ -228,7 +228,9 @@ var channelsCmd = &cobra.Command{
 		fmt.Printf("Received %d/%d messages\n", receiveCnt,
 			maxReceiveCnt)
 
-		// Ensure send is completed before looking closing
+		// Ensure send is completed before looking closing. Note that sending
+		// to yourself does not go through cMix, so sending does not block the
+		// above loop.
 		for done := false; viper.IsSet(channelsSendFlag) && !done; {
 			select {
 			case err = <-sendDone:

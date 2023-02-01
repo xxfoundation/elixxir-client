@@ -74,11 +74,11 @@ func TestHeader_MarshalJSON(t *testing.T) {
 		require.NoError(t, head.Set(key, val))
 	}
 
-	// Marshal header
+	// Marshal header into JSON byte data
 	marshaledData, err := json.Marshal(head)
 	require.NoError(t, err)
 
-	// Check that marshaled data
+	// Check that marshaled data matches expected JSON
 	require.Equal(t, expectedHeaderJson, string(marshaledData))
 }
 

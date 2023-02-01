@@ -15,6 +15,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/channels/storage"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -23,8 +26,6 @@ import (
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1928,7 +1929,7 @@ type EventModel interface {
 // returned by EventModel.UpdateFromUUID, EventModel.UpdateFromMessageID, and
 // EventModel.GetMessage when the message cannot be found.
 func GetNoMessageErr() string {
-	return channels.NoMessageErr
+	return channels.NoMessageErr.Error()
 }
 
 // MessageUpdateInfo contains the updated information for a channel message.

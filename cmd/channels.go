@@ -173,10 +173,11 @@ var channelsCmd = &cobra.Command{
 		}
 
 		// Send message
+		sendDone := make(chan struct{}, 1)
 		if viper.GetBool(channelsSendFlag) {
 			go func() {
 				msgBody := []byte(viper.GetString(messageFlag))
-				err = sendMessageToChannel(chanManager, channel, msgBody)
+				err = sendMessageToChannel(chanManager, channel, msgBody, sendDone)
 				if err != nil {
 					jww.FATAL.Panicf("[%s] Failed to send message: %+v",
 						channelsPrintHeader, err)
@@ -195,9 +196,20 @@ var channelsCmd = &cobra.Command{
 			fmt.Printf("Successfully left channel %s\n", channel.Name)
 		}
 
+		// Ensure send is completed before looking for receptions
+		waitTime := viper.GetDuration(waitTimeoutFlag) * time.Second
+		for done := false; viper.IsSet(channelsSendFlag) && !done; {
+			select {
+			case <-sendDone:
+				done = true
+			case <-time.After(waitTime):
+				done = true
+			}
+
+		}
+
 		// Wait for reception. There should be 4 operations for the
 		// integration test:
-		waitTime := viper.GetDuration(waitTimeoutFlag) * time.Second
 		maxReceiveCnt := viper.GetInt(receiveCountFlag)
 		receiveCnt := 0
 		for done := false; viper.IsSet(channelsSendFlag) && !done; {
@@ -292,7 +304,7 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 // sendMessageToChannel is a helper function which will send a message to a
 // channel.
 func sendMessageToChannel(chanManager channels.Manager,
-	channel *cryptoBroadcast.Channel, msgBody []byte) error {
+	channel *cryptoBroadcast.Channel, msgBody []byte, done chan struct{}) error {
 	jww.INFO.Printf("[%s] Sending message (%s) to channel %s",
 		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
@@ -304,6 +316,8 @@ func sendMessageToChannel(chanManager channels.Manager,
 	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with "+
 		"message ID %s on round %d", channelsPrintHeader, msgBody, channel.Name,
 		channel.ReceptionID, chanMsgId, round.ID)
+
+	done <- struct{}{}
 
 	return nil
 }

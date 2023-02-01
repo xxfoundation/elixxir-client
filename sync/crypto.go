@@ -18,16 +18,16 @@ import (
 )
 
 // Used for keyed hashes for, e.g., the "key" in the KV store
-func keyIndexDerivation(data, password string) []byte {
-	dHash := blake2b.Sum256([]byte(data))
-	pHash := blake2b.Sum256([]byte(password))
+func deriveKeyName(key, secret string) []byte {
+	dHash := blake2b.Sum256([]byte(key))
+	pHash := blake2b.Sum256([]byte(secret))
 	s := append(pHash[:], dHash[:]...)
 	h := blake2b.Sum256(s)
 	return h[:]
 }
 
-func initChaCha20Poly1305(password string) cipher.AEAD {
-	pwHash := blake2b.Sum256([]byte(password))
+func initChaCha20Poly1305(secret string) cipher.AEAD {
+	pwHash := blake2b.Sum256([]byte(secret))
 	chaCipher, err := chacha20poly1305.NewX(pwHash[:])
 	if err != nil {
 		panic(fmt.Sprintf("Could not init XChaCha20Poly1305 mode: %s",
@@ -36,8 +36,8 @@ func initChaCha20Poly1305(password string) cipher.AEAD {
 	return chaCipher
 }
 
-func encrypt(data []byte, password string, csprng io.Reader) []byte {
-	chaCipher := initChaCha20Poly1305(password)
+func encrypt(data []byte, secret string, csprng io.Reader) []byte {
+	chaCipher := initChaCha20Poly1305(secret)
 	nonce := make([]byte, chaCipher.NonceSize())
 	if _, err := io.ReadFull(csprng, nonce); err != nil {
 		panic(fmt.Sprintf("Could not generate nonce: %s", err.Error()))

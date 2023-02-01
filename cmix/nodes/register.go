@@ -52,6 +52,10 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 			return
 
 		case gw := <-r.c:
+			if r.disableNodeRegistration {
+				jww.WARN.Printf("Node registration has been disabled; ignoring received registration request")
+				continue
+			}
 			rng := r.rng.GetStream()
 
 			// Pull node information from channel

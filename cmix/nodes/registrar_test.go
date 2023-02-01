@@ -166,6 +166,17 @@ func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 
 	circuit := connect.NewCircuit(nodeIds)
 	result, err := r.GetNodeKeys(circuit)
+	if err == nil {
+		t.Error("GetNodeKeys did not return an error when keys " +
+			"should be missing.")
+	}
+	if result != nil {
+		t.Errorf("Expected nil value for result due to " +
+			"missing keys!")
+	}
+
+	r.SetEphemeralRegistrationEnabled(true)
+	result, err = r.GetNodeKeys(circuit)
 	if err != nil {
 		t.Fatalf("Should no longer error when some keys are missing: %+v", err)
 	}
@@ -176,14 +187,6 @@ func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 	if mc.ephemeralEdPrivKey == nil {
 		t.Errorf("Did not set ephemeral key when keys are missing")
 	}
-	//if err == nil {
-	//	t.Error("GetNodeKeys did not return an error when keys " +
-	//		"should be missing.")
-	//}
-	//if result != nil {
-	//	t.Errorf("Expected nil value for result due to " +
-	//		"missing keys!")
-	//}
 }
 
 func Test_registrar_HasNode(t *testing.T) {

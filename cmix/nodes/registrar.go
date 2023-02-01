@@ -65,6 +65,9 @@ type registrar struct {
 	numnodesGetter func() int
 
 	c chan network.NodeGateway
+
+	enableEphemeralRegistration bool
+	disableNodeRegistration     bool
 }
 
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
@@ -149,6 +152,14 @@ func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 	return nil
 }
 
+func (r *registrar) SetNodeRegistrationDisabled(disabled bool) {
+	r.disableNodeRegistration = disabled
+}
+
+func (r *registrar) SetEphemeralRegistrationEnabled(enabled bool) {
+	r.enableEphemeralRegistration = enabled
+}
+
 // ChangeNumberOfNodeRegistrations changes the number of parallel node
 // registrations up to the initialized maximum
 func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
@@ -220,23 +231,28 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 					ID: gwID.Marshal(),
 				},
 			}
-
-			jww.WARN.Println(errors.Errorf(
-				"cannot get key for %s, triggered registration", nid))
-			missingNodes += 1
-			rk.ephemeralKeys[i] = true
-			var err error
-			rk.keys[i], err = r.handleMissingNode(rk, *nid)
-			if err != nil {
-				return nil, errors.WithMessage(err, "Failed to handle missing node")
+			if r.enableEphemeralRegistration {
+				jww.WARN.Println(errors.Errorf(
+					"cannot get key for %s, triggered registration & continuing w/ ephemeral ED key", nid))
+				missingNodes += 1
+				rk.ephemeralKeys[i] = true
+				var err error
+				rk.keys[i], err = r.handleMissingNode(rk, *nid)
+				if err != nil {
+					return nil, errors.WithMessage(err, "Failed to handle missing node")
+				}
+			} else {
+				return nil, errors.Errorf(
+					"cannot get key for %s, triggered registration", nid)
 			}
+
 		} else {
 			rk.keys[i] = k
 		}
 	}
 
-	// Cannot attempt to send without at least one registered node
-	if missingNodes == topology.Len() {
+	// Cannot attempt to send without at least one registered node (unless node registration is disabled)
+	if !r.disableNodeRegistration && missingNodes == topology.Len() {
 		return nil, errors.New("Must have at least one registered node to create mixCypher")
 	}
 

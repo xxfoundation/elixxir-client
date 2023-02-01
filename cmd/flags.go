@@ -79,11 +79,13 @@ const (
 	e2eRekeyThresholdFlag = "e2eRekeyThreshold"
 
 	// Misc
-	sendIdFlag       = "sendid"
-	profileCpuFlag   = "profile-cpu"
-	profileMemFlag   = "profile-mem"
-	userIdPrefixFlag = "userid-prefix"
-	legacyFlag       = "legacy"
+	sendIdFlag                      = "sendid"
+	profileCpuFlag                  = "profile-cpu"
+	profileMemFlag                  = "profile-mem"
+	userIdPrefixFlag                = "userid-prefix"
+	legacyFlag                      = "legacy"
+	disableNodeRegistrationFlag     = "disableNodeRegistration"
+	enableEphemeralRegistrationFlag = "enableEphemeralRegistration"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "channelName"

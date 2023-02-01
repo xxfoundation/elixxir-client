@@ -56,6 +56,9 @@ type Registrar interface {
 	// TriggerNodeRegistration initiates a registration with the given
 	// cMix node by sending on the registrar's registration channel.
 	TriggerNodeRegistration(nid *id.ID)
+
+	SetNodeRegistrationDisabled(disabled bool)
+	SetEphemeralRegistrationEnabled(enabled bool)
 }
 
 // MixCypher is an interface for the cryptographic operations done in order

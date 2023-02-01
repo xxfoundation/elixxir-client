@@ -126,8 +126,12 @@ func (i *impl) ReceiveReaction(channelID *id.ID, messageID, reactionTo message.I
 // messageID, timestamp, round, pinned, and hidden are all nillable and may be
 // updated based upon the UUID at a later date. If a nil value is passed, then
 // make no update.
+//
+// Returns an error if the message cannot be updated. It must return
+// channels.NoMessageErr if the message does not exist.
+// TODO: Make UpdateFromUUID return errors instead of print them
 func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *time.Time,
-	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) {
+	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) error {
 	parentErr := errors.New("failed to UpdateFromMessageID")
 
 	msgToUpdate := buildMessage(
@@ -160,6 +164,8 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	channelId := &id.ID{}
 	copy(channelId[:], currentMessage.ChannelId)
 	go i.msgCb(msgToUpdate.Id, channelId, true)
+
+	return nil
 }
 
 // UpdateFromMessageID is called whenever a message with the message ID is
@@ -171,8 +177,13 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 // timestamp, round, pinned, and hidden are all nillable and may be updated
 // based upon the UUID at a later date. If a nil value is passed, then make
 // no update.
+//
+// Returns an error if the message cannot be updated. It must return
+// channels.NoMessageErr if the message does not exist.
+// TODO: Make UpdateFromMessageID return errors instead of print them
 func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
-	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) uint64 {
+	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) (
+	uint64, error) {
 	parentErr := errors.New("failed to UpdateFromMessageID")
 
 	msgToUpdate := buildMessage(
@@ -206,10 +217,14 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	copy(channelId[:], currentMessage.ChannelId)
 	go i.msgCb(msgToUpdate.Id, channelId, true)
 
-	return msgToUpdate.Id
+	return msgToUpdate.Id, nil
 }
 
 // GetMessage returns the [channels.ModelMessage] with the given [message.ID].
+//
+// Returns an error if the message cannot be gotten. It must return
+// channels.NoMessageErr if the message does not exist.
+// TODO: make GetMessage return NoMessageErr
 func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 	result := &Message{}
 	ctx, cancel := newContext()
@@ -265,6 +280,9 @@ func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 }
 
 // DeleteMessage removes a message with the given messageID from storage.
+//
+// Returns an error if the message cannot be deleted. It must return
+// channels.NoMessageErr if the message does not exist.
 func (i *impl) DeleteMessage(messageID message.ID) error {
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Where("message_id = ?",

@@ -158,8 +158,11 @@ type EventModel interface {
 	// messageID, timestamp, round, pinned, hidden, and status are all nillable
 	// and may be updated based upon the UUID at a later date. If a nil value is
 	// passed, then make no update.
+	//
+	// Returns an error if the message cannot be updated. It must return
+	// NoMessageErr if the message does not exist.
 	UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *time.Time,
-		round *rounds.Round, pinned, hidden *bool, status *SentStatus)
+		round *rounds.Round, pinned, hidden *bool, status *SentStatus) error
 
 	// UpdateFromMessageID is called whenever a message with the message ID is
 	// modified.
@@ -170,19 +173,34 @@ type EventModel interface {
 	// timestamp, round, pinned, hidden, and status are all nillable and may be
 	// updated based upon the UUID at a later date. If a nil value is passed,
 	// then make no update.
+	//
+	// Returns an error if the message cannot be updated. It must return
+	// NoMessageErr if the message does not exist.
 	UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
-		round *rounds.Round, pinned, hidden *bool, status *SentStatus) uint64
+		round *rounds.Round, pinned, hidden *bool, status *SentStatus) (
+		uint64, error)
 
 	// GetMessage returns the message with the given channel.MessageID.
+	//
+	// Returns an error if the message cannot be gotten. It must return
+	// NoMessageErr if the message does not exist.
 	GetMessage(messageID message.ID) (ModelMessage, error)
 
 	// DeleteMessage deletes the message with the given [channel.MessageID] from
 	// the database.
+	//
+	// Returns an error if the message cannot be deleted. It must return
+	// NoMessageErr if the message does not exist.
 	DeleteMessage(messageID message.ID) error
 
 	// MuteUser is called whenever a user is muted or unmuted.
 	MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 }
+
+// NoMessageErr must be returned by EventModel.UpdateFromUUID,
+// EventModel.UpdateFromMessageID, and EventModel.GetMessage when the message
+// cannot be found.
+const NoMessageErr = "message does not exist [EV]"
 
 // ModelMessage contains a message and all of its information.
 type ModelMessage struct {
@@ -223,7 +241,7 @@ type MessageTypeReceiveMessage func(channelID *id.ID, messageID message.ID,
 // be mocked for testing where used.
 type UpdateFromUuidFunc func(uuid uint64, messageID *message.ID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-	status *SentStatus)
+	status *SentStatus) error
 
 // events is an internal structure that processes events and stores the handlers
 // for those events.
@@ -677,6 +695,7 @@ func (e *events) receiveDelete(channelID *id.ID, messageID message.ID,
 		jww.ERROR.Printf(
 			"[CH] [%s] Failed to delete message %s: %+v", tag, msgLog, err)
 	}
+	// TODO: check if the message exists
 	return 0
 }
 
@@ -743,8 +762,12 @@ func (e *events) receivePinned(channelID *id.ID, messageID message.ID,
 		pinned = true
 	}
 
-	return e.model.UpdateFromMessageID(
+	uuid, err := e.model.UpdateFromMessageID(
 		pinnedMessageID, nil, nil, &pinned, nil, nil)
+	if err != nil {
+		// TODO: handle error
+	}
+	return uuid
 }
 
 // receiveMute is the internal function that handles the reception of muted

@@ -46,7 +46,7 @@ func (cs *CommandStore) SaveCommand(channelID *id.ID, messageID message.ID,
 	messageType MessageType, nickname string, content, encryptedPayload []byte,
 	pubKey ed25519.PublicKey, codeset uint8, timestamp,
 	originatingTimestamp time.Time, lease time.Duration,
-	originatingRound id.Round,round rounds.Round, status SentStatus, fromAdmin,
+	originatingRound id.Round, round rounds.Round, status SentStatus, fromAdmin,
 	userMuted bool) error {
 
 	m := CommandMessage{

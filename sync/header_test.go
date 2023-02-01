@@ -62,7 +62,7 @@ func TestHeader_Set_Error(t *testing.T) {
 	require.Equal(t, originalVal, received)
 }
 
-// Smoke test for Header.MarshalJSON.
+// Smoke & unit test for Header.MarshalJSON.
 func TestHeader_MarshalJSON(t *testing.T) {
 	// Initialize header object
 	head := NewHeader()
@@ -82,7 +82,7 @@ func TestHeader_MarshalJSON(t *testing.T) {
 	require.Equal(t, expectedHeaderJson, string(marshaledData))
 }
 
-// Smoke test for Header.UnmarshalJSON. Ensures that
+// Smoke & unit test for Header.UnmarshalJSON. 
 func TestHeader_UnmarshalJSON(t *testing.T) {
 	// Initialize header object
 	oldHeader := NewHeader()

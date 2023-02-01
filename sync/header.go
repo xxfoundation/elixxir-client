@@ -25,7 +25,6 @@ const (
 )
 
 // Header is header information for a transaction log.
-// This will contain a list of entries.
 type Header struct {
 	// version is the edition of this version. This is defaulted to
 	// headerVersion.
@@ -74,17 +73,25 @@ func (h *Header) Get(key string) (string, error) {
 	return value, nil
 }
 
-// header is an object adhering to Header. This serves as the marshal-able
-// an unmarshal-able object such that Header may adhere to the json.Marshaler
-// and json.Unmarshaler interfaces.
+// header is an object strictly adhering to Header. This serves as the
+// marshal-able an unmarshal-able object such that Header may adhere to the
+// json.Marshaler and json.Unmarshaler interfaces.
+//
+// WARNING: If Header is modified, header should reflect these changes to ensure
+// no data is lost when calling the json.Marshaler or json.Unmarshaler.
 type header struct {
-	*Header
+	Version uint16            `json:"version"`
+	Entries map[string]string `json:"entries"`
 }
 
 // MarshalJSON marshals the Header into valid JSON. This function adheres to the
 // json.Marshaler interface.
 func (h *Header) MarshalJSON() ([]byte, error) {
-	return json.Marshal(header{h})
+	marshaller := header{
+		Version: h.version,
+		Entries: h.entries,
+	}
+	return json.Marshal(marshaller)
 }
 
 // UnmarshalJSON unmarshalls JSON into the cipher. This function adheres to the
@@ -97,8 +104,8 @@ func (h *Header) UnmarshalJSON(data []byte) error {
 	}
 
 	*h = Header{
-		version: headerData.version,
-		entries: headerData.entries,
+		version: headerData.Version,
+		entries: headerData.Entries,
 	}
 
 	return nil

@@ -12,22 +12,26 @@ import (
 	"time"
 )
 
-// FilesystemRemoteStorage is a structure adhering to RemoteStore. This
+// FileSystemRemoteStorage is a structure adhering to RemoteStore. This
 // utilizes the os.File IO operations.
-type FilesystemRemoteStorage struct{}
+type FileSystemRemoteStorage struct{}
+
+func NewFileSystemRemoteStorage() *FileSystemRemoteStorage {
+	return &FileSystemRemoteStorage{}
+}
 
 // Read reads data from path. This will return an error if it fails to read
 // from the file path.
 //
 // This utilizes utils.ReadFile under the hood.
-func (f *FilesystemRemoteStorage) Read(path string) ([]byte, error) {
+func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
 	return utils.ReadFile(path)
 }
 
 // Write will write data to path. This will return an error if it fails to write.
 //
 // This utilizes utils.WriteFileDef under the hood.
-func (f *FilesystemRemoteStorage) Write(path string, data []byte) error {
+func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
 	return utils.WriteFileDef(path, data)
 }
 
@@ -36,7 +40,7 @@ func (f *FilesystemRemoteStorage) Write(path string, data []byte) error {
 // path.
 //
 // This utilizes utils.GetLastModified under the hood.
-func (f *FilesystemRemoteStorage) GetLastModified(path string) (
+func (f *FileSystemRemoteStorage) GetLastModified(path string) (
 	time.Time, error) {
 	return utils.GetLastModified(path)
 }

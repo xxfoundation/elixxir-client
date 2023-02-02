@@ -16,6 +16,7 @@ import (
 // utilizes the os.File IO operations.
 type FileSystemRemoteStorage struct{}
 
+// NewFileSystemRemoteStorage is a constructor for FileSystemRemoteStorage.
 func NewFileSystemRemoteStorage() *FileSystemRemoteStorage {
 	return &FileSystemRemoteStorage{}
 }

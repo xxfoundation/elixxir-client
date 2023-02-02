@@ -10,7 +10,6 @@ package sync
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"sync"
 )
 
 // headerVersion is the most up-to-date edition of the Header object. If the
@@ -20,8 +19,7 @@ const headerVersion = 0
 
 // Error constants.
 const (
-	entryAlreadyExistsErr = "entry for key %s already exists and cannot be overwritten."
-	entryDoesNotExistErr  = "entry for key %s could not be found."
+	entryDoesNotExistErr = "entry for key %s could not be found."
 )
 
 // Header is header information for a transaction log.
@@ -34,8 +32,6 @@ type Header struct {
 	// encode things like the encryption for a specific device ID or other
 	// metadata as needed.
 	entries map[string]string
-
-	mux sync.Mutex
 }
 
 // NewHeader is the constructor of a Header object.
@@ -49,12 +45,6 @@ func NewHeader() *Header {
 // Set will write to the entries list the value, if there is not already a value
 // for the passed in key.
 func (h *Header) Set(key, value string) error {
-	h.mux.Lock()
-	defer h.mux.Unlock()
-	if _, exists := h.entries[key]; exists {
-		return errors.Errorf(entryAlreadyExistsErr, key)
-	}
-
 	h.entries[key] = value
 	return nil
 }
@@ -62,8 +52,6 @@ func (h *Header) Set(key, value string) error {
 // Get will retrieve an entry with the passed in key. If no entry exists for
 // this key, an error will be returned.
 func (h *Header) Get(key string) (string, error) {
-	h.mux.Lock()
-	defer h.mux.Unlock()
 
 	value, exists := h.entries[key]
 	if !exists {

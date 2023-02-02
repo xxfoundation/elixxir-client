@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"strconv"
-	"sync"
 	"testing"
 )
 
@@ -52,7 +51,6 @@ func TestNewHeader(t *testing.T) {
 	expectedHeader := &Header{
 		version: headerVersion,
 		entries: make(map[string]string, 0),
-		mux:     sync.Mutex{},
 	}
 	require.Equal(t, expectedHeader, receivedHeader)
 }
@@ -74,7 +72,7 @@ func TestHeader_Set(t *testing.T) {
 
 // Error test of Header.Set where Set is called with a duplicate key.
 // Overwriting an entry should not occur.
-func TestHeader_Set_Error(t *testing.T) {
+func TestHeader_Set_Overwrite(t *testing.T) {
 	// Initialize header object
 	head := NewHeader()
 
@@ -83,12 +81,12 @@ func TestHeader_Set_Error(t *testing.T) {
 	require.NoError(t, head.Set(key, originalVal))
 
 	// Attempt to overwrite key with new value
-	require.Error(t, head.Set(key, newVal))
+	require.NoError(t, head.Set(key, newVal))
 
 	// Ensure that key exists in map and is the expected value
 	received, exists := head.entries[key]
 	require.True(t, exists)
-	require.Equal(t, originalVal, received)
+	require.Equal(t, newVal, received)
 }
 
 // Smoke & unit test for Header.MarshalJSON. Checks basic marshaling outputs expected

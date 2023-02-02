@@ -121,8 +121,8 @@ func (m *Multi) Close() error {
 	m.once.Do(func() {
 		var wg sync.WaitGroup
 
-		jww.TRACE.Printf("Sending on quit channel to multi stoppable %q with subprocesseses %v.",
-			m.Name(), m.GetRunningProcesses())
+		jww.TRACE.Printf("Sending on quit channel to multi stoppable %q with "+
+			"subprocesses %v.", m.Name(), m.GetRunningProcesses())
 
 		m.mux.Lock()
 		// Attempt to stop each stoppable in its own goroutine

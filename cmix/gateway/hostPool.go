@@ -8,6 +8,7 @@
 package gateway
 
 import (
+	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -83,6 +84,25 @@ var defaultFilter = func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]in
 	return m
 }
 
+// GatewayWhitelistFilter accepts a list of gateway ID strings in base64 format,
+// and returns a filter function for use in a hostpool
+func GatewayWhitelistFilter(gwIds []string) Filter {
+	allowedGwids := set.New()
+	for _, gwid := range gwIds {
+		allowedGwids.Insert(gwid)
+	}
+	jww.INFO.Printf("Gateway filter created to allow the following"+
+		" IDs:\n%+v", allowedGwids)
+	return func(gwIds map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
+		for gwid, _ := range gwIds {
+			if !allowedGwids.Has(gwid.String()) {
+				delete(gwIds, gwid)
+			}
+		}
+		return gwIds
+	}
+}
+
 // newHostPool is a helper function which initializes a hostPool. This
 // will not initiate the long-running threads (see hostPool.StartProcesses).
 func newHostPool(params Params, rng *fastRNG.StreamGenerator,
@@ -116,6 +136,10 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 	// Build the underlying pool
 	p := newPool(int(params.PoolSize))
 
+	if params.GatewayFilter == nil {
+		params.GatewayFilter = defaultFilter
+	}
+
 	// Build the host pool
 	hp := &hostPool{
 		writePool:     p,
@@ -130,7 +154,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		rng:           rng,
 		params:        params,
 		manager:       getter,
-		filter:        defaultFilter,
+		filter:        params.GatewayFilter,
 		kv:            storage.GetKV().Prefix(hostListPrefix),
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
@@ -241,14 +265,6 @@ func (hp *hostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	default:
 		jww.WARN.Printf("Failed to update the HostPool's NDF")
 	}
-}
-
-// SetGatewayFilter sets the filter used to filter gateways from the ID map.
-func (hp *hostPool) SetGatewayFilter(f Filter) {
-	hp.filterMux.Lock()
-	defer hp.filterMux.Unlock()
-
-	hp.filter = f
 }
 
 // GetHostParams returns a copy of the connect.HostParams struct.

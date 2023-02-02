@@ -51,7 +51,7 @@ func TestConnectWithAuthentication(t *testing.T) {
 
 	// Construct client ID the proper way as server will need to verify it
 	// using the xx.NewID function call
-	myId, err := xx.NewID(myRsaPrivKey.Public().GetOldRSA(), salt, id.User)
+	myId, err := xx.NewID(myRsaPrivKey.Public(), salt, id.User)
 	if err != nil {
 		t.Fatalf("Failed to generate client's id: %+v", err)
 	}

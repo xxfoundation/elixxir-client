@@ -11,6 +11,16 @@ import (
 	"testing"
 )
 
+// Unit test of SupportedEmojis.
+func TestSupportedEmojis(t *testing.T) {
+	emojis := SupportedEmojis()
+
+	if len(emojis) < 1 {
+		t.Errorf("No emojis in the list of supported emojis: %v", emojis)
+	}
+}
+
+// Unit test of ValidateReaction.
 func TestValidateReaction(t *testing.T) {
 	tests := []struct {
 		input string

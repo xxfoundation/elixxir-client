@@ -75,7 +75,7 @@ func TestSender_SendToAny(t *testing.T) {
 
 	s.writePool.isConnected = func(host *connect.Host) bool { return true }
 
-	//update the read pool
+	// update the read pool
 	s.readPool.Store(s.writePool)
 
 	// Test sendToAny with test interfaces
@@ -126,7 +126,6 @@ func TestSender_SendToPreferred(t *testing.T) {
 	defer stream.Close()
 
 	var preferredHost *connect.Host
-
 	// Put 3 gateways into the pool
 	for i := 0; i < cap(s.writePool.hostList); i++ {
 		gw := testNdf.Gateways[i]
@@ -150,7 +149,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	s.writePool.isConnected = func(host *connect.Host) bool { return true }
 
-	//update the read pool
+	// Update the read pool
 	s.readPool.Store(s.writePool)
 
 	// Happy path

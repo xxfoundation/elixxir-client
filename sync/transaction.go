@@ -28,7 +28,7 @@ type Transaction struct {
 // NewTransaction is the constructor of a Transaction object.
 func NewTransaction(ts time.Time, key string, value []byte) Transaction {
 	return Transaction{
-		Timestamp: ts,
+		Timestamp: ts.UTC(),
 		Key:       key,
 		Value:     value,
 	}

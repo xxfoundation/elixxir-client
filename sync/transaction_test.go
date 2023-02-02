@@ -14,7 +14,10 @@ import (
 	"time"
 )
 
-const expectedTransactionJson = `{"Timestamp":"2012-12-21T22:08:41Z","Key":"key","Value":"dmFsdWU="}`
+const (
+	expectedTransactionJson         = `{"Timestamp":"2012-12-21T22:08:41Z","Key":"key","Value":"dmFsdWU="}`
+	expectedTransactionZeroTimeJson = `{"Timestamp":"0001-01-01T00:00:00Z","Key":"key","Value":"dmFsdWU="}`
+)
 
 // Smoke test for NewTransaction.
 func TestNewTransaction(t *testing.T) {
@@ -26,7 +29,7 @@ func TestNewTransaction(t *testing.T) {
 	// Construct expected Transaction object
 	key, val := "key", []byte("value")
 	expectedTransaction := Transaction{
-		Timestamp: testTime,
+		Timestamp: testTime.UTC(),
 		Key:       key,
 		Value:     val,
 	}
@@ -63,7 +66,7 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 
 	// Construct a Transaction object
 	key, val := "key", []byte("value")
-	oldTransaction := NewTransaction(testTime.UTC(), key, val)
+	oldTransaction := NewTransaction(testTime, key, val)
 
 	// Marshal transaction into JSON data
 	oldTransactionData, err := json.Marshal(oldTransaction)
@@ -85,4 +88,25 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 	// output (if no data has been lost, this should be the case)
 	require.Equal(t, expectedTransactionJson, string(newTransactionData))
 
+}
+
+// Edge check: check what happ
+func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
+	testTime := time.Time{}
+
+	// Construct a Transaction object
+	key, val := "key", []byte("value")
+	oldTransaction := NewTransaction(testTime, key, val)
+
+	// Marshal transaction into JSON data
+	oldTransactionData, err := json.Marshal(oldTransaction)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedTransactionZeroTimeJson, string(oldTransactionData))
+
+	// Construct a new transaction and unmarshal the old transaction into it
+	newTransaction := NewTransaction(time.Time{}, "", make([]byte, 0))
+	require.NoError(t, newTransaction.UnmarshalJSON(oldTransactionData))
+
+	require.True(t, newTransaction.Timestamp.Equal(testTime))
 }

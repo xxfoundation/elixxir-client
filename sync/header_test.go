@@ -49,8 +49,8 @@ const (
 func TestNewHeader(t *testing.T) {
 	receivedHeader := NewHeader()
 	expectedHeader := &Header{
-		version: headerVersion,
-		entries: make(map[string]string, 0),
+		Version: headerVersion,
+		Entries: make(map[string]string, 0),
 	}
 	require.Equal(t, expectedHeader, receivedHeader)
 }
@@ -65,7 +65,7 @@ func TestHeader_Set(t *testing.T) {
 	require.NoError(t, head.Set(key, val))
 
 	// Ensure that key exists in map and is the expected value
-	received, exists := head.entries[key]
+	received, exists := head.Entries[key]
 	require.True(t, exists)
 	require.Equal(t, val, received)
 }
@@ -84,7 +84,7 @@ func TestHeader_Set_Overwrite(t *testing.T) {
 	require.NoError(t, head.Set(key, newVal))
 
 	// Ensure that key exists in map and is the expected value
-	received, exists := head.entries[key]
+	received, exists := head.Entries[key]
 	require.True(t, exists)
 	require.Equal(t, newVal, received)
 }
@@ -144,7 +144,7 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 
 	// Ensure that the newHeader.UnmarshalJSON call places oldHeader's data
 	// into the new header object.
-	require.Equal(t, newHeader, oldHeader)
+	require.Equal(t, oldHeader, newHeader)
 
 	// Marshal the newHeader into JSON
 	newHeaderData, err := json.Marshal(newHeader)

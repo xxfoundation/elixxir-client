@@ -119,8 +119,6 @@ func TestHeader_MarshalJSON(t *testing.T) {
 	marshaledData, err = json.MarshalIndent(head, "", "\t")
 	require.NoError(t, err)
 
-	t.Logf("%s", marshaledData)
-
 	// Ensure it outputs a single line, ie the newline character does not
 	// create a multi-line JSON file.
 	require.Equal(t, expectedHeaderJsonNewline, string(marshaledData))
@@ -157,5 +155,8 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 	// Ensure that newHeader's marshalled data matches the expected JSON output
 	// (if no data has been lost, this should be the case)
 	require.Equal(t, expectedHeaderJson, string(newHeaderData))
+
+	// Edge check: Testing that entering invalid JSON fails Unmarshal
+	require.Error(t, newHeader.UnmarshalJSON([]byte("badJSON")))
 
 }

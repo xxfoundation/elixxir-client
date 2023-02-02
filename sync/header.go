@@ -94,7 +94,7 @@ func (h *Header) MarshalJSON() ([]byte, error) {
 	return json.Marshal(marshaller)
 }
 
-// UnmarshalJSON unmarshalls JSON into the cipher. This function adheres to the
+// UnmarshalJSON unmarshalls JSON into the Header. This function adheres to the
 // json.Unmarshaler interface.
 func (h *Header) UnmarshalJSON(data []byte) error {
 	headerData := header{}

@@ -15,10 +15,15 @@ import (
 	"testing"
 )
 
-const expectedJsonOutput = `{"version":0,"entries":{"key0":"val0","key1":"val1","key2":"val2","key3":"val3","key4":"val4","key5":"val5","key6":"val6","key7":"val7","key8":"val8","key9":"val9"}}`
 const (
-	// expectedHeaderJsonNewline is the result of calling json.MarshalIndent
-	// on a Header object. expectedHeaderJsonNewline is presented with idents to
+	// expectedHeaderJson is the expected result for calling json.Marshal on a
+	// Header object with example data.
+	expectedHeaderJson = `{"version":0,"entries":{"key0":"val0","key1":"val1","key2":"val2","key3":"val3","key4":"val4","key5":"val5","key6":"val6","key7":"val7","key8":"val8","key9":"val9"}}`
+
+	// expectedHeaderJsonNewline is the expected result of calling
+	// json.MarshalIndent on a Header object with example data. This differs
+	// from expectedHeaderJson by having a newline character, `\n`. within
+	// Header.entries. expectedHeaderJsonNewline is presented with idents to
 	// illustrate that the newline character `\n` is parsed as part of the key
 	// and not as the escape character. Note that if one were to json.Unmarshal
 	// this back into a Header object, then json.Marshal that object, the output
@@ -86,7 +91,7 @@ func TestHeader_Set_Error(t *testing.T) {
 	require.Equal(t, originalVal, received)
 }
 
-// Smoke test for Header.MarshalJSON. Checks basic marshaling outputs expected
+// Smoke & unit test for Header.MarshalJSON. Checks basic marshaling outputs expected
 // data. Further edge checks that when given a key with a newline character, the
 // character is parsed as part of a string value and not as an escape character.
 func TestHeader_MarshalJSON(t *testing.T) {
@@ -100,12 +105,12 @@ func TestHeader_MarshalJSON(t *testing.T) {
 		require.NoError(t, head.Set(key, val))
 	}
 
-	// Marshal header
+	// Marshal header into JSON byte data
 	marshaledData, err := json.Marshal(head)
 	require.NoError(t, err)
 
-	// Check that marshaled data
-	require.Equal(t, expectedJsonOutput, string(marshaledData))
+	// Check that marshaled data matches expected JSON
+	require.Equal(t, expectedHeaderJson, string(marshaledData))
 
 	// Edge check: Add a key with a newline character
 	key, val := "edgeCheckKey\n", "edgeCheckVal"
@@ -121,7 +126,7 @@ func TestHeader_MarshalJSON(t *testing.T) {
 	require.Equal(t, expectedHeaderJsonNewline, string(marshaledData))
 }
 
-// Smoke test for Header.UnmarshalJSON. Ensures that
+// Smoke & unit test for Header.UnmarshalJSON.
 func TestHeader_UnmarshalJSON(t *testing.T) {
 	// Initialize header object
 	oldHeader := NewHeader()
@@ -151,6 +156,6 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 
 	// Ensure that newHeader's marshalled data matches the expected JSON output
 	// (if no data has been lost, this should be the case)
-	require.Equal(t, expectedJsonOutput, string(newHeaderData))
+	require.Equal(t, expectedHeaderJson, string(newHeaderData))
 
 }

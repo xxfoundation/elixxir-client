@@ -107,7 +107,7 @@ type ExtensionMessageHandler interface {
 // the event model to its event model type and return an error if the cast
 // fails. It returns a slice of ExtensionMessageHandler which are the handlers
 // for every custom message type the extension will handle.
-type ExtensionBuilder func(EventModel) ([]ExtensionMessageHandler, error)
+type ExtensionBuilder func(EventModel, Manager) ([]ExtensionMessageHandler, error)
 
 // AddServiceFn adds a service to be controlled by the client thread control.
 // These will be started and stopped with the network follower.
@@ -144,10 +144,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 		return nil, err
 	}
 
-	m, err := setupManager(identity, kv, net, rng, model, extensions)
-	if err != nil {
-		return nil, err
-	}
+	m := setupManager(identity, kv, net, rng, model, extensions)
 	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
@@ -169,10 +166,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 		return nil, err
 	}
 
-	m, err := setupManager(identity, kv, net, rng, model, extensions)
-	if err != nil {
-		return nil, err
-	}
+	m := setupManager(identity, kv, net, rng, model, extensions)
 	m.loadDMTokens()
 
 	return m, nil
@@ -193,26 +187,35 @@ func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	extensionBuilders []ExtensionBuilder, ) (*manager, error) {
-
-	//activate all extensions
-	var extensions []ExtensionMessageHandler
-	for i := range extensionBuilders {
-		exts, err := extensionBuilders[i](model)
-		if err != nil {
-			return nil, err
-		}
-		extensions = append(extensions, exts...)
-	}
+	extensionBuilders []ExtensionBuilder) *manager {
 
 	//build the manager
-	m := manager{
+	m := &manager{
 		me:             identity,
 		kv:             kv,
 		net:            net,
 		rng:            rng,
-		events:         initEvents(model, 512, kv, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
+		events:         initEvents(model, 512, kv, rng),
+	}
+
+	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
+
+	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
+		m.events.triggerAdminEvent, model.UpdateFromUUID, rng)
+
+	m.loadChannels()
+
+	m.nicknameManager = LoadOrNewNicknameManager(kv)
+
+	//activate all extensions
+	var extensions []ExtensionMessageHandler
+	for i := range extensionBuilders {
+		exts, err := extensionBuilders[i](model, m)
+		if err != nil {
+			jww.FATAL.Panicf("failed to initialize extension %d: %+v", i, err)
+		}
+		extensions = append(extensions, exts...)
 	}
 
 	//register all extensions
@@ -228,20 +231,12 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 				mutedSpace: mutedSpace,
 			})
 		if err != nil {
-			return nil, err
+			jww.FATAL.Panicf("extension message handle %s(%d) failed "+
+				"to register: %+v", name, i, err)
 		}
 	}
 
-	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
-
-	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
-		m.events.triggerAdminEvent, model.UpdateFromUUID, rng)
-
-	m.loadChannels()
-
-	m.nicknameManager = LoadOrNewNicknameManager(kv)
-
-	return &m, nil
+	return m
 }
 
 // adminReplayHandler registers a ReplayActionFunc with the lease system.

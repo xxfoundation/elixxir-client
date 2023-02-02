@@ -24,11 +24,9 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -86,34 +84,6 @@ type Client interface {
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
 }
-
-// EventModelBuilder initialises the event model using the given path.
-type EventModelBuilder func(path string) (EventModel, error)
-
-// ExtensionMessageHandler is the mechanism by which extensions register their
-// message handlers
-type ExtensionMessageHandler interface {
-	GetType() MessageType
-	GetProperties() (name string, userSpace, adminSpace, mutedSpace bool)
-	Handle(channelID *id.ID, messageID cryptoMessage.ID,
-		messageType MessageType, nickname string, content, encryptedPayload []byte,
-		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp,
-		originatingTimestamp time.Time, lease time.Duration,
-		originatingRound id.Round, round rounds.Round, status SentStatus, fromAdmin,
-		hidden bool) uint64
-}
-
-// ExtensionBuilder Builds an extension off of an event model. It must cast
-// the event model to its event model type and return an error if the cast
-// fails. It returns a slice of ExtensionMessageHandler which are the handlers
-// for every custom message type the extension will handle.
-type ExtensionBuilder func(EventModel, Manager) ([]ExtensionMessageHandler, error)
-
-// AddServiceFn adds a service to be controlled by the client thread control.
-// These will be started and stopped with the network follower.
-//
-// This type must match [Cmix.AddService].
-type AddServiceFn func(sp xxdk.Service) error
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,

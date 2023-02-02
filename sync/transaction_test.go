@@ -90,7 +90,8 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 
 }
 
-// Edge check: check what happ
+// Edge check: check that a zero value time.Time object gets marshalled
+// and unmarshalled properly.
 func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
 	testTime := time.Time{}
 

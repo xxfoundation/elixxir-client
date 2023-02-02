@@ -13,17 +13,10 @@ import (
 )
 
 // Transaction is the object that is uploaded to a remote service responsible
-// for account synchronization.
-type Transaction struct {
-	// Timestamp is the time of the transaction based on a cMix time oracle.
-	Timestamp time.Time
-
-	// The key of the transaction (e.g. the device prefix)
-	Key string
-
-	// The value of the transaction (e.g. the state change update).
-	Value []byte
-}
+// for account synchronization. It inherits the private transaction object.
+// This prevents recursive calls by json.Marshal on Header.MarshalJSON. Any
+// changes to the Header object fields should be done in header.
+type Transaction transaction
 
 // NewTransaction is the constructor of a Transaction object.
 func NewTransaction(ts time.Time, key string, value []byte) Transaction {
@@ -49,29 +42,17 @@ type transaction struct {
 // MarshalJSON marshals the Transaction into valid JSON. This function adheres
 // to the json.Marshaler interface.
 func (t *Transaction) MarshalJSON() ([]byte, error) {
-	marshaller := transaction{
-		Timestamp: t.Timestamp,
-		Key:       t.Key,
-		Value:     t.Value,
-	}
-
-	return json.Marshal(marshaller)
+	return json.Marshal(transaction(*t))
 }
 
 // UnmarshalJSON unmarshalls JSON into the Transaction. This function adheres to
 // the json.Unmarshaler interface.
 func (t *Transaction) UnmarshalJSON(data []byte) error {
-	transactionData := transaction{}
-	err := json.Unmarshal(data, &transactionData)
-	if err != nil {
+	headerData := transaction{}
+	if err := json.Unmarshal(data, &headerData); err != nil {
 		return err
 	}
-
-	*t = Transaction{
-		Timestamp: transactionData.Timestamp,
-		Key:       transactionData.Key,
-		Value:     transactionData.Value,
-	}
-
+	*t = Transaction(headerData)
 	return nil
+
 }

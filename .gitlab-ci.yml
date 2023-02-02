@@ -120,6 +120,7 @@ bindings-ios:
 
 bindings-android:
   stage: build
+  image: $ANDROID_DOCKER_IMAGE
   dependencies: []
   except:
     - tags

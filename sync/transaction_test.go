@@ -74,7 +74,7 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 
 	// Construct a new transaction and unmarshal the old transaction into it
 	newTransaction := NewTransaction(time.Time{}, "", make([]byte, 0))
-	require.NoError(t, newTransaction.UnmarshalJSON(oldTransactionData))
+	require.NoError(t, json.Unmarshal(oldTransactionData, &newTransaction))
 
 	// Ensure that the newTransaction.UnmarshalJSON call places
 	// oldTransaction's data into the new transaction object.
@@ -107,7 +107,7 @@ func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
 
 	// Construct a new transaction and unmarshal the old transaction into it
 	newTransaction := NewTransaction(time.Time{}, "", make([]byte, 0))
-	require.NoError(t, newTransaction.UnmarshalJSON(oldTransactionData))
+	require.NoError(t, json.Unmarshal(oldTransactionData, &newTransaction))
 
 	require.True(t, newTransaction.Timestamp.Equal(testTime))
 }

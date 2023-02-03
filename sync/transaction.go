@@ -8,7 +8,6 @@
 package sync
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -27,32 +26,34 @@ func NewTransaction(ts time.Time, key string, value []byte) Transaction {
 	}
 }
 
-// transaction is an object strictly adhering to Transaction. This serves as the
-// marshal-able an unmarshal-able object such that transaction may adhere to the
-// json.Marshaler and json.Unmarshaler interfaces.
+// transaction is the object to which Transaction strictly adheres. transaction
+// serves as the marshal-able an unmarshal-able object that
+// Transaction.MarshalJSON and Transaction.UnmarshalJSON utilizes when calling
+// json.Marshal/json.Unmarshal.
 //
-// WARNING: If transaction is modified, header should reflect these changes to
-// ensure no data is lost when calling the json.Marshaler or json.Unmarshaler.
+// WARNING: Modifying transaction will modify Transaction, be mindful of the
+// consumers when modifying this structure.
 type transaction struct {
 	Timestamp time.Time
 	Key       string
 	Value     []byte
 }
 
-// MarshalJSON marshals the Transaction into valid JSON. This function adheres
-// to the json.Marshaler interface.
-func (t *Transaction) MarshalJSON() ([]byte, error) {
-	return json.Marshal(transaction(*t))
-}
-
-// UnmarshalJSON unmarshalls JSON into the Transaction. This function adheres to
-// the json.Unmarshaler interface.
-func (t *Transaction) UnmarshalJSON(data []byte) error {
-	headerData := transaction{}
-	if err := json.Unmarshal(data, &headerData); err != nil {
-		return err
-	}
-	*t = Transaction(headerData)
-	return nil
-
-}
+// fixme: This is commented out until Transaction needs a Marshaler/Unmarshaler.
+//// MarshalJSON marshals the Transaction into valid JSON. This function adheres
+//// to the json.Marshaler interface.
+//func (t *Transaction) MarshalJSON() ([]byte, error) {
+//	return json.Marshal(transaction(*t))
+//}
+//
+//// UnmarshalJSON unmarshalls JSON into the Transaction. This function adheres to
+//// the json.Unmarshaler interface.
+//func (t *Transaction) UnmarshalJSON(data []byte) error {
+//	transData := transaction{}
+//	if err := json.Unmarshal(data, &transData); err != nil {
+//		return err
+//	}
+//	*t = Transaction(transData)
+//	return nil
+//
+//}

@@ -140,7 +140,7 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 
 	// Construct a new header and unmarshal the old header into it
 	newHeader := NewHeader()
-	require.NoError(t, newHeader.UnmarshalJSON(oldHeaderData))
+	require.NoError(t, json.Unmarshal(oldHeaderData, newHeader))
 
 	// Ensure that the newHeader.UnmarshalJSON call places oldHeader's data
 	// into the new header object.
@@ -155,6 +155,6 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 	require.Equal(t, expectedHeaderJson, string(newHeaderData))
 
 	// Edge check: Testing that entering invalid JSON fails Unmarshal
-	require.Error(t, newHeader.UnmarshalJSON([]byte("badJSON")))
+	require.Error(t, json.Unmarshal([]byte("badJSON"), newHeader))
 
 }

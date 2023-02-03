@@ -32,7 +32,7 @@ const (
 	savedActionPurgeThreadStoppable = "SavedActionPurgeThread"
 
 	// purgeFrequency is how often stale actions are purged.
-	purgeFrequency = 1 * time.Minute
+	purgeFrequency = 10 * time.Minute
 
 	// maxSavedActionAge is the age of a saved action before it is deleted.
 	maxSavedActionAge = 24 * time.Hour
@@ -106,6 +106,7 @@ func (as *ActionSaver) purgeThread(stop *stoppable.Single) {
 		"stoppable %s", stop.Name())
 
 	ticker := time.NewTicker(purgeFrequency)
+	// TODO: run on load
 	for {
 		select {
 		case <-stop.Quit():

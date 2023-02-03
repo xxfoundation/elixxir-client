@@ -8,7 +8,6 @@
 package sync
 
 import (
-	"encoding/json"
 	"github.com/pkg/errors"
 )
 
@@ -53,30 +52,31 @@ func (h *Header) Get(key string) (string, error) {
 	return value, nil
 }
 
-// header is an object strictly adhering to Header. This serves as the
-// marshal-able an unmarshal-able object such that Header may adhere to the
-// json.Marshaler and json.Unmarshaler interfaces.
+// header is the object to which Header strictly adheres. header serves as the
+// marshal-able an unmarshal-able object that Header.MarshalJSON and
+// Header.UnmarshalJSON utilizes when calling json.Marshal/json.Unmarshal.
 //
-// WARNING: If Header is modified, header should reflect these changes to ensure
-// no data is lost when calling the json.Marshaler or json.Unmarshaler.
+// WARNING: Modifying header will modify Header, be mindful of the
+// consumers when modifying this structure.
 type header struct {
 	Version uint16            `json:"version"`
 	Entries map[string]string `json:"entries"`
 }
 
-// MarshalJSON marshals the Header into valid JSON. This function adheres to the
-// json.Marshaler interface.
-func (h *Header) MarshalJSON() ([]byte, error) {
-	return json.Marshal(header(*h))
-}
-
-// UnmarshalJSON unmarshalls JSON into the Header. This function adheres to the
-// json.Unmarshaler interface.
-func (h *Header) UnmarshalJSON(data []byte) error {
-	headerData := header{}
-	if err := json.Unmarshal(data, &headerData); err != nil {
-		return err
-	}
-	*h = Header(headerData)
-	return nil
-}
+// fixme: This is commented out until Header needs a Marshaler/Unmarshaler.
+//// MarshalJSON marshals the Header into valid JSON. This function adheres to the
+//// json.Marshaler interface.
+//func (h *Header) MarshalJSON() ([]byte, error) {
+//	return json.Marshal(header(*h))
+//}
+//
+//// UnmarshalJSON unmarshalls JSON into the Header. This function adheres to the
+//// json.Unmarshaler interface.
+//func (h *Header) UnmarshalJSON(data []byte) error {
+//	headerData := header{}
+//	if err := json.Unmarshal(data, &headerData); err != nil {
+//		return err
+//	}
+//	*h = Header(headerData)
+//	return nil
+//}

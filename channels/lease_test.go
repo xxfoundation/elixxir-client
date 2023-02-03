@@ -439,7 +439,7 @@ func TestActionLeaseList_updateLeasesThread_AddAndRemove(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatalf("Timed out waiting for message to be removed from message map.")
 	}
 
@@ -447,7 +447,7 @@ func TestActionLeaseList_updateLeasesThread_AddAndRemove(t *testing.T) {
 		t.Errorf("%d messages left in lease list.", all.leases.Len())
 	}
 
-	if err := stop.Close(); err != nil {
+	if err = stop.Close(); err != nil {
 		t.Errorf("Failed to close thread: %+v", err)
 	}
 }

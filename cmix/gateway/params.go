@@ -60,6 +60,11 @@ type Params struct {
 	// hostPool's state (refer to debug.go). If this value is not set by the user,
 	// then by default debug prints will be disabled.
 	DebugPrintPeriod time.Duration
+
+	// GatewayFilter is the function which will be used to filter gateways
+	// before connecting.  This must be set before initializing a HostPool and
+	// cannot be changed.  If no filter is set, the defaultFilter will be used.
+	GatewayFilter Filter
 }
 
 // DefaultParams returns a default set of PoolParams.

@@ -183,6 +183,9 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 	poolParams.HostParams.ProxyErrorMetricParams.Cutoff = 0.30
 	poolParams.HostParams.ProxyErrorMetricParams.InitialAverage =
 		0.75 * poolParams.HostParams.ProxyErrorMetricParams.Cutoff
+	if c.param.WhitelistedGateways != nil && len(c.param.WhitelistedGateways) > 0 {
+		poolParams.GatewayFilter = gateway.GatewayWhitelistFilter(c.param.WhitelistedGateways)
+	}
 
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50

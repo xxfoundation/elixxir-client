@@ -74,6 +74,11 @@ type Params struct {
 	// subsystem. THIS SHOULD ONLY BE USED IN TESTING.
 	DisableNodeRegistration bool
 
+	// WhitelistedGateways is a list of gateway IDs which, if set, will be used
+	// to create a GatewayFilter for the hostpool, ensuring we only connect to
+	// gateways in this list.
+	WhitelistedGateways []string
+
 	Rounds     rounds.Params
 	Pickup     pickup.Params
 	Message    message.Params

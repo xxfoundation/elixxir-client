@@ -454,8 +454,12 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	}
 	cmixParams.Network.VerboseRoundTracking = viper.GetBool(
 		verboseRoundTrackingFlag)
+
 	cmixParams.Network.DisableNodeRegistration = viper.GetBool(disableNodeRegistrationFlag)
 	cmixParams.Network.EnableEphemeralRegistration = viper.GetBool(enableEphemeralRegistrationFlag)
+
+	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
+
 	return cmixParams, e2eParams
 }
 
@@ -549,6 +553,8 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 				backupPass, err)
 		}
 	}
+
+	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
 
 	return user
 }
@@ -1001,6 +1007,9 @@ func init() {
 		"Password to the session file")
 	viper.BindPFlag(passwordFlag, rootCmd.PersistentFlags().Lookup(
 		passwordFlag))
+
+	rootCmd.PersistentFlags().StringArrayP(gatewayWhitelistFlag, "", []string{}, "")
+	viper.BindPFlag(gatewayWhitelistFlag, rootCmd.PersistentFlags().Lookup(gatewayWhitelistFlag))
 
 	rootCmd.PersistentFlags().StringP(ndfFlag, "n", "ndf.json",
 		"Path to the network definition JSON file")

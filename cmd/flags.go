@@ -84,6 +84,7 @@ const (
 	profileMemFlag                  = "profile-mem"
 	userIdPrefixFlag                = "userid-prefix"
 	legacyFlag                      = "legacy"
+	gatewayWhitelistFlag            = "gateway-whitelist"
 	disableNodeRegistrationFlag     = "disableNodeRegistration"
 	enableEphemeralRegistrationFlag = "enableEphemeralRegistration"
 

@@ -119,7 +119,7 @@ var channelsCmd = &cobra.Command{
 		// Construct channels manager
 		chanManager, err := channels.NewManagerBuilder(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder, user.AddService)
+			mockEventModelBuilder, nil, user.AddService)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)

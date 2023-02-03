@@ -19,6 +19,9 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -28,8 +31,6 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -88,18 +89,19 @@ type Client interface {
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extentions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
+	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return NewManager(identity, kv, net, rng, model, extentions, addService)
+	return NewManager(identity, kv, net, rng, model, extensions, addService)
 }
 
-// NewManager creates a new channel Manager from a [cryptoChannel.PrivateIdentity]. It
-// prefixes the KV with a tag derived from the public key that can be retried
-// for reloading using [Manager.GetStorageTag].
+// NewManager creates a new channel [Manager] from a
+// [cryptoChannel.PrivateIdentity]. It prefixes the KV with a tag derived from
+// the public key that can be retried for reloading using
+// [Manager.GetStorageTag].
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
@@ -123,8 +125,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, model EventModel, extensions []ExtensionBuilder) (
-	Manager, error) {
+	rng *fastRNG.StreamGenerator, model EventModel,
+	extensions []ExtensionBuilder) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
@@ -159,7 +161,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensionBuilders []ExtensionBuilder) *manager {
 
-	//build the manager
+	// Build the manager
 	m := &manager{
 		me:             identity,
 		kv:             kv,
@@ -178,31 +180,27 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
-	//activate all extensions
+	// Activate all extensions
 	var extensions []ExtensionMessageHandler
 	for i := range extensionBuilders {
-		exts, err := extensionBuilders[i](model, m)
+		ext, err := extensionBuilders[i](model, m)
 		if err != nil {
-			jww.FATAL.Panicf("failed to initialize extension %d: %+v", i, err)
+			jww.FATAL.Panicf("[CH] Failed to initialize extension %d of %d: %+v",
+				i, len(extensionBuilders), err)
 		}
-		extensions = append(extensions, exts...)
+		extensions = append(extensions, ext...)
 	}
 
-	//register all extensions
+	// Register all extensions
 	for i := range extensions {
 		ext := extensions[i]
 		name, userSpace, adminSpace, mutedSpace := ext.GetProperties()
 		err := m.events.RegisterReceiveHandler(ext.GetType(),
 			&ReceiveMessageHandler{
-				name:       name,
-				listener:   ext.Handle,
-				userSpace:  userSpace,
-				adminSpace: adminSpace,
-				mutedSpace: mutedSpace,
-			})
+				name, ext.Handle, userSpace, adminSpace, mutedSpace})
 		if err != nil {
-			jww.FATAL.Panicf("extension message handle %s(%d) failed "+
-				"to register: %+v", name, i, err)
+			jww.FATAL.Panicf("[CH] Extension message handle %s (%d of %d) "+
+				"failed to register: %+v", name, i, len(extensions), err)
 		}
 	}
 

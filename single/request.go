@@ -8,7 +8,6 @@
 package single
 
 import (
-	"bytes"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -359,14 +358,16 @@ func partitionPayload(firstPartSize, partSize int, payload []byte) (
 
 	firstPart = payload[:firstPartSize]
 
-	numParts := (len(payload[:firstPartSize]) + partSize - 1) / partSize
-	parts = make([][]byte, 0, numParts)
-	buff := bytes.NewBuffer(payload[firstPartSize:])
-
-	for n := buff.Next(partSize); len(n) > 0; n = buff.Next(partSize) {
-		newPart := make([]byte, partSize)
-		copy(newPart, n)
-		parts = append(parts, newPart)
+	payload = payload[firstPartSize:]
+	parts = make([][]byte, 0)
+	for len(payload) > 0 {
+		if len(payload) > partSize {
+			parts = append(parts, payload[:partSize])
+			payload = payload[partSize:]
+		} else {
+			parts = append(parts, payload)
+			payload = nil
+		}
 	}
 
 	return firstPart, parts

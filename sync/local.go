@@ -24,6 +24,17 @@ type EkvLocalStore struct {
 	data ekv.KeyValue
 }
 
+// NewEkvLocalStore is a constructor for EkvLocalStore.
+func NewEkvLocalStore(baseDir, password string) (*EkvLocalStore, error) {
+	fs, err := ekv.NewFilestore(baseDir, password)
+	if err != nil {
+		return nil, err
+	}
+	return &EkvLocalStore{
+		data: fs,
+	}, nil
+}
+
 // Read reads data from path. This will return an error if it fails to read
 // from the file path.
 //

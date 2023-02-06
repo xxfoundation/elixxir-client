@@ -15,9 +15,11 @@ import (
 )
 
 // Smoke test for FileSystemRemoteStorage that executes every method of
-// RemoteStore. As of writing, FileSystemRemoteStorage heavily utilizes
-// the xx network's primitives/utils package. As such, testing is light touch
-// as heavier tests exist in the library.
+// RemoteStore.
+//
+// As of writing, FileSystemRemoteStorage heavily utilizes the xx network's
+// primitives/utils package. As such, testing is light touch as heavier testing
+// exists within the dependency.
 func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 
 	path := "test.txt"

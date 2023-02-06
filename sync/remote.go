@@ -29,7 +29,8 @@ func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
 	return utils.ReadFile(path)
 }
 
-// Write will write data to path. This will return an error if it fails to write.
+// Write will write data to path. This will return an error if it fails to
+// write.
 //
 // This utilizes utils.WriteFileDef under the hood.
 func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {

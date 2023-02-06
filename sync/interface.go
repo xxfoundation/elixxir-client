@@ -14,7 +14,8 @@ import (
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
 type RemoteStore interface {
-	ReadWriter
+	// FileIO will be used to write and read files.
+	FileIO
 
 	// GetLastModified will return when the file at the given file path was last
 	// modified. If the implementation that adheres to this interface does not
@@ -23,13 +24,15 @@ type RemoteStore interface {
 	GetLastModified(path string) (time.Time, error)
 }
 
-// todo: docstring
+// LocalStore is the mechanism that all local storage implementations should
+// adhere to.
 type LocalStore interface {
-	ReadWriter
+	// FileIO will be used to write and read files.
+	FileIO
 }
 
-// todo: docstring
-type ReadWriter interface {
+// FileIO contains the interface to write and read files to a specific path.
+type FileIO interface {
 	// Read will read from the provided file path and return the data at that
 	// path. An error will be returned if it failed to read the file.
 	Read(path string) ([]byte, error)

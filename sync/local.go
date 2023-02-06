@@ -1,28 +1,50 @@
+// //////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//
+//	//
+//
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+// //////////////////////////////////////////////////////////////////////////////
 package sync
 
 import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-type LocalStoreEkv struct {
-	data versioned.KV
+const (
+	ekvLocalStoreVersion = 0
+)
+
+// EkvLocalStore is a structure adhering to LocalStore. This utilizes
+// versioned.KV file IO operations.
+type EkvLocalStore struct {
+	data ekv.KeyValue
 }
 
-// todo: docstring
-func (ls *LocalStoreEkv) Read(path string) ([]byte, error) {
-	obj, err := ls.data.Get(path, 0)
-	if err != nil {
+// Read reads data from path. This will return an error if it fails to read
+// from the file path.
+//
+// This utilizes ekv.KeyValue under the hood.
+func (ls *EkvLocalStore) Read(path string) ([]byte, error) {
+	obj := &versioned.Object{
+		Version: ekvLocalStoreVersion,
+	}
+	if err := ls.data.Get(path, obj); err != nil {
 		return nil, err
 	}
-
 	return obj.Data, nil
 }
 
-// todo: docstring
-func (ls *LocalStoreEkv) Write(path string, data []byte) error {
+// Write will write data to path. This will return an error if it fails to
+// write.
+//
+// This utilizes ekv.KeyValue under the hood.
+func (ls *EkvLocalStore) Write(path string, data []byte) error {
 	return ls.data.Set(path, &versioned.Object{
-		Version:   0,
+		Version:   ekvLocalStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	})

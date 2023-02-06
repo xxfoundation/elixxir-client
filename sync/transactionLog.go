@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/crypto/hash"
 	"io"
+	"sort"
 	"strconv"
 	"sync"
 )
@@ -39,7 +40,7 @@ type TransactionLog struct {
 	remote RemoteStore
 
 	// hdr is the Header of the TransactionLog.
-	hdr Header
+	hdr *Header
 
 	// txs is a list of transactions. This list must always be ordered by
 	// timestamp.
@@ -62,7 +63,7 @@ type TransactionLog struct {
 
 // NewTransactionLog constructs a new TransactionLog.
 func NewTransactionLog(local LocalStore, remote RemoteStore,
-	hdr Header, rng io.Reader, path string, deviceSecret []byte) *TransactionLog {
+	hdr *Header, rng io.Reader, path string, deviceSecret []byte) *TransactionLog {
 	// Construct reader/writer for the buffer
 	var (
 		writer = bufio.NewWriter(&bytes.Buffer{})
@@ -74,6 +75,7 @@ func NewTransactionLog(local LocalStore, remote RemoteStore,
 		path:         path,
 		local:        local,
 		remote:       remote,
+		txs:          make([]Transaction, 0),
 		hdr:          hdr,
 		curBuf:       bufio.NewReadWriter(reader, writer),
 		deviceSecret: deviceSecret,
@@ -105,24 +107,15 @@ func (tl *TransactionLog) Append(t Transaction) error {
 // append will write the new Transaction to txs. txs must be ordered by
 // timestamp, so it will ensure to place the new Transaction in the proper slot
 // of the list.
+//
+// Note that this operation is NOT thread-safe, and the caller should hold the
+// lck.
 func (tl *TransactionLog) append(newTransaction Transaction) {
-	// Get the last possible place
-	insertIndex := len(tl.txs)
-
-	// If the transaction list is empty, simply insert as the first transaction
-	if insertIndex == 0 {
-		tl.txs = append(tl.txs, newTransaction)
-	}
-
-	// Find the index to place the new transaction
-	for i := insertIndex - 1; i != 0 &&
-		newTransaction.Timestamp.Before(tl.txs[i].Timestamp); i-- {
-		insertIndex = i
-	}
-
-	afterNew := tl.txs[insertIndex:]
-	tl.txs = append(tl.txs[:insertIndex], newTransaction)
-	tl.txs = append(tl.txs, afterNew...)
+	tl.txs = append(tl.txs, newTransaction)
+	sort.SliceStable(tl.txs, func(i, j int) bool {
+		firstTs, secondTs := tl.txs[i].Timestamp, tl.txs[j].Timestamp
+		return firstTs.Before(secondTs)
+	})
 
 }
 

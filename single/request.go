@@ -359,7 +359,8 @@ func partitionPayload(firstPartSize, partSize int, payload []byte) (
 	firstPart = payload[:firstPartSize]
 
 	payload = payload[firstPartSize:]
-	parts = make([][]byte, 0)
+	numParts := (len(payload) + partSize - 1) / partSize
+	parts = make([][]byte, 0, numParts)
 	for len(payload) > 0 {
 		if len(payload) > partSize {
 			parts = append(parts, payload[:partSize])

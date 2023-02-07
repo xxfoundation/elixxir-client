@@ -12,7 +12,9 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"sort"
 	"strconv"
@@ -23,6 +25,17 @@ const (
 	xxdkTxLogHeader = "XXDKTXLOGHDR"
 )
 
+// Error messages.
+const (
+	writeToBufferErr = "failed to write to buffer (%s): %+v"
+	getLastWriteErr  = "failed to get last write operation from remote store: %+v"
+	writeToStoreErr  = "failed to write to %s store: %+v"
+)
+
+// TransactionLog will log all Transaction's to a storage interface. It will
+// contain all Transaction's in an ordered list, and will ensure to retain order
+// when Append is called. This will store to a LocalStore and a RemoteStore when
+// appending Transaction's.
 type TransactionLog struct {
 	// path is the filepath that the TransactionLog will be written to on remote
 	// and local storage.
@@ -124,7 +137,6 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 	// Marshal header into JSON
 	headerMarshal, err := json.Marshal(tl.hdr)
 	if err != nil {
-		// todo: better err
 		return nil, err
 	}
 
@@ -132,8 +144,14 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 	_, err = tl.curBuf.WriteString(xxdkTxLogHeader +
 		base64.URLEncoding.EncodeToString(headerMarshal))
 	if err != nil {
-		// todo: better err
-		return nil, err
+		return nil, errors.Errorf(writeToBufferErr,
+			xxdkTxLogHeader+base64.URLEncoding.EncodeToString(headerMarshal),
+			err)
+	}
+
+	lastRemoteWrite, err := tl.remote.GetLastWrite()
+	if err != nil {
+		return nil, errors.Errorf(getLastWriteErr, err)
 	}
 
 	// Serialize all transactions
@@ -142,7 +160,6 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 		// Construct cMix hash
 		h, err := hash.NewCMixHash()
 		if err != nil {
-			// todo: better err, possibly panic
 			return nil, err
 		}
 
@@ -151,10 +168,14 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 		h.Write(tl.deviceSecret)
 		secret := h.Sum(nil)
 
+		if tl.txs[i].Timestamp.After(lastRemoteWrite) {
+			// Timestamp must be updated every write attempt time if new entry
+			tl.txs[i].Timestamp = netTime.Now()
+		}
+
 		// Marshal the current transaction
 		txMarshal, err := json.Marshal(tl.txs[i])
 		if err != nil {
-			// todo: better err
 			return nil, err
 		}
 
@@ -165,8 +186,11 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 		_, err = tl.curBuf.WriteString(strconv.Itoa(i) + "," +
 			base64.URLEncoding.EncodeToString(encrypted))
 		if err != nil {
-			// todo: better err
-			return nil, err
+			return nil, errors.Errorf(writeToBufferErr,
+				strconv.Itoa(i)+","+
+					base64.URLEncoding.EncodeToString(encrypted),
+				err)
+
 		}
 	}
 
@@ -180,14 +204,15 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 	// Save to local storage (if set)
 	if tl.local != nil {
 		if err := tl.local.Write(tl.path, dataToSave); err != nil {
-			// todo: better err
-			return err
+			return errors.Errorf(writeToStoreErr, "local", err)
 		}
 	}
 
 	// Save to remote storage (if set)
 	if tl.remote != nil {
-		return tl.remote.Write(tl.path, dataToSave)
+		if err := tl.local.Write(tl.path, dataToSave); err != nil {
+			return errors.Errorf(writeToStoreErr, "remote", err)
+		}
 	}
 
 	return nil

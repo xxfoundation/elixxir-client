@@ -39,7 +39,7 @@ type transaction struct {
 	Value     []byte
 }
 
-// fixme: This is commented out until Transaction needs a Marshaler/Unmarshaler.
+// NOTE: This is commented out until Transaction needs a Marshaler/Unmarshaler.
 //// MarshalJSON marshals the Transaction into valid JSON. This function adheres
 //// to the json.Marshaler interface.
 //func (t *Transaction) MarshalJSON() ([]byte, error) {

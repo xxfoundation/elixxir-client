@@ -10,8 +10,8 @@ package sync
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/hash"
@@ -74,20 +74,29 @@ type TransactionLog struct {
 	lck sync.RWMutex
 }
 
-// NewTransactionLog constructs a new TransactionLog.
+// NewTransactionLog constructs a new TransactionLog. Note that by default the
+// log's header is empty. To set this field, call TransactionLog.SetHeader.
 func NewTransactionLog(local LocalStore, remote RemoteStore,
-	hdr *Header, rng io.Reader, path string, deviceSecret []byte) *TransactionLog {
+	rng io.Reader, path string, deviceSecret []byte) *TransactionLog {
 	// Return a new transaction log
 	return &TransactionLog{
 		path:         path,
 		local:        local,
 		remote:       remote,
 		txs:          make([]Transaction, 0),
-		hdr:          hdr,
 		curBuf:       &bytes.Buffer{},
 		deviceSecret: deviceSecret,
 		rng:          rng,
 	}
+}
+
+// SetHeader will set the Header of the TransactionLog. This new header will be
+// what is used for serialization and saving when calling Append.
+func (tl *TransactionLog) SetHeader(h *Header) {
+	tl.lck.Lock()
+	defer tl.lck.Unlock()
+
+	tl.hdr = h
 }
 
 // Append will add a transaction to the TransactionLog. This will save the
@@ -161,13 +170,12 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 	for i := 0; i < len(tl.txs); i++ {
 
 		// Construct cMix hash
-		h, err := hash.NewCMixHash()
-		if err != nil {
-			return nil, err
-		}
+		hash.CMixHash.New()
+		h := hash.CMixHash.New()
 
 		// Construct secret for encryption
-		h.Write(binary.LittleEndian.AppendUint16(make([]byte, 0), uint16(i)))
+		idxStr := serializeInt(i)
+		h.Write([]byte(idxStr))
 		h.Write(tl.deviceSecret)
 		secret := h.Sum(nil)
 
@@ -186,7 +194,7 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 		encrypted := encrypt(txMarshal, string(secret), tl.rng)
 
 		// Write the encrypted transaction to the buffer
-		_, err = tl.curBuf.WriteString(strconv.Itoa(i) + "," +
+		_, err = tl.curBuf.WriteString(idxStr + "," +
 			base64.URLEncoding.EncodeToString(encrypted))
 		if err != nil {
 			return nil, errors.Errorf(writeToBufferErr,
@@ -205,20 +213,30 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 func (tl *TransactionLog) save(dataToSave []byte) error {
 
 	// Save to local storage (if set)
-	if tl.local != nil {
-		jww.INFO.Println("[Transaction Log] Writing transaction log to local store")
-		if err := tl.local.Write(tl.path, dataToSave); err != nil {
-			return errors.Errorf(writeToStoreErr, "local", err)
-		}
+	if tl.local == nil {
+	}
+
+	jww.INFO.Println("[Transaction Log] Writing transaction log to local store")
+	if err := tl.local.Write(tl.path, dataToSave); err != nil {
+		return errors.Errorf(writeToStoreErr, "local", err)
 	}
 
 	// Save to remote storage (if set)
-	if tl.remote != nil {
-		jww.INFO.Println("[Transaction Log] Writing transaction log to remote store")
-		if err := tl.remote.Write(tl.path, dataToSave); err != nil {
-			return errors.Errorf(writeToStoreErr, "remote", err)
-		}
+	if tl.remote == nil {
+		jww.FATAL.Panicf("[Transaction Log] Cannot write to a nil remote store")
+
+	}
+
+	jww.INFO.Println("[Transaction Log] Writing transaction log to remote store")
+	if err := tl.remote.Write(tl.path, dataToSave); err != nil {
+		return errors.Errorf(writeToStoreErr, "remote", err)
 	}
 
 	return nil
+}
+
+// serializeInt is a helper function which will serialize an integer into
+// a byte slice.
+func serializeInt(i int) string {
+	return fmt.Sprintf("%d", i)
 }

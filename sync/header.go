@@ -63,7 +63,7 @@ type header struct {
 	Entries map[string]string `json:"entries"`
 }
 
-// fixme: This is commented out until Header needs a Marshaler/Unmarshaler.
+// NOTE: This is commented out until Header needs a Marshaler/Unmarshaler.
 //// MarshalJSON marshals the Header into valid JSON. This function adheres to the
 //// json.Marshaler interface.
 //func (h *Header) MarshalJSON() ([]byte, error) {

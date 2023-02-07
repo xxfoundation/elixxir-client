@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/xx_network/primitives/utils"
 	"os"
 	"sort"
 	"strconv"
@@ -173,7 +174,9 @@ func TestTransactionLog_Serialize(t *testing.T) {
 // when they are set.
 func TestTransactionLog_Save(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir", "password"
+	baseDir, password := "testDir/", "password"
+	require.NoError(t, utils.MakeDirs(baseDir, utils.DirPerms))
+
 	localStore, err := NewEkvLocalStore(baseDir, password)
 	require.NoError(t, err)
 
@@ -194,7 +197,7 @@ func TestTransactionLog_Save(t *testing.T) {
 
 	// Construct transaction log
 	txLog := NewTransactionLog(localStore, remoteStore, hdr,
-		&CountingReader{count: 0}, baseDir, deviceSecret)
+		&CountingReader{count: 0}, baseDir+"test.txt", deviceSecret)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)

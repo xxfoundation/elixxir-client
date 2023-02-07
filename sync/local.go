@@ -21,7 +21,7 @@ const (
 // EkvLocalStore is a structure adhering to LocalStore. This utilizes
 // versioned.KV file IO operations.
 type EkvLocalStore struct {
-	data ekv.KeyValue
+	data *versioned.KV
 }
 
 // NewEkvLocalStore is a constructor for EkvLocalStore.
@@ -31,7 +31,7 @@ func NewEkvLocalStore(baseDir, password string) (*EkvLocalStore, error) {
 		return nil, err
 	}
 	return &EkvLocalStore{
-		data: fs,
+		data: versioned.NewKV(fs),
 	}, nil
 }
 
@@ -43,7 +43,8 @@ func (ls *EkvLocalStore) Read(path string) ([]byte, error) {
 	obj := &versioned.Object{
 		Version: ekvLocalStoreVersion,
 	}
-	if err := ls.data.Get(path, obj); err != nil {
+	obj, err := ls.data.Get(path, ekvLocalStoreVersion)
+	if err != nil {
 		return nil, err
 	}
 	return obj.Data, nil

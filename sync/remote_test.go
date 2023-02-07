@@ -35,17 +35,17 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 
 	// Write to file
 	writeTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write(path, data))
+	require.NoError(t, fsRemote.Write(baseDir+path, data))
 
 	// Read file
-	read, err := fsRemote.Read(path)
+	read, err := fsRemote.Read(baseDir + path)
 	require.NoError(t, err)
 
 	// Ensure read data matches originally written data
 	require.Equal(t, data, read)
 
 	// Retrieve the last modification of the file
-	lastModified, err := fsRemote.GetLastModified(path)
+	lastModified, err := fsRemote.GetLastModified(baseDir + path)
 	require.NoError(t, err)
 
 	//time.Sleep(50 * time.Millisecond)
@@ -69,7 +69,7 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	// Write a new file to remote
 	newPath := "new.txt"
 	newWriteTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write(newPath, data))
+	require.NoError(t, fsRemote.Write(baseDir+newPath, data))
 
 	// Retrieve the last write
 	newLastWrite, err := fsRemote.GetLastWrite()

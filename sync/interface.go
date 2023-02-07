@@ -25,4 +25,8 @@ type RemoteStore interface {
 	// support this, Write or Read should be implemented to either write a
 	// separate timestamp file or add a prefix.
 	GetLastModified(path string) (time.Time, error)
+
+	// GetLastWrite will retrieve the most recent successful write operation
+	// that was received by RemoteStore.
+	GetLastWrite() (time.Time, error)
 }

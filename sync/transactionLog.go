@@ -8,7 +8,6 @@
 package sync
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
@@ -48,7 +47,7 @@ type TransactionLog struct {
 
 	// curBuf is what is used to serialize the current state of a log so that
 	// the state can be written to local and remote store.
-	curBuf *bufio.ReadWriter
+	curBuf *bytes.Buffer
 
 	// deviceSecret is the secret for the device that the TransactionLog will
 	// be stored.
@@ -64,12 +63,6 @@ type TransactionLog struct {
 // NewTransactionLog constructs a new TransactionLog.
 func NewTransactionLog(local LocalStore, remote RemoteStore,
 	hdr *Header, rng io.Reader, path string, deviceSecret []byte) *TransactionLog {
-	// Construct reader/writer for the buffer
-	var (
-		writer = bufio.NewWriter(&bytes.Buffer{})
-		reader = bufio.NewReader(bytes.NewReader([]byte{}))
-	)
-
 	// Return a new transaction log
 	return &TransactionLog{
 		path:         path,
@@ -77,7 +70,7 @@ func NewTransactionLog(local LocalStore, remote RemoteStore,
 		remote:       remote,
 		txs:          make([]Transaction, 0),
 		hdr:          hdr,
-		curBuf:       bufio.NewReadWriter(reader, writer),
+		curBuf:       &bytes.Buffer{},
 		deviceSecret: deviceSecret,
 		rng:          rng,
 	}
@@ -105,13 +98,16 @@ func (tl *TransactionLog) Append(t Transaction) error {
 }
 
 // append will write the new Transaction to txs. txs must be ordered by
-// timestamp, so it will ensure to place the new Transaction in the proper slot
-// of the list.
+// timestamp, so it will the txs list is sorted after appending the new
+// Transaction.
 //
 // Note that this operation is NOT thread-safe, and the caller should hold the
 // lck.
 func (tl *TransactionLog) append(newTransaction Transaction) {
+	// Lazily insert new transaction
 	tl.txs = append(tl.txs, newTransaction)
+
+	// Sort transaction list. This operates in n * log(n) time complexity
 	sort.SliceStable(tl.txs, func(i, j int) bool {
 		firstTs, secondTs := tl.txs[i].Timestamp, tl.txs[j].Timestamp
 		return firstTs.Before(secondTs)
@@ -119,10 +115,9 @@ func (tl *TransactionLog) append(newTransaction Transaction) {
 
 }
 
-// write writes the state of the TransactionLog to a buffer and saves the
+// serialize serializes the state of TransactionLog to byte data that can be
+// written to a store (remote, local or both).
 func (tl *TransactionLog) serialize() ([]byte, error) {
-	defer tl.curBuf.Flush()
-
 	// Marshal header into JSON
 	headerMarshal, err := json.Marshal(tl.hdr)
 	if err != nil {
@@ -170,21 +165,13 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 			// todo: better err
 			return nil, err
 		}
-
 	}
 
-	// Read from the buffer
-	dataToSave := make([]byte, 0)
-	if _, err := io.ReadFull(tl.curBuf, dataToSave); err != nil {
-		// todo: better err
-		return nil, err
-	}
-
-	return dataToSave, nil
+	return tl.curBuf.Bytes(), nil
 }
 
-// save writes the data within TransactionLog.curBuf to file, both remotely and
-// locally.
+// save writes the data passed int to file, both remotely and locally. The
+// data passed in should be read in from curBuf.
 func (tl *TransactionLog) save(dataToSave []byte) error {
 
 	// Save to local storage (if set)

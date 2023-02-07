@@ -118,6 +118,9 @@ func (tl *TransactionLog) append(newTransaction Transaction) {
 // serialize serializes the state of TransactionLog to byte data that can be
 // written to a store (remote, local or both).
 func (tl *TransactionLog) serialize() ([]byte, error) {
+	// Refresh buffer after returning serialized data
+	defer tl.curBuf.Reset()
+
 	// Marshal header into JSON
 	headerMarshal, err := json.Marshal(tl.hdr)
 	if err != nil {

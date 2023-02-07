@@ -39,7 +39,7 @@ func TestNewTransactionLog(t *testing.T) {
 	}()
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage()
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
 	// Construct header
 	hdr := NewHeader()
@@ -87,7 +87,7 @@ func TestTransactionLog_Append(t *testing.T) {
 	}()
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage()
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
 	// Construct header
 	hdr := NewHeader()
@@ -137,7 +137,7 @@ func TestTransactionLog_Serialize(t *testing.T) {
 	}()
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage()
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
 	// Construct header
 	hdr := NewHeader()
@@ -191,7 +191,7 @@ func TestTransactionLog_Save(t *testing.T) {
 	}()
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage()
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
 	// Construct header
 	hdr := NewHeader()

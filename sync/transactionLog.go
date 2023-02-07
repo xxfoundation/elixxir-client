@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/netTime"
 	"io"
@@ -95,6 +96,7 @@ func (tl *TransactionLog) Append(t Transaction) error {
 	tl.lck.Lock()
 
 	// Insert new transaction into list
+	jww.INFO.Println("[Transaction Log] Inserting transaction to log")
 	tl.append(t)
 
 	// Serialize the transaction log
@@ -107,6 +109,7 @@ func (tl *TransactionLog) Append(t Transaction) error {
 	tl.lck.Unlock()
 
 	// Save data to file store
+	jww.INFO.Println("[Transaction Log] Saving transaction log")
 	return tl.save(dataToSave)
 }
 
@@ -203,6 +206,7 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 
 	// Save to local storage (if set)
 	if tl.local != nil {
+		jww.INFO.Println("[Transaction Log] Writing transaction log to local store")
 		if err := tl.local.Write(tl.path, dataToSave); err != nil {
 			return errors.Errorf(writeToStoreErr, "local", err)
 		}
@@ -210,7 +214,8 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 
 	// Save to remote storage (if set)
 	if tl.remote != nil {
-		if err := tl.local.Write(tl.path, dataToSave); err != nil {
+		jww.INFO.Println("[Transaction Log] Writing transaction log to remote store")
+		if err := tl.remote.Write(tl.path, dataToSave); err != nil {
 			return errors.Errorf(writeToStoreErr, "remote", err)
 		}
 	}

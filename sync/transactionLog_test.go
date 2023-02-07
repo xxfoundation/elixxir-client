@@ -45,18 +45,17 @@ func TestNewTransactionLog(t *testing.T) {
 	hdr := NewHeader()
 
 	// Construct log pth
-	logPath := baseDir + "/test.log"
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
 	txLog := NewTransactionLog(localStore, remoteStore, hdr, rand.Reader,
-		logPath, deviceSecret)
+		baseDir, deviceSecret)
 
 	// Construct expected transaction log object
 	expected := &TransactionLog{
-		path:         logPath,
+		path:         baseDir,
 		local:        localStore,
 		remote:       remoteStore,
 		hdr:          hdr,
@@ -92,15 +91,12 @@ func TestTransactionLog_Append(t *testing.T) {
 	// Construct header
 	hdr := NewHeader()
 
-	// Construct log pth
-	logPath := baseDir + "/test.log"
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
 	txLog := NewTransactionLog(localStore, remoteStore, hdr, rand.Reader,
-		logPath, deviceSecret)
+		baseDir, deviceSecret)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)
@@ -142,15 +138,12 @@ func TestTransactionLog_Serialize(t *testing.T) {
 	// Construct header
 	hdr := NewHeader()
 
-	// Construct log pth
-	logPath := baseDir + "/test.log"
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
 	txLog := NewTransactionLog(localStore, remoteStore, hdr,
-		&CountingReader{count: 0}, logPath, deviceSecret)
+		&CountingReader{count: 0}, baseDir, deviceSecret)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)
@@ -196,15 +189,12 @@ func TestTransactionLog_Save(t *testing.T) {
 	// Construct header
 	hdr := NewHeader()
 
-	// Construct log pth
-	logPath := baseDir + "/test.log"
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
 	txLog := NewTransactionLog(localStore, remoteStore, hdr,
-		&CountingReader{count: 0}, logPath, deviceSecret)
+		&CountingReader{count: 0}, baseDir, deviceSecret)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)

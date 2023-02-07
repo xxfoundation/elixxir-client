@@ -21,8 +21,8 @@ type FileSystemRemoteStorage struct {
 // NewFileSystemRemoteStorage is a constructor for FileSystemRemoteStorage.
 //
 // Arguments:
-//  - baseDir - string. Represents the base directory for which all file
-//    operations will be performed. Must contain a file delimiter (i.e. `/`).
+//   - baseDir - string. Represents the base directory for which all file
+//     operations will be performed. Must contain a file delimiter (i.e. `/`).
 func NewFileSystemRemoteStorage(baseDir string) *FileSystemRemoteStorage {
 	return &FileSystemRemoteStorage{
 		baseDir: baseDir,
@@ -42,6 +42,10 @@ func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
 //
 // This utilizes utils.WriteFileDef under the hood.
 func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
+	pathToWrite := path
+	if utils.DirExists(pathToWrite) {
+		return utils.WriteFileDef(pathToWrite, data)
+	}
 	return utils.WriteFileDef(f.baseDir+path, data)
 }
 

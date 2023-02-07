@@ -176,8 +176,68 @@ func TestTransactionLog_Serialize(t *testing.T) {
 	require.Equal(t, expectedTransactionLogSerializedBase64, data64)
 }
 
-// Tests that TransactionLog's save function writes to remote and local
-// if they are set.
+// Tests that TransactionLog's save function writes to remote and local stores
+// when they are set.
 func TestTransactionLog_Save(t *testing.T) {
+	// Construct local store
+	baseDir, password := "testDir", "password"
+	localStore, err := NewEkvLocalStore(baseDir, password)
+	require.NoError(t, err)
 
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(t, os.RemoveAll(baseDir))
+
+	}()
+
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage()
+
+	// Construct header
+	hdr := NewHeader()
+
+	// Construct log pth
+	logPath := baseDir + "/test.log"
+
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
+
+	// Construct transaction log
+	txLog := NewTransactionLog(localStore, remoteStore, hdr,
+		&CountingReader{count: 0}, logPath, deviceSecret)
+
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(t)
+
+	// Insert mock data into transaction log
+	for cnt, curTs := range mockTimestamps {
+		// Construct transaction
+		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+		newTx := NewTransaction(curTs, key, []byte(val))
+
+		// Insert transaction
+		txLog.append(newTx)
+	}
+
+	// Serialize data
+	data, err := txLog.serialize()
+	require.NoError(t, err)
+
+	// Write data to remote & local
+	err = txLog.save(data)
+	require.NoError(t, err)
+
+	// Read from remote
+	dataFromRemote, err := txLog.remote.Read(txLog.path)
+	require.NoError(t, err)
+
+	// Ensure read data from remote matches originally written
+	require.Equal(t, data, dataFromRemote)
+
+	// Read from local
+	dataFromLocal, err := txLog.remote.Read(txLog.path)
+	require.NoError(t, err)
+
+	// Ensure read data from local matches originally written
+	require.Equal(t, data, dataFromLocal)
 }

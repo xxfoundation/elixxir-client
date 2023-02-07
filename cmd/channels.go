@@ -164,21 +164,21 @@ var channelsCmd = &cobra.Command{
 		}
 
 		// Register a callback for the expected message to be received.
+		receiveMessage := make(chan receivedMessage)
 		err = makeChannelReceptionHandler(integrationChannelMessage,
-			chanManager)
+			chanManager, receiveMessage)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
 				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
 		}
 
 		// Send message
+		sendDone := make(chan error)
 		if viper.GetBool(channelsSendFlag) {
-			msgBody := []byte(viper.GetString(messageFlag))
-			err = sendMessageToChannel(chanManager, channel, msgBody)
-			if err != nil {
-				jww.FATAL.Panicf("[%s] Failed to send message: %+v",
-					channelsPrintHeader, err)
-			}
+			go func() {
+				msgBody := []byte(viper.GetString(messageFlag))
+				sendDone <- sendMessageToChannel(chanManager, channel, msgBody)
+			}()
 		}
 
 		// Leave channel
@@ -191,6 +191,67 @@ var channelsCmd = &cobra.Command{
 
 			fmt.Printf("Successfully left channel %s\n", channel.Name)
 		}
+
+		// Wait for reception. There should be 4 operations for the
+		// integration test:
+		waitTime := viper.GetDuration(waitTimeoutFlag) * time.Second
+		maxReceiveCnt := viper.GetInt(receiveCountFlag)
+		receiveCnt := 0
+		for done := false; viper.IsSet(channelsSendFlag) && !done; {
+			if maxReceiveCnt != 0 && receiveCnt >= maxReceiveCnt {
+				done = true
+				continue
+			}
+
+			select {
+			case m := <-receiveMessage:
+				channelID, content := m.chanId, m.content
+				channelReceivedMessage, err := chanManager.GetChannel(channelID)
+				if err != nil {
+					jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",
+						channelsPrintHeader, channelID, err)
+				}
+				jww.INFO.Printf("[%s] Received message (%s) from %s",
+					channelsPrintHeader, content, channelReceivedMessage.Name)
+				fmt.Printf("Received from %s this message: %s\n",
+					channelReceivedMessage.Name, content)
+
+				receiveCnt++
+			case <-time.After(waitTime):
+				done = true
+			}
+		}
+
+		if maxReceiveCnt == 0 {
+			maxReceiveCnt = receiveCnt
+		}
+		fmt.Printf("Received %d/%d messages\n", receiveCnt,
+			maxReceiveCnt)
+
+		// Ensure send is completed before looking closing. Note that sending
+		// to yourself does not go through cMix, so sending does not block the
+		// above loop.
+		for done := false; viper.IsSet(channelsSendFlag) && !done; {
+			select {
+			case err = <-sendDone:
+				if err != nil {
+					jww.FATAL.Panicf("[%s] Failed to send message: %+v",
+						channelsPrintHeader, err)
+				}
+				done = true
+			case <-time.After(waitTime):
+				done = true
+			}
+
+		}
+
+		// Stop network follower
+		err = user.StopNetworkFollower()
+		if err != nil {
+			jww.WARN.Printf("[CHAN] Failed to stop network follower: %+v", err)
+		}
+
+		jww.INFO.Printf("[CHAN] Completed execution...")
 
 	},
 }
@@ -254,11 +315,9 @@ func sendMessageToChannel(chanManager channels.Manager,
 	if err != nil {
 		return errors.Errorf("%+v", err)
 	}
-
 	jww.INFO.Printf("[%s] Sent message (%s) to channel %s (ID %s) with "+
 		"message ID %s on round %d", channelsPrintHeader, msgBody, channel.Name,
 		channel.ReceptionID, chanMsgId, round.ID)
-	fmt.Printf("Sent message (%s) to channel %s\n", msgBody, channel.Name)
 
 	return nil
 }
@@ -266,21 +325,16 @@ func sendMessageToChannel(chanManager channels.Manager,
 // makeChannelReceptionHandler is a helper function which will register with the
 // channels.Manager a reception callback for the given message type.
 func makeChannelReceptionHandler(msgType channels.MessageType,
-	chanManager channels.Manager) error {
+	chanManager channels.Manager, receiveMessage chan receivedMessage) error {
 	// Construct receiver callback
 	cb := func(channelID *id.ID, _ message.ID, _ channels.MessageType, _ string,
 		content, _ []byte, _ ed25519.PublicKey, _ uint32, _ uint8, _,
 		_ time.Time, _ time.Duration, _ id.Round, _ rounds.Round,
 		_ channels.SentStatus, _, _ bool) uint64 {
-		channelReceivedMessage, err := chanManager.GetChannel(channelID)
-		if err != nil {
-			jww.FATAL.Panicf("[%s] Failed to find channel for %s: %+v",
-				channelsPrintHeader, channelID, err)
+		receiveMessage <- receivedMessage{
+			chanId:  channelID,
+			content: content,
 		}
-		jww.INFO.Printf("[%s] Received message (%s) from %s",
-			channelsPrintHeader, content, channelReceivedMessage.Name)
-		fmt.Printf("Received message (%s) from %s\n",
-			content, channelReceivedMessage.Name)
 		return 0
 	}
 	return chanManager.RegisterReceiveHandler(msgType,
@@ -304,6 +358,15 @@ func readChannelIdentity(path string) (cryptoChannel.PrivateIdentity, error) {
 	}
 
 	return channelIdentity, nil
+}
+
+// receivedMessage is a structure containing the information for a received
+// message. This is passed from the channel's reception callback to
+// the main thread which waits to receive receiveCountFlag messages, or
+// until waitTimeoutFlag seconds have passed.
+type receivedMessage struct {
+	chanId  *id.ID
+	content []byte
 }
 
 // eventModel is the CLI implementation of the channels.EventModel interface.

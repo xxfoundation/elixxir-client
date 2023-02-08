@@ -8,7 +8,6 @@
 package sync
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"github.com/stretchr/testify/require"
@@ -18,9 +17,19 @@ import (
 
 // Hard-coded constants for testing purposes.
 const (
-	expectedTransactionJson         = `{"Timestamp":"2012-12-21T22:08:41Z","Key":"key","Value":"dmFsdWU="}`
+
+	// expectedTransactionJson is the expected result for calling json.Marshal
+	// on a Transaction object with example data.
+	expectedTransactionJson = `{"Timestamp":"2012-12-21T22:08:41Z","Key":"key","Value":"dmFsdWU="}`
+
+	// expectedTransactionZeroTimeJson is the expected result for calling
+	// json.Marshal on a Transaction object with example data, specifically
+	// with a zero time.Time.
 	expectedTransactionZeroTimeJson = `{"Timestamp":"0001-01-01T00:00:00Z","Key":"key","Value":"dmFsdWU="}`
-	expectedSerializedTransaction   = `kgAAAAAAAAAwLEFRSURCQVVHQndnSkNnc01EUTRQRUJFU0V4UVZGaGNZcERlRHFmOU1jSzJrVUhxamZVbnRIdkhVb053aWdiN3pZMENBb0xnMzIxWDJiVERRQ1JpeU8ySEJYbWFLeEtYSTRMMWItb0dvV24wNzhOTkhhNkxsNk1kczJya0lDYmJ4UTZFOTcwOUgzbkQ1OTdBPQ==`
+
+	// expectedSerializedTransaction is the expected result after calling
+	// Transaction.serialize with example data.
+	expectedSerializedTransaction = `MCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWXBEZURxZjlNY0sya1VIcWpmVW50SHZIVW9Od2lnYjd6WTBDQW9MZzMyMVgyYlREUUNSaXlPMkhCWG1hS3hLWEk0TDFiLW9Hb1duMDc4Tk5IYTZMbDZNZHMycmtJQ2JieFE2RTk3MDlIM25ENTk3QT0=`
 )
 
 // Smoke test for NewTransaction.
@@ -137,6 +146,8 @@ func TestTransaction_Serialize(t *testing.T) {
 		base64.StdEncoding.EncodeToString(txSerial))
 }
 
+// Unit test of deserializeTransaction. Ensures that deserialize will construct
+// the same Transaction that was serialized using Transaction.serialize.
 func TestTransaction_Deserialize(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)
 	testTime, err := time.Parse(time.RFC3339,
@@ -152,17 +163,10 @@ func TestTransaction_Deserialize(t *testing.T) {
 	txSerial, err := tx.serialize(secret, 0, mockRng)
 	require.NoError(t, err)
 
-	// Find the length of the transaction
-	buff := bytes.NewBuffer(txSerial)
-	txInfoLen := deserializeInt(buff.Next(8))
-
-	// Extract transaction info from buffer
-	txInfo := buff.Next(int(txInfoLen))
-
 	// Deserialize transaction
-	txDeserial, err := deserializeTransaction(txInfo, secret)
+	txDeserialize, err := deserializeTransaction(txSerial, secret)
 	require.NoError(t, err)
 
-	require.Equal(t, tx, txDeserial)
-
+	// Ensure deserialized object matches original object
+	require.Equal(t, tx, txDeserialize)
 }

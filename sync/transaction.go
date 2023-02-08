@@ -8,7 +8,6 @@
 package sync
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
@@ -58,7 +57,6 @@ type transaction struct {
 //   - rng - An io.Reader, used to encrypt the Transaction.
 func (t *Transaction) serialize(deviceSecret []byte, index int,
 	rng io.Reader) ([]byte, error) {
-	buff := new(bytes.Buffer)
 
 	// Marshal the current transaction
 	txMarshal, err := json.Marshal(t)
@@ -74,17 +72,7 @@ func (t *Transaction) serialize(deviceSecret []byte, index int,
 	txInfo := strconv.Itoa(index) + xxdkTxLogDelim +
 		base64.URLEncoding.EncodeToString(encrypted)
 
-	// Write the length of the transaction info into the buffer
-	txInfoLen := len(txInfo)
-	buff.Write(serializeInt(txInfoLen))
-
-	// Write the encrypted transaction to the buffer
-	_, err = buff.WriteString(txInfo)
-	if err != nil {
-		return nil, errors.Errorf(writeToBufferErr, txInfo, err)
-	}
-
-	return buff.Bytes(), nil
+	return []byte(txInfo), nil
 }
 
 // deserializeTransaction will deserialize transaction data. More accurately,
@@ -99,6 +87,10 @@ func deserializeTransaction(txInfo, deviceSecret []byte) (Transaction, error) {
 
 	// Extract index and encoded transaction
 	splitter := strings.Split(string(txInfo), xxdkTxLogDelim)
+	if len(splitter) != 2 {
+		// todo: error constant
+		return Transaction{}, errors.Errorf("unexpected data in serialized trnasaction.")
+	}
 	indexStr, txEncoded := splitter[0], splitter[1]
 
 	// Convert index into integer

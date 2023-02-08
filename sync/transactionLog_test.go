@@ -25,8 +25,8 @@ const (
 	expectedTransactionLogSerializedBase64 = `MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0GAAAAAAAAAJIAAAAAAAAAMCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWWRial9DNnlFc3FuTUk4LXVSNUJlVFBaeDZVSXZiSVV5c1FtTTNlbXVuSmN3OWVJYktpeVNwN2pWYWYxdTZlS2cxQWF0WkhxS0FvTnJ6aWRYaUtsY21uU0FsRWh3U1hzdENBN0llQnRteWxMeDExOG2SAAAAAAAAADEsR1JvYkhCMGVIeUFoSWlNa0pTWW5LQ2txS3l3dExpOHdDRUdqWjdKSG1JY3d4MG9oZ2xwVzhORW1mZzdUWll1SlBaUnR3alFPaXl1cTlZaFRlR3lEaVFsRHJ3a20tbmpXZk1YTE1sNm1WTmRyZGhPdV8zMWg5S3hJYlRDd25VdjVleXMydWEtTzFwQlhuZHBWkgAAAAAAAAAyLE1USXpORFUyTnpnNU9qczhQVDRfUUVGQ1EwUkZSa2RJSElDQUlFQ29kbXlvVTdsbGJhaFkxSzVvNGRVTWJ3SVZ6VFVDV09Benp2VmRNLVptUm1FcThqVk1FbHpFbWlpTzJaSkhLVmdISGk3aFBQSkxWa0xncThPTTBRbjdkMjlTd0o1X0lvTEhXUkZHUGJuUpIAAAAAAAAAMyxTVXBMVEUxT1QxQlJVbE5VVlZaWFdGbGFXMXhkWGw5Z0dZdnNuWVd6X3lDSFV4Z1J0MXVWT1UtaWRxMk1xdm1pWF9PdlBaWHBjbmRabzFHVTBIM0RQeW5LRm9hRFNrekwzbmF6Y3JiMzk3a05mWTJPYm9qRDNqbkhieVlmZ28yZTNRS2pBZFpfcm4tWjVfNjmSAAAAAAAAADQsWVdKalpHVm1aMmhwYW10c2JXNXZjSEZ5YzNSMWRuZDRtQlJLeE5HeXlpQTFzRlMzOUZxRUlxWmVIeXVaQWIwSHNydF9QTzBYZF90RHlfeENiUTZ6Z0hhblljSXU5eWFST0xfUXFjaFhsejRJNkFoTjYwM3pEMVhVTGVTWXlPNy1kTnlIQm94STkzMllMNmhokgAAAAAAAAA1LGVYcDdmSDEtZjRDQmdvT0VoWWFIaUltS2k0eU5qby1RN1Myb2pvQ2QtRWRHUE55d1Utd2pzUkNITzV1V0lmZmNsTDhaaGFLOHk0WldsdEtWbFVtMU9QUjhiYkFXdXNLRFdZWVJUS3ZmSkZXRzRYYTNFWDFVWlJLQ1Zva1lUNmIzSkdVUW02cW01cEZoSDhZSQ==`
 )
 
-// Smoke test for NewTransactionLog.
-func TestNewTransactionLog(t *testing.T) {
+// Smoke test for NewOrLoadTransactionLog.
+func TestNewOrLoadTransactionLog(t *testing.T) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
 	localStore, err := NewEkvLocalStore(baseDir, password)
@@ -41,25 +41,20 @@ func TestNewTransactionLog(t *testing.T) {
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
-	// Construct header
-	hdr := NewHeader()
-
-	// Construct log pth
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog := NewTransactionLog(localStore, remoteStore, rand.Reader,
+	txLog, err := NewOrLoadTransactionLog(localStore, remoteStore, rand.Reader,
 		baseDir, deviceSecret)
-	txLog.SetHeader(hdr)
+	require.NoError(t, err)
 
 	// Construct expected transaction log object
 	expected := &TransactionLog{
 		path:         baseDir,
 		local:        localStore,
 		remote:       remoteStore,
-		hdr:          hdr,
+		Header:       NewHeader(),
 		txs:          make([]Transaction, 0),
 		deviceSecret: deviceSecret,
 		rng:          rand.Reader,
@@ -67,6 +62,52 @@ func TestNewTransactionLog(t *testing.T) {
 
 	// Ensure constructor generates expected object
 	require.Equal(t, expected, txLog)
+
+}
+
+// Tests that NewOrLoadTransactionLog will load from local and deserialize
+// the data into the TransactionLog file.
+func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
+	// Construct local store
+	baseDir, password := "testDir/", "password"
+	localStore, err := NewEkvLocalStore(baseDir, password)
+	require.NoError(t, err)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(t, os.RemoveAll(baseDir))
+	}()
+
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
+
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
+
+	// Construct transaction log
+	txLog, err := NewOrLoadTransactionLog(localStore, remoteStore, rand.Reader,
+		baseDir, deviceSecret)
+	require.NoError(t, err)
+
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(t)
+
+	for cnt, curTs := range mockTimestamps {
+		// Construct transaction
+		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+		newTx := NewTransaction(curTs, key, []byte(val))
+
+		require.NoError(t, txLog.Append(newTx))
+	}
+
+	//newLocalStore, err := NewEkvLocalStore(baseDir, password)
+	//require.NoError(t, err)
+
+	newTxLog, err := NewOrLoadTransactionLog(localStore, remoteStore,
+		rand.Reader, baseDir, deviceSecret)
+	require.NoError(t, err)
+
+	require.Equal(t, txLog, newTxLog)
 
 }
 
@@ -88,16 +129,13 @@ func TestTransactionLog_Append(t *testing.T) {
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
-	// Construct header
-	hdr := NewHeader()
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog := NewTransactionLog(localStore, remoteStore, rand.Reader,
+	txLog, err := NewOrLoadTransactionLog(localStore, remoteStore, rand.Reader,
 		baseDir, deviceSecret)
-	txLog.SetHeader(hdr)
+	require.NoError(t, err)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)
@@ -136,16 +174,13 @@ func TestTransactionLog_Serialize(t *testing.T) {
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
-	// Construct header
-	hdr := NewHeader()
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog := NewTransactionLog(localStore, remoteStore,
+	txLog, err := NewOrLoadTransactionLog(localStore, remoteStore,
 		&CountingReader{count: 0}, baseDir, deviceSecret)
-	txLog.SetHeader(hdr)
+	require.NoError(t, err)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)
@@ -183,22 +218,18 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(t, os.RemoveAll(baseDir))
-
 	}()
 
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
-	// Construct header
-	hdr := NewHeader()
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog := NewTransactionLog(localStore, remoteStore,
+	txLog, err := NewOrLoadTransactionLog(localStore, remoteStore,
 		&CountingReader{count: 0}, baseDir, deviceSecret)
-	txLog.SetHeader(hdr)
+	require.NoError(t, err)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)
@@ -253,16 +284,13 @@ func TestTransactionLog_Save(t *testing.T) {
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
-	// Construct header
-	hdr := NewHeader()
-
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog := NewTransactionLog(localStore, remoteStore,
+	txLog, err := NewOrLoadTransactionLog(localStore, remoteStore,
 		&CountingReader{count: 0}, baseDir+"test.txt", deviceSecret)
-	txLog.SetHeader(hdr)
+	require.NoError(t, err)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t)

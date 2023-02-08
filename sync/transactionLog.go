@@ -18,17 +18,24 @@ import (
 	"sync"
 )
 
+// TransactionLog constants.
 const (
+	// The prefix for a serialized header.
 	xxdkTxLogHeader = "XXDKTXLOGHDR"
-	xxdkTxLogDelim  = ","
-	logHeader       = "Transaction Log"
+
+	// The delimiter for a serialized transaction.
+	xxdkTxLogDelim = ","
+
+	// The header for the jww log print.
+	logHeader = "Transaction Log"
 )
 
 // Error messages.
 const (
-	writeToBufferErr = "failed to write to buffer (%s): %+v"
-	getLastWriteErr  = "failed to get last write operation from remote store: %+v"
-	writeToStoreErr  = "failed to write to %s store: %+v"
+	getLastWriteErr           = "failed to get last write operation from remote store: %+v"
+	writeToStoreErr           = "failed to write to %s store: %+v"
+	loadFromLocalStoreErr     = "failed to deserialize log from local store at path %s: %+v"
+	deserializeTransactionErr = "failed to deserialize transaction (%d/%d): %+v"
 )
 
 // TransactionLog will log all Transaction's to a storage interface. It will
@@ -50,8 +57,8 @@ type TransactionLog struct {
 	// FileSystemRemoteStorage is provided as an example.
 	remote RemoteStore
 
-	// hdr is the Header of the TransactionLog.
-	hdr *Header
+	// Header is the Header of the TransactionLog.
+	Header *Header
 
 	// txs is a list of transactions. This list must always be ordered by
 	// timestamp.
@@ -68,16 +75,15 @@ type TransactionLog struct {
 	lck sync.RWMutex
 }
 
-// NewTransactionLog constructs a new TransactionLog. Note that by default the
+// NewOrLoadTransactionLog constructs a new TransactionLog. If the LocalStore
+// has serialized data within Note that by default the
 // log's header is empty. To set this field, call TransactionLog.SetHeader.
-func NewTransactionLog(local LocalStore, remote RemoteStore,
-	rng io.Reader, path string, deviceSecret []byte) *TransactionLog {
-	// todo: attempt to load transaction log from local (refactor to be NewOrLoad...)
-	//
-	//
+func NewOrLoadTransactionLog(local LocalStore, remote RemoteStore,
+	rng io.Reader, path string, deviceSecret []byte) (*TransactionLog, error) {
 
-	// Return a new transaction log
-	return &TransactionLog{
+	// Construct a new transaction log
+	tx := &TransactionLog{
+		Header:       NewHeader(),
 		path:         path,
 		local:        local,
 		remote:       remote,
@@ -85,16 +91,19 @@ func NewTransactionLog(local LocalStore, remote RemoteStore,
 		deviceSecret: deviceSecret,
 		rng:          rng,
 	}
-}
 
-// SetHeader will set the Header of the TransactionLog. This new header will be
-// what is used for serialization and saving when calling Append.
-// todo: test this
-func (tl *TransactionLog) SetHeader(h *Header) {
-	tl.lck.Lock()
-	defer tl.lck.Unlock()
+	// Attempt to read stored transaction log
+	data, err := tx.local.Read(path)
+	if err == nil {
+		// If data has been read, attempt to deserialize
+		if err = tx.deserialize(data); err != nil {
+			return nil, errors.Errorf(loadFromLocalStoreErr, path, err)
+		}
+	}
 
-	tl.hdr = h
+	// If failed to read, then there is no state
+	jww.DEBUG.Printf("[%s] Failed to read from local when loading: %+v", local, err)
+	return tx, nil
 }
 
 // Append will add a transaction to the TransactionLog. This will save the
@@ -146,7 +155,7 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 	buff := new(bytes.Buffer)
 
 	// Serialize header
-	headerSerialized, err := tl.hdr.serialize()
+	headerSerialized, err := tl.Header.serialize()
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +218,8 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 		return err
 	}
 
-	tl.hdr = hdr
+	// Set the header
+	tl.Header = hdr
 
 	// Deserialize length of transactions list
 	listLen := binary.LittleEndian.Uint64(buff.Next(8))
@@ -224,8 +234,7 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 		txInfo := buff.Next(int(txInfoLen))
 		tx, err := deserializeTransaction(txInfo, tl.deviceSecret)
 		if err != nil {
-			// todo: better error
-			return err
+			return errors.Errorf(deserializeTransactionErr, i, listLen, err)
 		}
 
 		txs[i] = tx

@@ -9,21 +9,19 @@ package sync
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
+	"encoding/binary"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"sort"
-	"strconv"
 	"sync"
 )
 
 const (
 	xxdkTxLogHeader = "XXDKTXLOGHDR"
+	xxdkTxLogDelim  = ","
+	logHeader       = "Transaction Log"
 )
 
 // Error messages.
@@ -59,10 +57,6 @@ type TransactionLog struct {
 	// timestamp.
 	txs []Transaction
 
-	// curBuf is what is used to serialize the current state of a log so that
-	// the state can be written to local and remote store.
-	curBuf *bytes.Buffer
-
 	// deviceSecret is the secret for the device that the TransactionLog will
 	// be stored.
 	deviceSecret []byte
@@ -78,13 +72,16 @@ type TransactionLog struct {
 // log's header is empty. To set this field, call TransactionLog.SetHeader.
 func NewTransactionLog(local LocalStore, remote RemoteStore,
 	rng io.Reader, path string, deviceSecret []byte) *TransactionLog {
+	// todo: attempt to load transaction log from local (refactor to be NewOrLoad...)
+	//
+	//
+
 	// Return a new transaction log
 	return &TransactionLog{
 		path:         path,
 		local:        local,
 		remote:       remote,
 		txs:          make([]Transaction, 0),
-		curBuf:       &bytes.Buffer{},
 		deviceSecret: deviceSecret,
 		rng:          rng,
 	}
@@ -92,6 +89,7 @@ func NewTransactionLog(local LocalStore, remote RemoteStore,
 
 // SetHeader will set the Header of the TransactionLog. This new header will be
 // what is used for serialization and saving when calling Append.
+// todo: test this
 func (tl *TransactionLog) SetHeader(h *Header) {
 	tl.lck.Lock()
 	defer tl.lck.Unlock()
@@ -105,7 +103,7 @@ func (tl *TransactionLog) Append(t Transaction) error {
 	tl.lck.Lock()
 
 	// Insert new transaction into list
-	jww.INFO.Println("[Transaction Log] Inserting transaction to log")
+	jww.INFO.Printf("[%s] Inserting transaction to log", logHeader)
 	tl.append(t)
 
 	// Serialize the transaction log
@@ -118,7 +116,7 @@ func (tl *TransactionLog) Append(t Transaction) error {
 	tl.lck.Unlock()
 
 	// Save data to file store
-	jww.INFO.Println("[Transaction Log] Saving transaction log")
+	jww.INFO.Printf("[%s] Saving transaction log", logHeader)
 	return tl.save(dataToSave)
 }
 
@@ -140,72 +138,102 @@ func (tl *TransactionLog) append(newTransaction Transaction) {
 
 }
 
-// serialize serializes the state of TransactionLog to byte data that can be
-// written to a store (remote, local or both).
+// serialize serializes the state of TransactionLog to byte data, so that it can
+// be written to a store (remote, local or both).
+//
+// This is the inverse operation of TransactionLog.deserialize.
 func (tl *TransactionLog) serialize() ([]byte, error) {
-	// Refresh buffer after returning serialized data
-	defer tl.curBuf.Reset()
+	buff := new(bytes.Buffer)
 
-	// Marshal header into JSON
-	headerMarshal, err := json.Marshal(tl.hdr)
+	// Serialize header
+	headerSerialized, err := tl.hdr.serialize()
 	if err != nil {
 		return nil, err
 	}
 
-	// Write serialized header into buffer
-	_, err = tl.curBuf.WriteString(xxdkTxLogHeader +
-		base64.URLEncoding.EncodeToString(headerMarshal))
-	if err != nil {
-		return nil, errors.Errorf(writeToBufferErr,
-			xxdkTxLogHeader+base64.URLEncoding.EncodeToString(headerMarshal),
-			err)
-	}
+	// Write the length of the header info into the buffer
+	headerInfoLen := len(headerSerialized)
+	buff.Write(serializeInt(headerInfoLen))
 
+	// Write serialized header to bufer
+	buff.Write(headerSerialized)
+
+	// Retrieve the last written timestamp from remote
 	lastRemoteWrite, err := tl.remote.GetLastWrite()
 	if err != nil {
 		return nil, errors.Errorf(getLastWriteErr, err)
 	}
 
+	// Serialize the length of the list
+	buff.Write(serializeInt(len(tl.txs)))
+
 	// Serialize all transactions
 	for i := 0; i < len(tl.txs); i++ {
-
-		// Construct cMix hash
-		hash.CMixHash.New()
-		h := hash.CMixHash.New()
-
-		// Construct secret for encryption
-		idxStr := serializeInt(i)
-		h.Write([]byte(idxStr))
-		h.Write(tl.deviceSecret)
-		secret := h.Sum(nil)
-
+		// Timestamp must be updated every write attempt time if new entry
 		if tl.txs[i].Timestamp.After(lastRemoteWrite) {
-			// Timestamp must be updated every write attempt time if new entry
 			tl.txs[i].Timestamp = netTime.Now()
 		}
 
-		// Marshal the current transaction
-		txMarshal, err := json.Marshal(tl.txs[i])
+		// Serialize transaction
+		txSerialized, err := tl.txs[i].serialize(tl.deviceSecret, i, tl.rng)
 		if err != nil {
 			return nil, err
 		}
 
-		// Encrypt the current transaction
-		encrypted := encrypt(txMarshal, string(secret), tl.rng)
+		// Write the length of the transaction info into the buffer
+		txInfoLen := len(txSerialized)
+		buff.Write(serializeInt(txInfoLen))
 
-		// Write the encrypted transaction to the buffer
-		_, err = tl.curBuf.WriteString(idxStr + "," +
-			base64.URLEncoding.EncodeToString(encrypted))
-		if err != nil {
-			return nil, errors.Errorf(writeToBufferErr,
-				strconv.Itoa(i)+","+
-					base64.URLEncoding.EncodeToString(encrypted),
-				err)
+		// Write to buffer
+		buff.Write(txSerialized)
 
-		}
 	}
 
-	return tl.curBuf.Bytes(), nil
+	return buff.Bytes(), nil
+}
+
+// deserialize will deserialize TransactionLog byte data.
+//
+// This is the inverse operation of TransactionLog.serialize.
+func (tl *TransactionLog) deserialize(data []byte) error {
+	// Initialize buffer
+	buff := bytes.NewBuffer(data)
+
+	// Extract header length from buffer
+	lengthOfHeaderInfo := deserializeInt(buff.Next(8))
+	serializedHeader := buff.Next(int(lengthOfHeaderInfo))
+
+	// Deserialize header
+	hdr, err := deserializeHeader(serializedHeader)
+	if err != nil {
+		return err
+	}
+
+	tl.hdr = hdr
+
+	// Deserialize length of transactions list
+	listLen := binary.LittleEndian.Uint64(buff.Next(8))
+
+	// Construct transactions list
+	txs := make([]Transaction, listLen)
+
+	// Iterate over transaction log
+	for i := range txs {
+		//Read length of transaction from buffer
+		txInfoLen := deserializeInt(buff.Next(8))
+		txInfo := buff.Next(int(txInfoLen))
+		tx, err := deserializeTransaction(txInfo, tl.deviceSecret)
+		if err != nil {
+			// todo: better error
+			return err
+		}
+
+		txs[i] = tx
+	}
+
+	tl.txs = txs
+
+	return nil
 }
 
 // save writes the data passed int to file, both remotely and locally. The
@@ -214,20 +242,21 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 
 	// Save to local storage (if set)
 	if tl.local == nil {
+		jww.FATAL.Panicf("[%s] Cannot write to a nil local store", logHeader)
 	}
 
-	jww.INFO.Println("[Transaction Log] Writing transaction log to local store")
+	jww.INFO.Printf("[%s] Writing transaction log to local store", logHeader)
 	if err := tl.local.Write(tl.path, dataToSave); err != nil {
 		return errors.Errorf(writeToStoreErr, "local", err)
 	}
 
 	// Save to remote storage (if set)
 	if tl.remote == nil {
-		jww.FATAL.Panicf("[Transaction Log] Cannot write to a nil remote store")
+		jww.FATAL.Panicf("[%s] Cannot write to a nil remote store", logHeader)
 
 	}
 
-	jww.INFO.Println("[Transaction Log] Writing transaction log to remote store")
+	jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
 	if err := tl.remote.Write(tl.path, dataToSave); err != nil {
 		return errors.Errorf(writeToStoreErr, "remote", err)
 	}
@@ -235,8 +264,20 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 	return nil
 }
 
-// serializeInt is a helper function which will serialize an integer into
-// a byte slice.
-func serializeInt(i int) string {
-	return fmt.Sprintf("%d", i)
+// serializeInt is a utility function which serializes an integer into a byte
+// slice.
+//
+// This is the inverse operation of deserializeInt.
+func serializeInt(i int) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(i))
+	return b
+}
+
+// deserializeInt is a utility function which deserializes byte data into an
+// integer.
+//
+// This is the inverse operation of serializeInt.
+func deserializeInt(b []byte) uint64 {
+	return binary.LittleEndian.Uint64(b)
 }

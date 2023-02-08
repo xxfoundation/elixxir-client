@@ -8,7 +8,6 @@
 package sync
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"github.com/stretchr/testify/require"
@@ -23,7 +22,7 @@ const (
 	// expectedTransactionLogSerializedBase64 is the base64 encoded serialized
 	// TransactionLog. If the state set in the mock TransactionLog is changed,
 	// this value should be changed to reflect this.
-	expectedTransactionLogSerializedBase64 = `WFhES1RYTE9HSERSZXlKMlpYSnphVzl1SWpvd0xDSmxiblJ5YVdWeklqcDdmWDA9MCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWTBjY2dhSHE2QkJDRXlVMmRFNHk2a1llWV9UalNKdGZycTh4U0s2SlBWYzlVemRYTWo3SHJINzUwb1NqZVkyVzhaeXdPYVM0aDU5Rk9IcG5qaUhIc3BqQl9DeVRpRWNES3dsb1puaTFybU44OVJOeFAxLEdSb2JIQjBlSHlBaElpTWtKU1luS0NrcUt5d3RMaTh3ZXA0N2ZrVTc3QUIyY2JKcnhZNlZWUm1RcVl4Qzc1Rmd1dEpGNE1jX2NpcDg3NHFiOEIyUjFJa3lncHJoZE5YeVlHM3dxS2N6dkxNYUtOSFVXVXV0RXZKNWd2clRLbWhDdEJJenRxbmh4SHBQZHNmbDIsTVRJek5EVTJOemc1T2pzOFBUNF9RRUZDUTBSRlJrZElVTjI4MFRHNFVNcjQzSFRZU0c4RUNFZE0tNURjZUpRcU03MFktT2dSRnYtdVMwRlRQVHkzTWM5b3FScl9BNW56YWpCQWZLUEwwcTlKcmc5QVBCdjZtVWhKblZZMUllTEc0ekFQSjR5YmhWcThOX3MyMyxTVXBMVEUxT1QxQlJVbE5VVlZaWFdGbGFXMXhkWGw5Z3d4VEVsTmdvTlkwQk1zcWQzLXoweTRyYndXa1RPTVpYSFg4WWhmQUdiX1VrQUphbWxNeDlIZTR2blhSVnZrQ2JmQ1hLLUprejA3RUJHV29HZm83b1YtZFdHdFhxbkRTdUZUdy1KOTJUMkNwZG4wUXY0LFlXSmpaR1ZtWjJocGFtdHNiVzV2Y0hGeWMzUjFkbmQ0WWZSZzdZM2JUdmk5MGdFUUFSU1ByMmhhQjZFMDNZM1I3VTRMZ3NPZEFQcmwwMWRkN0o4RDdlWi1DWDVhbGlVZlY4MnJ0TnMyaTFxSmN4dVIzOFM1X1BISE5FcVJGcld1YzFpbUxnRDMwTkxadG5fQzUsZVhwN2ZIMS1mNENCZ29PRWhZYUhpSW1LaTR5TmpvLVF1bzREeTc4Z0xTUTBuMlpaU2E4SVZTQ1dsc2I5dDhFT2JsMjJxTHJYUXJPQTlGN0FsNmU0QmF5NVdKa3d1SGFSSG5STkd6UnZQWkNnYno3YnJUbVNMR3hNc2ZIdi00VTBsY3Nrdk1mR3hYcnJsOHNn`
+	expectedTransactionLogSerializedBase64 = `MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0GAAAAAAAAAJIAAAAAAAAAMCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWWRial9DNnlFc3FuTUk4LXVSNUJlVFBaeDZVSXZiSVV5c1FtTTNlbXVuSmN3OWVJYktpeVNwN2pWYWYxdTZlS2cxQWF0WkhxS0FvTnJ6aWRYaUtsY21uU0FsRWh3U1hzdENBN0llQnRteWxMeDExOG2SAAAAAAAAADEsR1JvYkhCMGVIeUFoSWlNa0pTWW5LQ2txS3l3dExpOHdDRUdqWjdKSG1JY3d4MG9oZ2xwVzhORW1mZzdUWll1SlBaUnR3alFPaXl1cTlZaFRlR3lEaVFsRHJ3a20tbmpXZk1YTE1sNm1WTmRyZGhPdV8zMWg5S3hJYlRDd25VdjVleXMydWEtTzFwQlhuZHBWkgAAAAAAAAAyLE1USXpORFUyTnpnNU9qczhQVDRfUUVGQ1EwUkZSa2RJSElDQUlFQ29kbXlvVTdsbGJhaFkxSzVvNGRVTWJ3SVZ6VFVDV09Benp2VmRNLVptUm1FcThqVk1FbHpFbWlpTzJaSkhLVmdISGk3aFBQSkxWa0xncThPTTBRbjdkMjlTd0o1X0lvTEhXUkZHUGJuUpIAAAAAAAAAMyxTVXBMVEUxT1QxQlJVbE5VVlZaWFdGbGFXMXhkWGw5Z0dZdnNuWVd6X3lDSFV4Z1J0MXVWT1UtaWRxMk1xdm1pWF9PdlBaWHBjbmRabzFHVTBIM0RQeW5LRm9hRFNrekwzbmF6Y3JiMzk3a05mWTJPYm9qRDNqbkhieVlmZ28yZTNRS2pBZFpfcm4tWjVfNjmSAAAAAAAAADQsWVdKalpHVm1aMmhwYW10c2JXNXZjSEZ5YzNSMWRuZDRtQlJLeE5HeXlpQTFzRlMzOUZxRUlxWmVIeXVaQWIwSHNydF9QTzBYZF90RHlfeENiUTZ6Z0hhblljSXU5eWFST0xfUXFjaFhsejRJNkFoTjYwM3pEMVhVTGVTWXlPNy1kTnlIQm94STkzMllMNmhokgAAAAAAAAA1LGVYcDdmSDEtZjRDQmdvT0VoWWFIaUltS2k0eU5qby1RN1Myb2pvQ2QtRWRHUE55d1Utd2pzUkNITzV1V0lmZmNsTDhaaGFLOHk0WldsdEtWbFVtMU9QUjhiYkFXdXNLRFdZWVJUS3ZmSkZXRzRYYTNFWDFVWlJLQ1Zva1lUNmIzSkdVUW02cW01cEZoSDhZSQ==`
 )
 
 // Smoke test for NewTransactionLog.
@@ -62,7 +61,6 @@ func TestNewTransactionLog(t *testing.T) {
 		remote:       remoteStore,
 		hdr:          hdr,
 		txs:          make([]Transaction, 0),
-		curBuf:       &bytes.Buffer{},
 		deviceSecret: deviceSecret,
 		rng:          rand.Reader,
 	}
@@ -171,6 +169,69 @@ func TestTransactionLog_Serialize(t *testing.T) {
 
 	// Ensure encoded data using mock values matches hardcoded data.
 	require.Equal(t, expectedTransactionLogSerializedBase64, data64)
+}
+
+// Unit test of TransactionLog.deserialize. Ensures that deserialize will
+// construct the same TransactionLog that was serialized using
+// TransactionLog.serialize.
+func TestTransactionLog_Deserialize(t *testing.T) {
+	// Construct local store
+	baseDir, password := "testDir", "password"
+	localStore, err := NewEkvLocalStore(baseDir, password)
+	require.NoError(t, err)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(t, os.RemoveAll(baseDir))
+
+	}()
+
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
+
+	// Construct header
+	hdr := NewHeader()
+
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
+
+	// Construct transaction log
+	txLog := NewTransactionLog(localStore, remoteStore,
+		&CountingReader{count: 0}, baseDir, deviceSecret)
+	txLog.SetHeader(hdr)
+
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(t)
+
+	// Insert mock data into transaction log
+	for cnt, curTs := range mockTimestamps {
+		// Construct transaction
+		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+		newTx := NewTransaction(curTs, key, []byte(val))
+
+		// Insert transaction
+		txLog.append(newTx)
+	}
+
+	// Serialize data
+	data, err := txLog.serialize()
+	require.NoError(t, err)
+
+	// Construct a log w/o header and transaction list
+	newTxLog := &TransactionLog{
+		path:         baseDir,
+		local:        localStore,
+		remote:       remoteStore,
+		deviceSecret: deviceSecret,
+		rng:          txLog.rng,
+	}
+
+	// Deserialize the transaction log
+	err = newTxLog.deserialize(data)
+	require.NoError(t, err)
+
+	// Ensure deserialized object matches original object
+	require.Equal(t, txLog, newTxLog)
 }
 
 // Tests that TransactionLog's save function writes to remote and local stores

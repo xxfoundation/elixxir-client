@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/crypto/hash"
 	"io"
 	"strconv"
 	"strings"
@@ -121,4 +122,17 @@ func deserializeTransaction(txInfo, deviceSecret []byte) (Transaction, error) {
 	}
 
 	return tx, nil
+}
+
+// makeTransactionSecret is a utility function which generates the secret used
+// to encrypt or decrypt a transaction.
+func makeTransactionSecret(deviceSecret []byte, index int) []byte {
+	// Construct cMix hash
+	h := hash.CMixHash.New()
+
+	// Construct secret for encryption
+	serializedIndex := serializeInt(index)
+	h.Write(serializedIndex)
+	h.Write(deviceSecret)
+	return h.Sum(nil)
 }

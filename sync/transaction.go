@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+const (
+	transactionUnexpectedSerialErr = "unexpected data in serialized trnasaction."
+)
+
 // Transaction is the object that is uploaded to a remote service responsible
 // for account synchronization. It inherits the private transaction object.
 // This prevents recursive calls by json.Marshal on Header.MarshalJSON. Any
@@ -89,8 +93,7 @@ func deserializeTransaction(txInfo, deviceSecret []byte) (Transaction, error) {
 	// Extract index and encoded transaction
 	splitter := strings.Split(string(txInfo), xxdkTxLogDelim)
 	if len(splitter) != 2 {
-		// todo: error constant
-		return Transaction{}, errors.Errorf("unexpected data in serialized trnasaction.")
+		return Transaction{}, errors.Errorf(transactionUnexpectedSerialErr)
 	}
 	indexStr, txEncoded := splitter[0], splitter[1]
 

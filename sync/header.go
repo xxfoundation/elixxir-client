@@ -19,9 +19,10 @@ import (
 // incremented. It is up to the developer to support older versions.
 const headerVersion = 0
 
-// Error constants.
+// Error messages.
 const (
-	entryDoesNotExistErr = "entry for key %s could not be found."
+	entryDoesNotExistErr      = "entry for key %s could not be found."
+	headerUnexpectedSerialErr = "unexpected data in serialized header."
 )
 
 // Header is header information for a transaction log. It inherits the header
@@ -90,8 +91,7 @@ func deserializeHeader(headerSerial []byte) (*Header, error) {
 	// Extract the header
 	splitter := strings.Split(string(headerSerial), xxdkTxLogHeader)
 	if len(splitter) != 2 {
-		// todo: error constant
-		return nil, errors.Errorf("unexpected data in serialized header.")
+		return nil, errors.Errorf(headerUnexpectedSerialErr)
 	}
 
 	// Decode transaction

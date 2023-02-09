@@ -310,8 +310,7 @@ func TestTransactionLog_Save(t *testing.T) {
 	require.NoError(t, err)
 
 	// Write data to remote & local
-	err = txLog.save(data)
-	require.NoError(t, err)
+	require.NoError(t, txLog.save(data))
 
 	// Read from remote
 	dataFromRemote, err := txLog.remote.Read(txLog.path)

@@ -115,17 +115,15 @@ func (tl *TransactionLog) Append(t Transaction) error {
 	jww.INFO.Printf("[%s] Inserting transaction to log", logHeader)
 	tl.append(t)
 
+	// Save data to file store
+	jww.INFO.Printf("[%s] Saving transaction log", logHeader)
+
 	// Serialize the transaction log
 	dataToSave, err := tl.serialize()
 	if err != nil {
 		return err
 	}
-
-	// Release lock now that serialization is complete
 	tl.lck.Unlock()
-
-	// Save data to file store
-	jww.INFO.Printf("[%s] Saving transaction log", logHeader)
 	return tl.save(dataToSave)
 }
 
@@ -245,24 +243,31 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 	return nil
 }
 
-// save writes the data passed int to file, both remotely and locally. The
-// data passed in should be read in from curBuf.
+// save writes the data passed int to file, both remotely and locally. The data
+// created from serialize.
 func (tl *TransactionLog) save(dataToSave []byte) error {
+	tl.lck.Lock()
 
 	// Save to local storage (if set)
 	if tl.local == nil {
+		tl.lck.Unlock()
 		jww.FATAL.Panicf("[%s] Cannot write to a nil local store", logHeader)
 	}
 
 	jww.INFO.Printf("[%s] Writing transaction log to local store", logHeader)
 	if err := tl.local.Write(tl.path, dataToSave); err != nil {
+		tl.lck.Unlock()
 		return errors.Errorf(writeToStoreErr, "local", err)
 	}
+
+	// Do not let remote writing block operations
+	// fixme: consider making writing a go routine, then locking can
+	//  be done by the caller of save
+	tl.lck.Unlock()
 
 	// Save to remote storage (if set)
 	if tl.remote == nil {
 		jww.FATAL.Panicf("[%s] Cannot write to a nil remote store", logHeader)
-
 	}
 
 	jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)

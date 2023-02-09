@@ -14,13 +14,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"gitlab.com/elixxir/client/v4/xxdk"
-
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"

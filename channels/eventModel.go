@@ -21,6 +21,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -259,6 +260,7 @@ type events struct {
 	commandStore *CommandStore
 	leases       *ActionLeaseList
 	mutedUsers   *mutedUserManager
+	as           *ActionSaver
 
 	// List of registered message processors
 	broadcast *processorList
@@ -396,6 +398,9 @@ func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
 		jww.FATAL.Panicf("[CH] Failed to initialise muted user list: %+v", err)
 	}
 
+	// Initialise action saver
+	e.as = NewActionSaver(e.triggerActionEvent, kv)
+
 	return e
 }
 
@@ -453,6 +458,13 @@ func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
 	// Check if the user is muted on this channel
 	isMuted := e.mutedUsers.isMuted(channelID, um.ECCPublicKey)
 
+	// Check if there are any saved actions for this message
+	updateFn, deleted := e.as.CheckSavedActions(channelID, umi.GetMessageID())
+	if deleted {
+		// If there was an action to delete the message, then drop it
+		return 0, nil
+	}
+
 	// Get handler for message type
 	handler, err := e.getHandler(messageType, true, false, isMuted)
 	if err != nil {
@@ -468,6 +480,21 @@ func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
 		cm.Nickname, cm.Payload, encryptedPayload, um.ECCPublicKey, cm.DMToken,
 		0, timestamp, time.Unix(0, cm.LocalTimestamp), time.Duration(cm.Lease),
 		id.Round(cm.RoundID), round, status, false, false)
+
+	// If there is an update function, then call it in a new thread
+	if updateFn != nil {
+		go func() {
+			uuid2, err2 := updateFn()
+			if err2 != nil {
+				jww.ERROR.Printf("[CH] Failed to update action on message %s "+
+					"in channel %s: %+v", umi.GetMessageID(), channelID, err)
+			} else {
+				jww.DEBUG.Printf("[CH] Updated action on message %s in "+
+					"channel %s at UUID %d", umi.GetMessageID(), channelID, uuid2)
+			}
+		}()
+	}
+
 	return uuid, nil
 }
 
@@ -489,6 +516,13 @@ func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
 	uint64, error) {
 	messageType := MessageType(cm.PayloadType)
 
+	// Check if there are any saved actions for this message
+	updateFn, deleted := e.as.CheckSavedActions(channelID, messageID)
+	if deleted {
+		// If there was an action to delete the message, then drop it
+		return 0, nil
+	}
+
 	// Get handler for message type
 	handler, err := e.getHandler(messageType, false, true, false)
 	if err != nil {
@@ -503,6 +537,21 @@ func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
 		cm.Payload, encryptedPayload, AdminFakePubKey, cm.DMToken, 0, timestamp,
 		time.Unix(0, cm.LocalTimestamp), time.Duration(cm.Lease),
 		id.Round(cm.RoundID), round, status, true, false)
+
+	// If there is an update function, then call it in a new thread
+	if updateFn != nil {
+		go func() {
+			uuid2, err2 := updateFn()
+			if err2 != nil {
+				jww.ERROR.Printf("[CH] Failed to update action on message %s "+
+					"in channel %s: %+v", messageID, channelID, err)
+			} else {
+				jww.DEBUG.Printf("[CH] Updated action on message %s in "+
+					"channel %s at UUID %d", messageID, channelID, uuid2)
+			}
+		}()
+	}
+
 	return uuid, nil
 }
 
@@ -701,7 +750,13 @@ func (e *events) receiveDelete(channelID *id.ID, messageID message.ID,
 	err := e.model.DeleteMessage(deleteMessageID)
 	if err != nil {
 		if checkNoMessageErr(err) {
-			// TODO: handle no message
+			err = e.as.AddAction(channelID, messageID, deleteMessageID,
+				messageType, nil, nil, timestamp, time.Time{}, netTime.Now(),
+				lease, 0, rounds.Round{}, fromAdmin)
+			if err != nil {
+				jww.ERROR.Printf("[CH] [%s] Could not add action for deletion "+
+					"message %s: %+v", tag, msgLog, err)
+			}
 		} else {
 			jww.ERROR.Printf(
 				"[CH] [%s] Failed to delete message %s: %+v", tag, msgLog, err)
@@ -777,7 +832,14 @@ func (e *events) receivePinned(channelID *id.ID, messageID message.ID,
 		pinnedMessageID, nil, nil, &pinned, nil, nil)
 	if err != nil {
 		if checkNoMessageErr(err) {
-			// TODO: handle no message
+			err = e.as.AddAction(channelID, messageID, pinnedMessageID,
+				messageType, content, encryptedPayload, timestamp,
+				originatingTimestamp, netTime.Now(), lease, originatingRound,
+				round, fromAdmin)
+			if err != nil {
+				jww.ERROR.Printf("[CH] [%s] Could not add action for pinned "+
+					"message %s: %+v", tag, msgLog, err)
+			}
 		} else {
 			jww.ERROR.Printf(
 				"[CH] [%s] Failed to pin message %s: %+v", tag, msgLog, err)

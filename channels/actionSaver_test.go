@@ -9,6 +9,7 @@ package channels
 
 import (
 	"bytes"
+	"container/list"
 	"math/rand"
 	"os"
 	"reflect"
@@ -20,8 +21,146 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"
 )
+
+// Tests that NewActionSaver returned the expected new ActionSaver.
+func TestNewActionSaver(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	expected := &ActionSaver{
+		savedActions:     list.New(),
+		actionsByChannel: make(map[id.ID]map[messageIdKey]*savedAction),
+		kv:               kv,
+	}
+
+	as := NewActionSaver(nil, kv)
+	if !reflect.DeepEqual(expected, as) {
+		t.Errorf("Unexpected new ActionSaver.\nexpected: %+v\nrecieved: %+v",
+			expected, as)
+	}
+}
+
+// TODO: Finish test
+func TestActionSaver_StartProcesses(t *testing.T) {
+}
+
+// TODO: Finish test
+func TestActionSaver_purgeThread(t *testing.T) {
+}
+
+// TODO: Finish test
+func TestActionSaver_purge(t *testing.T) {
+}
+
+// Tests ActionSaver.AddAction
+// TODO: Finish test
+func TestActionSaver_AddAction(t *testing.T) {
+
+	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
+
+	chanID := &id.ID{5}
+	msgID, targetID := message.ID{6}, message.ID{7}
+	action := Pinned
+	content, encryptedPayload := []byte("content"), []byte("encryptedPayload")
+	timestamp, originatingTimestamp := time.Unix(6, 0), time.Unix(5, 0)
+	received := time.Unix(7, 0)
+	lease := 5 * time.Minute
+	err := as.AddAction(chanID, msgID, targetID, action, content, encryptedPayload,
+		timestamp, originatingTimestamp, received, lease, 5, rounds.Round{}, false)
+	if err != nil {
+		t.Fatalf("Failed to add action: %+v", err)
+	}
+}
+
+// TODO: Finish test
+func TestActionSaver_CheckSavedActions(t *testing.T) {
+}
+
+// TODO: Finish test
+func TestActionSaver_deleteAction(t *testing.T) {
+}
+
+// TODO: Finish test
+func TestActionSaver_RemoveChannel(t *testing.T) {
+}
+
+// Tests that ActionSaver.insertAction inserts all the savedAction objects in
+// the correct order, from smallest Received to largest.
+func TestActionSaver_insertAction(t *testing.T) {
+	prng := rand.New(rand.NewSource(23))
+	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
+	expected := make([]time.Time, 50)
+
+	for i := range expected {
+		randomTime := time.Unix(0, prng.Int63())
+		as.insertAction(&savedAction{Received: randomTime})
+		expected[i] = randomTime
+	}
+
+	sort.SliceStable(expected, func(i, j int) bool {
+		return expected[i].Before(expected[j])
+	})
+
+	for i, e := 0, as.savedActions.Front(); e != nil; i, e = i+1, e.Next() {
+		if expected[i] != e.Value.(*savedAction).Received {
+			t.Errorf("Timestamp %d not in correct order."+
+				"\nexpected: %s\nreceived: %s",
+				i, expected[i], e.Value.(*savedAction).Received)
+		}
+	}
+}
+
+// Fills the lease list with in-order messages and tests that
+// ActionSaver.updateAction correctly moves elements to the correct order when
+// their Received changes.
+func TestActionSaver_updateAction(t *testing.T) {
+	prng := rand.New(rand.NewSource(23))
+	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
+
+	for i := 0; i < 50; i++ {
+		randomTime := time.Unix(0, prng.Int63())
+		as.insertAction(&savedAction{Received: randomTime})
+	}
+
+	tests := []struct {
+		randomTime time.Time
+		e          *list.Element
+	}{
+		// Change the first element to a random time
+		{time.Unix(0, prng.Int63()), as.savedActions.Front()},
+
+		// Change an element to a random time
+		{time.Unix(0, prng.Int63()), as.savedActions.Front().Next().Next().Next()},
+
+		// Change the last element to a random time
+		{time.Unix(0, prng.Int63()), as.savedActions.Back()},
+
+		// Change an element to the first element
+		{as.savedActions.Front().Value.(*savedAction).Received.Add(-1),
+			as.savedActions.Front().Next().Next()},
+
+		// Change an element to the last element
+		{as.savedActions.Back().Value.(*savedAction).Received.Add(1),
+			as.savedActions.Front().Next().Next().Next().Next().Next()},
+	}
+
+	for i, tt := range tests {
+		tt.e.Value.(*savedAction).Received = tt.randomTime
+		as.updateAction(tt.e)
+
+		// Check that the list is in order
+		for j, n := 0, as.savedActions.Front(); n.Next() != nil; j, n = j+1, n.Next() {
+			lt1 := n.Value.(*savedAction).Received
+			lt2 := n.Next().Value.(*savedAction).Received
+			if lt1.After(lt2) {
+				t.Errorf("Element #%d is greater than element #%d (%d)."+
+					"\nelement #%d: %s\nelement #%d: %s",
+					j, j+1, i, j, lt1, j+1, lt2)
+			}
+		}
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Message ID Key                                                             //

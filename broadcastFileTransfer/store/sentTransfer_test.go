@@ -10,7 +10,13 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
+	"reflect"
+	"strconv"
+	"testing"
+
 	"github.com/pkg/errors"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -20,10 +26,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"reflect"
-	"strconv"
-	"testing"
 )
 
 // Tests that newSentTransfer returns a new SentTransfer with the expected
@@ -31,10 +33,10 @@ import (
 func Test_newSentTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	fid := ftCrypto.NewID([]byte("fileData"))
 	numFps := uint16(24)
 	parts := [][]byte{[]byte("hello"), []byte("hello"), []byte("hello")}
-	stKv := kv.Prefix(makeSentTransferPrefix(&tid))
+	stKv := kv.Prefix(makeSentTransferPrefix(fid))
 
 	cypherManager, err := cypher.NewManager(&key, numFps, stKv)
 	if err != nil {
@@ -48,7 +50,7 @@ func Test_newSentTransfer(t *testing.T) {
 
 	expected := &SentTransfer{
 		cypherManager: cypherManager,
-		tid:           &tid,
+		fid:           fid,
 		fileName:      "file",
 		recipient:     id.NewIdFromString("user", id.User, t),
 		fileSize:      calcFileSize(parts),
@@ -59,7 +61,7 @@ func Test_newSentTransfer(t *testing.T) {
 		kv:            stKv,
 	}
 
-	st, err := newSentTransfer(expected.recipient, &key, &tid,
+	st, err := newSentTransfer(expected.recipient, &key, fid,
 		expected.fileName, expected.fileSize, parts, numFps, kv)
 	if err != nil {
 		t.Errorf("newSentTransfer returned an error: %+v", err)
@@ -202,7 +204,7 @@ func TestSentTransfer_getPartData_OutOfRangePanic(t *testing.T) {
 	st, parts, _, _, _ := newTestSentTransfer(16, t)
 
 	invalidPartNum := uint16(len(parts) + 1)
-	expectedErr := fmt.Sprintf(errNoPartNum, invalidPartNum, st.tid, st.fileName)
+	expectedErr := fmt.Sprintf(errNoPartNum, invalidPartNum, st.fid, st.fileName)
 
 	defer func() {
 		r := recover()
@@ -380,13 +382,13 @@ func TestSentTransfer_Status(t *testing.T) {
 	}
 }
 
-// Tests that SentTransfer.TransferID returns the correct transfer ID.
-func TestSentTransfer_TransferID(t *testing.T) {
+// Tests that SentTransfer.FileID returns the correct file ID.
+func TestSentTransfer_FileID(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(16, t)
 
-	if st.TransferID() != st.tid {
-		t.Errorf("Incorrect transfer ID.\nexpected: %s\nreceived: %s",
-			st.tid, st.TransferID())
+	if st.FileID() != st.fid {
+		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
+			st.fid, st.FileID())
 	}
 }
 
@@ -395,7 +397,7 @@ func TestSentTransfer_FileName(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(16, t)
 
 	if st.FileName() != st.fileName {
-		t.Errorf("Incorrect transfer ID.\nexpected: %s\nreceived: %s",
+		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
 			st.fileName, st.FileName())
 	}
 }
@@ -580,7 +582,7 @@ func Test_generateSentFp_Consistency(t *testing.T) {
 func Test_loadSentTransfer(t *testing.T) {
 	st, _, _, _, kv := newTestSentTransfer(64, t)
 
-	loadedSt, err := loadSentTransfer(st.tid, kv)
+	loadedSt, err := loadSentTransfer(st.fid, kv)
 	if err != nil {
 		t.Errorf("Failed to load SentTransfer: %+v", err)
 	}
@@ -601,7 +603,7 @@ func TestSentTransfer_Delete(t *testing.T) {
 		t.Errorf("Delete returned an error: %+v", err)
 	}
 
-	_, err = loadSentTransfer(st.tid, kv)
+	_, err = loadSentTransfer(st.fid, kv)
 	if err == nil {
 		t.Errorf("Loaded sent transfer that was deleted.")
 	}
@@ -631,56 +633,45 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 		status:    Failed,
 		parts:     [][]byte{[]byte("Message"), []byte("Part")},
 	}
+	expected := sentTransferDisk{st.fileName, st.recipient, st.status, st.parts}
 
 	data, err := st.marshal()
 	if err != nil {
 		t.Errorf("marshal returned an error: %+v", err)
 	}
 
-	fileName, recipient, status, parts, err := unmarshalSentTransfer(data)
+	info, err := unmarshalSentTransfer(data)
 	if err != nil {
 		t.Errorf("Failed to unmarshal SentTransfer: %+v", err)
 	}
 
-	if st.fileName != fileName {
-		t.Errorf("Incorrect file name.\nexpected: %q\nreceived: %q",
-			st.fileName, fileName)
-	}
-
-	if !st.recipient.Cmp(recipient) {
-		t.Errorf("Incorrect recipient.\nexpected: %s\nreceived: %s",
-			st.recipient, recipient)
-	}
-
-	if status != status {
-		t.Errorf("Incorrect status.\nexpected: %s\nreceived: %s",
-			status, status)
-	}
-
-	if !reflect.DeepEqual(st.parts, parts) {
-		t.Errorf("Incorrect parts.\nexpected: %q\nreceived: %q",
-			st.parts, parts)
+	if !reflect.DeepEqual(expected, info) {
+		t.Errorf("Incorrect sent transfer info.\nexpected: %+v\nreceived: %+v",
+			expected, info)
 	}
 }
 
 // Consistency test of makeSentTransferPrefix.
 func Test_makeSentTransferPrefix_Consistency(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	fileData := make([]byte, 64)
 	expectedPrefixes := []string{
-		"SentFileTransferStore/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore/GmeTCfxGOqRqeIDPGDFroTglaY5zUwwxc9aRbeIf3Co=",
+		"SentFileTransferStore/gbpJjHd3tIe8BKykHzm9/WUu/Fp38P6sPp0A8yORIfQ=",
+		"SentFileTransferStore/2/ZdG+WNzODJBiFWbJzZAsuMEP0HPNuP0Ogq3LUcxJM=",
+		"SentFileTransferStore/TFOBbdqMHgDtzFk9zxIkxbulljnjT4pRXsT5uFCDmLo=",
+		"SentFileTransferStore/23OMC+rBmCk+gsutXRThSUNScqEOefqQEs7pu1p3KrI=",
+		"SentFileTransferStore/qHu5MUVs83oMqy829cLN6ybTaWT8XvLPT+1r1JDA4Hc=",
+		"SentFileTransferStore/kuXqxsezI0kS9Bc5QcSOOCJ7aJzUirqa84LcuNPLZWA=",
+		"SentFileTransferStore/MSscKJ0w5yoWsB1Uoq3opFTk3hNEHd35hidPwouBe6I=",
+		"SentFileTransferStore/VhdbiYnEpLIet2wCD9KkwGMzGu9IPvoOwDnpu/uPwZU=",
+		"SentFileTransferStore/j01ZSSm762TH7mjPimhuASOl7nLxsf1sh0/Yed8MwoE=",
 	}
 
 	for i, expected := range expectedPrefixes {
-		tid := ftCrypto.TransferID{byte(i)}
-		prefix := makeSentTransferPrefix(&tid)
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
+		prefix := makeSentTransferPrefix(fid)
 
 		if expected != prefix {
 			t.Errorf("Prefix #%d does not match expected."+
@@ -697,13 +688,13 @@ func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
 	kv = versioned.NewKV(ekv.MakeMemstore())
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	fid := ftCrypto.NewID([]byte("fileData"))
 	numFps = 2 * numParts
 	fileName := "helloFile"
 	parts, file := generateTestParts(numParts)
 
 	st, err := newSentTransfer(
-		recipient, &keyTmp, &tid, fileName, uint32(len(file)), parts, numFps, kv)
+		recipient, &keyTmp, fid, fileName, uint32(len(file)), parts, numFps, kv)
 	if err != nil {
 		t.Errorf("Failed to make new SentTransfer: %+v", err)
 	}

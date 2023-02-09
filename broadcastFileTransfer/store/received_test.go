@@ -10,15 +10,17 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
+	"reflect"
+	"sort"
+	"strconv"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"sort"
-	"strconv"
-	"testing"
 )
 
 // Tests that NewOrLoadReceived returns a new Received when none exist in
@@ -26,7 +28,7 @@ import (
 func TestNewOrLoadReceived_New(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	expected := &Received{
-		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
+		transfers: make(map[ftCrypto.ID]*ReceivedTransfer),
 		kv:        kv.Prefix(receivedTransfersStorePrefix),
 	}
 
@@ -50,18 +52,21 @@ func TestNewOrLoadReceived_New(t *testing.T) {
 // storage and that the list of incomplete transfers is correct.
 func TestNewOrLoadReceived_Load(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	prng := rand.New(rand.NewSource(42))
 	r, _, err := NewOrLoadReceived(kv)
 	if err != nil {
 		t.Errorf("Failed to make new Received: %+v", err)
 	}
 	var expectedIncompleteTransfers []*ReceivedTransfer
+	fileData := make([]byte, 64)
 
 	// Create and add transfers to map and save
 	for i := 0; i < 2; i++ {
 		recipient := id.NewIdFromUInt(uint64(i), id.User, t)
 		key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-		tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
-		rt, err2 := r.AddTransfer(recipient, &key, &tid, "file"+strconv.Itoa(i),
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
+		rt, err2 := r.AddTransfer(recipient, &key, fid, "file"+strconv.Itoa(i),
 			[]byte("transferMAC"+strconv.Itoa(i)), 128, 10, 20)
 		if err2 != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err2)
@@ -85,13 +90,13 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 	}
 
 	sort.Slice(incompleteTransfers, func(i, j int) bool {
-		return bytes.Compare(incompleteTransfers[i].TransferID()[:],
-			incompleteTransfers[j].TransferID()[:]) == -1
+		return bytes.Compare(incompleteTransfers[i].FileID().Marshal(),
+			incompleteTransfers[j].FileID().Marshal()) == -1
 	})
 
 	sort.Slice(expectedIncompleteTransfers, func(i, j int) bool {
-		return bytes.Compare(expectedIncompleteTransfers[i].TransferID()[:],
-			expectedIncompleteTransfers[j].TransferID()[:]) == -1
+		return bytes.Compare(expectedIncompleteTransfers[i].FileID().Marshal(),
+			expectedIncompleteTransfers[j].FileID().Marshal()) == -1
 	})
 
 	// Check that the incomplete transfers matches expected
@@ -108,30 +113,30 @@ func TestReceived_AddTransfer(t *testing.T) {
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	fid := ftCrypto.NewID([]byte("fileData"))
 
 	rt, err := r.AddTransfer(
-		recipient, &key, &tid, "file", []byte("transferMAC"), 128, 10, 20)
+		recipient, &key, fid, "file", []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 
 	// Check that the transfer was added
-	if _, exists := r.transfers[*rt.tid]; !exists {
-		t.Errorf("No transfer with ID %s exists.", rt.tid)
+	if _, exists := r.transfers[rt.fid]; !exists {
+		t.Errorf("No transfer with ID %s exists.", rt.fid)
 	}
 }
 
-// Tests that Received.AddTransfer returns an error when adding a transfer ID
-// that already exists.
+// Tests that Received.AddTransfer returns an error when adding a file ID that
+// already exists.
 func TestReceived_AddTransfer_TransferAlreadyExists(t *testing.T) {
-	tid := &ftCrypto.TransferID{0}
+	fid := ftCrypto.ID{0}
 	r := &Received{
-		transfers: map[ftCrypto.TransferID]*ReceivedTransfer{*tid: nil},
+		transfers: map[ftCrypto.ID]*ReceivedTransfer{fid: nil},
 	}
 
-	expectedErr := fmt.Sprintf(errAddExistingReceivedTransfer, tid)
-	_, err := r.AddTransfer(nil, nil, tid, "", nil, 0, 0, 0)
+	expectedErr := fmt.Sprintf(errAddExistingReceivedTransfer, fid)
+	_, err := r.AddTransfer(nil, nil, fid, "", nil, 0, 0, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -145,18 +150,18 @@ func TestReceived_GetTransfer(t *testing.T) {
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	fid := ftCrypto.NewID([]byte("fileData"))
 
 	rt, err := r.AddTransfer(
-		recipient, &key, &tid, "file", []byte("transferMAC"), 128, 10, 20)
+		recipient, &key, fid, "file", []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 
 	// Check that the transfer was added
-	receivedRt, exists := r.GetTransfer(rt.tid)
+	receivedRt, exists := r.GetTransfer(rt.fid)
 	if !exists {
-		t.Errorf("No transfer with ID %s exists.", rt.tid)
+		t.Errorf("No transfer with ID %s exists.", rt.fid)
 	}
 
 	if !reflect.DeepEqual(rt, receivedRt) {
@@ -172,28 +177,28 @@ func TestReceived_RemoveTransfer(t *testing.T) {
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	fid := ftCrypto.NewID([]byte("fileData"))
 
 	rt, err := r.AddTransfer(
-		recipient, &key, &tid, "file", []byte("transferMAC"), 128, 10, 20)
+		recipient, &key, fid, "file", []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 
 	// Delete the transfer
-	err = r.RemoveTransfer(rt.tid)
+	err = r.RemoveTransfer(rt.fid)
 	if err != nil {
 		t.Errorf("RemoveTransfer returned an error: %+v", err)
 	}
 
 	// Check that the transfer was deleted
-	_, exists := r.GetTransfer(rt.tid)
+	_, exists := r.GetTransfer(rt.fid)
 	if exists {
-		t.Errorf("Transfer %s exists.", rt.tid)
+		t.Errorf("File %s exists.", rt.fid)
 	}
 
 	// Remove transfer that was already removed
-	err = r.RemoveTransfer(rt.tid)
+	err = r.RemoveTransfer(rt.fid)
 	if err != nil {
 		t.Errorf("RemoveTransfer returned an error: %+v", err)
 	}
@@ -203,36 +208,40 @@ func TestReceived_RemoveTransfer(t *testing.T) {
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Tests that Received.save saves the transfer ID list to storage by trying to
-// load it after a save.
+// Tests that Received.save saves the file ID list to storage by trying to load
+// it after a save.
 func TestReceived_save(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
-	r.transfers = map[ftCrypto.TransferID]*ReceivedTransfer{
+	r.transfers = map[ftCrypto.ID]*ReceivedTransfer{
 		{0}: nil, {1}: nil,
 		{2}: nil, {3}: nil,
 	}
 
 	err := r.save()
 	if err != nil {
-		t.Errorf("Failed to save transfer ID list: %+v", err)
+		t.Errorf("Failed to save file ID list: %+v", err)
 	}
 
 	_, err = r.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
 	if err != nil {
-		t.Errorf("Failed to load transfer ID list: %+v", err)
+		t.Errorf("Failed to load file ID list: %+v", err)
 	}
 }
 
-// Tests that the transfer IDs keys in the map marshalled by
-// marshalReceivedTransfersMap and unmarshalled by unmarshalTransferIdList match
+// Tests that the file IDs keys in the map marshalled by
+// marshalReceivedTransfersMap and unmarshalled by unmarshalFileIdList match
 // the original.
-func Test_marshalReceivedTransfersMap_unmarshalTransferIdList(t *testing.T) {
-	// Build map of transfer IDs
-	transfers := make(map[ftCrypto.TransferID]*ReceivedTransfer, 10)
+func Test_marshalReceivedTransfersMap_unmarshalFileIdList(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	fileData := make([]byte, 64)
+
+	// Build map of file IDs
+	transfers := make(map[ftCrypto.ID]*ReceivedTransfer, 10)
 	for i := 0; i < 10; i++ {
-		tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
-		transfers[tid] = nil
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
+		transfers[fid] = nil
 	}
 
 	data, err := marshalReceivedTransfersMap(transfers)
@@ -240,16 +249,16 @@ func Test_marshalReceivedTransfersMap_unmarshalTransferIdList(t *testing.T) {
 		t.Errorf("marshalReceivedTransfersMap returned an error: %+v", err)
 	}
 
-	tidList, err := unmarshalTransferIdList(data)
+	fidList, err := unmarshalFileIdList(data)
 	if err != nil {
-		t.Errorf("unmarshalSentTransfer returned an error: %+v", err)
+		t.Errorf("unmarshalFileIdList returned an error: %+v", err)
 	}
 
-	for _, tid := range tidList {
-		if _, exists := transfers[tid]; exists {
-			delete(transfers, tid)
+	for _, fid := range fidList {
+		if _, exists := transfers[fid]; exists {
+			delete(transfers, fid)
 		} else {
-			t.Errorf("Transfer %s does not exist in list.", tid)
+			t.Errorf("File %s does not exist in list.", fid)
 		}
 	}
 

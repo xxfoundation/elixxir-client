@@ -9,6 +9,7 @@ package fileMessage
 
 import (
 	"encoding/binary"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 )

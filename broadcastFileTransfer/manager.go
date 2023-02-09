@@ -9,8 +9,11 @@ package broadcastFileTransfer
 
 import (
 	"bytes"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/callbackTracker"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
@@ -28,7 +31,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // TODO:
@@ -95,24 +97,22 @@ const (
 	errPreviewSize       = "size of preview (%d bytes) greater than max allowed size (%d bytes)"
 	errSendNetworkHealth = "cannot initiate file transfer of %q when network is not healthy."
 	errNewKey            = "could not generate new transfer key: %+v"
-	errNewID             = "could not generate new transfer ID: %+v"
 	errNewRecipientID    = "could not generate new recipient ID: %+v"
 	errMarshalInfo       = "could not marshal transfer info: %+v"
 	errAddSentTransfer   = "failed to add transfer: %+v"
 
 	// manager.CloseSend
-	errDeleteIncompleteTransfer = "cannot delete transfer %s that has not completed or failed"
-	errDeleteSentTransfer       = "could not delete sent transfer %s: %+v"
-	errRemoveSentTransfer       = "could not remove transfer %s from list: %+v"
+	errDeleteIncompleteTransfer = "cannot delete file %s that has not completed or failed"
+	errDeleteSentTransfer       = "could not delete sent file %s: %+v"
+	errRemoveSentTransfer       = "could not remove file %s from list: %+v"
 
 	// manager.HandleIncomingTransfer
-	errNewRtTransferID = "failed to generate transfer ID for new received file transfer %q: %+v"
-	errAddNewRt        = "failed to add new file transfer %s (%q): %+v"
+	errAddNewRt = "failed to add new file transfer %s (%q): %+v"
 
 	// manager.Receive
 	errIncompleteFile         = "cannot get incomplete file: missing %d of %d parts"
-	errDeleteReceivedTransfer = "could not delete received transfer %s: %+v"
-	errRemoveReceivedTransfer = "could not remove transfer %s from list: %+v"
+	errDeleteReceivedTransfer = "could not delete received file %s: %+v"
+	errRemoveReceivedTransfer = "could not remove file %s from list: %+v"
 )
 
 // manager handles the sending and receiving of file, their storage, and their
@@ -300,53 +300,52 @@ func (m *manager) MaxPreviewSize() int {
 // via cmix.SendMany.
 func (m *manager) Send(fileName, fileType string, fileData []byte,
 	retry float32, preview []byte, completeCB SendCompleteCallback,
-	progressCB SentProgressCallback, period time.Duration) (
-	*ftCrypto.TransferID, error) {
+	progressCB SentProgressCallback, period time.Duration) (ftCrypto.ID, error) {
 
 	// Return an error if the file name is too long
 	if len(fileName) > FileNameMaxLen {
-		return nil, errors.Errorf(errFileNameSize, len(fileName), FileNameMaxLen)
+		return ftCrypto.ID{},
+			errors.Errorf(errFileNameSize, len(fileName), FileNameMaxLen)
 	}
 
 	// Return an error if the file type is too long
 	if len(fileType) > FileTypeMaxLen {
-		return nil, errors.Errorf(errFileTypeSize, len(fileType), FileTypeMaxLen)
+		return ftCrypto.ID{},
+			errors.Errorf(errFileTypeSize, len(fileType), FileTypeMaxLen)
 	}
 
 	// Return an error if the file is too large
 	if len(fileData) > FileMaxSize {
-		return nil, errors.Errorf(errFileSize, len(fileData), FileMaxSize)
+		return ftCrypto.ID{},
+			errors.Errorf(errFileSize, len(fileData), FileMaxSize)
 	}
 
 	// Return an error if the preview is too large
 	if len(preview) > PreviewMaxSize {
-		return nil, errors.Errorf(errPreviewSize, len(preview), PreviewMaxSize)
+		return ftCrypto.ID{},
+			errors.Errorf(errPreviewSize, len(preview), PreviewMaxSize)
 	}
 
 	// Return an error if the network is not healthy
 	if !m.cmix.IsHealthy() {
-		return nil, errors.Errorf(errSendNetworkHealth, fileName)
+		return ftCrypto.ID{}, errors.Errorf(errSendNetworkHealth, fileName)
 	}
 
-	// Generate new transfer key and transfer ID
+	// Generate new transfer key and file ID
 	rng := m.rng.GetStream()
 	key, err := ftCrypto.NewTransferKey(rng)
 	if err != nil {
 		rng.Close()
-		return nil, errors.Errorf(errNewKey, err)
+		return ftCrypto.ID{}, errors.Errorf(errNewKey, err)
 	}
-	tid, err := ftCrypto.NewTransferID(rng)
-	if err != nil {
-		rng.Close()
-		return nil, errors.Errorf(errNewID, err)
-	}
+	fid := ftCrypto.NewID(fileData)
 
 	// Generate random identity to send the file to that will be used later for
 	// others to receive the file
 	newID, err := id.NewRandomID(rng, id.User)
 	if err != nil {
 		rng.Close()
-		return nil, errors.Errorf(errNewRecipientID, err)
+		return ftCrypto.ID{}, errors.Errorf(errNewRecipientID, err)
 	}
 	rng.Close()
 
@@ -360,11 +359,11 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	fileSize := uint32(len(fileData))
 
 	// Build TransferInfo that will be returned to the user on completion
-	info := &TransferInfo{
-		newID, fileName, fileType, key, mac, numParts, fileSize, retry, preview}
+	info := &TransferInfo{fid, newID, fileName, fileType, key, mac, numParts,
+		fileSize, retry, preview}
 	transferInfo, err := info.Marshal()
 	if err != nil {
-		return nil, errors.Errorf(errMarshalInfo, err)
+		return ftCrypto.ID{}, errors.Errorf(errMarshalInfo, err)
 	}
 
 	// Calculate the number of fingerprints to generate
@@ -372,9 +371,9 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 
 	// Create new sent transfer
 	st, err := m.sent.AddTransfer(
-		newID, &key, &tid, fileName, fileSize, parts, numFps)
+		newID, &key, fid, fileName, fileSize, parts, numFps)
 	if err != nil {
-		return nil, errors.Errorf(errAddSentTransfer, err)
+		return ftCrypto.ID{}, errors.Errorf(errAddSentTransfer, err)
 	}
 
 	// Add all parts to the send queue
@@ -384,7 +383,7 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 
 	jww.DEBUG.Printf("[FT] Created new sent file transfer %s for %q "+
 		"(type %s, size %d bytes, %d parts, retry %f)",
-		st.TransferID(), fileName, fileType, fileSize, numParts, retry)
+		st.FileID(), fileName, fileType, fileSize, numParts, retry)
 
 	// Register the progress callback
 	m.registerSentProgressCallback(st, progressCB, period)
@@ -393,19 +392,19 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	_, _, err = m.HandleIncomingTransfer(
 		transferInfo, m.checkedReceivedParts(st, info, completeCB), 0)
 	if err != nil {
-		return nil, err
+		return ftCrypto.ID{}, err
 	}
 
-	return &tid, nil
+	return fid, nil
 }
 
 // RegisterSentProgressCallback adds the given callback to the callback manager
-// for the given transfer ID. Returns an error if the transfer cannot be found.
-func (m *manager) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
+// for the given file ID. Returns an error if the transfer cannot be found.
+func (m *manager) RegisterSentProgressCallback(fid ftCrypto.ID,
 	progressCB SentProgressCallback, period time.Duration) error {
-	st, exists := m.sent.GetTransfer(tid)
+	st, exists := m.sent.GetTransfer(fid)
 	if !exists {
-		return errors.Errorf(errNoSentTransfer, tid)
+		return errors.Errorf(errNoSentTransfer, fid)
 	}
 
 	m.registerSentProgressCallback(st, progressCB, period)
@@ -440,40 +439,40 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 	}
 
 	// Add the callback to the callback tracker
-	m.callbacks.AddCallback(st.TransferID(), cb, period)
+	m.callbacks.AddCallback(st.FileID(), cb, period)
 }
 
 // CloseSend deletes the sent transfer from storage and the sent transfer list.
 // Also stops any scheduled progress callbacks and deletes them from the manager
 // to prevent any further calls. Deletion only occurs if the transfer has either
 // completed or failed.
-func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
-	st, exists := m.sent.GetTransfer(tid)
+func (m *manager) CloseSend(fid ftCrypto.ID) error {
+	st, exists := m.sent.GetTransfer(fid)
 	if !exists {
-		return errors.Errorf(errNoSentTransfer, tid)
+		return errors.Errorf(errNoSentTransfer, fid)
 	}
 
 	// Check that the transfer is either completed or failed
 	if st.Status() != store.Completed && st.Status() != store.Failed {
-		return errors.Errorf(errDeleteIncompleteTransfer, tid)
+		return errors.Errorf(errDeleteIncompleteTransfer, fid)
 	}
 
 	// Delete from storage
 	err := st.Delete()
 	if err != nil {
-		return errors.Errorf(errDeleteSentTransfer, tid, err)
+		return errors.Errorf(errDeleteSentTransfer, fid, err)
 	}
 
 	// Delete from transfers list
-	err = m.sent.RemoveTransfer(tid)
+	err = m.sent.RemoveTransfer(fid)
 	if err != nil {
-		return errors.Errorf(errRemoveSentTransfer, tid, err)
+		return errors.Errorf(errRemoveSentTransfer, fid, err)
 	}
 
 	// Stop and delete all progress callbacks
-	m.callbacks.Delete(tid)
+	m.callbacks.Delete(fid)
 
-	jww.DEBUG.Printf("[FT] Sent transfer %s has been closed.", tid)
+	jww.DEBUG.Printf("[FT] Sent file %s has been closed.", fid)
 
 	return nil
 }
@@ -483,40 +482,31 @@ func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
 const errUnmarshalInfo = "failed to unmarshal incoming transfer info: %+v"
 
 // HandleIncomingTransfer starts tracking the received file parts for the given
-// file information and returns a transfer ID that uniquely identifies this file
-// transfer.
+// file information and returns a file ID that uniquely identifies this file.
 func (m *manager) HandleIncomingTransfer(transferInfo []byte,
 	progressCB ReceivedProgressCallback, period time.Duration) (
-	*ftCrypto.TransferID, *TransferInfo, error) {
+	ftCrypto.ID, *TransferInfo, error) {
 
 	// Unmarshal the payload
 	t, err := UnmarshalTransferInfo(transferInfo)
 	if err != nil {
-		return nil, nil, errors.Errorf(errUnmarshalInfo, err)
+		return ftCrypto.ID{}, nil, errors.Errorf(errUnmarshalInfo, err)
 	}
-
-	// Generate new transfer ID
-	rng := m.rng.GetStream()
-	tid, err := ftCrypto.NewTransferID(rng)
-	if err != nil {
-		rng.Close()
-		return nil, nil, errors.Errorf(errNewRtTransferID, t.FileName, err)
-	}
-	rng.Close()
 
 	// Calculate the number of fingerprints based on the retry rate
 	numFps := calcNumberOfFingerprints(int(t.NumParts), t.Retry)
 
 	// Store the transfer
-	rt, err := m.received.AddTransfer(t.RecipientID, &t.Key, &tid, t.FileName,
+	rt, err := m.received.AddTransfer(t.RecipientID, &t.Key, t.FID, t.FileName,
 		t.Mac, t.Size, t.NumParts, numFps)
 	if err != nil {
-		return nil, nil, errors.Errorf(errAddNewRt, tid, t.FileName, err)
+		return ftCrypto.ID{}, nil,
+			errors.Errorf(errAddNewRt, t.FID, t.FileName, err)
 	}
 
-	jww.DEBUG.Printf("[FT] Added new received file transfer %s for %q "+
+	jww.DEBUG.Printf("[FT] Added new received file %s for %q "+
 		"(type %s, size %d bytes, %d parts, %d fingerprints)",
-		rt.TransferID(), t.FileName, t.FileType, t.Size, t.NumParts, numFps)
+		rt.FileID(), t.FileName, t.FileType, t.Size, t.NumParts, numFps)
 
 	// Start tracking fingerprints for each file part
 	m.addFingerprints(rt)
@@ -524,17 +514,17 @@ func (m *manager) HandleIncomingTransfer(transferInfo []byte,
 	// Register the progress callback
 	m.registerReceivedProgressCallback(rt, progressCB, period)
 
-	return &tid, t, nil
+	return t.FID, t, nil
 }
 
 // Receive concatenates the received file and returns it. Only returns the file
 // if all file parts have been received and returns an error otherwise. Also
 // deletes the transfer from storage. Once Receive has been called on a file, it
 // cannot be received again.
-func (m *manager) Receive(tid *ftCrypto.TransferID) ([]byte, error) {
-	rt, exists := m.received.GetTransfer(tid)
+func (m *manager) Receive(fid ftCrypto.ID) ([]byte, error) {
+	rt, exists := m.received.GetTransfer(fid)
 	if !exists {
-		return nil, errors.Errorf(errNoReceivedTransfer, tid)
+		return nil, errors.Errorf(errNoReceivedTransfer, fid)
 	}
 
 	// Return an error if the transfer is not complete
@@ -552,31 +542,31 @@ func (m *manager) Receive(tid *ftCrypto.TransferID) ([]byte, error) {
 	// Delete from storage
 	err := rt.Delete()
 	if err != nil {
-		return nil, errors.Errorf(errDeleteReceivedTransfer, tid, err)
+		return nil, errors.Errorf(errDeleteReceivedTransfer, fid, err)
 	}
 
 	// Delete from transfers list
-	err = m.received.RemoveTransfer(tid)
+	err = m.received.RemoveTransfer(fid)
 	if err != nil {
-		return nil, errors.Errorf(errRemoveReceivedTransfer, tid, err)
+		return nil, errors.Errorf(errRemoveReceivedTransfer, fid, err)
 	}
 
 	// Stop and delete all progress callbacks
-	m.callbacks.Delete(tid)
+	m.callbacks.Delete(fid)
 
-	jww.DEBUG.Printf("[FT] Received transfer %s has been received.", tid)
+	jww.DEBUG.Printf("[FT] Received file %s has been received.", fid)
 
 	return file, nil
 }
 
 // RegisterReceivedProgressCallback adds the given callback to the callback
-// manager for the given transfer ID. Returns an error if the transfer cannot be
+// manager for the given file ID. Returns an error if the transfer cannot be
 // found.
-func (m *manager) RegisterReceivedProgressCallback(tid *ftCrypto.TransferID,
+func (m *manager) RegisterReceivedProgressCallback(fid ftCrypto.ID,
 	progressCB ReceivedProgressCallback, period time.Duration) error {
-	rt, exists := m.received.GetTransfer(tid)
+	rt, exists := m.received.GetTransfer(fid)
 	if !exists {
-		return errors.Errorf(errNoReceivedTransfer, tid)
+		return errors.Errorf(errNoReceivedTransfer, fid)
 	}
 
 	m.registerReceivedProgressCallback(rt, progressCB, period)
@@ -611,7 +601,7 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 	}
 
 	// Add the callback to the callback tracker
-	m.callbacks.AddCallback(rt.TransferID(), cb, period)
+	m.callbacks.AddCallback(rt.FileID(), cb, period)
 }
 
 /* === Utility ============================================================== */
@@ -652,8 +642,8 @@ func (m *manager) addFingerprints(rt *store.ReceivedTransfer) {
 
 		err := m.cmix.AddFingerprint(rt.Recipient(), c.GetFingerprint(), p)
 		if err != nil {
-			jww.ERROR.Printf("[FT] Failed to add fingerprint for transfer "+
-				"%s: %+v", rt.TransferID(), err)
+			jww.ERROR.Printf("[FT] Failed to add fingerprint for file %s: %+v",
+				rt.FileID(), err)
 		}
 	}
 

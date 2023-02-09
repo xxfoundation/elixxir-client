@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
@@ -22,9 +23,9 @@ import (
 // Error messages.
 const (
 	// processor.Process
-	errDecryptPart   = "[FT] Failed to decrypt file part for transfer %s (%q) on round %d: %+v"
-	errUnmarshalPart = "[FT] Failed to unmarshal decrypted file part for transfer %s (%q) on round %d: %+v"
-	errAddPart       = "[FT] Failed to add part #%d to transfer transfer %s (%q): %+v"
+	errDecryptPart   = "[FT] Failed to decrypt file part for file %s (%q) on round %d: %+v"
+	errUnmarshalPart = "[FT] Failed to unmarshal decrypted file part for file %s (%q) on round %d: %+v"
+	errAddPart       = "[FT] Failed to add part #%d to transfer file %s (%q): %+v"
 )
 
 // processor manages the reception of file transfer messages. Adheres to the
@@ -42,34 +43,33 @@ func (p *processor) Process(msg format.Message,
 
 	decryptedPart, err := p.Decrypt(msg)
 	if err != nil {
-		jww.ERROR.Printf(
-			errDecryptPart, p.TransferID(), p.FileName(), round.ID, err)
+		jww.ERROR.Printf(errDecryptPart, p.FileID(), p.FileName(), round.ID, err)
 		return
 	}
 
 	partMsg, err := fileMessage.UnmarshalPartMessage(decryptedPart)
 	if err != nil {
 		jww.ERROR.Printf(
-			errUnmarshalPart, p.TransferID(), p.FileName(), round.ID, err)
+			errUnmarshalPart, p.FileID(), p.FileName(), round.ID, err)
 		return
 	}
 
 	err = p.AddPart(partMsg.GetPart(), int(partMsg.GetPartNum()))
 	if err != nil {
 		jww.WARN.Printf(
-			errAddPart, partMsg.GetPartNum(), p.TransferID(), p.FileName(), err)
+			errAddPart, partMsg.GetPartNum(), p.FileID(), p.FileName(), err)
 		return
 	}
 
 	if p.NumParts() == p.NumReceived() {
-		jww.DEBUG.Printf("[FT] Completed received transfer %s.", p.TransferID())
+		jww.DEBUG.Printf("[FT] Completed received file %s.", p.FileID())
 	}
 
-	jww.TRACE.Printf("[FT] Received part %d of %d of transfer %s on round %d",
-		partMsg.GetPartNum(), p.NumParts()-1, p.TransferID(), round.ID)
+	jww.TRACE.Printf("[FT] Received part %d of %d of file %s on round %d",
+		partMsg.GetPartNum(), p.NumParts()-1, p.FileID(), round.ID)
 
 	// Call callback with updates
-	p.callbacks.Call(p.TransferID(), nil)
+	p.callbacks.Call(p.FileID(), nil)
 }
 
 func (p *processor) String() string {

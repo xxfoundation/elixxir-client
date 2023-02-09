@@ -9,8 +9,9 @@ package cypher
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/primitives/format"
 	"testing"
+
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Tests that contents that are encrypted with Cypher.Encrypt match the

@@ -8,10 +8,11 @@
 package callbackTracker
 
 import (
-	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 type callback func(err error)

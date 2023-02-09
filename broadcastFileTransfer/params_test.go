@@ -9,9 +9,10 @@ package broadcastFileTransfer
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/cmix"
 	"reflect"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/cmix"
 )
 
 // Tests that DefaultParams returns a Params object with the expected defaults.

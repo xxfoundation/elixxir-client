@@ -9,15 +9,17 @@ package broadcastFileTransfer
 
 import (
 	"encoding/binary"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
+	"go.uber.org/ratelimit"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
-	"go.uber.org/ratelimit"
-	"time"
 )
 
 const (

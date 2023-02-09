@@ -9,13 +9,12 @@ package store
 
 import (
 	"bytes"
+	"math/rand"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
-	"io"
-	"math/rand"
-	"testing"
 )
 
 // Tests that the encrypted part returned by Part.GetEncryptedPart can be
@@ -155,14 +154,14 @@ func TestPart_Recipient(t *testing.T) {
 	}
 }
 
-// Tests that Part.TransferID returns the correct transfer ID.
-func TestPart_TransferID(t *testing.T) {
+// Tests that Part.FileID returns the correct file ID.
+func TestPart_FileID(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(25, t)
 	part := st.GetUnsentParts()[0]
 
-	if part.TransferID() != st.TransferID() {
-		t.Errorf("Transfer ID does not match expected."+
-			"\nexpected: %s\nreceived: %s", st.TransferID(), part.TransferID())
+	if part.FileID() != st.FileID() {
+		t.Errorf("File ID does not match expected."+
+			"\nexpected: %s\nreceived: %s", st.FileID(), part.FileID())
 	}
 }
 
@@ -179,50 +178,30 @@ func TestPart_FileName(t *testing.T) {
 
 // Consistency test of Part.String.
 func TestPart_String_Consistency(t *testing.T) {
-	randPrng := rand.New(rand.NewSource(42))
-	prng := NewPrng(42)
-	newTID := func() *ftCrypto.TransferID {
-		tid, err := ftCrypto.NewTransferID(prng)
-		if err != nil {
-			t.Fatalf("Failed to created new transfer ID: %+v", err)
-		}
-		return &tid
+	prng := rand.New(rand.NewSource(42))
+	fileData := make([]byte, 64)
+
+	expectedStrings := []string{
+		"{GmeTCfxGOqRqeIDPGDFroTglaY5zUwwxc9aRbeIf3Co= 929}",
+		"{cwcVZ9hC9FUMwED+deZbcji/1kU4P9snnWeSZrxpdII= 82}",
+		"{88nPaAIaeHf6yGtI6s+bjZFgk1mtG6g1iNlrWXmxhEQ= 982}",
+		"{Fx8bvKcPXgZzXARA4fzl0BShwWVB5vXtJE6eQ+ud/Kk= 235}",
+		"{gI/K4PcPbAr1KagBzQniMwE0T3XQ9RXxnVTWXYp0KEw= 978}",
+		"{v4OhpMMKJblekaHCkDRh3P3MdTlogp6lN2+uLeUNe00= 504}",
+		"{4KtkZgM0PbLWL041uRPzG13VomfFehiIC+7Je9CnM80= 566}",
+		"{Ekflpke4eEK0vgZhSWXvPNEw8DkFvlgC3W1/3mXZRbY= 323}",
+		"{ZIM//A0u3tEzb+1a/t+APedVMhSOX89ddAXZhaBiNyk= 198}",
+		"{32Bpz2rsKJeSupgNkM88jLztIRLKYlMDyHx6sez57LU= 504}",
 	}
 
-	tests := map[string]*Part{
-		"{U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVI= 305}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{39ebTXZCm2F6DJ+fDTulWwzA1hRMiIU1hBrL4HCbB1g= 987}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{CD9h03W8ArQd9PkZKeGP2p5vguVOdI6B555LvW/jTNw= 668}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{uoQ+6NY+jE/+HOvqVG2PrBPdGqwEzi6ih3xVec+ix44= 750}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{GwuvrogbgqdREIpC7TyQPKpDRlp4YgYWl4rtDOPGxPM= 423}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{rnvD4ElbVxL+/b4MECiH4QDazS2IX2kstgfaAKEcHHA= 345}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{ceeWotwtwlpbdLLhKXBeJz8FySMmgo4rBW44F2WOEGE= 357}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{SYlH/fNEQQ7UwRYCP6jjV2tv7Sf/iXS6wMr9mtBWkrE= 176}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{NhnnOJZN/ceejVNDc2Yc/WbXT+weG4lJGrcjbkt1IWI= 128}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-		"{kM8r60LDyicyhWDxqsBnzqbov0bUqytGgEAsX7KCDog= 643}": {
-			&SentTransfer{tid: newTID()}, nil, uint16(randPrng.Intn(1000))},
-	}
+	for i, expected := range expectedStrings {
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
+		p := &Part{&SentTransfer{fid: fid}, nil, uint16(prng.Intn(1000))}
 
-	for expected, p := range tests {
 		if expected != p.String() {
-			t.Errorf("Unexpected Part string.\nexpected: %s\nreceived: %s",
-				expected, p)
+			t.Errorf("Unexpected Part string (%d).\nexpected: %s\nreceived: %s",
+				i, expected, p)
 		}
 	}
 }
-
-// Prng is a PRNG that satisfies the csprng.Source interface.
-type Prng struct{ prng io.Reader }
-
-func NewPrng(seed int64) csprng.Source     { return &Prng{rand.New(rand.NewSource(seed))} }
-func (s *Prng) Read(b []byte) (int, error) { return s.prng.Read(b) }
-func (s *Prng) SetSeed([]byte) error       { return nil }

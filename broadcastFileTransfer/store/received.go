@@ -9,13 +9,15 @@ package store
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 // Storage keys and versions.
@@ -39,7 +41,7 @@ const (
 
 // Received contains a list of all received transfers.
 type Received struct {
-	transfers map[ftCrypto.TransferID]*ReceivedTransfer
+	transfers map[ftCrypto.ID]*ReceivedTransfer
 
 	mux sync.RWMutex
 	kv  *versioned.KV
@@ -50,7 +52,7 @@ type Received struct {
 // have unreceived file parts so their fingerprints can be re-added.
 func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error) {
 	s := &Received{
-		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
+		transfers: make(map[ftCrypto.ID]*ReceivedTransfer),
 		kv:        kv.Prefix(receivedTransfersStorePrefix),
 	}
 
@@ -63,80 +65,80 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 		}
 	}
 
-	tidList, err := unmarshalTransferIdList(obj.Data)
+	fidList, err := unmarshalFileIdList(obj.Data)
 	if err != nil {
 		return nil, nil, errors.Errorf(errUnmarshalReceived, err)
 	}
 
 	var errCount int
-	unfinishedTransfer := make([]*ReceivedTransfer, 0, len(tidList))
-	for i := range tidList {
-		tid := tidList[i]
-		s.transfers[tid], err = loadReceivedTransfer(&tid, s.kv)
+	unfinishedTransfer := make([]*ReceivedTransfer, 0, len(fidList))
+	for i := range fidList {
+		fid := fidList[i]
+		s.transfers[fid], err = loadReceivedTransfer(fid, s.kv)
 		if err != nil {
-			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(tidList), tid, err)
+			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(fidList), fid, err)
 			errCount++
 		}
 
-		if s.transfers[tid].NumReceived() != s.transfers[tid].NumParts() {
-			unfinishedTransfer = append(unfinishedTransfer, s.transfers[tid])
+		if s.transfers[fid].NumReceived() != s.transfers[fid].NumParts() {
+			unfinishedTransfer = append(unfinishedTransfer, s.transfers[fid])
 		}
 	}
 
 	// Return an error if all transfers failed to load
-	if len(tidList) > 0 && errCount == len(tidList) {
-		return nil, nil, errors.Errorf(errLoadAllReceivedTransfer, len(tidList))
+	if len(fidList) > 0 && errCount == len(fidList) {
+		return nil, nil, errors.Errorf(errLoadAllReceivedTransfer, len(fidList))
 	}
 
 	return s, unfinishedTransfer, nil
 }
 
-// AddTransfer adds the ReceivedTransfer to the map keyed on its transfer ID.
+// AddTransfer adds the ReceivedTransfer to the map keyed on its file ID.
 func (r *Received) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, transferMAC []byte,
+	fid ftCrypto.ID, fileName string, transferMAC []byte,
 	fileSize uint32, numParts, numFps uint16) (*ReceivedTransfer, error) {
 
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	_, exists := r.transfers[*tid]
+	_, exists := r.transfers[fid]
 	if exists {
-		return nil, errors.Errorf(errAddExistingReceivedTransfer, tid)
+		return nil, errors.Errorf(errAddExistingReceivedTransfer, fid)
 	}
 
-	rt, err := newReceivedTransfer(recipient, key, tid, fileName, transferMAC,
+	rt, err := newReceivedTransfer(recipient, key, fid, fileName, transferMAC,
 		fileSize, numParts, numFps, r.kv)
 	if err != nil {
 		return nil, err
 	}
 
-	r.transfers[*tid] = rt
+	r.transfers[fid] = rt
 
 	return rt, r.save()
 }
 
-// GetTransfer returns the ReceivedTransfer with the desiccated transfer ID or
-// false if none exists.
-func (r *Received) GetTransfer(tid *ftCrypto.TransferID) (*ReceivedTransfer, bool) {
+// GetTransfer returns the ReceivedTransfer with the provided file ID or false
+// if none exists.
+func (r *Received) GetTransfer(fid ftCrypto.ID) (*ReceivedTransfer, bool) {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
-	rt, exists := r.transfers[*tid]
+	rt, exists := r.transfers[fid]
 	return rt, exists
 }
 
 // RemoveTransfer removes the transfer from the map. If no transfer exists,
 // returns nil. Only errors due to saving to storage are returned.
-func (r *Received) RemoveTransfer(tid *ftCrypto.TransferID) error {
+func (r *Received) RemoveTransfer(fid ftCrypto.ID) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	_, exists := r.transfers[*tid]
+	_, exists := r.transfers[fid]
 	if !exists {
 		return nil
 	}
 
-	delete(r.transfers, *tid)
+	delete(r.transfers, fid)
 	return r.save()
 }
 
@@ -144,7 +146,7 @@ func (r *Received) RemoveTransfer(tid *ftCrypto.TransferID) error {
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// save stores a list of transfer IDs in the map to storage.
+// save stores a list of file IDs in the map to storage.
 func (r *Received) save() error {
 	data, err := marshalReceivedTransfersMap(r.transfers)
 	if err != nil {
@@ -160,15 +162,15 @@ func (r *Received) save() error {
 	return r.kv.Set(receivedTransfersStoreKey, obj)
 }
 
-// marshalReceivedTransfersMap serialises the list of transfer IDs from a
+// marshalReceivedTransfersMap serialises the list of file IDs from a
 // ReceivedTransfer map.
 func marshalReceivedTransfersMap(
-	transfers map[ftCrypto.TransferID]*ReceivedTransfer) ([]byte, error) {
-	tidList := make([]ftCrypto.TransferID, 0, len(transfers))
+	transfers map[ftCrypto.ID]*ReceivedTransfer) ([]byte, error) {
+	fidList := make([]ftCrypto.ID, 0, len(transfers))
 
-	for tid := range transfers {
-		tidList = append(tidList, tid)
+	for fid := range transfers {
+		fidList = append(fidList, fid)
 	}
 
-	return json.Marshal(tidList)
+	return json.Marshal(fidList)
 }

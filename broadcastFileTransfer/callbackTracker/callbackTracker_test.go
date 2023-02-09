@@ -8,11 +8,13 @@
 package callbackTracker
 
 import (
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/stoppable"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
+
+	"gitlab.com/elixxir/client/v4/stoppable"
 )
 
 // Tests that newCallbackTracker returns a new callbackTracker with all the

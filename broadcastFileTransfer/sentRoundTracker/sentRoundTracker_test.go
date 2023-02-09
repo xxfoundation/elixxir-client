@@ -8,10 +8,11 @@
 package sentRoundTracker
 
 import (
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests that NewManager returns the expected new Manager.

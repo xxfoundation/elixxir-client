@@ -10,7 +10,14 @@ package broadcastFileTransfer
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -38,11 +45,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
 // newFile generates a file with random data of size numParts * partSize.
@@ -316,7 +318,6 @@ func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc,
 	*stoppable.Single, time.Duration) (interface{}, error) {
 	panic("implement me")
 }
-func (m *mockCmix) SetGatewayFilter(gateway.Filter)   { panic("implement me") }
 func (m *mockCmix) GetHostParams() connect.HostParams { panic("implement me") }
 func (m *mockCmix) GetAddressSpace() uint8            { panic("implement me") }
 func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) {

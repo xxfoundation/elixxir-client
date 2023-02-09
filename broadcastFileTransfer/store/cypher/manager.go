@@ -9,6 +9,7 @@ package cypher
 
 import (
 	"github.com/pkg/errors"
+
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"

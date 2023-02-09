@@ -31,10 +31,10 @@ const (
 
 // stateMap prevents illegal state changes for file parts.
 //
-//            unsent  sent  received
-//    unsent    ✗      ✓       ✓
-//      sent    ✓      ✓       ✓
-//  received    ✗      ✗       ✗
+//	          unsent  sent  received
+//	  unsent    ✗      ✓       ✓
+//	    sent    ✓      ✓       ✓
+//	received    ✗      ✗       ✗
 //
 // Each cell determines if the state in the column can transition to the state
 // in the top row. For example, a part can go from sent to unsent or sent to

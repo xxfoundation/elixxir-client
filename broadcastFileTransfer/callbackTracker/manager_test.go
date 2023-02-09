@@ -9,22 +9,21 @@ package callbackTracker
 
 import (
 	"errors"
-	"gitlab.com/elixxir/client/v4/stoppable"
-	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/xx_network/crypto/csprng"
-	"io"
 	"math/rand"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/stoppable"
+	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 )
 
 // Tests that NewManager returns the expected Manager.
 func TestNewManager(t *testing.T) {
 	expected := &Manager{
-		callbacks: make(map[ftCrypto.TransferID][]*callbackTracker),
-		stops:     make(map[ftCrypto.TransferID]*stoppable.Multi),
+		callbacks: make(map[ftCrypto.ID][]*callbackTracker),
+		stops:     make(map[ftCrypto.ID]*stoppable.Multi),
 	}
 
 	newManager := NewManager()
@@ -42,8 +41,8 @@ func TestManager_AddCallback(t *testing.T) {
 
 	cbChan := make(chan error, 10)
 	cb := func(err error) { cbChan <- err }
-	tid := &ftCrypto.TransferID{5}
-	m.AddCallback(tid, cb, 0)
+	fid := ftCrypto.ID{5}
+	m.AddCallback(fid, cb, 0)
 
 	// Check that the callback was called
 	select {
@@ -53,16 +52,16 @@ func TestManager_AddCallback(t *testing.T) {
 	}
 
 	// Check that the callback was added
-	if _, exists := m.callbacks[*tid]; !exists {
-		t.Errorf("No callback list found for transfer ID %s.", tid)
-	} else if len(m.callbacks[*tid]) != 1 {
+	if _, exists := m.callbacks[fid]; !exists {
+		t.Errorf("No callback list found for file ID %s.", fid)
+	} else if len(m.callbacks[fid]) != 1 {
 		t.Errorf("Incorrect number of callbacks.\nexpected: %d\nreceived: %d",
-			1, len(m.callbacks[*tid]))
+			1, len(m.callbacks[fid]))
 	}
 
 	// Check that the stoppable was added
-	if _, exists := m.stops[*tid]; !exists {
-		t.Errorf("No stoppable list found for transfer ID %s.", tid)
+	if _, exists := m.stops[fid]; !exists {
+		t.Errorf("No stoppable list found for file ID %s.", fid)
 	}
 }
 
@@ -70,7 +69,7 @@ func TestManager_AddCallback(t *testing.T) {
 // ID.
 func TestManager_Call(t *testing.T) {
 	m := NewManager()
-	tid := &ftCrypto.TransferID{5}
+	fid := ftCrypto.ID{5}
 	n := 10
 	cbChans := make([]chan error, n)
 	cbs := make([]func(err error), n)
@@ -82,7 +81,7 @@ func TestManager_Call(t *testing.T) {
 
 	// Add callbacks
 	for i := range cbs {
-		m.AddCallback(tid, cbs[i], 0)
+		m.AddCallback(fid, cbs[i], 0)
 
 		// Receive channel from first call
 		select {
@@ -93,7 +92,7 @@ func TestManager_Call(t *testing.T) {
 	}
 
 	// Call callbacks
-	m.Call(tid, errors.New("test"))
+	m.Call(fid, errors.New("test"))
 
 	// Check to make sure callbacks were called
 	var wg sync.WaitGroup
@@ -122,55 +121,47 @@ func TestManager_Delete(t *testing.T) {
 
 	cbChan := make(chan error, 10)
 	cb := func(err error) { cbChan <- err }
-	tid := &ftCrypto.TransferID{5}
-	m.AddCallback(tid, cb, 0)
+	fid := ftCrypto.ID{5}
+	m.AddCallback(fid, cb, 0)
 
-	m.Delete(tid)
+	m.Delete(fid)
 
 	// Check that the callback was deleted
-	if _, exists := m.callbacks[*tid]; exists {
-		t.Errorf("Callback list found for transfer ID %s.", tid)
+	if _, exists := m.callbacks[fid]; exists {
+		t.Errorf("Callback list found for file ID %s.", fid)
 	}
 
 	// Check that the stoppable was deleted
-	if _, exists := m.stops[*tid]; exists {
-		t.Errorf("Stoppable list found for transfer ID %s.", tid)
+	if _, exists := m.stops[fid]; exists {
+		t.Errorf("Stoppable list found for file ID %s.", fid)
 	}
 }
 
 // Consistency test of makeStoppableName.
 func Test_makeStoppableName_Consistency(t *testing.T) {
-	rng := NewPrng(42)
+	prng := rand.New(rand.NewSource(324))
+	fileData := []byte("fileData")
 	expectedValues := []string{
-		"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVI=/0",
-		"39ebTXZCm2F6DJ+fDTulWwzA1hRMiIU1hBrL4HCbB1g=/1",
-		"CD9h03W8ArQd9PkZKeGP2p5vguVOdI6B555LvW/jTNw=/2",
-		"uoQ+6NY+jE/+HOvqVG2PrBPdGqwEzi6ih3xVec+ix44=/3",
-		"GwuvrogbgqdREIpC7TyQPKpDRlp4YgYWl4rtDOPGxPM=/4",
-		"rnvD4ElbVxL+/b4MECiH4QDazS2IX2kstgfaAKEcHHA=/5",
-		"ceeWotwtwlpbdLLhKXBeJz8FySMmgo4rBW44F2WOEGE=/6",
-		"SYlH/fNEQQ7UwRYCP6jjV2tv7Sf/iXS6wMr9mtBWkrE=/7",
-		"NhnnOJZN/ceejVNDc2Yc/WbXT+weG4lJGrcjbkt1IWI=/8",
-		"kM8r60LDyicyhWDxqsBnzqbov0bUqytGgEAsX7KCDog=/9",
+		"RWGYe0gv03Ydjh5Cr21KCLZRxxDzOX7bghgLbji1hG0=/0",
+		"oI4SWLEAaseXW5Jz2umQlkLMcOn7KmOTvkUYKnJwWkI=/1",
+		"KYPRTjrwr/bWsbp9nvF8h1VzO5LoQ8gMjie/mMueZpM=/2",
+		"DlmG2f0h0h4TKcHI7tituOqgAiQ+qhqwRkB/fH2IigU=/3",
+		"7vQ3s5QjD9Bwrqyy19scENj+MrA2g5i88i4GCsLUXOc=/4",
+		"i+shiGVpjMUU/Fxx2bu5fLR+ypd0Mf0TmCamvNy8K5E=/5",
+		"ax5kyV5oO0fwPhUVJq7jcbtth70SSdDUg2UKpzAM9nA=/6",
+		"+1GvF4Dn3BB5wie8+vfMMhOYxgRmOxLCETnQb/dOoyw=/7",
+		"QjbQyrLJNlP4Rp5p8Xaa66FnpwuhMmcy27z3/M6w3Ik=/8",
+		"NIwj9ng0zNl6JXFtUiMiBiV8Orp4hXMd2avfgxytTJk=/9",
 	}
 
 	for i, expected := range expectedValues {
-		tid, err := ftCrypto.NewTransferID(rng)
-		if err != nil {
-			t.Errorf("Failed to generated transfer ID #%d: %+v", i, err)
-		}
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
 
-		name := makeStoppableName(&tid, i)
+		name := makeStoppableName(fid, i)
 		if expected != name {
 			t.Errorf("Stoppable name does not match expected."+
 				"\nexpected: %q\nreceived: %q", expected, name)
 		}
 	}
 }
-
-// Prng is a PRNG that satisfies the csprng.Source interface.
-type Prng struct{ prng io.Reader }
-
-func NewPrng(seed int64) csprng.Source     { return &Prng{rand.New(rand.NewSource(seed))} }
-func (s *Prng) Read(b []byte) (int, error) { return s.prng.Read(b) }
-func (s *Prng) SetSeed([]byte) error       { return nil }

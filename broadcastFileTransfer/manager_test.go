@@ -10,15 +10,16 @@ package broadcastFileTransfer
 import (
 	"bytes"
 	_ "embed"
+	"math/rand"
+	"reflect"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"reflect"
-	"testing"
-	"time"
 )
 
 //go:embed loremIpsum.txt

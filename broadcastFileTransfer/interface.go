@@ -8,11 +8,12 @@
 package broadcastFileTransfer
 
 import (
+	"strconv"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
-	"strconv"
-	"time"
 )
 
 // SendCompleteCallback is called when a file transfer has successfully sent.
@@ -32,7 +33,7 @@ type ReceivedProgressCallback func(completed bool, received, total uint16,
 
 // ReceiveCallback is a callback function that notifies the receiver of an
 // incoming file transfer.
-type ReceiveCallback func(tid *ftCrypto.TransferID, fileName, fileType string,
+type ReceiveCallback func(fid ftCrypto.ID, fileName, fileType string,
 	sender *id.ID, size uint32, preview []byte)
 
 // SendNew handles the sending of the initial message informing the recipient
@@ -84,8 +85,8 @@ type FileTransfer interface {
 	   an error, then the file should also be closed using CloseSend.
 	*/
 
-	// Send initiates the sending of a file to the recipient and returns a
-	// transfer ID that uniquely identifies this file transfer.
+	// Send initiates the sending of a file to the recipient and returns a file
+	// ID that uniquely identifies this file transfer.
 	//
 	// In-progress transfers are restored when closing and reopening; however, a
 	// SentProgressCallback must be registered again.
@@ -111,7 +112,7 @@ type FileTransfer interface {
 	Send(fileName, fileType string, fileData []byte, retry float32,
 		preview []byte, completeCB SendCompleteCallback,
 		progressCB SentProgressCallback, period time.Duration) (
-		*ftCrypto.TransferID, error)
+		ftCrypto.ID, error)
 
 	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual sent file transfer.
@@ -126,7 +127,7 @@ type FileTransfer interface {
 	// In the event that the client is closed and resumed, this function must be
 	// used to re-register any callbacks previously registered with this
 	// function or Send.
-	RegisterSentProgressCallback(tid *ftCrypto.TransferID,
+	RegisterSentProgressCallback(fid ftCrypto.ID,
 		progressCB SentProgressCallback, period time.Duration) error
 
 	// CloseSend deletes a file from the internal storage once a transfer has
@@ -135,7 +136,7 @@ type FileTransfer interface {
 	//
 	// This function should be called once a transfer completes or errors out
 	// (as reported by the progress callback).
-	CloseSend(tid *ftCrypto.TransferID) error
+	CloseSend(fid ftCrypto.ID) error
 
 	/* === Receiving ======================================================== */
 	/* The processes of receiving a file involves four main steps:
@@ -158,8 +159,8 @@ type FileTransfer interface {
 
 	// HandleIncomingTransfer starts tracking the received file parts for the
 	// given payload that contains the file transfer information and returns a
-	// transfer ID that uniquely identifies this file transfer along with the
-	// transfer information
+	// file ID that uniquely identifies this file along with the transfer
+	// information.
 	//
 	// This function should be called once for every new file received on the
 	// registered SendNew callback.
@@ -175,7 +176,7 @@ type FileTransfer interface {
 	//      per period.
 	HandleIncomingTransfer(transferInfo []byte,
 		progressCB ReceivedProgressCallback, period time.Duration) (
-		*ftCrypto.TransferID, *TransferInfo, error)
+		ftCrypto.ID, *TransferInfo, error)
 
 	// RegisterReceivedProgressCallback allows for the registration of a
 	// callback to track the progress of an individual received file transfer.
@@ -192,7 +193,7 @@ type FileTransfer interface {
 	//
 	// Once the callback reports that the transfer has completed, the recipient
 	// can get the full file by calling Receive.
-	RegisterReceivedProgressCallback(tid *ftCrypto.TransferID,
+	RegisterReceivedProgressCallback(fid ftCrypto.ID,
 		progressCB ReceivedProgressCallback, period time.Duration) error
 
 	// Receive returns the full file on the completion of the transfer.
@@ -202,7 +203,7 @@ type FileTransfer interface {
 	//
 	// Receive can only be called once the progress callback returns that the
 	// file transfer is complete.
-	Receive(tid *ftCrypto.TransferID) ([]byte, error)
+	Receive(fid ftCrypto.ID) ([]byte, error)
 }
 
 // SentTransfer tracks the information and individual parts of a sent file
@@ -220,7 +221,7 @@ type ReceivedTransfer interface {
 
 // Transfer is the generic structure for a file transfer.
 type Transfer interface {
-	TransferID() *ftCrypto.TransferID
+	FileID() ftCrypto.ID
 	FileName() string
 	FileSize() uint32
 	NumParts() uint16

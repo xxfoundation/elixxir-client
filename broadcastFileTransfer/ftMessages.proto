@@ -14,13 +14,14 @@ option go_package = "gitlab.com/elixxir/client/broadcastFileTransfer";
 // TransferInfoMsg is is transmitted to other users so that they can download a
 // file transfer.
 message TransferInfoMsg {
-    bytes  recipientID = 1;  // ID to listen on to receive file
-    string fileName = 2;     // Name of the file
-    string fileType = 3;     // String that indicates type of file
-    bytes  transferKey = 4;  // 256-bit encryption key
-    bytes  transferMac = 5;  // 256-bit MAC of the entire file
-    uint32 numParts = 6;     // Number of file parts
-    uint32 size = 7;         // The size of the file, in bytes
-    float  retry = 8;        // Determines number of resends
-    bytes  preview = 9;      // A preview of the file
+    bytes  fid = 1;          // The file's ID
+    bytes  recipientID = 2;  // ID to listen on to receive file
+    string fileName = 3;     // Name of the file
+    string fileType = 4;     // String that indicates type of file
+    bytes  transferKey = 5;  // 256-bit encryption key
+    bytes  transferMac = 6;  // 256-bit MAC of the entire file
+    uint32 numParts = 7;     // Number of file parts
+    uint32 size = 8;         // The size of the file, in bytes
+    float  retry = 9;        // Determines number of resends
+    bytes  preview = 10;     // A preview of the file
 }

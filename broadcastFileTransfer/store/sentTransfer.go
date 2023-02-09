@@ -10,16 +10,18 @@ package store
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"sync"
 )
 
 // Storage keys and versions.
@@ -37,7 +39,7 @@ const (
 	errStNewPartStatusVector = "failed to create new state vector for part statuses: %+v"
 
 	// SentTransfer.getPartData
-	errNoPartNum = "no part with part number %d exists in transfer %s (%q)"
+	errNoPartNum = "no part with part number %d exists in file %s (%q)"
 
 	// loadSentTransfer
 	errStLoadCypherManager    = "failed to load cypher manager from storage: %+v"
@@ -61,7 +63,7 @@ type SentTransfer struct {
 	cypherManager *cypher.Manager
 
 	// The ID of the transfer
-	tid *ftCrypto.TransferID
+	fid ftCrypto.ID
 
 	// User given name to file
 	fileName string
@@ -93,11 +95,11 @@ type SentTransfer struct {
 }
 
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
-// transfer ID, and parts.
+// file ID, and parts.
 func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
+	fid ftCrypto.ID, fileName string, fileSize uint32, parts [][]byte,
 	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
+	kv = kv.Prefix(makeSentTransferPrefix(fid))
 
 	// Create new cypher manager
 	cypherManager, err := cypher.NewManager(key, numFps, kv)
@@ -114,7 +116,7 @@ func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 
 	st := &SentTransfer{
 		cypherManager: cypherManager,
-		tid:           tid,
+		fid:           fid,
 		fileName:      fileName,
 		recipient:     recipient,
 		fileSize:      fileSize,
@@ -163,7 +165,7 @@ func (st *SentTransfer) GetSentParts() []*Part {
 // getPartData returns the part data from the given part number.
 func (st *SentTransfer) getPartData(partNum uint16) []byte {
 	if int(partNum) > len(st.parts)-1 {
-		jww.FATAL.Panicf(errNoPartNum, partNum, st.tid, st.fileName)
+		jww.FATAL.Panicf(errNoPartNum, partNum, st.fid, st.fileName)
 	}
 
 	return st.parts[partNum]
@@ -218,9 +220,9 @@ func (st *SentTransfer) Status() TransferStatus {
 	return st.status
 }
 
-// TransferID returns the transfer's ID.
-func (st *SentTransfer) TransferID() *ftCrypto.TransferID {
-	return st.tid
+// FileID returns the file's ID.
+func (st *SentTransfer) FileID() ftCrypto.ID {
+	return st.fid
 }
 
 // FileName returns the transfer's file name.
@@ -296,11 +298,9 @@ func generateSentFp(
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// loadSentTransfer loads the SentTransfer with the given transfer ID from
-// storage.
-func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
-	*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
+// loadSentTransfer loads the SentTransfer with the given file ID from storage.
+func loadSentTransfer(fid ftCrypto.ID, kv *versioned.KV) (*SentTransfer, error) {
+	kv = kv.Prefix(makeSentTransferPrefix(fid))
 
 	// Load cypher manager
 	cypherManager, err := cypher.LoadManager(kv)
@@ -314,7 +314,7 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 		return nil, errors.Errorf(errStLoadFields, err)
 	}
 
-	fileName, recipient, status, parts, err := unmarshalSentTransfer(obj.Data)
+	info, err := unmarshalSentTransfer(obj.Data)
 	if err != nil {
 		return nil, errors.Errorf(errStUnmarshalFields, err)
 	}
@@ -328,13 +328,13 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 
 	st := &SentTransfer{
 		cypherManager: cypherManager,
-		tid:           tid,
-		fileName:      fileName,
-		recipient:     recipient,
-		fileSize:      calcFileSize(parts),
-		numParts:      uint16(len(parts)),
-		status:        status,
-		parts:         parts,
+		fid:           fid,
+		fileName:      info.FileName,
+		recipient:     info.Recipient,
+		fileSize:      calcFileSize(info.Parts),
+		numParts:      uint16(len(info.Parts)),
+		status:        info.Status,
+		parts:         info.Parts,
 		partStatus:    partStatus,
 		kv:            kv,
 	}
@@ -396,14 +396,13 @@ func (st *SentTransfer) save() error {
 // sentTransferDisk structure is used to marshal and unmarshal SentTransfer
 // fields to/from storage.
 type sentTransferDisk struct {
-	FileName  string
-	Recipient *id.ID
-	Status    TransferStatus
-	Parts     [][]byte
+	FileName  string         `json:"fileName"`
+	Recipient *id.ID         `json:"recipient"`
+	Status    TransferStatus `json:"status"`
+	Parts     [][]byte       `json:"parts"`
 }
 
-// marshal serialises the SentTransfer's fileName, recipient, status, and parts
-// list.
+// marshal serialises the SentTransfer's file information.
 func (st *SentTransfer) marshal() ([]byte, error) {
 	disk := sentTransferDisk{
 		FileName:  st.fileName,
@@ -415,22 +414,15 @@ func (st *SentTransfer) marshal() ([]byte, error) {
 	return json.Marshal(disk)
 }
 
-// unmarshalSentTransfer deserializes the data into a fileName, recipient,
-// status, and parts list.
-func unmarshalSentTransfer(data []byte) (fileName string, recipient *id.ID,
-	status TransferStatus, parts [][]byte, err error) {
+// unmarshalSentTransfer deserializes the SentTransfer's file information.
+func unmarshalSentTransfer(data []byte) (sentTransferDisk, error) {
 	var disk sentTransferDisk
-	err = json.Unmarshal(data, &disk)
-	if err != nil {
-		return "", nil, 0, nil, err
-	}
-
-	return disk.FileName, disk.Recipient, disk.Status, disk.Parts, nil
+	return disk, json.Unmarshal(data, &disk)
 }
 
 // makeSentTransferPrefix generates the unique prefix used on the key value
-// store to store sent transfers for the given transfer ID.
-func makeSentTransferPrefix(tid *ftCrypto.TransferID) string {
+// store to store sent transfers for the given file ID.
+func makeSentTransferPrefix(fid ftCrypto.ID) string {
 	return sentTransferStorePrefix +
-		base64.StdEncoding.EncodeToString(tid.Bytes())
+		base64.StdEncoding.EncodeToString(fid.Marshal())
 }

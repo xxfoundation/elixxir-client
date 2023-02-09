@@ -11,16 +11,18 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"sync"
 )
 
 // Storage keys and versions.
@@ -66,7 +68,7 @@ type ReceivedTransfer struct {
 	cypherManager *cypher.Manager
 
 	// The ID of the transfer
-	tid *ftCrypto.TransferID
+	fid ftCrypto.ID
 
 	// User given name to file
 	fileName string
@@ -98,12 +100,12 @@ type ReceivedTransfer struct {
 }
 
 // newReceivedTransfer generates a ReceivedTransfer with the specified transfer
-// key, transfer ID, and a number of parts.
+// key, file ID, and a number of parts.
 func newReceivedTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, transferMAC []byte,
+	fid ftCrypto.ID, fileName string, transferMAC []byte,
 	fileSize uint32, numParts, numFps uint16, kv *versioned.KV) (
 	*ReceivedTransfer, error) {
-	kv = kv.Prefix(makeReceivedTransferPrefix(tid))
+	kv = kv.Prefix(makeReceivedTransferPrefix(fid))
 
 	// Create new cypher manager
 	cypherManager, err := cypher.NewManager(key, numFps, kv)
@@ -120,7 +122,7 @@ func newReceivedTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 
 	rt := &ReceivedTransfer{
 		cypherManager: cypherManager,
-		tid:           tid,
+		fid:           fid,
 		fileName:      fileName,
 		recipient:     recipient,
 		transferMAC:   transferMAC,
@@ -178,9 +180,9 @@ func (rt *ReceivedTransfer) GetUnusedCyphers() []cypher.Cypher {
 	return rt.cypherManager.GetUnusedCyphers()
 }
 
-// TransferID returns the transfer's ID.
-func (rt *ReceivedTransfer) TransferID() *ftCrypto.TransferID {
-	return rt.tid
+// FileID returns the file's ID.
+func (rt *ReceivedTransfer) FileID() ftCrypto.ID {
+	return rt.fid
 }
 
 // FileName returns the transfer's file name.
@@ -252,11 +254,11 @@ func generateReceivedFp(completed bool, received, total uint16, err error) strin
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// loadReceivedTransfer loads the ReceivedTransfer with the given transfer ID
-// from storage.
-func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
+// loadReceivedTransfer loads the ReceivedTransfer with the given file ID from
+// storage.
+func loadReceivedTransfer(fid ftCrypto.ID, kv *versioned.KV) (
 	*ReceivedTransfer, error) {
-	kv = kv.Prefix(makeReceivedTransferPrefix(tid))
+	kv = kv.Prefix(makeReceivedTransferPrefix(fid))
 
 	// Load cypher manager
 	cypherManager, err := cypher.LoadManager(kv)
@@ -270,8 +272,7 @@ func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 		return nil, errors.Errorf(errRtLoadFields, err)
 	}
 
-	fileName, recipient, transferMAC, numParts, fileSize, err :=
-		unmarshalReceivedTransfer(obj.Data)
+	info, err := unmarshalReceivedTransfer(obj.Data)
 	if err != nil {
 		return nil, errors.Errorf(errRtUnmarshalFields, err)
 	}
@@ -283,7 +284,7 @@ func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 	}
 
 	// Load parts from storage
-	parts := make([][]byte, numParts)
+	parts := make([][]byte, info.NumParts)
 	for i := range parts {
 		if partStatus.Used(uint32(i)) {
 			parts[i], err = loadPart(i, kv)
@@ -295,12 +296,12 @@ func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 
 	rt := &ReceivedTransfer{
 		cypherManager: cypherManager,
-		tid:           tid,
-		fileName:      fileName,
-		recipient:     recipient,
-		transferMAC:   transferMAC,
-		fileSize:      fileSize,
-		numParts:      numParts,
+		fid:           fid,
+		fileName:      info.FileName,
+		recipient:     info.Recipient,
+		transferMAC:   info.TransferMAC,
+		fileSize:      info.FileSize,
+		numParts:      info.NumParts,
 		parts:         parts,
 		partStatus:    partStatus,
 		kv:            kv,
@@ -357,19 +358,18 @@ func (rt *ReceivedTransfer) save() error {
 // receivedTransferDisk structure is used to marshal and unmarshal
 // ReceivedTransfer fields to/from storage.
 type receivedTransferDisk struct {
-	FileName    string
-	RecipientID *id.ID
-	TransferMAC []byte
-	NumParts    uint16
-	FileSize    uint32
+	FileName    string `json:"fileName"`
+	Recipient   *id.ID `json:"recipient"`
+	TransferMAC []byte `json:"transferMAC"`
+	NumParts    uint16 `json:"numParts"`
+	FileSize    uint32 `json:"fileSize"`
 }
 
-// marshal serialises the ReceivedTransfer's fileName, recipient, transferMAC,
-// numParts, and fileSize.
+// marshal serialises the ReceivedTransfer's file information.
 func (rt *ReceivedTransfer) marshal() ([]byte, error) {
 	disk := receivedTransferDisk{
 		FileName:    rt.fileName,
-		RecipientID: rt.recipient,
+		Recipient:   rt.recipient,
 		TransferMAC: rt.transferMAC,
 		NumParts:    rt.numParts,
 		FileSize:    rt.fileSize,
@@ -378,18 +378,11 @@ func (rt *ReceivedTransfer) marshal() ([]byte, error) {
 	return json.Marshal(disk)
 }
 
-// unmarshalReceivedTransfer deserializes the data into the fileName, recipient
-// ID, transferMAC, numParts, and fileSize.
-func unmarshalReceivedTransfer(data []byte) (fileName string, recipient *id.ID,
-	transferMAC []byte, numParts uint16, fileSize uint32, err error) {
+// unmarshalReceivedTransfer deserializes the ReceivedTransfer's file
+// information.
+func unmarshalReceivedTransfer(data []byte) (receivedTransferDisk, error) {
 	var disk receivedTransferDisk
-	err = json.Unmarshal(data, &disk)
-	if err != nil {
-		return "", nil, nil, 0, 0, err
-	}
-
-	return disk.FileName, disk.RecipientID, disk.TransferMAC, disk.NumParts,
-		disk.FileSize, nil
+	return disk, json.Unmarshal(data, &disk)
 }
 
 // savePart saves the given part to storage keying on its part number.
@@ -413,10 +406,10 @@ func loadPart(partNum int, kv *versioned.KV) ([]byte, error) {
 }
 
 // makeReceivedTransferPrefix generates the unique prefix used on the key value
-// store to store received transfers for the given transfer ID.
-func makeReceivedTransferPrefix(tid *ftCrypto.TransferID) string {
+// store to store received transfers for the given file ID.
+func makeReceivedTransferPrefix(fid ftCrypto.ID) string {
 	return receivedTransferStorePrefix +
-		base64.StdEncoding.EncodeToString(tid.Bytes())
+		base64.StdEncoding.EncodeToString(fid.Marshal())
 }
 
 // makeReceivedPartKey generates a storage key for the given part number.

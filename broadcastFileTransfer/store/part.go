@@ -8,12 +8,13 @@
 package store
 
 import (
+	"strconv"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"strconv"
 )
 
 // Part contains information about a single file part and its parent transfer.
@@ -76,9 +77,9 @@ func (p *Part) Recipient() *id.ID {
 	return p.transfer.recipient
 }
 
-// TransferID returns the ID of the file transfer.
-func (p *Part) TransferID() *ftCrypto.TransferID {
-	return p.transfer.tid
+// FileID returns the ID of the file.
+func (p *Part) FileID() ftCrypto.ID {
+	return p.transfer.fid
 }
 
 // FileName returns the name of the file.
@@ -88,5 +89,5 @@ func (p *Part) FileName() string {
 
 // String returns a human-readable representation of a Part. Used for debugging.
 func (p *Part) String() string {
-	return "{" + p.transfer.tid.String() + " " + strconv.Itoa(int(p.partNum)) + "}"
+	return "{" + p.transfer.fid.String() + " " + strconv.Itoa(int(p.partNum)) + "}"
 }

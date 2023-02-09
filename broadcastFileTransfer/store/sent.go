@@ -9,13 +9,15 @@ package store
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 // Storage keys and versions.
@@ -40,7 +42,7 @@ const (
 
 // Sent contains a list of all sent transfers.
 type Sent struct {
-	transfers map[ftCrypto.TransferID]*SentTransfer
+	transfers map[ftCrypto.ID]*SentTransfer
 
 	mux sync.RWMutex
 	kv  *versioned.KV
@@ -52,7 +54,7 @@ type Sent struct {
 func NewOrLoadSent(
 	kv *versioned.KV) (s *Sent, unsentParts, sentParts []*Part, err error) {
 	s = &Sent{
-		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
+		transfers: make(map[ftCrypto.ID]*SentTransfer),
 		kv:        kv.Prefix(sentTransfersStorePrefix),
 	}
 
@@ -68,84 +70,84 @@ func NewOrLoadSent(
 	}
 
 	// Load list of saved sent transfers from storage
-	tidList, err := unmarshalTransferIdList(obj.Data)
+	fidList, err := unmarshalFileIdList(obj.Data)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf(errUnmarshalSent, err)
 	}
 
 	// Load sent transfers from storage
 	var errCount int
-	for i := range tidList {
-		tid := tidList[i]
-		s.transfers[tid], err = loadSentTransfer(&tid, s.kv)
+	for i := range fidList {
+		fid := fidList[i]
+		s.transfers[fid], err = loadSentTransfer(fid, s.kv)
 		if err != nil {
-			jww.WARN.Printf(warnLoadSentTransfer, i, len(tidList), tid, err)
+			jww.WARN.Printf(warnLoadSentTransfer, i, len(fidList), fid, err)
 			errCount++
 			continue
 		}
 
-		if s.transfers[tid].Status() == Running {
+		if s.transfers[fid].Status() == Running {
 			unsentParts =
-				append(unsentParts, s.transfers[tid].GetUnsentParts()...)
+				append(unsentParts, s.transfers[fid].GetUnsentParts()...)
 			sentParts =
-				append(sentParts, s.transfers[tid].GetSentParts()...)
+				append(sentParts, s.transfers[fid].GetSentParts()...)
 		}
 	}
 
 	// Return an error if all transfers failed to load
-	if len(tidList) > 0 && errCount == len(tidList) {
-		return nil, nil, nil, errors.Errorf(errLoadAllSentTransfer, len(tidList))
+	if len(fidList) > 0 && errCount == len(fidList) {
+		return nil, nil, nil, errors.Errorf(errLoadAllSentTransfer, len(fidList))
 	}
 
 	return s, unsentParts, sentParts, nil
 }
 
-// AddTransfer creates a SentTransfer and adds it to the map keyed on its
-// transfer ID.
+// AddTransfer creates a SentTransfer and adds it to the map keyed on its file
+// ID.
 func (s *Sent) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
+	fid ftCrypto.ID, fileName string, fileSize uint32, parts [][]byte,
 	numFps uint16) (*SentTransfer, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	_, exists := s.transfers[*tid]
+	_, exists := s.transfers[fid]
 	if exists {
-		return nil, errors.Errorf(errAddExistingSentTransfer, tid)
+		return nil, errors.Errorf(errAddExistingSentTransfer, fid)
 	}
 
 	st, err := newSentTransfer(
-		recipient, key, tid, fileName, fileSize, parts, numFps, s.kv)
+		recipient, key, fid, fileName, fileSize, parts, numFps, s.kv)
 	if err != nil {
-		return nil, errors.Errorf(errNewSentTransfer, tid)
+		return nil, errors.Errorf(errNewSentTransfer, fid)
 	}
 
-	s.transfers[*tid] = st
+	s.transfers[fid] = st
 
 	return st, s.save()
 }
 
-// GetTransfer returns the SentTransfer with the desiccated transfer ID or false
-// if none exists.
-func (s *Sent) GetTransfer(tid *ftCrypto.TransferID) (*SentTransfer, bool) {
+// GetTransfer returns the SentTransfer with the given file ID or false if none
+// exists.
+func (s *Sent) GetTransfer(fid ftCrypto.ID) (*SentTransfer, bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
-	st, exists := s.transfers[*tid]
+	st, exists := s.transfers[fid]
 	return st, exists
 }
 
 // RemoveTransfer removes the transfer from the map. If no transfer exists,
 // returns nil. Only errors due to saving to storage are returned.
-func (s *Sent) RemoveTransfer(tid *ftCrypto.TransferID) error {
+func (s *Sent) RemoveTransfer(fid ftCrypto.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	_, exists := s.transfers[*tid]
+	_, exists := s.transfers[fid]
 	if !exists {
 		return nil
 	}
 
-	delete(s.transfers, *tid)
+	delete(s.transfers, fid)
 	return s.save()
 }
 
@@ -153,7 +155,7 @@ func (s *Sent) RemoveTransfer(tid *ftCrypto.TransferID) error {
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// save stores a list of transfer IDs in the map to storage.
+// save stores a list of file IDs in the map to storage.
 func (s *Sent) save() error {
 	data, err := marshalSentTransfersMap(s.transfers)
 	if err != nil {
@@ -169,26 +171,26 @@ func (s *Sent) save() error {
 	return s.kv.Set(sentTransfersStoreKey, obj)
 }
 
-// marshalSentTransfersMap serialises the list of transfer IDs from a
-// SentTransfer map.
-func marshalSentTransfersMap(transfers map[ftCrypto.TransferID]*SentTransfer) (
+// marshalSentTransfersMap serialises the list of file IDs from a SentTransfer
+// map.
+func marshalSentTransfersMap(transfers map[ftCrypto.ID]*SentTransfer) (
 	[]byte, error) {
-	tidList := make([]ftCrypto.TransferID, 0, len(transfers))
+	fidList := make([]ftCrypto.ID, 0, len(transfers))
 
-	for tid := range transfers {
-		tidList = append(tidList, tid)
+	for fid := range transfers {
+		fidList = append(fidList, fid)
 	}
 
-	return json.Marshal(tidList)
+	return json.Marshal(fidList)
 }
 
-// unmarshalTransferIdList deserializes the data into a list of transfer IDs.
-func unmarshalTransferIdList(data []byte) ([]ftCrypto.TransferID, error) {
-	var tidList []ftCrypto.TransferID
-	err := json.Unmarshal(data, &tidList)
+// unmarshalFileIdList deserializes the data into a list of file IDs.
+func unmarshalFileIdList(data []byte) ([]ftCrypto.ID, error) {
+	var fidList []ftCrypto.ID
+	err := json.Unmarshal(data, &fidList)
 	if err != nil {
 		return nil, err
 	}
 
-	return tidList, nil
+	return fidList, nil
 }

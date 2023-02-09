@@ -9,16 +9,18 @@ package broadcastFileTransfer
 
 import (
 	"encoding/json"
-	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
+
+	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests that a TransferInfo marshalled via TransferInfo.Marshal and
 // unmarshalled via UnmarshalTransferInfo matches the original.
 func TestTransferInfo_Marshal_UnmarshalTransferInfo(t *testing.T) {
 	ti := &TransferInfo{
+		FID:         ftCrypto.NewID([]byte("fileData")),
 		RecipientID: id.NewIdFromString("recipient", id.User, t),
 		FileName:    "FileName",
 		FileType:    "FileType",
@@ -50,6 +52,7 @@ func TestTransferInfo_Marshal_UnmarshalTransferInfo(t *testing.T) {
 // original.
 func TestTransferInfo_JSON_Marshal_Unmarshal(t *testing.T) {
 	ti := &TransferInfo{
+		FID:      ftCrypto.NewID([]byte("fileData")),
 		FileName: "FileName",
 		FileType: "FileType",
 		Key:      ftCrypto.TransferKey{1, 2, 3},

@@ -8,8 +8,13 @@
 package broadcastFileTransfer
 
 import (
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/sentRoundTracker"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/cmix"
@@ -19,9 +24,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // Error messages.
@@ -106,8 +108,8 @@ func (m *manager) sendCmix(packet []*store.Part) {
 			p.GetEncryptedPart(m.cmix.GetMaxMessageLength())
 		if err != nil {
 			jww.ERROR.Printf("[FT] File transfer %s (%q) failed: %+v",
-				p.TransferID(), p.FileName(), err)
-			m.callbacks.Call(p.TransferID(), errors.New(errNoMoreRetries))
+				p.FileID(), p.FileName(), err)
+			m.callbacks.Call(p.FileID(), errors.New(errNoMoreRetries))
 			continue
 		}
 
@@ -142,15 +144,15 @@ func (m *manager) sendCmix(packet []*store.Part) {
 		roundResultsTimeout, m.roundResultsCallback(validParts), rid.ID)
 }
 
-func printGrouped(g map[ftCrypto.TransferID][]*store.Part) string {
+func printGrouped(g map[ftCrypto.ID][]*store.Part) string {
 	transfers := make([]string, 0, len(g))
-	for tid, parts := range g {
+	for fid, parts := range g {
 		partNums := make([]string, len(parts))
 		for i, part := range parts {
 			partNums[i] = strconv.Itoa(int(part.PartNum()))
 		}
 		transfers = append(
-			transfers, tid.String()+":["+strings.Join(partNums, ", ")+"]")
+			transfers, fid.String()+":["+strings.Join(partNums, ", ")+"]")
 	}
 
 	return strings.Join(transfers, " ")
@@ -161,12 +163,12 @@ func printGrouped(g map[ftCrypto.TransferID][]*store.Part) string {
 func (m *manager) roundResultsCallback(
 	packet []*store.Part) cmix.RoundEventCallback {
 	// Group file parts by transfer
-	grouped := map[ftCrypto.TransferID][]*store.Part{}
+	grouped := map[ftCrypto.ID][]*store.Part{}
 	for _, p := range packet {
-		if _, exists := grouped[*p.TransferID()]; exists {
-			grouped[*p.TransferID()] = append(grouped[*p.TransferID()], p)
+		if _, exists := grouped[p.FileID()]; exists {
+			grouped[p.FileID()] = append(grouped[p.FileID()], p)
 		} else {
-			grouped[*p.TransferID()] = []*store.Part{p}
+			grouped[p.FileID()] = []*store.Part{p}
 		}
 	}
 
@@ -191,14 +193,14 @@ func (m *manager) roundResultsCallback(
 
 			// If the round succeeded, then mark all parts as arrived and report
 			// each transfer's progress on its progress callback
-			for tid, parts := range grouped {
+			for fid, parts := range grouped {
 				for _, p := range parts {
 					p.MarkSent()
 				}
 
 				// Call the progress callback after all parts have been marked
 				// so that the progress reported included all parts in the batch
-				m.callbacks.Call(&tid, nil)
+				m.callbacks.Call(fid, nil)
 			}
 
 			m.sentQueue <- &sentPartPacket{packet, sendTimestamp, false}
@@ -295,7 +297,7 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, ti *TransferInfo,
 		_ bool, _, _ uint16, rt ReceivedTransfer, t FilePartTracker, err error) {
 		// Propagate the error to the sent progress callback
 		if err != nil {
-			m.callbacks.Call(st.TransferID(), err)
+			m.callbacks.Call(st.FileID(), err)
 			return
 		}
 
@@ -317,20 +319,20 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, ti *TransferInfo,
 		// Call the progress callback if any parts were updated
 		if len(partsChanges) > 0 {
 			jww.DEBUG.Printf(
-				"[FT] %d file parts set as received for transfer %s (%d)",
-				len(partsChanges), st.TransferID(), partsChanges)
-			m.callbacks.Call(st.TransferID(), nil)
+				"[FT] %d file parts set as received for file %s (%d)",
+				len(partsChanges), st.FileID(), partsChanges)
+			m.callbacks.Call(st.FileID(), nil)
 		}
 
 		// Once the transfer is complete, close out both the sent and received
 		// sides of the transfer
 		if st.Status() == store.Completed {
-			jww.DEBUG.Printf("[FT] Completed sending and receiving transfer %s.",
-				st.TransferID())
-			if err = m.CloseSend(st.TransferID()); err != nil {
+			jww.DEBUG.Printf("[FT] Completed sending and receiving file %s.",
+				st.FileID())
+			if err = m.CloseSend(st.FileID()); err != nil {
 				jww.ERROR.Printf("Failed to close file transfer send: %+v", err)
 			}
-			if _, err = m.Receive(rt.TransferID()); err != nil {
+			if _, err = m.Receive(rt.FileID()); err != nil {
 				jww.ERROR.Printf("Failed to receive file transfer: %+v", err)
 			}
 

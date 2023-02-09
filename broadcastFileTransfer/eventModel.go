@@ -17,6 +17,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// EventModel is an interface that allows the user to get channels messages and
+// file transfers.
 type EventModel interface {
 	// ReceiveFileMessage is called when a file upload begins or when a message
 	// to download a file is received.

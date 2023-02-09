@@ -9,6 +9,7 @@ package broadcastFileTransfer
 
 import (
 	"github.com/golang/protobuf/proto"
+
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -17,21 +18,42 @@ import (
 // information sent in the initial file transfer so the recipient can prepare
 // for the incoming file transfer parts.
 type TransferInfo struct {
-	RecipientID *id.ID               // ID to listen on to receive file
-	FileName    string               // Name of the file
-	FileType    string               // String that indicates type of file
-	Key         ftCrypto.TransferKey // 256-bit encryption key
-	Mac         []byte               // 256-bit MAC of the entire file
-	NumParts    uint16               // Number of file parts
-	Size        uint32               // The size of the file, in bytes
-	Retry       float32              // Determines number of resends
-	Preview     []byte               // A preview of the file
+	// FID is the file's ID.
+	FID ftCrypto.ID `json:"fid"`
+
+	// RecipientID is the ID to listen on to receive file.
+	RecipientID *id.ID `json:"recipientID"`
+
+	// FileName is the name of the file.
+	FileName string `json:"fileName"`
+
+	// FileType indicates what type of file is being transferred.
+	FileType string `json:"fileType"`
+
+	// Key is the 256-bit encryption key.
+	Key ftCrypto.TransferKey `json:"key"`
+
+	// Mac is the message MAC.
+	Mac []byte `json:"mac"`
+
+	// NumParts is the number of file parts being transferred.
+	NumParts uint16 `json:"numParts"`
+
+	// Size is the file size in bytes.
+	Size uint32 `json:"size"`
+
+	// Retry determines number of resends allowed on failure.
+	Retry float32 `json:"retry"`
+
+	// Preview contains a preview of the file.
+	Preview []byte `json:"preview"`
 }
 
 // Marshal serialises the TransferInfo for sending over the network.
 func (ti *TransferInfo) Marshal() ([]byte, error) {
 	// Construct NewFileTransfer message
 	protoMsg := &TransferInfoMsg{
+		Fid:         ti.FID.Marshal(),
 		RecipientID: ti.RecipientID.Marshal(),
 		FileName:    ti.FileName,
 		FileType:    ti.FileType,
@@ -54,6 +76,12 @@ func UnmarshalTransferInfo(data []byte) (*TransferInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fid, err := ftCrypto.UnmarshalID(ti.Fid)
+	if err != nil {
+		return nil, err
+	}
+
 	transferKey := ftCrypto.UnmarshalTransferKey(ti.GetTransferKey())
 
 	recipientID, err := id.Unmarshal(ti.RecipientID)
@@ -62,6 +90,7 @@ func UnmarshalTransferInfo(data []byte) (*TransferInfo, error) {
 	}
 
 	return &TransferInfo{
+		FID:         fid,
 		RecipientID: recipientID,
 		FileName:    ti.FileName,
 		FileType:    ti.FileType,

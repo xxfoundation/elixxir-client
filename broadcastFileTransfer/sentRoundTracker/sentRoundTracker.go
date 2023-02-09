@@ -8,10 +8,11 @@
 package sentRoundTracker
 
 import (
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
+
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Manager keeps track of rounds that file parts were sent on and when

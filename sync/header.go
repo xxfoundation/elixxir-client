@@ -8,7 +8,10 @@
 package sync
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"github.com/pkg/errors"
+	"strings"
 )
 
 // headerVersion is the most up-to-date edition of the Header object. If the
@@ -16,9 +19,10 @@ import (
 // incremented. It is up to the developer to support older versions.
 const headerVersion = 0
 
-// Error constants.
+// Error messages.
 const (
-	entryDoesNotExistErr = "entry for key %s could not be found."
+	entryDoesNotExistErr      = "entry for key %s could not be found."
+	headerUnexpectedSerialErr = "unexpected data in serialized header."
 )
 
 // Header is header information for a transaction log. It inherits the header
@@ -63,20 +67,44 @@ type header struct {
 	Entries map[string]string `json:"entries"`
 }
 
-// fixme: This is commented out until Header needs a Marshaler/Unmarshaler.
-//// MarshalJSON marshals the Header into valid JSON. This function adheres to the
-//// json.Marshaler interface.
-//func (h *Header) MarshalJSON() ([]byte, error) {
-//	return json.Marshal(header(*h))
-//}
+// serialize serializes a Header object.
 //
-//// UnmarshalJSON unmarshalls JSON into the Header. This function adheres to the
-//// json.Unmarshaler interface.
-//func (h *Header) UnmarshalJSON(data []byte) error {
-//	headerData := header{}
-//	if err := json.Unmarshal(data, &headerData); err != nil {
-//		return err
-//	}
-//	*h = Header(headerData)
-//	return nil
-//}
+// Use deserializeHeader to reverse this operation.
+func (h *Header) serialize() ([]byte, error) {
+
+	// Marshal header into JSON
+	headerMarshal, err := json.Marshal(h)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct header info
+	headerInfo := xxdkTxLogHeader + base64.URLEncoding.EncodeToString(headerMarshal)
+
+	return []byte(headerInfo), nil
+}
+
+// deserializeHeader will deserialize header byte data.
+//
+// This is the inverse operation of Header.serialize.
+func deserializeHeader(headerSerial []byte) (*Header, error) {
+	// Extract the header
+	splitter := strings.Split(string(headerSerial), xxdkTxLogHeader)
+	if len(splitter) != 2 {
+		return nil, errors.Errorf(headerUnexpectedSerialErr)
+	}
+
+	// Decode transaction
+	headerInfo, err := base64.URLEncoding.DecodeString(splitter[1])
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal header
+	hdr := &Header{}
+	if err = json.Unmarshal(headerInfo, hdr); err != nil {
+		return nil, err
+	}
+
+	return hdr, nil
+}

@@ -21,8 +21,8 @@ type FileSystemRemoteStorage struct {
 // NewFileSystemRemoteStorage is a constructor for FileSystemRemoteStorage.
 //
 // Arguments:
-//  - baseDir - string. Represents the base directory for which all file
-//    operations will be performed. Must contain a file delimiter (i.e. `/`).
+//   - baseDir - string. Represents the base directory for which all file
+//     operations will be performed. Must contain a file delimiter (i.e. `/`).
 func NewFileSystemRemoteStorage(baseDir string) *FileSystemRemoteStorage {
 	return &FileSystemRemoteStorage{
 		baseDir: baseDir,
@@ -34,14 +34,22 @@ func NewFileSystemRemoteStorage(baseDir string) *FileSystemRemoteStorage {
 //
 // This utilizes utils.ReadFile under the hood.
 func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
-	return utils.ReadFile(f.baseDir + path)
+	if utils.DirExists(path) {
+		return utils.ReadFile(f.baseDir + path)
+	}
+	return utils.ReadFile(path)
 }
 
-// Write will write data to path. This will return an error if it fails to write.
+// Write will write data to path. This will return an error if it fails to
+// write.
 //
 // This utilizes utils.WriteFileDef under the hood.
 func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
-	return utils.WriteFileDef(f.baseDir+path, data)
+	if utils.DirExists(path) {
+		return utils.WriteFileDef(f.baseDir+path, data)
+	}
+	return utils.WriteFileDef(path, data)
+
 }
 
 // GetLastModified will return the last modified timestamp of the file at path.
@@ -51,7 +59,10 @@ func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
 // This utilizes utils.GetLastModified under the hood.
 func (f *FileSystemRemoteStorage) GetLastModified(path string) (
 	time.Time, error) {
-	return utils.GetLastModified(f.baseDir + path)
+	if utils.DirExists(path) {
+		return utils.GetLastModified(f.baseDir + path)
+	}
+	return utils.GetLastModified(path)
 }
 
 // GetLastWrite will retrieve the most recent successful write operation

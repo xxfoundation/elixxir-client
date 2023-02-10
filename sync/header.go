@@ -8,8 +8,10 @@
 package sync
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"strings"
 )
 
 // headerVersion is the most up-to-date edition of the Header object. If the
@@ -17,9 +19,10 @@ import (
 // incremented. It is up to the developer to support older versions.
 const headerVersion = 0
 
-// Error constants.
+// Error messages.
 const (
-	entryDoesNotExistErr = "entry for key %s could not be found."
+	entryDoesNotExistErr      = "entry for key %s could not be found."
+	headerUnexpectedSerialErr = "unexpected data in serialized header."
 )
 
 // Header is header information for a transaction log. It inherits the header
@@ -53,30 +56,55 @@ func (h *Header) Get(key string) (string, error) {
 	return value, nil
 }
 
-// header is an object strictly adhering to Header. This serves as the
-// marshal-able an unmarshal-able object such that Header may adhere to the
-// json.Marshaler and json.Unmarshaler interfaces.
+// header is the object to which Header strictly adheres. header serves as the
+// marshal-able an unmarshal-able object that Header.MarshalJSON and
+// Header.UnmarshalJSON utilizes when calling json.Marshal/json.Unmarshal.
 //
-// WARNING: If Header is modified, header should reflect these changes to ensure
-// no data is lost when calling the json.Marshaler or json.Unmarshaler.
+// WARNING: Modifying header will modify Header, be mindful of the
+// consumers when modifying this structure.
 type header struct {
 	Version uint16            `json:"version"`
 	Entries map[string]string `json:"entries"`
 }
 
-// MarshalJSON marshals the Header into valid JSON. This function adheres to the
-// json.Marshaler interface.
-func (h *Header) MarshalJSON() ([]byte, error) {
-	return json.Marshal(header(*h))
+// serialize serializes a Header object.
+//
+// Use deserializeHeader to reverse this operation.
+func (h *Header) serialize() ([]byte, error) {
+
+	// Marshal header into JSON
+	headerMarshal, err := json.Marshal(h)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct header info
+	headerInfo := xxdkTxLogHeader + base64.URLEncoding.EncodeToString(headerMarshal)
+
+	return []byte(headerInfo), nil
 }
 
-// UnmarshalJSON unmarshalls JSON into the Header. This function adheres to the
-// json.Unmarshaler interface.
-func (h *Header) UnmarshalJSON(data []byte) error {
-	headerData := header{}
-	if err := json.Unmarshal(data, &headerData); err != nil {
-		return err
+// deserializeHeader will deserialize header byte data.
+//
+// This is the inverse operation of Header.serialize.
+func deserializeHeader(headerSerial []byte) (*Header, error) {
+	// Extract the header
+	splitter := strings.Split(string(headerSerial), xxdkTxLogHeader)
+	if len(splitter) != 2 {
+		return nil, errors.Errorf(headerUnexpectedSerialErr)
 	}
-	*h = Header(headerData)
-	return nil
+
+	// Decode transaction
+	headerInfo, err := base64.URLEncoding.DecodeString(splitter[1])
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal header
+	hdr := &Header{}
+	if err = json.Unmarshal(headerInfo, hdr); err != nil {
+		return nil, err
+	}
+
+	return hdr, nil
 }

@@ -46,8 +46,8 @@ func encrypt(data []byte, secret string, csprng io.Reader) []byte {
 	return ciphertext
 }
 
-func decrypt(data []byte, password string) ([]byte, error) {
-	chaCipher := initChaCha20Poly1305(password)
+func decrypt(data []byte, secret string) ([]byte, error) {
+	chaCipher := initChaCha20Poly1305(secret)
 	nonceLen := chaCipher.NonceSize()
 	if (len(data) - nonceLen) <= 0 {
 		errMsg := fmt.Sprintf("Read %d bytes, too short to decrypt",
@@ -57,7 +57,7 @@ func decrypt(data []byte, password string) ([]byte, error) {
 	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
 	plaintext, err := chaCipher.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "Cannot decrypt with password!")
+		return nil, errors.Wrap(err, "Cannot decrypt with secret!")
 	}
 	return plaintext, nil
 }

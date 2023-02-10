@@ -8,6 +8,7 @@
 package sync
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"strconv"
@@ -43,6 +44,10 @@ const (
 		"key9": "val9"
 	}
 }`
+
+	// expectedHeaderSerial is the expected result after calling
+	// Header.serialize with example data.
+	expectedHeaderSerial = `WFhES1RYTE9HSERSZXlKMlpYSnphVzl1SWpvd0xDSmxiblJ5YVdWeklqcDdJbXRsZVNJNkluWmhiQ0o5ZlE9PQ==`
 )
 
 // Unit test of NewHeader.
@@ -87,6 +92,21 @@ func TestHeader_Set_Overwrite(t *testing.T) {
 	received, exists := head.Entries[key]
 	require.True(t, exists)
 	require.Equal(t, newVal, received)
+}
+
+// Unit test of Header.Get.
+func TestHeader_Get(t *testing.T) {
+	// Initialize header object
+	head := NewHeader()
+
+	// Set key-value entry into header
+	key, val := "key", "val"
+	require.NoError(t, head.Set(key, val))
+
+	// Ensure that key exists in map and is the expected value
+	received, err := head.Get(key)
+	require.NoError(t, err)
+	require.Equal(t, val, received)
 }
 
 // Smoke & unit test for Header.MarshalJSON. Checks basic marshaling outputs expected
@@ -140,7 +160,7 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 
 	// Construct a new header and unmarshal the old header into it
 	newHeader := NewHeader()
-	require.NoError(t, newHeader.UnmarshalJSON(oldHeaderData))
+	require.NoError(t, json.Unmarshal(oldHeaderData, newHeader))
 
 	// Ensure that the newHeader.UnmarshalJSON call places oldHeader's data
 	// into the new header object.
@@ -155,6 +175,45 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 	require.Equal(t, expectedHeaderJson, string(newHeaderData))
 
 	// Edge check: Testing that entering invalid JSON fails Unmarshal
-	require.Error(t, newHeader.UnmarshalJSON([]byte("badJSON")))
+	require.Error(t, json.Unmarshal([]byte("badJSON"), newHeader))
 
+}
+
+// Smoke test of Header.serialize.
+func TestHeader_Serialize(t *testing.T) {
+	// Initialize header object
+	head := NewHeader()
+
+	// Set key-value entry into header
+	key, val := "key", "val"
+	require.NoError(t, head.Set(key, val))
+
+	// Serialize header
+	hdrSerial, err := head.serialize()
+	require.NoError(t, err)
+
+	// Ensure serialization is consistent
+	require.Equal(t, expectedHeaderSerial, base64.StdEncoding.EncodeToString(hdrSerial))
+}
+
+// Unit test of deserializeHeader. Ensures that deserialize will construct
+// the same Header that was serialized using Header.serialize.
+func TestHeader_Deserialize(t *testing.T) {
+	// Initialize header object
+	head := NewHeader()
+
+	// Set key-value entry into header
+	key, val := "key", "val"
+	require.NoError(t, head.Set(key, val))
+
+	// Serialize header
+	hdrSerial, err := head.serialize()
+	require.NoError(t, err)
+
+	// Deserialize header
+	hdrDeserialize, err := deserializeHeader(hdrSerial)
+	require.NoError(t, err)
+
+	// Ensure deserialized object matches original object
+	require.Equal(t, head, hdrDeserialize)
 }

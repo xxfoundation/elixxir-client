@@ -11,20 +11,18 @@ import (
 	"container/list"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const (
@@ -45,13 +43,9 @@ const (
 // in storage. The actions are saved and checked against each new message to see
 // if they apply.
 type ActionSaver struct {
-	// savedActions is a list of actions that do not belong to any received
-	// messages sorted by when they were received.
-	savedActions *list.List
-
-	// actionsByChannel is a map of actions that do not belong to any received
-	// messages mapped to their target message and channel.
-	actionsByChannel map[id.ID]map[messageIdKey]*savedAction
+	// actions is a map of actions that do not belong to any received messages
+	// mapped to their target message and channel.
+	actions map[id.ID]map[messageIdKey]*savedAction
 
 	// triggerFn is called when a lease expired to trigger the undoing of the
 	// action.
@@ -78,10 +72,9 @@ type savedAction struct {
 func NewActionSaver(
 	triggerFn triggerActionEventFunc, kv *versioned.KV) *ActionSaver {
 	as := &ActionSaver{
-		savedActions:     list.New(),
-		actionsByChannel: make(map[id.ID]map[messageIdKey]*savedAction),
-		triggerFn:        triggerFn,
-		kv:               kv,
+		actions:   make(map[id.ID]map[messageIdKey]*savedAction),
+		triggerFn: triggerFn,
+		kv:        kv,
 	}
 
 	return as
@@ -127,41 +120,25 @@ func (as *ActionSaver) purgeThread(stop *stoppable.Single) {
 
 // purge removes all stale actions from ActionSaver.
 func (as *ActionSaver) purge(now time.Time) error {
-	isStale := func(e *list.Element) bool {
-		if e == nil {
-			return false
-		}
-
-		return now.Sub(e.Value.(*savedAction).Received) > maxSavedActionAge
-	}
-
-	// Create list of actions that are stale that need to be removed
-	var staleActions []*savedAction
+	as.mux.Lock()
+	defer as.mux.Unlock()
 
 	// Find all stale actions
-	as.mux.RLock()
-	for e := as.savedActions.Front(); isStale(e); e = e.Next() {
-		staleActions = append(staleActions, e.Value.(*savedAction))
-	}
-	as.mux.RUnlock()
-
-	// Remove all stale actions
-	var errorList []string
-	if len(staleActions) > 0 {
-		as.mux.Lock()
-		for i, sa := range staleActions {
-			if err := as.deleteAction(sa); err != nil {
-				errorList = append(errorList,
-					fmt.Sprintf("%d/%d: %+v", i, len(staleActions), err))
+	for chanID, actions := range as.actions {
+		var channelIdUpdate bool
+		for key, sa := range actions {
+			if now.Sub(sa.Received) > maxSavedActionAge {
+				delete(as.actions[chanID], key)
+				if len(as.actions[chanID]) == 0 {
+					delete(as.actions, chanID)
+					channelIdUpdate = true
+				}
 			}
 		}
-		as.mux.Unlock()
-	}
-
-	// Return collected errors if any occurred
-	if len(errorList) > 0 {
-		return errors.Errorf("Failed to delete some stale actions:\n%s",
-			strings.Join(errorList, "\n"))
+		err := as.updateStorage(&chanID, channelIdUpdate)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -204,15 +181,13 @@ func (as *ActionSaver) AddAction(channelID *id.ID, messageID,
 	as.mux.Lock()
 	defer as.mux.Unlock()
 
-	if messages, exists := as.actionsByChannel[*channelID]; !exists {
+	if messages, exists := as.actions[*channelID]; !exists {
 		// Add the channel with the saved action if it does not exist
-		sa.e = as.insertAction(sa)
-		as.actionsByChannel[*channelID] = map[messageIdKey]*savedAction{key: sa}
+		as.actions[*channelID] = map[messageIdKey]*savedAction{key: sa}
 		channelIdUpdate = true
 	} else if loadedSa, exists2 := messages[key]; !exists2 {
 		// Add the saved action for this target message if it does not exist
-		sa.e = as.insertAction(sa)
-		as.actionsByChannel[*channelID][key] = sa
+		as.actions[*channelID][key] = sa
 	} else {
 		// If a saved action already exists for this target message, then
 		// determine if this new action overwrites the saved one
@@ -220,17 +195,16 @@ func (as *ActionSaver) AddAction(channelID *id.ID, messageID,
 		switch sa.MessageType {
 		case Delete:
 			// Delete replaces all other possible actions
-			as.actionsByChannel[*channelID][key] = sa
+			as.actions[*channelID][key] = sa
 		case Pinned:
 			if originatingTimestamp.After(loadedSa.OriginatingTimestamp) {
 				// If this pin action is newer, then replace it
-				as.actionsByChannel[*channelID][key] = sa
+				as.actions[*channelID][key] = sa
 			} else {
 				// Drop old pin messages
 				return nil
 			}
 		}
-		as.updateAction(sa.e)
 	}
 
 	// Update storage
@@ -252,7 +226,7 @@ func (as *ActionSaver) CheckSavedActions(
 	as.mux.RLock()
 	defer as.mux.RUnlock()
 
-	if messages, exists := as.actionsByChannel[*channelID]; exists {
+	if messages, exists := as.actions[*channelID]; exists {
 		if sa, exists2 := messages[getMessageIdKey(targetMessage)]; exists2 {
 			// Once the result has been returned, delete the action
 			defer func(sa *savedAction) {
@@ -289,22 +263,19 @@ func (as *ActionSaver) CheckSavedActions(
 func (as *ActionSaver) deleteAction(sa *savedAction) error {
 	var loadedSa *savedAction
 	key := getMessageIdKey(sa.TargetMessage)
-	if messages, exists := as.actionsByChannel[*sa.ChannelID]; !exists {
+	if messages, exists := as.actions[*sa.ChannelID]; !exists {
 		return nil
 	} else if loadedSa, exists = messages[key]; !exists {
 		return nil
 	}
 
-	// Remove from list
-	as.savedActions.Remove(loadedSa.e)
-
 	// When set to true, the list of channels IDs will be updated in storage
 	var channelIdUpdate bool
 
 	// Remove from message map
-	delete(as.actionsByChannel[*loadedSa.ChannelID], key)
-	if len(as.actionsByChannel[*loadedSa.ChannelID]) == 0 {
-		delete(as.actionsByChannel, *loadedSa.ChannelID)
+	delete(as.actions[*loadedSa.ChannelID], key)
+	if len(as.actions[*loadedSa.ChannelID]) == 0 {
+		delete(as.actions, *loadedSa.ChannelID)
 		channelIdUpdate = true
 	}
 
@@ -317,17 +288,12 @@ func (as *ActionSaver) deleteAction(sa *savedAction) error {
 //
 // RemoveChannel should be called when leaving a channel.
 func (as *ActionSaver) RemoveChannel(channelID *id.ID) error {
-	actions, exists := as.actionsByChannel[*channelID]
+	_, exists := as.actions[*channelID]
 	if !exists {
 		return nil
 	}
 
-	// Delete all actions from list
-	for _, sa := range actions {
-		as.savedActions.Remove(sa.e)
-	}
-
-	delete(as.actionsByChannel, *channelID)
+	delete(as.actions, *channelID)
 
 	// Update channel ID list
 	if err := as.storeChannelList(); err != nil {
@@ -336,43 +302,6 @@ func (as *ActionSaver) RemoveChannel(channelID *id.ID) error {
 
 	// Delete actions from storage
 	return as.deleteActions(channelID)
-}
-
-// insertLease inserts the leaseMessage to the lease list in order and returns
-// the element in the list. Returns true if it was added to the head of the
-// list.
-func (as *ActionSaver) insertAction(sa *savedAction) *list.Element {
-	mark := as.findSortedPosition(sa.Received)
-	if mark == nil {
-		return as.savedActions.PushBack(sa)
-	} else {
-		return as.savedActions.InsertBefore(sa, mark)
-	}
-}
-
-// updateAction updates the location of the given element. This should be called
-// when the received time for a message changes. Returns true if it was added to
-// the head of the list.
-func (as *ActionSaver) updateAction(e *list.Element) {
-	mark := as.findSortedPosition(e.Value.(*savedAction).Received)
-	if mark == nil {
-		as.savedActions.MoveToBack(e)
-	} else {
-		as.savedActions.MoveBefore(e, mark)
-	}
-}
-
-// findSortedPosition finds the location in the list where the action can be
-// inserted and returns the next element.
-//
-// Note: A find operations has an O(n).
-func (as *ActionSaver) findSortedPosition(receivedTime time.Time) *list.Element {
-	for mark := as.savedActions.Front(); mark != nil; mark = mark.Next() {
-		if mark.Value.(*savedAction).Received.After(receivedTime) {
-			return mark
-		}
-	}
-	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -424,21 +353,16 @@ func (as *ActionSaver) load(now time.Time) error {
 
 	// Get list of lease messages and load them into the message map and lease
 	// list
-	// FIXME: This has a hidden sort of O(n^2) because the insert done in each
-	//  iteration is O(n). This should be improved. Quicksort first and then
-	//  insert (do not use insertLease).
 	for _, channelID := range channelIDs {
-		as.actionsByChannel[*channelID], err = as.loadActions(channelID)
+		as.actions[*channelID], err = as.loadActions(channelID)
 		if err != nil {
 			return errors.Wrapf(err, loadSavedActionsMessagesErr, channelID)
 		}
 
-		for key, sa := range as.actionsByChannel[*channelID] {
+		for key, sa := range as.actions[*channelID] {
 			// Check if the action is stale
 			if now.Sub(sa.Received) > maxSavedActionAge {
-				delete(as.actionsByChannel[*channelID], key)
-			} else {
-				sa.e = as.insertAction(sa)
+				delete(as.actions[*channelID], key)
 			}
 		}
 	}
@@ -464,8 +388,8 @@ func (as *ActionSaver) updateStorage(
 // storeChannelList stores the list of all channel IDs in the action list to
 // storage.
 func (as *ActionSaver) storeChannelList() error {
-	channelIDs := make([]*id.ID, 0, len(as.actionsByChannel))
-	for chanID := range as.actionsByChannel {
+	channelIDs := make([]*id.ID, 0, len(as.actions))
+	for chanID := range as.actions {
 		channelIDs = append(channelIDs, chanID.DeepCopy())
 	}
 
@@ -499,11 +423,11 @@ func (as *ActionSaver) loadChannelList() ([]*id.ID, error) {
 // to storage keying on the channel ID.
 func (as *ActionSaver) storeActions(channelID *id.ID) error {
 	// If the list is empty, then delete it from storage
-	if len(as.actionsByChannel[*channelID]) == 0 {
+	if len(as.actions[*channelID]) == 0 {
 		return as.deleteActions(channelID)
 	}
 
-	data, err := json.Marshal(as.actionsByChannel[*channelID])
+	data, err := json.Marshal(as.actions[*channelID])
 	if err != nil {
 		return err
 	}

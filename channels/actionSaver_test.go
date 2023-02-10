@@ -9,7 +9,6 @@ package channels
 
 import (
 	"bytes"
-	"container/list"
 	"math/rand"
 	"os"
 	"reflect"
@@ -17,21 +16,19 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/xx_network/primitives/id"
-
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests that NewActionSaver returned the expected new ActionSaver.
 func TestNewActionSaver(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	expected := &ActionSaver{
-		savedActions:     list.New(),
-		actionsByChannel: make(map[id.ID]map[messageIdKey]*savedAction),
-		kv:               kv,
+		actions: make(map[id.ID]map[messageIdKey]*savedAction),
+		kv:      kv,
 	}
 
 	as := NewActionSaver(nil, kv)
@@ -85,83 +82,6 @@ func TestActionSaver_deleteAction(t *testing.T) {
 func TestActionSaver_RemoveChannel(t *testing.T) {
 }
 
-// Tests that ActionSaver.insertAction inserts all the savedAction objects in
-// the correct order, from smallest Received to largest.
-func TestActionSaver_insertAction(t *testing.T) {
-	prng := rand.New(rand.NewSource(23))
-	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
-	expected := make([]time.Time, 50)
-
-	for i := range expected {
-		randomTime := time.Unix(0, prng.Int63())
-		as.insertAction(&savedAction{Received: randomTime})
-		expected[i] = randomTime
-	}
-
-	sort.SliceStable(expected, func(i, j int) bool {
-		return expected[i].Before(expected[j])
-	})
-
-	for i, e := 0, as.savedActions.Front(); e != nil; i, e = i+1, e.Next() {
-		if expected[i] != e.Value.(*savedAction).Received {
-			t.Errorf("Timestamp %d not in correct order."+
-				"\nexpected: %s\nreceived: %s",
-				i, expected[i], e.Value.(*savedAction).Received)
-		}
-	}
-}
-
-// Fills the lease list with in-order messages and tests that
-// ActionSaver.updateAction correctly moves elements to the correct order when
-// their Received changes.
-func TestActionSaver_updateAction(t *testing.T) {
-	prng := rand.New(rand.NewSource(23))
-	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
-
-	for i := 0; i < 50; i++ {
-		randomTime := time.Unix(0, prng.Int63())
-		as.insertAction(&savedAction{Received: randomTime})
-	}
-
-	tests := []struct {
-		randomTime time.Time
-		e          *list.Element
-	}{
-		// Change the first element to a random time
-		{time.Unix(0, prng.Int63()), as.savedActions.Front()},
-
-		// Change an element to a random time
-		{time.Unix(0, prng.Int63()), as.savedActions.Front().Next().Next().Next()},
-
-		// Change the last element to a random time
-		{time.Unix(0, prng.Int63()), as.savedActions.Back()},
-
-		// Change an element to the first element
-		{as.savedActions.Front().Value.(*savedAction).Received.Add(-1),
-			as.savedActions.Front().Next().Next()},
-
-		// Change an element to the last element
-		{as.savedActions.Back().Value.(*savedAction).Received.Add(1),
-			as.savedActions.Front().Next().Next().Next().Next().Next()},
-	}
-
-	for i, tt := range tests {
-		tt.e.Value.(*savedAction).Received = tt.randomTime
-		as.updateAction(tt.e)
-
-		// Check that the list is in order
-		for j, n := 0, as.savedActions.Front(); n.Next() != nil; j, n = j+1, n.Next() {
-			lt1 := n.Value.(*savedAction).Received
-			lt2 := n.Next().Value.(*savedAction).Received
-			if lt1.After(lt2) {
-				t.Errorf("Element #%d is greater than element #%d (%d)."+
-					"\nelement #%d: %s\nelement #%d: %s",
-					j, j+1, i, j, lt1, j+1, lt2)
-			}
-		}
-	}
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Message ID Key                                                             //
 ////////////////////////////////////////////////////////////////////////////////
@@ -211,7 +131,7 @@ func TestActionSaver_load(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		channelID := randChannelID(prng, t)
-		as.actionsByChannel[*channelID] = make(map[messageIdKey]*savedAction)
+		as.actions[*channelID] = make(map[messageIdKey]*savedAction)
 		for j := 0; j < 5; j++ {
 			sa := &savedAction{
 				CommandMessage: CommandMessage{
@@ -223,8 +143,7 @@ func TestActionSaver_load(t *testing.T) {
 				Received: randTimestamp(prng),
 			}
 			key := getMessageIdKey(randMessageID(prng, t))
-			sa.e = as.insertAction(sa)
-			as.actionsByChannel[*channelID][key] = sa
+			as.actions[*channelID][key] = sa
 		}
 		err := as.updateStorage(channelID, true)
 		if err != nil {
@@ -240,8 +159,8 @@ func TestActionSaver_load(t *testing.T) {
 	}
 
 	// Check that the loaded message map matches the original
-	for chanID, messages := range as.actionsByChannel {
-		loadedMessages, exists := as.actionsByChannel[chanID]
+	for chanID, messages := range as.actions {
+		loadedMessages, exists := as.actions[chanID]
 		if !exists {
 			t.Errorf("Channel ID %s does not exist in map.", chanID)
 		}
@@ -256,15 +175,6 @@ func TestActionSaver_load(t *testing.T) {
 				t.Errorf("Message does not match expected."+
 					"\nexpected: %+v\nreceived: %+v", sa, loadedSa)
 			}
-		}
-	}
-
-	// Check that the loaded list matches the original
-	e1, e2 := as.savedActions.Front(), loadedAs.savedActions.Front()
-	for i := 0; e1 != nil; i, e1, e2 = i+1, e1.Next(), e2.Next() {
-		if !reflect.DeepEqual(e1.Value, e2.Value) {
-			t.Errorf("Element %d does not match expected."+
-				"\nexpected: %+v\nreceived: %+v", i, e1.Value, e2.Value)
 		}
 	}
 }
@@ -298,7 +208,7 @@ func TestActionSaver_storeChannelList_loadChannelList(t *testing.T) {
 
 	for i := 0; i < n; i++ {
 		channelID := randChannelID(prng, t)
-		as.actionsByChannel[*channelID] = make(map[messageIdKey]*savedAction)
+		as.actions[*channelID] = make(map[messageIdKey]*savedAction)
 		for j := 0; j < 5; j++ {
 			sa := &savedAction{
 				CommandMessage: CommandMessage{
@@ -310,7 +220,7 @@ func TestActionSaver_storeChannelList_loadChannelList(t *testing.T) {
 				Received: randTimestamp(prng),
 			}
 			key := getMessageIdKey(randMessageID(prng, t))
-			as.actionsByChannel[*channelID][key] = sa
+			as.actions[*channelID][key] = sa
 		}
 		expectedIDs[i] = channelID
 	}
@@ -356,7 +266,7 @@ func TestActionSaver_storeActions_loadActions(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
 	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
 	channelID := randChannelID(prng, t)
-	as.actionsByChannel[*channelID] = make(map[messageIdKey]*savedAction)
+	as.actions[*channelID] = make(map[messageIdKey]*savedAction)
 
 	for i := 0; i < 15; i++ {
 		sa := &savedAction{
@@ -378,7 +288,7 @@ func TestActionSaver_storeActions_loadActions(t *testing.T) {
 			Received: randTimestamp(prng),
 		}
 		key := getMessageIdKey(randMessageID(prng, t))
-		as.actionsByChannel[*channelID][key] = sa
+		as.actions[*channelID][key] = sa
 	}
 
 	err := as.storeActions(channelID)
@@ -391,10 +301,10 @@ func TestActionSaver_storeActions_loadActions(t *testing.T) {
 		t.Errorf("Failed to load messages: %+v", err)
 	}
 
-	if !reflect.DeepEqual(as.actionsByChannel[*channelID], loadedMessages) {
+	if !reflect.DeepEqual(as.actions[*channelID], loadedMessages) {
 		t.Errorf("Loaded messages do not match original."+
 			"\nexpected: %+v\nreceived: %+v",
-			as.actionsByChannel[*channelID], loadedMessages)
+			as.actions[*channelID], loadedMessages)
 	}
 }
 
@@ -404,7 +314,7 @@ func TestActionSaver_storeActions_EmptyList(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
 	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
 	channelID := randChannelID(prng, t)
-	as.actionsByChannel[*channelID] = make(map[messageIdKey]*savedAction)
+	as.actions[*channelID] = make(map[messageIdKey]*savedAction)
 
 	for i := 0; i < 15; i++ {
 		sa := &savedAction{
@@ -417,7 +327,7 @@ func TestActionSaver_storeActions_EmptyList(t *testing.T) {
 			Received: randTimestamp(prng),
 		}
 		key := getMessageIdKey(randMessageID(prng, t))
-		as.actionsByChannel[*channelID][key] = sa
+		as.actions[*channelID][key] = sa
 	}
 
 	err := as.storeActions(channelID)
@@ -425,7 +335,7 @@ func TestActionSaver_storeActions_EmptyList(t *testing.T) {
 		t.Errorf("Failed to store messages: %+v", err)
 	}
 
-	as.actionsByChannel[*channelID] = make(map[messageIdKey]*savedAction)
+	as.actions[*channelID] = make(map[messageIdKey]*savedAction)
 	err = as.storeActions(channelID)
 	if err != nil {
 		t.Errorf("Failed to store messages: %+v", err)
@@ -455,7 +365,7 @@ func TestActionSaver_deleteActions(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
 	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
 	channelID := randChannelID(prng, t)
-	as.actionsByChannel[*channelID] = make(map[messageIdKey]*savedAction)
+	as.actions[*channelID] = make(map[messageIdKey]*savedAction)
 
 	for i := 0; i < 15; i++ {
 		sa := &savedAction{
@@ -468,7 +378,7 @@ func TestActionSaver_deleteActions(t *testing.T) {
 			Received: randTimestamp(prng),
 		}
 		key := getMessageIdKey(randMessageID(prng, t))
-		as.actionsByChannel[*channelID][key] = sa
+		as.actions[*channelID][key] = sa
 	}
 
 	err := as.storeActions(channelID)

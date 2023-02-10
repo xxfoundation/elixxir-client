@@ -1019,7 +1019,7 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID,
 
 func (m *MockEvent) UpdateFromUUID(_ uint64, messageID *message.ID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-	status *SentStatus) {
+	status *SentStatus) error {
 
 	if messageID != nil {
 		m.eventReceive.messageID = *messageID
@@ -1039,11 +1039,13 @@ func (m *MockEvent) UpdateFromUUID(_ uint64, messageID *message.ID,
 	if hidden != nil {
 		m.eventReceive.hidden = *hidden
 	}
+
+	return nil
 }
 
-func (m *MockEvent) UpdateFromMessageID(_ message.ID,
-	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-	status *SentStatus) uint64 {
+func (m *MockEvent) UpdateFromMessageID(_ message.ID, timestamp *time.Time,
+	round *rounds.Round, pinned, hidden *bool, status *SentStatus) (
+	uint64, error) {
 
 	if timestamp != nil {
 		m.eventReceive.timestamp = *timestamp
@@ -1061,7 +1063,7 @@ func (m *MockEvent) UpdateFromMessageID(_ message.ID,
 		m.eventReceive.hidden = *hidden
 	}
 
-	return m.getUUID()
+	return m.getUUID(), nil
 }
 
 func (m *MockEvent) GetMessage(message.ID) (ModelMessage, error) {
@@ -1084,9 +1086,7 @@ func (m *MockEvent) GetMessage(message.ID) (ModelMessage, error) {
 	}, nil
 }
 
-func (m *MockEvent) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-	return
-}
+func (m *MockEvent) MuteUser(*id.ID, ed25519.PublicKey, bool) {}
 
 func (m *MockEvent) DeleteMessage(message.ID) error {
 	m.eventReceive = eventReceive{}

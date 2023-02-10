@@ -11,22 +11,25 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/emoji"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
+	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/emoji"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/message"
 )
 
 // AdminUsername defines the displayed username of admin messages, which are
@@ -158,8 +161,11 @@ type EventModel interface {
 	// messageID, timestamp, round, pinned, hidden, and status are all nillable
 	// and may be updated based upon the UUID at a later date. If a nil value is
 	// passed, then make no update.
+	//
+	// Returns an error if the message cannot be updated. It must return
+	// NoMessageErr if the message does not exist.
 	UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *time.Time,
-		round *rounds.Round, pinned, hidden *bool, status *SentStatus)
+		round *rounds.Round, pinned, hidden *bool, status *SentStatus) error
 
 	// UpdateFromMessageID is called whenever a message with the message ID is
 	// modified.
@@ -170,18 +176,39 @@ type EventModel interface {
 	// timestamp, round, pinned, hidden, and status are all nillable and may be
 	// updated based upon the UUID at a later date. If a nil value is passed,
 	// then make no update.
+	//
+	// Returns an error if the message cannot be updated. It must return
+	// NoMessageErr if the message does not exist.
 	UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
-		round *rounds.Round, pinned, hidden *bool, status *SentStatus) uint64
+		round *rounds.Round, pinned, hidden *bool, status *SentStatus) (
+		uint64, error)
 
 	// GetMessage returns the message with the given channel.MessageID.
+	//
+	// Returns an error if the message cannot be gotten. It must return
+	// NoMessageErr if the message does not exist.
 	GetMessage(messageID message.ID) (ModelMessage, error)
 
 	// DeleteMessage deletes the message with the given [channel.MessageID] from
 	// the database.
+	//
+	// Returns an error if the message cannot be deleted. It must return
+	// NoMessageErr if the message does not exist.
 	DeleteMessage(messageID message.ID) error
 
 	// MuteUser is called whenever a user is muted or unmuted.
 	MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
+}
+
+// NoMessageErr must be returned by EventModel.UpdateFromUUID,
+// EventModel.UpdateFromMessageID, and EventModel.GetMessage when the message
+// cannot be found.
+var NoMessageErr = errors.New("message does not exist [EV]")
+
+// checkNoMessageErr returns true if the error contains NoMessageErr.
+func checkNoMessageErr(err error) bool {
+	return !(errors.Is(err, NoMessageErr) ||
+		strings.Contains(err.Error(), NoMessageErr.Error()))
 }
 
 // ModelMessage contains a message and all of its information.
@@ -223,7 +250,7 @@ type MessageTypeReceiveMessage func(channelID *id.ID, messageID message.ID,
 // be mocked for testing where used.
 type UpdateFromUuidFunc func(uuid uint64, messageID *message.ID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-	status *SentStatus)
+	status *SentStatus) error
 
 // events is an internal structure that processes events and stores the handlers
 // for those events.
@@ -233,6 +260,7 @@ type events struct {
 	commandStore *CommandStore
 	leases       *ActionLeaseList
 	mutedUsers   *mutedUserManager
+	as           *ActionSaver
 
 	// List of registered message processors
 	broadcast *processorList
@@ -370,6 +398,9 @@ func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
 		jww.FATAL.Panicf("[CH] Failed to initialise muted user list: %+v", err)
 	}
 
+	// Initialise action saver
+	e.as = NewActionSaver(e.triggerActionEvent, kv)
+
 	return e
 }
 
@@ -427,6 +458,13 @@ func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
 	// Check if the user is muted on this channel
 	isMuted := e.mutedUsers.isMuted(channelID, um.ECCPublicKey)
 
+	// Check if there are any saved actions for this message
+	updateFn, deleted := e.as.CheckSavedActions(channelID, umi.GetMessageID())
+	if deleted {
+		// If there was an action to delete the message, then drop it
+		return 0, nil
+	}
+
 	// Get handler for message type
 	handler, err := e.getHandler(messageType, true, false, isMuted)
 	if err != nil {
@@ -442,6 +480,21 @@ func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
 		cm.Nickname, cm.Payload, encryptedPayload, um.ECCPublicKey, cm.DMToken,
 		0, timestamp, time.Unix(0, cm.LocalTimestamp), time.Duration(cm.Lease),
 		id.Round(cm.RoundID), round, status, false, false)
+
+	// If there is an update function, then call it in a new thread
+	if updateFn != nil {
+		go func() {
+			uuid2, err2 := updateFn()
+			if err2 != nil {
+				jww.ERROR.Printf("[CH] Failed to update action on message %s "+
+					"in channel %s: %+v", umi.GetMessageID(), channelID, err)
+			} else {
+				jww.DEBUG.Printf("[CH] Updated action on message %s in "+
+					"channel %s at UUID %d", umi.GetMessageID(), channelID, uuid2)
+			}
+		}()
+	}
+
 	return uuid, nil
 }
 
@@ -463,6 +516,13 @@ func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
 	uint64, error) {
 	messageType := MessageType(cm.PayloadType)
 
+	// Check if there are any saved actions for this message
+	updateFn, deleted := e.as.CheckSavedActions(channelID, messageID)
+	if deleted {
+		// If there was an action to delete the message, then drop it
+		return 0, nil
+	}
+
 	// Get handler for message type
 	handler, err := e.getHandler(messageType, false, true, false)
 	if err != nil {
@@ -477,6 +537,21 @@ func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
 		cm.Payload, encryptedPayload, AdminFakePubKey, cm.DMToken, 0, timestamp,
 		time.Unix(0, cm.LocalTimestamp), time.Duration(cm.Lease),
 		id.Round(cm.RoundID), round, status, true, false)
+
+	// If there is an update function, then call it in a new thread
+	if updateFn != nil {
+		go func() {
+			uuid2, err2 := updateFn()
+			if err2 != nil {
+				jww.ERROR.Printf("[CH] Failed to update action on message %s "+
+					"in channel %s: %+v", messageID, channelID, err)
+			} else {
+				jww.DEBUG.Printf("[CH] Updated action on message %s in "+
+					"channel %s at UUID %d", messageID, channelID, uuid2)
+			}
+		}()
+	}
+
 	return uuid, nil
 }
 
@@ -674,8 +749,18 @@ func (e *events) receiveDelete(channelID *id.ID, messageID message.ID,
 
 	err := e.model.DeleteMessage(deleteMessageID)
 	if err != nil {
-		jww.ERROR.Printf(
-			"[CH] [%s] Failed to delete message %s: %+v", tag, msgLog, err)
+		if checkNoMessageErr(err) {
+			err = e.as.AddAction(channelID, messageID, deleteMessageID,
+				messageType, nil, nil, timestamp, time.Time{}, netTime.Now(),
+				lease, 0, rounds.Round{}, fromAdmin)
+			if err != nil {
+				jww.ERROR.Printf("[CH] [%s] Could not add action for deletion "+
+					"message %s: %+v", tag, msgLog, err)
+			}
+		} else {
+			jww.ERROR.Printf(
+				"[CH] [%s] Failed to delete message %s: %+v", tag, msgLog, err)
+		}
 	}
 	return 0
 }
@@ -743,8 +828,25 @@ func (e *events) receivePinned(channelID *id.ID, messageID message.ID,
 		pinned = true
 	}
 
-	return e.model.UpdateFromMessageID(
+	uuid, err := e.model.UpdateFromMessageID(
 		pinnedMessageID, nil, nil, &pinned, nil, nil)
+	if err != nil {
+		if checkNoMessageErr(err) {
+			err = e.as.AddAction(channelID, messageID, pinnedMessageID,
+				messageType, content, encryptedPayload, timestamp,
+				originatingTimestamp, netTime.Now(), lease, originatingRound,
+				round, fromAdmin)
+			if err != nil {
+				jww.ERROR.Printf("[CH] [%s] Could not add action for pinned "+
+					"message %s: %+v", tag, msgLog, err)
+			}
+		} else {
+			jww.ERROR.Printf(
+				"[CH] [%s] Failed to pin message %s: %+v", tag, msgLog, err)
+		}
+	}
+
+	return uuid
 }
 
 // receiveMute is the internal function that handles the reception of muted

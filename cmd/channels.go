@@ -418,14 +418,15 @@ func (m *eventModel) ReceiveReaction(channelID *id.ID, _, _ message.ID, _,
 }
 
 func (m *eventModel) UpdateFromUUID(uint64, *message.ID, *time.Time,
-	*rounds.Round, *bool, *bool, *channels.SentStatus) {
+	*rounds.Round, *bool, *bool, *channels.SentStatus) error {
 	jww.WARN.Printf("UpdateFromUUID is unimplemented in the CLI event model!")
+	return nil
 }
 
 func (m *eventModel) UpdateFromMessageID(message.ID, *time.Time, *rounds.Round,
-	*bool, *bool, *channels.SentStatus) uint64 {
+	*bool, *bool, *channels.SentStatus) (uint64, error) {
 	jww.WARN.Printf("UpdateFromMessageID is unimplemented in the CLI event model!")
-	return 0
+	return 0, nil
 }
 
 func (m *eventModel) GetMessage(message.ID) (channels.ModelMessage, error) {
@@ -438,7 +439,7 @@ func (m *eventModel) DeleteMessage(message.ID) error {
 	return nil
 }
 
-func (m *eventModel) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+func (m *eventModel) MuteUser(*id.ID, ed25519.PublicKey, bool) {
 	jww.WARN.Printf("MuteUser is unimplemented in the CLI event model!")
 }
 

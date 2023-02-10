@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 )
 
 const (
@@ -312,6 +313,18 @@ func TestTransactionLog_Save(t *testing.T) {
 	// Write data to remote & local
 	require.NoError(t, txLog.save(data))
 
+	// Read from local
+	dataFromLocal, err := txLog.local.Read(txLog.path)
+	require.NoError(t, err)
+
+	// Ensure read data from local matches originally written
+	require.Equal(t, data, dataFromLocal)
+
+	// Remote writing is done async, so ensure completion by sleeping
+	// fixme: once a callback is implemented for save, use that instead of
+	//        sleeping
+	time.Sleep(10 * time.Millisecond)
+
 	// Read from remote
 	dataFromRemote, err := txLog.remote.Read(txLog.path)
 	require.NoError(t, err)
@@ -319,12 +332,6 @@ func TestTransactionLog_Save(t *testing.T) {
 	// Ensure read data from remote matches originally written
 	require.Equal(t, data, dataFromRemote)
 
-	// Read from local
-	dataFromLocal, err := txLog.remote.Read(txLog.path)
-	require.NoError(t, err)
-
-	// Ensure read data from local matches originally written
-	require.Equal(t, data, dataFromLocal)
 }
 
 // Benchmark the performance of appending to a transaction log using insertion

@@ -300,6 +300,10 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 	}
 
 	// Do not let remote writing block operations
+	// fixme: Add a callback to the Log object to inform the caller of the
+	//        status of the remote save to save the context, pass the
+	//        Transaction to save() so that it can be passed to the CB
+	//        Example: cb(newTx, err)
 	go func() {
 		// Save to remote storage (if set)
 		if tl.remote == nil {

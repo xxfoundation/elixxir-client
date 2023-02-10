@@ -135,7 +135,34 @@ func (tl *TransactionLog) Append(t Transaction) error {
 // Note that this operation is NOT thread-safe, and the caller should hold the
 // lck.
 func (tl *TransactionLog) appendUsingInsertion(newTransaction Transaction) {
-	tl.insertionSort(newTransaction)
+	// If list is empty, just append
+	if tl.txs == nil || len(tl.txs) == 0 {
+		tl.txs = []Transaction{newTransaction}
+		return
+	}
+
+	for i := len(tl.txs); i != 0; i-- {
+		curidx := i - 1
+		if tl.txs[curidx].Timestamp.After(newTransaction.Timestamp) {
+			// If we are the start of the list, place at the beginning
+			if curidx == 0 {
+				tl.txs = append([]Transaction{newTransaction}, tl.txs...)
+				return
+			}
+			continue
+		}
+		// If the current index is Before, insert just after this index
+		insertidx := i
+		// Just append when we are at the end already
+		if insertidx == len(tl.txs) {
+			tl.txs = append(tl.txs, newTransaction)
+		} else {
+			tl.txs = append(tl.txs[:insertidx+1], tl.txs[insertidx:]...)
+			tl.txs[insertidx] = newTransaction
+
+		}
+		return
+	}
 }
 
 // appendUsingInsertion will write the new Transaction to txs. txs must be
@@ -286,40 +313,6 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 	}()
 
 	return nil
-}
-
-// insertionSort is a utility function which implements a custom insertion sort
-// algorithms. This is used to insert a new Transaction into the txs list
-// in order by timestamp.
-func (tl *TransactionLog) insertionSort(newTransaction Transaction) {
-	if tl.txs == nil || len(tl.txs) == 0 {
-		tl.txs = []Transaction{newTransaction}
-		return
-	}
-
-	for i := len(tl.txs); i != 0; i-- {
-		// Skip anything where the current index transaction timestampe is after the newTransaction's
-		curidx := i - 1
-		if tl.txs[curidx].Timestamp.After(newTransaction.Timestamp) {
-			if curidx == 0 {
-				tl.txs = append([]Transaction{newTransaction}, tl.txs...)
-				return
-			}
-			continue
-		}
-		// If the current index is Before, insert just after this index
-		insertidx := i
-		// Just appendUsingInsertion when we are at the end already
-		if insertidx == len(tl.txs) {
-			tl.txs = append(tl.txs, newTransaction)
-		} else {
-			tl.txs = append(tl.txs[:insertidx+1], tl.txs[insertidx:]...)
-			tl.txs[insertidx] = newTransaction
-
-		}
-		return
-	}
-
 }
 
 // serializeInt is a utility function which serializes an integer into a byte

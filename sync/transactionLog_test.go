@@ -90,7 +90,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct timestamps
-	mockTimestamps := constructTimestamps(t)
+	mockTimestamps := constructTimestamps(t, 0)
 
 	for cnt, curTs := range mockTimestamps {
 		// Construct transaction
@@ -100,18 +100,17 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 		require.NoError(t, txLog.Append(newTx))
 	}
 
-	//newLocalStore, err := NewEkvLocalStore(baseDir, password)
-	//require.NoError(t, err)
-
+	// Construct a new TransactionLog, which will load from file
 	newTxLog, err := NewOrLoadTransactionLog(localStore, remoteStore,
 		rand.Reader, baseDir, deviceSecret)
 	require.NoError(t, err)
 
+	// Ensure loaded log matches original log
 	require.Equal(t, txLog, newTxLog)
 
 }
 
-// Tests that TransactionLog's append function will insert new Transaction's
+// Tests that TransactionLog's appendUsingInsertion function will insert new Transaction's
 // into the TransactionLog, and that the transactions are sorted by timestamp
 // after the insertion.
 func TestTransactionLog_Append(t *testing.T) {
@@ -138,14 +137,14 @@ func TestTransactionLog_Append(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct timestamps
-	mockTimestamps := constructTimestamps(t)
+	mockTimestamps := constructTimestamps(t, 6)
 
+	// Insert mock data into transaction log
 	for cnt, curTs := range mockTimestamps {
 		// Construct transaction
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewTransaction(curTs, key, []byte(val))
-
-		txLog.append(newTx)
+		txLog.appendUsingInsertion(newTx)
 
 		// Ensure that these transactions have been inserted in order for each
 		// insertion
@@ -155,6 +154,8 @@ func TestTransactionLog_Append(t *testing.T) {
 		}))
 	}
 
+	// Ensure that all insertions occurred (no rewrites).
+	require.Equal(t, len(mockTimestamps), len(txLog.txs))
 }
 
 // Tests that TransactionLog's serialize function returns the serialized
@@ -183,7 +184,7 @@ func TestTransactionLog_Serialize(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct timestamps
-	mockTimestamps := constructTimestamps(t)
+	mockTimestamps := constructTimestamps(t, 0)
 
 	// Insert mock data into transaction log
 	for cnt, curTs := range mockTimestamps {
@@ -192,7 +193,7 @@ func TestTransactionLog_Serialize(t *testing.T) {
 		newTx := NewTransaction(curTs, key, []byte(val))
 
 		// Insert transaction
-		txLog.append(newTx)
+		txLog.appendUsingInsertion(newTx)
 	}
 
 	// Serialize data
@@ -232,7 +233,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct timestamps
-	mockTimestamps := constructTimestamps(t)
+	mockTimestamps := constructTimestamps(t, 0)
 
 	// Insert mock data into transaction log
 	for cnt, curTs := range mockTimestamps {
@@ -241,7 +242,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 		newTx := NewTransaction(curTs, key, []byte(val))
 
 		// Insert transaction
-		txLog.append(newTx)
+		txLog.appendUsingInsertion(newTx)
 	}
 
 	// Serialize data
@@ -293,8 +294,7 @@ func TestTransactionLog_Save(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct timestamps
-	mockTimestamps := constructTimestamps(t)
-
+	mockTimestamps := constructTimestamps(t, 0)
 	// Insert mock data into transaction log
 	for cnt, curTs := range mockTimestamps {
 		// Construct transaction
@@ -302,7 +302,7 @@ func TestTransactionLog_Save(t *testing.T) {
 		newTx := NewTransaction(curTs, key, []byte(val))
 
 		// Insert transaction
-		txLog.append(newTx)
+		txLog.appendUsingInsertion(newTx)
 	}
 
 	// Serialize data
@@ -325,4 +325,101 @@ func TestTransactionLog_Save(t *testing.T) {
 
 	// Ensure read data from local matches originally written
 	require.Equal(t, data, dataFromLocal)
+}
+
+// Benchmark the performance of appending to a transaction log using insertion
+// sort.
+func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
+	// Construct local store
+	baseDir, password := "testDir", "password"
+	localStore, err := NewEkvLocalStore(baseDir, password)
+	require.NoError(b, err)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(b, os.RemoveAll(baseDir))
+
+	}()
+
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
+
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
+
+	// We expect the number of transactions to reach this checkpoint within
+	// a few weeks.
+	const numRandomTimestamps = 10000
+
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(b, numRandomTimestamps)
+
+	for i := 0; i < b.N; i++ {
+
+		// Clear files so constructed transaction log does not load state
+		require.NoError(b, os.RemoveAll(baseDir))
+
+		// Construct new transaction log for benchmark iteration
+		txLog, err := NewOrLoadTransactionLog(localStore, remoteStore, rand.Reader,
+			baseDir, deviceSecret)
+		require.NoError(b, err)
+
+		for cnt, curTs := range mockTimestamps {
+			// Construct transaction
+			key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+			newTx := NewTransaction(curTs, key, []byte(val))
+
+			// Append and use insertion sort
+			txLog.appendUsingInsertion(newTx)
+
+		}
+	}
+}
+
+// Benchmark the performance of appending to a transaction log using quicksort
+// (default algorithm of sort.Slice)
+func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
+	// Construct local store
+	baseDir, password := "testDir", "password"
+	localStore, err := NewEkvLocalStore(baseDir, password)
+	require.NoError(b, err)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(b, os.RemoveAll(baseDir))
+
+	}()
+
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
+
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
+
+	// We expect the number of transactions to reach this checkpoint within
+	// a few weeks.
+	const numRandomTimestamps = 10000
+
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(b, numRandomTimestamps)
+
+	for i := 0; i < b.N; i++ {
+		// Clear files so constructed transaction log does not load state
+		require.NoError(b, os.RemoveAll(baseDir))
+
+		// Construct new transaction log for benchmark iteration
+		txLog, err := NewOrLoadTransactionLog(localStore, remoteStore, rand.Reader,
+			baseDir, deviceSecret)
+		require.NoError(b, err)
+
+		for cnt, curTs := range mockTimestamps {
+			// Construct transaction
+			key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+			newTx := NewTransaction(curTs, key, []byte(val))
+
+			// Append and use insertion sort
+			txLog.appendUsingQuickSort(newTx)
+
+		}
+	}
 }

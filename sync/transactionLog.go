@@ -110,10 +110,12 @@ func NewOrLoadTransactionLog(local LocalStore, remote RemoteStore,
 // serialized TransactionLog to local and remote storage.
 func (tl *TransactionLog) Append(t Transaction) error {
 	tl.lck.Lock()
-
+	defer tl.lck.Unlock()
 	// Insert new transaction into list
 	jww.INFO.Printf("[%s] Inserting transaction to log", logHeader)
-	tl.append(t)
+
+	// Use insertion sort as it has been benchmarked to be more performant
+	tl.appendUsingInsertion(t)
 
 	// Save data to file store
 	jww.INFO.Printf("[%s] Saving transaction log", logHeader)
@@ -123,22 +125,33 @@ func (tl *TransactionLog) Append(t Transaction) error {
 	if err != nil {
 		return err
 	}
-	tl.lck.Unlock()
 	return tl.save(dataToSave)
 }
 
-// append will write the new Transaction to txs. txs must be ordered by
-// timestamp, so it will the txs list is sorted after appending the new
-// Transaction.
+// appendUsingInsertion will write the new Transaction to txs. txs must be
+// ordered by timestamp, so it will the txs list is sorted after appending the
+// new Transaction. Sorting is achieved using a custom insertion sort.
 //
 // Note that this operation is NOT thread-safe, and the caller should hold the
 // lck.
-func (tl *TransactionLog) append(newTransaction Transaction) {
+func (tl *TransactionLog) appendUsingInsertion(newTransaction Transaction) {
+	tl.insertionSort(newTransaction)
+}
+
+// appendUsingInsertion will write the new Transaction to txs. txs must be
+// ordered by timestamp, so it will the txs list is sorted after appending the
+// new Transaction. Sorting is achieved using a quick sort as defined by Go's
+// native sort package (specifically sort.Slice). This is left here for
+// benchmarking purposes to compare against appendUsingInsertion.
+//
+// Note that this operation is NOT thread-safe, and the caller should hold the
+// lck.
+func (tl *TransactionLog) appendUsingQuickSort(newTransaction Transaction) {
 	// Lazily insert new transaction
 	tl.txs = append(tl.txs, newTransaction)
 
-	// Sort transaction list. This operates in n * log(n) time complexity
-	sort.SliceStable(tl.txs, func(i, j int) bool {
+	//Sort transaction list. This operates in n * log(n) time complexity
+	sort.Slice(tl.txs, func(i, j int) bool {
 		firstTs, secondTs := tl.txs[i].Timestamp, tl.txs[j].Timestamp
 		return firstTs.Before(secondTs)
 	})
@@ -246,7 +259,6 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 // save writes the data passed int to file, both remotely and locally. The data
 // created from serialize.
 func (tl *TransactionLog) save(dataToSave []byte) error {
-	tl.lck.Lock()
 
 	// Save to local storage (if set)
 	if tl.local == nil {
@@ -261,21 +273,53 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 	}
 
 	// Do not let remote writing block operations
-	// fixme: consider making writing a go routine, then locking can
-	//  be done by the caller of save
-	tl.lck.Unlock()
+	go func() {
+		// Save to remote storage (if set)
+		if tl.remote == nil {
+			jww.FATAL.Panicf("[%s] Cannot write to a nil remote store", logHeader)
+		}
 
-	// Save to remote storage (if set)
-	if tl.remote == nil {
-		jww.FATAL.Panicf("[%s] Cannot write to a nil remote store", logHeader)
-	}
-
-	jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
-	if err := tl.remote.Write(tl.path, dataToSave); err != nil {
-		return errors.Errorf(writeToStoreErr, "remote", err)
-	}
+		jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
+		if err := tl.remote.Write(tl.path, dataToSave); err != nil {
+			jww.FATAL.Panicf(writeToStoreErr, "remote", err)
+		}
+	}()
 
 	return nil
+}
+
+// insertionSort is a utility function which implements a custom insertion sort
+// algorithms. This is used to insert a new Transaction into the txs list
+// in order by timestamp.
+func (tl *TransactionLog) insertionSort(newTransaction Transaction) {
+	if tl.txs == nil || len(tl.txs) == 0 {
+		tl.txs = []Transaction{newTransaction}
+		return
+	}
+
+	for i := len(tl.txs); i != 0; i-- {
+		// Skip anything where the current index transaction timestampe is after the newTransaction's
+		curidx := i - 1
+		if tl.txs[curidx].Timestamp.After(newTransaction.Timestamp) {
+			if curidx == 0 {
+				tl.txs = append([]Transaction{newTransaction}, tl.txs...)
+				return
+			}
+			continue
+		}
+		// If the current index is Before, insert just after this index
+		insertidx := i
+		// Just appendUsingInsertion when we are at the end already
+		if insertidx == len(tl.txs) {
+			tl.txs = append(tl.txs, newTransaction)
+		} else {
+			tl.txs = append(tl.txs[:insertidx+1], tl.txs[insertidx:]...)
+			tl.txs[insertidx] = newTransaction
+
+		}
+		return
+	}
+
 }
 
 // serializeInt is a utility function which serializes an integer into a byte

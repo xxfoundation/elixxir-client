@@ -2,7 +2,7 @@ package sync
 
 import (
 	"github.com/stretchr/testify/require"
-	"testing"
+	"math/rand"
 	"time"
 )
 
@@ -22,13 +22,16 @@ func (c *CountingReader) Read(b []byte) (int, error) {
 }
 
 // constructTimestamps is a testing utility function. It constructs a list of
-// out-of order mock timestamps.
-func constructTimestamps(t *testing.T) []time.Time {
+// out-of order mock timestamps. By default, it creates a list of 6 hard-coded
+// timestamps. It will also append to that list the number of random timestamps.
+func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Time {
 	var (
 		timestamp0, timestamp1, timestamp2, timestamp3, timestamp4,
 		timestamp5 time.Time
 		err error
 	)
+
+	res := make([]time.Time, 0)
 
 	// Construct timestamps. All of these are the same date but with different
 	// years.
@@ -56,7 +59,17 @@ func constructTimestamps(t *testing.T) []time.Time {
 		"2001-12-21T22:08:41+00:00")
 	require.NoError(t, err)
 
-	return []time.Time{
+	res = []time.Time{
 		timestamp0, timestamp1, timestamp2, timestamp3, timestamp4, timestamp5,
 	}
+	curTime := time.Now()
+	for i := 0; i < numRandomTimestamps; i++ {
+		curTime = curTime.Add(1 * time.Second)
+		for f := rand.Float32(); f < 0.5; f = rand.Float32() {
+			curTime = curTime.Add(-900 * time.Millisecond)
+		}
+		res = append(res, curTime)
+	}
+
+	return res
 }

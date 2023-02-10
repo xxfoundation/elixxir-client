@@ -200,15 +200,17 @@ type EventModel interface {
 	MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 }
 
-// NoMessageErr must be returned by EventModel.UpdateFromUUID,
-// EventModel.UpdateFromMessageID, and EventModel.GetMessage when the message
-// cannot be found.
+// NoMessageErr must be returned by EventModel methods (such as
+// EventModel.UpdateFromUUID, EventModel.UpdateFromMessageID, and
+// EventModel.GetMessage) when the message cannot be found.
 var NoMessageErr = errors.New("message does not exist [EV]")
 
-// checkNoMessageErr returns true if the error contains NoMessageErr.
-func checkNoMessageErr(err error) bool {
-	return !(errors.Is(err, NoMessageErr) ||
-		strings.Contains(err.Error(), NoMessageErr.Error()))
+// CheckNoMessageErr determines if the error returned by an EventModel function
+// indicates that the message or item does not exist. It returns true if the
+// error contains NoMessageErr.
+func CheckNoMessageErr(err error) bool {
+	return errors.Is(err, NoMessageErr) ||
+		strings.Contains(err.Error(), NoMessageErr.Error())
 }
 
 // ModelMessage contains a message and all of its information.
@@ -749,7 +751,7 @@ func (e *events) receiveDelete(channelID *id.ID, messageID message.ID,
 
 	err := e.model.DeleteMessage(deleteMessageID)
 	if err != nil {
-		if checkNoMessageErr(err) {
+		if CheckNoMessageErr(err) {
 			err = e.as.AddAction(channelID, messageID, deleteMessageID,
 				messageType, nil, nil, timestamp, time.Time{}, netTime.Now(),
 				lease, 0, rounds.Round{}, fromAdmin)
@@ -831,7 +833,7 @@ func (e *events) receivePinned(channelID *id.ID, messageID message.ID,
 	uuid, err := e.model.UpdateFromMessageID(
 		pinnedMessageID, nil, nil, &pinned, nil, nil)
 	if err != nil {
-		if checkNoMessageErr(err) {
+		if CheckNoMessageErr(err) {
 			err = e.as.AddAction(channelID, messageID, pinnedMessageID,
 				messageType, content, encryptedPayload, timestamp,
 				originatingTimestamp, netTime.Now(), lease, originatingRound,

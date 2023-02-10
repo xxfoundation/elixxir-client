@@ -1931,10 +1931,18 @@ type EventModel interface {
 }
 
 // GetNoMessageErr returns the error channels.NoMessageErr, which must be
-// returned by EventModel.UpdateFromUUID, EventModel.UpdateFromMessageID, and
-// EventModel.GetMessage when the message cannot be found.
+// returned by EventModel methods (such as EventModel.UpdateFromUUID,
+// EventModel.UpdateFromMessageID, and EventModel.GetMessage) when the message
+// cannot be found.
 func GetNoMessageErr() string {
 	return channels.NoMessageErr.Error()
+}
+
+// CheckNoMessageErr determines if the error returned by an EventModel function
+// indicates that the message or item does not exist. It returns true if the
+// error contains channels.NoMessageErr.
+func CheckNoMessageErr(err string) bool {
+	return channels.CheckNoMessageErr(errors.New(err))
 }
 
 // MessageUpdateInfo contains the updated information for a channel message.

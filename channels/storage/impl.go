@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/gorm"
@@ -129,9 +130,10 @@ func (i *impl) ReceiveReaction(channelID *id.ID, messageID, reactionTo message.I
 //
 // Returns an error if the message cannot be updated. It must return
 // channels.NoMessageErr if the message does not exist.
+// TODO: Make UpdateFromUUID return errors instead of print them
 func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *time.Time,
 	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) error {
-	parentErr := "failed to UpdateFromUUID"
+	parentErr := errors.New("failed to UpdateFromMessageID")
 
 	msgToUpdate := buildMessage(
 		nil, messageID.Bytes(), nil, "",
@@ -157,10 +159,8 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	cancel()
 
 	if err != nil {
-		if errors.Is(gorm.ErrRecordNotFound, err) {
-			return errors.WithMessage(channels.NoMessageErr, parentErr)
-		}
-		return errors.WithMessage(err, parentErr)
+		jww.ERROR.Printf("%+v", errors.WithMessagef(parentErr,
+			"Unable to create Channel: %+v", err))
 	}
 	channelId := &id.ID{}
 	copy(channelId[:], currentMessage.ChannelId)
@@ -181,10 +181,11 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 //
 // Returns an error if the message cannot be updated. It must return
 // channels.NoMessageErr if the message does not exist.
+// TODO: Make UpdateFromMessageID return errors instead of print them
 func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) (
 	uint64, error) {
-	parentErr := "failed to UpdateFromMessageID"
+	parentErr := errors.New("failed to UpdateFromMessageID")
 
 	msgToUpdate := buildMessage(
 		nil, messageID.Bytes(), nil, "",
@@ -210,10 +211,8 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	cancel()
 
 	if err != nil {
-		if errors.Is(gorm.ErrRecordNotFound, err) {
-			return 0, errors.WithMessage(channels.NoMessageErr, parentErr)
-		}
-		return 0, errors.WithMessage(err, parentErr)
+		jww.ERROR.Printf("%+v", errors.WithMessagef(parentErr,
+			"Unable to create Channel: %+v", err))
 	}
 	channelId := &id.ID{}
 	copy(channelId[:], currentMessage.ChannelId)
@@ -226,26 +225,22 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 //
 // Returns an error if the message cannot be gotten. It must return
 // channels.NoMessageErr if the message does not exist.
+// TODO: make GetMessage return NoMessageErr
 func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
-	parentErr := "failed to GetMessage"
-
 	result := &Message{}
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Take(result, "message_id = ?",
 		messageID.Bytes()).Error
 	cancel()
 	if err != nil {
-		if errors.Is(gorm.ErrRecordNotFound, err) {
-			return channels.ModelMessage{}, errors.WithMessage(channels.NoMessageErr, parentErr)
-		}
-		return channels.ModelMessage{}, errors.WithMessage(err, parentErr)
+		return channels.ModelMessage{}, err
 	}
 
 	var channelId *id.ID
 	if result.ChannelId != nil {
 		channelId, err = id.Unmarshal(result.ChannelId)
 		if err != nil {
-			return channels.ModelMessage{}, errors.WithMessage(err, parentErr)
+			return channels.ModelMessage{}, err
 		}
 	}
 
@@ -253,7 +248,7 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 	if result.ParentMessageId != nil {
 		parentMsgId, err = message.UnmarshalID(result.ParentMessageId)
 		if err != nil {
-			return channels.ModelMessage{}, errors.WithMessage(err, parentErr)
+			return channels.ModelMessage{}, err
 		}
 	}
 
@@ -290,13 +285,18 @@ func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 // Returns an error if the message cannot be deleted. It must return
 // channels.NoMessageErr if the message does not exist.
 func (i *impl) DeleteMessage(messageID message.ID) error {
+	parentErr := "Unable to delete Message"
+
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Where("message_id = ?",
 		messageID.Bytes()).Delete(&Message{}).Error
 	cancel()
 
 	if err != nil {
-		return errors.Errorf("Unable to delete Message: %+v", err)
+		if errors.Is(gorm.ErrRecordNotFound, err) {
+			return errors.WithMessage(channels.NoMessageErr, parentErr)
+		}
+		return errors.WithMessage(err, parentErr)
 	}
 	return nil
 }
@@ -367,4 +367,49 @@ func buildMessage(channelID, messageID, parentID []byte, nickname string,
 		DmToken:        dmToken,
 		CodesetVersion: codeset,
 	}
+}
+
+// ReceiveFileMessage is called when a file upload begins or when a message
+// to download a file is received.
+//
+// The API needs to return a UUID of the message that can be referenced at a
+// later time.
+//
+// timestamp and round are nillable and may be updated based upon the UUID
+// at a later date. A time of time.Time{} will be passed for a nilled
+// timestamp.
+//
+// nickname may be empty, in which case the UI is expected to display the
+// codename.
+func (i *impl) ReceiveFileMessage(channelID *id.ID, fileID fileTransfer.ID, nickname string,
+	fileInfo, fileData []byte, pubKey ed25519.PublicKey, dmToken uint32,
+	codeset uint8, timestamp time.Time, lease time.Duration,
+	round rounds.Round, messageType channels.MessageType,
+	status channels.SentStatus, hidden bool) uint64 {
+
+}
+
+// UpdateFile is called when a file upload completed, a download starts, or
+// a download completes. Each use will be identified in a SentStatus change
+// (SendProcessingComplete, ReceptionProcessing, and
+// ReceptionProcessingComplete).
+//
+// timestamp, round, pinned, hidden, and status are all nillable and may be
+// updated based upon the fileID at a later date. If a nil value is passed,
+// then make no update.
+//
+// Returns an error if the message cannot be updated. It must return
+// channels.NoMessageErr if the message does not exist.
+func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData *[]byte,
+	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
+	status *channels.SentStatus) error {
+
+}
+
+// GetFile returns the file data and info at the given file ID.
+//
+// Returns an error if the file cannot be gotten. It must return
+// channels.NoMessageErr if the file does not exist.
+func (i *impl) GetFile(fileID fileTransfer.ID) (fileInfo, fileData []byte, err error) {
+
 }

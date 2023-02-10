@@ -10,14 +10,21 @@ import (
 	"time"
 )
 
-// Message defines the IndexedDb representation of a single Message.
+// Channel defines the database representation of a single Channel.
+type Channel struct {
+	Id          []byte `gorm:"primaryKey"`
+	Name        string `gorm:"not null"`
+	Description string `gorm:"not null"`
+
+	// A Channel has many Message.
+	Messages []Message `gorm:"constraint:OnDelete:CASCADE"`
+}
+
+// Message defines the database representation of a single Message.
 //
 // A Message belongs to one Channel.
 //
 // A Message may (informally) belong to one Message (Parent).
-//
-// The user's nickname can change each message, but the rest does not. We
-// still duplicate all of it for each entry to simplify code for now.
 type Message struct {
 	Id              uint64        `gorm:"primaryKey;autoIncrement:true"`
 	Nickname        string        `gorm:"not null"`
@@ -39,15 +46,16 @@ type Message struct {
 	Pubkey         []byte `gorm:"not null"`
 	DmToken        uint32 `gorm:"not null"`
 	CodesetVersion uint8  `gorm:"not null"`
+
+	// A Message may have one File.
+	File *File `gorm:"constraint:OnDelete:CASCADE"`
 }
 
-// Channel defines the IndexedDb representation of a single Channel.
+// File defines the database representation of a single File.
 //
-// A Channel has many Message.
-type Channel struct {
-	Id          []byte `gorm:"primaryKey"`
-	Name        string `gorm:"not null"`
-	Description string `gorm:"not null"`
-
-	Messages []Message `gorm:"constraint:OnDelete:CASCADE"`
+// A File may belong to one Message.
+type File struct {
+	Id        uint64 `gorm:"primaryKey;autoIncrement:true"`
+	MessageId []byte `gorm:"not null"`
+	Data      []byte `gorm:"not null"`
 }

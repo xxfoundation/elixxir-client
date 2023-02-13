@@ -333,7 +333,7 @@ type EventModelBuilder func(path string) (EventModel, error)
 // message handlers with the event model.
 type ExtensionMessageHandler interface {
 	// GetType registers the message type that this handler is for. All messages
-	// of this type will be passed through this handler
+	// of this type will be passed through this handler.
 	GetType() MessageType
 
 	// GetProperties returns debugging and pre-filtering information.

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/gorm"
@@ -392,6 +393,7 @@ func (i *impl) ReceiveFileMessage(channelID *id.ID, fileID fileTransfer.ID, nick
 	round rounds.Round, messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) uint64 {
 
+	return 0
 }
 
 // UpdateFile is called when a file upload completed, a download starts, or
@@ -409,6 +411,7 @@ func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData *[]byte,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 	status *channels.SentStatus) error {
 
+	return nil
 }
 
 // GetFile returns the file data and info at the given file ID.
@@ -416,5 +419,5 @@ func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData *[]byte,
 // Returns an error if the file cannot be gotten. It must return
 // channels.NoMessageErr if the file does not exist.
 func (i *impl) GetFile(fileID fileTransfer.ID) (fileInfo, fileData []byte, err error) {
-
+	return nil, nil, nil
 }

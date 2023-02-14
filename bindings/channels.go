@@ -203,10 +203,14 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 // MessageReceivedCallback is called any time a message is received or updated.
 //
 // update is true if the row is old and was edited.
-type MessageReceivedCallback func(uuid int64, channelID []byte, update bool)
+type MessageReceivedCallback interface {
+	Callback(uuid int64, channelID []byte, update bool)
+}
 
 // MuteCallback is a callback provided for the MuteUser method of the impl.
-type MuteCallback func(channelID []byte, pubKey []byte, unmute bool)
+type MuteCallback interface {
+	Callback(channelID []byte, pubKey []byte, unmute bool)
+}
 
 // NewChannelsManagerMobile creates a new [ChannelsManager] from a new private
 // identity [cryptoChannel.PrivateIdentity] backed with SqlLite for mobile use.
@@ -244,10 +248,10 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	}
 
 	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb(int64(uuid), channelID.Marshal(), update)
+		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
 	}
 	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-		muteCb(channelID.Marshal(), pubKey, unmute)
+		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
 	}
 
 	model, err := storage.NewEventModel(dbFilePath, cipher, newMsgCb, newMuteCb)

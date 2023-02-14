@@ -302,10 +302,10 @@ func LoadChannelsManagerMobile(cmixID int, storageTag string,
 	}
 
 	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb(int64(uuid), channelID.Marshal(), update)
+		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
 	}
 	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-		muteCb(channelID.Marshal(), pubKey, unmute)
+		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
 	}
 
 	model, err := storage.NewEventModel(dbFilePath, cipher, newMsgCb, newMuteCb)

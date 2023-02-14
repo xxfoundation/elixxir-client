@@ -184,7 +184,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
 	for i := range extensionBuilders {
-		ext, err := extensionBuilders[i](model, m)
+		ext, err := extensionBuilders[i](model, m, m.me)
 		if err != nil {
 			jww.FATAL.Panicf("[CH] Failed to initialize extension %d of %d: %+v",
 				i, len(extensionBuilders), err)

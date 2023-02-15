@@ -231,6 +231,8 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 					ID: gwID.Marshal(),
 				},
 			}
+			// Use ephemeral key for this node if enabled && it is not the
+			// first node in the round
 			if r.enableEphemeralRegistration && i != 0 {
 				jww.WARN.Println(errors.Errorf(
 					"cannot get key for %s, triggered registration & continuing w/ ephemeral ED key", nid))

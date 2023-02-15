@@ -120,11 +120,10 @@ bindings-ios:
 
 bindings-android:
   stage: build
+  image: $ANDROID_DOCKER_IMAGE
   dependencies: []
   except:
     - tags
-  tags:
-    - android
   script:
     - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
     - export ANDROID_HOME=/android-sdk

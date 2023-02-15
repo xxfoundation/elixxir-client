@@ -85,7 +85,7 @@ func (i *impl) ReceiveMessage(channelID *id.ID, messageID message.ID, nickname,
 	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
 	uuid, err := i.receiveHelper(channelID, messageID, nil,
 		nickname, text, pubKey, dmToken, codeset, timestamp, lease,
-		round, messageType, status, hidden)
+		round, messageType, status, hidden, nil)
 	if err != nil {
 		jww.ERROR.Printf("Failed to receive message: %+v", err)
 	}
@@ -100,7 +100,7 @@ func (i *impl) ReceiveReply(channelID *id.ID, messageID, reactionTo message.ID,
 	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
 	uuid, err := i.receiveHelper(channelID, messageID, reactionTo.Bytes(),
 		nickname, text, pubKey, dmToken, codeset, timestamp, lease,
-		round, messageType, status, hidden)
+		round, messageType, status, hidden, nil)
 	if err != nil {
 		jww.ERROR.Printf("Failed to receive reply: %+v", err)
 	}
@@ -115,7 +115,7 @@ func (i *impl) ReceiveReaction(channelID *id.ID, messageID, reactionTo message.I
 	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
 	uuid, err := i.receiveHelper(channelID, messageID, reactionTo.Bytes(),
 		nickname, reaction, pubKey, dmToken, codeset, timestamp, lease,
-		round, messageType, status, hidden)
+		round, messageType, status, hidden, nil)
 	if err != nil {
 		jww.ERROR.Printf("Failed to receive message: %+v", err)
 	}
@@ -315,7 +315,7 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 	codeset uint8, timestamp time.Time,
 	lease time.Duration, round rounds.Round,
 	messageType channels.MessageType,
-	status channels.SentStatus, hidden bool) (uint64, error) {
+	status channels.SentStatus, hidden bool, file *File) (uint64, error) {
 	textBytes := []byte(text)
 	var err error
 
@@ -331,6 +331,7 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 		channelID.Marshal(), messageID.Bytes(), parentMsgId, nickname,
 		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
 		messageType, false, hidden, status)
+	msgToInsert.File = file
 
 	ctx, cancel := newContext()
 	err = i.db.WithContext(ctx).Create(msgToInsert).Error
@@ -392,8 +393,17 @@ func (i *impl) ReceiveFileMessage(channelID *id.ID, fileID fileTransfer.ID, nick
 	codeset uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) uint64 {
-
-	return 0
+	file := &File{
+		Id:   fileID.Marshal(),
+		Data: fileData,
+	}
+	uuid, err := i.receiveHelper(channelID, message.ID{}, nil, nickname,
+		string(fileInfo), pubKey, dmToken, codeset, timestamp, lease, round,
+		messageType, status, hidden, file)
+	if err != nil {
+		jww.ERROR.Printf("Failed to receive file: %+v", err)
+	}
+	return uuid
 }
 
 // UpdateFile is called when a file upload completed, a download starts, or
@@ -407,10 +417,44 @@ func (i *impl) ReceiveFileMessage(channelID *id.ID, fileID fileTransfer.ID, nick
 //
 // Returns an error if the message cannot be updated. It must return
 // channels.NoMessageErr if the message does not exist.
-func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData *[]byte,
+func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData []byte,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 	status *channels.SentStatus) error {
+	parentErr := "failed to UpdateFile"
 
+	msgToUpdate := buildMessage(
+		nil, nil, nil, "",
+		fileInfo, nil, 0, 0, *timestamp, 0, 0,
+		0, *pinned, *hidden, *status)
+	if round != nil {
+		msgToUpdate.Round = uint64(round.ID)
+	}
+	msgToUpdate.File = &File{
+		Data: fileData,
+	}
+
+	// Build a transaction to prevent race conditions
+	ctx, cancel := newContext()
+	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		currentFile := &File{Id: fileID.Marshal()}
+		err := tx.Joins("Message").Take(currentFile).Error
+		if err != nil {
+			return err
+		}
+
+		// Use the File.MessageId to update with msgToUpdate
+		msgToUpdate.Id = currentFile.MessageId
+		// When updating with struct it will only update non-zero fields by default
+		return tx.Updates(msgToUpdate).Error
+	})
+	cancel()
+
+	if err != nil {
+		if errors.Is(gorm.ErrRecordNotFound, err) {
+			return errors.WithMessage(channels.NoMessageErr, parentErr)
+		}
+		return errors.WithMessage(err, parentErr)
+	}
 	return nil
 }
 
@@ -419,5 +463,17 @@ func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData *[]byte,
 // Returns an error if the file cannot be gotten. It must return
 // channels.NoMessageErr if the file does not exist.
 func (i *impl) GetFile(fileID fileTransfer.ID) (fileInfo, fileData []byte, err error) {
-	return nil, nil, nil
+	parentErr := "failed to GetFile"
+
+	result := &File{Id: fileID.Marshal()}
+	ctx, cancel := newContext()
+	err = i.db.WithContext(ctx).Joins("Message").Take(result).Error
+	cancel()
+	if err != nil {
+		if errors.Is(gorm.ErrRecordNotFound, err) {
+			return nil, nil, errors.WithMessage(channels.NoMessageErr, parentErr)
+		}
+		return nil, nil, errors.WithMessage(err, parentErr)
+	}
+	return result.Message.Text, result.Data, nil
 }

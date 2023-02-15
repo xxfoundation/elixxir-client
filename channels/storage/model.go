@@ -55,7 +55,10 @@ type Message struct {
 //
 // A File may belong to one Message.
 type File struct {
-	Id        uint64 `gorm:"primaryKey;autoIncrement:true"`
-	MessageId []byte `gorm:"not null"`
+	Id        []byte `gorm:"primaryKey;autoIncrement:false"`
+	MessageId uint64 `gorm:"not null"`
 	Data      []byte `gorm:"not null"`
+
+	// A File has one Message.
+	Message *Message
 }

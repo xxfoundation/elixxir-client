@@ -42,7 +42,7 @@ func Test_newReceivedTransfer(t *testing.T) {
 		t.Errorf("Failed to make new cypher manager: %+v", err)
 	}
 	partStatus, err := utility.NewStateVector(
-		rtKv, receivedTransferStatusKey, uint32(numParts))
+		uint32(numParts), false, receivedTransferStatusKey, rtKv)
 	if err != nil {
 		t.Errorf("Failed to make new state vector: %+v", err)
 	}

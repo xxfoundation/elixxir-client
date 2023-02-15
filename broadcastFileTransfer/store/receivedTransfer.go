@@ -115,7 +115,7 @@ func newReceivedTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 
 	// Create new state vector for storing statuses of received parts
 	partStatus, err := utility.NewStateVector(
-		kv, receivedTransferStatusKey, uint32(numParts))
+		uint32(numParts), false, receivedTransferStatusKey, kv)
 	if err != nil {
 		return nil, errors.Errorf(errRtNewPartStatusVectorErr, err)
 	}

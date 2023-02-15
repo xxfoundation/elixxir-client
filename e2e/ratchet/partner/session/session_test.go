@@ -220,7 +220,7 @@ func TestSession_PopKey_Error(t *testing.T) {
 	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
+	s.keyState, err = utility.NewStateVector(0, false, "", s.kv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestSession_PopReKey_Err(t *testing.T) {
 	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
+	s.keyState, err = utility.NewStateVector(0, false, "", s.kv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func TestSession_IsConfirmed(t *testing.T) {
 func TestSession_Status(t *testing.T) {
 	s, _ := makeTestSession()
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", 500)
+	s.keyState, err = utility.NewStateVector(500, false, "", s.kv)
 	if err != nil {
 		t.Fatal(err)
 	}

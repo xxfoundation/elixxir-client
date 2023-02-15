@@ -10,12 +10,16 @@ package utility
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/xx_network/primitives/netTime"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
+
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Storage key and version.
@@ -47,14 +51,15 @@ type StateVector struct {
 	numKeys        uint32 // Total number of keys
 	numAvailable   uint32 // Number of unused keys
 
-	key string // Unique string used to save/load object from storage
-	kv  *versioned.KV
-	mux sync.RWMutex
+	disableKV bool   // Toggles use of KV storage
+	key       string // Unique string used to save/load object from storage
+	kv        *versioned.KV
+	mux       sync.RWMutex
 }
 
 // NewStateVector generates a new StateVector with the specified number of keys.
-func NewStateVector(kv *versioned.KV, key string, numKeys uint32) (
-	*StateVector, error) {
+func NewStateVector(numKeys uint32, disableKV bool, key string,
+	kv *versioned.KV) (*StateVector, error) {
 
 	// Calculate the number of 64-bit blocks needed to store numKeys
 	numBlocks := (numKeys + 63) / 64
@@ -64,6 +69,7 @@ func NewStateVector(kv *versioned.KV, key string, numKeys uint32) (
 		firstAvailable: 0,
 		numKeys:        numKeys,
 		numAvailable:   numKeys,
+		disableKV:      disableKV,
 		key:            makeStateVectorKey(key),
 		kv:             kv,
 	}
@@ -304,6 +310,7 @@ func (sv *StateVector) DeepCopy() *StateVector {
 		firstAvailable: sv.firstAvailable,
 		numKeys:        sv.numKeys,
 		numAvailable:   sv.numAvailable,
+		disableKV:      true,
 		key:            sv.key,
 	}
 
@@ -323,18 +330,19 @@ func getBlockAndPos(keyNum uint32) (block, pos uint32) {
 	return block, pos
 }
 
-// String returns a unique string representing the StateVector. This functions
-// satisfies the fmt.Stringer interface.
+// String returns a human-readable representing of the StateVector for logging
+// and debugging. This functions adheres to the fmt.Stringer interface.
 func (sv *StateVector) String() string {
-	return "stateVector: " + sv.key
-}
-
-// GoString returns the fields of the StateVector. This functions satisfies the
-// fmt.GoStringer interface.
-func (sv *StateVector) GoString() string {
-	return fmt.Sprintf(
-		"{vect:%v firstAvailable:%d numKeys:%d numAvailable:%d key:%s kv:%p}",
-		sv.vect, sv.firstAvailable, sv.numKeys, sv.numAvailable, sv.key, sv.kv)
+	fields := []string{
+		"vect:" + fmt.Sprintf("%d", sv.vect),
+		"firstAvailable:" + strconv.Itoa(int(sv.firstAvailable)),
+		"numKeys:" + strconv.Itoa(int(sv.numKeys)),
+		"numAvailable:" + strconv.Itoa(int(sv.numAvailable)),
+		"disableKV:" + strconv.FormatBool(sv.disableKV),
+		"key:" + sv.key,
+		"kv:" + fmt.Sprintf("%p", sv.kv),
+	}
+	return "{" + strings.Join(fields, " ") + "}"
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -354,8 +362,9 @@ type stateVectorDisk struct {
 // versioned storage.
 func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
 	sv := &StateVector{
-		key: makeStateVectorKey(key),
-		kv:  kv,
+		disableKV: false,
+		key:       makeStateVectorKey(key),
+		kv:        kv,
 	}
 
 	// Load StateVector data from storage
@@ -375,6 +384,10 @@ func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
 
 // save stores the StateVector in storage.
 func (sv *StateVector) save() error {
+	if sv.disableKV {
+		return nil
+	}
+
 	// Marshal the StateVector
 	data, err := sv.MarshalJSON()
 	if err != nil {
@@ -393,6 +406,9 @@ func (sv *StateVector) save() error {
 
 // Delete remove the StateVector from storage.
 func (sv *StateVector) Delete() error {
+	if sv.disableKV {
+		return nil
+	}
 	return sv.kv.Delete(sv.key, currentStateVectorVersion)
 }
 

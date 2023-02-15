@@ -12,13 +12,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Tests that NewStateVector creates the expected new StateVector and that it is
@@ -36,7 +37,7 @@ func TestNewStateVector(t *testing.T) {
 		kv:             kv,
 	}
 
-	received, err := NewStateVector(kv, key, numKeys)
+	received, err := NewStateVector(numKeys, false, key, kv)
 	if err != nil {
 		t.Errorf("NewStateVector returned an error: %+v", err)
 	}
@@ -475,9 +476,10 @@ func TestStateVector_DeepCopy(t *testing.T) {
 	sv.kv = nil
 
 	// Check that the values are the same
+	newSV.disableKV = false
 	if !reflect.DeepEqual(sv, newSV) {
 		t.Errorf("Original and copy do not match."+
-			"\nexpected: %#v\nreceived: %#v", sv, newSV)
+			"\nexpected: %s\nreceived: %s", sv, newSV)
 	}
 
 	// Check that the pointers are different
@@ -494,34 +496,18 @@ func TestStateVector_DeepCopy(t *testing.T) {
 
 // Tests that StateVector.String returns the expected string.
 func TestStateVector_String(t *testing.T) {
-	key := "StateVectorString"
-	expected := "stateVector: " + makeStateVectorKey(key)
-	sv := newTestStateVector(key, 500, t)
-	// Use every other key
-	for i := uint32(0); i < sv.numKeys; i += 2 {
-		sv.use(i)
-	}
-
-	if expected != sv.String() {
-		t.Errorf("String does not match expected.\nexpected: %q\nreceived: %q",
-			expected, sv.String())
-	}
-}
-
-// Tests that StateVector.GoString returns the expected string.
-func TestStateVector_GoString(t *testing.T) {
 	expected := "{vect:[6148914691236517205 6148914691236517205 " +
 		"6148914691236517205 6148914691236517205 6148914691236517205 " +
 		"6148914691236517205 6148914691236517205 1501199875790165] " +
 		"firstAvailable:1 numKeys:500 numAvailable:250 " +
-		"key:stateVectorStateVectorGoString"
-	sv := newTestStateVector("StateVectorGoString", 500, t)
+		"disableKV:false key:stateVectorStateVector"
+	sv := newTestStateVector("StateVector", 500, t)
 	// Use every other key
 	for i := uint32(0); i < sv.numKeys; i += 2 {
 		sv.use(i)
 	}
 
-	received := strings.Split(sv.GoString(), " kv:")[0]
+	received := strings.Split(sv.String(), " kv:")[0]
 	if expected != received {
 		t.Errorf("String does not match expected.\nexpected: %q\nreceived: %q",
 			expected, received)
@@ -883,7 +869,7 @@ func TestStateVector_SetKvTEST_InvalidInterfaceError(t *testing.T) {
 func newTestStateVector(key string, numKeys uint32, t *testing.T) *StateVector {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	sv, err := NewStateVector(kv, key, numKeys)
+	sv, err := NewStateVector(numKeys, false, key, kv)
 	if err != nil {
 		t.Fatalf("Failed to create new StateVector: %+v", err)
 	}

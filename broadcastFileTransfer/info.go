@@ -14,10 +14,10 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// TransferInfo contains all the information for a new transfer. This is the
+// FileInfo contains all the information for a new transfer. This is the
 // information sent in the initial file transfer so the recipient can prepare
 // for the incoming file transfer parts.
-type TransferInfo struct {
+type FileInfo struct {
 	// FID is the file's ID.
 	FID ftCrypto.ID `json:"fid"`
 
@@ -49,56 +49,56 @@ type TransferInfo struct {
 	Preview []byte `json:"preview"`
 }
 
-// Marshal serialises the TransferInfo for sending over the network.
-func (ti *TransferInfo) Marshal() ([]byte, error) {
+// Marshal serialises the FileInfo for sending over the network.
+func (fi *FileInfo) Marshal() ([]byte, error) {
 	// Construct NewFileTransfer message
-	protoMsg := &TransferInfoMsg{
-		Fid:         ti.FID.Marshal(),
-		RecipientID: ti.RecipientID.Marshal(),
-		FileName:    ti.FileName,
-		FileType:    ti.FileType,
-		TransferKey: ti.Key.Bytes(),
-		TransferMac: ti.Mac,
-		NumParts:    uint32(ti.NumParts),
-		Size:        ti.Size,
-		Retry:       ti.Retry,
-		Preview:     ti.Preview,
+	protoMsg := &FileInfoMsg{
+		Fid:         fi.FID.Marshal(),
+		RecipientID: fi.RecipientID.Marshal(),
+		FileName:    fi.FileName,
+		FileType:    fi.FileType,
+		TransferKey: fi.Key.Bytes(),
+		TransferMac: fi.Mac,
+		NumParts:    uint32(fi.NumParts),
+		Size:        fi.Size,
+		Retry:       fi.Retry,
+		Preview:     fi.Preview,
 	}
 
 	return proto.Marshal(protoMsg)
 }
 
-// UnmarshalTransferInfo deserializes the TransferInfo.
-func UnmarshalTransferInfo(data []byte) (*TransferInfo, error) {
+// UnmarshalFileInfo deserializes the FileInfo.
+func UnmarshalFileInfo(data []byte) (*FileInfo, error) {
 	// Unmarshal the request message
-	var ti TransferInfoMsg
-	err := proto.Unmarshal(data, &ti)
+	var fi FileInfoMsg
+	err := proto.Unmarshal(data, &fi)
 	if err != nil {
 		return nil, err
 	}
 
-	fid, err := ftCrypto.UnmarshalID(ti.Fid)
+	fid, err := ftCrypto.UnmarshalID(fi.Fid)
 	if err != nil {
 		return nil, err
 	}
 
-	transferKey := ftCrypto.UnmarshalTransferKey(ti.GetTransferKey())
+	transferKey := ftCrypto.UnmarshalTransferKey(fi.GetTransferKey())
 
-	recipientID, err := id.Unmarshal(ti.RecipientID)
+	recipientID, err := id.Unmarshal(fi.RecipientID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &TransferInfo{
+	return &FileInfo{
 		FID:         fid,
 		RecipientID: recipientID,
-		FileName:    ti.FileName,
-		FileType:    ti.FileType,
+		FileName:    fi.FileName,
+		FileType:    fi.FileType,
 		Key:         transferKey,
-		Mac:         ti.TransferMac,
-		NumParts:    uint16(ti.NumParts),
-		Size:        ti.Size,
-		Retry:       ti.Retry,
-		Preview:     ti.Preview,
+		Mac:         fi.TransferMac,
+		NumParts:    uint16(fi.NumParts),
+		Size:        fi.Size,
+		Retry:       fi.Retry,
+		Preview:     fi.Preview,
 	}, nil
 }

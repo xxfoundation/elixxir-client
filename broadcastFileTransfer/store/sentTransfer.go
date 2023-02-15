@@ -86,9 +86,12 @@ type SentTransfer struct {
 	// Stores the status of each part in a bitstream format
 	partStatus *utility.MultiStateVector
 
+	// Current ID to assign to a callback
+	currentCallbackID uint64
+
 	// Unique identifier of the last progress callback called (used to prevent
 	// callback calls with duplicate data)
-	lastCallbackFingerprint string
+	lastCallbackFingerprints map[uint64]string
 
 	mux sync.RWMutex
 	kv  *versioned.KV
@@ -262,17 +265,26 @@ func (st *SentTransfer) CopyPartStatusVector() *utility.MultiStateVector {
 	return st.partStatus.DeepCopy()
 }
 
+// GetNewCallbackID issues a new unique for a callback.
+func (st *SentTransfer) GetNewCallbackID() uint64 {
+	st.mux.Lock()
+	defer st.mux.Unlock()
+	newID := st.currentCallbackID
+	st.currentCallbackID++
+	return newID
+}
+
 // CompareAndSwapCallbackFps compares the fingerprint to the previous callback
 // call's fingerprint. If they are different, the new one is stored, and it
 // returns true. Returns fall if they are the same.
-func (st *SentTransfer) CompareAndSwapCallbackFps(
+func (st *SentTransfer) CompareAndSwapCallbackFps(callbackID uint64,
 	completed bool, sent, received, total uint16, err error) bool {
 	fp := generateSentFp(completed, sent, received, total, err)
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
-	if fp != st.lastCallbackFingerprint {
-		st.lastCallbackFingerprint = fp
+	if fp != st.lastCallbackFingerprints[callbackID] {
+		st.lastCallbackFingerprints[callbackID] = fp
 		return true
 	}
 
@@ -299,7 +311,8 @@ func generateSentFp(
 ////////////////////////////////////////////////////////////////////////////////
 
 // loadSentTransfer loads the SentTransfer with the given file ID from storage.
-func loadSentTransfer(fid ftCrypto.ID, kv *versioned.KV) (*SentTransfer, error) {
+func loadSentTransfer(
+	fid ftCrypto.ID, parts [][]byte, kv *versioned.KV) (*SentTransfer, error) {
 	kv = kv.Prefix(makeSentTransferPrefix(fid))
 
 	// Load cypher manager
@@ -331,10 +344,10 @@ func loadSentTransfer(fid ftCrypto.ID, kv *versioned.KV) (*SentTransfer, error) 
 		fid:           fid,
 		fileName:      info.FileName,
 		recipient:     info.Recipient,
-		fileSize:      calcFileSize(info.Parts),
-		numParts:      uint16(len(info.Parts)),
+		fileSize:      calcFileSize(parts),
+		numParts:      uint16(len(parts)),
 		status:        info.Status,
-		parts:         info.Parts,
+		parts:         parts,
 		partStatus:    partStatus,
 		kv:            kv,
 	}
@@ -399,7 +412,6 @@ type sentTransferDisk struct {
 	FileName  string         `json:"fileName"`
 	Recipient *id.ID         `json:"recipient"`
 	Status    TransferStatus `json:"status"`
-	Parts     [][]byte       `json:"parts"`
 }
 
 // marshal serialises the SentTransfer's file information.
@@ -408,7 +420,6 @@ func (st *SentTransfer) marshal() ([]byte, error) {
 		FileName:  st.fileName,
 		Recipient: st.recipient,
 		Status:    st.status,
-		Parts:     st.parts,
 	}
 
 	return json.Marshal(disk)

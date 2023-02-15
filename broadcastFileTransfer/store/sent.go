@@ -49,11 +49,10 @@ type Sent struct {
 }
 
 // NewOrLoadSent attempts to load Sent from storage. Or if none exist, then a
-// new Sent is returned. If running transfers were loaded from storage, a list
-// of unsent parts is returned.
-func NewOrLoadSent(
-	kv *versioned.KV) (s *Sent, unsentParts, sentParts []*Part, err error) {
-	s = &Sent{
+// new Sent is returned. A list of file IDs for all incomplete sends is also
+// returned.
+func NewOrLoadSent(kv *versioned.KV) (*Sent, []ftCrypto.ID, error) {
+	s := &Sent{
 		transfers: make(map[ftCrypto.ID]*SentTransfer),
 		kv:        kv.Prefix(sentTransfersStorePrefix),
 	}
@@ -62,26 +61,36 @@ func NewOrLoadSent(
 	if err != nil {
 		if !kv.Exists(err) {
 			// Return the new Sent if none exists in storage
-			return s, nil, nil, nil
+			return s, nil, nil
 		} else {
 			// Return other errors
-			return nil, nil, nil, errors.Errorf(errLoadSent, err)
+			return nil, nil, errors.Errorf(errLoadSent, err)
 		}
 	}
 
 	// Load list of saved sent transfers from storage
 	fidList, err := unmarshalFileIdList(obj.Data)
 	if err != nil {
-		return nil, nil, nil, errors.Errorf(errUnmarshalSent, err)
+		return nil, nil, errors.Errorf(errUnmarshalSent, err)
 	}
 
+	return s, fidList, nil
+}
+
+// LoadTransfers loads all sent transfers in the list from storage into Sent.
+// It returns unsentParts, a list of all parts that were not sent, and
+// sentParts, a list of all file parts that have been sent but reception has not
+// been confirmed.
+func (s *Sent) LoadTransfers(fileParts map[ftCrypto.ID][][]byte) (
+	unsentParts, sentParts []*Part, err error) {
+
 	// Load sent transfers from storage
-	var errCount int
-	for i := range fidList {
-		fid := fidList[i]
-		s.transfers[fid], err = loadSentTransfer(fid, s.kv)
+	var errCount, i int
+	for fid, parts := range fileParts {
+		i++
+		s.transfers[fid], err = loadSentTransfer(fid, parts, s.kv)
 		if err != nil {
-			jww.WARN.Printf(warnLoadSentTransfer, i, len(fidList), fid, err)
+			jww.WARN.Printf(warnLoadSentTransfer, i, len(fileParts), fid, err)
 			errCount++
 			continue
 		}
@@ -95,11 +104,11 @@ func NewOrLoadSent(
 	}
 
 	// Return an error if all transfers failed to load
-	if len(fidList) > 0 && errCount == len(fidList) {
-		return nil, nil, nil, errors.Errorf(errLoadAllSentTransfer, len(fidList))
+	if len(fileParts) > 0 && errCount == len(fileParts) {
+		return nil, nil, errors.Errorf(errLoadAllSentTransfer, len(fileParts))
 	}
 
-	return s, unsentParts, sentParts, nil
+	return unsentParts, sentParts, nil
 }
 
 // AddTransfer creates a SentTransfer and adds it to the map keyed on its file
@@ -148,6 +157,18 @@ func (s *Sent) RemoveTransfer(fid ftCrypto.ID) error {
 	}
 
 	delete(s.transfers, fid)
+	return s.save()
+}
+
+// RemoveTransfers removes the transfers from the map.
+func (s *Sent) RemoveTransfers(fidList ...ftCrypto.ID) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for _, fid := range fidList {
+		delete(s.transfers, fid)
+	}
+
 	return s.save()
 }
 

@@ -11,9 +11,10 @@ package broadcastFileTransfer;
 
 option go_package = "gitlab.com/elixxir/client/broadcastFileTransfer";
 
-// TransferInfoMsg is is transmitted to other users so that they can download a
-// file transfer.
-message TransferInfoMsg {
+// FileInfoMsg contains all the information needed to download a file. Once a
+// file is uploaded to the recipientID, it is transmitted to other users so that
+// they can download the file themselves from the ID.
+message FileInfoMsg {
     bytes  fid = 1;          // The file's ID
     bytes  recipientID = 2;  // ID to listen on to receive file
     string fileName = 3;     // Name of the file

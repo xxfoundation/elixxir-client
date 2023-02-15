@@ -510,23 +510,25 @@ func TestSentTransfer_CompareAndSwapCallbackFps(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(16, t)
 
 	expected := generateSentFp(true, 1, 2, 3, nil)
-	if !st.CompareAndSwapCallbackFps(true, 1, 2, 3, nil) {
+	if !st.CompareAndSwapCallbackFps(5, true, 1, 2, 3, nil) {
 		t.Error("Did not swap when there is a new fingerprint.")
-	} else if expected != st.lastCallbackFingerprint {
+	} else if expected != st.lastCallbackFingerprints[5] {
 		t.Errorf("lastCallbackFingerprint not correctly set."+
-			"\nexpected: %s\nreceived: %s", expected, st.lastCallbackFingerprint)
+			"\nexpected: %s\nreceived: %s",
+			expected, st.lastCallbackFingerprints[5])
 	}
 
-	if st.CompareAndSwapCallbackFps(true, 1, 2, 3, nil) {
+	if st.CompareAndSwapCallbackFps(5, true, 1, 2, 3, nil) {
 		t.Error("Compared and swapped fingerprints when there was no change.")
 	}
 
 	expected = generateSentFp(false, 4, 5, 15, errors.New("Error"))
-	if !st.CompareAndSwapCallbackFps(false, 4, 5, 15, errors.New("Error")) {
+	if !st.CompareAndSwapCallbackFps(5, false, 4, 5, 15, errors.New("Error")) {
 		t.Error("Did not swap when there is a new fingerprint.")
-	} else if expected != st.lastCallbackFingerprint {
+	} else if expected != st.lastCallbackFingerprints[5] {
 		t.Errorf("lastCallbackFingerprint not correctly set."+
-			"\nexpected: %s\nreceived: %s", expected, st.lastCallbackFingerprint)
+			"\nexpected: %s\nreceived: %s",
+			expected, st.lastCallbackFingerprints[5])
 	}
 }
 
@@ -582,7 +584,7 @@ func Test_generateSentFp_Consistency(t *testing.T) {
 func Test_loadSentTransfer(t *testing.T) {
 	st, _, _, _, kv := newTestSentTransfer(64, t)
 
-	loadedSt, err := loadSentTransfer(st.fid, kv)
+	loadedSt, err := loadSentTransfer(st.fid, st.parts, kv)
 	if err != nil {
 		t.Errorf("Failed to load SentTransfer: %+v", err)
 	}
@@ -603,7 +605,7 @@ func TestSentTransfer_Delete(t *testing.T) {
 		t.Errorf("Delete returned an error: %+v", err)
 	}
 
-	_, err = loadSentTransfer(st.fid, kv)
+	_, err = loadSentTransfer(st.fid, st.parts, kv)
 	if err == nil {
 		t.Errorf("Loaded sent transfer that was deleted.")
 	}
@@ -631,9 +633,8 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 		fileName:  "transferName",
 		recipient: id.NewIdFromString("user", id.User, t),
 		status:    Failed,
-		parts:     [][]byte{[]byte("Message"), []byte("Part")},
 	}
-	expected := sentTransferDisk{st.fileName, st.recipient, st.status, st.parts}
+	expected := sentTransferDisk{st.fileName, st.recipient, st.status}
 
 	data, err := st.marshal()
 	if err != nil {
@@ -646,7 +647,7 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expected, info) {
-		t.Errorf("Incorrect sent transfer info.\nexpected: %+v\nreceived: %+v",
+		t.Errorf("Incorrect sent file info.\nexpected: %+v\nreceived: %+v",
 			expected, info)
 	}
 }

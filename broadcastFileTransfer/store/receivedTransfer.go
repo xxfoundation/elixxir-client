@@ -10,13 +10,12 @@ package store
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"strconv"
 	"sync"
 
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
-
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -49,8 +48,7 @@ const (
 	errRtLoadCypherManager    = "failed to load cypher manager from storage: %+v"
 	errRtLoadFields           = "failed to load transfer MAC, number of parts, and file size: %+v"
 	errRtUnmarshalFields      = "failed to unmarshal transfer MAC, number of parts, and file size: %+v"
-	errRtLoadPartStatusVector = "failed to load state vector for part statuses: %+v"
-	errRtLoadPart             = "[FT] Failed to load part #%d from storage: %+v"
+	errRtUnmarshalPartialFile = "failed to unmarshal partial file: %+v"
 
 	// ReceivedTransfer.Delete
 	errRtDeleteCypherManager = "failed to delete cypher manager: %+v"
@@ -91,9 +89,12 @@ type ReceivedTransfer struct {
 	// Stores the received status for each file part in a bitstream format
 	partStatus *utility.StateVector
 
+	// Current ID to assign to a callback
+	currentCallbackID uint64
+
 	// Unique identifier of the last progress callback called (used to prevent
 	// callback calls with duplicate data)
-	lastCallbackFingerprint string
+	lastCallbackFingerprints map[uint64]string
 
 	mux sync.RWMutex
 	kv  *versioned.KV
@@ -121,16 +122,19 @@ func newReceivedTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	}
 
 	rt := &ReceivedTransfer{
-		cypherManager: cypherManager,
-		fid:           fid,
-		fileName:      fileName,
-		recipient:     recipient,
-		transferMAC:   transferMAC,
-		fileSize:      fileSize,
-		numParts:      numParts,
-		parts:         make([][]byte, numParts),
-		partStatus:    partStatus,
-		kv:            kv,
+		cypherManager:            cypherManager,
+		fid:                      fid,
+		fileName:                 fileName,
+		recipient:                recipient,
+		transferMAC:              transferMAC,
+		fileSize:                 fileSize,
+		numParts:                 numParts,
+		parts:                    make([][]byte, numParts),
+		partStatus:               partStatus,
+		currentCallbackID:        0,
+		lastCallbackFingerprints: make(map[uint64]string),
+		mux:                      sync.RWMutex{},
+		kv:                       kv,
 	}
 
 	return rt, rt.save()
@@ -164,7 +168,10 @@ func (rt *ReceivedTransfer) AddPart(part []byte, partNum int) error {
 func (rt *ReceivedTransfer) GetFile() []byte {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
+	return rt.getFile()
+}
 
+func (rt *ReceivedTransfer) getFile() []byte {
 	file := bytes.Join(rt.parts, nil)
 
 	// Strip off trailing padding from last part
@@ -173,6 +180,80 @@ func (rt *ReceivedTransfer) GetFile() []byte {
 	}
 
 	return file
+}
+
+// MarshalPartialFile returns the file as-is with data on which parts have been
+// received.
+func (rt *ReceivedTransfer) MarshalPartialFile() ([]byte, error) {
+	rt.mux.RLock()
+	defer rt.mux.RUnlock()
+
+	buff := bytes.NewBuffer(nil)
+
+	// Get partial file
+	partialFile := rt.getFile()
+
+	// Write length of partial file to buffer
+	err := binary.Write(buff, binary.LittleEndian, uint64(len(partialFile)))
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to write file length to buffer: %+v", err)
+	}
+
+	// Write partial file to buffer
+	buff.Write(partialFile)
+
+	// Write JSON encoded part status vector to buffer
+	err = json.NewEncoder(buff).Encode(rt.partStatus)
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to JSON marshal part statuses: %+v", err)
+	}
+
+	return buff.Bytes(), nil
+}
+
+// unmarshalPartialFile unmarshalls the data into a list of parts and the
+// accompanying part statuses vector.
+func unmarshalPartialFile(data []byte, partSize int) (
+	[][]byte, *utility.StateVector, error) {
+
+	buff := bytes.NewBuffer(data)
+
+	// Read file length from buffer
+	var fileLen uint64
+	err := binary.Read(buff, binary.LittleEndian, &fileLen)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to read file length")
+	}
+
+	// Read partial file from buffer
+	partialFile := make([]byte, fileLen)
+	n, err := buff.Read(partialFile)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to read file")
+	} else if n != int(fileLen) {
+		return nil, nil, errors.Errorf(
+			"read %d bytes for file; %d bytes expected", n, fileLen)
+	}
+
+	// JSON decode part status vector from buffer
+	partStatus, _ := utility.NewStateVector(nil, receivedTransferStatusKey, 0)
+	err = json.NewDecoder(buff).Decode(partStatus)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to read part status vector")
+	}
+
+	// Split partial file into file parts
+	parts := make([][]byte, partStatus.GetNumKeys())
+	buff = bytes.NewBuffer(partialFile)
+	for i := uint32(0); i < partStatus.GetNumKeys(); i++ {
+		if partStatus.Used(i) {
+			parts[i] = buff.Next(partSize)
+		}
+	}
+
+	return parts, partStatus, nil
 }
 
 // GetUnusedCyphers returns a list of cyphers with unused fingerprint numbers.
@@ -219,26 +300,35 @@ func (rt *ReceivedTransfer) CopyPartStatusVector() *utility.StateVector {
 	return rt.partStatus.DeepCopy()
 }
 
+// GetNewCallbackID issues a new unique for a callback.
+func (rt *ReceivedTransfer) GetNewCallbackID() uint64 {
+	rt.mux.Lock()
+	defer rt.mux.Unlock()
+	newID := rt.currentCallbackID
+	rt.currentCallbackID++
+	return newID
+}
+
 // CompareAndSwapCallbackFps compares the fingerprint to the previous callback
 // call's fingerprint. If they are different, the new one is stored, and it
-// returns true. Returns fall if they are the same.
-func (rt *ReceivedTransfer) CompareAndSwapCallbackFps(
+// returns true. Returns false if they are the same.
+func (rt *ReceivedTransfer) CompareAndSwapCallbackFps(callbackID uint64,
 	completed bool, received, total uint16, err error) bool {
-	fp := generateReceivedFp(completed, received, total, err)
+	fp := GenerateReceivedFp(completed, received, total, err)
 
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
 
-	if fp != rt.lastCallbackFingerprint {
-		rt.lastCallbackFingerprint = fp
+	if fp != rt.lastCallbackFingerprints[callbackID] {
+		rt.lastCallbackFingerprints[callbackID] = fp
 		return true
 	}
 
 	return false
 }
 
-// generateReceivedFp generates a fingerprint for a received progress callback.
-func generateReceivedFp(completed bool, received, total uint16, err error) string {
+// GenerateReceivedFp generates a fingerprint for a received progress callback.
+func GenerateReceivedFp(completed bool, received, total uint16, err error) string {
 	errString := "<nil>"
 	if err != nil {
 		errString = err.Error()
@@ -256,8 +346,8 @@ func generateReceivedFp(completed bool, received, total uint16, err error) strin
 
 // loadReceivedTransfer loads the ReceivedTransfer with the given file ID from
 // storage.
-func loadReceivedTransfer(fid ftCrypto.ID, kv *versioned.KV) (
-	*ReceivedTransfer, error) {
+func loadReceivedTransfer(fid ftCrypto.ID, partialFile []byte, partSize int,
+	kv *versioned.KV) (*ReceivedTransfer, error) {
 	kv = kv.Prefix(makeReceivedTransferPrefix(fid))
 
 	// Load cypher manager
@@ -278,33 +368,24 @@ func loadReceivedTransfer(fid ftCrypto.ID, kv *versioned.KV) (
 	}
 
 	// Load StateVector for storing statuses of received parts
-	partStatus, err := utility.LoadStateVector(kv, receivedTransferStatusKey)
+	parts, partStatus, err := unmarshalPartialFile(partialFile, partSize)
 	if err != nil {
-		return nil, errors.Errorf(errRtLoadPartStatusVector, err)
-	}
-
-	// Load parts from storage
-	parts := make([][]byte, info.NumParts)
-	for i := range parts {
-		if partStatus.Used(uint32(i)) {
-			parts[i], err = loadPart(i, kv)
-			if err != nil {
-				jww.ERROR.Printf(errRtLoadPart, i, err)
-			}
-		}
+		return nil, errors.Errorf(errRtUnmarshalPartialFile, err)
 	}
 
 	rt := &ReceivedTransfer{
-		cypherManager: cypherManager,
-		fid:           fid,
-		fileName:      info.FileName,
-		recipient:     info.Recipient,
-		transferMAC:   info.TransferMAC,
-		fileSize:      info.FileSize,
-		numParts:      info.NumParts,
-		parts:         parts,
-		partStatus:    partStatus,
-		kv:            kv,
+		cypherManager:            cypherManager,
+		fid:                      fid,
+		fileName:                 info.FileName,
+		recipient:                info.Recipient,
+		transferMAC:              info.TransferMAC,
+		fileSize:                 info.FileSize,
+		numParts:                 info.NumParts,
+		parts:                    parts,
+		partStatus:               partStatus,
+		currentCallbackID:        0,
+		lastCallbackFingerprints: make(map[uint64]string),
+		kv:                       kv,
 	}
 
 	return rt, nil

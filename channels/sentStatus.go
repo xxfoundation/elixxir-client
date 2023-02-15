@@ -12,15 +12,6 @@ import "strconv"
 // SentStatus represents the current status of a channel message.
 type SentStatus uint8
 
-// Constants for sent [SentStatus]. Not all messages go through hall statuses.
-// However, there is a general order they follow:
-//  1. [Unsent]
-//  2. [SendProcessing]
-//  3. [SendProcessingComplete]
-//  4. [Sent]
-//  5. [ReceptionProcessing]
-//  6. [ReceptionProcessingComplete]
-//  7. [Delivered]
 const (
 	// Unsent is the status of a message when it is pending to be sent.
 	Unsent SentStatus = 0

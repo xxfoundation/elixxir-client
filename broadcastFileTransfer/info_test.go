@@ -16,10 +16,10 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// Tests that a TransferInfo marshalled via TransferInfo.Marshal and
-// unmarshalled via UnmarshalTransferInfo matches the original.
-func TestTransferInfo_Marshal_UnmarshalTransferInfo(t *testing.T) {
-	ti := &TransferInfo{
+// Tests that a FileInfo marshalled via FileInfo.Marshal and unmarshalled via
+// UnmarshalFileInfo matches the original.
+func TestFileInfo_Marshal_UnmarshalFileInfo(t *testing.T) {
+	fi := &FileInfo{
 		FID:         ftCrypto.NewID([]byte("fileData")),
 		RecipientID: id.NewIdFromString("recipient", id.User, t),
 		FileName:    "FileName",
@@ -32,26 +32,25 @@ func TestTransferInfo_Marshal_UnmarshalTransferInfo(t *testing.T) {
 		Preview:     []byte("I am a preview"),
 	}
 
-	data, err := ti.Marshal()
+	data, err := fi.Marshal()
 	if err != nil {
-		t.Errorf("Failed to marshal TransferInfo: %+v", err)
+		t.Errorf("Failed to marshal FileInfo: %+v", err)
 	}
 
-	newTi, err := UnmarshalTransferInfo(data)
+	newTi, err := UnmarshalFileInfo(data)
 	if err != nil {
-		t.Errorf("Failed to unmarshal TransferInfo: %+v", err)
+		t.Errorf("Failed to unmarshal FileInfo: %+v", err)
 	}
 
-	if !reflect.DeepEqual(ti, newTi) {
-		t.Errorf("Unmarshalled TransferInfo does not match original."+
-			"\nexpected: %+v\nreceived: %+v", ti, newTi)
+	if !reflect.DeepEqual(fi, newTi) {
+		t.Errorf("Unmarshalled FileInfo does not match original."+
+			"\nexpected: %+v\nreceived: %+v", fi, newTi)
 	}
 }
 
-// Tests that a TransferInfo JSON marshalled and unmarshalled matches the
-// original.
-func TestTransferInfo_JSON_Marshal_Unmarshal(t *testing.T) {
-	ti := &TransferInfo{
+// Tests that a FileInfo JSON marshalled and unmarshalled matches the original.
+func TestFileInfo_JSON_Marshal_Unmarshal(t *testing.T) {
+	fi := &FileInfo{
 		FID:      ftCrypto.NewID([]byte("fileData")),
 		FileName: "FileName",
 		FileType: "FileType",
@@ -63,19 +62,19 @@ func TestTransferInfo_JSON_Marshal_Unmarshal(t *testing.T) {
 		Preview:  []byte("I am a preview"),
 	}
 
-	data, err := json.MarshalIndent(ti, "", "\t")
+	data, err := json.MarshalIndent(fi, "", "\t")
 	if err != nil {
-		t.Errorf("Failed to JSON marshal TransferInfo: %+v", err)
+		t.Errorf("Failed to JSON marshal FileInfo: %+v", err)
 	}
 
-	var newTi TransferInfo
+	var newTi FileInfo
 	err = json.Unmarshal(data, &newTi)
 	if err != nil {
-		t.Errorf("Failed to JSON unmarshal TransferInfo: %+v", err)
+		t.Errorf("Failed to JSON unmarshal FileInfo: %+v", err)
 	}
 
-	if !reflect.DeepEqual(*ti, newTi) {
-		t.Errorf("JSON marshalled and unmarshalled TransferInfo does not "+
-			"match original.\nexpected: %+v\nreceived: %+v", *ti, newTi)
+	if !reflect.DeepEqual(*fi, newTi) {
+		t.Errorf("JSON marshalled and unmarshalled FileInfo does not match "+
+			"original.\nexpected: %+v\nreceived: %+v", *fi, newTi)
 	}
 }

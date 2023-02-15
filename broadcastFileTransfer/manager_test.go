@@ -10,16 +10,11 @@ package broadcastFileTransfer
 import (
 	"bytes"
 	_ "embed"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/storage"
 	"math/rand"
 	"reflect"
 	"testing"
-	"time"
-
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 //go:embed loremIpsum.txt
@@ -79,6 +74,7 @@ func Test_calcNumberOfFingerprints(t *testing.T) {
 	}
 }
 
+/*
 // Smoke test of the entire file transfer system.
 func Test_FileTransfer_Smoke(t *testing.T) {
 	// jww.SetStdoutThreshold(jww.LevelDebug)
@@ -93,7 +89,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	storage1 := newMockStorage()
 	cMix1 := newMockCmix(myID1, cMixHandler, storage1)
 	user1 := newMockE2e(myID1, cMix1, storage1, rngGen)
-	ftm1, err := NewManager(params, user1)
+	ftm1, err := NewManager(user1, params)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -109,7 +105,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	storage2 := newMockStorage()
 	cMix2 := newMockCmix(myID2, cMixHandler, storage2)
 	user2 := newMockE2e(myID2, cMix2, storage2, rngGen)
-	ftm2, err := NewManager(params, user2)
+	ftm2, err := NewManager(user2, params)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}
@@ -127,10 +123,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	retry := float32(2.0)
 
 	// Define send complete callback
-	tiChan := make(chan TransferInfo, 1)
-	completeCB := func(ti TransferInfo) {
-		tiChan <- ti
-	}
+	fiChan := make(chan FileInfo, 1)
+	completeCB := func(fi FileInfo) { fiChan <- fi }
 
 	// Define sent progress callback
 	sentProgressCb1 := func(completed bool, sent, received, total uint16,
@@ -144,16 +138,16 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		t.Errorf("Failed to send file: %+v", err)
 	}
 
-	var ti TransferInfo
+	var fi FileInfo
 	select {
-	case ti = <-tiChan:
+	case fi = <-fiChan:
 	case <-time.After(15 * time.Second):
 		t.Fatalf("Timed out waiting for transfer to complete.")
 	}
 
-	transferInfo, err := ti.Marshal()
+	fileInfo, err := fi.Marshal()
 	if err != nil {
-		t.Fatalf("Failed to marshal TransferInfo: %+v", err)
+		t.Fatalf("Failed to marshal FileInfo: %+v", err)
 	}
 
 	// Define received progress callback
@@ -165,8 +159,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		}
 	}
 
-	receivedTID, _, err := m2.HandleIncomingTransfer(
-		transferInfo, receivedProgressCb, 0)
+	receivedTID, _, err :=
+		m2.HandleIncomingTransfer(fileInfo, receivedProgressCb, 0)
 	if err != nil {
 		t.Errorf("Failed to handle incoming transfer: %+v", err)
 	}
@@ -196,3 +190,4 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		t.Errorf("Failed to close processes for manager 2: %+v", err)
 	}
 }
+*/

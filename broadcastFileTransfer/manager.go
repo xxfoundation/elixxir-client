@@ -98,7 +98,7 @@ const (
 	errSendNetworkHealth = "cannot initiate file transfer of %q when network is not healthy."
 	errNewKey            = "could not generate new transfer key: %+v"
 	errNewRecipientID    = "could not generate new recipient ID: %+v"
-	errMarshalInfo       = "could not marshal transfer info: %+v"
+	errMarshalInfo       = "could not marshal file info: %+v"
 	errAddSentTransfer   = "failed to add transfer: %+v"
 
 	// manager.CloseSend
@@ -107,7 +107,8 @@ const (
 	errRemoveSentTransfer       = "could not remove file %s from list: %+v"
 
 	// manager.HandleIncomingTransfer
-	errAddNewRt = "failed to add new file transfer %s (%q): %+v"
+	errUnmarshalInfo = "failed to unmarshal incoming file info: %+v"
+	errAddNewRt      = "failed to add new file transfer %s (%q): %+v"
 
 	// manager.Receive
 	errIncompleteFile         = "cannot get incomplete file: missing %d of %d parts"
@@ -199,19 +200,20 @@ type Storage interface {
 // NewManager creates a new file transfer manager object. If sent or received
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
-func NewManager(params Params, user FtE2e) (FileTransfer, error) {
+func NewManager(user FtE2e, params Params) (ft FileTransfer,
+	inProgressSends, inProgressReceives []ftCrypto.ID, err error) {
 	kv := user.GetStorage().GetKV()
 
 	// Create a new list of sent file transfers or load one if it exists
-	sent, unsentParts, sentParts, err := store.NewOrLoadSent(kv)
+	sent, inProgressSends, err := store.NewOrLoadSent(kv)
 	if err != nil {
-		return nil, errors.Errorf(errNewOrLoadSent, err)
+		return nil, nil, nil, errors.Errorf(errNewOrLoadSent, err)
 	}
 
 	// Create a new list of received file transfers or load one if it exists
-	received, incompleteTransfers, err := store.NewOrLoadReceived(kv)
+	received, inProgressReceives, err := store.NewOrLoadReceived(kv)
 	if err != nil {
-		return nil, errors.Errorf(errNewOrLoadReceived, err)
+		return nil, nil, nil, errors.Errorf(errNewOrLoadReceived, err)
 	}
 
 	// Construct manager
@@ -230,6 +232,18 @@ func NewManager(params Params, user FtE2e) (FileTransfer, error) {
 		rng:        user.GetRng(),
 	}
 
+	return m, inProgressSends, inProgressReceives, nil
+}
+
+// LoadInProgressTransfers queues the in-progress sent and received transfers.
+func (m *manager) LoadInProgressTransfers(
+	sentFileParts, receivedFileParts map[ftCrypto.ID][][]byte,
+	sentToRemove, receivedToRemove []ftCrypto.ID) error {
+	unsentParts, sentParts, err := m.sent.LoadTransfers(sentFileParts)
+	if err != nil {
+		return err
+	}
+
 	// Add all unsent file parts to queue
 	for _, p := range unsentParts {
 		m.batchQueue <- p
@@ -240,12 +254,24 @@ func NewManager(params Params, user FtE2e) (FileTransfer, error) {
 		m.sentQueue <- &sentPartPacket{packet: sentParts, loaded: true}
 	}
 
+	incompleteTransfers, err := m.received.LoadTransfers(receivedFileParts)
+	if err != nil {
+		return err
+	}
+
 	// Add all fingerprints for unreceived parts
 	for _, rt := range incompleteTransfers {
 		m.addFingerprints(rt)
 	}
 
-	return m, nil
+	if err = m.sent.RemoveTransfers(sentToRemove...); err != nil {
+		return err
+	}
+	if err = m.received.RemoveTransfers(receivedToRemove...); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
@@ -358,10 +384,10 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	numParts := uint16(len(parts))
 	fileSize := uint32(len(fileData))
 
-	// Build TransferInfo that will be returned to the user on completion
-	info := &TransferInfo{fid, newID, fileName, fileType, key, mac, numParts,
+	// Build FileInfo that will be returned to the user on completion
+	info := &FileInfo{fid, newID, fileName, fileType, key, mac, numParts,
 		fileSize, retry, preview}
-	transferInfo, err := info.Marshal()
+	fileInfo, err := info.Marshal()
 	if err != nil {
 		return ftCrypto.ID{}, errors.Errorf(errMarshalInfo, err)
 	}
@@ -390,7 +416,7 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 
 	// Start tracking the received file parts for the SentTransfer
 	_, _, err = m.HandleIncomingTransfer(
-		transferInfo, m.checkedReceivedParts(st, info, completeCB), 0)
+		fileInfo, m.checkedReceivedParts(st, info, completeCB), 0)
 	if err != nil {
 		return ftCrypto.ID{}, err
 	}
@@ -421,6 +447,7 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 	}
 
 	// Build callback
+	cbID := st.GetNewCallbackID()
 	cb := func(err error) {
 		// Get transfer progress
 		sent, received, total := st.NumSent(), st.NumReceived(), st.NumParts()
@@ -430,7 +457,8 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 		tracker := &sentFilePartTracker{st.CopyPartStatusVector()}
 
 		// If the callback data is the same as the last call, skip the call
-		if !st.CompareAndSwapCallbackFps(completed, sent, received, total, err) {
+		if !st.CompareAndSwapCallbackFps(
+			cbID, completed, sent, received, total, err) {
 			return
 		}
 
@@ -479,16 +507,14 @@ func (m *manager) CloseSend(fid ftCrypto.ID) error {
 
 /* === Receiving ============================================================ */
 
-const errUnmarshalInfo = "failed to unmarshal incoming transfer info: %+v"
-
 // HandleIncomingTransfer starts tracking the received file parts for the given
 // file information and returns a file ID that uniquely identifies this file.
-func (m *manager) HandleIncomingTransfer(transferInfo []byte,
+func (m *manager) HandleIncomingTransfer(fileInfo []byte,
 	progressCB ReceivedProgressCallback, period time.Duration) (
-	ftCrypto.ID, *TransferInfo, error) {
+	ftCrypto.ID, *FileInfo, error) {
 
 	// Unmarshal the payload
-	t, err := UnmarshalTransferInfo(transferInfo)
+	t, err := UnmarshalFileInfo(fileInfo)
 	if err != nil {
 		return ftCrypto.ID{}, nil, errors.Errorf(errUnmarshalInfo, err)
 	}
@@ -583,6 +609,7 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 	}
 
 	// Build callback
+	cbID := rt.GetNewCallbackID()
 	cb := func(err error) {
 		// Get transfer progress
 		received, total := rt.NumReceived(), rt.NumParts()
@@ -592,7 +619,7 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 		tracker := &receivedFilePartTracker{rt.CopyPartStatusVector()}
 
 		// If the callback data is the same as the last call, skip the call
-		if !rt.CompareAndSwapCallbackFps(completed, received, total, err) {
+		if !rt.CompareAndSwapCallbackFps(cbID, completed, received, total, err) {
 			return
 		}
 
@@ -602,6 +629,48 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 
 	// Add the callback to the callback tracker
 	m.callbacks.AddCallback(rt.FileID(), cb, period)
+}
+
+// ReceivedPartsCallback is a callback function that is called every time there
+// are new received parts to be saved.
+type ReceivedPartsCallback func(fileData []byte, err error)
+
+func (m *manager) registerReceivedPartsCallback(fid ftCrypto.ID,
+	partsCB ReceivedPartsCallback, period time.Duration) error {
+	rt, exists := m.received.GetTransfer(fid)
+	if !exists {
+		return errors.Errorf(errNoReceivedTransfer, fid)
+	}
+
+	// Build callback
+	cbID := rt.GetNewCallbackID()
+	cb := func(err error) {
+		// Get transfer progress
+		received, total := rt.NumReceived(), rt.NumParts()
+		completed := received == total
+
+		// If the callback data is the same as the last call, skip the call
+		if !rt.CompareAndSwapCallbackFps(cbID, completed, received, total, err) {
+			return
+		}
+
+		if err != nil {
+			partsCB(nil, err)
+		}
+
+		data, err := rt.MarshalPartialFile()
+		if err != nil {
+			partsCB(nil, errors.Wrap(err,
+				"failed to get partial file for saving to the event model"))
+		}
+
+		partsCB(data, nil)
+	}
+
+	// Add the callback to the callback tracker
+	m.callbacks.AddCallback(rt.FileID(), cb, period)
+
+	return nil
 }
 
 /* === Utility ============================================================== */

@@ -32,7 +32,7 @@ func TestNewOrLoadSent_New(t *testing.T) {
 		kv:        kv.Prefix(sentTransfersStorePrefix),
 	}
 
-	s, unsentParts, sentParts, err := NewOrLoadSent(kv)
+	s, fidList, err := NewOrLoadSent(kv)
 	if err != nil {
 		t.Errorf("NewOrLoadSent returned an error: %+v", err)
 	}
@@ -42,27 +42,73 @@ func TestNewOrLoadSent_New(t *testing.T) {
 			"\nexpected: %+v\nreceived: %+v", expected, s)
 	}
 
-	if unsentParts != nil {
-		t.Errorf("List of parts should be nil when not loading: %+v",
-			unsentParts)
+	if fidList != nil {
+		t.Errorf("List of in-progress parts should be nil: %+v", fidList)
+	}
+}
+
+// Tests that NewOrLoadSent returns all the in-progress file IDs.
+func TestNewOrLoadSent_Load(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	prng := rand.New(rand.NewSource(42))
+	s, _, err := NewOrLoadSent(kv)
+	if err != nil {
+		t.Errorf("Failed to make new Sent: %+v", err)
+	}
+	var expectedFidList []ftCrypto.ID
+	fileData := make([]byte, 64)
+
+	// Create and add transfers to map and save
+	for i := 0; i < 10; i++ {
+		key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
+		parts, file := generateTestParts(uint16(10 + i))
+		_, err = s.AddTransfer(
+			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t), &key,
+			fid, "file"+strconv.Itoa(i), uint32(len(file)), parts,
+			uint16(2*(10+i)))
+		if err != nil {
+			t.Errorf("Failed to add transfer #%d: %+v", i, err)
+		}
+		expectedFidList = append(expectedFidList, fid)
+	}
+	if err = s.save(); err != nil {
+		t.Errorf("Failed to make save filled Sent: %+v", err)
 	}
 
-	if sentParts != nil {
-		t.Errorf("List of parts should be nil when not loading: %+v",
-			sentParts)
+	// Load Sent
+	_, fidList, err := NewOrLoadSent(kv)
+	if err != nil {
+		t.Errorf("Failed to load Sent: %+v", err)
+	}
+
+	sort.Slice(expectedFidList, func(i, j int) bool {
+		return bytes.Compare(expectedFidList[i].Marshal(),
+			expectedFidList[j].Marshal()) == -1
+	})
+
+	sort.Slice(fidList, func(i, j int) bool {
+		return bytes.Compare(fidList[i].Marshal(), fidList[j].Marshal()) == -1
+	})
+
+	if !reflect.DeepEqual(expectedFidList, fidList) {
+		t.Errorf("Incorrect in-progress parts.\nexpected: %v\nreceived: %v",
+			expectedFidList, fidList)
 	}
 }
 
 // Tests that NewOrLoadSent returns a loaded Sent when one exist in storage and
-// that the list of unsent parts is correct.
-func TestNewOrLoadSent_Load(t *testing.T) {
+// that Sent.LoadTransfers returns the correct list of unsent and sent parts.
+func TestSent_LoadTransfers(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	prng := rand.New(rand.NewSource(42))
-	s, _, _, err := NewOrLoadSent(kv)
+	s, _, err := NewOrLoadSent(kv)
 	if err != nil {
 		t.Errorf("Failed to make new Sent: %+v", err)
 	}
 	var expectedUnsentParts, expectedSentParts []*Part
+	fileParts := make(map[ftCrypto.ID][][]byte)
 	fileData := make([]byte, 64)
 
 	// Create and add transfers to map and save
@@ -80,15 +126,21 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 		}
 		expectedUnsentParts = append(expectedUnsentParts, st.GetUnsentParts()...)
 		expectedSentParts = append(expectedSentParts, st.GetSentParts()...)
+		fileParts[fid] = parts
 	}
 	if err = s.save(); err != nil {
 		t.Errorf("Failed to make save filled Sent: %+v", err)
 	}
 
 	// Load Sent
-	loadedSent, unsentParts, sentParts, err := NewOrLoadSent(kv)
+	loadedSent, _, err := NewOrLoadSent(kv)
 	if err != nil {
 		t.Errorf("Failed to load Sent: %+v", err)
+	}
+
+	unsentParts, sentParts, err := loadedSent.LoadTransfers(fileParts)
+	if err != nil {
+		t.Errorf("Failed to load sent transfers: %+v", err)
 	}
 
 	// Check that the loaded Sent matches original
@@ -161,7 +213,7 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 // Tests that Sent.AddTransfer makes a new transfer and adds it to the list.
 func TestSent_AddTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	s, _, _, _ := NewOrLoadSent(kv)
+	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
@@ -198,7 +250,7 @@ func TestSent_AddTransfer_TransferAlreadyExists(t *testing.T) {
 // Tests that Sent.GetTransfer returns the expected transfer.
 func TestSent_GetTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	s, _, _, _ := NewOrLoadSent(kv)
+	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
@@ -225,7 +277,7 @@ func TestSent_GetTransfer(t *testing.T) {
 // Tests that Sent.RemoveTransfer removes the transfer from the list.
 func TestSent_RemoveTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	s, _, _, _ := NewOrLoadSent(kv)
+	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
@@ -256,6 +308,44 @@ func TestSent_RemoveTransfer(t *testing.T) {
 	}
 }
 
+// Tests that Sent.RemoveTransfers removes all the transfers from the list.
+func TestSent_RemoveTransfers(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	s, _, _ := NewOrLoadSent(kv)
+
+	key1, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	key2, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	fid1 := ftCrypto.NewID([]byte("fileData1"))
+	fid2 := ftCrypto.NewID([]byte("fileData2"))
+	parts1, file1 := generateTestParts(10)
+	parts2, file2 := generateTestParts(15)
+
+	st1, err := s.AddTransfer(id.NewIdFromString("recipient1", id.User, t),
+		&key1, fid1, "file1", uint32(len(file1)), parts1, 20)
+	if err != nil {
+		t.Errorf("Failed to add new transfer: %+v", err)
+	}
+	st2, err := s.AddTransfer(id.NewIdFromString("recipient2", id.User, t),
+		&key2, fid2, "file2", uint32(len(file2)), parts2, 40)
+	if err != nil {
+		t.Errorf("Failed to add new transfer: %+v", err)
+	}
+
+	// Delete the transfers
+	err = s.RemoveTransfers(st1.fid, st2.fid)
+	if err != nil {
+		t.Errorf("RemoveTransfer returned an error: %+v", err)
+	}
+
+	// Check that the transfers were deleted
+	for i, fid := range []ftCrypto.ID{st1.fid, st2.fid} {
+		_, exists := s.GetTransfer(st1.fid)
+		if exists {
+			t.Errorf("File %s exists (%d).", fid, i)
+		}
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -264,7 +354,7 @@ func TestSent_RemoveTransfer(t *testing.T) {
 // after a save.
 func TestSent_save(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	s, _, _, _ := NewOrLoadSent(kv)
+	s, _, _ := NewOrLoadSent(kv)
 	s.transfers = map[ftCrypto.ID]*SentTransfer{
 		{0}: nil, {1}: nil,
 		{2}: nil, {3}: nil,

@@ -10,6 +10,8 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/primitives/format"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -48,8 +50,7 @@ func TestNewOrLoadReceived_New(t *testing.T) {
 	}
 }
 
-// Tests that NewOrLoadReceived returns a loaded Received when one exist in
-// storage and that the list of incomplete transfers is correct.
+// Tests that NewOrLoadReceived returns all the in-progress file IDs.
 func TestNewOrLoadReceived_Load(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	prng := rand.New(rand.NewSource(42))
@@ -57,7 +58,59 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to make new Received: %+v", err)
 	}
+	var expectedFidList []ftCrypto.ID
+	fileData := make([]byte, 64)
+
+	// Create and add transfers to map and save
+	for i := 0; i < 2; i++ {
+		recipient := id.NewIdFromUInt(uint64(i), id.User, t)
+		key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
+		_, err = r.AddTransfer(recipient, &key, fid, "file"+strconv.Itoa(i),
+			[]byte("transferMAC"+strconv.Itoa(i)), 128, 10, 20)
+		if err != nil {
+			t.Errorf("Failed to add transfer #%d: %+v", i, err)
+		}
+		expectedFidList = append(expectedFidList, fid)
+	}
+	if err = r.save(); err != nil {
+		t.Errorf("Failed to make save filled Receivced: %+v", err)
+	}
+
+	// Load Received
+	_, fidList, err := NewOrLoadReceived(kv)
+	if err != nil {
+		t.Errorf("Failed to load Received: %+v", err)
+	}
+
+	sort.Slice(expectedFidList, func(i, j int) bool {
+		return bytes.Compare(expectedFidList[i].Marshal(),
+			expectedFidList[j].Marshal()) == -1
+	})
+
+	sort.Slice(fidList, func(i, j int) bool {
+		return bytes.Compare(fidList[i].Marshal(), fidList[j].Marshal()) == -1
+	})
+
+	if !reflect.DeepEqual(expectedFidList, fidList) {
+		t.Errorf("Incorrect in-progress parts.\nexpected: %v\nreceived: %v",
+			expectedFidList, fidList)
+	}
+}
+
+// Tests that NewOrLoadReceived returns a loaded Received when one exist in
+// storage and that Sent.LoadTransfers returns the correct list of incomplete
+// transfers.
+func TestReceived_LoadTransfers(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	prng := rand.New(rand.NewSource(42))
+	r, _, err := NewOrLoadReceived(kv)
+	if err != nil {
+		t.Errorf("Failed to make new Received: %+v", err)
+	}
 	var expectedIncompleteTransfers []*ReceivedTransfer
+	partialFiles := make(map[ftCrypto.ID][]byte)
 	fileData := make([]byte, 64)
 
 	// Create and add transfers to map and save
@@ -72,21 +125,30 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err2)
 		}
 		expectedIncompleteTransfers = append(expectedIncompleteTransfers, rt)
+		partialFiles[fid], _ = rt.MarshalPartialFile()
 	}
 	if err = r.save(); err != nil {
 		t.Errorf("Failed to make save filled Receivced: %+v", err)
 	}
 
 	// Load Received
-	loadedReceived, incompleteTransfers, err := NewOrLoadReceived(kv)
+	loadedReceived, _, err := NewOrLoadReceived(kv)
 	if err != nil {
 		t.Errorf("Failed to load Received: %+v", err)
+	}
+
+	partSize := fileMessage.NewPartMessage(
+		format.NewMessage(numPrimeBytes).ContentsSize()).GetPartSize()
+	incompleteTransfers, err :=
+		loadedReceived.LoadTransfers(partialFiles, partSize)
+	if err != nil {
+		t.Errorf("Failed to load received transfers: %+v", err)
 	}
 
 	// Check that the loaded Received matches original
 	if !reflect.DeepEqual(r, loadedReceived) {
 		t.Errorf("Loaded Received does not match original."+
-			"\nexpected: %#v\nreceived: %#v", r, loadedReceived)
+			"\nexpected: %v\nreceived: %v", r, loadedReceived)
 	}
 
 	sort.Slice(incompleteTransfers, func(i, j int) bool {
@@ -170,7 +232,7 @@ func TestReceived_GetTransfer(t *testing.T) {
 	}
 }
 
-// Tests that Sent.RemoveTransfer removes the transfer from the list.
+// Tests that Received.RemoveTransfer removes the transfer from the list.
 func TestReceived_RemoveTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
@@ -201,6 +263,44 @@ func TestReceived_RemoveTransfer(t *testing.T) {
 	err = r.RemoveTransfer(rt.fid)
 	if err != nil {
 		t.Errorf("RemoveTransfer returned an error: %+v", err)
+	}
+}
+
+// Tests that Received.RemoveTransfers removes all the transfers from the list.
+func TestReceived_RemoveTransfers(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	r, _, _ := NewOrLoadReceived(kv)
+
+	recipient1 := id.NewIdFromString("recipient1", id.User, t)
+	recipient2 := id.NewIdFromString("recipient2", id.User, t)
+	key1, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	key2, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	fid1 := ftCrypto.NewID([]byte("fileData1"))
+	fid2 := ftCrypto.NewID([]byte("fileData2"))
+
+	rt1, err := r.AddTransfer(
+		recipient1, &key1, fid1, "file1", []byte("transferMAC1"), 128, 10, 20)
+	if err != nil {
+		t.Errorf("Failed to add new transfer: %+v", err)
+	}
+	rt2, err := r.AddTransfer(
+		recipient2, &key2, fid2, "file2", []byte("transferMAC2"), 64, 16, 45)
+	if err != nil {
+		t.Errorf("Failed to add new transfer: %+v", err)
+	}
+
+	// Delete the transfers
+	err = r.RemoveTransfers(rt1.fid, rt2.fid)
+	if err != nil {
+		t.Errorf("RemoveTransfer returned an error: %+v", err)
+	}
+
+	// Check that the transfers were deleted
+	for i, fid := range []ftCrypto.ID{rt1.fid, rt2.fid} {
+		_, exists := r.GetTransfer(rt1.fid)
+		if exists {
+			t.Errorf("File %s exists (%d).", fid, i)
+		}
 	}
 }
 

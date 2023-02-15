@@ -17,9 +17,9 @@ import (
 )
 
 // SendCompleteCallback is called when a file transfer has successfully sent.
-// The returned TransferInfo can be marshalled and sent to others so that they
-// can receive the file.
-type SendCompleteCallback func(ti TransferInfo)
+// The returned FileInfo can be marshalled and sent to others so that they can
+// receive the file.
+type SendCompleteCallback func(fi FileInfo)
 
 // SentProgressCallback is a callback function that tracks the progress of
 // sending a file.
@@ -39,13 +39,20 @@ type ReceiveCallback func(fid ftCrypto.ID, fileName, fileType string,
 // SendNew handles the sending of the initial message informing the recipient
 // of the incoming file transfer parts. SendNew should block until the send
 // completes and return an error only on failed sends.
-type SendNew func(transferInfo []byte) error
+type SendNew func(fileInfo []byte) error
 
 // FileTransfer facilities the sending and receiving of large file transfers.
 // It allows for progress tracking of both inbound and outbound transfers.
 // FileTransfer handles the sending of the file data; however, the caller is
 // responsible for communicating to the recipient of the incoming file transfer.
 type FileTransfer interface {
+
+	// LoadInProgressTransfers queues the in-progress sent and received
+	// transfers. It also removes all sent and received transfers that no longer
+	// exist.
+	LoadInProgressTransfers(
+		sentFileParts, receivedFileParts map[ftCrypto.ID][][]byte,
+		sentToRemove, receivedToRemove []ftCrypto.ID) error
 
 	// StartProcesses starts the sending threads that wait for file transfers to
 	// send. Adheres to the xxdk.Service type.
@@ -158,9 +165,8 @@ type FileTransfer interface {
 	*/
 
 	// HandleIncomingTransfer starts tracking the received file parts for the
-	// given payload that contains the file transfer information and returns a
-	// file ID that uniquely identifies this file along with the transfer
-	// information.
+	// given payload that contains the file information and returns a file ID
+	// that uniquely identifies this file along with the file information.
 	//
 	// This function should be called once for every new file received on the
 	// registered SendNew callback.
@@ -168,15 +174,15 @@ type FileTransfer interface {
 	// In-progress transfers are restored when closing and reopening; however, a
 	// ReceivedProgressCallback must be registered again.
 	//
-	//   payload - A marshalled payload container the file transfer information.
+	//   fileInfo - A marshalled payload containing the file information.
 	//   progressCB - A callback that reports the progress of the file transfer.
 	//      The callback is called once on initialization, on every progress
 	//      update (or less if restricted by the period), or on fatal error.
 	//   period - A progress callback will be limited from triggering only once
 	//      per period.
-	HandleIncomingTransfer(transferInfo []byte,
+	HandleIncomingTransfer(fileInfo []byte,
 		progressCB ReceivedProgressCallback, period time.Duration) (
-		ftCrypto.ID, *TransferInfo, error)
+		ftCrypto.ID, *FileInfo, error)
 
 	// RegisterReceivedProgressCallback allows for the registration of a
 	// callback to track the progress of an individual received file transfer.

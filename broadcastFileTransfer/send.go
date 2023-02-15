@@ -291,7 +291,7 @@ func calcWaitTime(
 // updates their status in the store.SentTransfer. It also updates the sent
 // progress callback on updates and clears the file from memory when the
 // transfer completed.
-func (m *manager) checkedReceivedParts(st *store.SentTransfer, ti *TransferInfo,
+func (m *manager) checkedReceivedParts(st *store.SentTransfer, fi *FileInfo,
 	completeCB SendCompleteCallback) ReceivedProgressCallback {
 	return func(
 		_ bool, _, _ uint16, rt ReceivedTransfer, t FilePartTracker, err error) {
@@ -336,7 +336,7 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, ti *TransferInfo,
 				jww.ERROR.Printf("Failed to receive file transfer: %+v", err)
 			}
 
-			go completeCB(*ti)
+			go completeCB(*fi)
 		}
 	}
 }

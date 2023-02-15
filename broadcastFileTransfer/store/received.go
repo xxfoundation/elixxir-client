@@ -48,20 +48,20 @@ type Received struct {
 }
 
 // NewOrLoadReceived attempts to load a Received from storage. Or if none exist,
-// then a new Received is returned. Also returns a list of all transfers that
-// have unreceived file parts so their fingerprints can be re-added.
-func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error) {
-	s := &Received{
+// then a new Received is returned. A list of file IDs for all incomplete
+// receives is also returned.
+func NewOrLoadReceived(kv *versioned.KV) (*Received, []ftCrypto.ID, error) {
+	r := &Received{
 		transfers: make(map[ftCrypto.ID]*ReceivedTransfer),
 		kv:        kv.Prefix(receivedTransfersStorePrefix),
 	}
 
-	obj, err := s.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
+	obj, err := r.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
 	if err != nil {
 		if kv.Exists(err) {
 			return nil, nil, errors.Errorf(errLoadReceived, err)
 		} else {
-			return s, nil, nil
+			return r, nil, nil
 		}
 	}
 
@@ -70,27 +70,44 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 		return nil, nil, errors.Errorf(errUnmarshalReceived, err)
 	}
 
-	var errCount int
-	unfinishedTransfer := make([]*ReceivedTransfer, 0, len(fidList))
-	for i := range fidList {
-		fid := fidList[i]
-		s.transfers[fid], err = loadReceivedTransfer(fid, s.kv)
+	return r, fidList, nil
+}
+
+// TODO: load in partial file data correct
+//  1. remove storage from receiving (state vector and maybe others)
+//  2. check storage for sent
+//  3. load partial file
+
+// LoadTransfers loads all received transfers in the list from storage into
+// Received  It returns a list of all incomplete transfers so that their
+// fingerprints can be re-added to the listener.
+func (r *Received) LoadTransfers(partialFiles map[ftCrypto.ID][]byte,
+	partSize int) ([]*ReceivedTransfer, error) {
+
+	var errCount, i int
+	var err error
+	incompleteTransfer := make([]*ReceivedTransfer, 0, len(partialFiles))
+	for fid, partialFile := range partialFiles {
+		i++
+		r.transfers[fid], err =
+			loadReceivedTransfer(fid, partialFile, partSize, r.kv)
 		if err != nil {
-			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(fidList), fid, err)
+			jww.WARN.Printf(
+				warnLoadReceivedTransfer, i, len(partialFiles), fid, err)
 			errCount++
 		}
 
-		if s.transfers[fid].NumReceived() != s.transfers[fid].NumParts() {
-			unfinishedTransfer = append(unfinishedTransfer, s.transfers[fid])
+		if r.transfers[fid].NumReceived() != r.transfers[fid].NumParts() {
+			incompleteTransfer = append(incompleteTransfer, r.transfers[fid])
 		}
 	}
 
 	// Return an error if all transfers failed to load
-	if len(fidList) > 0 && errCount == len(fidList) {
-		return nil, nil, errors.Errorf(errLoadAllReceivedTransfer, len(fidList))
+	if len(partialFiles) > 0 && errCount == len(partialFiles) {
+		return nil, errors.Errorf(errLoadAllReceivedTransfer, len(partialFiles))
 	}
 
-	return s, unfinishedTransfer, nil
+	return incompleteTransfer, nil
 }
 
 // AddTransfer adds the ReceivedTransfer to the map keyed on its file ID.
@@ -139,6 +156,18 @@ func (r *Received) RemoveTransfer(fid ftCrypto.ID) error {
 	}
 
 	delete(r.transfers, fid)
+	return r.save()
+}
+
+// RemoveTransfers removes the transfers from the map.
+func (r *Received) RemoveTransfers(fidList ...ftCrypto.ID) error {
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	for _, fid := range fidList {
+		delete(r.transfers, fid)
+	}
+
 	return r.save()
 }
 

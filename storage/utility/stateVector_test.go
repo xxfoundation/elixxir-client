@@ -10,6 +10,7 @@ package utility
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -608,7 +609,7 @@ func TestStateVector_save(t *testing.T) {
 		key:            makeStateVectorKey(key),
 		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
-	expectedData, err := sv.marshal()
+	expectedData, err := sv.MarshalJSON()
 	if err != nil {
 		t.Errorf("Failed to marshal StateVector: %+v", err)
 	}
@@ -648,24 +649,23 @@ func TestStateVector_Delete(t *testing.T) {
 	}
 }
 
-func TestStateVector_marshal_unmarshal(t *testing.T) {
+// Tests that a StateVector can be JSON marshalled and unmarshalled.
+func TestStateVector_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	// Generate new StateVector and use ever other key
 	sv1 := newTestStateVector("StateVectorMarshalUnmarshal", 224, t)
 	for i := uint32(0); i < sv1.GetNumKeys(); i += 2 {
 		sv1.Use(i)
 	}
 
-	// Marshal and unmarshal the StateVector
-	marshalledData, err := sv1.marshal()
+	marshalledData, err := json.Marshal(sv1)
 	if err != nil {
-		t.Errorf("marshal returned an error: %+v", err)
+		t.Errorf("Failed to JSON marshal StateVector: %+v", err)
 	}
 
-	// Unmarshal into new StateVector
 	sv2 := &StateVector{key: sv1.key, kv: sv1.kv}
-	err = sv2.unmarshal(marshalledData)
+	err = json.Unmarshal(marshalledData, sv2)
 	if err != nil {
-		t.Errorf("unmarshal returned an error: %+v", err)
+		t.Errorf("Failed to JSON unmarshal StateVector: %+v", err)
 	}
 
 	// Make sure that the unmarshalled StateVector matches the original
@@ -719,7 +719,7 @@ func TestStateVector_SaveTEST(t *testing.T) {
 		key:            makeStateVectorKey(key),
 		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
-	expectedData, err := sv.marshal()
+	expectedData, err := sv.MarshalJSON()
 	if err != nil {
 		t.Errorf("Failed to marshal StateVector: %+v", err)
 	}

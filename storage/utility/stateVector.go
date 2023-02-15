@@ -188,7 +188,7 @@ func (sv *StateVector) Used(keyNum uint32) bool {
 	return sv.used(keyNum)
 }
 
-// used determines if the key is used or unused. This function is not thread-
+// used determines if the key is used or unused. This function is not thread
 // safe.
 func (sv *StateVector) used(keyNum uint32) bool {
 	// Calculate block and position of the keyNum
@@ -365,7 +365,7 @@ func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
 	}
 
 	// Unmarshal data
-	err = sv.unmarshal(obj.Data)
+	err = sv.UnmarshalJSON(obj.Data)
 	if err != nil {
 		return nil, errors.Errorf(loadUnmarshalErr, err)
 	}
@@ -376,7 +376,7 @@ func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
 // save stores the StateVector in storage.
 func (sv *StateVector) save() error {
 	// Marshal the StateVector
-	data, err := sv.marshal()
+	data, err := sv.MarshalJSON()
 	if err != nil {
 		return err
 	}
@@ -396,30 +396,32 @@ func (sv *StateVector) Delete() error {
 	return sv.kv.Delete(sv.key, currentStateVectorVersion)
 }
 
-// marshal serialises the StateVector.
-func (sv *StateVector) marshal() ([]byte, error) {
-	svd := stateVectorDisk{}
-
-	svd.FirstAvailable = sv.firstAvailable
-	svd.NumKeys = sv.numKeys
-	svd.NumAvailable = sv.numAvailable
-	svd.Vect = sv.vect
+// MarshalJSON marshals the StateVector into valid JSON. This function adheres
+// to the json.Marshaler interface.
+func (sv *StateVector) MarshalJSON() ([]byte, error) {
+	svd := stateVectorDisk{
+		Vect:           sv.vect,
+		FirstAvailable: sv.firstAvailable,
+		NumKeys:        sv.numKeys,
+		NumAvailable:   sv.numAvailable,
+	}
 
 	return json.Marshal(&svd)
 }
 
-// unmarshal deserializes the byte slice into a StateVector.
-func (sv *StateVector) unmarshal(b []byte) error {
+// UnmarshalJSON unmarshalls the JSON into the StateVector. This function
+// adheres to the json.Unmarshaler interface.
+func (sv *StateVector) UnmarshalJSON(data []byte) error {
 	var svd stateVectorDisk
-	err := json.Unmarshal(b, &svd)
+	err := json.Unmarshal(data, &svd)
 	if err != nil {
 		return err
 	}
 
+	sv.vect = svd.Vect
 	sv.firstAvailable = svd.FirstAvailable
 	sv.numKeys = svd.NumKeys
 	sv.numAvailable = svd.NumAvailable
-	sv.vect = svd.Vect
 
 	return nil
 }

@@ -53,11 +53,6 @@ func (mc *mixCypher) Encrypt(msg format.Message, salt []byte, roundID id.Round) 
 	}
 
 	KMAC := cmix.GenerateKMACs(salt, keys, roundID, h)
-	for i, isEpehemeral := range mc.ephemeralKeys {
-		if isEpehemeral {
-			KMAC[i] = make([]byte, 64)
-		}
-	}
 
 	var edPubBytes []byte
 	if mc.ephemeralEdPubKey != nil {

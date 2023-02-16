@@ -9,6 +9,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"github.com/pkg/errors"
@@ -422,15 +423,19 @@ func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData []byte,
 	status *channels.SentStatus) error {
 	parentErr := "failed to UpdateFile"
 
-	msgToUpdate := buildMessage(
-		nil, nil, nil, "",
-		fileInfo, nil, 0, 0, *timestamp, 0, 0,
-		0, *pinned, *hidden, *status)
+	msgToUpdate := &Message{
+		Text:   fileInfo,
+		Hidden: hidden,
+		Pinned: pinned,
+	}
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)
 	}
-	msgToUpdate.File = &File{
-		Data: fileData,
+	if timestamp != nil {
+		msgToUpdate.Timestamp = *timestamp
+	}
+	if status != nil {
+		msgToUpdate.Status = uint8(*status)
 	}
 
 	// Build a transaction to prevent race conditions
@@ -445,7 +450,17 @@ func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData []byte,
 		// Use the File.MessageId to update with msgToUpdate
 		msgToUpdate.Id = currentFile.MessageId
 		// When updating with struct it will only update non-zero fields by default
-		return tx.Updates(msgToUpdate).Error
+		err = tx.Updates(msgToUpdate).Error
+		if err != nil {
+
+		}
+
+		// Update File as well, if needed
+		if bytes.Equal(currentFile.Data, fileData) {
+			return nil
+		}
+		currentFile.Data = fileData
+		return tx.Updates(currentFile).Error
 	})
 	cancel()
 

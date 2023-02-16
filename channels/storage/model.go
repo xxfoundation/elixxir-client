@@ -28,7 +28,7 @@ type Channel struct {
 type Message struct {
 	Id              uint64        `gorm:"primaryKey;autoIncrement:true"`
 	Nickname        string        `gorm:"not null"`
-	MessageId       []byte        `gorm:"uniqueIndex;not null"`
+	MessageId       []byte        `gorm:"uniqueIndex"`
 	ChannelId       []byte        `gorm:"index;not null"`
 	ParentMessageId []byte        `gorm:"index"`
 	Timestamp       time.Time     `gorm:"index;not null"`

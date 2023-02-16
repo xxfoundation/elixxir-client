@@ -10,6 +10,8 @@
 package storage
 
 import (
+	"bytes"
+	"gitlab.com/elixxir/crypto/fileTransfer"
 	"testing"
 	"time"
 
@@ -91,5 +93,70 @@ func TestImpl(t *testing.T) {
 	gotMsg, err = model.GetMessage(testMsgId)
 	if err == nil {
 		t.Fatal("Expected to be unable to get deleted Message")
+	}
+}
+
+// Series of interdependent smoke tests of file transfer related methods.
+func TestImpl_FileTransfer(t *testing.T) {
+	jww.SetStdoutThreshold(jww.LevelDebug)
+	testCb := func(uuid uint64, channelID *id.ID, update bool) {}
+
+	model, err := newImpl("", nil, testCb, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Join a Channel
+	testString := "test"
+	testChannelId := &id.DummyUser
+	testChannel := &cryptoBroadcast.Channel{
+		ReceptionID: testChannelId,
+		Name:        testString,
+		Description: testString,
+	}
+	model.JoinChannel(testChannel)
+
+	// Set up test data
+	testBytes := []byte(testString)
+	testFileId := fileTransfer.NewID(testBytes)
+	testRoundId := uint64(10)
+	testRound := rounds.Round{ID: id.Round(testRoundId)}
+
+	// Insert a file
+	uuid := model.ReceiveFileMessage(testChannelId, testFileId, testString, testBytes,
+		testBytes, testBytes, 0, 0, time.Now(), time.Minute,
+		testRound, 0, 0, false)
+	t.Logf("Inserted file message with ID: %d", uuid)
+
+	// Ensure Get results match what was inserted
+	fileInfo, fileData, err := model.GetFile(testFileId)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !bytes.Equal(testBytes, fileInfo) {
+		t.Fatalf("FileInfo differ, Got %d Expected %d", fileInfo, testBytes)
+	}
+	if !bytes.Equal(testBytes, fileData) {
+		t.Fatalf("FileData differ, Got %d Expected %d", fileData, testBytes)
+	}
+
+	// Update the file
+	newTestBytes := []byte("newTestBytes")
+	err = model.UpdateFile(testFileId, newTestBytes, newTestBytes, nil,
+		nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Ensure Get results match what was updated
+	fileInfo, fileData, err = model.GetFile(testFileId)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !bytes.Equal(newTestBytes, fileInfo) {
+		t.Fatalf("FileInfo differ, Got %d Expected %d", fileInfo, newTestBytes)
+	}
+	if !bytes.Equal(newTestBytes, fileData) {
+		t.Fatalf("FileData differ, Got %d Expected %d", fileData, newTestBytes)
 	}
 }

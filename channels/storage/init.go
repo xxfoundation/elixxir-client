@@ -86,7 +86,7 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 
 	// Initialize the database schema
 	// WARNING: Order is important. Do not change without database testing
-	err = db.AutoMigrate(&Channel{}, &Message{})
+	err = db.AutoMigrate(&Channel{}, &Message{}, &File{})
 	if err != nil {
 		return nil, err
 	}

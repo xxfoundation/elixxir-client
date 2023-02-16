@@ -452,7 +452,7 @@ func (i *impl) UpdateFile(fileID fileTransfer.ID, fileInfo, fileData []byte,
 		// When updating with struct it will only update non-zero fields by default
 		err = tx.Updates(msgToUpdate).Error
 		if err != nil {
-
+			return err
 		}
 
 		// Update File as well, if needed

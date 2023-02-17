@@ -265,9 +265,12 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	if err != nil {
 		return nil, err
 	}
+	jww.FATAL.Printf("NewChannelsManagerMobile StorageTag: %+v", m.GetStorageTag())
 
 	// Add channel to singleton and return
-	return channelManagerTrackerSingleton.make(m), nil
+	newM := channelManagerTrackerSingleton.make(m)
+	jww.FATAL.Printf("NewChannelsManagerMobile 2 StorageTag: %+v", newM.GetStorageTag())
+	return newM, nil
 }
 
 // LoadChannelsManagerMobile loads an existing [ChannelsManager] for the given storage

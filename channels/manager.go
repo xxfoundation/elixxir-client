@@ -127,6 +127,10 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	m := setupManager(identity, kv, net, rng, model)
 	m.dmTokens = make(map[id.ID]uint32)
 
+	jww.FATAL.Printf("NewManager PubKey: %+v", m.me.PubKey)
+	jww.FATAL.Printf("NewManager Codename: %+v", m.me.Codename)
+	jww.FATAL.Printf("NewManager StorageTag: %+v", m.GetStorageTag())
+	jww.FATAL.Printf("NewManager StorageTag 2: %+v", storageTag)
 	return m, addService(m.leases.StartProcesses)
 }
 
@@ -366,7 +370,11 @@ func (m *manager) ExportPrivateIdentity(password string) ([]byte, error) {
 // GetStorageTag returns the tag at where this manager is stored. To be used
 // when loading the manager. The storage tag is derived from the public key.
 func (m *manager) GetStorageTag() string {
-	return getStorageTag(m.me.PubKey)
+	jww.FATAL.Printf("GetStorageTag PubKey: %+v", m.me.PubKey)
+	jww.FATAL.Printf("GetStorageTag Codename: %+v", m.me.Codename)
+	result := getStorageTag(m.me.PubKey)
+	jww.FATAL.Printf("GetStorageTag StorageTag: %+v", result)
+	return result
 }
 
 // getStorageTag generates a storage tag from an Ed25519 public key.

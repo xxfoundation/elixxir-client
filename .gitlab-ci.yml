@@ -49,8 +49,6 @@ test:
 wasm-test:
   stage: test
   image: $DOCKER_IMAGE
-  except:
-    - tags
   script:
     - export PATH=/root/go/bin:$PATH
     - go mod vendor

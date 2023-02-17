@@ -22,8 +22,6 @@ stages:
 test:
   stage: test
   image: $DOCKER_IMAGE
-  except:
-    - tags
   script:
     - git clean -ffdx
     - go mod vendor -v
@@ -45,6 +43,9 @@ test:
     paths:
       - vendor/
       - testdata/
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
 
 wasm-test:
   stage: test
@@ -58,12 +59,12 @@ wasm-test:
     - GOOS=js GOARCH=wasm go test ./... -v
   rules:
     - if: $SKIP_WASM_TEST != "yes"
+    - if: $CI_COMMIT_TAG
+      when: never
 
 build:
   stage: build
   image: $DOCKER_IMAGE
-  except:
-    - tags
   script:
     - go mod vendor -v
     - make version
@@ -77,30 +78,31 @@ build:
   artifacts:
     paths:
      - release/
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
 
 tag:
-    stage: trigger_integration
-    only:
-        - master
-    image: $DOCKER_IMAGE
-    script:
-        # Get the version number from the built binary
-        - export TAG=$(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
-        # Poll the GitLab API to see if the tag exists
-        - 'TAG_JSON=$(curl --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags/$TAG")'
-        # Debug information
-        - echo $TAG_JSON
-        # If the API says the tag doesn't exist, create it for the current commit
-        # 
-        # Note: if we want to fail because this is not a unique version number, we can simply do "else; echo non-unique version && return -1; fi" instead of "fi".
-        # That would be a much cleaner way (IMO) to do the unique version number check Ben wanted than the previous horrible Git hack.
-        - 'if echo $TAG_JSON | grep -q "404 Tag Not Found"; then curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags?tag_name=$TAG&ref=$CI_COMMIT_SHA"; fi'
+  stage: trigger_integration
+  image: $DOCKER_IMAGE
+  script:
+      # Get the version number from the built binary
+      - export TAG=$(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3)
+      # Poll the GitLab API to see if the tag exists
+      - 'TAG_JSON=$(curl --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags/$TAG")'
+      # Debug information
+      - echo $TAG_JSON
+      # If the API says the tag doesn't exist, create it for the current commit
+      # 
+      # Note: if we want to fail because this is not a unique version number, we can simply do "else; echo non-unique version && return -1; fi" instead of "fi".
+      # That would be a much cleaner way (IMO) to do the unique version number check Ben wanted than the previous horrible Git hack.
+      - 'if echo $TAG_JSON | grep -q "404 Tag Not Found"; then curl --request POST --header "PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "$CI_SERVER_URL/api/v4/projects/$CI_PROJECT_ID/repository/tags?tag_name=$TAG&ref=$CI_COMMIT_SHA"; fi'
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
 
 bindings-ios:
   stage: build
   dependencies: []
-  except:
-    - tags
   tags:
     - ios
   script:
@@ -117,13 +119,14 @@ bindings-ios:
   artifacts:
     paths:
       - iOS.zip
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
 
 bindings-android:
   stage: build
   image: $ANDROID_DOCKER_IMAGE
   dependencies: []
-  except:
-    - tags
   script:
     - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
     - export ANDROID_HOME=/android-sdk
@@ -139,6 +142,9 @@ bindings-android:
     paths:
       - bindings.aar
       - bindings-sources.jar
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
 
 # This pipeline job will attempt to have pkg.go.dev update docs for client/xxdk.
 #
@@ -152,24 +158,24 @@ trigger-doc-update:
   script:
     # We use GOPRIVATE blank because not want to directly pull client, we want to use the public cache.
     - GOPRIVATE="" go install gitlab.com/elixxir/client@$CI_COMMIT_REF_NAME
-  only:
-    - release
-    - master
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH == "release"
 
 trigger-integration:
   stage: trigger_integration
   trigger:
     project: elixxir/integration
     branch: $CI_COMMIT_REF_NAME
-  only:
-    - master
-    - release
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH == "release"
 
 trigger-udb:
   stage: trigger_integration
   trigger:
     project: elixxir/user-discovery-bot
     branch: $CI_COMMIT_REF_NAME
-  only:
-    - master
-    - release
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH == "release"

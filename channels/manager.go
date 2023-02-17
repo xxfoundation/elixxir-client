@@ -113,6 +113,9 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	addService AddServiceFn) (Manager, error) {
+	pubKey := make([]byte, len(identity.PubKey))
+	copy(pubKey, identity.PubKey)
+	identity.PubKey = pubKey
 
 	// Prefix the kv with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
@@ -372,7 +375,7 @@ func (m *manager) ExportPrivateIdentity(password string) ([]byte, error) {
 func (m *manager) GetStorageTag() string {
 	jww.FATAL.Printf("GetStorageTag PubKey: %+v", m.me.PubKey)
 	jww.FATAL.Printf("GetStorageTag Codename: %+v", m.me.Codename)
-	result := getStorageTag(m.me.PubKey)
+	result := getStorageTag(m.me.GetIdentity().PubKey)
 	jww.FATAL.Printf("GetStorageTag StorageTag: %+v", result)
 	jww.FATAL.Printf("GetStorageTag StorageTag: %+v", m.me)
 	jww.FATAL.Printf("GetStorageTag StorageTag: %+v", m)

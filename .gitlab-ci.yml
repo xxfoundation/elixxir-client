@@ -64,8 +64,6 @@ wasm-test:
 build:
   stage: build
   image: $DOCKER_IMAGE
-  except:
-    - tags
   script:
     - go mod vendor -v
     - make version

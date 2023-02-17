@@ -2279,6 +2279,36 @@ func NewChannelsDatabaseCipher(cmixID int, password []byte,
 	return channelDbCipherTrackerSingleton.create(c), nil
 }
 
+// NewChannelsDatabaseCipherFromJSON constructs a ChannelDbCipher object from
+// JSON data. This JSON data should be the output of a previous call to
+// ChannelDbCipher.MarshalJSON.
+//
+//
+// Parameters:
+//   - cmixID - The tracked [Cmix] object ID.
+//   - jsonData - The JSON data for a ChannelDbCipher. Should be the output of a
+//     previous call to ChannelDbCipher.MarshalJSON.
+func NewChannelsDatabaseCipherFromJSON(cmixID int,
+	jsonData []byte) (*ChannelDbCipher, error) {
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate RNG
+	stream := user.api.GetRng().GetStream()
+
+	// Construct a cipher
+	c, err := cryptoChannel.NewCipherFromJSON(jsonData, stream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return a cipher
+	return channelDbCipherTrackerSingleton.create(c), nil
+}
+
 // GetID returns the ID for this ChannelDbCipher in the channelDbCipherTracker.
 func (c *ChannelDbCipher) GetID() int {
 	return c.id

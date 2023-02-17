@@ -374,6 +374,8 @@ func (m *manager) GetStorageTag() string {
 	jww.FATAL.Printf("GetStorageTag Codename: %+v", m.me.Codename)
 	result := getStorageTag(m.me.PubKey)
 	jww.FATAL.Printf("GetStorageTag StorageTag: %+v", result)
+	jww.FATAL.Printf("GetStorageTag StorageTag: %+v", m.me)
+	jww.FATAL.Printf("GetStorageTag StorageTag: %+v", m)
 	return result
 }
 

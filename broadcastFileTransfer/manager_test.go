@@ -10,18 +10,19 @@ package broadcastFileTransfer
 import (
 	"bytes"
 	_ "embed"
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage"
 	"math/rand"
 	"reflect"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/storage"
 )
 
 //go:embed loremIpsum.txt
 var loremIpsum string
 
-// Tests that manager adheres to the FileTransfer interface.
-var _ FileTransfer = (*manager)(nil)
+// Tests that Wrapper adheres to the FileTransfer interface.
+var _ FileTransfer = (*Wrapper)(nil)
 
 // Tests that Cmix adheres to the cmix.Client interface.
 var _ Cmix = (cmix.Client)(nil)
@@ -89,7 +90,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	storage1 := newMockStorage()
 	cMix1 := newMockCmix(myID1, cMixHandler, storage1)
 	user1 := newMockE2e(myID1, cMix1, storage1, rngGen)
-	ftm1, err := NewManager(user1, params)
+	ftm1, err := newManager(user1, params)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -105,7 +106,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	storage2 := newMockStorage()
 	cMix2 := newMockCmix(myID2, cMixHandler, storage2)
 	user2 := newMockE2e(myID2, cMix2, storage2, rngGen)
-	ftm2, err := NewManager(user2, params)
+	ftm2, err := newManager(user2, params)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}

@@ -32,7 +32,7 @@ func TestNewManager(t *testing.T) {
 		kv:       kv.Prefix(cypherManagerPrefix),
 	}
 
-	manager, err := NewManager(expected.key, numFps, kv)
+	manager, err := NewManager(expected.key, numFps, false, kv)
 	if err != nil {
 		t.Errorf("NewManager returned an error: %+v", err)
 	}
@@ -162,7 +162,7 @@ func newTestManager(numFps uint16, t *testing.T) (*Manager, *versioned.KV) {
 	}
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	m, err := NewManager(&key, numFps, kv)
+	m, err := NewManager(&key, numFps, false, kv)
 	if err != nil {
 		t.Errorf("Failed to make new Manager: %+v", err)
 	}

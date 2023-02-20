@@ -9,12 +9,16 @@ package broadcastFileTransfer
 
 import (
 	"crypto/ed25519"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/message"
@@ -22,9 +26,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
-
+// Wrapper facilitates the sending and receiving file over channels using the
+// event model. It adheres to the FileTransfer interface.
 type Wrapper struct {
 	m  *manager
 	ch channels.Manager
@@ -40,11 +44,11 @@ func NewWrapper(user FtE2e, params Params) (
 	var w *Wrapper
 
 	// Create new file manager and get list of in-progress sends and receives
-	fm, inProgressSends, inProgressReceives, err := NewManager(user, params)
+	fm, inProgressSends, _, err := newManager(user, params)
 	if err != nil {
 		return nil, nil, err
 	}
-	w.m = fm.(*manager)
+	w.m = fm
 
 	// Calculate the size of each file part
 	partSize := fileMessage.
@@ -76,23 +80,9 @@ func NewWrapper(user FtE2e, params Params) (
 			}
 		}
 
-		// Lookup file data each in-progress received file
-		var receivedToRemove []ftCrypto.ID
-		receivedFileParts := make(map[ftCrypto.ID][][]byte, len(inProgressReceives))
-		for _, fid := range inProgressReceives {
-			_, fileData, err2 := ev.GetFile(fid)
-			if err2 != nil {
-				jww.ERROR.Printf("[FT] Failed to get in-progress download %s "+
-					"from event model; dropping download: %+v", fid, err)
-				receivedToRemove = append(receivedToRemove, fid)
-			} else {
-				sentFileParts[fid] = partitionFile(fileData, partSize)
-			}
-		}
-
 		// Load file data for each in-progress file back into the file manager
 		err = fm.LoadInProgressTransfers(
-			sentFileParts, receivedFileParts, sentToRemove, receivedToRemove)
+			sentFileParts, sentToRemove)
 		if err != nil {
 			return nil, err
 		}
@@ -103,6 +93,39 @@ func NewWrapper(user FtE2e, params Params) (
 	return w, eb, nil
 }
 
+// StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
+func (w *Wrapper) StartProcesses() (stoppable.Stoppable, error) {
+	return w.m.StartProcesses()
+}
+
+// MaxFileNameLen returns the max number of bytes allowed for a file name.
+func (w *Wrapper) MaxFileNameLen() int {
+	return w.m.maxFileNameLen()
+}
+
+// MaxFileTypeLen returns the max number of bytes allowed for a file type.
+func (w *Wrapper) MaxFileTypeLen() int {
+	return w.m.maxFileTypeLen()
+}
+
+// MaxFileSize returns the max number of bytes allowed for a file.
+func (w *Wrapper) MaxFileSize() int {
+	return w.m.maxFileSize()
+}
+
+// MaxPreviewSize returns the max number of bytes allowed for a file preview.
+func (w *Wrapper) MaxPreviewSize() int {
+	return w.m.maxPreviewSize()
+}
+
+/* === Sending ============================================================== */
+
+// Upload starts uploading the file to a new ID that can be sent to the
+// specified channel when complete. To get progress information about the upload
+// a SentProgressCallback but be registered.
+//
+// Returns a UUID of the file and its info that can be referenced at a later
+// time.
 func (w *Wrapper) Upload(channelID *id.ID, fileName, fileType string,
 	fileData []byte, retry float32, preview []byte,
 	progressCB SentProgressCallback, period time.Duration,
@@ -150,6 +173,7 @@ func (w *Wrapper) Upload(channelID *id.ID, fileName, fileType string,
 	return uuid, nil
 }
 
+// Send sends the specified file info to the channel.
 func (w *Wrapper) Send(channelID *id.ID, fileInfo []byte,
 	validUntil time.Duration, params cmix.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
@@ -158,34 +182,75 @@ func (w *Wrapper) Send(channelID *id.ID, fileInfo []byte,
 		validUntil, true, params)
 }
 
+// RegisterSentProgressCallback registers the callback to the given file
+// described in the marshalled FileInfo.
+func (w *Wrapper) RegisterSentProgressCallback(fileInfo []byte,
+	progressCB SentProgressCallback, period time.Duration) error {
+
+	fi, err := UnmarshalFileInfo(fileInfo)
+	if err != nil {
+		return err
+	}
+
+	return w.m.RegisterSentProgressCallback(fi.FID, progressCB, period)
+}
+
+/* === Receiving ============================================================ */
+
+// Download beings the download of the file described in the marshalled
+// FileInfo. The progress of the download is reported on the progress callback.
 func (w *Wrapper) Download(fileInfo []byte,
 	progressCB ReceivedProgressCallback, period time.Duration) error {
 
-	fid, _, err := w.m.HandleIncomingTransfer(fileInfo, progressCB, period)
+	rt, fi, err := w.m.handleIncomingTransfer(fileInfo, progressCB, period)
 	if err != nil {
 		return err
 	}
 
-	progressCB2 := func(fileData []byte, err error) {
+	completeCB := func(completed bool, _, _ uint16, _ ReceivedTransfer,
+		_ FilePartTracker, err error) {
 		if err != nil {
-			jww.ERROR.Printf("[FT] Failed to update download progress for "+
-				"file %s: %+v", fid, err)
-		} else {
-			err = w.ev.UpdateFile(fid, nil, &fileData, nil, nil, nil, nil, nil)
+			jww.ERROR.Printf(
+				"[FT] Received file %s transfer error: %+v", fi.FID, err)
+			return
+		}
+
+		if completed {
+			fileData, err2 := w.m.receive(rt)
+			if err2 != nil {
+				jww.ERROR.Printf("[FT] Failed to get file data for %s: %+v",
+					fi.FID, err2)
+				return
+			}
+
+			now := netTime.Now()
+			status := channels.ReceptionProcessingComplete
+			err = w.ev.UpdateFile(
+				fi.FID, nil, &fileData, &now, nil, nil, nil, &status)
 			if err != nil {
-				jww.ERROR.Printf("[FT] Failed to update download progress for "+
-					"file %s: %+v", fid, err)
+				jww.ERROR.Printf(
+					"[FT] Failed to update complete file %s in event model: %+v",
+					fi.FID, err)
 			}
 		}
 	}
+	w.m.registerReceivedProgressCallback(rt, completeCB, 0)
 
-	err = w.m.registerReceivedPartsCallback(fid, progressCB2, 0)
+	status := channels.ReceptionProcessing
+	return w.ev.UpdateFile(fi.FID, nil, nil, nil, nil, nil, nil, &status)
+}
+
+// RegisterReceivedProgressCallback registers the callback to the given file
+// described in the marshalled FileInfo.
+func (w *Wrapper) RegisterReceivedProgressCallback(fileInfo []byte,
+	progressCB ReceivedProgressCallback, period time.Duration) error {
+
+	fi, err := UnmarshalFileInfo(fileInfo)
 	if err != nil {
 		return err
 	}
 
-	status := channels.ReceptionProcessing
-	return w.ev.UpdateFile(fid, nil, nil, nil, nil, nil, nil, &status)
+	return w.m.RegisterReceivedProgressCallback(fi.FID, progressCB, period)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -118,6 +118,7 @@ type Manager interface {
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
 		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
+
 	// SendMessage is used to send a formatted message over a channel.
 	//
 	// Due to the underlying encoding using compression, it is not possible to

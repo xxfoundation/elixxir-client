@@ -105,7 +105,7 @@ func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	kv = kv.Prefix(makeSentTransferPrefix(fid))
 
 	// Create new cypher manager
-	cypherManager, err := cypher.NewManager(key, numFps, kv)
+	cypherManager, err := cypher.NewManager(key, numFps, false, kv)
 	if err != nil {
 		return nil, errors.Errorf(errStNewCypherManager, err)
 	}
@@ -118,16 +118,18 @@ func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	}
 
 	st := &SentTransfer{
-		cypherManager: cypherManager,
-		fid:           fid,
-		fileName:      fileName,
-		recipient:     recipient,
-		fileSize:      fileSize,
-		numParts:      uint16(len(parts)),
-		status:        Running,
-		parts:         parts,
-		partStatus:    partStatus,
-		kv:            kv,
+		cypherManager:            cypherManager,
+		fid:                      fid,
+		fileName:                 fileName,
+		recipient:                recipient,
+		fileSize:                 fileSize,
+		numParts:                 uint16(len(parts)),
+		status:                   Running,
+		parts:                    parts,
+		partStatus:               partStatus,
+		currentCallbackID:        0,
+		lastCallbackFingerprints: make(map[uint64]string),
+		kv:                       kv,
 	}
 
 	return st, st.save()
@@ -340,16 +342,18 @@ func loadSentTransfer(
 	}
 
 	st := &SentTransfer{
-		cypherManager: cypherManager,
-		fid:           fid,
-		fileName:      info.FileName,
-		recipient:     info.Recipient,
-		fileSize:      calcFileSize(parts),
-		numParts:      uint16(len(parts)),
-		status:        info.Status,
-		parts:         parts,
-		partStatus:    partStatus,
-		kv:            kv,
+		cypherManager:            cypherManager,
+		fid:                      fid,
+		fileName:                 info.FileName,
+		recipient:                info.Recipient,
+		fileSize:                 calcFileSize(parts),
+		numParts:                 uint16(len(parts)),
+		status:                   info.Status,
+		parts:                    parts,
+		partStatus:               partStatus,
+		currentCallbackID:        0,
+		lastCallbackFingerprints: make(map[uint64]string),
+		kv:                       kv,
 	}
 
 	return st, nil

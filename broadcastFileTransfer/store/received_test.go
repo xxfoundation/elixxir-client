@@ -10,17 +10,17 @@ package store
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
-	"gitlab.com/elixxir/primitives/format"
 	"math/rand"
 	"reflect"
 	"sort"
 	"strconv"
 	"testing"
 
+	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -34,7 +34,7 @@ func TestNewOrLoadReceived_New(t *testing.T) {
 		kv:        kv.Prefix(receivedTransfersStorePrefix),
 	}
 
-	r, incompleteTransfers, err := NewOrLoadReceived(kv)
+	r, incompleteTransfers, err := NewOrLoadReceived(false, kv)
 	if err != nil {
 		t.Errorf("NewOrLoadReceived returned an error: %+v", err)
 	}
@@ -54,7 +54,7 @@ func TestNewOrLoadReceived_New(t *testing.T) {
 func TestNewOrLoadReceived_Load(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	prng := rand.New(rand.NewSource(42))
-	r, _, err := NewOrLoadReceived(kv)
+	r, _, err := NewOrLoadReceived(false, kv)
 	if err != nil {
 		t.Errorf("Failed to make new Received: %+v", err)
 	}
@@ -79,7 +79,7 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 	}
 
 	// Load Received
-	_, fidList, err := NewOrLoadReceived(kv)
+	_, fidList, err := NewOrLoadReceived(false, kv)
 	if err != nil {
 		t.Errorf("Failed to load Received: %+v", err)
 	}
@@ -105,7 +105,7 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 func TestReceived_LoadTransfers(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	prng := rand.New(rand.NewSource(42))
-	r, _, err := NewOrLoadReceived(kv)
+	r, _, err := NewOrLoadReceived(false, kv)
 	if err != nil {
 		t.Errorf("Failed to make new Received: %+v", err)
 	}
@@ -132,7 +132,7 @@ func TestReceived_LoadTransfers(t *testing.T) {
 	}
 
 	// Load Received
-	loadedReceived, _, err := NewOrLoadReceived(kv)
+	loadedReceived, _, err := NewOrLoadReceived(false, kv)
 	if err != nil {
 		t.Errorf("Failed to load Received: %+v", err)
 	}
@@ -171,7 +171,7 @@ func TestReceived_LoadTransfers(t *testing.T) {
 // Tests that Received.AddTransfer makes a new transfer and adds it to the list.
 func TestReceived_AddTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	r, _, _ := NewOrLoadReceived(kv)
+	r, _, _ := NewOrLoadReceived(false, kv)
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -208,7 +208,7 @@ func TestReceived_AddTransfer_TransferAlreadyExists(t *testing.T) {
 // Tests that Received.GetTransfer returns the expected transfer.
 func TestReceived_GetTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	r, _, _ := NewOrLoadReceived(kv)
+	r, _, _ := NewOrLoadReceived(false, kv)
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -235,7 +235,7 @@ func TestReceived_GetTransfer(t *testing.T) {
 // Tests that Received.RemoveTransfer removes the transfer from the list.
 func TestReceived_RemoveTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	r, _, _ := NewOrLoadReceived(kv)
+	r, _, _ := NewOrLoadReceived(false, kv)
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -269,7 +269,7 @@ func TestReceived_RemoveTransfer(t *testing.T) {
 // Tests that Received.RemoveTransfers removes all the transfers from the list.
 func TestReceived_RemoveTransfers(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	r, _, _ := NewOrLoadReceived(kv)
+	r, _, _ := NewOrLoadReceived(false, kv)
 
 	recipient1 := id.NewIdFromString("recipient1", id.User, t)
 	recipient2 := id.NewIdFromString("recipient2", id.User, t)
@@ -312,7 +312,7 @@ func TestReceived_RemoveTransfers(t *testing.T) {
 // it after a save.
 func TestReceived_save(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	r, _, _ := NewOrLoadReceived(kv)
+	r, _, _ := NewOrLoadReceived(false, kv)
 	r.transfers = map[ftCrypto.ID]*ReceivedTransfer{
 		{0}: nil, {1}: nil,
 		{2}: nil, {3}: nil,

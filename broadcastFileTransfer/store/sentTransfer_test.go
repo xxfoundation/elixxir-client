@@ -38,7 +38,7 @@ func Test_newSentTransfer(t *testing.T) {
 	parts := [][]byte{[]byte("hello"), []byte("hello"), []byte("hello")}
 	stKv := kv.Prefix(makeSentTransferPrefix(fid))
 
-	cypherManager, err := cypher.NewManager(&key, numFps, stKv)
+	cypherManager, err := cypher.NewManager(&key, numFps, false, stKv)
 	if err != nil {
 		t.Errorf("Failed to make new cypher manager: %+v", err)
 	}
@@ -49,16 +49,18 @@ func Test_newSentTransfer(t *testing.T) {
 	}
 
 	expected := &SentTransfer{
-		cypherManager: cypherManager,
-		fid:           fid,
-		fileName:      "file",
-		recipient:     id.NewIdFromString("user", id.User, t),
-		fileSize:      calcFileSize(parts),
-		numParts:      uint16(len(parts)),
-		status:        Running,
-		parts:         parts,
-		partStatus:    partStatus,
-		kv:            stKv,
+		cypherManager:            cypherManager,
+		fid:                      fid,
+		fileName:                 "file",
+		recipient:                id.NewIdFromString("user", id.User, t),
+		fileSize:                 calcFileSize(parts),
+		numParts:                 uint16(len(parts)),
+		status:                   Running,
+		parts:                    parts,
+		partStatus:               partStatus,
+		currentCallbackID:        0,
+		lastCallbackFingerprints: make(map[uint64]string),
+		kv:                       stKv,
 	}
 
 	st, err := newSentTransfer(expected.recipient, &key, fid,
@@ -69,7 +71,7 @@ func Test_newSentTransfer(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, st) {
 		t.Errorf("New SentTransfer does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", expected, st)
+			"\nexpected: %#v\nreceived: %#v", expected, st)
 	}
 }
 

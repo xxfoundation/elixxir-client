@@ -43,17 +43,24 @@ const (
 type Received struct {
 	transfers map[ftCrypto.ID]*ReceivedTransfer
 
-	mux sync.RWMutex
-	kv  *versioned.KV
+	mux       sync.RWMutex
+	disableKV bool // Toggles use of KV storage
+	kv        *versioned.KV
 }
 
 // NewOrLoadReceived attempts to load a Received from storage. Or if none exist,
 // then a new Received is returned. A list of file IDs for all incomplete
 // receives is also returned.
-func NewOrLoadReceived(kv *versioned.KV) (*Received, []ftCrypto.ID, error) {
+func NewOrLoadReceived(
+	disableKV bool, kv *versioned.KV) (*Received, []ftCrypto.ID, error) {
 	r := &Received{
 		transfers: make(map[ftCrypto.ID]*ReceivedTransfer),
+		disableKV: disableKV,
 		kv:        kv.Prefix(receivedTransfersStorePrefix),
+	}
+
+	if disableKV {
+		return r, nil, nil
 	}
 
 	obj, err := r.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
@@ -72,11 +79,6 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []ftCrypto.ID, error) {
 
 	return r, fidList, nil
 }
-
-// TODO: load in partial file data correct
-//  1. remove storage from receiving (state vector and maybe others)
-//  2. check storage for sent
-//  3. load partial file
 
 // LoadTransfers loads all received transfers in the list from storage into
 // Received  It returns a list of all incomplete transfers so that their
@@ -124,7 +126,7 @@ func (r *Received) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	}
 
 	rt, err := newReceivedTransfer(recipient, key, fid, fileName, transferMAC,
-		fileSize, numParts, numFps, r.kv)
+		fileSize, numParts, numFps, r.disableKV, r.kv)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +179,10 @@ func (r *Received) RemoveTransfers(fidList ...ftCrypto.ID) error {
 
 // save stores a list of file IDs in the map to storage.
 func (r *Received) save() error {
+	if r.disableKV {
+		return nil
+	}
+
 	data, err := marshalReceivedTransfersMap(r.transfers)
 	if err != nil {
 		return err

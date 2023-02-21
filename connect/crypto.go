@@ -20,7 +20,7 @@ import (
 func sign(rng io.Reader, rsaPrivKey rsa.PrivateKey,
 	connectionFp []byte) ([]byte, error) {
 	// The connection fingerprint (hashed) will be used as a nonce
-	opts := rsa.NewDefaultPSSOptions()
+	opts := getCryptoPSSOpts()
 	h := opts.Hash.New()
 	h.Write(connectionFp)
 	nonce := h.Sum(nil)
@@ -47,7 +47,7 @@ func verify(partnerId *id.ID, partnerPubKey rsa.PublicKey,
 	}
 
 	// Hash the connection fingerprint
-	opts := rsa.NewDefaultPSSOptions()
+	opts := getCryptoPSSOpts()
 	h := opts.Hash.New()
 	h.Write(connectionFp)
 	nonce := h.Sum(nil)

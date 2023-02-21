@@ -114,6 +114,12 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	addService AddServiceFn) (Manager, error) {
 
+	// Make a copy of the public key to prevent outside edits
+	// TODO: Convert this to DeepCopy() method
+	pubKey := make([]byte, len(identity.PubKey))
+	copy(pubKey, identity.PubKey)
+	identity.PubKey = pubKey
+
 	// Prefix the kv with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",

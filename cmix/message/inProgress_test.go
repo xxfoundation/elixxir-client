@@ -56,7 +56,7 @@ func TestHandler_CheckInProgressMessages(t *testing.T) {
 	h.CheckInProgressMessages()
 
 	select {
-	case <-time.After(1000 * time.Millisecond):
+	case <-time.After(1 * time.Second):
 		t.Error("Didn't hear anything")
 	case <-h.messageReception:
 		t.Log("Heard something")

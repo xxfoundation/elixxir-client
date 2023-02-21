@@ -10,6 +10,7 @@ package cypher
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -115,6 +116,34 @@ func TestLoadManager(t *testing.T) {
 	if !reflect.DeepEqual(m, newManager) {
 		t.Errorf("Loaded manager does not match original."+
 			"\nexpected: %+v\nreceived: %+v", m, newManager)
+	}
+}
+
+// Tests that LoadManager returns the expected error when the key cannot be
+// loaded from storage
+func TestLoadManager_LoadKeyError(t *testing.T) {
+	m, kv := newTestManager(64, t)
+	_ = m.kv.Delete(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
+
+	expectedErr := strings.Split(errLoadKey, ":")[0]
+	_, err := LoadManager(kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Unexpected error.\nexpected: %s\nreceived: %+v",
+			expectedErr, err)
+	}
+}
+
+// Tests that LoadManager returns the expected error when the state vector
+// cannot be loaded from storage
+func TestLoadManager_LoadStateVectorError(t *testing.T) {
+	m, kv := newTestManager(64, t)
+	_ = m.fpVector.Delete()
+
+	expectedErr := strings.Split(errLoadFpVector, ":")[0]
+	_, err := LoadManager(kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Unexpected error.\nexpected: %s\nreceived: %+v",
+			expectedErr, err)
 	}
 }
 

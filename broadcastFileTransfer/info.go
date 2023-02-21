@@ -9,9 +9,17 @@ package broadcastFileTransfer
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
+)
+
+// Error messages.
+const (
+	fileInfoMsgProtoUnmarshalErr    = "error proto unmarshalling %T"
+	fileInfoFileIdUnmarshalErr      = "error unmarshalling file ID"
+	fileInfoRecipientIdUnmarshalErr = "error unmarshalling recipient ID"
 )
 
 // FileInfo contains all the information for a new transfer. This is the
@@ -74,19 +82,17 @@ func UnmarshalFileInfo(data []byte) (*FileInfo, error) {
 	var fi FileInfoMsg
 	err := proto.Unmarshal(data, &fi)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, fileInfoMsgProtoUnmarshalErr, &fi)
 	}
 
 	fid, err := ftCrypto.UnmarshalID(fi.Fid)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, fileInfoFileIdUnmarshalErr)
 	}
-
-	transferKey := ftCrypto.UnmarshalTransferKey(fi.GetTransferKey())
 
 	recipientID, err := id.Unmarshal(fi.RecipientID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, fileInfoRecipientIdUnmarshalErr)
 	}
 
 	return &FileInfo{
@@ -94,7 +100,7 @@ func UnmarshalFileInfo(data []byte) (*FileInfo, error) {
 		RecipientID: recipientID,
 		FileName:    fi.FileName,
 		FileType:    fi.FileType,
-		Key:         transferKey,
+		Key:         ftCrypto.UnmarshalTransferKey(fi.GetTransferKey()),
 		Mac:         fi.TransferMac,
 		NumParts:    uint16(fi.NumParts),
 		Size:        fi.Size,

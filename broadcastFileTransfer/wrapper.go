@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
+	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/cmix"
@@ -27,6 +28,7 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 )
+
 // Wrapper facilitates the sending and receiving file over channels using the
 // event model. It adheres to the FileTransfer interface.
 type Wrapper struct {
@@ -35,6 +37,8 @@ type Wrapper struct {
 	ev EventModel
 	me cryptoChannel.PrivateIdentity
 }
+
+// TODO: mark file as errored (or delete it) in event model on fatal error
 
 // NewWrapper generated a new file transfer wrapper for the channel manager and
 // event model. It allows for sending and receiving of files over channels.
@@ -72,8 +76,8 @@ func NewWrapper(user FtE2e, params Params) (
 		for _, fid := range inProgressSends {
 			_, fileData, err2 := ev.GetFile(fid)
 			if err2 != nil {
-				jww.ERROR.Printf("[FT] Failed to get in-progress upload %s "+
-					"from event model; dropping upload: %+v", fid, err)
+				jww.ERROR.Printf("[FT] Failed to get in-progress file upload "+
+					"%s from event model; dropping upload: %+v", fid, err)
 				sentToRemove = append(sentToRemove, fid)
 			} else {
 				sentFileParts[fid] = partitionFile(fileData, partSize)
@@ -131,46 +135,53 @@ func (w *Wrapper) Upload(channelID *id.ID, fileName, fileType string,
 	progressCB SentProgressCallback, period time.Duration,
 	validUntil time.Duration) (uint64, error) {
 
-	var fid ftCrypto.ID
-	completeCB := func(fi FileInfo) {
+	// Initiate file send
+	fid, err := w.m.Send(fileName, fileType, fileData, retry, preview,
+		w.uploadCompleteCB(channelID), progressCB, period)
+	if err != nil {
+		return 0, err
+	}
+
+	// Store file in event model
+	nickname, _ := w.ch.GetNickname(channelID)
+	uuid := w.ev.ReceiveFileMessage(channelID, fid, nickname, nil, fileData,
+		w.ch.GetIdentity().PubKey, w.me.GetDMToken(), 0, netTime.Now(),
+		validUntil, rounds.Round{}, channels.FileTransfer,
+		channels.SendProcessing, false)
+
+	return uuid, nil
+}
+
+// uploadCompleteCB is called when a file upload completes. It closes out the
+// file send and updates the event model.
+func (w *Wrapper) uploadCompleteCB(channelID *id.ID) SendCompleteCallback {
+	return func(fi FileInfo) {
+		// Close the send once the function completes (either the file is marked
+		// complete in the event model or an error occurs)
 		defer func() {
 			if err := w.m.CloseSend(fi.FID); err != nil {
-				jww.ERROR.Printf("[FT] Failed to close send of file %s on "+
-					"channel %s: %+v", fid, channelID, err)
+				jww.ERROR.Printf("[FT] Failed to close send of file %s (%q) "+
+					"on channel %s: %+v", fi.FID, fi.FileName, channelID, err)
 			}
 		}()
 
 		fileInfo, err := fi.Marshal()
 		if err != nil {
-			jww.ERROR.Printf("[FT] Failed to marshal file info for file "+
-				"%s on channel %s: %+v", fid, channelID, err)
+			jww.ERROR.Printf("[FT] Failed to marshal FileInfo for file %s "+
+				"(%q) on channel %s: %+v", fi.FID, fi.FileName, channelID, err)
 			return
 		}
 
 		timeNow := netTime.Now()
-		err = w.ev.UpdateFile(fid, &fileInfo, nil, &timeNow, nil, nil, nil, nil)
+		status := channels.SendProcessingComplete
+		err = w.ev.UpdateFile(
+			fi.FID, &fileInfo, nil, &timeNow, nil, nil, nil, &status)
 		if err != nil {
-			jww.ERROR.Printf("[FT] Failed to update file %s on channel %s: %+v",
-				fid, channelID, err)
+			jww.ERROR.Printf("[FT] Failed to update file %s (%q) on channel "+
+				"%s: %+v", fi.FID, fi.FileName, channelID, err)
 			return
 		}
 	}
-
-	var err error
-	fid, err = w.m.Send(fileName, fileType, fileData, retry, preview,
-		completeCB, progressCB, period)
-	if err != nil {
-		return 0, err
-	}
-
-	pubKey := w.ch.GetIdentity().PubKey
-	nickname, _ := w.ch.GetNickname(channelID)
-	dmToken := w.me.GetDMToken()
-	uuid := w.ev.ReceiveFileMessage(channelID, fid, nickname, nil, fileData,
-		pubKey, dmToken, 0, netTime.Now(), validUntil, rounds.Round{},
-		channels.FileTransfer, channels.SendProcessing, false)
-
-	return uuid, nil
 }
 
 // Send sends the specified file info to the channel.
@@ -189,7 +200,7 @@ func (w *Wrapper) RegisterSentProgressCallback(fileInfo []byte,
 
 	fi, err := UnmarshalFileInfo(fileInfo)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not unmarshal FileInfo")
 	}
 
 	return w.m.RegisterSentProgressCallback(fi.FID, progressCB, period)
@@ -202,42 +213,51 @@ func (w *Wrapper) RegisterSentProgressCallback(fileInfo []byte,
 func (w *Wrapper) Download(fileInfo []byte,
 	progressCB ReceivedProgressCallback, period time.Duration) error {
 
+	// Add file to file manager
 	rt, fi, err := w.m.handleIncomingTransfer(fileInfo, progressCB, period)
 	if err != nil {
 		return err
 	}
 
-	completeCB := func(completed bool, _, _ uint16, _ ReceivedTransfer,
+	// Register callback to update event model once download is complete
+	w.m.registerReceivedProgressCallback(rt, w.downloadCompleteCB(rt), 0)
+
+	status := channels.ReceptionProcessing
+	return w.ev.UpdateFile(fi.FID, nil, nil, nil, nil, nil, nil, &status)
+}
+
+// downloadCompleteCB is called when a file download completes. It receives the
+// full file (removing it from the file manager) and updates the event model.
+func (w *Wrapper) downloadCompleteCB(
+	rt *store.ReceivedTransfer) ReceivedProgressCallback {
+	return func(completed bool, _, _ uint16, _ ReceivedTransfer,
 		_ FilePartTracker, err error) {
 		if err != nil {
-			jww.ERROR.Printf(
-				"[FT] Received file %s transfer error: %+v", fi.FID, err)
+			jww.ERROR.Printf("[FT] Error downloading file %s (%q): %+v",
+				rt.FileID(), rt.FileName(), err)
 			return
 		}
 
 		if completed {
+			// Get completed file
 			fileData, err2 := w.m.receive(rt)
 			if err2 != nil {
-				jww.ERROR.Printf("[FT] Failed to get file data for %s: %+v",
-					fi.FID, err2)
+				jww.ERROR.Printf("[FT] Failed to get complete file data for "+
+					"%s (%q): %+v", rt.FileID(), rt.FileName(), err2)
 				return
 			}
 
+			// Store completed file in event model
 			now := netTime.Now()
 			status := channels.ReceptionProcessingComplete
 			err = w.ev.UpdateFile(
-				fi.FID, nil, &fileData, &now, nil, nil, nil, &status)
+				rt.FileID(), nil, &fileData, &now, nil, nil, nil, &status)
 			if err != nil {
-				jww.ERROR.Printf(
-					"[FT] Failed to update complete file %s in event model: %+v",
-					fi.FID, err)
+				jww.ERROR.Printf("[FT] Failed to update downloaded file %s "+
+					"(%q) in event model: %+v", rt.FileID(), rt.FileName(), err)
 			}
 		}
 	}
-	w.m.registerReceivedProgressCallback(rt, completeCB, 0)
-
-	status := channels.ReceptionProcessing
-	return w.ev.UpdateFile(fi.FID, nil, nil, nil, nil, nil, nil, &status)
 }
 
 // RegisterReceivedProgressCallback registers the callback to the given file
@@ -247,7 +267,7 @@ func (w *Wrapper) RegisterReceivedProgressCallback(fileInfo []byte,
 
 	fi, err := UnmarshalFileInfo(fileInfo)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not unmarshal FileInfo")
 	}
 
 	return w.m.RegisterReceivedProgressCallback(fi.FID, progressCB, period)

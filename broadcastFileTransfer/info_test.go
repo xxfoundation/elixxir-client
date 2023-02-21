@@ -9,8 +9,12 @@ package broadcastFileTransfer
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -45,6 +49,54 @@ func TestFileInfo_Marshal_UnmarshalFileInfo(t *testing.T) {
 	if !reflect.DeepEqual(fi, newTi) {
 		t.Errorf("Unmarshalled FileInfo does not match original."+
 			"\nexpected: %+v\nreceived: %+v", fi, newTi)
+	}
+}
+
+// Error path: Tests that UnmarshalFileInfo returns the expected error when the
+// data is an invalid proto message.
+func TestUnmarshalFileInfo_ProtoUnmarshalError(t *testing.T) {
+	data := []byte("invalid data")
+	expectedErr := fmt.Sprintf(fileInfoMsgProtoUnmarshalErr, &FileInfoMsg{})
+
+	_, err := UnmarshalFileInfo(data)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Unexpcted error for invalid proto message."+
+			"\nexpected: %s\nreceived: %v", expectedErr, err)
+	}
+}
+
+// Error path: Tests that UnmarshalFileInfo returns the expected error when the
+// file ID cannot be unmarshalled.
+func TestUnmarshalFileInfo_FileIdUnmarshalError(t *testing.T) {
+	data, err := proto.Marshal(&FileInfoMsg{Fid: []byte("invalid ID")})
+	if err != nil {
+		t.Fatalf("Failed to proto marshal FileInfoMsg: %+v", err)
+	}
+
+	expectedErr := fileInfoFileIdUnmarshalErr
+
+	_, err = UnmarshalFileInfo(data)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Unexpcted error for invalid proto message."+
+			"\nexpected: %s\nreceived: %v", expectedErr, err)
+	}
+}
+
+// Error path: Tests that UnmarshalFileInfo returns the expected error when the
+// recipient ID cannot be unmarshalled.
+func TestUnmarshalFileInfo_RecipientUnmarshalError(t *testing.T) {
+	data, err := proto.Marshal(&FileInfoMsg{
+		Fid: make([]byte, ftCrypto.IdLen), RecipientID: []byte("invalid ID")})
+	if err != nil {
+		t.Fatalf("Failed to proto marshal FileInfoMsg: %+v", err)
+	}
+
+	expectedErr := fileInfoRecipientIdUnmarshalErr
+
+	_, err = UnmarshalFileInfo(data)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Unexpcted error for invalid proto message."+
+			"\nexpected: %s\nreceived: %v", expectedErr, err)
 	}
 }
 

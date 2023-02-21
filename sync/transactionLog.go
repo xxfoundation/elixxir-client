@@ -36,6 +36,8 @@ const (
 	writeToStoreErr           = "failed to write to %s store: %+v"
 	loadFromLocalStoreErr     = "failed to deserialize log from local store at path %s: %+v"
 	deserializeTransactionErr = "failed to deserialize transaction (%d/%d): %+v"
+	nilRemoteCbPrintWarn      = "[%s] Cannot report status of remote storage write for transaction %s (callback is nil)"
+	nilRemoteCb               = "cannot set remote store callback to be nil"
 )
 
 // TransactionLog will log all Transaction's to a storage interface. It will
@@ -52,7 +54,8 @@ type TransactionLog struct {
 	// EkvLocalStore is provided as an example.
 	local LocalStore
 
-	// remote is the store for writing/reading to a remote store.
+	// remote is the store for writing/reading to a remote store. All writes
+	// should be asynchronous.
 	//
 	// FileSystemRemoteStorage is provided as an example.
 	remote RemoteStore
@@ -72,24 +75,48 @@ type TransactionLog struct {
 	// secure random number generator (fastRNG.Stream is recommended).
 	rng io.Reader
 
+	// remoteStoreCb is the callback used when writing to remote store. Since
+	// writing to remote should always be an asynchronous operation, this
+	// callback will pass the report of writing the transaction to remote.
+	remoteStoreCb RemoteStoreCallback
+
 	lck sync.RWMutex
 }
+
+// RemoteStoreCallback is a callback for reporting the status of writing the
+// new transaction to remote storage.
+type RemoteStoreCallback func(newTx Transaction, err error)
 
 // NewOrLoadTransactionLog constructs a new TransactionLog. If the LocalStore
 // has serialized data within Note that by default the
 // log's header is empty. To set this field, call TransactionLog.SetHeader.
-func NewOrLoadTransactionLog(local LocalStore, remote RemoteStore,
-	rng io.Reader, path string, deviceSecret []byte) (*TransactionLog, error) {
+//
+// Parameters:
+//   - path - the file path that will be used to write transactions, both locally
+//     and remotely.
+//   - local - the LocalStore adhering object which will be used to write the
+//     transaction log to file.
+//   - remote - the RemoteStore adhering object which will be used to write the
+//     transaction log to file.
+//   - appendCallback - the callback used to report the status of writing to
+//     remote.
+//   - deviceSecret - the randomly generated secret for this individual device.
+//     This should be unique for every device.
+//   - rng - An io.Reader used for random generation when encrypting data.
+func NewOrLoadTransactionLog(path string, local LocalStore,
+	remote RemoteStore, appendCallback RemoteStoreCallback, deviceSecret []byte,
+	rng io.Reader) (*TransactionLog, error) {
 
 	// Construct a new transaction log
 	tx := &TransactionLog{
-		Header:       NewHeader(),
-		path:         path,
-		local:        local,
-		remote:       remote,
-		txs:          make([]Transaction, 0),
-		deviceSecret: deviceSecret,
-		rng:          rng,
+		Header:        NewHeader(),
+		path:          path,
+		local:         local,
+		remote:        remote,
+		txs:           make([]Transaction, 0),
+		deviceSecret:  deviceSecret,
+		remoteStoreCb: appendCallback,
+		rng:           rng,
 	}
 
 	// Attempt to read stored transaction log
@@ -101,21 +128,38 @@ func NewOrLoadTransactionLog(local LocalStore, remote RemoteStore,
 		}
 	}
 
-	// If failed to read, then there is no state
+	// If failed to read, then there is no state, which may or may not be
+	// expected. For example, calling this the first time on a device, there
+	// will naturally be no state to read.
 	jww.DEBUG.Printf("[%s] Failed to read from local when loading: %+v", local, err)
 	return tx, nil
 }
 
+// SetRemoteCallback will overwrite the TransactionLog remote store callback to
+// be the passed in callback. This will not accept a nil callback.
+func (tl *TransactionLog) SetRemoteCallback(callback RemoteStoreCallback) error {
+	tl.lck.Lock()
+	defer tl.lck.Unlock()
+
+	if callback == nil {
+		return errors.Errorf(nilRemoteCb)
+	}
+
+	tl.remoteStoreCb = callback
+	return nil
+}
+
 // Append will add a transaction to the TransactionLog. This will save the
-// serialized TransactionLog to local and remote storage.
-func (tl *TransactionLog) Append(t Transaction) error {
+// serialized TransactionLog to local and remote storage. The callback for
+// remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
+func (tl *TransactionLog) Append(newTx Transaction) error {
 	tl.lck.Lock()
 	defer tl.lck.Unlock()
 	// Insert new transaction into list
 	jww.INFO.Printf("[%s] Inserting transaction to log", logHeader)
 
 	// Use insertion sort as it has been benchmarked to be more performant
-	tl.appendUsingInsertion(t)
+	tl.appendUsingInsertion(newTx)
 
 	// Save data to file store
 	jww.INFO.Printf("[%s] Saving transaction log", logHeader)
@@ -125,7 +169,7 @@ func (tl *TransactionLog) Append(t Transaction) error {
 	if err != nil {
 		return err
 	}
-	return tl.save(dataToSave)
+	return tl.save(newTx, dataToSave)
 }
 
 // appendUsingInsertion will write the new Transaction to txs. txs must be
@@ -285,7 +329,7 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 
 // save writes the data passed int to file, both remotely and locally. The data
 // created from serialize.
-func (tl *TransactionLog) save(dataToSave []byte) error {
+func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte) error {
 
 	// Save to local storage (if set)
 	if tl.local == nil {
@@ -300,10 +344,6 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 	}
 
 	// Do not let remote writing block operations
-	// fixme: Add a callback to the Log object to inform the caller of the
-	//        status of the remote save to save the context, pass the
-	//        Transaction to save() so that it can be passed to the CB
-	//        Example: cb(newTx, err)
 	go func() {
 		// Save to remote storage (if set)
 		if tl.remote == nil {
@@ -311,9 +351,17 @@ func (tl *TransactionLog) save(dataToSave []byte) error {
 		}
 
 		jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
-		if err := tl.remote.Write(tl.path, dataToSave); err != nil {
-			jww.FATAL.Panicf(writeToStoreErr, "remote", err)
+
+		// Use callback to report status of remote write.
+		err := tl.remote.Write(tl.path, dataToSave)
+		if tl.remoteStoreCb != nil {
+			tl.remoteStoreCb(newTx, err)
+			return
 		}
+
+		// todo: write stringer for transaction
+		jww.FATAL.Panicf(nilRemoteCbPrintWarn, logHeader, newTx)
+
 	}()
 
 	return nil

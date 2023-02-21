@@ -36,7 +36,6 @@ const (
 	writeToStoreErr           = "failed to write to %s store: %+v"
 	loadFromLocalStoreErr     = "failed to deserialize log from local store at path %s: %+v"
 	deserializeTransactionErr = "failed to deserialize transaction (%d/%d): %+v"
-	nilRemoteCbPrintWarn      = "[%s] Cannot report status of remote storage write for transaction %s (callback is nil)"
 	nilRemoteCb               = "cannot set remote store callback to be nil"
 )
 
@@ -344,27 +343,29 @@ func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte) error {
 	}
 
 	// Do not let remote writing block operations
-	go func() {
-		// Save to remote storage (if set)
-		if tl.remote == nil {
-			jww.FATAL.Panicf("[%s] Cannot write to a nil remote store", logHeader)
-		}
-
-		jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
-
-		// Use callback to report status of remote write.
-		err := tl.remote.Write(tl.path, dataToSave)
-		if tl.remoteStoreCb != nil {
-			tl.remoteStoreCb(newTx, err)
-			return
-		}
-
-		// todo: write stringer for transaction
-		jww.FATAL.Panicf(nilRemoteCbPrintWarn, logHeader, newTx)
-
-	}()
-
+	go tl.saveToRemote(newTx, dataToSave)
 	return nil
+}
+
+// saveToRemote will write the data to save to remote. It will panic if remote
+// or remoteStoreCb are nil.
+func (tl *TransactionLog) saveToRemote(newTx Transaction, dataToSave []byte) {
+	// Check if remote
+	if tl.remote == nil {
+		jww.FATAL.Panicf("[%s] Cannot write to a nil remote store", logHeader)
+	}
+
+	if tl.remoteStoreCb == nil {
+		jww.FATAL.Panicf(
+			"[%s] Cannot report status of remote storage write for transaction %s to a nil callback",
+			logHeader, newTx)
+	}
+
+	jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
+
+	// Use callback to report status of remote write.
+	tl.remoteStoreCb(newTx, tl.remote.Write(tl.path, dataToSave))
+
 }
 
 // serializeInt is a utility function which serializes an integer into a byte

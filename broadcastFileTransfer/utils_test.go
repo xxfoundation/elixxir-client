@@ -9,7 +9,9 @@ package broadcastFileTransfer
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/binary"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"io"
 	"math/rand"
 	"sync"
@@ -18,6 +20,7 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
+	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -31,8 +34,11 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/comms/network"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -70,7 +76,7 @@ func newFile(numParts uint16, partSize int, prng io.Reader, t *testing.T) (
 	randPrng := rand.New(rand.NewSource(int64(seed)))
 
 	for partNum := range partList {
-		s := RandStringBytes(partSize, randPrng)
+		s := randStringBytes(partSize, randPrng)
 		if len(s) >= (len(prefix) + len(suffix)) {
 			partList[partNum] = []byte(
 				prefix + s[:len(s)-(len(prefix)+len(suffix))] + suffix)
@@ -86,9 +92,9 @@ func newFile(numParts uint16, partSize int, prng io.Reader, t *testing.T) (
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-// RandStringBytes generates a random string of length n consisting of the
+// randStringBytes generates a random string of length n consisting of the
 // characters in letterBytes.
-func RandStringBytes(n int, prng *rand.Rand) string {
+func randStringBytes(n int, prng *rand.Rand) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = letterBytes[prng.Intn(len(letterBytes))]
@@ -123,9 +129,9 @@ func (m *mockE2e) GetCmix() cmix.Client                         { return m.c }
 func (m *mockE2e) GetRng() *fastRNG.StreamGenerator             { return m.rng }
 func (m *mockE2e) GetE2E() e2e.Handler                          { return nil }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock cMix                                                                  //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type cmixMsg struct {
 	rid         id.Round
 	targetedMsg cmix.TargetedCmixMessage
@@ -216,23 +222,18 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	return rounds.Round{ID: rid}, []ephemeral.Id{}, nil
 }
 
-func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
-	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
-
-func (m *mockCmix) SendManyWithAssembler([]*id.ID, cmix.ManyMessageAssembler,
-	cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendManyWithAssembler([]*id.ID, cmix.ManyMessageAssembler, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	panic("implement me")
 }
-
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) { panic("implement me") }
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
 func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
 	panic("implement me")
 }
-func (m *mockCmix) RemoveIdentity(*id.ID)                          { panic("implement me") }
+func (m *mockCmix) RemoveIdentity(*id.ID)                          {}
 func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { panic("implement me") }
-
 func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
 	m.handler.Lock()
 	defer m.handler.Unlock()
@@ -379,3 +380,237 @@ func (m *mockStorage) GetRegistrationTimestamp() time.Time                    { 
 func (m *mockStorage) SetTransmissionRegistrationValidationSignature([]byte)  { panic("implement me") }
 func (m *mockStorage) SetReceptionRegistrationValidationSignature([]byte)     { panic("implement me") }
 func (m *mockStorage) SetRegistrationTimestamp(int64)                         { panic("implement me") }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Event Model                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+// Ensure that mockEventModel adheres to EventModel.
+var _ EventModel = (*mockEventModel)(nil)
+
+// mockEventModel mocks the EventModel for testing.
+type mockEventModel struct {
+	cb    func(fileMsg)
+	files map[ftCrypto.ID]fileMsg
+	t     testing.TB
+	sync.RWMutex
+}
+
+func newMockEventModel(cb func(fileMsg), t testing.TB) *mockEventModel {
+	return &mockEventModel{cb: cb, files: make(map[ftCrypto.ID]fileMsg), t: t}
+}
+
+type fileMsg struct {
+	channelID   *id.ID
+	fileID      ftCrypto.ID
+	nickname    string
+	fileInfo    []byte
+	fileData    []byte
+	pubKey      ed25519.PublicKey
+	dmToken     uint32
+	codeset     uint8
+	timestamp   time.Time
+	lease       time.Duration
+	round       rounds.Round
+	messageType channels.MessageType
+	status      channels.SentStatus
+	pinned      bool
+	hidden      bool
+}
+
+func (m *mockEventModel) ReceiveFileMessage(channelID *id.ID, fileID ftCrypto.ID,
+	nickname string, fileInfo, fileData []byte, pubKey ed25519.PublicKey,
+	dmToken uint32, codeset uint8, timestamp time.Time, lease time.Duration,
+	round rounds.Round, messageType channels.MessageType,
+	status channels.SentStatus, hidden bool) uint64 {
+	m.Lock()
+	defer m.Unlock()
+
+	m.files[fileID] = fileMsg{channelID, fileID, nickname, fileInfo,
+		fileData, pubKey, dmToken, codeset, timestamp, lease, round,
+		messageType, status, false, hidden}
+
+	m.cb(m.files[fileID])
+
+	return 0
+}
+
+func (m *mockEventModel) UpdateFile(fileID ftCrypto.ID, fileInfo,
+	fileData *[]byte, timestamp *time.Time, round *rounds.Round, pinned,
+	hidden *bool, status *channels.SentStatus) error {
+	m.Lock()
+	defer m.Unlock()
+
+	f, exists := m.files[fileID]
+	if !exists {
+		return channels.NoMessageErr
+	}
+
+	if fileInfo != nil {
+		f.fileInfo = *fileInfo
+	}
+	if fileData != nil {
+		f.fileData = *fileData
+	}
+	if timestamp != nil {
+		f.timestamp = *timestamp
+	}
+	if round != nil {
+		f.round = *round
+	}
+	if pinned != nil {
+		f.pinned = *pinned
+	}
+	if hidden != nil {
+		f.hidden = *hidden
+	}
+	if status != nil {
+		f.status = *status
+	}
+
+	m.files[fileID] = f
+
+	m.cb(m.files[fileID])
+
+	return nil
+}
+
+func (m *mockEventModel) GetFile(fileID ftCrypto.ID) (
+	fileInfo, fileData []byte, err error) {
+	m.Lock()
+	defer m.Unlock()
+
+	f, exists := m.files[fileID]
+	if !exists {
+		return nil, nil, channels.NoMessageErr
+	}
+
+	return f.fileInfo, f.fileData, nil
+}
+
+func (m *mockEventModel) JoinChannel(*cryptoBroadcast.Channel) { panic("implement me") }
+func (m *mockEventModel) LeaveChannel(*id.ID)                  { panic("implement me") }
+func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration, rounds.Round, channels.MessageType, channels.SentStatus, bool) uint64 {
+	panic("implement me")
+}
+func (m *mockEventModel) ReceiveReply(*id.ID, cryptoMessage.ID, cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration, rounds.Round, channels.MessageType, channels.SentStatus, bool) uint64 {
+	panic("implement me")
+}
+func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoMessage.ID, cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration, rounds.Round, channels.MessageType, channels.SentStatus, bool) uint64 {
+	panic("implement me")
+}
+func (m *mockEventModel) UpdateFromUUID(uint64, *cryptoMessage.ID, *time.Time, *rounds.Round, *bool, *bool, *channels.SentStatus) error {
+	panic("implement me")
+}
+func (m *mockEventModel) UpdateFromMessageID(cryptoMessage.ID, *time.Time, *rounds.Round, *bool, *bool, *channels.SentStatus) (uint64, error) {
+	panic("implement me")
+}
+func (m *mockEventModel) GetMessage(cryptoMessage.ID) (channels.ModelMessage, error) {
+	panic("implement me")
+}
+func (m *mockEventModel) DeleteMessage(cryptoMessage.ID) error     { panic("implement me") }
+func (m *mockEventModel) MuteUser(*id.ID, ed25519.PublicKey, bool) { panic("implement me") }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Channels Manager                                                      //
+////////////////////////////////////////////////////////////////////////////////
+
+// Ensure that mockChannelsManager adheres to channels.Manager.
+var _ channels.Manager = (*mockChannelsManager)(nil)
+
+// mockChannelsManager mocks the channels.Manager for testing.
+type mockChannelsManager struct {
+	nickname string
+	me       cryptoChannel.PrivateIdentity
+	emh      channels.ExtensionMessageHandler
+}
+
+func newMockChannelsManager(ev EventModel, eb channels.ExtensionBuilder,
+	me cryptoChannel.PrivateIdentity) (*mockChannelsManager, error) {
+	m := &mockChannelsManager{
+		nickname: "",
+		me:       me,
+	}
+	emh, err := eb(ev, m, me)
+	if err != nil {
+		return nil, err
+	}
+
+	m.emh = emh[0]
+
+	return m, nil
+}
+
+func (m *mockChannelsManager) GenerateChannel(string, string,
+	cryptoBroadcast.PrivacyLevel) (*cryptoBroadcast.Channel, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) JoinChannel(*cryptoBroadcast.Channel) error { panic("implement me") }
+func (m *mockChannelsManager) LeaveChannel(*id.ID) error                  { panic("implement me") }
+func (m *mockChannelsManager) EnableDirectMessages(*id.ID) error          { panic("implement me") }
+func (m *mockChannelsManager) DisableDirectMessages(*id.ID) error         { panic("implement me") }
+func (m *mockChannelsManager) ReplayChannel(*id.ID) error                 { panic("implement me") }
+func (m *mockChannelsManager) GetChannels() []*id.ID                      { panic("implement me") }
+func (m *mockChannelsManager) GetChannel(*id.ID) (*cryptoBroadcast.Channel, error) {
+	panic("implement me")
+}
+
+func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
+	messageType channels.MessageType, msg []byte, validUntil time.Duration,
+	_ bool, _ cmix.CMIXParams) (
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+
+	m.emh.Handle(channelID, cryptoMessage.ID{}, messageType, m.nickname, msg,
+		nil, m.me.PubKey, m.me.GetDMToken(), 0, netTime.Now(), netTime.Now(), validUntil, 0,
+		rounds.Round{}, channels.Delivered, false, false)
+
+	return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, nil
+}
+
+func (m *mockChannelsManager) SendMessage(*id.ID, string, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) SendReply(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) SendReaction(*id.ID, string, cryptoMessage.ID, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) SendAdminGeneric(*id.ID, channels.MessageType, []byte, time.Duration, bool, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) DeleteMessage(*id.ID, cryptoMessage.ID, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) PinMessage(*id.ID, cryptoMessage.ID, bool, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) MuteUser(*id.ID, ed25519.PublicKey, bool, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) GetIdentity() cryptoChannel.Identity          { panic("implement me") }
+func (m *mockChannelsManager) ExportPrivateIdentity(string) ([]byte, error) { panic("implement me") }
+func (m *mockChannelsManager) GetStorageTag() string                        { panic("implement me") }
+func (m *mockChannelsManager) RegisterReceiveHandler(channels.MessageType, *channels.ReceiveMessageHandler) error {
+	panic("implement me")
+}
+func (m *mockChannelsManager) SetNickname(string, *id.ID) error { panic("implement me") }
+func (m *mockChannelsManager) DeleteNickname(*id.ID) error      { panic("implement me") }
+
+func (m *mockChannelsManager) GetNickname(*id.ID) (nickname string, exists bool) {
+	return m.nickname, true
+}
+
+func (m *mockChannelsManager) Muted(*id.ID) bool                        { panic("implement me") }
+func (m *mockChannelsManager) GetMutedUsers(*id.ID) []ed25519.PublicKey { panic("implement me") }
+func (m *mockChannelsManager) IsChannelAdmin(*id.ID) bool               { panic("implement me") }
+func (m *mockChannelsManager) ExportChannelAdminKey(*id.ID, string) ([]byte, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) VerifyChannelAdminKey(*id.ID, string, []byte) (bool, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) ImportChannelAdminKey(*id.ID, string, []byte) error {
+	panic("implement me")
+}
+func (m *mockChannelsManager) DeleteChannelAdminKey(*id.ID) error { panic("implement me") }

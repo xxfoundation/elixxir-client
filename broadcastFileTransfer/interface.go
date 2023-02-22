@@ -112,10 +112,10 @@ type FileTransfer interface {
 	//    per period.
 	//
 	// Returns:
-	//  - A UUID of the file that can be referenced at a later time.
+	//  - A file ID that uniquely identifies this file.
 	Upload(channelID *id.ID, fileName, fileType string, fileData []byte,
 		retry float32, preview []byte, progressCB SentProgressCallback,
-		period time.Duration, validUntil time.Duration) (uint64, error)
+		period time.Duration) (ftCrypto.ID, error)
 
 	// Send sends the specified file info to the channel.
 	//
@@ -125,6 +125,8 @@ type FileTransfer interface {
 	//  - fileInfo - The marshalled FileInfo bytes stored in the event model.
 	//  - validUntil - How long the file is available for download.
 	//  - params - The cmix.CMIXParams to send this.
+	//  - validUntil - The duration that the file is available in the channel.
+	//    For the maximum amount of time, use channels.ValidForever.
 	Send(channelID *id.ID, fileInfo []byte, validUntil time.Duration,
 		params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
 
@@ -143,13 +145,13 @@ type FileTransfer interface {
 	// function or Send.
 	//
 	// Parameters:
-	//  - fileInfo - The marshalled FileInfo bytes stored in the event model.
+	//  - fileID - The unique ID of the file.
 	//  - progressCB - A callback that reports the progress of the file upload.
 	//    The callback is called once on initialization, on every progress
 	//    update (or less if restricted by the period), or on fatal error.
 	//  - period - A progress callback will be limited from triggering only once
 	//    per period.
-	RegisterSentProgressCallback(fileInfo []byte,
+	RegisterSentProgressCallback(fileID ftCrypto.ID,
 		progressCB SentProgressCallback, period time.Duration) error
 
 	/* === Receiving ======================================================== */
@@ -183,8 +185,11 @@ type FileTransfer interface {
 	//    error.
 	//  - period - A progress callback will be limited from triggering only once
 	//    per period.
-	Download(fileInfo []byte,
-		progressCB ReceivedProgressCallback, period time.Duration) error
+	//
+	// Returns:
+	//  - A file ID that uniquely identifies this file.
+	Download(fileInfo []byte, progressCB ReceivedProgressCallback,
+		period time.Duration) (ftCrypto.ID, error)
 
 	// RegisterReceivedProgressCallback allows for the registration of a
 	// callback to track the progress of an individual received file transfer.
@@ -203,13 +208,13 @@ type FileTransfer interface {
 	// can get the full file by calling Receive.
 	//
 	// Parameters:
-	//  - fileInfo - The marshalled FileInfo bytes stored in the event model.
+	//  - fileID - The unique ID of the file.
 	//  - progressCB - A callback that reports the progress of the file upload.
 	//    The callback is called once on initialization, on every progress
 	//    update (or less if restricted by the period), or on fatal error.
 	//  - period - A progress callback will be limited from triggering only once
 	//    per period.
-	RegisterReceivedProgressCallback(fileInfo []byte,
+	RegisterReceivedProgressCallback(fileID ftCrypto.ID,
 		progressCB ReceivedProgressCallback, period time.Duration) error
 }
 

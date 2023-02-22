@@ -26,9 +26,9 @@ type EventModel interface {
 	// The API needs to return a UUID of the message that can be referenced at a
 	// later time.
 	//
-	// timestamp and round are nillable and may be updated based upon the UUID
-	// at a later date. A time of time.Time{} will be passed for a nilled
-	// timestamp.
+	// fileInfo, timestamp, lease, and round are nillable and may be updated
+	// based upon the UUID or file ID later. A time of time.Time{} will be
+	// passed for a nilled timestamp.
 	//
 	// nickname may be empty, in which case the UI is expected to display the
 	// codename.

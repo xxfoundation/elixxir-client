@@ -45,7 +45,7 @@ type Wrapper struct {
 func NewWrapper(user FtE2e, params Params) (
 	*Wrapper, channels.ExtensionBuilder, error) {
 
-	var w *Wrapper
+	var w Wrapper
 
 	// Create new file manager and get list of in-progress sends and receives
 	fm, inProgressSends, _, err := newManager(user, params)
@@ -91,10 +91,10 @@ func NewWrapper(user FtE2e, params Params) (
 			return nil, err
 		}
 
-		return []channels.ExtensionMessageHandler{w}, nil
+		return []channels.ExtensionMessageHandler{&w}, nil
 	}
 
-	return w, eb, nil
+	return &w, eb, nil
 }
 
 // StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
@@ -127,44 +127,30 @@ func (w *Wrapper) MaxPreviewSize() int {
 // Upload starts uploading the file to a new ID that can be sent to the
 // specified channel when complete. To get progress information about the upload
 // a SentProgressCallback but be registered.
-//
-// Returns a UUID of the file and its info that can be referenced at a later
-// time.
 func (w *Wrapper) Upload(channelID *id.ID, fileName, fileType string,
 	fileData []byte, retry float32, preview []byte,
-	progressCB SentProgressCallback, period time.Duration,
-	validUntil time.Duration) (uint64, error) {
+	progressCB SentProgressCallback, period time.Duration) (ftCrypto.ID, error) {
 
 	// Initiate file send
 	fid, err := w.m.Send(fileName, fileType, fileData, retry, preview,
 		w.uploadCompleteCB(channelID), progressCB, period)
 	if err != nil {
-		return 0, err
+		return ftCrypto.ID{}, err
 	}
 
 	// Store file in event model
 	nickname, _ := w.ch.GetNickname(channelID)
-	uuid := w.ev.ReceiveFileMessage(channelID, fid, nickname, nil, fileData,
-		w.ch.GetIdentity().PubKey, w.me.GetDMToken(), 0, netTime.Now(),
-		validUntil, rounds.Round{}, channels.FileTransfer,
-		channels.SendProcessing, false)
+	w.ev.ReceiveFileMessage(channelID, fid, nickname, nil, fileData, w.me.PubKey,
+		w.me.GetDMToken(), 0, netTime.Now(), 0, rounds.Round{},
+		channels.FileTransfer, channels.SendProcessing, false)
 
-	return uuid, nil
+	return fid, nil
 }
 
 // uploadCompleteCB is called when a file upload completes. It closes out the
 // file send and updates the event model.
 func (w *Wrapper) uploadCompleteCB(channelID *id.ID) SendCompleteCallback {
 	return func(fi FileInfo) {
-		// Close the send once the function completes (either the file is marked
-		// complete in the event model or an error occurs)
-		defer func() {
-			if err := w.m.CloseSend(fi.FID); err != nil {
-				jww.ERROR.Printf("[FT] Failed to close send of file %s (%q) "+
-					"on channel %s: %+v", fi.FID, fi.FileName, channelID, err)
-			}
-		}()
-
 		fileInfo, err := fi.Marshal()
 		if err != nil {
 			jww.ERROR.Printf("[FT] Failed to marshal FileInfo for file %s "+
@@ -195,35 +181,30 @@ func (w *Wrapper) Send(channelID *id.ID, fileInfo []byte,
 
 // RegisterSentProgressCallback registers the callback to the given file
 // described in the marshalled FileInfo.
-func (w *Wrapper) RegisterSentProgressCallback(fileInfo []byte,
+func (w *Wrapper) RegisterSentProgressCallback(fileID ftCrypto.ID,
 	progressCB SentProgressCallback, period time.Duration) error {
 
-	fi, err := UnmarshalFileInfo(fileInfo)
-	if err != nil {
-		return errors.Wrap(err, "could not unmarshal FileInfo")
-	}
-
-	return w.m.RegisterSentProgressCallback(fi.FID, progressCB, period)
+	return w.m.RegisterSentProgressCallback(fileID, progressCB, period)
 }
 
 /* === Receiving ============================================================ */
 
 // Download beings the download of the file described in the marshalled
 // FileInfo. The progress of the download is reported on the progress callback.
-func (w *Wrapper) Download(fileInfo []byte,
-	progressCB ReceivedProgressCallback, period time.Duration) error {
+func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
+	period time.Duration) (ftCrypto.ID, error) {
 
 	// Add file to file manager
 	rt, fi, err := w.m.handleIncomingTransfer(fileInfo, progressCB, period)
 	if err != nil {
-		return err
+		return ftCrypto.ID{}, err
 	}
 
 	// Register callback to update event model once download is complete
 	w.m.registerReceivedProgressCallback(rt, w.downloadCompleteCB(rt), 0)
 
 	status := channels.ReceptionProcessing
-	return w.ev.UpdateFile(fi.FID, nil, nil, nil, nil, nil, nil, &status)
+	return fi.FID, w.ev.UpdateFile(fi.FID, nil, nil, nil, nil, nil, nil, &status)
 }
 
 // downloadCompleteCB is called when a file download completes. It receives the
@@ -260,17 +241,10 @@ func (w *Wrapper) downloadCompleteCB(
 	}
 }
 
-// RegisterReceivedProgressCallback registers the callback to the given file
-// described in the marshalled FileInfo.
-func (w *Wrapper) RegisterReceivedProgressCallback(fileInfo []byte,
+// RegisterReceivedProgressCallback registers the callback to the given file ID.
+func (w *Wrapper) RegisterReceivedProgressCallback(fileID ftCrypto.ID,
 	progressCB ReceivedProgressCallback, period time.Duration) error {
-
-	fi, err := UnmarshalFileInfo(fileInfo)
-	if err != nil {
-		return errors.Wrap(err, "could not unmarshal FileInfo")
-	}
-
-	return w.m.RegisterReceivedProgressCallback(fi.FID, progressCB, period)
+	return w.m.RegisterReceivedProgressCallback(fileID, progressCB, period)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -55,8 +55,8 @@ const (
 	FileMaxSize = 250_000
 
 	// PreviewMaxSize is the maximum size, in bytes, for a file preview.
-	// Currently, it is set to 4 kB.
-	PreviewMaxSize = 4_000
+	// Currently, it is set to 590 bytes.
+	PreviewMaxSize = 590
 
 	// minPartsSendPerRound is the minimum number of file parts sent each round.
 	minPartsSendPerRound = 1

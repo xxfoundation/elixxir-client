@@ -10,12 +10,11 @@ package broadcastFileTransfer
 import (
 	"bytes"
 	_ "embed"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/storage"
 	"math/rand"
 	"reflect"
 	"testing"
-
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage"
 )
 
 //go:embed loremIpsum.txt
@@ -74,7 +73,6 @@ func Test_calcNumberOfFingerprints(t *testing.T) {
 		}
 	}
 }
-
 /*
 // Smoke test of the entire file transfer system.
 func Test_FileTransfer_Smoke(t *testing.T) {
@@ -190,5 +188,4 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to close processes for manager 2: %+v", err)
 	}
-}
-*/
+}*/

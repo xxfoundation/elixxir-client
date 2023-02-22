@@ -62,8 +62,13 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 		return nil, errors.Errorf("Unable to initialize database backend: %+v", err)
 	}
 
-	// Force-enable foreign keys as an oddity of SQLite
+	// Enable foreign keys because they are disabled in SQLite by default
 	if err = db.Exec("PRAGMA foreign_keys = ON", nil).Error; err != nil {
+		return nil, err
+	}
+
+	// Enable Write Ahead Logging to enable multiple DB connections
+	if err = db.Exec("PRAGMA journal_mode = WAL;", nil).Error; err != nil {
 		return nil, err
 	}
 

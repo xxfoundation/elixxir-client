@@ -372,11 +372,11 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
-			elapsed = netTime.Since(timeStart)
+			totalElapsed := netTime.Since(timeStart)
 			m := fmt.Sprintf("[Send-%s] Successfully sent to EphID %v "+
 				"(source: %s) in round %d (msgDigest: %s), elapsed: %s "+
 				"numRoundTries: %d", cmixParams.DebugTag, ephID.Int64(),
-				recipient, bestRound.ID, msg.Digest(), elapsed, numRoundTries)
+				recipient, bestRound.ID, msg.Digest(), totalElapsed, numRoundTries)
 
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSend", "Metric", m)

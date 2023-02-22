@@ -47,6 +47,14 @@ type Client interface {
 	// portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
+	// IsBlocked returns if the given sender is blocked
+	// Blocking is controlled by the Receiver / EventModel
+	IsBlocked(senderPubKey ed25519.PublicKey) bool
+
+	// GetBlockedSenders returns all senders who are blocked by this user.
+	// Blocking is controlled by the Receiver / EventModel
+	GetBlockedSenders() []ed25519.PublicKey
+
 	NickNameManager
 }
 
@@ -198,6 +206,20 @@ type EventModel interface {
 	// value is passed, make no update.
 	UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status Status)
+
+	// BlockSender silences messages sent by the indicated sender
+	// public key.
+	BlockSender(senderPubKey ed25519.PublicKey)
+	// UnblockSender allows messages sent by the indicated sender
+	// public key.
+	UnblockSender(senderPubKey ed25519.PublicKey)
+
+	// GetConversations returns any conversations held by the
+	// model (receiver)
+	GetConversations(senderPubKey ed25519.PublicKey) []ModelConversation
+	// GetConversations returns any conversations held by the
+	// model (receiver)
+	GetAllConversations() []ModelConversation
 }
 
 // cmixClient are the required cmix functions we need for direct messages

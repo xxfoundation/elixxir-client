@@ -9,8 +9,10 @@ package bindings
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
@@ -183,6 +185,22 @@ type DMReceiver interface {
 	//  Failed    =  2
 	UpdateSentStatus(uuid int64, messageID []byte, timestamp, roundID,
 		status int64)
+
+	// BlockSender silences messages sent by the indicated sender
+	// public key.
+	//  - senderPubKey - The sender's Ed25519 public key to block.
+	BlockSender(senderPubKey []byte)
+	// UnblockSender allows messages sent by the indicated sender
+	// public key.
+	//  - senderPubKey - The sender's Ed25519 public key to unblock.
+	UnblockSender(senderPubKey []byte)
+
+	// GetConversations returns any conversations held by the
+	// model (receiver)
+	GetConversations(senderPubKey []byte) []byte
+	// GetConversations returns any conversations held by the
+	// model (receiver)
+	GetAllConversations() []byte
 }
 
 // dmReceiver is a wrapper which wraps an existing DMReceiver object and
@@ -270,4 +288,41 @@ func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 	status dm.Status) {
 	dmr.dr.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))
+}
+
+// BlockSender silences messages sent by the indicated sender
+// public key.
+func (dmr *dmReceiver) BlockSender(senderPubKey ed25519.PublicKey) {
+	dmr.dr.BlockSender(senderPubKey)
+}
+
+// UnblockSender allows messages sent by the indicated sender
+// public key.
+func (dmr *dmReceiver) UnblockSender(senderPubKey ed25519.PublicKey) {
+	dmr.dr.UnblockSender(senderPubKey)
+}
+
+// GetConversations returns any conversations held by the
+// model (receiver)
+func (dmr *dmReceiver) GetConversations(senderPubKey ed25519.PublicKey) []dm.ModelConversation {
+	convoJSON := dmr.dr.GetConversations(senderPubKey)
+	var convos []dm.ModelConversation
+	err := json.Unmarshal(convoJSON, &convos)
+	if err != nil {
+		jww.ERROR.Printf("Cannot unmarshal conversations for %s: %+v",
+			senderPubKey, err)
+	}
+	return convos
+}
+
+// GetConversations returns any conversations held by the
+// model (receiver)
+func (dmr *dmReceiver) GetAllConversations() []dm.ModelConversation {
+	convoJSON := dmr.dr.GetAllConversations()
+	var convos []dm.ModelConversation
+	err := json.Unmarshal(convoJSON, &convos)
+	if err != nil {
+		jww.ERROR.Printf("Cannot unmarshal conversations: %+v", err)
+	}
+	return convos
 }

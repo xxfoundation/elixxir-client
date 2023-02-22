@@ -326,3 +326,17 @@ func (r *receiver) UpdateSentStatus(uuid uint64, messageID message.ID,
 	}
 	msg.status = status
 }
+
+func (r *receiver) BlockSender(pubKey ed25519.PublicKey) {
+}
+
+func (r *receiver) UnblockSender(pubKey ed25519.PublicKey) {
+}
+
+func (r *receiver) GetConversations(pubKey ed25519.PublicKey) []dm.ModelConversation {
+	return nil
+}
+
+func (r *receiver) GetAllConversations() []dm.ModelConversation {
+	return nil
+}

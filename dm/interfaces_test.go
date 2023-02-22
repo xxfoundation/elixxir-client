@@ -204,6 +204,20 @@ func (mr *mockReceiver) UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID
 	jww.INFO.Printf("UpdateSentStatus: %s", messageID)
 }
 
+func (mr *mockReceiver) BlockSender(pubKey ed25519.PublicKey) {
+}
+
+func (mr *mockReceiver) UnblockSender(pubKey ed25519.PublicKey) {
+}
+
+func (mr *mockReceiver) GetConversations(pubKey ed25519.PublicKey) []ModelConversation {
+	return nil
+}
+
+func (mr *mockReceiver) GetAllConversations() []ModelConversation {
+	return nil
+}
+
 type mockMessage struct {
 	Message   string
 	PubKey    ed25519.PublicKey

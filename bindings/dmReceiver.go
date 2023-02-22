@@ -196,10 +196,10 @@ type DMReceiver interface {
 	UnblockSender(senderPubKey []byte)
 
 	// GetConversations returns any conversations held by the
-	// model (receiver)
+	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversations(senderPubKey []byte) []byte
 	// GetConversations returns any conversations held by the
-	// model (receiver)
+	// model (receiver). JSON List of dm.ModelConversation object.
 	GetAllConversations() []byte
 }
 

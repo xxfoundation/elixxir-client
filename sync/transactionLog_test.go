@@ -47,7 +47,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 
 	// Construct transaction log
 	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		nil, deviceSecret, rand.Reader)
+		deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
 	// Construct expected transaction log object
@@ -89,40 +89,33 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 
 	// Construct transaction log
 	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		appendCb, deviceSecret, rand.Reader)
+		deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
 
+	// Insert timestamps
 	for cnt, curTs := range mockTimestamps {
 		// Construct transaction
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewTransaction(curTs, key, []byte(val))
 
-		require.NoError(t, txLog.Append(newTx))
+		require.NoError(t, txLog.Append(newTx, appendCb))
 	}
 
 	// Construct a new TransactionLog, which will load from file
 	newTxLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		appendCb, deviceSecret, rand.Reader)
+		deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
 	// Ensure loaded log matches original log
-	//
-	// fixme: Note that as of writing, comparing txLog and newTxLog fails using
-	//  require.Equal fails because the memory addresses of the Header fields
-	//  differ. It's unknown why it's comparing memory addresses, as
-	//  require.Equal claims that should not happen. I'm avoiding this by
-	//  checking the transactions of the newTXLog to ensure newTxLog has loaded
-	//  transactions from file.
-	require.Equal(t, txLog.txs, newTxLog.txs)
-
+	require.Equal(t, txLog, newTxLog)
 }
 
-// SetRemoteCallback unit tests. Ensure that callback is called with every call
+// Append unit test. Ensure that callback is called with every call
 // to TransactionLog.Append.
-func TestTransactionLog_SetRemoteCallback(t *testing.T) {
+func TestTransactionLog_Append_Callback(t *testing.T) {
 	// Construct local store
 	baseDir, password := "testDir/", "password"
 	localStore, err := NewEkvLocalStore(baseDir, password)
@@ -141,24 +134,25 @@ func TestTransactionLog_SetRemoteCallback(t *testing.T) {
 
 	// Construct transaction log
 	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		nil, deviceSecret, rand.Reader)
+		deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
 
+	// Insert
 	for cnt, curTs := range mockTimestamps {
 		curChan := make(chan Transaction, 1)
 		// Set append callback manually
 		appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {
 			curChan <- newTx
 		})
-		require.NoError(t, txLog.SetRemoteCallback(appendCb))
+
 		// Construct transaction
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewTransaction(curTs, key, []byte(val))
 
-		require.NoError(t, txLog.Append(newTx))
+		require.NoError(t, txLog.Append(newTx, appendCb))
 
 		// Wait for signal sent in callback (or timeout)
 		select {
@@ -172,10 +166,10 @@ func TestTransactionLog_SetRemoteCallback(t *testing.T) {
 
 }
 
-// Tests that TransactionLog's appendUsingInsertion function will insert new Transaction's
-// into the TransactionLog, and that the transactions are sorted by timestamp
-// after the insertion.
-func TestTransactionLog_Append(t *testing.T) {
+// Tests that TransactionLog's appendUsingInsertion function will insert new
+// Transaction's into the TransactionLog, and that the transactions are sorted
+// by timestamp after the insertion.
+func TestTransactionLog_Append_Sorting(t *testing.T) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
 	localStore, err := NewEkvLocalStore(baseDir, password)
@@ -194,8 +188,7 @@ func TestTransactionLog_Append(t *testing.T) {
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore, nil,
-		deviceSecret, rand.Reader)
+	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore, deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
 	// Construct timestamps
@@ -244,7 +237,7 @@ func TestTransactionLog_Serialize(t *testing.T) {
 
 	// Construct transaction log
 	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		nil, deviceSecret, &CountingReader{count: 0})
+		deviceSecret, &CountingReader{count: 0})
 	require.NoError(t, err)
 
 	// Construct timestamps
@@ -293,7 +286,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 
 	// Construct transaction log
 	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		nil, deviceSecret, &CountingReader{count: 0})
+		deviceSecret, &CountingReader{count: 0})
 	require.NoError(t, err)
 
 	// Construct timestamps
@@ -351,14 +344,9 @@ func TestTransactionLog_Save(t *testing.T) {
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
-	finishedWritingChan := make(chan struct{}, 1)
-	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {
-		finishedWritingChan <- struct{}{}
-	})
-
 	// Construct transaction log
 	txLog, err := NewOrLoadTransactionLog(baseDir+"test.txt", localStore,
-		remoteStore, appendCb, deviceSecret, &CountingReader{count: 0})
+		remoteStore, deviceSecret, &CountingReader{count: 0})
 	require.NoError(t, err)
 
 	// Construct timestamps
@@ -377,8 +365,14 @@ func TestTransactionLog_Save(t *testing.T) {
 	data, err := txLog.serialize()
 	require.NoError(t, err)
 
+	// Construct callback
+	finishedWritingChan := make(chan struct{}, 1)
+	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+		finishedWritingChan <- struct{}{}
+	})
+
 	// Write data to remote & local
-	require.NoError(t, txLog.save(Transaction{}, data))
+	require.NoError(t, txLog.save(Transaction{}, data, appendCb))
 
 	// Read from local
 	dataFromLocal, err := txLog.local.Read(txLog.path)
@@ -432,7 +426,7 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 
 	// Construct transaction log with a nil callback
 	txLog, err := NewOrLoadTransactionLog(baseDir+"test.txt", localStore,
-		remoteStore, nil, deviceSecret, &CountingReader{count: 0})
+		remoteStore, deviceSecret, &CountingReader{count: 0})
 	require.NoError(t, err)
 
 	// Construct timestamps
@@ -460,7 +454,7 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 	}()
 
 	// Write data to remote & local
-	txLog.saveToRemote(Transaction{}, data)
+	txLog.saveToRemote(Transaction{}, data, nil)
 
 }
 
@@ -497,7 +491,8 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 		require.NoError(b, os.RemoveAll(baseDir))
 
 		// Construct new transaction log for benchmark iteration
-		txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore, nil, deviceSecret, rand.Reader)
+		txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+			deviceSecret, rand.Reader)
 		require.NoError(b, err)
 
 		for cnt, curTs := range mockTimestamps {
@@ -544,7 +539,8 @@ func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 		require.NoError(b, os.RemoveAll(baseDir))
 
 		// Construct new transaction log for benchmark iteration
-		txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore, nil, deviceSecret, rand.Reader)
+		txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+			deviceSecret, rand.Reader)
 		require.NoError(b, err)
 
 		for cnt, curTs := range mockTimestamps {

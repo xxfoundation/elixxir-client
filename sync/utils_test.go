@@ -3,8 +3,30 @@ package sync
 import (
 	"github.com/stretchr/testify/require"
 	"math/rand"
+	"testing"
 	"time"
 )
+
+// makeTransactionLog is a utility function which generates a TransactionLog for
+// testing purposes.
+func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog {
+	// Construct local store
+	localStore, err := NewEkvLocalStore(baseDir, password)
+	require.NoError(t, err)
+
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
+
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
+
+	// Construct transaction log
+	txLog, err := NewOrLoadTransactionLog(baseDir+"test.txt", localStore,
+		remoteStore, deviceSecret, &CountingReader{count: 0})
+	require.NoError(t, err)
+
+	return txLog
+}
 
 // CountingReader is a platform-independent deterministic RNG that adheres to
 // io.Reader.

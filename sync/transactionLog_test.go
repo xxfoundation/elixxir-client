@@ -11,7 +11,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/xx_network/primitives/utils"
 	"os"
 	"sort"
 	"strconv"
@@ -27,6 +26,8 @@ const (
 )
 
 // Smoke test for NewOrLoadTransactionLog.
+//
+// Intentionally constructs TransactionLog manually for testing purposes.
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
@@ -66,8 +67,10 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 
 }
 
-// Tests that NewOrLoadTransactionLog will load from local and deserialize
-// the data into the TransactionLog file.
+// Unit test for NewOrLoadTransactionLog. Tests whether this will load from
+// disk and deserialize the data into the TransactionLog file.
+//
+// Intentionally constructs TransactionLog manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct local store
 	baseDir, password := "testDir/", "password"
@@ -113,34 +116,22 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	require.Equal(t, txLog, newTxLog)
 }
 
-// Append unit test. Ensure that callback is called with every call
+// Unit test for Append. Ensure that callback is called with every call
 // to TransactionLog.Append.
 func TestTransactionLog_Append_Callback(t *testing.T) {
-	// Construct local store
+	// Construct transaction log
 	baseDir, password := "testDir/", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
-	require.NoError(t, err)
+	txLog := makeTransactionLog(baseDir, password, t)
 
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(t, os.RemoveAll(baseDir))
 	}()
 
-	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
-
-	// Construct device secret
-	deviceSecret := []byte("deviceSecret")
-
-	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		deviceSecret, rand.Reader)
-	require.NoError(t, err)
-
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
 
-	// Insert
+	// Insert transaction
 	for cnt, curTs := range mockTimestamps {
 		curChan := make(chan Transaction, 1)
 		// Set append callback manually
@@ -152,6 +143,7 @@ func TestTransactionLog_Append_Callback(t *testing.T) {
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewTransaction(curTs, key, []byte(val))
 
+		// Append transaction
 		require.NoError(t, txLog.Append(newTx, appendCb))
 
 		// Wait for signal sent in callback (or timeout)
@@ -166,30 +158,87 @@ func TestTransactionLog_Append_Callback(t *testing.T) {
 
 }
 
-// Tests that TransactionLog's appendUsingInsertion function will insert new
-// Transaction's into the TransactionLog, and that the transactions are sorted
-// by timestamp after the insertion.
-func TestTransactionLog_Append_Sorting(t *testing.T) {
-	// Construct local store
-	baseDir, password := "testDir", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
-	require.NoError(t, err)
+// Unit test for Save. Ensures that TransactionLog's save function writes to
+// remote and local stores when they are set.
+func TestTransactionLog_Save(t *testing.T) {
+	// Construct transaction log
+	baseDir, password := "testDir/", "password"
+	txLog := makeTransactionLog(baseDir, password, t)
 
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(t, os.RemoveAll(baseDir))
-
 	}()
 
-	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(t, 0)
+	// Insert mock data into transaction log
+	for cnt, curTs := range mockTimestamps {
+		// Construct transaction
+		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+		newTx := NewTransaction(curTs, key, []byte(val))
 
-	// Construct device secret
-	deviceSecret := []byte("deviceSecret")
+		// Insert transaction (without saving)
+		txLog.appendUsingQuickSort(newTx)
+	}
 
-	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore, deviceSecret, rand.Reader)
+	// Serialize data
+	data, err := txLog.serialize()
 	require.NoError(t, err)
+
+	// Construct callback
+	finishedWritingToRemote := make(chan struct{}, 1)
+	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+		finishedWritingToRemote <- struct{}{}
+	})
+
+	// Write data to remote & local
+	require.NoError(t, txLog.save(Transaction{}, data, appendCb))
+
+	// Read from local
+	dataFromLocal, err := txLog.local.Read(txLog.path)
+	require.NoError(t, err)
+
+	// Ensure read data from local matches originally written
+	require.Equal(t, data, dataFromLocal)
+
+	// Remote writing is done async, so wait for channel reception via
+	// cb (or timeout)
+	timeout := time.NewTimer(100 * time.Millisecond)
+	select {
+	case <-timeout.C:
+		t.Fatalf("Test timed!")
+	case <-finishedWritingToRemote:
+		// Read from remote
+		dataFromRemote, err := txLog.remote.Read(txLog.path)
+		require.NoError(t, err)
+
+		// Ensure read data from remote matches originally written
+		require.Equal(t, data, dataFromRemote)
+	}
+
+	// Now that remote data is written, ensure it is present in remote:
+
+	// Read from remote
+	dataFromRemote, err := txLog.remote.Read(txLog.path)
+	require.NoError(t, err)
+
+	// Ensure read data from remote matches originally written
+	require.Equal(t, data, dataFromRemote)
+}
+
+// Unit test for Append. Ensures that appendUsingInsertion function will insert
+// new Transaction's into the TransactionLog, and that the transactions are
+// sorted by timestamp after the insertion.
+func TestTransactionLog_Append_Sorting(t *testing.T) {
+	// Construct transaction log
+	baseDir, password := "testDir/", "password"
+	txLog := makeTransactionLog(baseDir, password, t)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(t, os.RemoveAll(baseDir))
+	}()
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 6)
@@ -215,30 +264,17 @@ func TestTransactionLog_Append_Sorting(t *testing.T) {
 	require.Equal(t, len(mockTimestamps), len(txLog.txs))
 }
 
-// Tests that TransactionLog's serialize function returns the serialized
+// Unit test for Serialize. Ensures the that function returns the serialized
 // internal state. Checks against a hardcoded base64 string.
 func TestTransactionLog_Serialize(t *testing.T) {
-	// Construct local store
-	baseDir, password := "testDir", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
-	require.NoError(t, err)
+	// Construct transaction log
+	baseDir, password := "testDir/", "password"
+	txLog := makeTransactionLog(baseDir, password, t)
 
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(t, os.RemoveAll(baseDir))
-
 	}()
-
-	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
-
-	// Construct device secret
-	deviceSecret := []byte("deviceSecret")
-
-	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
-		deviceSecret, &CountingReader{count: 0})
-	require.NoError(t, err)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -264,12 +300,13 @@ func TestTransactionLog_Serialize(t *testing.T) {
 	require.Equal(t, expectedTransactionLogSerializedBase64, data64)
 }
 
-// Unit test of TransactionLog.deserialize. Ensures that deserialize will
-// construct the same TransactionLog that was serialized using
-// TransactionLog.serialize.
+// Unit test for Deserialize. Ensures that deserialize will construct the same
+// TransactionLog that was serialized using TransactionLog.serialize.
+//
+// Intentionally constructs TransactionLog manually for testing purposes.
 func TestTransactionLog_Deserialize(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir", "password"
+	baseDir, password := "testDir/", "password"
 	localStore, err := NewEkvLocalStore(baseDir, password)
 	require.NoError(t, err)
 
@@ -322,113 +359,18 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	require.Equal(t, txLog, newTxLog)
 }
 
-// Tests that TransactionLog's save function writes to remote and local stores
-// when they are set.
-func TestTransactionLog_Save(t *testing.T) {
-	// Construct local store
+// Error case for saveToRemote. Ensures that it should panic when
+// TransactionLog's remoteStoreCallback is nil.
+func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
+	// Construct transaction log
 	baseDir, password := "testDir/", "password"
-	require.NoError(t, utils.MakeDirs(baseDir, utils.DirPerms))
-
-	localStore, err := NewEkvLocalStore(baseDir, password)
-	require.NoError(t, err)
+	txLog := makeTransactionLog(baseDir, password, t)
 
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(t, os.RemoveAll(baseDir))
-
 	}()
 
-	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
-
-	// Construct device secret
-	deviceSecret := []byte("deviceSecret")
-
-	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir+"test.txt", localStore,
-		remoteStore, deviceSecret, &CountingReader{count: 0})
-	require.NoError(t, err)
-
-	// Construct timestamps
-	mockTimestamps := constructTimestamps(t, 0)
-	// Insert mock data into transaction log
-	for cnt, curTs := range mockTimestamps {
-		// Construct transaction
-		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
-
-		// Insert transaction
-		txLog.appendUsingInsertion(newTx)
-	}
-
-	// Serialize data
-	data, err := txLog.serialize()
-	require.NoError(t, err)
-
-	// Construct callback
-	finishedWritingChan := make(chan struct{}, 1)
-	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {
-		finishedWritingChan <- struct{}{}
-	})
-
-	// Write data to remote & local
-	require.NoError(t, txLog.save(Transaction{}, data, appendCb))
-
-	// Read from local
-	dataFromLocal, err := txLog.local.Read(txLog.path)
-	require.NoError(t, err)
-
-	// Ensure read data from local matches originally written
-	require.Equal(t, data, dataFromLocal)
-
-	// Remote writing is done async, so wait for channel reception via
-	// cb (or timeout)
-	timeout := time.NewTimer(100 * time.Millisecond)
-	select {
-	case <-timeout.C:
-		t.Fatalf("Test timed!")
-	case <-finishedWritingChan:
-		// Read from remote
-		dataFromRemote, err := txLog.remote.Read(txLog.path)
-		require.NoError(t, err)
-
-		// Ensure read data from remote matches originally written
-		require.Equal(t, data, dataFromRemote)
-	}
-
-	// Now that remote data is written, ensure it is present in remote:
-
-	// Read from remote
-	dataFromRemote, err := txLog.remote.Read(txLog.path)
-	require.NoError(t, err)
-
-	// Ensure read data from remote matches originally written
-	require.Equal(t, data, dataFromRemote)
-
-}
-
-// Error case: TransactionLog.saveToRemote should panic when TransactionLog's
-// remoteStoreCallback is nil.
-func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
-	baseDir, password := "testDir/", "password"
-
-	// Construct local store
-	require.NoError(t, utils.MakeDirs(baseDir, utils.DirPerms))
-
-	localStore, err := NewEkvLocalStore(baseDir, password)
-	require.NoError(t, err)
-
-	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
-
-	// Construct device secret
-	deviceSecret := []byte("deviceSecret")
-
-	// Construct transaction log with a nil callback
-	txLog, err := NewOrLoadTransactionLog(baseDir+"test.txt", localStore,
-		remoteStore, deviceSecret, &CountingReader{count: 0})
-	require.NoError(t, err)
-
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
 	// Insert mock data into transaction log
@@ -447,7 +389,6 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 
 	// Delete the test file at the end
 	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
 		if r := recover(); r == nil {
 			t.Fatalf("saveToRemote should panic as callback is nil")
 		}
@@ -460,6 +401,8 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 
 // Benchmark the performance of appending to a transaction log using insertion
 // sort.
+//
+// Intentionally constructs TransactionLog manually for testing purposes.
 func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
@@ -469,7 +412,6 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(b, os.RemoveAll(baseDir))
-
 	}()
 
 	// Construct remote store
@@ -508,7 +450,9 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 }
 
 // Benchmark the performance of appending to a transaction log using quicksort
-// (default algorithm of sort.Slice)
+// (default algorithm of sort.Slice).
+//
+// Intentionally constructs TransactionLog manually for testing purposes.
 func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	// Construct local store
 	baseDir, password := "testDir", "password"

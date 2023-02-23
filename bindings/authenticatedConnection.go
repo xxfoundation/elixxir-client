@@ -7,6 +7,8 @@
 
 package bindings
 
+import "C"
+
 import (
 	"sync"
 

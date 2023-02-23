@@ -7,9 +7,15 @@
 
 package main
 
-import "gitlab.com/elixxir/client/v4/cmd"
+import "C"
+
+import (
+	"gitlab.com/elixxir/client/v4/bindings"
+	"gitlab.com/elixxir/client/v4/cmd"
+)
 
 // main needs no introduction.
 func main() {
+	bindings.Init()
 	cmd.Execute()
 }

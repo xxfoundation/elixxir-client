@@ -9,19 +9,27 @@
 
 package bindings
 
+import "C"
+
 import "gitlab.com/elixxir/client/v4/xxdk"
 
 // GetVersion returns the xxdk.SEMVER.
+//
+//export GetVersion
 func GetVersion() string {
 	return xxdk.SEMVER
 }
 
 // GetGitVersion returns the xxdk.GITVERSION.
+//
+//export GetGitVersion
 func GetGitVersion() string {
 	return xxdk.GITVERSION
 }
 
 // GetDependencies returns the xxdk.DEPENDENCIES.
+//
+//export GetDependencies
 func GetDependencies() string {
 	return xxdk.DEPENDENCIES
 }

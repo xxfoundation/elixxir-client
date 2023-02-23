@@ -91,6 +91,10 @@ func TestBlock(t *testing.T) {
 	clientA := NewDMClient(&me, receiverA, stA, nnmA, netA, crng)
 	clientB := NewDMClient(&partner, receiverB, stB, nnmB, netB, crng)
 
+	// make sure the blocklist is empty
+	beEmpty := clientB.GetBlockedSenders()
+	require.Equal(t, len(beEmpty), 0)
+
 	params := cmix.GetDefaultCMIXParams()
 
 	// Send and receive a text
@@ -144,5 +148,7 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, replyTo2, rcvA2.ReplyTo)
 	require.Equal(t, "😀", rcvA2.Message)
 	require.False(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
+
+	require.Equal(t, len(clientB.GetBlockedSenders()), 0)
 
 }

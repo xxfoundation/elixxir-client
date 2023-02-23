@@ -197,10 +197,10 @@ type DMReceiver interface {
 
 	// GetConversations returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
-	GetConversations(senderPubKey []byte) []byte
+	GetConversation(senderPubKey []byte) []byte
 	// GetConversations returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
-	GetAllConversations() []byte
+	GetConversations() []byte
 }
 
 // dmReceiver is a wrapper which wraps an existing DMReceiver object and
@@ -305,7 +305,7 @@ func (dmr *dmReceiver) UnblockSender(senderPubKey ed25519.PublicKey) {
 // GetConversations returns any conversations held by the
 // model (receiver)
 func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
-	convoJSON := dmr.dr.GetConversations(senderPubKey)
+	convoJSON := dmr.dr.GetConversation(senderPubKey)
 	var convo dm.ModelConversation
 	err := json.Unmarshal(convoJSON, &convo)
 	if err != nil {
@@ -318,7 +318,7 @@ func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.Model
 // GetConversations returns any conversations held by the
 // model (receiver)
 func (dmr *dmReceiver) GetConversations() []dm.ModelConversation {
-	convoJSON := dmr.dr.GetAllConversations()
+	convoJSON := dmr.dr.GetConversations()
 	var convos []dm.ModelConversation
 	err := json.Unmarshal(convoJSON, &convos)
 	if err != nil {

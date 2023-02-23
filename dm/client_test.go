@@ -125,6 +125,11 @@ func TestBlock(t *testing.T) {
 
 	require.True(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
 
+	// Ensure that this user appears in the blocked senders list:
+	blocked := clientB.GetBlockedSenders()
+	require.Equal(t, len(blocked), 1)
+	require.Equal(t, blocked[0], rcvA1.PubKey)
+
 	// User B Stops blocking User A
 	receiverB.UnblockSender(rcvA1.PubKey)
 

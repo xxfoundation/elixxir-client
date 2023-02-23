@@ -210,11 +210,11 @@ func (mr *mockReceiver) BlockSender(pubKey ed25519.PublicKey) {
 func (mr *mockReceiver) UnblockSender(pubKey ed25519.PublicKey) {
 }
 
-func (mr *mockReceiver) GetConversations(pubKey ed25519.PublicKey) []ModelConversation {
+func (mr *mockReceiver) GetConversation(pubKey ed25519.PublicKey) *ModelConversation {
 	return nil
 }
 
-func (mr *mockReceiver) GetAllConversations() []ModelConversation {
+func (mr *mockReceiver) GetConversations() []ModelConversation {
 	return nil
 }
 

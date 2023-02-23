@@ -304,20 +304,20 @@ func (dmr *dmReceiver) UnblockSender(senderPubKey ed25519.PublicKey) {
 
 // GetConversations returns any conversations held by the
 // model (receiver)
-func (dmr *dmReceiver) GetConversations(senderPubKey ed25519.PublicKey) []dm.ModelConversation {
+func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
 	convoJSON := dmr.dr.GetConversations(senderPubKey)
-	var convos []dm.ModelConversation
-	err := json.Unmarshal(convoJSON, &convos)
+	var convo dm.ModelConversation
+	err := json.Unmarshal(convoJSON, &convo)
 	if err != nil {
 		jww.ERROR.Printf("Cannot unmarshal conversations for %s: %+v",
 			senderPubKey, err)
 	}
-	return convos
+	return &convo
 }
 
 // GetConversations returns any conversations held by the
 // model (receiver)
-func (dmr *dmReceiver) GetAllConversations() []dm.ModelConversation {
+func (dmr *dmReceiver) GetConversations() []dm.ModelConversation {
 	convoJSON := dmr.dr.GetAllConversations()
 	var convos []dm.ModelConversation
 	err := json.Unmarshal(convoJSON, &convos)

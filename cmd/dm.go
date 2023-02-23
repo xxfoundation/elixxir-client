@@ -333,10 +333,10 @@ func (r *receiver) BlockSender(pubKey ed25519.PublicKey) {
 func (r *receiver) UnblockSender(pubKey ed25519.PublicKey) {
 }
 
-func (r *receiver) GetConversations(pubKey ed25519.PublicKey) []dm.ModelConversation {
+func (r *receiver) GetConversation(pubKey ed25519.PublicKey) *dm.ModelConversation {
 	return nil
 }
 
-func (r *receiver) GetAllConversations() []dm.ModelConversation {
+func (r *receiver) GetConversations() []dm.ModelConversation {
 	return nil
 }

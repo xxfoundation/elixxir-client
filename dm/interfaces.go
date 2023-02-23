@@ -214,12 +214,12 @@ type EventModel interface {
 	// public key.
 	UnblockSender(senderPubKey ed25519.PublicKey)
 
+	// GetConversation returns any conversations held by the
+	// model (receiver)
+	GetConversation(senderPubKey ed25519.PublicKey) *ModelConversation
 	// GetConversations returns any conversations held by the
 	// model (receiver)
-	GetConversations(senderPubKey ed25519.PublicKey) []ModelConversation
-	// GetConversations returns any conversations held by the
-	// model (receiver)
-	GetAllConversations() []ModelConversation
+	GetConversations() []ModelConversation
 }
 
 // cmixClient are the required cmix functions we need for direct messages

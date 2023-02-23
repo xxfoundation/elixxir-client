@@ -147,9 +147,9 @@ func (dc *dmClient) SetNickname(nick string) {
 // IsBlocked returns if the given sender is blocked
 // Blocking is controlled by the Receiver / EventModel
 func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
-	conversations := dc.receiver.GetConversations(senderPubKey)
-	if len(conversations) > 0 {
-		return conversations[0].Blocked
+	conversation := dc.receiver.GetConversation(senderPubKey)
+	if conversation != nil {
+		return conversation.Blocked
 	}
 	return false
 }
@@ -157,21 +157,14 @@ func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
 // GetBlockedSenders returns all senders who are blocked by this user.
 // Blocking is controlled by the Receiver / EventModel
 func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
-	allConversations := dc.receiver.GetAllConversations()
-	type pk [ed25519.PublicKeySize]byte
-	blockedMap := make(map[pk]bool)
+	allConversations := dc.receiver.GetConversations()
+	blocked := make([]ed25519.PublicKey, 0)
 	for i := range allConversations {
 		convo := allConversations[i]
 		if convo.Blocked {
-			var pubKey pk
-			copy(pubKey[:], convo.Pubkey)
-			blockedMap[pubKey] = true
+			pub := convo.Pubkey
+			blocked = append(blocked, ed25519.PublicKey(pub))
 		}
-	}
-
-	blocked := make([]ed25519.PublicKey, 0)
-	for pub, _ := range blockedMap {
-		blocked = append(blocked, ed25519.PublicKey(pub[:]))
 	}
 	return blocked
 }

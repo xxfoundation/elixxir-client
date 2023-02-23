@@ -19,9 +19,9 @@ import (
 	"time"
 )
 
-/////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 // Remote KV Implementation
-/////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 // RemoteKV kv-related constants.
 const (
@@ -80,13 +80,18 @@ type RemoteKV struct {
 // NewOrLoadRemoteKv will construct a new RemoteKV. If data exists on disk, it
 // will load that context and handle it appropriately.
 func NewOrLoadRemoteKv(transactionLog *TransactionLog, kv *versioned.KV,
-	upserts map[string]UpsertCallback,
+	upsertsCb map[string]UpsertCallback,
 	eventCb EventCallback) (*RemoteKV, error) {
+
+	// Nil check upsert map
+	if upsertsCb == nil {
+		upsertsCb = make(map[string]UpsertCallback, 0)
+	}
 
 	rkv := &RemoteKV{
 		kv:        kv.Prefix(remoteKvPrefix),
 		txLog:     transactionLog,
-		upserts:   upserts,
+		upserts:   upsertsCb,
 		Event:     eventCb,
 		Intents:   make(map[string][]byte, 0),
 		connected: true,
@@ -99,8 +104,9 @@ func NewOrLoadRemoteKv(transactionLog *TransactionLog, kv *versioned.KV,
 	// Re-trigger all lingering intents
 	for key, val := range rkv.Intents {
 		// fixme: probably want to make a worker pool or async here?
-		//  the issue is t
-		rkv.set(key, val)
+		//  the issue is to handle the error
+		// Call the internal to avoid writing to intent what is already there
+		go rkv.set(key, val)
 	}
 
 	return rkv, nil
@@ -149,6 +155,7 @@ func (r *RemoteKV) set(key string, val []byte) error {
 		old, _ = r.Get(key)
 	}
 
+	// Create versioned object for kv.Set
 	obj := &versioned.Object{
 		Version:   remoteKvVersion,
 		Timestamp: netTime.Now(),
@@ -165,8 +172,13 @@ func (r *RemoteKV) set(key string, val []byte) error {
 	var updateCb RemoteStoreCallback
 	updateCb = func(newTx Transaction, err error) {
 		if err != nil {
-			jww.DEBUG.Printf("Failed to write transaction new transaction (%v) to  remoteKV: %+v", err)
-			r.Event(Disconnected, fmt.Sprintf("%v", err))
+			jww.DEBUG.Printf("Failed to write transaction new transaction (%v) to  remoteKV: %+v", newTx, err)
+
+			// Report to event callback
+			if r.Event != nil {
+				r.Event(Disconnected, fmt.Sprintf("%v", err))
+			}
+
 			time.Sleep(updateFailureDelay)
 			r.connected = false
 			// fixme: feels like more thought needs to be put. A recursive cb
@@ -176,7 +188,10 @@ func (r *RemoteKV) set(key string, val []byte) error {
 			r.txLog.Append(newTx, updateCb)
 			return
 		} else if r.connected {
-			r.Event(Connected, "True")
+			// Report to event callback
+			if r.Event != nil {
+				r.Event(Connected, "True")
+			}
 		}
 
 		err = r.removeIntent(key)
@@ -196,8 +211,11 @@ func (r *RemoteKV) set(key string, val []byte) error {
 		return errors.Errorf("disconnected from the remote KV")
 	}
 
-	// Report write as successful
-	r.Event(Successful, key)
+	// Report to event callback
+	if r.Event != nil {
+		// Report write as successful
+		r.Event(Successful, key)
+	}
 
 	// If an update callback exists for this key, report via the callback
 	if updatedCallback, exists := r.upserts[key]; exists {
@@ -249,9 +267,9 @@ func (r *RemoteKV) loadIntents() error {
 	return json.Unmarshal(obj.Data, &r.Intents)
 }
 
-/////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 // Remote File System Implementation
-/////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 // FileSystemRemoteStorage is a structure adhering to RemoteStore. This
 // utilizes the os.File IO operations. Implemented for testing purposes for

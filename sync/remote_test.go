@@ -9,10 +9,47 @@ package sync
 
 import (
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"os"
 	"testing"
 	"time"
 )
+
+///////////////////////////////////////////////////////////////////////////////
+// Remote KV Testing
+///////////////////////////////////////////////////////////////////////////////
+
+// Smoke test of NewOrLoadRemoteKv.
+func TestNewOrLoadRemoteKv(t *testing.T) {
+	// Construct transaction log
+	baseDir, password := "testDir/", "password"
+	txLog := makeTransactionLog(baseDir, password, t)
+
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Create remote kv
+	received, err := NewOrLoadRemoteKv(txLog, kv, nil, nil)
+	require.NoError(t, err)
+
+	// Create expected remote kv
+	expected := &RemoteKV{
+		kv:        kv.Prefix(remoteKvPrefix),
+		txLog:     txLog,
+		upserts:   make(map[string]UpsertCallback),
+		Event:     nil,
+		Intents:   make(map[string][]byte, 0),
+		connected: true,
+	}
+
+	// Check equality of created vs expected remote kv
+	require.Equal(t, expected, received)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Remote File System Testing
+///////////////////////////////////////////////////////////////////////////////
 
 // Smoke test for FileSystemRemoteStorage that executes every method of
 // RemoteStore.

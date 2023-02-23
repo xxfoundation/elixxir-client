@@ -166,8 +166,7 @@ func (r *RemoteKV) set(key string, val []byte,
 
 	// Write value to KV
 	if err := r.kv.Set(key, obj); err != nil {
-		// todo: better error
-		return err
+		return errors.Errorf("failed to write to kv: %+v", err)
 	}
 
 	// Instantiate the remote store callback
@@ -205,7 +204,7 @@ func (r *RemoteKV) set(key string, val []byte,
 
 		err = r.removeIntent(key)
 		if err != nil {
-			// fixme: how to handle removal error? realy shouldn't be happening
+			jww.WARN.Printf("Failed to remove intent for key %s: %+v", key, err)
 		}
 	}
 

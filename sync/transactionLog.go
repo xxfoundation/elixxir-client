@@ -324,7 +324,6 @@ func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte,
 
 	// Do not let remote writing block operations
 	go tl.saveToRemote(newTx, dataToSave, remoteCb)
-
 	return nil
 }
 

@@ -30,14 +30,13 @@ const (
 // Intentionally constructs TransactionLog manually for testing purposes.
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir", "password"
+	baseDir, password := "testDir/", "password"
 	localStore, err := NewEkvLocalStore(baseDir, password)
 	require.NoError(t, err)
 
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(t, os.RemoveAll(baseDir))
-
 	}()
 
 	// Construct remote store
@@ -120,7 +119,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 // to TransactionLog.Append.
 func TestTransactionLog_Append_Callback(t *testing.T) {
 	// Construct transaction log
-	baseDir, password := "testDir/", "password"
+	baseDir, password := "testDir/appendCb/", "password"
 	txLog := makeTransactionLog(baseDir, password, t)
 
 	// Delete the test file at the end

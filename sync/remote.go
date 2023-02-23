@@ -81,7 +81,7 @@ type RemoteKV struct {
 // will load that context and handle it appropriately.
 func NewOrLoadRemoteKv(transactionLog *TransactionLog, kv *versioned.KV,
 	upsertsCb map[string]UpsertCallback,
-	eventCb EventCallback) (*RemoteKV, error) {
+	eventCb EventCallback, updateCb RemoteStoreCallback) (*RemoteKV, error) {
 
 	// Nil check upsert map
 	if upsertsCb == nil {
@@ -106,7 +106,7 @@ func NewOrLoadRemoteKv(transactionLog *TransactionLog, kv *versioned.KV,
 		// fixme: probably want to make a worker pool or async here?
 		//  the issue is to handle the error
 		// Call the internal to avoid writing to intent what is already there
-		go rkv.set(key, val)
+		go rkv.set(key, val, updateCb)
 	}
 
 	return rkv, nil
@@ -132,7 +132,8 @@ func (r *RemoteKV) Get(key string) ([]byte, error) {
 }
 
 // Set will write a transaction to the transaction log.
-func (r *RemoteKV) Set(key string, val []byte) error {
+func (r *RemoteKV) Set(key string, val []byte,
+	updateCb RemoteStoreCallback) error {
 	r.lck.Lock()
 	defer r.lck.Unlock()
 
@@ -141,11 +142,12 @@ func (r *RemoteKV) Set(key string, val []byte) error {
 		return err
 	}
 
-	return r.set(key, val)
+	return r.set(key, val, updateCb)
 }
 
 // set is a utility function which will write the transaction to the RemoteKV.
-func (r *RemoteKV) set(key string, val []byte) error {
+func (r *RemoteKV) set(key string, val []byte,
+	updateCb RemoteStoreCallback) error {
 
 	var old []byte
 
@@ -169,8 +171,15 @@ func (r *RemoteKV) set(key string, val []byte) error {
 	}
 
 	// Instantiate the remote store callback
-	var updateCb RemoteStoreCallback
-	updateCb = func(newTx Transaction, err error) {
+	wrapper := func(newTx Transaction, err error) {
+
+		// Pass context to user-defined callback so they may handle failure for
+		// remote saving
+		if updateCb != nil {
+			updateCb(newTx, err)
+		}
+
+		// Handle error
 		if err != nil {
 			jww.DEBUG.Printf("Failed to write transaction new transaction (%v) to  remoteKV: %+v", newTx, err)
 
@@ -179,13 +188,13 @@ func (r *RemoteKV) set(key string, val []byte) error {
 				r.Event(Disconnected, fmt.Sprintf("%v", err))
 			}
 
-			time.Sleep(updateFailureDelay)
 			r.connected = false
 			// fixme: feels like more thought needs to be put. A recursive cb
 			//  such as this seems like a poor idea. Maybe the callback is
 			//  passed down, and it's the responsibility of the caller to ensure
 			//  remote writing of the txLog?
-			r.txLog.Append(newTx, updateCb)
+			//time.Sleep(updateFailureDelay)
+			//r.txLog.Append(newTx, updateCb)
 			return
 		} else if r.connected {
 			// Report to event callback
@@ -202,7 +211,7 @@ func (r *RemoteKV) set(key string, val []byte) error {
 
 	// Write the transaction
 	newTx := NewTransaction(netTime.Now(), key, val)
-	if err := r.txLog.Append(newTx, updateCb); err != nil {
+	if err := r.txLog.Append(newTx, wrapper); err != nil {
 		return err
 	}
 
@@ -218,9 +227,9 @@ func (r *RemoteKV) set(key string, val []byte) error {
 	}
 
 	// If an update callback exists for this key, report via the callback
-	if updatedCallback, exists := r.upserts[key]; exists {
+	if upserCb, exists := r.upserts[key]; exists {
 		// fixme: how to handle an error here?
-		updatedCallback(key, old, val)
+		upserCb(key, old, val)
 	}
 
 	return nil

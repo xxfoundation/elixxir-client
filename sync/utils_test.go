@@ -2,10 +2,25 @@ package sync
 
 import (
 	"github.com/stretchr/testify/require"
+	"gitlab.com/xx_network/primitives/utils"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 )
+
+const (
+	baseDir  = "testDir/"
+	password = "password"
+)
+
+func TestMain(m *testing.M) {
+	utils.MakeDirs(baseDir, 0777)
+	defer os.RemoveAll(baseDir)
+
+	os.Exit(m.Run())
+
+}
 
 // makeTransactionLog is a utility function which generates a TransactionLog for
 // testing purposes.

@@ -102,6 +102,12 @@ func (dp *dmProcessor) Process(msg format.Message,
 
 	messageType := MessageType(directMsg.PayloadType)
 
+	if dp.r.c.IsBlocked(*pubSigningKey) {
+		jww.INFO.Printf("Dropping message from blocked user: %s",
+			base64.RawStdEncoding.EncodeToString(*pubSigningKey))
+		return
+	}
+
 	// Process the receivedMessage. This is already in an instanced event;
 	// no new thread is needed.
 	uuid, err := dp.r.receiveMessage(msgID, messageType, directMsg.Nickname,

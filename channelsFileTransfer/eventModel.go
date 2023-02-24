@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"crypto/ed25519"
@@ -58,6 +58,11 @@ type EventModel interface {
 	// Returns an error if the file cannot be gotten. It must return
 	// channels.NoMessageErr if the file does not exist.
 	GetFile(fileID ftCrypto.ID) (fileInfo, fileData []byte, err error)
+
+	// DeleteFile deletes the file with the given file ID.
+	//
+	// It must return channels.NoMessageErr if the file does not exist.
+	DeleteFile(fileID ftCrypto.ID) error
 
 	channels.EventModel
 }

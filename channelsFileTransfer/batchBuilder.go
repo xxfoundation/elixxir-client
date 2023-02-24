@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"encoding/binary"
@@ -14,7 +14,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"go.uber.org/ratelimit"
 
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"

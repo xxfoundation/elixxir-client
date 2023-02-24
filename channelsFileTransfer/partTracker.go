@@ -5,10 +5,10 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 )
 

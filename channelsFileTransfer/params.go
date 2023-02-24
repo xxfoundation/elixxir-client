@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"encoding/json"
@@ -24,19 +24,19 @@ const (
 type Params struct {
 	// MaxThroughput is the maximum data transfer speed to send file parts (in
 	// bytes per second). If set to 0, rate limiting will be disabled.
-	MaxThroughput int
+	MaxThroughput int `json:"maxThroughput"`
 
 	// SendTimeout is the duration, in nanoseconds, before sending on a round
 	// times out. It is recommended that SendTimeout is not changed from its
 	// default.
-	SendTimeout time.Duration
+	SendTimeout time.Duration `json:"sendTimeout"`
 
 	// ResendWait is the duration, in nanoseconds, to wait to receive a file
 	// part before resending it.
-	ResendWait time.Duration
+	ResendWait time.Duration `json:"resendWait"`
 
 	// Cmix are the parameters used when sending a cMix message.
-	Cmix cmix.CMIXParams
+	Cmix cmix.CMIXParams `json:"cmix"`
 }
 
 // DefaultParams returns a Params object filled with the default values.

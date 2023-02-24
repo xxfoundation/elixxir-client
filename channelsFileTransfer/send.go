@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"strconv"
@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/sentRoundTracker"
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/sentRoundTracker"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/stoppable"

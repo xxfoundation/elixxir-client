@@ -7,9 +7,9 @@
 
 syntax = "proto3";
 
-package broadcastFileTransfer;
+package channelsFileTransfer;
 
-option go_package = "gitlab.com/elixxir/client/broadcastFileTransfer";
+option go_package = "gitlab.com/elixxir/client/channelsFileTransfer";
 
 // FileInfoMsg contains all the information needed to download a file. Once a
 // file is uploaded to the recipientID, it is transmitted to other users so that

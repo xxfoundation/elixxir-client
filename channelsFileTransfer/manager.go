@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/callbackTracker"
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/callbackTracker"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -377,22 +377,23 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	numParts := uint16(len(parts))
 	fileSize := uint32(len(fileData))
 
-	// Build FileInfo that will be returned to the user on completion
-	info := &FileInfo{fid, newID, fileName, fileType, key, mac, numParts,
-		fileSize, retry, preview}
-	fileInfo, err := info.Marshal()
-	if err != nil {
-		return ftCrypto.ID{}, errors.Errorf(errMarshalInfo, err)
-	}
-
 	// Calculate the number of fingerprints to generate
 	numFps := calcNumberOfFingerprints(len(parts), retry)
 
 	// Create new sent transfer
+	// TODO: how to handle differing filename and file type
 	st, err := m.sent.AddTransfer(
 		newID, &key, fid, fileName, fileSize, parts, numFps)
 	if err != nil {
 		return ftCrypto.ID{}, errors.Errorf(errAddSentTransfer, err)
+	}
+
+	// Build FileInfo that will be returned to the user on completion
+	info := &FileInfo{fid, st.Recipient(), fileName, fileType, key, mac, numParts,
+		fileSize, retry, preview}
+	fileInfo, err := info.Marshal()
+	if err != nil {
+		return ftCrypto.ID{}, errors.Errorf(errMarshalInfo, err)
 	}
 
 	// Add all parts to the send queue
@@ -506,9 +507,6 @@ func (m *manager) CloseSend(fid ftCrypto.ID) error {
 
 // HandleIncomingTransfer starts tracking the received file parts for the
 // given marshalled FileInfo and returns the file's ID and FileInfo.
-//
-// This function should be called once for every new file received on the
-// registered SendNew callback.
 //
 // In-progress transfers are restored when closing and reopening; however, a
 // ReceivedProgressCallback must be registered again.

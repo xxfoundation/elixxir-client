@@ -5,19 +5,19 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"crypto/ed25519"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store"
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -42,8 +42,8 @@ type Wrapper struct {
 
 // NewWrapper generated a new file transfer wrapper for the channel manager and
 // event model. It allows for sending and receiving of files over channels.
-func NewWrapper(user FtE2e, params Params) (
-	*Wrapper, channels.ExtensionBuilder, error) {
+func NewWrapper(
+	user FtE2e, params Params) (*Wrapper, channels.ExtensionBuilder, error) {
 
 	var w Wrapper
 
@@ -127,6 +127,7 @@ func (w *Wrapper) MaxPreviewSize() int {
 // Upload starts uploading the file to a new ID that can be sent to the
 // specified channel when complete. To get progress information about the upload
 // a SentProgressCallback but be registered.
+// TODO: what happens when uploading the same file again?
 func (w *Wrapper) Upload(channelID *id.ID, fileName, fileType string,
 	fileData []byte, retry float32, preview []byte,
 	progressCB SentProgressCallback, period time.Duration) (ftCrypto.ID, error) {
@@ -171,12 +172,14 @@ func (w *Wrapper) uploadCompleteCB(channelID *id.ID) SendCompleteCallback {
 }
 
 // Send sends the specified file info to the channel.
+// TODO: dont delete file after send completes. It needs to remain as long as the file exists in the database. Not sure how to handle this
 func (w *Wrapper) Send(channelID *id.ID, fileInfo []byte,
-	validUntil time.Duration, params cmix.CMIXParams) (
+	validUntil time.Duration, params xxdk.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 
+	// TODO: make new SendGeneric that can take a file ID
 	return w.ch.SendGeneric(channelID, channels.FileTransfer, fileInfo,
-		validUntil, true, params)
+		validUntil, true, params.CMIX)
 }
 
 // RegisterSentProgressCallback registers the callback to the given file
@@ -187,10 +190,33 @@ func (w *Wrapper) RegisterSentProgressCallback(fileID ftCrypto.ID,
 	return w.m.RegisterSentProgressCallback(fileID, progressCB, period)
 }
 
+// RetrySend retries uploading a failed file upload. Returns an error if the
+// transfer has not run out of retries.
+//
+// This function should be called once a transfer errors out (as reported by
+// the progress callback).
+// TODO: write function
+func (w *Wrapper) RetrySend(fileID ftCrypto.ID) error {
+	return nil
+}
+
+// CloseSend deletes a file from the internal storage once a transfer has
+// completed or reached the retry limit. If neither of those condition are
+// met, an error is returned.
+//
+// This function should be called once a transfer completes or errors out
+// (as reported by the progress callback).
+// TODO: handle deletion from event model
+func (w *Wrapper) CloseSend(fileID ftCrypto.ID) error {
+
+	return w.m.CloseSend(fileID)
+}
+
 /* === Receiving ============================================================ */
 
 // Download beings the download of the file described in the marshalled
 // FileInfo. The progress of the download is reported on the progress callback.
+// TODO: what happens when downloading the same file again?
 func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 	period time.Duration) (ftCrypto.ID, error) {
 

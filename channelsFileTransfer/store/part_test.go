@@ -12,7 +12,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
 )

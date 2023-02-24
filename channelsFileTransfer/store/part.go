@@ -10,8 +10,8 @@ package store
 import (
 	"strconv"
 
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/cypher"
-	"gitlab.com/elixxir/client/v4/broadcastFileTransfer/store/fileMessage"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/cypher"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"

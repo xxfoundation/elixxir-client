@@ -5,11 +5,11 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -144,7 +144,7 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 	}
 
 	// Send the file to the channel
-	_, _, _, err = w1.Send(channelID, fileInfo, 0, cmix.GetDefaultCMIXParams())
+	_, _, _, err = w1.Send(channelID, fileInfo, 0, xxdk.GetDefaultCMixParams())
 	if err != nil {
 		t.Fatalf("Failed to send file: %+v", err)
 	}

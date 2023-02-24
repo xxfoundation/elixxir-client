@@ -119,9 +119,10 @@ func (s *Sent) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	_, exists := s.transfers[fid]
+	// TODO: test change where we return an existing transfer, if it exists
+	st, exists := s.transfers[fid]
 	if exists {
-		return nil, errors.Errorf(errAddExistingSentTransfer, fid)
+		return st, nil
 	}
 
 	st, err := newSentTransfer(

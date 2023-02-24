@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package broadcastFileTransfer
+package channelsFileTransfer
 
 import (
 	"bytes"
@@ -486,6 +486,20 @@ func (m *mockEventModel) GetFile(fileID ftCrypto.ID) (
 	}
 
 	return f.fileInfo, f.fileData, nil
+}
+
+
+
+func (m *mockEventModel) DeleteFile(fileID ftCrypto.ID) error {
+	m.Lock()
+	defer m.Unlock()
+
+	if _, exists := m.files[fileID]; !exists {
+		return channels.NoMessageErr
+	}
+
+	delete(m.files, fileID)
+	return nil
 }
 
 func (m *mockEventModel) JoinChannel(*cryptoBroadcast.Channel) { panic("implement me") }

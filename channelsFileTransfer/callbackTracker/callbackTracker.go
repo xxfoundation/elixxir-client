@@ -17,7 +17,7 @@ import (
 
 type callback func(err error)
 
-// callbackTracker tracks the broadcastFileTransfer.SentProgressCallback and
+// callbackTracker tracks the channelsFileTransfer.SentProgressCallback and
 // information on when to call it. The callback will be called on each send,
 // unless the time since the lastCall is smaller than the period. In that case,
 // a callback is marked as scheduled and waits to be called at the end of the

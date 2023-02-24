@@ -1595,6 +1595,24 @@ func (cm *ChannelsManager) DeleteChannelAdminKey(channelIdBytes []byte) error {
 	return cm.api.DeleteChannelAdminKey(channelID)
 }
 
+func (cm *ChannelsManager) EnableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.EnableDirectMessages(channelID)
+}
+
+func (cm *ChannelsManager) DisableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.DisableDirectMessages(channelID)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Channel Receiving Logic and Callback Registration                          //
 ////////////////////////////////////////////////////////////////////////////////

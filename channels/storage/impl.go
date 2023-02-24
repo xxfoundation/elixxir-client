@@ -275,7 +275,9 @@ func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 		jww.WARN.Printf("No MuteUser callback registered!")
 		return
 	}
-	go i.muteCb(channelID, pubKey, unmute)
+	if i.muteCb != nil {
+		go i.muteCb(channelID, pubKey, unmute)
+	}
 }
 
 // DeleteMessage removes a message with the given messageID from storage.
@@ -289,7 +291,9 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 		return errors.Errorf("Unable to delete Message: %+v", err)
 	}
 
-	go i.deleteCb(messageID)
+	if i.deleteCb != nil {
+		go i.deleteCb(messageID)
+	}
 	return nil
 }
 

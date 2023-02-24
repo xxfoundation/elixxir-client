@@ -26,7 +26,7 @@ func TestImpl(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
 	testCb := func(uuid uint64, channelID *id.ID, update bool) {}
 
-	model, err := newImpl("", nil, testCb, nil)
+	model, err := newImpl("", nil, testCb, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

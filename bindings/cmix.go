@@ -79,6 +79,13 @@ func (c *Cmix) GetID() int {
 	return c.id
 }
 
+// GetReceptionID returns the Default Reception Identity for this cMix
+// Instance
+func (c *Cmix) GetReceptionID() []byte {
+	rid := *c.api.GetStorage().GetReceptionID()
+	return rid.Bytes()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // cMix Tracker                                                               //
 ////////////////////////////////////////////////////////////////////////////////

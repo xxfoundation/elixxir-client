@@ -30,6 +30,8 @@ type MessageRetrievalComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	RequestMessages(host *connect.Host, message *pb.GetMessages) (
 		*pb.GetMessagesResponse, error)
+	RequestBatchMessages(host *connect.Host,
+		message *pb.GetMessagesBatch) (*pb.GetMessagesResponseBatch, error)
 }
 
 type roundLookup struct {

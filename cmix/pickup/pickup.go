@@ -39,8 +39,9 @@ type pickup struct {
 
 	instance RoundGetter
 
-	lookupRoundMessages chan roundLookup
-	messageBundles      chan<- message.Bundle
+	lookupRoundMessages    chan roundLookup
+	messageBundles         chan<- message.Bundle
+	gatewayMessageRequests chan pickupRequest
 
 	unchecked *store.UncheckedRoundStore
 }
@@ -52,16 +53,17 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 	session storage.Session) Pickup {
 	unchecked := store.NewOrLoadUncheckedStore(session.GetKV())
 	m := &pickup{
-		params:              params,
-		lookupRoundMessages: make(chan roundLookup, params.LookupRoundsBufferLen),
-		messageBundles:      bundles,
-		sender:              sender,
-		historical:          historical,
-		rng:                 rng,
-		instance:            instance,
-		unchecked:           unchecked,
-		session:             session,
-		comms:               comms,
+		params:                 params,
+		lookupRoundMessages:    make(chan roundLookup, params.LookupRoundsBufferLen),
+		messageBundles:         bundles,
+		sender:                 sender,
+		historical:             historical,
+		rng:                    rng,
+		instance:               instance,
+		unchecked:              unchecked,
+		session:                session,
+		comms:                  comms,
+		gatewayMessageRequests: make(chan pickupRequest, 5),
 	}
 
 	return m

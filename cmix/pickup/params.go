@@ -37,6 +37,8 @@ type Params struct {
 
 	// Toggles if historical rounds should always be used
 	ForceHistoricalRounds bool
+
+	BatchMessageRetrieval bool
 }
 
 // paramsDisk will be the marshal-able and umarshal-able object.

@@ -113,6 +113,12 @@ func (c *Cmix) EKVSet(key string, value []byte) error {
 // cMix Tracker                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
+// GetCMixInstance gets a copy of the cMix instance by it's ID number
+func GetCMixInstance(instanceID int) (*Cmix, bool) {
+	instance, ok := cmixTrackerSingleton.tracked[instanceID]
+	return instance, ok
+}
+
 // cmixTracker is a singleton used to keep track of extant Cmix objects,
 // preventing race conditions created by passing it over the bindings.
 type cmixTracker struct {

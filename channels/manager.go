@@ -246,7 +246,8 @@ func (m *manager) generateChannel(name, description string,
 }
 
 // JoinChannel joins the given channel. It will return the error
-// ChannelAlreadyExistsErr if the channel has already been joined.
+// ChannelAlreadyExistsErr if the channel has already been joined. This function
+// will block until the event model returns from joining the channel.
 func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 	jww.INFO.Printf(
 		"[CH] JoinChannel %q with ID %s", channel.Name, channel.ReceptionID)
@@ -267,7 +268,8 @@ func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 }
 
 // LeaveChannel leaves the given channel. It will return the error
-// ChannelDoesNotExistsErr if the channel was not previously joined.
+// ChannelDoesNotExistsErr if the channel was not previously joined. This
+// function will block until the event model returns from leaving the channel.
 func (m *manager) LeaveChannel(channelID *id.ID) error {
 	jww.INFO.Printf("[CH] LeaveChannel %s", channelID)
 	err := m.removeChannel(channelID)

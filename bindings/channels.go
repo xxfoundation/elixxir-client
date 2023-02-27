@@ -662,8 +662,6 @@ func (cm *ChannelsManager) GenerateChannel(
 
 // JoinChannel joins the given channel. It will return the error
 // [channels.ChannelAlreadyExistsErr] if the channel has already been joined.
-// This function will block until the event model returns from joining the
-// channel.
 //
 // Parameters:
 //   - channelPretty - A portable channel string. Should be received from
@@ -690,8 +688,6 @@ func (cm *ChannelsManager) JoinChannel(channelPretty string) ([]byte, error) {
 
 // LeaveChannel leaves the given channel. It will return the error
 // [channels.ChannelDoesNotExistsErr] if the channel was not previously joined.
-// This function will block until the event model returns from leaving the
-// channel.
 //
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID].

@@ -255,6 +255,20 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 			}
 
 		} else {
+			// Ensure all nodes in team support no registration
+			if missingNodes > 0 {
+				currentNdf := r.session.GetNDF()
+				found := false
+				for _, n := range currentNdf.Nodes {
+					if bytes.Compare(n.ID, nid[:]) == 0 && n.Ed25519 != nil {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return nil, errors.Errorf("All nodes in team must support ephemeral registration")
+				}
+			}
 			rk.keys[i] = k
 		}
 	}

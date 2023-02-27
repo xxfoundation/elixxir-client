@@ -240,6 +240,25 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 						"Cannot use ephemeral registration for first "+
 							"node in round %s, triggered registration", nid)
 				}
+
+				// Ensure all nodes in team support ephemeral registration
+				if i > 0 && missingNodes == 0 {
+					for j := 0; j < i; j++ {
+						passedNid := topology.GetNodeAtIndex(j)
+						currentNdf := r.session.GetNDF()
+						found := false
+						for _, n := range currentNdf.Nodes {
+							if bytes.Compare(n.ID, passedNid[:]) == 0 && n.Ed25519 != nil {
+								found = true
+								break
+							}
+						}
+						if !found {
+							return nil, errors.Errorf("All nodes in team must support ephemeral registration")
+						}
+					}
+				}
+
 				jww.WARN.Println(errors.Errorf(
 					"cannot get key for %s, triggered registration & continuing w/ ephemeral ED key", nid))
 				missingNodes += 1

@@ -13,10 +13,12 @@
     one result, or two results where the type of the second is the built-in 'error' type.
 > - Any interface type, all of whose exported methods have supported function types.
 > - Any struct type, all of whose exported methods have supported function types and all of whose exported fields have
-    supported types. Unexported symbols have no effect on the cross-language interface, and as such are not restricted.
+    supported types.
+>
+> Unexported symbols have no effect on the cross-language interface, and as such are not restricted.
 >
 > The set of supported types will eventually be expanded to cover more Go types, but this is a work in progress.
 >
 > Exceptions and panics are not yet supported. If either pass a language boundary, the program will exit.
 
-**Source:** https://pkg.go.dev/golang.org/x/mobile/cmd/gobind under *Type restrictions* heading
+**Source:** [gobind Type restrictions](https://pkg.go.dev/golang.org/x/mobile/cmd/gobind#hdr-Type_restrictions)

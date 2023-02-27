@@ -57,15 +57,11 @@ type Manager interface {
 		*cryptoBroadcast.Channel, error)
 
 	// JoinChannel joins the given channel. It will return the error
-	// ChannelAlreadyExistsErr if the channel has already been joined. This
-	// function will block until the event model returns from joining the
-	// channel.
+	// ChannelAlreadyExistsErr if the channel has already been joined.
 	JoinChannel(channel *cryptoBroadcast.Channel) error
 
 	// LeaveChannel leaves the given channel. It will return the error
-	// ChannelDoesNotExistsErr if the channel was not previously joined. This
-	// function will block until the event model returns from leaving the
-	// channel.
+	// ChannelDoesNotExistsErr if the channel was not previously joined.
 	LeaveChannel(channelID *id.ID) error
 
 	// EnableDirectMessages enables the token for direct messaging for this

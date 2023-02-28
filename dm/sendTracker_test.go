@@ -47,7 +47,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	r.Timestamps[states.QUEUED] = time.Now()
 	trigger := func(msgID message.ID, messageType MessageType,
 		nick string, plaintext []byte, dmToken uint32,
-		partnerPubKey ed25519.PublicKey, ts time.Time,
+		partnerPubKey, senderKey ed25519.PublicKey, ts time.Time,
 		_ receptionID.EphemeralIdentity, round rounds.Round,
 		status Status) (uint64, error) {
 		oldUUID := uuidNum
@@ -321,7 +321,7 @@ func TestRoundResult_callback(t *testing.T) {
 
 func emptyTrigger(msgID message.ID, messageType MessageType,
 	nick string, plaintext []byte, dmToken uint32,
-	partnerPubKey ed25519.PublicKey, ts time.Time,
+	partnerPubKey, senderKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error) {
 	return 0, nil

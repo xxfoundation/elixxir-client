@@ -104,9 +104,11 @@ func (dp *dmProcessor) Process(msg format.Message,
 
 	// Process the receivedMessage. This is already in an instanced event;
 	// no new thread is needed.
+	// Note that in the non-self send case the partner key and sender
+	// key are the same. This is how the UI differentiates between the two.
 	uuid, err := dp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
 		directMsg.Payload, senderToken,
-		*pubSigningKey, ts, receptionID,
+		*pubSigningKey, *pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
 		jww.WARN.Printf("Error processing for "+
@@ -175,6 +177,7 @@ func (sp *selfProcessor) Process(msg format.Message,
 		round.Timestamps[states.QUEUED], msgID)
 
 	pubSigningKey := ecdh.ECDHNIKE2EdwardsPublicKey(senderPublicKey)
+	partnerPubKey := ecdh.ECDHNIKE2EdwardsPublicKey(partnerPublicKey)
 
 	messageType := MessageType(directMsg.PayloadType)
 
@@ -182,7 +185,7 @@ func (sp *selfProcessor) Process(msg format.Message,
 	// no new thread is needed.
 	uuid, err := sp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
 		directMsg.Payload, senderToken,
-		*pubSigningKey, ts, receptionID,
+		*partnerPubKey, *pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
 		jww.WARN.Printf("Error processing for "+
@@ -204,37 +207,38 @@ func (r *receiver) GetProcessor() *dmProcessor {
 // receiver function.
 func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 	nick string, plaintext []byte, dmToken uint32,
-	partnerPubKey ed25519.PublicKey, ts time.Time,
+	partnerPubKey, senderPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error) {
 	switch messageType {
 	case TextType:
 		return r.receiveTextMessage(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey,
+			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
 			0, ts, round, status)
 	case ReactionType:
 		return r.receiveReaction(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey,
+			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
 			0, ts, round, status)
 	default:
 		return r.api.Receive(msgID, nick, plaintext,
-			partnerPubKey, dmToken, 0, ts, round,
+			partnerPubKey, senderPubKey,
+			dmToken, 0, ts, round,
 			messageType, status), nil
 	}
 }
 
 func (r *receiver) receiveTextMessage(messageID message.ID,
 	messageType MessageType, nickname string, content []byte,
-	dmToken uint32, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp time.Time, round rounds.Round,
+	dmToken uint32, partnerPubKey, senderPubKey ed25519.PublicKey,
+	codeset uint8, timestamp time.Time, round rounds.Round,
 	status Status) (uint64, error) {
 	txt := &Text{}
 
 	if err := proto.Unmarshal(content, txt); err != nil {
 		return 0, errors.Wrapf(err, "failed text unmarshal DM %s "+
 			"from %x, type %s, ts: %s, round: %d",
-			messageID, pubKey, messageType, timestamp,
-			round.ID)
+			messageID, partnerPubKey, messageType,
+			timestamp, round.ID)
 	}
 
 	if txt.ReplyMessageID != nil {
@@ -242,22 +246,24 @@ func (r *receiver) receiveTextMessage(messageID message.ID,
 		if len(txt.ReplyMessageID) == message.IDLen {
 			var replyTo message.ID
 			copy(replyTo[:], txt.ReplyMessageID)
-			tag := makeDebugTag(pubKey, content, SendReplyTag)
-			jww.INFO.Printf("[%s] DM - Received reply from %s "+
+			tag := makeDebugTag(partnerPubKey, content,
+				SendReplyTag)
+			jww.INFO.Printf("[%s] DM - Received reply with %s "+
 				"to %s", tag,
-				base64.StdEncoding.EncodeToString(pubKey),
+				base64.StdEncoding.EncodeToString(
+					partnerPubKey),
 				base64.StdEncoding.EncodeToString(
 					txt.ReplyMessageID))
 			return r.api.ReceiveReply(messageID, replyTo, nickname,
-				txt.Text, pubKey, dmToken, codeset, timestamp,
-				round, status), nil
+				txt.Text, partnerPubKey, senderPubKey,
+				dmToken, codeset, timestamp, round, status), nil
 		} else {
 			return 0, errors.Errorf("Failed DM reply to for "+
-				"message %s from public key %v "+
+				"message %s with partner key %v "+
 				"(codeset %d) on type %s, "+
 				"ts: %s, round: %d, "+
 				"returning without reply",
-				messageID, pubKey, codeset,
+				messageID, partnerPubKey, codeset,
 				messageType, timestamp,
 				round.ID)
 			// Still process the message, but drop the
@@ -265,12 +271,13 @@ func (r *receiver) receiveTextMessage(messageID message.ID,
 		}
 	}
 
-	tag := makeDebugTag(pubKey, content, SendMessageTag)
-	jww.INFO.Printf("[%s] DM - Received message from %s ",
-		tag, base64.StdEncoding.EncodeToString(pubKey))
+	tag := makeDebugTag(partnerPubKey, content, SendMessageTag)
+	jww.INFO.Printf("[%s] DM - Received message with partner %s ",
+		tag, base64.StdEncoding.EncodeToString(partnerPubKey))
 
 	return r.api.ReceiveText(messageID, nickname, txt.Text,
-		pubKey, dmToken, codeset, timestamp, round, status), nil
+		partnerPubKey, senderPubKey, dmToken, codeset,
+		timestamp, round, status), nil
 }
 
 // receiveReaction is the internal function that handles the reception of
@@ -282,23 +289,23 @@ func (r *receiver) receiveTextMessage(messageID message.ID,
 // reaction is dropped.
 func (r *receiver) receiveReaction(messageID message.ID,
 	messageType MessageType, nickname string, content []byte,
-	dmToken uint32, pubKey ed25519.PublicKey, codeset uint8,
-	timestamp time.Time, round rounds.Round,
+	dmToken uint32, partnerPubKey, senderPubKey ed25519.PublicKey,
+	codeset uint8, timestamp time.Time, round rounds.Round,
 	status Status) (uint64, error) {
 	react := &Reaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
 		return 0, errors.Wrapf(err, "Failed to text unmarshal DM %s "+
-			"from %x, type %s, ts: %s, round: %d",
-			messageID, pubKey, messageType, timestamp,
+			"with %x, type %s, ts: %s, round: %d",
+			messageID, partnerPubKey, messageType, timestamp,
 			round.ID)
 	}
 
 	// check that the reaction is a single emoji and ignore if it isn't
 	if err := emoji.ValidateReaction(react.Reaction); err != nil {
 		return 0, errors.Wrapf(err, "Failed process DM reaction %s"+
-			" from %x, type %s, ts: %s, round: %d, due to "+
+			" with %x, type %s, ts: %s, round: %d, due to "+
 			"malformed reaction (%s), ignoring reaction",
-			messageID, pubKey, messageType, timestamp,
+			messageID, partnerPubKey, messageType, timestamp,
 			round.ID, content)
 	}
 
@@ -307,21 +314,23 @@ func (r *receiver) receiveReaction(messageID message.ID,
 		var reactTo message.ID
 		copy(reactTo[:], react.ReactionMessageID)
 
-		tag := makeDebugTag(pubKey, content, SendReactionTag)
-		jww.INFO.Printf("[%s] DM - Received reaction from %s "+
+		tag := makeDebugTag(partnerPubKey, content, SendReactionTag)
+		jww.INFO.Printf("[%s] DM - Received reaction with %s "+
 			"to %s", tag,
-			base64.RawStdEncoding.EncodeToString(pubKey),
+			base64.RawStdEncoding.EncodeToString(partnerPubKey),
 			reactTo)
 
 		return r.api.ReceiveReaction(messageID, reactTo, nickname,
-			react.Reaction, pubKey, dmToken, codeset, timestamp,
+			react.Reaction, partnerPubKey, senderPubKey,
+			dmToken, codeset, timestamp,
 			round, status), nil
 	}
-	return 0, errors.Errorf("Failed process DM reaction %s from public "+
+	return 0, errors.Errorf("Failed process DM reaction %s with public "+
 		"key %v (codeset %d), type %s, ts: %s, "+
 		"round: %d, reacting to invalid message, "+
 		"ignoring reaction",
-		messageID, pubKey, codeset, messageType, timestamp,
+		messageID, partnerPubKey, codeset,
+		messageType, timestamp,
 		round.ID)
 }
 

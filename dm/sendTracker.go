@@ -47,7 +47,7 @@ const (
 
 type triggerEventFunc func(msgID message.ID, messageType MessageType,
 	nick string, plaintext []byte, dmToken uint32,
-	partnerPubKey ed25519.PublicKey, ts time.Time,
+	partnerPubKey, senderPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error)
 
@@ -175,7 +175,7 @@ func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
 
 	// Submit the message to the UI
 	uuid, err := st.trigger(messageID, messageType, dm.Nickname, dm.Payload,
-		partnerToken, partnerEdwardsPubKey, ts,
+		partnerToken, partnerEdwardsPubKey, partnerEdwardsPubKey, ts,
 		receptionID.EphemeralIdentity{},
 		rounds.Round{}, Unsent)
 	if err != nil {

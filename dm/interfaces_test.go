@@ -133,7 +133,7 @@ type mockReceiver struct {
 }
 
 func (mr *mockReceiver) Receive(messageID cryptoMessage.ID,
-	nickname string, text []byte, pubKey ed25519.PublicKey,
+	nickname string, text []byte, pubKey, senderPubKey ed25519.PublicKey,
 	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, mType MessageType, status Status) uint64 {
@@ -150,7 +150,8 @@ func (mr *mockReceiver) Receive(messageID cryptoMessage.ID,
 }
 
 func (mr *mockReceiver) ReceiveText(messageID cryptoMessage.ID,
-	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
+	nickname, text string, pubKey, senderPubKey ed25519.PublicKey,
+	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status Status) uint64 {
 	jww.INFO.Printf("ReceiveText: %s", messageID)
@@ -167,7 +168,7 @@ func (mr *mockReceiver) ReceiveText(messageID cryptoMessage.ID,
 
 func (mr *mockReceiver) ReceiveReply(messageID cryptoMessage.ID,
 	reactionTo cryptoMessage.ID, nickname, text string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	pubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status Status) uint64 {
 	jww.INFO.Printf("ReceiveReply: %s", messageID)
@@ -184,7 +185,7 @@ func (mr *mockReceiver) ReceiveReply(messageID cryptoMessage.ID,
 
 func (mr *mockReceiver) ReceiveReaction(messageID cryptoMessage.ID,
 	reactionTo cryptoMessage.ID, nickname, reaction string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	pubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status Status) uint64 {
 	jww.INFO.Printf("ReceiveReaction: %s", messageID)

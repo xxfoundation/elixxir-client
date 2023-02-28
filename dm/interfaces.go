@@ -117,7 +117,8 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
 	Receive(messageID cryptoMessage.ID,
-		nickname string, text []byte, pubKey ed25519.PublicKey,
+		nickname string, text []byte,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
 		dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status Status) uint64
@@ -137,7 +138,9 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
 	ReceiveText(messageID cryptoMessage.ID,
-		nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
+		nickname, text string,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, status Status) uint64
 
@@ -161,7 +164,8 @@ type EventModel interface {
 	// display the codename.
 	ReceiveReply(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, text string,
-		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -185,7 +189,8 @@ type EventModel interface {
 	// display the codename.
 	ReceiveReaction(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, reaction string,
-		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 

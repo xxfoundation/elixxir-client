@@ -266,8 +266,8 @@ func (rt *ReceivedTransfer) GetUnusedCyphers() []cypher.Cypher {
 	return rt.cypherManager.GetUnusedCyphers()
 }
 
-// FileID returns the file's ID.
-func (rt *ReceivedTransfer) FileID() ftCrypto.ID {
+// GetFileID returns the file's ID.
+func (rt *ReceivedTransfer) GetFileID() ftCrypto.ID {
 	return rt.fid
 }
 
@@ -276,18 +276,18 @@ func (rt *ReceivedTransfer) FileName() string {
 	return rt.fileName
 }
 
-// Recipient returns the transfer's recipient ID.
-func (rt *ReceivedTransfer) Recipient() *id.ID {
+// GetRecipient returns the transfer's recipient ID.
+func (rt *ReceivedTransfer) GetRecipient() *id.ID {
 	return rt.recipient
 }
 
-// FileSize returns the size of the entire file transfer.
-func (rt *ReceivedTransfer) FileSize() uint32 {
+// GetFileSize returns the size of the entire file transfer.
+func (rt *ReceivedTransfer) GetFileSize() uint32 {
 	return rt.fileSize
 }
 
-// NumParts returns the total number of file parts in the transfer.
-func (rt *ReceivedTransfer) NumParts() uint16 {
+// GetNumParts returns the total number of file parts in the transfer.
+func (rt *ReceivedTransfer) GetNumParts() uint16 {
 	return rt.numParts
 }
 

@@ -10,17 +10,17 @@ package channelsFileTransfer
 import (
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -35,16 +35,19 @@ func TestFileInfo_Size(t *testing.T) {
 	}
 
 	fi := &FileInfo{
-		FID:         ftCrypto.NewID([]byte("fileData")),
-		RecipientID: id.NewIdFromString("recipient", id.User, t),
-		FileName:    randStringBytes(FileNameMaxLen, prng),
-		FileType:    randStringBytes(FileTypeMaxLen, prng),
-		Key:         key,
-		Mac:         make([]byte, format.MacLen),
-		NumParts:    math.MaxUint16,
-		Size:        math.MaxUint32,
-		Retry:       math.MaxFloat32,
-		Preview:     []byte{},
+		FileName: randStringBytes(FileNameMaxLen, prng),
+		FileType: randStringBytes(FileTypeMaxLen, prng),
+		Preview:  []byte{},
+		FileLink: FileLink{
+			FileID:        ftCrypto.NewID([]byte("fileData")),
+			RecipientID:   id.NewIdFromString("recipient", id.User, t),
+			SentTimestamp: netTime.Now(),
+			Key:           key,
+			Mac:           make([]byte, format.MacLen),
+			NumParts:      math.MaxUint16,
+			Size:          math.MaxUint32,
+			Retry:         math.MaxFloat32,
+		},
 	}
 
 	data, err := fi.Marshal()
@@ -67,16 +70,19 @@ func TestFileInfo_Size(t *testing.T) {
 // UnmarshalFileInfo matches the original.
 func TestFileInfo_Marshal_UnmarshalFileInfo(t *testing.T) {
 	fi := &FileInfo{
-		FID:         ftCrypto.NewID([]byte("fileData")),
-		RecipientID: id.NewIdFromString("recipient", id.User, t),
-		FileName:    "FileName",
-		FileType:    "FileType",
-		Key:         ftCrypto.TransferKey{1, 2, 3},
-		Mac:         []byte("I am a MAC"),
-		NumParts:    6,
-		Size:        250,
-		Retry:       2.6,
-		Preview:     []byte("I am a preview"),
+		FileName: "FileName",
+		FileType: "FileType",
+		Preview:  []byte("I am a preview"),
+		FileLink: FileLink{
+			FileID:        ftCrypto.NewID([]byte("fileData")),
+			RecipientID:   id.NewIdFromString("recipient", id.User, t),
+			SentTimestamp: netTime.Now(),
+			Key:           ftCrypto.TransferKey{1, 2, 3},
+			Mac:           []byte("I am a MAC"),
+			NumParts:      6,
+			Size:          250,
+			Retry:         2.6,
+		},
 	}
 
 	data, err := fi.Marshal()
@@ -146,15 +152,19 @@ func TestUnmarshalFileInfo_RecipientUnmarshalError(t *testing.T) {
 // Tests that a FileInfo JSON marshalled and unmarshalled matches the original.
 func TestFileInfo_JSON_Marshal_Unmarshal(t *testing.T) {
 	fi := &FileInfo{
-		FID:      ftCrypto.NewID([]byte("fileData")),
 		FileName: "FileName",
 		FileType: "FileType",
-		Key:      ftCrypto.TransferKey{1, 2, 3},
-		Mac:      []byte("I am a MAC"),
-		NumParts: 6,
-		Size:     250,
-		Retry:    2.6,
 		Preview:  []byte("I am a preview"),
+		FileLink: FileLink{
+			FileID:        ftCrypto.NewID([]byte("fileData")),
+			RecipientID:   id.NewIdFromString("recipient", id.User, t),
+			SentTimestamp: netTime.Now(),
+			Key:           ftCrypto.TransferKey{1, 2, 3},
+			Mac:           []byte("I am a MAC"),
+			NumParts:      6,
+			Size:          250,
+			Retry:         2.6,
+		},
 	}
 
 	data, err := json.MarshalIndent(fi, "", "\t")

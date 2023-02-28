@@ -26,6 +26,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Tests that newSentTransfer returns a new SentTransfer with the expected
@@ -51,8 +52,8 @@ func Test_newSentTransfer(t *testing.T) {
 	expected := &SentTransfer{
 		cypherManager:            cypherManager,
 		fid:                      fid,
-		fileName:                 "file",
 		recipient:                id.NewIdFromString("user", id.User, t),
+		sentTimestamp:            netTime.Now(),
 		fileSize:                 calcFileSize(parts),
 		numParts:                 uint16(len(parts)),
 		status:                   Running,
@@ -63,8 +64,8 @@ func Test_newSentTransfer(t *testing.T) {
 		kv:                       stKv,
 	}
 
-	st, err := newSentTransfer(expected.recipient, &key, fid,
-		expected.fileName, expected.fileSize, parts, numFps, kv)
+	st, err := newSentTransfer(expected.recipient, expected.sentTimestamp,
+		&key, fid, expected.fileSize, parts, numFps, kv)
 	if err != nil {
 		t.Errorf("newSentTransfer returned an error: %+v", err)
 	}
@@ -206,7 +207,7 @@ func TestSentTransfer_getPartData_OutOfRangePanic(t *testing.T) {
 	st, parts, _, _, _ := newTestSentTransfer(16, t)
 
 	invalidPartNum := uint16(len(parts) + 1)
-	expectedErr := fmt.Sprintf(errNoPartNum, invalidPartNum, st.fid, st.fileName)
+	expectedErr := fmt.Sprintf(errNoPartNum, invalidPartNum, st.fid)
 
 	defer func() {
 		r := recover()
@@ -384,55 +385,55 @@ func TestSentTransfer_Status(t *testing.T) {
 	}
 }
 
-// Tests that SentTransfer.FileID returns the correct file ID.
-func TestSentTransfer_FileID(t *testing.T) {
+// Tests that SentTransfer.GetFileID returns the correct file ID.
+func TestSentTransfer_GetFileID(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(16, t)
 
-	if st.FileID() != st.fid {
+	if st.GetFileID() != st.fid {
 		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
-			st.fid, st.FileID())
+			st.fid, st.GetFileID())
 	}
 }
 
-// Tests that SentTransfer.FileName returns the correct file name.
-func TestSentTransfer_FileName(t *testing.T) {
+// Tests that SentTransfer.GetRecipient returns the correct recipient ID.
+func TestSentTransfer_GetRecipient(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(16, t)
 
-	if st.FileName() != st.fileName {
-		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
-			st.fileName, st.FileName())
-	}
-}
-
-// Tests that SentTransfer.Recipient returns the correct recipient ID.
-func TestSentTransfer_Recipient(t *testing.T) {
-	st, _, _, _, _ := newTestSentTransfer(16, t)
-
-	if !st.Recipient().Cmp(st.recipient) {
+	if !st.GetRecipient().Cmp(st.recipient) {
 		t.Errorf("Incorrect recipient ID.\nexpected: %s\nreceived: %s",
-			st.recipient, st.Recipient())
+			st.recipient, st.GetRecipient())
 	}
 }
 
-// Tests that SentTransfer.FileSize returns the correct file size.
-func TestSentTransfer_FileSize(t *testing.T) {
+// Tests that SentTransfer.SentTimestamp returns the correct timestamp.
+func TestSentTransfer_SentTimestamp(t *testing.T) {
+	st, _, _, _, _ := newTestSentTransfer(16, t)
+
+	if !st.SentTimestamp().Equal(st.sentTimestamp) {
+		t.Errorf("Incorrect timestamp.\nexpected: %s\nreceived: %s",
+			st.sentTimestamp, st.SentTimestamp())
+	}
+}
+
+// Tests that SentTransfer.GetFileSize returns the correct file size.
+func TestSentTransfer_GetFileSize(t *testing.T) {
 	st, parts, _, _, _ := newTestSentTransfer(16, t)
 	fileSize := calcFileSize(parts)
 
-	if st.FileSize() != fileSize {
+	if st.GetFileSize() != fileSize {
 		t.Errorf("Incorrect file size.\nexpected: %d\nreceived: %d",
-			fileSize, st.FileSize())
+			fileSize, st.GetFileSize())
 	}
 }
 
-// Tests that SentTransfer.NumParts returns the correct number of parts.
-func TestSentTransfer_NumParts(t *testing.T) {
+// Tests that SentTransfer.GetNumParts returns the correct number of parts.
+func TestSentTransfer_GetNumParts(t *testing.T) {
 	numParts := uint16(16)
 	st, _, _, _, _ := newTestSentTransfer(numParts, t)
 
-	if st.NumParts() != numParts {
+	if st.GetNumParts() != numParts {
 		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
-			numParts, st.NumParts())
+			numParts, st.GetNumParts())
 	}
 }
 
@@ -632,11 +633,11 @@ func TestSentTransfer_save(t *testing.T) {
 // unmarshalled via unmarshalSentTransfer matches the original.
 func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 	st := &SentTransfer{
-		fileName:  "transferName",
-		recipient: id.NewIdFromString("user", id.User, t),
-		status:    Failed,
+		recipient:     id.NewIdFromString("user", id.User, t),
+		sentTimestamp: netTime.Now(),
+		status:        Failed,
 	}
-	expected := sentTransferDisk{st.fileName, st.recipient, st.status}
+	expected := sentTransferDisk{st.recipient, st.sentTimestamp, st.status}
 
 	data, err := st.marshal()
 	if err != nil {
@@ -693,11 +694,10 @@ func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 	numFps = 2 * numParts
-	fileName := "helloFile"
 	parts, file := generateTestParts(numParts)
 
-	st, err := newSentTransfer(
-		recipient, &keyTmp, fid, fileName, uint32(len(file)), parts, numFps, kv)
+	st, err := newSentTransfer(recipient, netTime.Now(), &keyTmp, fid,
+		uint32(len(file)), parts, numFps, kv)
 	if err != nil {
 		t.Errorf("Failed to make new SentTransfer: %+v", err)
 	}

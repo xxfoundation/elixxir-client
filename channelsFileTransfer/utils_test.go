@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"io"
 	"math/rand"
 	"sync"
@@ -35,6 +34,7 @@ import (
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -487,8 +487,6 @@ func (m *mockEventModel) GetFile(fileID ftCrypto.ID) (
 
 	return f.fileInfo, f.fileData, nil
 }
-
-
 
 func (m *mockEventModel) DeleteFile(fileID ftCrypto.ID) error {
 	m.Lock()

@@ -32,6 +32,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // TODO:
@@ -94,12 +95,12 @@ const (
 	// manager.Send
 	errFileNameSize      = "length of filename (%d) greater than max allowed length (%d)"
 	errFileTypeSize      = "length of file type (%d) greater than max allowed length (%d)"
-	errFileSize          = "size of file (%d bytes) greater than max allowed size (%d bytes)"
+	fileSizeMaxErr       = "received %d-byte file; maximum size is %d bytes"
+	fileSizeMinErr       = "received %d-byte file; file cannot be empty"
 	errPreviewSize       = "size of preview (%d bytes) greater than max allowed size (%d bytes)"
-	errSendNetworkHealth = "cannot initiate file transfer of %q when network is not healthy."
+	errSendNetworkHealth = "network not healthy"
 	errNewKey            = "could not generate new transfer key: %+v"
 	errNewRecipientID    = "could not generate new recipient ID: %+v"
-	errMarshalInfo       = "could not marshal file info: %+v"
 	errAddSentTransfer   = "failed to add transfer: %+v"
 
 	// manager.CloseSend
@@ -108,7 +109,6 @@ const (
 	errRemoveSentTransfer       = "could not remove file %s from list: %+v"
 
 	// manager.HandleIncomingTransfer
-	errUnmarshalInfo = "failed to unmarshal incoming file info: %+v"
 	errAddNewRt      = "failed to add new file transfer %s (%q): %+v"
 
 	// manager.Receive
@@ -241,7 +241,7 @@ func newManager(user FtE2e, params Params) (m *manager,
 
 // LoadInProgressTransfers queues the in-progress sent and received transfers.
 func (m *manager) LoadInProgressTransfers(
-	sentFileParts map[ftCrypto.ID][][]byte, sentToRemove []ftCrypto.ID) error {
+	sentFileParts, receivedFileParts map[ftCrypto.ID][][]byte, sentToRemove []ftCrypto.ID) error {
 	unsentParts, sentParts, err := m.sent.LoadTransfers(sentFileParts)
 	if err != nil {
 		return err
@@ -257,9 +257,16 @@ func (m *manager) LoadInProgressTransfers(
 		m.sentQueue <- &sentPartPacket{packet: sentParts, loaded: true}
 	}
 
+	incompleteTransfers, err := m.received.LoadTransfers(receivedFileParts)
+	if err != nil {
+		return err
+	}
+
 	if err = m.sent.RemoveTransfers(sentToRemove...); err != nil {
 		return err
 	}
+
+	m.received.LoadTransfers()
 
 	return nil
 }
@@ -312,42 +319,58 @@ func (m *manager) maxPreviewSize() int {
 
 /* === Sending ============================================================== */
 
+// verifyFile verifies that the data is within the size range allowed.
+// TODO: test
+func (m *manager) verifyFile(fileData []byte) error {
+	// Return an error if the file is too large or empty
+	if fileLen := len(fileData); fileLen > m.maxFileSize() {
+		return errors.Errorf(fileSizeMaxErr, fileLen, FileMaxSize)
+	} else if fileLen == 0 {
+		return errors.Errorf(fileSizeMinErr, fileLen)
+	}
+
+	return nil
+}
+
+// verifyFile checks all the lengths of the file and its metadata and ensures
+// they are of the valid lengths.
+// TODO: test
+func (m *manager) verifyFileInfo(fileName, fileType string, preview []byte) error {
+	// Return an error if the file name is too long
+	if len(fileName) > FileNameMaxLen {
+		return errors.Errorf(errFileNameSize, len(fileName), FileNameMaxLen)
+	}
+
+	// Return an error if the file type is too long
+	if len(fileType) > FileTypeMaxLen {
+		return errors.Errorf(errFileTypeSize, len(fileType), FileTypeMaxLen)
+	}
+
+	// Return an error if the preview is too large
+	if len(preview) > PreviewMaxSize {
+		return errors.Errorf(errPreviewSize, len(preview), PreviewMaxSize)
+	}
+
+	return nil
+}
+
 // Send initiates the sending of a file to the recipient and returns a file
 // ID that uniquely identifies this file transfer.
 //
 // In-progress transfers are restored when closing and reopening; however, a
 // SentProgressCallback must be registered again.
-func (m *manager) Send(fileName, fileType string, fileData []byte,
-	retry float32, preview []byte, completeCB SendCompleteCallback,
-	progressCB SentProgressCallback, period time.Duration) (ftCrypto.ID, error) {
-
-	// Return an error if the file name is too long
-	if len(fileName) > FileNameMaxLen {
-		return ftCrypto.ID{},
-			errors.Errorf(errFileNameSize, len(fileName), FileNameMaxLen)
-	}
-
-	// Return an error if the file type is too long
-	if len(fileType) > FileTypeMaxLen {
-		return ftCrypto.ID{},
-			errors.Errorf(errFileTypeSize, len(fileType), FileTypeMaxLen)
-	}
+func (m *manager) Send(fid ftCrypto.ID, fileData []byte, retry float32,
+	completeCB SendCompleteCallback, progressCB SentProgressCallback,
+	period time.Duration) error {
 
 	// Return an error if the file is too large
-	if len(fileData) > FileMaxSize {
-		return ftCrypto.ID{},
-			errors.Errorf(errFileSize, len(fileData), FileMaxSize)
-	}
-
-	// Return an error if the preview is too large
-	if len(preview) > PreviewMaxSize {
-		return ftCrypto.ID{},
-			errors.Errorf(errPreviewSize, len(preview), PreviewMaxSize)
+	if err := m.verifyFile(fileData); err != nil {
+		return err
 	}
 
 	// Return an error if the network is not healthy
 	if !m.cmix.IsHealthy() {
-		return ftCrypto.ID{}, errors.Errorf(errSendNetworkHealth, fileName)
+		return errors.New(errSendNetworkHealth)
 	}
 
 	// Generate new transfer key and file ID
@@ -355,16 +378,15 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	key, err := ftCrypto.NewTransferKey(rng)
 	if err != nil {
 		rng.Close()
-		return ftCrypto.ID{}, errors.Errorf(errNewKey, err)
+		return errors.Errorf(errNewKey, err)
 	}
-	fid := ftCrypto.NewID(fileData)
 
 	// Generate random identity to send the file to that will be used later for
 	// others to receive the file
 	newID, err := id.NewRandomID(rng, id.User)
 	if err != nil {
 		rng.Close()
-		return ftCrypto.ID{}, errors.Errorf(errNewRecipientID, err)
+		return errors.Errorf(errNewRecipientID, err)
 	}
 	rng.Close()
 
@@ -382,18 +404,25 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 
 	// Create new sent transfer
 	// TODO: how to handle differing filename and file type
+	sentTimestamp := netTime.Now()
 	st, err := m.sent.AddTransfer(
-		newID, &key, fid, fileName, fileSize, parts, numFps)
+		newID, sentTimestamp, &key, fid, fileSize, parts, numFps)
 	if err != nil {
-		return ftCrypto.ID{}, errors.Errorf(errAddSentTransfer, err)
+		return errors.Errorf(errAddSentTransfer, err)
 	}
 
 	// Build FileInfo that will be returned to the user on completion
-	info := &FileInfo{fid, st.Recipient(), fileName, fileType, key, mac, numParts,
-		fileSize, retry, preview}
-	fileInfo, err := info.Marshal()
-	if err != nil {
-		return ftCrypto.ID{}, errors.Errorf(errMarshalInfo, err)
+	fi := &FileInfo{
+		FileLink: FileLink{
+			FileID:        fid,
+			RecipientID:   st.GetRecipient(),
+			SentTimestamp: time.Time{},
+			Key:           key,
+			Mac:           mac,
+			NumParts:      numParts,
+			Size:          fileSize,
+			Retry:         retry,
+		},
 	}
 
 	// Add all parts to the send queue
@@ -401,21 +430,20 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 		m.batchQueue <- p
 	}
 
-	jww.DEBUG.Printf("[FT] Created new sent file transfer %s for %q "+
-		"(type %s, size %d bytes, %d parts, retry %f)",
-		st.FileID(), fileName, fileType, fileSize, numParts, retry)
+	jww.DEBUG.Printf("[FT] Created new sent file transfer %s (size %d bytes, "+
+		"%d parts, retry %f)", st.GetFileID(), fileSize, numParts, retry)
 
 	// Register the progress callback
 	m.registerSentProgressCallback(st, progressCB, period)
 
 	// Start tracking the received file parts for the SentTransfer
-	_, _, err = m.handleIncomingTransfer(
-		fileInfo, m.checkedReceivedParts(st, info, completeCB), 0)
+	_, err = m.handleIncomingTransfer(
+		fi, m.checkedReceivedParts(st, fi, completeCB), 0)
 	if err != nil {
-		return ftCrypto.ID{}, err
+		return err
 	}
 
-	return fid, nil
+	return nil
 }
 
 // RegisterSentProgressCallback adds the given callback to the callback manager
@@ -444,7 +472,7 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 	cbID := st.GetNewCallbackID()
 	cb := func(err error) {
 		// Get transfer progress
-		sent, received, total := st.NumSent(), st.NumReceived(), st.NumParts()
+		sent, received, total := st.NumSent(), st.NumReceived(), st.GetNumParts()
 		completed := received == total
 
 		// Build part tracker from copy of part statuses vector
@@ -461,7 +489,7 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 	}
 
 	// Add the callback to the callback tracker
-	m.callbacks.AddCallback(st.FileID(), cb, period)
+	m.callbacks.AddCallback(st.GetFileID(), cb, period)
 }
 
 // CloseSend deletes the sent transfer from storage and the sent transfer list.
@@ -504,7 +532,7 @@ func (m *manager) CloseSend(fid ftCrypto.ID) error {
 }
 
 /* === Receiving ============================================================ */
-
+/*
 // HandleIncomingTransfer starts tracking the received file parts for the
 // given marshalled FileInfo and returns the file's ID and FileInfo.
 //
@@ -518,35 +546,29 @@ func (m *manager) HandleIncomingTransfer(fileInfo []byte,
 	if err != nil {
 		return ftCrypto.ID{}, nil, err
 	}
-	return fi.FID, fi, nil
-}
+	return fi.FileID, fi, nil
+}*/
 
 // handleIncomingTransfer starts tracking the received file parts for the given
 // file information and returns the ReceivedTransfer object for the file and its
 // FileInfo.
-func (m *manager) handleIncomingTransfer(fileInfo []byte,
+func (m *manager) handleIncomingTransfer(fi *FileInfo,
 	progressCB ReceivedProgressCallback, period time.Duration) (
-	*store.ReceivedTransfer, *FileInfo, error) {
-
-	// Unmarshal the payload
-	t, err := UnmarshalFileInfo(fileInfo)
-	if err != nil {
-		return nil, nil, errors.Errorf(errUnmarshalInfo, err)
-	}
+	*store.ReceivedTransfer, error) {
 
 	// Calculate the number of fingerprints based on the retry rate
-	numFps := calcNumberOfFingerprints(int(t.NumParts), t.Retry)
+	numFps := calcNumberOfFingerprints(int(fi.NumParts), fi.Retry)
 
 	// Store the transfer
-	rt, err := m.received.AddTransfer(t.RecipientID, &t.Key, t.FID, t.FileName,
-		t.Mac, t.Size, t.NumParts, numFps)
+	rt, err := m.received.AddTransfer(fi.RecipientID, &fi.Key, fi.FileID, fi.FileName,
+		fi.Mac, fi.Size, fi.NumParts, numFps)
 	if err != nil {
-		return nil, nil, errors.Errorf(errAddNewRt, t.FID, t.FileName, err)
+		return nil, errors.Errorf(errAddNewRt, fi.FileID, fi.FileName, err)
 	}
 
 	jww.DEBUG.Printf("[FT] Added new received file %s named %q "+
 		"(type %s, size %d bytes, %d parts, %d fingerprints)",
-		rt.FileID(), t.FileName, t.FileType, t.Size, t.NumParts, numFps)
+		rt.GetFileID(), fi.FileName, fi.FileType, fi.Size, fi.NumParts, numFps)
 
 	// Start tracking fingerprints for each file part
 	m.addFingerprints(rt)
@@ -554,7 +576,7 @@ func (m *manager) handleIncomingTransfer(fileInfo []byte,
 	// Register the progress callback
 	m.registerReceivedProgressCallback(rt, progressCB, period)
 
-	return rt, t, nil
+	return rt, nil
 }
 
 // Receive concatenates the received file and returns it. Only returns the file
@@ -568,16 +590,16 @@ func (m *manager) Receive(fid ftCrypto.ID) ([]byte, error) {
 	}
 
 	// Return an error if the transfer is not complete
-	if rt.NumReceived() != rt.NumParts() {
+	if rt.NumReceived() != rt.GetNumParts() {
 		return nil, errors.Errorf(
-			errIncompleteFile, rt.NumParts()-rt.NumReceived(), rt.NumParts())
+			errIncompleteFile, rt.GetNumParts()-rt.NumReceived(), rt.GetNumParts())
 	}
 
 	// Get the file
 	file := rt.GetFile()
 
 	// Delete all unused fingerprints
-	m.cmix.DeleteClientFingerprints(rt.Recipient())
+	m.cmix.DeleteClientFingerprints(rt.GetRecipient())
 
 	// Delete from storage
 	err := rt.Delete()
@@ -601,36 +623,36 @@ func (m *manager) Receive(fid ftCrypto.ID) ([]byte, error) {
 
 func (m *manager) receive(rt *store.ReceivedTransfer) ([]byte, error) {
 	// Return an error if the transfer is not complete
-	if rt.NumReceived() != rt.NumParts() {
+	if rt.NumReceived() != rt.GetNumParts() {
 		return nil, errors.Errorf(
-			errIncompleteFile, rt.NumParts()-rt.NumReceived(), rt.NumParts())
+			errIncompleteFile, rt.GetNumParts()-rt.NumReceived(), rt.GetNumParts())
 	}
 
 	// Get the file
 	file := rt.GetFile()
 
 	// Delete all unused fingerprints
-	m.cmix.DeleteClientFingerprints(rt.Recipient())
+	m.cmix.DeleteClientFingerprints(rt.GetRecipient())
 
 	// Removed the tracked identity
-	m.cmix.RemoveIdentity(rt.Recipient())
+	m.cmix.RemoveIdentity(rt.GetRecipient())
 
 	// Delete from storage
 	err := rt.Delete()
 	if err != nil {
-		return nil, errors.Errorf(errDeleteReceivedTransfer, rt.FileID(), err)
+		return nil, errors.Errorf(errDeleteReceivedTransfer, rt.GetFileID(), err)
 	}
 
 	// Delete from transfers list
-	err = m.received.RemoveTransfer(rt.FileID())
+	err = m.received.RemoveTransfer(rt.GetFileID())
 	if err != nil {
-		return nil, errors.Errorf(errRemoveReceivedTransfer, rt.FileID(), err)
+		return nil, errors.Errorf(errRemoveReceivedTransfer, rt.GetFileID(), err)
 	}
 
 	// Stop and delete all progress callbacks
-	m.callbacks.Delete(rt.FileID())
+	m.callbacks.Delete(rt.GetFileID())
 
-	jww.DEBUG.Printf("[FT] Received file %s has been received.", rt.FileID())
+	jww.DEBUG.Printf("[FT] Received file %s has been received.", rt.GetFileID())
 
 	return file, nil
 }
@@ -662,7 +684,7 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 	cbID := rt.GetNewCallbackID()
 	cb := func(err error) {
 		// Get transfer progress
-		received, total := rt.NumReceived(), rt.NumParts()
+		received, total := rt.NumReceived(), rt.GetNumParts()
 		completed := received == total
 
 		// Build part tracker from copy of part statuses vector
@@ -678,7 +700,7 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 	}
 
 	// Add the callback to the callback tracker
-	m.callbacks.AddCallback(rt.FileID(), cb, period)
+	m.callbacks.AddCallback(rt.GetFileID(), cb, period)
 }
 
 // ReceivedPartsCallback is a callback function that is called every time there
@@ -696,7 +718,7 @@ func (m *manager) registerReceivedPartsCallback(fid ftCrypto.ID,
 	cbID := rt.GetNewCallbackID()
 	cb := func(err error) {
 		// Get transfer progress
-		received, total := rt.NumReceived(), rt.NumParts()
+		received, total := rt.NumReceived(), rt.GetNumParts()
 		completed := received == total
 
 		// If the callback data is the same as the last call, skip the call
@@ -718,7 +740,7 @@ func (m *manager) registerReceivedPartsCallback(fid ftCrypto.ID,
 	}
 
 	// Add the callback to the callback tracker
-	m.callbacks.AddCallback(rt.FileID(), cb, period)
+	m.callbacks.AddCallback(rt.GetFileID(), cb, period)
 
 	return nil
 }
@@ -753,7 +775,7 @@ func calcNumberOfFingerprints(numParts int, retry float32) uint16 {
 func (m *manager) addFingerprints(rt *store.ReceivedTransfer) {
 	// Start tracking messages for the recipient ID with persistence == false so
 	// that all messages are re-downloaded on client restart
-	m.cmix.AddIdentity(rt.Recipient(), identity.Forever, false, nil)
+	m.cmix.AddIdentity(rt.GetRecipient(), identity.Forever, false, nil)
 
 	// Build processor for each file part and add its fingerprint to receive on
 	for _, c := range rt.GetUnusedCyphers() {
@@ -763,10 +785,10 @@ func (m *manager) addFingerprints(rt *store.ReceivedTransfer) {
 			manager:          m,
 		}
 
-		err := m.cmix.AddFingerprint(rt.Recipient(), c.GetFingerprint(), p)
+		err := m.cmix.AddFingerprint(rt.GetRecipient(), c.GetFingerprint(), p)
 		if err != nil {
 			jww.ERROR.Printf("[FT] Failed to add fingerprint for file %s: %+v",
-				rt.FileID(), err)
+				rt.GetFileID(), err)
 		}
 	}
 

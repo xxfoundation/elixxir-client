@@ -15,12 +15,14 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Tests that NewOrLoadSent returns a new Sent when none exist in storage and
@@ -65,9 +67,8 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 		fid := ftCrypto.NewID(fileData)
 		parts, file := generateTestParts(uint16(10 + i))
 		_, err = s.AddTransfer(
-			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t), &key,
-			fid, "file"+strconv.Itoa(i), uint32(len(file)), parts,
-			uint16(2*(10+i)))
+			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t),
+			netTime.Now(), &key, fid, uint32(len(file)), parts, uint16(2*(10+i)))
 		if err != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err)
 		}
@@ -118,9 +119,8 @@ func TestSent_LoadTransfers(t *testing.T) {
 		fid := ftCrypto.NewID(fileData)
 		parts, file := generateTestParts(uint16(10 + i))
 		st, err2 := s.AddTransfer(
-			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t), &key,
-			fid, "file"+strconv.Itoa(i), uint32(len(file)), parts,
-			uint16(2*(10+i)))
+			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t),
+			netTime.Now(), &key, fid, uint32(len(file)), parts, uint16(2*(10+i)))
 		if err2 != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err2)
 		}
@@ -150,8 +150,8 @@ func TestSent_LoadTransfers(t *testing.T) {
 	}
 
 	sort.Slice(unsentParts, func(i, j int) bool {
-		switch bytes.Compare(unsentParts[i].FileID().Marshal(),
-			unsentParts[j].FileID().Marshal()) {
+		switch bytes.Compare(unsentParts[i].GetFileID().Marshal(),
+			unsentParts[j].GetFileID().Marshal()) {
 		case -1:
 			return true
 		case 1:
@@ -162,8 +162,8 @@ func TestSent_LoadTransfers(t *testing.T) {
 	})
 
 	sort.Slice(expectedUnsentParts, func(i, j int) bool {
-		switch bytes.Compare(expectedUnsentParts[i].FileID().Marshal(),
-			expectedUnsentParts[j].FileID().Marshal()) {
+		switch bytes.Compare(expectedUnsentParts[i].GetFileID().Marshal(),
+			expectedUnsentParts[j].GetFileID().Marshal()) {
 		case -1:
 			return true
 		case 1:
@@ -180,8 +180,8 @@ func TestSent_LoadTransfers(t *testing.T) {
 	}
 
 	sort.Slice(sentParts, func(i, j int) bool {
-		switch bytes.Compare(sentParts[i].FileID().Marshal(),
-			sentParts[j].FileID().Marshal()) {
+		switch bytes.Compare(sentParts[i].GetFileID().Marshal(),
+			sentParts[j].GetFileID().Marshal()) {
 		case -1:
 			return true
 		case 1:
@@ -192,8 +192,8 @@ func TestSent_LoadTransfers(t *testing.T) {
 	})
 
 	sort.Slice(expectedSentParts, func(i, j int) bool {
-		switch bytes.Compare(expectedSentParts[i].FileID().Marshal(),
-			expectedSentParts[j].FileID().Marshal()) {
+		switch bytes.Compare(expectedSentParts[i].GetFileID().Marshal(),
+			expectedSentParts[j].GetFileID().Marshal()) {
 		case -1:
 			return true
 		case 1:
@@ -219,8 +219,8 @@ func TestSent_AddTransfer(t *testing.T) {
 	fid := ftCrypto.NewID([]byte("fileData"))
 	parts, file := generateTestParts(10)
 
-	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t), &key,
-		fid, "file", uint32(len(file)), parts, 20)
+	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
+		netTime.Now(), &key, fid, uint32(len(file)), parts, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -240,7 +240,7 @@ func TestSent_AddTransfer_TransferAlreadyExists(t *testing.T) {
 	}
 
 	expectedErr := fmt.Sprintf(errAddExistingSentTransfer, fid)
-	_, err := s.AddTransfer(nil, nil, fid, "", 0, nil, 0)
+	_, err := s.AddTransfer(nil, time.Time{}, nil, fid, 0, nil, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -257,7 +257,7 @@ func TestSent_GetTransfer(t *testing.T) {
 	parts, file := generateTestParts(10)
 
 	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
-		&key, fid, "file", uint32(len(file)), parts, 20)
+		netTime.Now(), &key, fid, uint32(len(file)), parts, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -283,8 +283,8 @@ func TestSent_RemoveTransfer(t *testing.T) {
 	fid := ftCrypto.NewID([]byte("fileData"))
 	parts, file := generateTestParts(10)
 
-	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t), &key,
-		fid, "file", uint32(len(file)), parts, 20)
+	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
+		netTime.Now(), &key, fid, uint32(len(file)), parts, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -321,12 +321,12 @@ func TestSent_RemoveTransfers(t *testing.T) {
 	parts2, file2 := generateTestParts(15)
 
 	st1, err := s.AddTransfer(id.NewIdFromString("recipient1", id.User, t),
-		&key1, fid1, "file1", uint32(len(file1)), parts1, 20)
+		netTime.Now(), &key1, fid1, uint32(len(file1)), parts1, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 	st2, err := s.AddTransfer(id.NewIdFromString("recipient2", id.User, t),
-		&key2, fid2, "file2", uint32(len(file2)), parts2, 40)
+		netTime.Now(), &key2, fid2, uint32(len(file2)), parts2, 40)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}

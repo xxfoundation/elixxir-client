@@ -16,13 +16,14 @@ import (
 	"strconv"
 	"testing"
 
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests that NewOrLoadReceived returns a new Received when none exist in
@@ -152,13 +153,13 @@ func TestReceived_LoadTransfers(t *testing.T) {
 	}
 
 	sort.Slice(incompleteTransfers, func(i, j int) bool {
-		return bytes.Compare(incompleteTransfers[i].FileID().Marshal(),
-			incompleteTransfers[j].FileID().Marshal()) == -1
+		return bytes.Compare(incompleteTransfers[i].GetFileID().Marshal(),
+			incompleteTransfers[j].GetFileID().Marshal()) == -1
 	})
 
 	sort.Slice(expectedIncompleteTransfers, func(i, j int) bool {
-		return bytes.Compare(expectedIncompleteTransfers[i].FileID().Marshal(),
-			expectedIncompleteTransfers[j].FileID().Marshal()) == -1
+		return bytes.Compare(expectedIncompleteTransfers[i].GetFileID().Marshal(),
+			expectedIncompleteTransfers[j].GetFileID().Marshal()) == -1
 	})
 
 	// Check that the incomplete transfers matches expected

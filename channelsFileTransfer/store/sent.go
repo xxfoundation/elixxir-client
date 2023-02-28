@@ -10,6 +10,7 @@ package store
 import (
 	"encoding/json"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -113,8 +114,8 @@ func (s *Sent) LoadTransfers(fileParts map[ftCrypto.ID][][]byte) (
 
 // AddTransfer creates a SentTransfer and adds it to the map keyed on its file
 // ID.
-func (s *Sent) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	fid ftCrypto.ID, fileName string, fileSize uint32, parts [][]byte,
+func (s *Sent) AddTransfer(recipient *id.ID, sentTimestamp time.Time,
+	key *ftCrypto.TransferKey, fid ftCrypto.ID, fileSize uint32, parts [][]byte,
 	numFps uint16) (*SentTransfer, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -122,11 +123,11 @@ func (s *Sent) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	// TODO: test change where we return an existing transfer, if it exists
 	st, exists := s.transfers[fid]
 	if exists {
-		return st, nil
+		return nil, errors.Errorf(errAddExistingSentTransfer, fid)
 	}
 
 	st, err := newSentTransfer(
-		recipient, key, fid, fileName, fileSize, parts, numFps, s.kv)
+		recipient, sentTimestamp, key, fid, fileSize, parts, numFps, s.kv)
 	if err != nil {
 		return nil, errors.Errorf(errNewSentTransfer, fid)
 	}

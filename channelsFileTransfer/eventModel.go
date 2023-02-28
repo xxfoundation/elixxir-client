@@ -8,56 +8,53 @@
 package channelsFileTransfer
 
 import (
-	"crypto/ed25519"
+	"strconv"
 	"time"
 
 	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 // EventModel is an interface that allows the user to get channels messages and
 // file transfers.
 type EventModel interface {
-	// ReceiveFileMessage is called when a file upload begins or when a message
-	// to download a file is received.
+	// ReceiveFile is called when a file upload or download beings.
 	//
 	// The API needs to return a UUID of the message that can be referenced at a
 	// later time.
 	//
-	// fileInfo, timestamp, lease, and round are nillable and may be updated
-	// based upon the UUID or file ID later. A time of time.Time{} will be
-	// passed for a nilled timestamp.
+	// fileLink, fileData, and timestamp are nillable and may be updated based
+	// upon the UUID or file ID later. A time of time.Time{} will be passed for
+	// a nilled timestamp.
 	//
-	// nickname may be empty, in which case the UI is expected to display the
-	// codename.
-	ReceiveFileMessage(channelID *id.ID, fileID ftCrypto.ID, nickname string,
-		fileInfo, fileData []byte, pubKey ed25519.PublicKey, dmToken uint32,
-		codeset uint8, timestamp time.Time, lease time.Duration,
-		round rounds.Round, messageType channels.MessageType,
-		status channels.SentStatus, hidden bool) uint64
+	// fileLink is the JSON of FileLink.
+	ReceiveFile(fileID ftCrypto.ID, fileLink, fileData []byte,
+		timestamp time.Time, status FileStatus) uint64
 
-	// UpdateFile is called when a file upload completed, a download starts, or
-	// a download completes. Each use will be identified in a SentStatus change
-	// (SendProcessingComplete, ReceptionProcessing, and
-	// ReceptionProcessingComplete).
+	// UpdateFile is called when a file upload or download completes or changes.
 	//
-	// timestamp, round, pinned, hidden, and status are all nillable and may be
-	// updated based upon the fileID at a later date. If a nil value is passed,
+	// fileLink, fileData, timestamp, and status are all nillable and may be
+	// updated based upon the file ID at a later date. If a nil value is passed,
 	// then make no update.
 	//
-	// Returns an error if the message cannot be updated. It must return
-	// channels.NoMessageErr if the message does not exist.
-	UpdateFile(fileID ftCrypto.ID, fileInfo, fileData *[]byte,
-		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-		status *channels.SentStatus) error
-
-	// GetFile returns the file data and info at the given file ID.
-	//
-	// Returns an error if the file cannot be gotten. It must return
+	// Returns an error if the file cannot be updated. It must return
 	// channels.NoMessageErr if the file does not exist.
-	GetFile(fileID ftCrypto.ID) (fileInfo, fileData []byte, err error)
+	UpdateFile(fileID ftCrypto.ID, fileLink, fileData *[]byte,
+		timestamp *time.Time, status *FileStatus) error
+
+	// GetFile returns the ModelFile containing the file data and download link
+	// for the given file ID.
+	//
+	// Returns an error if the file cannot be retrieved. It must return
+	// channels.NoMessageErr if the file does not exist.
+	GetFile(fileID ftCrypto.ID) (ModelFile, error)
+
+	// GetFiles returns a map of each ModelFile for each file ID.
+	//
+	// If a file does not exist, it is excluded from the returned map.
+	//
+	// Returns any fatal error.
+	GetFiles(fileIDs []ftCrypto.ID) (map[ftCrypto.ID]ModelFile, error)
 
 	// DeleteFile deletes the file with the given file ID.
 	//
@@ -65,4 +62,58 @@ type EventModel interface {
 	DeleteFile(fileID ftCrypto.ID) error
 
 	channels.EventModel
+}
+
+// ModelFile contains a file and all of its information.
+type ModelFile struct {
+	UUID      uint64      `json:"uuid"`
+	FileID    ftCrypto.ID `json:"fileID"`
+	FileLink  []byte      `json:"fileLink"`
+	FileData  []byte      `json:"fileData"`
+	Timestamp time.Time   `json:"timestamp"`
+	Status    FileStatus  `json:"status"`
+}
+
+// FileStatus is the current status of a file stored in the event model.
+type FileStatus uint8
+
+const (
+	// NotStarted indicates that the file has been added to the file transfer
+	// manager, but it has yet to start uploading or downloading.
+	// NotStarted FileStatus = 0
+
+	// Uploading indicates that the file is currently being uploaded. In this
+	// state, the file data is accessible but the file link is not.
+	Uploading FileStatus = 10
+
+	// Downloading indicates that the file is currently being downloaded. In
+	// this state, the file link is accessible but the file data is not.
+	Downloading FileStatus = 20
+
+	// Complete indicates that the file has successfully finished uploading or
+	// downloading and the file is available to send/receive. In this state,
+	// both the file data and file link are accessible.
+	Complete FileStatus = 30
+
+	// Error indicates a fatal error occurred during upload or download.
+	Error FileStatus = 40
+)
+
+// String returns the human-readable form of the [FileStatus] for logging and
+// debugging. This function adheres to the [fmt.Stringer] interface.
+func (ft FileStatus) String() string {
+	switch ft {
+	// case NotStarted:
+	// 	return "not started"
+	case Uploading:
+		return "uploading"
+	case Downloading:
+		return "downloading"
+	case Complete:
+		return "complete"
+	case Error:
+		return "error"
+	default:
+		return "INVALID STATUS: " + strconv.Itoa(int(ft))
+	}
 }

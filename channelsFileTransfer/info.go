@@ -8,6 +8,10 @@
 package channelsFileTransfer
 
 import (
+	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/xx_network/primitives/netTime"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -26,51 +30,90 @@ const (
 // information sent in the initial file transfer so the recipient can prepare
 // for the incoming file transfer parts.
 type FileInfo struct {
-	// FID is the file's ID.
-	FID ftCrypto.ID `json:"fid"`
-
-	// RecipientID is the ID to listen on to receive file.
-	RecipientID *id.ID `json:"recipientID"`
-
 	// FileName is the name of the file.
 	FileName string `json:"fileName"`
 
 	// FileType indicates what type of file is being transferred.
 	FileType string `json:"fileType"`
 
+	// Preview contains a preview of the file.
+	Preview []byte `json:"preview"`
+
+	FileLink
+}
+
+// FileLink contains all the information required to download and decrypt a
+// file.
+type FileLink struct {
+	// FileID is the file's ID.
+	FileID ftCrypto.ID `json:"fileID"`
+
+	// RecipientID is the ID to listen on to receive file.
+	RecipientID *id.ID `json:"recipientID"`
+
+	// SentTimestamp is the time when the file was first queued to send.
+	SentTimestamp time.Time `json:"sentTimestamp"`
+
 	// Key is the 256-bit encryption key.
 	Key ftCrypto.TransferKey `json:"key"`
 
-	// Mac is the message MAC.
+	// Mac is the transfer MAC (Message Authentication Code) for this file.
 	Mac []byte `json:"mac"`
-
-	// NumParts is the number of file parts being transferred.
-	NumParts uint16 `json:"numParts"`
 
 	// Size is the file size in bytes.
 	Size uint32 `json:"size"`
 
+	// NumParts is the number of file parts being transferred.
+	NumParts uint16 `json:"numParts"`
+
 	// Retry determines number of resends allowed on failure.
 	Retry float32 `json:"retry"`
+}
 
-	// Preview contains a preview of the file.
-	Preview []byte `json:"preview"`
+// Expired returns true if the file link is expired. A file link is expired when
+// the sent timestamp (time that the first file part was sent) is greater than
+// the max message life, meaning some or all the file parts no longer exist on
+// the network for download.
+// TODO: test
+func (fl *FileLink) Expired() bool {
+	return netTime.Since(fl.SentTimestamp) > channels.MessageLife
+}
+
+// GetFileID returns the file's ID.
+func (fl *FileLink) GetFileID() ftCrypto.ID {
+	return fl.FileID
+}
+
+// GetRecipient returns the recipient ID to download the file from.
+func (fl *FileLink) GetRecipient() *id.ID {
+	return fl.RecipientID
+}
+
+// GetFileSize returns the size of the entire file.
+func (fl *FileLink) GetFileSize() uint32 {
+	return fl.Size
+}
+
+// GetNumParts returns the total number of file parts in the transfer.
+func (fl *FileLink) GetNumParts() uint16 {
+	return fl.NumParts
 }
 
 // Marshal serialises the FileInfo for sending over the network.
 func (fi *FileInfo) Marshal() ([]byte, error) {
 	// Construct NewFileTransfer message
 	protoMsg := &FileInfoMsg{
-		Fid:         fi.FID.Marshal(),
-		RecipientID: fi.RecipientID.Marshal(),
-		FileName:    fi.FileName,
-		FileType:    fi.FileType,
-		TransferKey: fi.Key.Bytes(),
-		TransferMac: fi.Mac,
-		NumParts:    uint32(fi.NumParts),
-		Size:        fi.Size,
-		Retry:       fi.Retry,
-		Preview:     fi.Preview,
+		FileName:      fi.FileName,
+		FileType:      fi.FileType,
+		Retry:         fi.Retry,
+		Preview:       fi.Preview,
+		Fid:           fi.FileID.Marshal(),
+		RecipientID:   fi.RecipientID.Marshal(),
+		SentTimestamp: fi.SentTimestamp.UnixNano(),
+		TransferKey:   fi.Key.Bytes(),
+		TransferMac:   fi.Mac,
+		Size:          fi.Size,
+		NumParts:      uint32(fi.NumParts),
 	}
 
 	return proto.Marshal(protoMsg)
@@ -96,15 +139,18 @@ func UnmarshalFileInfo(data []byte) (*FileInfo, error) {
 	}
 
 	return &FileInfo{
-		FID:         fid,
-		RecipientID: recipientID,
-		FileName:    fi.FileName,
-		FileType:    fi.FileType,
-		Key:         ftCrypto.UnmarshalTransferKey(fi.GetTransferKey()),
-		Mac:         fi.TransferMac,
-		NumParts:    uint16(fi.NumParts),
-		Size:        fi.Size,
-		Retry:       fi.Retry,
-		Preview:     fi.Preview,
+		FileLink: FileLink{
+			FileID:        fid,
+			RecipientID:   recipientID,
+			SentTimestamp: time.Unix(0, fi.SentTimestamp),
+			Key:           ftCrypto.UnmarshalTransferKey(fi.GetTransferKey()),
+			Mac:           fi.TransferMac,
+			Size:          fi.Size,
+			NumParts:      uint16(fi.NumParts),
+			Retry:         fi.Retry,
+		},
+		FileName: fi.FileName,
+		FileType: fi.FileType,
+		Preview:  fi.Preview,
 	}, nil
 }

@@ -16,6 +16,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -23,8 +26,6 @@ import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests that newReceivedTransfer returns a new ReceivedTransfer with the
@@ -224,13 +225,13 @@ func TestReceivedTransfer_GetUnusedCyphers(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedTransfer.FileID returns the correct file ID.
-func TestReceivedTransfer_FileID(t *testing.T) {
+// Tests that ReceivedTransfer.GetFileID returns the correct file ID.
+func TestReceivedTransfer_GetFileID(t *testing.T) {
 	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
-	if rt.FileID() != rt.fid {
+	if rt.GetFileID() != rt.fid {
 		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
-			rt.fid, rt.FileID())
+			rt.fid, rt.GetFileID())
 	}
 }
 
@@ -244,35 +245,35 @@ func TestReceivedTransfer_FileName(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedTransfer.Recipient returns the correct recipient ID.
-func TestReceivedTransfer_Recipient(t *testing.T) {
+// Tests that ReceivedTransfer.GetRecipient returns the correct recipient ID.
+func TestReceivedTransfer_GetRecipient(t *testing.T) {
 	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
-	if rt.Recipient() != rt.recipient {
+	if rt.GetRecipient() != rt.recipient {
 		t.Errorf("Incorrect recipient ID.\nexpected: %s\nreceived: %s",
-			rt.recipient, rt.Recipient())
+			rt.recipient, rt.GetRecipient())
 	}
 }
 
-// Tests that ReceivedTransfer.FileSize returns the correct file size.
-func TestReceivedTransfer_FileSize(t *testing.T) {
+// Tests that ReceivedTransfer.GetFileSize returns the correct file size.
+func TestReceivedTransfer_GetFileSize(t *testing.T) {
 	rt, file, _, _, _ := newTestReceivedTransfer(16, t)
 	fileSize := uint32(len(file))
 
-	if rt.FileSize() != fileSize {
+	if rt.GetFileSize() != fileSize {
 		t.Errorf("Incorrect file size.\nexpected: %d\nreceived: %d",
-			fileSize, rt.FileSize())
+			fileSize, rt.GetFileSize())
 	}
 }
 
-// Tests that ReceivedTransfer.NumParts returns the correct number of parts.
-func TestReceivedTransfer_NumParts(t *testing.T) {
+// Tests that ReceivedTransfer.GetNumParts returns the correct number of parts.
+func TestReceivedTransfer_GetNumParts(t *testing.T) {
 	numParts := uint16(16)
 	rt, _, _, _, _ := newTestReceivedTransfer(numParts, t)
 
-	if rt.NumParts() != numParts {
+	if rt.GetNumParts() != numParts {
 		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
-			numParts, rt.NumParts())
+			numParts, rt.GetNumParts())
 	}
 }
 

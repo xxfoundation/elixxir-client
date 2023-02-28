@@ -43,35 +43,35 @@ func (p *processor) Process(msg format.Message,
 
 	decryptedPart, err := p.Decrypt(msg)
 	if err != nil {
-		jww.ERROR.Printf(errDecryptPart, p.FileID(), p.FileName(), round.ID, err)
+		jww.ERROR.Printf(errDecryptPart, p.GetFileID(), p.FileName(), round.ID, err)
 		return
 	}
 
 	partMsg, err := fileMessage.UnmarshalPartMessage(decryptedPart)
 	if err != nil {
 		jww.ERROR.Printf(
-			errUnmarshalPart, p.FileID(), p.FileName(), round.ID, err)
+			errUnmarshalPart, p.GetFileID(), p.FileName(), round.ID, err)
 		return
 	}
 
 	err = p.AddPart(partMsg.GetPart(), int(partMsg.GetPartNum()))
 	if err != nil {
 		jww.WARN.Printf(
-			errAddPart, partMsg.GetPartNum(), p.FileID(), p.FileName(), err)
+			errAddPart, partMsg.GetPartNum(), p.GetFileID(), p.FileName(), err)
 		return
 	}
 
-	if p.NumParts() == p.NumReceived() {
-		jww.DEBUG.Printf("[FT] Completed received file %s.", p.FileID())
+	if p.GetNumParts() == p.NumReceived() {
+		jww.DEBUG.Printf("[FT] Completed received file %s.", p.GetFileID())
 	}
 
 	jww.TRACE.Printf("[FT] Received part %d of %d of file %s on round %d",
-		partMsg.GetPartNum(), p.NumParts()-1, p.FileID(), round.ID)
+		partMsg.GetPartNum(), p.GetNumParts()-1, p.GetFileID(), round.ID)
 
 	// Call callback with updates
-	p.callbacks.Call(p.FileID(), nil)
+	p.callbacks.Call(p.GetFileID(), nil)
 }
 
 func (p *processor) String() string {
-	return fmt.Sprintf("FileTransfer(%s)", p.Recipient())
+	return fmt.Sprintf("FileTransfer(%s)", p.GetRecipient())
 }

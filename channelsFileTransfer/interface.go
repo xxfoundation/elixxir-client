@@ -8,25 +8,28 @@
 package channelsFileTransfer
 
 import (
-	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/crypto/message"
 	"strconv"
 	"time"
 
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 // SendCompleteCallback is called when a file transfer has successfully sent.
-// The returned FileInfo can be marshalled and sent to others so that they can
+// The returned FileLink can be marshalled and sent to others so that they can
 // receive the file.
-type SendCompleteCallback func(fi FileInfo)
+type SendCompleteCallback func(fi FileLink)
 
 // SentProgressCallback is a callback function that tracks the progress of
 // sending a file.
+//
+// The FilePartTracker can be used to look up the status of individual file
+// parts. Note, when completed == true, the FilePartTracker may be nil.
 //
 // Any error returned is fatal and the file must either be retried with
 // FileTransfer.RetrySend or canceled with FileTransfer.CloseSend.
@@ -39,6 +42,9 @@ type SentProgressCallback func(completed bool, sent, received, total uint16,
 
 // ReceivedProgressCallback is a callback function that tracks the progress of
 // receiving a file.
+//
+// The FilePartTracker can be used to look up the status of individual file
+// parts. Note, when completed == true, the FilePartTracker may be nil.
 //
 // This callback only indicates the status of the file transfer, not the status
 // of the file in the event model. Do NOT use this callback as an indicator of
@@ -94,27 +100,18 @@ type FileTransfer interface {
 	// the callback are fatal and the user must take action to either RetrySend
 	// or CloseSend.
 	//
-	// The file is added to the event model at the returned file ID and the
-	// status channels.SendProcessing. Once the upload is complete, the file
-	// info (information required to download the file) is added to the event
-	// model and the status is set to channels.SendProcessingComplete.
+	// The file is added to the event model at the returned file ID with the
+	// status Uploading. Once the upload is complete, the file link is added to
+	// the event model with the status Complete.
 	//
 	// The SentProgressCallback only indicates the progress of the file upload,
 	// not the status of the file in the event model. You must rely on updates
 	// from the event model to know when it can be retrieved.
 	//
 	// Parameters:
-	//   - channelID - The ID of the channel to send the file to once the upload
-	//     completes.
-	//   - fileName - Human-readable file name. Max length defined by
-	//     MaxFileNameLen.
-	//   - fileType - Shorthand that identifies the type of file. Max length
-	//     defined by MaxFileTypeLen.
 	//   - fileData - File contents. Max size defined by MaxFileSize.
 	//   - retry - The number of sending retries allowed on send failure (e.g.
 	//     a retry of 2.0 with 6 parts means 12 total possible sends).
-	//   - preview - A preview of the file data (e.g. a thumbnail). Max size
-	//     defined by MaxPreviewSize.
 	//   - progressCB - A callback that reports the progress of the file upload.
 	//     The callback is called once on initialization, on every progress
 	//     update (or less if restricted by the period), or on fatal error.
@@ -123,23 +120,28 @@ type FileTransfer interface {
 	//
 	// Returns:
 	//   - A file ID that uniquely identifies this file.
-	Upload(channelID *id.ID, fileName, fileType string, fileData []byte,
-		retry float32, preview []byte, progressCB SentProgressCallback,
+	Upload(fileData []byte, retry float32, progressCB SentProgressCallback,
 		period time.Duration) (ftCrypto.ID, error)
 
 	// Send sends the specified file info to the channel. Once a file is
-	// uploaded via Upload, its file info (found in the event model) can be sent
+	// uploaded via Upload, its file link (found in the event model) can be sent
 	// to any channel.
 	//
 	// Parameters:
 	//   - channelID - The ID of the channel to send the file to.
-	//   - fileInfo - JSON of FileInfo stored in the event model.
-	//   - validUntil - How long the file is available for download.
-	//   - params - The xxdk.CMIXParams to send this.
+	//   - fileLink - JSON of FileLink stored in the event model.
+	//   - fileName - Human-readable file name. Max length defined by
+	//     MaxFileNameLen.
+	//   - fileType - Shorthand that identifies the type of file. Max length
+	//     defined by MaxFileTypeLen.
+	//   - preview - A preview of the file data (e.g. a thumbnail). Max size
+	//     defined by MaxPreviewSize.
 	//   - validUntil - The duration that the file is available in the channel.
 	//     For the maximum amount of time, use channels.ValidForever.
-	Send(channelID *id.ID, fileInfo []byte, validUntil time.Duration,
-		params xxdk.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
+	//   - params - The xxdk.CMIXParams to send this.
+	Send(channelID *id.ID, fileLink []byte, fileName, fileType string,
+		preview []byte, validUntil time.Duration, params xxdk.CMIXParams) (
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual file upload. A SentProgressCallback
@@ -262,7 +264,7 @@ type FileTransfer interface {
 // SentTransfer tracks the information and individual parts of a sent file
 // transfer.
 type SentTransfer interface {
-	Recipient() *id.ID
+	GetRecipient() *id.ID
 	Transfer
 }
 
@@ -274,10 +276,9 @@ type ReceivedTransfer interface {
 
 // Transfer is the generic structure for a file transfer.
 type Transfer interface {
-	FileID() ftCrypto.ID
-	FileName() string
-	FileSize() uint32
-	NumParts() uint16
+	GetFileID() ftCrypto.ID
+	GetFileSize() uint32
+	GetNumParts() uint16
 }
 
 // FilePartTracker tracks the status of each file part in a sent or received

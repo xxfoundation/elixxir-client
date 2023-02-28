@@ -143,36 +143,25 @@ func TestPart_GetStatus(t *testing.T) {
 	}
 }
 
-// Tests that Part.Recipient returns the correct recipient ID.
-func TestPart_Recipient(t *testing.T) {
+// Tests that Part.GetRecipient returns the correct recipient ID.
+func TestPart_GetRecipient(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(25, t)
 	part := st.GetUnsentParts()[0]
 
-	if !part.Recipient().Cmp(st.Recipient()) {
-		t.Errorf("Recipient ID does not match expected."+
-			"\nexpected: %s\nreceived: %s", st.Recipient(), part.Recipient())
+	if !part.GetRecipient().Cmp(st.GetRecipient()) {
+		t.Errorf("GetRecipient ID does not match expected."+
+			"\nexpected: %s\nreceived: %s", st.GetRecipient(), part.GetRecipient())
 	}
 }
 
-// Tests that Part.FileID returns the correct file ID.
-func TestPart_FileID(t *testing.T) {
+// Tests that Part.GetFileID returns the correct file ID.
+func TestPart_GetFileID(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(25, t)
 	part := st.GetUnsentParts()[0]
 
-	if part.FileID() != st.FileID() {
+	if part.GetFileID() != st.GetFileID() {
 		t.Errorf("File ID does not match expected."+
-			"\nexpected: %s\nreceived: %s", st.FileID(), part.FileID())
-	}
-}
-
-// Tests that Part.FileName returns the correct file name.
-func TestPart_FileName(t *testing.T) {
-	st, _, _, _, _ := newTestSentTransfer(25, t)
-	part := st.GetUnsentParts()[0]
-
-	if part.FileName() != st.FileName() {
-		t.Errorf("File name does not match expected."+
-			"\nexpected: %q\nreceived: %q", st.FileName(), part.FileName())
+			"\nexpected: %s\nreceived: %s", st.GetFileID(), part.GetFileID())
 	}
 }
 

@@ -107,16 +107,16 @@ func (m *manager) sendCmix(packet []*store.Part) {
 		encryptedPart, mac, fp, err :=
 			p.GetEncryptedPart(m.cmix.GetMaxMessageLength())
 		if err != nil {
-			jww.ERROR.Printf("[FT] File transfer %s (%q) failed: %+v",
-				p.FileID(), p.FileName(), err)
-			m.callbacks.Call(p.FileID(), errors.New(errNoMoreRetries))
+			jww.ERROR.Printf(
+				"[FT] File transfer %s failed: %+v", p.GetFileID(), err)
+			m.callbacks.Call(p.GetFileID(), errors.New(errNoMoreRetries))
 			continue
 		}
 
 		validParts = append(validParts, p)
 
 		messages = append(messages, cmix.TargetedCmixMessage{
-			Recipient:   p.Recipient(),
+			Recipient:   p.GetRecipient(),
 			Payload:     encryptedPart,
 			Fingerprint: fp,
 			Service:     message.Service{},
@@ -165,10 +165,10 @@ func (m *manager) roundResultsCallback(
 	// Group file parts by transfer
 	grouped := map[ftCrypto.ID][]*store.Part{}
 	for _, p := range packet {
-		if _, exists := grouped[p.FileID()]; exists {
-			grouped[p.FileID()] = append(grouped[p.FileID()], p)
+		if _, exists := grouped[p.GetFileID()]; exists {
+			grouped[p.GetFileID()] = append(grouped[p.GetFileID()], p)
 		} else {
-			grouped[p.FileID()] = []*store.Part{p}
+			grouped[p.GetFileID()] = []*store.Part{p}
 		}
 	}
 
@@ -297,7 +297,7 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, fi *FileInfo,
 		_ bool, _, _ uint16, rt ReceivedTransfer, t FilePartTracker, err error) {
 		// Propagate the error to the sent progress callback
 		if err != nil {
-			m.callbacks.Call(st.FileID(), err)
+			m.callbacks.Call(st.GetFileID(), err)
 			return
 		}
 
@@ -320,23 +320,23 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, fi *FileInfo,
 		if len(partsChanges) > 0 {
 			jww.DEBUG.Printf(
 				"[FT] %d file parts set as received for file %s (%d)",
-				len(partsChanges), st.FileID(), partsChanges)
-			m.callbacks.Call(st.FileID(), nil)
+				len(partsChanges), st.GetFileID(), partsChanges)
+			m.callbacks.Call(st.GetFileID(), nil)
 		}
 
 		// Once the transfer is complete, close out both the sent and received
 		// sides of the transfer
 		if st.Status() == store.Completed {
 			jww.DEBUG.Printf("[FT] Completed sending and receiving file %s.",
-				st.FileID())
-			if err = m.CloseSend(st.FileID()); err != nil {
+				st.GetFileID())
+			if err = m.CloseSend(st.GetFileID()); err != nil {
 				jww.ERROR.Printf("Failed to close file transfer send: %+v", err)
 			}
-			if _, err = m.Receive(rt.FileID()); err != nil {
+			if _, err = m.Receive(rt.GetFileID()); err != nil {
 				jww.ERROR.Printf("Failed to receive file transfer: %+v", err)
 			}
 
-			go completeCB(*fi)
+			go completeCB(fi.FileLink)
 		}
 	}
 }

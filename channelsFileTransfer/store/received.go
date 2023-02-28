@@ -99,7 +99,7 @@ func (r *Received) LoadTransfers(partialFiles map[ftCrypto.ID][]byte,
 			errCount++
 		}
 
-		if r.transfers[fid].NumReceived() != r.transfers[fid].NumParts() {
+		if r.transfers[fid].NumReceived() != r.transfers[fid].GetNumParts() {
 			incompleteTransfer = append(incompleteTransfer, r.transfers[fid])
 		}
 	}

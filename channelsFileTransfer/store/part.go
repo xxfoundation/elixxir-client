@@ -72,19 +72,14 @@ func (p *Part) GetStatus() SentPartStatus {
 	return p.transfer.getPartStatus(p.partNum)
 }
 
-// Recipient returns the recipient of the file transfer.
-func (p *Part) Recipient() *id.ID {
+// GetRecipient returns the recipient of the file transfer.
+func (p *Part) GetRecipient() *id.ID {
 	return p.transfer.recipient
 }
 
-// FileID returns the ID of the file.
-func (p *Part) FileID() ftCrypto.ID {
+// GetFileID returns the ID of the file.
+func (p *Part) GetFileID() ftCrypto.ID {
 	return p.transfer.fid
-}
-
-// FileName returns the name of the file.
-func (p *Part) FileName() string {
-	return p.transfer.FileName()
 }
 
 // String returns a human-readable representation of a Part. Used for debugging.

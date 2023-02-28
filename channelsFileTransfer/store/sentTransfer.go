@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -39,7 +40,7 @@ const (
 	errStNewPartStatusVector = "failed to create new state vector for part statuses: %+v"
 
 	// SentTransfer.getPartData
-	errNoPartNum = "no part with part number %d exists in file %s (%q)"
+	errNoPartNum = "no part with part number %d exists in file %s"
 
 	// loadSentTransfer
 	errStLoadCypherManager    = "failed to load cypher manager from storage: %+v"
@@ -65,11 +66,11 @@ type SentTransfer struct {
 	// The ID of the transfer
 	fid ftCrypto.ID
 
-	// User given name to file
-	fileName string
-
 	// ID of the recipient of the file transfer
 	recipient *id.ID
+
+	// The time when the file was first queued to send
+	sentTimestamp time.Time
 
 	// The size of the entire file
 	fileSize uint32
@@ -99,8 +100,8 @@ type SentTransfer struct {
 
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
 // file ID, and parts.
-func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	fid ftCrypto.ID, fileName string, fileSize uint32, parts [][]byte,
+func newSentTransfer(recipient *id.ID, sentTimestamp time.Time,
+	key *ftCrypto.TransferKey, fid ftCrypto.ID, fileSize uint32, parts [][]byte,
 	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
 	kv = kv.Prefix(makeSentTransferPrefix(fid))
 
@@ -120,8 +121,8 @@ func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	st := &SentTransfer{
 		cypherManager:            cypherManager,
 		fid:                      fid,
-		fileName:                 fileName,
 		recipient:                recipient,
+		sentTimestamp:            sentTimestamp,
 		fileSize:                 fileSize,
 		numParts:                 uint16(len(parts)),
 		status:                   Running,
@@ -170,7 +171,7 @@ func (st *SentTransfer) GetSentParts() []*Part {
 // getPartData returns the part data from the given part number.
 func (st *SentTransfer) getPartData(partNum uint16) []byte {
 	if int(partNum) > len(st.parts)-1 {
-		jww.FATAL.Panicf(errNoPartNum, partNum, st.fid, st.fileName)
+		jww.FATAL.Panicf(errNoPartNum, partNum, st.fid)
 	}
 
 	return st.parts[partNum]
@@ -225,28 +226,28 @@ func (st *SentTransfer) Status() TransferStatus {
 	return st.status
 }
 
-// FileID returns the file's ID.
-func (st *SentTransfer) FileID() ftCrypto.ID {
+// GetFileID returns the file's ID.
+func (st *SentTransfer) GetFileID() ftCrypto.ID {
 	return st.fid
 }
 
-// FileName returns the transfer's file name.
-func (st *SentTransfer) FileName() string {
-	return st.fileName
-}
-
-// Recipient returns the transfer's recipient ID.
-func (st *SentTransfer) Recipient() *id.ID {
+// GetRecipient returns the transfer's recipient ID.
+func (st *SentTransfer) GetRecipient() *id.ID {
 	return st.recipient
 }
 
-// FileSize returns the size of the entire file transfer.
-func (st *SentTransfer) FileSize() uint32 {
+// SentTimestamp returns the time when the file was first queued to send.
+func (st *SentTransfer) SentTimestamp() time.Time {
+	return st.sentTimestamp
+}
+
+// GetFileSize returns the size of the entire file transfer.
+func (st *SentTransfer) GetFileSize() uint32 {
 	return st.fileSize
 }
 
-// NumParts returns the total number of file parts in the transfer.
-func (st *SentTransfer) NumParts() uint16 {
+// GetNumParts returns the total number of file parts in the transfer.
+func (st *SentTransfer) GetNumParts() uint16 {
 	return st.numParts
 }
 
@@ -344,8 +345,8 @@ func loadSentTransfer(
 	st := &SentTransfer{
 		cypherManager:            cypherManager,
 		fid:                      fid,
-		fileName:                 info.FileName,
 		recipient:                info.Recipient,
+		sentTimestamp:            info.SentTimestamp,
 		fileSize:                 calcFileSize(parts),
 		numParts:                 uint16(len(parts)),
 		status:                   info.Status,
@@ -413,17 +414,17 @@ func (st *SentTransfer) save() error {
 // sentTransferDisk structure is used to marshal and unmarshal SentTransfer
 // fields to/from storage.
 type sentTransferDisk struct {
-	FileName  string         `json:"fileName"`
-	Recipient *id.ID         `json:"recipient"`
-	Status    TransferStatus `json:"status"`
+	Recipient     *id.ID         `json:"recipient"`
+	SentTimestamp time.Time      `json:"sentTimestamp"`
+	Status        TransferStatus `json:"status"`
 }
 
 // marshal serialises the SentTransfer's file information.
 func (st *SentTransfer) marshal() ([]byte, error) {
 	disk := sentTransferDisk{
-		FileName:  st.fileName,
-		Recipient: st.recipient,
-		Status:    st.status,
+		Recipient:     st.recipient,
+		SentTimestamp: st.sentTimestamp,
+		Status:        st.status,
 	}
 
 	return json.Marshal(disk)

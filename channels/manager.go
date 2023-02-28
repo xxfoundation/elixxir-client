@@ -298,8 +298,8 @@ func (m *manager) DisableDirectMessages(chId *id.ID) error {
 	return m.disableDirectMessageToken(chId)
 }
 
-// GetDMStatus returns status of DMs for a given channel ID (true if enabled)
-func (m *manager) GetDMStatus(chId *id.ID) bool {
+// AreDMsEnabled returns status of DMs for a given channel ID (true if enabled)
+func (m *manager) AreDMsEnabled(chId *id.ID) bool {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 	_, ok := m.dmTokens[*chId]

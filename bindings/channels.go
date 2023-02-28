@@ -737,6 +737,34 @@ func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 	return json.Marshal(channelIds)
 }
 
+// EnableDirectMessages enables the token for direct messaging for this
+// channel.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) EnableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.EnableDirectMessages(channelID)
+}
+
+// DisableDirectMessages removes the token for direct messaging for a
+// given channel.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) DisableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.DisableDirectMessages(channelID)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Channel Share URL                                                          //
 ////////////////////////////////////////////////////////////////////////////////

@@ -72,6 +72,10 @@ type Manager interface {
 	// given channel.
 	DisableDirectMessages(chId *id.ID) error
 
+	// GetDMStatus returns the status of DMs for a given channel;
+	// returns true if DMs are enabled.
+	GetDMStatus(chId *id.ID) bool
+
 	// ReplayChannel replays all messages from the channel within the network's
 	// memory (~3 weeks) over the event model. It does this by wiping the
 	// underlying state tracking for message pickup for the channel, causing all

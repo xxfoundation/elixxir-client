@@ -298,6 +298,14 @@ func (m *manager) DisableDirectMessages(chId *id.ID) error {
 	return m.disableDirectMessageToken(chId)
 }
 
+// GetDMStatus returns status of DMs for a given channel ID (true if enabled)
+func (m *manager) GetDMStatus(chId *id.ID) bool {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+	_, ok := m.dmTokens[*chId]
+	return ok
+}
+
 // ReplayChannel replays all messages from the channel within the network's
 // memory (~3 weeks) over the event model. It does this by wiping the underlying
 // state tracking for message pickup for the channel, causing all messages to be

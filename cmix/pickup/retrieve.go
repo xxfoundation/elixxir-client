@@ -112,7 +112,7 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 			} else {
 				// Attempt to request for this gateway
 				bundle, err = m.getMessagesFromGateway(
-					id.Round(ri.ID), rl.Identity, comms, gwIds, stop)
+					ri, rl.Identity, comms, gwIds, stop)
 
 				// Exit if the thread has been stopped
 				if stoppable.CheckErr(err) {
@@ -148,7 +148,6 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 					jww.ERROR.Printf("Could not remove round %d from "+
 						"unchecked rounds store: %v", ri.ID, err)
 				}
-
 			}
 
 		}
@@ -157,9 +156,18 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 
 // getMessagesFromGateway attempts to get messages from their assigned gateway
 // host in the round specified. If successful
-func (m *pickup) getMessagesFromGateway(roundID id.Round,
+func (m *pickup) getMessagesFromGateway(round rounds.Round,
 	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms,
 	gwIds []*id.ID, stop *stoppable.Single) (message.Bundle, error) {
+	if m.params.BatchMessageRetrieval {
+		m.gatewayMessageRequests <- pickupRequest{
+			target: gwIds[0],
+			round:  round,
+			id:     identity,
+		}
+		return message.Bundle{}, nil
+	}
+	roundID := round.ID
 	start := netTime.Now()
 	// Send to the gateways using backup proxies
 	result, err := m.sender.SendToPreferred(gwIds,
@@ -202,6 +210,19 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	}
 	msgResp := result.(*pb.GetMessagesResponse)
 
+	bundle, err := m.processPickupResponse(msgResp, identity, round)
+	if err != nil {
+		return message.Bundle{}, errors.WithMessagef(err, "Failed to process pickup response for round %d", roundID)
+	}
+
+	jww.INFO.Printf("Received %d messages in Round %d for %d (%s) in %s",
+		len(bundle.Messages), roundID, identity.EphId.Int64(), identity.Source,
+		netTime.Now().Sub(start))
+
+	return bundle, nil
+}
+
+func (m *pickup) processPickupResponse(msgResp *pb.GetMessagesResponse, identity receptionID.EphemeralIdentity, round rounds.Round) (message.Bundle, error) {
 	// If there are no messages, print a warning. Due to the probabilistic
 	// nature of the bloom filters, false positives will happen sometimes
 	msgs := msgResp.GetMessages()
@@ -209,23 +230,19 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 		jww.WARN.Printf("no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicative of a problem if it is consistent",
-			identity.Source, roundID)
+			identity.Source, round)
 
-		err = m.unchecked.EndCheck(roundID, identity.Source, identity.EphId)
+		err := m.unchecked.EndCheck(round.ID, identity.Source, identity.EphId)
 		if err != nil {
-			jww.ERROR.Printf("Failed to end the check for the round round %d: %+v", roundID, err)
+			jww.ERROR.Printf("Failed to end the check for the round round %d: %+v", round, err)
 		}
 
 		return message.Bundle{}, nil
 	}
 
-	jww.INFO.Printf("Received %d messages in Round %d for %d (%s) in %s",
-		len(msgs), roundID, identity.EphId.Int64(), identity.Source,
-		netTime.Now().Sub(start))
-
 	// Build the bundle of messages to send to the message processor
 	bundle := message.Bundle{
-		Round:    roundID,
+		Round:    round.ID,
 		Messages: make([]format.Message, len(msgs)),
 		Finish:   func() {},
 	}
@@ -236,12 +253,10 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 		msg.SetPayloadA(slot.PayloadA)
 		msg.SetPayloadB(slot.PayloadB)
 		jww.INFO.Printf("Received message of msgDigest: %s, round %d",
-			msg.Digest(), roundID)
+			msg.Digest(), round)
 		bundle.Messages[i] = msg
 	}
-
 	return bundle, nil
-
 }
 
 // Helper function which forces processUncheckedRounds by randomly not looking
@@ -273,5 +288,5 @@ func (m *pickup) forceMessagePickupRetry(ri rounds.Round, rl roundLookup,
 
 	// Attempt to request for this gateway
 	return m.getMessagesFromGateway(
-		ri.ID, rl.Identity, comms, gwIds, stop)
+		ri, rl.Identity, comms, gwIds, stop)
 }

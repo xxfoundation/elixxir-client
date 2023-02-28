@@ -255,6 +255,11 @@ func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 		return err
 	}
 
+	err = m.EnableDirectMessages(channel.ReceptionID)
+	if err != nil {
+		return err
+	}
+
 	// Report joined channel to the event model
 	go m.events.model.JoinChannel(channel)
 

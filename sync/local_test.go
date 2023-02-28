@@ -13,6 +13,9 @@ import (
 	"testing"
 )
 
+// Ensure EkvLocalStore adheres to LocalStore.
+var _ LocalStore = &EkvLocalStore{}
+
 // Smoke test for EkvLocalStore that executes every method of LocalStore.
 //
 // As of writing, EkvLocalStore heavily utilizes the ekv.KeyValue

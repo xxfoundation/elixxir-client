@@ -19,7 +19,6 @@ func TestMain(m *testing.M) {
 	defer os.RemoveAll(baseDir)
 
 	os.Exit(m.Run())
-
 }
 
 // makeTransactionLog is a utility function which generates a TransactionLog for

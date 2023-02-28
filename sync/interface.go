@@ -26,6 +26,9 @@ type RemoteStore interface {
 	// GetLastWrite will retrieve the most recent successful write operation
 	// that was received by RemoteStore.
 	GetLastWrite() (time.Time, error)
+
+	// ReadAndGetLastWrite is a combination of FileIO.Read and GetLastWrite.
+	ReadAndGetLastWrite(path string) ([]byte, time.Time, error)
 }
 
 // LocalStore is the mechanism that all local storage implementations should

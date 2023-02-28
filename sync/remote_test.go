@@ -174,6 +174,9 @@ func TestRemoteKV_Get(t *testing.T) {
 // Remote File System Testing
 ///////////////////////////////////////////////////////////////////////////////
 
+// Ensure FileSystemRemoteStorage adheres to RemoteStore
+var _ RemoteStore = &FileSystemRemoteStorage{}
+
 // Smoke test for FileSystemRemoteStorage that executes every method of
 // RemoteStore.
 //

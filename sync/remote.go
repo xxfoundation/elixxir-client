@@ -338,3 +338,22 @@ func (f *FileSystemRemoteStorage) GetLastModified(path string) (
 func (f *FileSystemRemoteStorage) GetLastWrite() (time.Time, error) {
 	return utils.GetLastModified(f.baseDir)
 }
+
+// todo: docstring & test
+func (f *FileSystemRemoteStorage) ReadAndGetLastWrite(path string) ([]byte, time.Time, error) {
+	lastWrite, err := utils.GetLastModified(f.baseDir)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	if utils.Exists(path) {
+		path = f.baseDir + path
+	}
+	data, err := utils.ReadFile(path)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	return data, lastWrite, nil
+
+}

@@ -73,6 +73,8 @@ func (dp *dmProcessor) Process(msg format.Message,
 	myID := deriveReceptionID(dp.r.c.GetPublicKey().Bytes(),
 		dp.r.c.GetToken())
 
+	jww.INFO.Printf("[DM] DeriveDirectMessage(%s...) Receive", myID)
+
 	msgID := message.DeriveDirectMessageID(myID, directMsg)
 
 	// Check if we sent the message and ignore triggering if we sent
@@ -158,6 +160,9 @@ func (sp *selfProcessor) Process(msg format.Message,
 	// The partner is not the sender on a self send...
 	partnerID := deriveReceptionID(partnerPublicKey.Bytes(),
 		partnerToken)
+
+	jww.INFO.Printf("[DM] DeriveDirectMessage(%s...) ReceiveSelf",
+		partnerID)
 
 	msgID := message.DeriveDirectMessageID(partnerID, directMsg)
 

@@ -187,7 +187,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
 	uuid, err := dc.st.DenotePendingSend(*partnerEdwardsPubKey,
-		partnerToken, messageType, directMessage)
+		dc.me.PubKey, partnerToken, messageType, directMessage)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s",
 			err.Error())

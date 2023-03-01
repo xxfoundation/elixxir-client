@@ -243,7 +243,7 @@ type SendTracker interface {
 		updateStatus updateStatusFunc, rng *fastRNG.StreamGenerator)
 
 	// DenotePendingSend registers a new message to be tracked for sending
-	DenotePendingSend(partnerPublicKey ed25519.PublicKey,
+	DenotePendingSend(partnerPublicKey, senderPubKey ed25519.PublicKey,
 		partnerToken uint32,
 		messageType MessageType,
 		msg *DirectMessage) (uuid uint64, err error)

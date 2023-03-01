@@ -36,7 +36,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
-	// me, _ := codename.GenerateIdentity(rng)
+	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
@@ -73,8 +73,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	process := st.CheckIfSent(mid, r)
 	require.False(t, process)
 
-	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
-		0, directMessage)
+	uuid, err := st.DenotePendingSend(partner.PubKey, me.PubKey,
+		partner.GetDMToken(), 0, directMessage)
 	require.NoError(t, err)
 
 	err = st.Sent(uuid, mid, rounds.Round{
@@ -91,8 +91,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		PayloadType: 0,
 		Payload:     []byte("hello again"),
 	}
-	uuid2, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
-		0, directMessage2)
+	uuid2, err := st.DenotePendingSend(partner.PubKey, me.PubKey,
+		partner.GetDMToken(), 0, directMessage2)
 	require.NoError(t, err)
 
 	err = st.Sent(uuid2, mid, rounds.Round{
@@ -113,7 +113,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
-	// me, _ := codename.GenerateIdentity(rng)
+	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
@@ -136,8 +136,8 @@ func TestSendTracker_failedSend(t *testing.T) {
 		Payload:     []byte("hello"),
 	}
 	mid := message.DeriveDirectMessageID(partnerID, directMessage)
-	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
-		0, directMessage)
+	uuid, err := st.DenotePendingSend(partner.PubKey, me.PubKey,
+		partner.GetDMToken(), 0, directMessage)
 	require.NoError(t, err)
 
 	err = st.FailedSend(uuid)
@@ -171,7 +171,7 @@ func TestSendTracker_send(t *testing.T) {
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
-	// me, _ := codename.GenerateIdentity(rng)
+	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
@@ -196,8 +196,8 @@ func TestSendTracker_send(t *testing.T) {
 		Payload:     []byte("hello"),
 	}
 	mid := message.DeriveDirectMessageID(partnerID, directMessage)
-	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
-		0, directMessage)
+	uuid, err := st.DenotePendingSend(partner.PubKey, me.PubKey,
+		partner.GetDMToken(), 0, directMessage)
 	require.NoError(t, err)
 
 	err = st.Sent(uuid, mid, rounds.Round{
@@ -273,7 +273,7 @@ func TestRoundResult_callback(t *testing.T) {
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
-	// me, _ := codename.GenerateIdentity(rng)
+	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
@@ -291,8 +291,8 @@ func TestRoundResult_callback(t *testing.T) {
 		Payload:     []byte("hello"),
 	}
 	mid := message.DeriveDirectMessageID(partnerID, directMessage)
-	uuid, err := st.DenotePendingSend(partner.PubKey, partner.GetDMToken(),
-		0, directMessage)
+	uuid, err := st.DenotePendingSend(partner.PubKey, me.PubKey,
+		partner.GetDMToken(), 0, directMessage)
 	require.NoError(t, err)
 
 	err = st.Sent(uuid, mid, rounds.Round{

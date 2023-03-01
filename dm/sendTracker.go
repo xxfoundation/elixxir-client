@@ -57,6 +57,7 @@ type updateStatusFunc func(uuid uint64, messageID message.ID,
 type tracked struct {
 	MsgID      message.ID
 	partnerKey ed25519.PublicKey
+	senderKey  ed25519.PublicKey
 	RoundID    id.Round
 	UUID       uint64
 }
@@ -151,7 +152,7 @@ func (st *sendTracker) Init(net cMixClient, trigger triggerEventFunc,
 
 // DenotePendingSend is called before the pending send. It tracks the send
 // internally and notifies the UI of the send.
-func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
+func (st *sendTracker) DenotePendingSend(partnerPubKey, senderPubKey ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType,
 	dm *DirectMessage) (uint64, error) {
 	// For the message timestamp, use 1 second from now to
@@ -175,7 +176,7 @@ func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
 
 	// Submit the message to the UI
 	uuid, err := st.trigger(messageID, messageType, dm.Nickname, dm.Payload,
-		partnerToken, partnerEdwardsPubKey, partnerEdwardsPubKey, ts,
+		partnerToken, partnerPubKey, senderPubKey, ts,
 		receptionID.EphemeralIdentity{},
 		rounds.Round{}, Unsent)
 	if err != nil {
@@ -183,7 +184,7 @@ func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
 	}
 
 	// Track the message on disk
-	st.handleDenoteSend(uuid, partnerEdwardsPubKey, messageID,
+	st.handleDenoteSend(uuid, partnerPubKey, senderPubKey, messageID,
 		rounds.Round{})
 
 	return uuid, nil
@@ -191,7 +192,7 @@ func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
 
 // handleDenoteSend does the nitty-gritty of editing internal structures.
 func (st *sendTracker) handleDenoteSend(uuid uint64,
-	partnerKey ed25519.PublicKey,
+	partnerKey, senderKey ed25519.PublicKey,
 	messageID message.ID, round rounds.Round) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
@@ -202,7 +203,8 @@ func (st *sendTracker) handleDenoteSend(uuid uint64,
 		return
 	}
 
-	st.unsent[uuid] = &tracked{messageID, partnerKey, round.ID, uuid}
+	st.unsent[uuid] = &tracked{messageID, partnerKey, senderKey,
+		round.ID, uuid}
 
 	err := st.storeUnsent()
 	if err != nil {

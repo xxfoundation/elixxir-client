@@ -232,6 +232,10 @@ func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 		return r.receiveTextMessage(msgID, messageType,
 			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
 			0, ts, round, status)
+	case ReplyType:
+		return r.receiveTextMessage(msgID, messageType,
+			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
+			0, ts, round, status)
 	case ReactionType:
 		return r.receiveReaction(msgID, messageType,
 			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
@@ -283,8 +287,6 @@ func (r *receiver) receiveTextMessage(messageID message.ID,
 				messageID, partnerPubKey, codeset,
 				messageType, timestamp,
 				round.ID)
-			// Still process the message, but drop the
-			// reply because it is malformed
 		}
 	}
 

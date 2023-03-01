@@ -58,7 +58,7 @@ type DMReceiver interface {
 		dmToken int32, codeset int, timestamp,
 		roundId, mType, status int64) int64
 
-	// ReceiveTest is called whenever a direct message is
+	// ReceiveText is called whenever a direct message is
 	// received that is a text type. It may be called multiple times
 	// on the same message. It is incumbent on the user of the API
 	// to filter such called by message ID.

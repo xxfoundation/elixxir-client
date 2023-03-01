@@ -348,8 +348,9 @@ func (r *receiver) receiveReaction(messageID message.ID,
 
 // This helper does the opposite of "createCMIXFields" in send.go
 func reconstructCiphertext(msg format.Message) []byte {
+	var res []byte
 	fp := msg.GetKeyFP()
-	res := fp[1:]
+	res = append(res, fp[1:]...)
 	res = append(res, msg.GetMac()[1:]...)
 	res = append(res, msg.GetContents()...)
 	return res

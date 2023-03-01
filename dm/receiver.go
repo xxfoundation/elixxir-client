@@ -66,7 +66,7 @@ func (dp *dmProcessor) Process(msg format.Message,
 			err)
 		return
 	}
-	senderToken = directMsg.DMToken
+	senderToken = directMsg.GetDMToken()
 
 	// On a regular receive, the msgID uses the partner key and
 	// the sender token fromt he message
@@ -151,11 +151,13 @@ func (sp *selfProcessor) Process(msg format.Message,
 			err)
 		return
 	}
+	partnerToken := directMsg.GetDMToken()
 
 	// On a self receive, the msgID uses the partner key and
-	// the partner token stored on the message
+	// the partner token stored on the message.
+	// The partner is not the sender on a self send...
 	partnerID := deriveReceptionID(partnerPublicKey.Bytes(),
-		directMsg.GetDMToken())
+		partnerToken)
 
 	msgID := message.DeriveDirectMessageID(partnerID, directMsg)
 

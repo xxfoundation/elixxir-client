@@ -19,8 +19,8 @@ import (
 
 // init sets the log level to INFO.
 func init() {
-	jww.SetLogThreshold(jww.LevelInfo)
-	jww.SetStdoutThreshold(jww.LevelInfo)
+	jww.SetLogThreshold(jww.LevelWarn)
+	jww.SetStdoutThreshold(jww.LevelWarn)
 }
 
 // cmixTrackerSingleton is used to track Cmix objects so that they can be
@@ -115,9 +115,6 @@ func (c *Cmix) EKVSet(key string, value []byte) error {
 
 // GetCMixInstance gets a copy of the cMix instance by it's ID number
 func GetCMixInstance(instanceID int) (*Cmix, bool) {
-	for k, _ := range cmixTrackerSingleton.tracked {
-		jww.INFO.Printf("Valid cMix ID: %d", k)
-	}
 	instance, ok := cmixTrackerSingleton.tracked[instanceID]
 	return instance, ok
 }

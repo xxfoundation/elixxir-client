@@ -68,7 +68,12 @@ func (dp *dmProcessor) Process(msg format.Message,
 	}
 	senderToken = directMsg.DMToken
 
-	msgID := message.DeriveDirectMessageID(dp.r.c.receptionID, directMsg)
+	// On a regular receive, the msgID uses the partner key and
+	// the sender token fromt he message
+	partnerID := deriveReceptionID(partnerPublicKey.Bytes(),
+		senderToken)
+
+	msgID := message.DeriveDirectMessageID(partnerID, directMsg)
 
 	// Check if we sent the message and ignore triggering if we sent
 	if dp.r.checkSent(msgID, round) {
@@ -147,7 +152,12 @@ func (sp *selfProcessor) Process(msg format.Message,
 		return
 	}
 
-	msgID := message.DeriveDirectMessageID(sp.r.c.receptionID, directMsg)
+	// On a self receive, the msgID uses the partner key and
+	// the partner token stored on the message
+	partnerID := deriveReceptionID(partnerPublicKey.Bytes(),
+		directMsg.GetDMToken())
+
+	msgID := message.DeriveDirectMessageID(partnerID, directMsg)
 
 	// Check if we sent the message and ignore triggering if we sent
 	if sp.r.checkSent(msgID, round) {
@@ -241,7 +251,7 @@ func (r *receiver) receiveTextMessage(messageID message.ID,
 			timestamp, round.ID)
 	}
 
-	if txt.ReplyMessageID != nil {
+	if txt.ReplyMessageID != nil && !allZeros(txt.ReplyMessageID) {
 
 		if len(txt.ReplyMessageID) == message.IDLen {
 			var replyTo message.ID
@@ -341,4 +351,13 @@ func reconstructCiphertext(msg format.Message) []byte {
 	res = append(res, msg.GetMac()[1:]...)
 	res = append(res, msg.GetContents()...)
 	return res
+}
+
+func allZeros(data []byte) bool {
+	for i := range data {
+		if data[i] != 0 {
+			return false
+		}
+	}
+	return true
 }

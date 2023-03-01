@@ -68,12 +68,12 @@ func (dp *dmProcessor) Process(msg format.Message,
 	}
 	senderToken = directMsg.GetDMToken()
 
-	// On a regular receive, the msgID uses the partner key and
-	// the sender token fromt he message
-	partnerID := deriveReceptionID(partnerPublicKey.Bytes(),
-		senderToken)
+	// On a regular receive, the msgID uses my reception ID and token
+	// as I am the partner to which the message was sent.
+	myID := deriveReceptionID(dp.r.c.GetPublicKey().Bytes(),
+		dp.r.c.GetToken())
 
-	msgID := message.DeriveDirectMessageID(partnerID, directMsg)
+	msgID := message.DeriveDirectMessageID(myID, directMsg)
 
 	// Check if we sent the message and ignore triggering if we sent
 	if dp.r.checkSent(msgID, round) {

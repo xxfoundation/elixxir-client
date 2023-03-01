@@ -58,8 +58,26 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 	partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
-	return dc.SendReply(partnerPubKey, partnerToken, msg,
-		cryptoMessage.ID{}, params)
+
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+
+	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
+	jww.INFO.Printf("[DM][%s] SendText(%s)", tag, pubKeyStr)
+	txt := &Text{
+		Version: textVersion,
+		Text:    msg,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	txtMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
+	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+		params)
 }
 
 // SendDMReply is used to send a formatted direct message reply.
@@ -91,7 +109,7 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 			ephemeral.Id{}, err
 	}
 
-	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+	return dc.Send(partnerPubKey, partnerToken, ReplyType, txtMarshaled,
 		params)
 }
 

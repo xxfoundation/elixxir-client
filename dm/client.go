@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	sync "sync"
 	"time"
@@ -34,6 +35,7 @@ type dmClient struct {
 	privateKey      nike.PrivateKey
 	publicKey       nike.PublicKey
 	myToken         uint32
+	receiver        EventModel
 
 	st  SendTracker
 	nm  NickNameManager
@@ -74,6 +76,7 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 		nm:              nickManager,
 		net:             net,
 		rng:             rng,
+		receiver:        receiver,
 	}
 
 	// Register the listener
@@ -139,6 +142,31 @@ func (dc *dmClient) GetNickname() (string, bool) {
 // SetNickname saves the nickname
 func (dc *dmClient) SetNickname(nick string) {
 	dc.nm.SetNickname(nick)
+}
+
+// IsBlocked returns if the given sender is blocked
+// Blocking is controlled by the Receiver / EventModel
+func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
+	conversation := dc.receiver.GetConversation(senderPubKey)
+	if conversation != nil {
+		return conversation.Blocked
+	}
+	return false
+}
+
+// GetBlockedSenders returns all senders who are blocked by this user.
+// Blocking is controlled by the Receiver / EventModel
+func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
+	allConversations := dc.receiver.GetConversations()
+	blocked := make([]ed25519.PublicKey, 0)
+	for i := range allConversations {
+		convo := allConversations[i]
+		if convo.Blocked {
+			pub := convo.Pubkey
+			blocked = append(blocked, ed25519.PublicKey(pub))
+		}
+	}
+	return blocked
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

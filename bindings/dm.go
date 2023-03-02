@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -143,29 +144,29 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 }
 
 // GetID returns the tracker ID for the DMClient object.
-func (cm *DMClient) GetID() int {
-	return cm.id
+func (dc *DMClient) GetID() int {
+	return dc.id
 }
 
 // GetPublicKey returns the public key bytes for this client
-func (cm *DMClient) GetPublicKey() []byte {
-	return cm.api.GetPublicKey().Bytes()
+func (dc *DMClient) GetPublicKey() []byte {
+	return dc.api.GetPublicKey().Bytes()
 }
 
 // GetToken returns the dm token for this client
-func (cm *DMClient) GetToken() uint32 {
-	return cm.api.GetToken()
+func (dc *DMClient) GetToken() uint32 {
+	return dc.api.GetToken()
 }
 
 // GetIdentity returns the public identity associated with this DMClient
-func (cm *DMClient) GetIdentity() []byte {
-	return cm.api.GetIdentity().Marshal()
+func (dc *DMClient) GetIdentity() []byte {
+	return dc.api.GetIdentity().Marshal()
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a
 // portable string.
-func (cm *DMClient) ExportPrivateIdentity(password string) ([]byte, error) {
-	return cm.api.ExportPrivateIdentity(password)
+func (dc *DMClient) ExportPrivateIdentity(password string) ([]byte, error) {
+	return dc.api.ExportPrivateIdentity(password)
 }
 
 // GetNickname gets a nickname associated with this DM user
@@ -178,8 +179,27 @@ func (cm *DMClient) GetNickname() (string, error) {
 }
 
 // SetNickname sets the nickname to use
-func (cm *DMClient) SetNickname(nick string) {
-	cm.api.SetNickname(nick)
+func (dc *DMClient) SetNickname(nick string) {
+	dc.api.SetNickname(nick)
+}
+
+// IsBlocked returns if the given sender is blocked
+// Blocking is controlled by the Receiver / EventModel
+func (dc *DMClient) IsBlocked(senderPubKeyBytes []byte) bool {
+	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
+	return dc.api.IsBlocked(senderPubKey)
+}
+
+// GetBlockedSenders returns all senders who are blocked by this user in a JSON
+// object.
+// Blocking is controlled by the Receiver / EventModel
+func (dc *DMClient) GetBlockedSenders() []byte {
+	blocked := dc.api.GetBlockedSenders()
+	blockedJSON, err := json.Marshal(blocked)
+	if err != nil {
+		jww.ERROR.Printf("Couldn't marshal blocked senders: %+v", err)
+	}
+	return blockedJSON
 }
 
 // SendText is used to send a formatted direct message.

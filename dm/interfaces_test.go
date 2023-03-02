@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"time"
 
@@ -122,14 +123,16 @@ func (mc *mockClient) RemoveHealthCallback(uint64)         {}
 //	for details
 func newMockReceiver() *mockReceiver {
 	return &mockReceiver{
-		Msgs: make([]mockMessage, 0),
-		uuid: 0,
+		Msgs:    make([]mockMessage, 0),
+		uuid:    0,
+		blocked: make([]ed25519.PublicKey, 0),
 	}
 }
 
 type mockReceiver struct {
-	Msgs []mockMessage
-	uuid uint64
+	Msgs    []mockMessage
+	uuid    uint64
+	blocked []ed25519.PublicKey
 }
 
 func (mr *mockReceiver) Receive(messageID cryptoMessage.ID,
@@ -203,6 +206,42 @@ func (mr *mockReceiver) ReceiveReaction(messageID cryptoMessage.ID,
 func (mr *mockReceiver) UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 	timestamp time.Time, round rounds.Round, status Status) {
 	jww.INFO.Printf("UpdateSentStatus: %s", messageID)
+}
+
+func (mr *mockReceiver) BlockSender(pubKey ed25519.PublicKey) {
+	mr.blocked = append(mr.blocked, pubKey)
+}
+
+func (mr *mockReceiver) UnblockSender(pubKey ed25519.PublicKey) {
+	for i := range mr.blocked {
+		cur := mr.blocked[i]
+		if bytes.Equal(cur[:], pubKey[:]) {
+			mr.blocked = append(mr.blocked[:i], mr.blocked[i+1:]...)
+		}
+	}
+}
+
+func (mr *mockReceiver) GetConversation(pubKey ed25519.PublicKey) *ModelConversation {
+	convo := ModelConversation{}
+	convo.Pubkey = pubKey
+	for i := range mr.blocked {
+		if bytes.Equal(mr.blocked[i][:], pubKey[:]) {
+			convo.Blocked = true
+			return &convo
+		}
+	}
+	return &convo
+}
+
+func (mr *mockReceiver) GetConversations() []ModelConversation {
+	convos := make([]ModelConversation, len(mr.blocked))
+	for i := range mr.blocked {
+		convos[i] = ModelConversation{
+			Pubkey:  mr.blocked[i],
+			Blocked: true,
+		}
+	}
+	return convos
 }
 
 type mockMessage struct {

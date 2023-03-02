@@ -12,12 +12,13 @@ import (
 )
 
 type pickupRequest struct {
-	target *id.ID
-	round  rounds.Round
-	id     receptionID.EphemeralIdentity
+	target            *id.ID
+	round             rounds.Round
+	id                receptionID.EphemeralIdentity
+	uncheckedGateways []*id.ID
 }
 
-func (m *pickup) processBatchMessagePickups(comms MessageRetrievalComms, stop *stoppable.Single) {
+func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop *stoppable.Single) {
 	maxBatchSize := 20
 	batchDelay := 50 * time.Millisecond
 
@@ -29,20 +30,29 @@ func (m *pickup) processBatchMessagePickups(comms MessageRetrievalComms, stop *s
 	for {
 		shouldProcess := false
 
+		var req pickupRequest
 		select {
 		case <-stop.Quit():
 			stop.ToStopped()
 			return
 		case <-timer.C:
 			shouldProcess = true
-		case req := <-m.gatewayMessageRequests:
-			batch = append(batch, req)
-
-			if len(batch) >= maxBatchSize {
-				shouldProcess = true
-			} else if len(batch) == 1 {
-				timer = time.NewTimer(batchDelay)
+		case rl := <-m.lookupRoundMessages: // Incoming lookup requests
+			gwIds := m.getGatewayList(rl)
+			if m.params.ForceMessagePickupRetry && m.shouldForceMessagePickupRetry(rl) {
+				continue
 			}
+
+			req = pickupRequest{gwIds[0], rl.Round, rl.Identity, gwIds[1:]}
+		case req = <-m.gatewayMessageRequests: // Request retries
+		}
+
+		batch = append(batch, req)
+
+		if len(batch) >= maxBatchSize {
+			shouldProcess = true
+		} else if len(batch) == 1 {
+			timer = time.NewTimer(batchDelay)
 		}
 
 		if !shouldProcess {
@@ -64,7 +74,7 @@ func (m *pickup) processBatchMessagePickups(comms MessageRetrievalComms, stop *s
 			}
 		}
 
-		// SEND & PROCESS
+		// Send batch pickup request to any gateway
 		resp, err := m.sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 			return comms.RequestBatchMessages(host, msg)
 		}, stop)
@@ -73,11 +83,16 @@ func (m *pickup) processBatchMessagePickups(comms MessageRetrievalComms, stop *s
 			continue
 		}
 
+		// Process responses
 		batchResponse := resp.(*pb.GetMessagesResponseBatch)
-
 		for i, result := range batchResponse.GetResults() {
 			if result == nil {
-				// TODO how to handle this
+				// TODO how to handle this (try next gw vs retry this target)
+			}
+			respErr := batchResponse.GetErrors()[i]
+			if respErr != "" {
+				go m.tryNextGateway(batch[i])
+				continue
 			}
 			bundle, err := m.processPickupResponse(result, batch[i].id, batch[i].round)
 			if err != nil {
@@ -85,27 +100,25 @@ func (m *pickup) processBatchMessagePickups(comms MessageRetrievalComms, stop *s
 				continue
 			}
 
-			if len(bundle.Messages) != 0 {
-				rl := batch[i]
-				// If successful and there are messages, we send them to another
-				// thread
-				bundle.Identity = receptionID.EphemeralIdentity{
-					EphId:  rl.id.EphId,
-					Source: rl.id.Source,
-				}
-				bundle.RoundInfo = rl.round
-				m.messageBundles <- bundle
-
-				jww.DEBUG.Printf("Removing round %d from unchecked store", rl.round.ID)
-				err = m.unchecked.Remove(
-					id.Round(rl.round.ID), rl.id.Source, rl.id.EphId)
-				if err != nil {
-					jww.ERROR.Printf("Could not remove round %d from "+
-						"unchecked rounds store: %v", rl.round.ID, err)
-				}
-			}
+			m.processBundle(bundle, batch[i].id, batch[i].round)
 		}
 
 		batch = make([]pickupRequest, 0, maxBatchSize)
+	}
+}
+
+func (m *pickup) tryNextGateway(req pickupRequest) {
+	if len(req.uncheckedGateways) == 0 {
+		// EXIT
+		return
+	}
+	select {
+	case m.gatewayMessageRequests <- pickupRequest{
+		target:            req.uncheckedGateways[0],
+		round:             req.round,
+		id:                req.id,
+		uncheckedGateways: req.uncheckedGateways[1:],
+	}:
+	default:
 	}
 }

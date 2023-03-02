@@ -52,53 +52,15 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 			stop.ToStopped()
 			return
 		case rl := <-m.lookupRoundMessages:
-			ri := rl.Round
-			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
-
-			err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
-				rl.Identity.Source, rl.Identity.EphId)
-			if err != nil {
-				jww.FATAL.Panicf(
-					"Failed to denote Unchecked Round for round %d",
-					id.Round(ri.ID))
-			}
-
-			// Convert gateways in round to proper ID format
-			gwIds := make([]*id.ID, ri.Topology.Len())
-			for i := 0; i < ri.Topology.Len(); i++ {
-				gwId := ri.Topology.GetNodeAtIndex(i).DeepCopy()
-				gwId.SetType(id.Gateway)
-				gwIds[i] = gwId
-			}
-
-			if len(gwIds) == 0 {
-				jww.WARN.Printf("Empty gateway ID List")
-				continue
-			}
-
-			// Target the last nodes in the team first because it has messages
-			// first, randomize other members of the team
-			var rndBytes [32]byte
-			stream := m.rng.GetStream()
-			_, err = stream.Read(rndBytes[:])
-			stream.Close()
-			if err != nil {
-				jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
-					"from all gateways (%v): %s", ri.ID, gwIds, err)
-			}
-
-			gwIds[0], gwIds[len(gwIds)-1] = gwIds[len(gwIds)-1], gwIds[0]
-			shuffle.ShuffleSwap(rndBytes[:], len(gwIds)-1, func(i, j int) {
-				gwIds[i+1], gwIds[j+1] = gwIds[j+1], gwIds[i+1]
-			})
-
+			gwIds := m.getGatewayList(rl)
 			// If ForceMessagePickupRetry, we are forcing processUncheckedRounds
 			// by randomly not picking up messages (FOR INTEGRATION TEST). Only
 			// done if round has not been ignored before.
 			var bundle message.Bundle
+			var err error
 			if m.params.ForceMessagePickupRetry {
 				bundle, err = m.forceMessagePickupRetry(
-					ri, rl, comms, gwIds, stop)
+					rl.Round, rl, comms, gwIds, stop)
 
 				// Exit if the thread has been stopped
 				if stoppable.CheckErr(err) {
@@ -107,12 +69,12 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 				}
 				if err != nil {
 					jww.ERROR.Printf("Failed to get pickup round %d from all "+
-						"gateways (%v): %s", ri.ID, gwIds, err)
+						"gateways (%v): %s", rl.Round.ID, gwIds, err)
 				}
 			} else {
 				// Attempt to request for this gateway
 				bundle, err = m.getMessagesFromGateway(
-					ri, rl.Identity, comms, gwIds, stop)
+					rl.Round, rl.Identity, comms, gwIds, stop)
 
 				// Exit if the thread has been stopped
 				if stoppable.CheckErr(err) {
@@ -124,34 +86,57 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 				// as a failure and print out the last error
 				if err != nil {
 					jww.ERROR.Printf("Failed to get pickup round %d "+
-						"from all gateways (%v): %s", ri.ID, gwIds, err)
-				}
-
-			}
-
-			jww.TRACE.Printf("messages: %v\n", bundle.Messages)
-
-			if len(bundle.Messages) != 0 {
-				// If successful and there are messages, we send them to another
-				// thread
-				bundle.Identity = receptionID.EphemeralIdentity{
-					EphId:  rl.Identity.EphId,
-					Source: rl.Identity.Source,
-				}
-				bundle.RoundInfo = rl.Round
-				m.messageBundles <- bundle
-
-				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
-				err = m.unchecked.Remove(
-					id.Round(ri.ID), rl.Identity.Source, rl.Identity.EphId)
-				if err != nil {
-					jww.ERROR.Printf("Could not remove round %d from "+
-						"unchecked rounds store: %v", ri.ID, err)
+						"from all gateways (%v): %s", rl.Round.ID, gwIds, err)
 				}
 			}
 
+			m.processBundle(bundle, rl.Identity, rl.Round)
 		}
 	}
+}
+
+func (m *pickup) getGatewayList(rl roundLookup) []*id.ID {
+	ri := rl.Round
+	jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
+
+	err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
+		rl.Identity.Source, rl.Identity.EphId)
+	if err != nil {
+		jww.FATAL.Panicf(
+			"Failed to denote Unchecked Round for round %d",
+			id.Round(ri.ID))
+	}
+
+	// Convert gateways in round to proper ID format
+	gwIds := make([]*id.ID, ri.Topology.Len())
+	for i := 0; i < ri.Topology.Len(); i++ {
+		gwId := ri.Topology.GetNodeAtIndex(i).DeepCopy()
+		gwId.SetType(id.Gateway)
+		gwIds[i] = gwId
+	}
+
+	if len(gwIds) == 0 {
+		jww.WARN.Printf("Empty gateway ID List")
+		return nil
+	}
+
+	// Target the last nodes in the team first because it has messages
+	// first, randomize other members of the team
+	var rndBytes [32]byte
+	stream := m.rng.GetStream()
+	_, err = stream.Read(rndBytes[:])
+	stream.Close()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
+			"from all gateways (%v): %s", ri.ID, gwIds, err)
+	}
+
+	gwIds[0], gwIds[len(gwIds)-1] = gwIds[len(gwIds)-1], gwIds[0]
+	shuffle.ShuffleSwap(rndBytes[:], len(gwIds)-1, func(i, j int) {
+		gwIds[i+1], gwIds[j+1] = gwIds[j+1], gwIds[i+1]
+	})
+
+	return gwIds
 }
 
 // getMessagesFromGateway attempts to get messages from their assigned gateway
@@ -159,14 +144,6 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 func (m *pickup) getMessagesFromGateway(round rounds.Round,
 	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms,
 	gwIds []*id.ID, stop *stoppable.Single) (message.Bundle, error) {
-	if m.params.BatchMessageRetrieval {
-		m.gatewayMessageRequests <- pickupRequest{
-			target: gwIds[0],
-			round:  round,
-			id:     identity,
-		}
-		return message.Bundle{}, nil
-	}
 	roundID := round.ID
 	start := netTime.Now()
 	// Send to the gateways using backup proxies
@@ -222,6 +199,29 @@ func (m *pickup) getMessagesFromGateway(round rounds.Round,
 	return bundle, nil
 }
 
+func (m *pickup) processBundle(bundle message.Bundle, rid receptionID.EphemeralIdentity, ri rounds.Round) {
+	jww.TRACE.Printf("messages: %v\n", bundle.Messages)
+
+	if len(bundle.Messages) != 0 {
+		// If successful and there are messages, we send them to another
+		// thread
+		bundle.Identity = receptionID.EphemeralIdentity{
+			EphId:  rid.EphId,
+			Source: rid.Source,
+		}
+		bundle.RoundInfo = ri
+		m.messageBundles <- bundle
+
+		jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
+		err := m.unchecked.Remove(
+			id.Round(ri.ID), rid.Source, rid.EphId)
+		if err != nil {
+			jww.ERROR.Printf("Could not remove round %d from "+
+				"unchecked rounds store: %v", ri.ID, err)
+		}
+	}
+}
+
 func (m *pickup) processPickupResponse(msgResp *pb.GetMessagesResponse, identity receptionID.EphemeralIdentity, round rounds.Round) (message.Bundle, error) {
 	// If there are no messages, print a warning. Due to the probabilistic
 	// nature of the bloom filters, false positives will happen sometimes
@@ -264,8 +264,19 @@ func (m *pickup) processPickupResponse(msgResp *pb.GetMessagesResponse, identity
 func (m *pickup) forceMessagePickupRetry(ri rounds.Round, rl roundLookup,
 	comms MessageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (bundle message.Bundle, err error) {
+	if m.shouldForceMessagePickupRetry(rl) {
+		return
+	}
+
+	// Attempt to request for this gateway
+	return m.getMessagesFromGateway(
+		ri, rl.Identity, comms, gwIds, stop)
+}
+
+func (m *pickup) shouldForceMessagePickupRetry(rl roundLookup) bool {
 	rnd, _ := m.unchecked.GetRound(
-		ri.ID, rl.Identity.Source, rl.Identity.EphId)
+		rl.Round.ID, rl.Identity.Source, rl.Identity.EphId)
+	var err error
 	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message
 		b := make([]byte, 8)
@@ -278,15 +289,11 @@ func (m *pickup) forceMessagePickupRetry(ri rounds.Round, rl roundLookup,
 
 		result := binary.BigEndian.Uint64(b)
 		if result%2 == 0 {
-			jww.INFO.Printf("Forcing a message pickup retry for round %d", ri.ID)
+			jww.INFO.Printf("Forcing a message pickup retry for round %d", rl.Round.ID)
 			// Do not call get message, leaving the round to be picked up in
 			// unchecked round scheduler process
-			return
+			return false
 		}
-
 	}
-
-	// Attempt to request for this gateway
-	return m.getMessagesFromGateway(
-		ri, rl.Identity, comms, gwIds, stop)
+	return true
 }

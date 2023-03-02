@@ -143,6 +143,10 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	return nil, nil
 }
 
+func (mmrc *mockMessageRetrievalComms) RequestBatchMessages(host *connect.Host, req *pb.GetMessagesBatch) (*pb.GetMessagesResponseBatch, error) {
+	return nil, nil
+}
+
 func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {
 	switch face.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:

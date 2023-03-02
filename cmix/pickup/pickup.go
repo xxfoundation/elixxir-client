@@ -63,7 +63,7 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 		unchecked:              unchecked,
 		session:                session,
 		comms:                  comms,
-		gatewayMessageRequests: make(chan pickupRequest, 5),
+		gatewayMessageRequests: make(chan pickupRequest, params.LookupRoundsBufferLen),
 	}
 
 	return m

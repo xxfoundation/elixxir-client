@@ -9,6 +9,7 @@ package dm
 
 import (
 	"fmt"
+	"strings"
 	sync "sync"
 	"time"
 
@@ -108,13 +109,14 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 	return &nickMgr{
 		ekv:      ekv,
 		storeKey: fmt.Sprintf(nickStoreKey, id.String()),
+		nick:     "",
 	}
 }
 
 type nickMgr struct {
 	storeKey string
 	ekv      *versioned.KV
-	nick     *string
+	nick     string
 	sync.Mutex
 }
 
@@ -154,22 +156,22 @@ func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
 func (nm *nickMgr) GetNickname() (string, bool) {
 	nm.Lock()
 	defer nm.Unlock()
-	if nm.nick != nil {
-		return *nm.nick, true
+	if nm.nick != "" {
+		return nm.nick, true
 	}
 	nickObj, err := nm.ekv.Get(nm.storeKey, 0)
 	if err != nil {
 		return "", false
 	}
-	*nm.nick = string(nickObj.Data)
-	return *nm.nick, true
+	nm.nick = string(nickObj.Data)
+	return nm.nick, true
 }
 
 // SetNickname saves the nickname
 func (nm *nickMgr) SetNickname(nick string) {
 	nm.Lock()
 	defer nm.Unlock()
-	nm.nick = &nick
+	nm.nick = strings.Clone(nick)
 	nickObj := &versioned.Object{
 		Version:   0,
 		Timestamp: time.Now(),

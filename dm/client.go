@@ -132,8 +132,8 @@ func (dc *dmClient) GetIdentity() codename.Identity {
 }
 
 // GetNickname returns the stored nickname if there is one
-func (dc *dmClient) GetNickname(id *id.ID) (string, bool) {
-	return dc.nm.GetNickname(id)
+func (dc *dmClient) GetNickname() (string, bool) {
+	return dc.nm.GetNickname()
 }
 
 // SetNickname saves the nickname
@@ -151,7 +151,7 @@ func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
 }
 
 // GetNickname returns the stored nickname if there is one
-func (nm *nickMgr) GetNickname(id *id.ID) (string, bool) {
+func (nm *nickMgr) GetNickname() (string, bool) {
 	nm.Lock()
 	defer nm.Unlock()
 	if nm.nick != nil {

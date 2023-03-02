@@ -24,7 +24,7 @@ func TestNick(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
 	me, _ := codename.GenerateIdentity(rng)
-	partner, _ := codename.GenerateIdentity(rng)
+	// partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
 	// NOTE: the ID's were lobotomized in the middle of the DM
@@ -37,25 +37,25 @@ func TestNick(t *testing.T) {
 	myID := deriveReceptionID(myPubKey.Bytes(),
 		me.GetDMToken())
 
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
-	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
-		partner.GetDMToken())
+	// partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	// partnerID := deriveReceptionID(partnerPubKey.Bytes(),
+	// 	partner.GetDMToken())
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	nnm := NewNicknameManager(myID, kv)
 
-	_, ok := nnm.GetNickname(myID)
+	_, ok := nnm.GetNickname()
 	require.False(t, ok)
 
 	expectedName := "testuser"
 
 	nnm.SetNickname(expectedName)
 
-	name, ok := nnm.GetNickname(nil)
+	name, ok := nnm.GetNickname()
 	require.True(t, ok)
 	require.Equal(t, name, expectedName)
-	name2, ok := nnm.GetNickname(partnerID)
+	name2, ok := nnm.GetNickname()
 	require.True(t, ok)
 	require.Equal(t, name2, expectedName)
 }

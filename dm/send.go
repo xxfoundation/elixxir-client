@@ -168,7 +168,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	rng := dc.rng.GetStream()
 	defer rng.Close()
 
-	nickname, _ := dc.nm.GetNickname(partnerID)
+	nickname, _ := dc.nm.GetNickname()
 
 	// Generate random nonce to be used for message ID
 	// generation. This makes it so two identical messages sent on

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
+	"os"
 	"sync"
 	"time"
 )
@@ -226,9 +227,9 @@ func (r *RemoteKV) set(key string, val []byte,
 	}
 
 	// If an update callback exists for this key, report via the callback
-	if upserCb, exists := r.upserts[key]; exists {
+	if upsertCb, exists := r.upserts[key]; exists {
 		// fixme: how to handle an error here?
-		upserCb(key, old, val)
+		upsertCb(key, old, val)
 	}
 
 	return nil
@@ -339,8 +340,10 @@ func (f *FileSystemRemoteStorage) GetLastWrite() (time.Time, error) {
 	return utils.GetLastModified(f.baseDir)
 }
 
-// todo: docstring & test
-func (f *FileSystemRemoteStorage) ReadAndGetLastWrite(path string) ([]byte, time.Time, error) {
+// ReadAndGetLastWrite is a combination of FileIO.Read and GetLastWrite.
+// todo: test.
+func (f *FileSystemRemoteStorage) ReadAndGetLastWrite(
+	path string) ([]byte, time.Time, error) {
 	lastWrite, err := utils.GetLastModified(f.baseDir)
 	if err != nil {
 		return nil, time.Time{}, err
@@ -355,5 +358,24 @@ func (f *FileSystemRemoteStorage) ReadAndGetLastWrite(path string) ([]byte, time
 	}
 
 	return data, lastWrite, nil
+}
 
+// ReadDir reads the named directory, returning all its directory entries
+// sorted by filename.
+// todo: add this to tests.
+func (f *FileSystemRemoteStorage) ReadDir(path string) ([]string, error) {
+	// todo: migrate this to primitives/utils
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, 0)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			files = append(files, entry.Name())
+		}
+	}
+
+	return files, nil
 }

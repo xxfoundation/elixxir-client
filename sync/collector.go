@@ -15,10 +15,14 @@ import (
 	"time"
 )
 
+// Stoppable constants.
 const (
 	collectorStoppable       = "collectorStoppable"
 	collectorRunnerStoppable = "collectorRunnerStoppable"
 )
+
+// todo: determine actual value
+const synchronizationEpoch = 2 * time.Hour
 
 const (
 	collectorLogHeader = "COLLECTOR"
@@ -47,14 +51,32 @@ type Collector struct {
 	SynchronizationEpoch time.Duration
 
 	// The local transaction log for this device
-	txLog TransactionLog
+	txLog *TransactionLog
 	// The connection to the remote storage system for reading other device data.
 	remote RemoteStore
 
 	// The remote storage EKV wrapper
-	kv RemoteKV
+	kv *RemoteKV
 }
 
+// NewCollector constructs a collector object.
+func NewCollector(syncPath, myId string, txLog *TransactionLog,
+	remote RemoteStore, kv *RemoteKV) *Collector {
+
+	return &Collector{
+		syncPath:             syncPath,
+		myID:                 myId,
+		lastUpdates:          make(changeLogger, 0),
+		SynchronizationEpoch: synchronizationEpoch,
+		txLog:                txLog,
+		remote:               remote,
+		kv:                   kv,
+	}
+
+}
+
+// StartProcesses will begin a long-running thread to collect and
+// synchronize changes across devices.
 func (c *Collector) StartProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
 	multiStoppable := stoppable.NewMulti(collectorStoppable)
@@ -64,6 +86,8 @@ func (c *Collector) StartProcesses() (stoppable.Stoppable, error) {
 	return multiStoppable, nil
 }
 
+// runner is the long-running thread responsible for collecting changes and
+// synchronizing changes across devices.
 func (c *Collector) runner(stop *stoppable.Single) {
 	t := time.NewTicker(c.SynchronizationEpoch)
 	select {
@@ -76,30 +100,34 @@ func (c *Collector) runner(stop *stoppable.Single) {
 	}
 }
 
-// Perform a collection operation
+// collect will collect, organize and apply all changes across devices.
 func (c *Collector) collect() {
 	// note this returns full device paths from the perspective of
 	// the remote
-	devices := readDeviceList(c.syncPath, c.remote)
-	allowedUpdates := time.Now().Add(-2 * c.SynchronizationEpoch)
+	devices, err := c.remote.ReadDir(c.syncPath)
+	if err != nil {
+		// todo: handle err
+	}
+
 	changes, newUpdates := c.collectChanges(devices)
 
 	// update this record only if we succeed in applying all changes!
-	if err := c.applyChanges(changes); err != nil  {
-		c.lastUpdates = newUpdates
+	if err = c.applyChanges(changes); err != nil {
 		//debug( how many changes and how long it took)
 		return
-	} 
+	}
+
+	c.lastUpdates = newUpdates
 
 	// report applied changes failed
 }
 
-
+// collectChanges will collate all changes across all devices.
 func (c *Collector) collectChanges(devices []string) (transactionChanges,
 	changeLogger) {
 	// Map of Device to list of (new) transactions
 	changes, newUpdates := make(transactionChanges, 0), make(changeLogger, 0)
-	oldestUpdate := time.Now()
+	oldestUpdate := time.Now().Add(-2 * c.SynchronizationEpoch)
 	// drop as much of the following as makes sense into a collect changes func
 	// we want to maximize testability!
 	for _, d := range devices {
@@ -125,14 +153,14 @@ func (c *Collector) collectChanges(devices []string) (transactionChanges,
 		// If us, read the local log, otherwise read the remote log
 		// TODO: in the future this could work like an open call instead of sucking
 		// the entire thing into memory.
-		txlog := []byte{}
+		txLog := []byte{}
 		if d != c.myID {
-			txlog, err = c.remote.Read(d)
+			txLog, err = c.remote.Read(d)
 			if err != nil {
 				// todo: handle err
 			}
 		} else {
-			txlog, err = c.txLog.serialize()
+			txLog, err = c.txLog.serialize()
 			if err != nil {
 				// todo: handle err
 			}
@@ -141,25 +169,23 @@ func (c *Collector) collectChanges(devices []string) (transactionChanges,
 		// Read all transactions since the last time we saw an update from this device.
 		// in the future we could turn this into like an iterator, where the “next” change across
 		// all devices get read, but for now drop them into a list per device.
-		changes[d] = readTransactionsAfter(txlog, c.lastUpdates[d], c.GetDeviceSecret(d))
+		// d - identifier (string)
+		changes[d] = readTransactionsAfter(txLog, c.lastUpdates[d], c.GetDeviceSecret(d))
 		newUpdates[d] = lastUpdate
 		//trace(number of changes for this device)
 	}
 	return changes, newUpdates
 }
 
-
+// applyChanges will order the transactionChanges and apply them to the
+// Collector.
 func (c *Collector) applyChanges(changes transactionChanges) error {
 	// Now apply all collected changes
 	ordered := orderChanges(changes) // map of key to list of transactions against it in order
 	for k, txList := range ordered {
 		// how do we get last write? Do we need to start storing it?
-		localVal, err := c.remote.Read(k)
-		if err != nil {
-			// todo: handle err
-
-		}
-		lastWrite, err := c.remote.GetLastWrite()
+		// fixme: is this meant to be the KV? I assumed remote store
+		localVal, lastWrite, err := c.remote.ReadAndGetLastWrite(k)
 		if err != nil {
 			// todo: handle err
 		}
@@ -169,16 +195,33 @@ func (c *Collector) applyChanges(changes transactionChanges) error {
 		// the oldest transaction takes precedence over the local value (because local is ahead)
 		// and we will overwrite it
 		if txList[0].Timestamp.After(lastWrite) {
-		 	cur = c.remote.Upsert(k, localVal, cur)
+			// upset func
+			updateCb := func(newTx Transaction, err error) {
+				cur = newTx
+			}
+
+			if err = c.kv.Set(k, localVal, updateCb); err != nil {
+				// handle err
+			}
+
 		}
 
-		for i, tx := range(txList) {
-			if i == 0 { continue}
+		for i, tx := range txList {
+			if i == 0 {
+				continue
+			}
 			// Does the remote need to hold the upsert callback registration? Or should it
 			// be done here?
 			// I believe RemoteKV needs to hold the upsert functions because other callers
 			// besides the collector object will need to call it.
-			cur = c.remote.Upsert(k, cur, tx.Value)
+			// upset func
+			updateCb := func(newTx Transaction, err error) {
+				cur = newTx
+			}
+
+			if err = c.kv.Set(k, tx.Value, updateCb); err != nil {
+				// handle err
+			}
 		}
 		// What about updates that happen between start and end of this loop?
 		// It feels like maybe the entire upsert operation should be done
@@ -188,18 +231,22 @@ func (c *Collector) applyChanges(changes transactionChanges) error {
 		if bytes.Equal(cur.Value, localVal) {
 			//trace(same val)
 		} else {
-			c.remote.Set(k, cur)
-			debug(sync made on key.. details)
+			c.kv.Set(k, cur.Value, nil)
+			//debug(sync made on key.. details)
 		}
 	}
 
 	return nil
 }
 
-func readDeviceList(syncPath string, store RemoteStore) []string {
-	// fixme: how to implement?
+// GetDeviceSecret will return the device secret for the given device identifier.
+//
+// Fixme: For now, it will return the master secret, this will be an rpc in
+//
+//	future, return master secret
+func (c *Collector) GetDeviceSecret(d string) []byte {
+	return c.txLog.deviceSecret
 }
-
 
 func orderChanges(changes transactionChanges) transactionChanges {
 	// ordering changes function
@@ -207,26 +254,28 @@ func orderChanges(changes transactionChanges) transactionChanges {
 	orderedChanges := make(map[string][]Transaction, 0)
 	iterate := true
 	var oldest *Transaction
-	for iterate  {
+	for iterate {
 		_, oldest, iterate = nextChange(changes)
 		if oldest != nil {
 			// add init when the key is new to the map…
-			orderedChanges[oldest.Key] = append(orderedChanges[oldest.Key], oldest)
+			orderedChanges[oldest.Key] = append(orderedChanges[oldest.Key], *oldest)
 		}
 	}
 
 	return orderedChanges
 }
 
-// This looks at each device and returns the oldest change, so you can get them all in order
-func nextChange(changes transactionChanges) (transactionChanges, *Transaction, bool) {
+// nextChange will look at each device and return the oldest change.
+func nextChange(changes transactionChanges) (transactionChanges, *Transaction,
+	bool) {
 	var oldest *Transaction
 	curd := ""
-	for key, v := range changes{
-		if v == nil || len(v) == 0{
-		continue
-	}
-		if oldest == nil || oldest.Timestamp.After(v){
+	for key, v := range changes {
+		if v == nil || len(v) == 0 {
+			continue
+		}
+		if oldest == nil || oldest.Timestamp.IsZero() ||
+			oldest.Timestamp.After(v[0].Timestamp) {
 			oldest = &v[0]
 			curd = key
 		}
@@ -239,3 +288,24 @@ func nextChange(changes transactionChanges) (transactionChanges, *Transaction, b
 	return changes, oldest, true
 }
 
+// readTransactionsAfter is a utility function which reads all Transaction's
+// after the given time. This deserializes a TransactionLog and must have the
+// device's secret passed in to decrypt transactions.
+func readTransactionsAfter(txLogSerialized []byte, t time.Time,
+	deviceSecret []byte) []Transaction {
+	txLog := &TransactionLog{
+		deviceSecret: deviceSecret,
+	}
+	if err := txLog.deserialize(txLogSerialized); err != nil {
+		// todo: handle err
+	}
+
+	res := make([]Transaction, 0)
+	for _, tx := range txLog.txs {
+		if tx.Timestamp.After(t) {
+			res = append(res, tx)
+		}
+	}
+
+	return res
+}

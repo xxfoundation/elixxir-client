@@ -29,6 +29,10 @@ type RemoteStore interface {
 
 	// ReadAndGetLastWrite is a combination of FileIO.Read and GetLastWrite.
 	ReadAndGetLastWrite(path string) ([]byte, time.Time, error)
+
+	// ReadDir reads the named directory, returning all its directory entries
+	// sorted by filename.
+	ReadDir(path string) ([]string, error)
 }
 
 // LocalStore is the mechanism that all local storage implementations should

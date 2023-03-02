@@ -737,6 +737,49 @@ func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 	return json.Marshal(channelIds)
 }
 
+// EnableDirectMessages enables the token for direct messaging for this
+// channel.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) EnableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.EnableDirectMessages(channelID)
+}
+
+// DisableDirectMessages removes the token for direct messaging for a
+// given channel.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) DisableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.DisableDirectMessages(channelID)
+}
+
+// AreDMsEnabled returns the status of DMs for a given channel
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - DM status (bool) - true if DMs are enabled for passed in channel
+func (cm *ChannelsManager) AreDMsEnabled(channelIdBytes []byte) (bool, error) {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return false, err
+	}
+	return cm.api.AreDMsEnabled(channelID), nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Channel Share URL                                                          //
 ////////////////////////////////////////////////////////////////////////////////

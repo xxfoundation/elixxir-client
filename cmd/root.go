@@ -447,6 +447,7 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	cmixParams.Network.FastPolling = !viper.GetBool(slowPollingFlag)
 	cmixParams.Network.Pickup.ForceMessagePickupRetry = viper.GetBool(
 		forceMessagePickupRetryFlag)
+	cmixParams.Network.Pickup.BatchMessageRetrieval = viper.GetBool(batchMessagePickupFlag)
 	if cmixParams.Network.Pickup.ForceMessagePickupRetry {
 		period := 3 * time.Second
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
@@ -1130,6 +1131,11 @@ func init() {
 			"instead triggering the message pickup retry mechanism")
 	viper.BindPFlag(forceMessagePickupRetryFlag,
 		rootCmd.Flags().Lookup(forceMessagePickupRetryFlag))
+
+	rootCmd.Flags().Bool(batchMessagePickupFlag, false,
+		"Enables alternate message pickup logic which processes batches")
+	viper.BindPFlag(batchMessagePickupFlag,
+		rootCmd.Flags().Lookup(batchMessagePickupFlag))
 
 	// E2E Params
 	defaultE2EParams := session.GetDefaultParams()

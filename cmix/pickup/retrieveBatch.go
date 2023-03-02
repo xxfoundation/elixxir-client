@@ -16,13 +16,14 @@ type pickupRequest struct {
 	round             rounds.Round
 	id                receptionID.EphemeralIdentity
 	uncheckedGateways []*id.ID
+	checkedGateways   []*id.ID
 }
 
 func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop *stoppable.Single) {
 	maxBatchSize := 20
 	batchDelay := 50 * time.Millisecond
 
-	batch := make([]pickupRequest, 0, maxBatchSize)
+	batch := make([]*pickupRequest, 0, maxBatchSize)
 	var timer = &time.Timer{
 		C: make(<-chan time.Time),
 	}
@@ -30,7 +31,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 	for {
 		shouldProcess := false
 
-		var req pickupRequest
+		var req *pickupRequest
 		select {
 		case <-stop.Quit():
 			stop.ToStopped()
@@ -38,25 +39,38 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		case <-timer.C:
 			shouldProcess = true
 		case rl := <-m.lookupRoundMessages: // Incoming lookup requests
+			// Get shuffled list of gateways in round
 			gwIds := m.getGatewayList(rl)
+
+			// In testing, sometimes ignore requests to force retry
 			if m.params.ForceMessagePickupRetry && m.shouldForceMessagePickupRetry(rl) {
 				continue
 			}
 
-			req = pickupRequest{gwIds[0], rl.Round, rl.Identity, gwIds[1:]}
+			// Initialize pickupRequest for new round
+			req = &pickupRequest{gwIds[0], rl.Round, rl.Identity, gwIds[1:], nil}
 		case req = <-m.gatewayMessageRequests: // Request retries
 		}
 
-		batch = append(batch, req)
-
-		if len(batch) >= maxBatchSize {
-			shouldProcess = true
-		} else if len(batch) == 1 {
-			timer = time.NewTimer(batchDelay)
+		if req != nil {
+			// Add incoming request to batch
+			batch = append(batch, req)
+			if len(batch) >= maxBatchSize {
+				shouldProcess = true
+			} else if len(batch) == 1 {
+				timer = time.NewTimer(batchDelay)
+			}
 		}
 
+		// Continue unless batch is full or timer has elapsed
 		if !shouldProcess {
 			continue
+		}
+
+		// Reset timer & shouldProcess
+		timer.Stop()
+		timer = &time.Timer{
+			C: make(<-chan time.Time),
 		}
 		shouldProcess = false
 
@@ -65,7 +79,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			Requests: make([]*pb.GetMessages, len(batch)),
 			Timeout:  500,
 		}
-
+		jww.INFO.Printf("Batch: %+v", batch)
 		for i, v := range batch {
 			msg.Requests[i] = &pb.GetMessages{
 				ClientID: v.id.EphId[:],
@@ -86,38 +100,53 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		// Process responses
 		batchResponse := resp.(*pb.GetMessagesResponseBatch)
 		for i, result := range batchResponse.GetResults() {
+			proxiedRequest := batch[i]
+			// Handler gw did not receive response in time/did not have contact with proxiedRequest
 			if result == nil {
-				// TODO how to handle this (try next gw vs retry this target)
+				jww.DEBUG.Printf("Handler gateway did not receive anything from target %s", proxiedRequest.target)
+				go m.tryNextGateway(proxiedRequest)
+				continue
 			}
+
+			// Handler gw encountered error getting messages from proxiedRequest
 			respErr := batchResponse.GetErrors()[i]
 			if respErr != "" {
-				go m.tryNextGateway(batch[i])
-				continue
-			}
-			bundle, err := m.processPickupResponse(result, batch[i].id, batch[i].round)
-			if err != nil {
-				jww.ERROR.Printf("%+v", err)
+				jww.ERROR.Printf("Handler gateway encountered error attempting to pick up messages from target %s: %s", proxiedRequest.target, respErr)
+				go m.tryNextGateway(proxiedRequest)
 				continue
 			}
 
-			m.processBundle(bundle, batch[i].id, batch[i].round)
+			// Process response from proxiedRequest gateway
+			bundle, err := m.processPickupResponse(result, proxiedRequest.id, proxiedRequest.round)
+			if err != nil {
+				jww.ERROR.Printf("Failed to process pickup response from proxiedRequest gateway %s: %+v", proxiedRequest.target, err)
+				go m.tryNextGateway(proxiedRequest)
+				continue
+			}
+
+			// Handle received bundle
+			m.processBundle(bundle, proxiedRequest.id, proxiedRequest.round)
 		}
 
-		batch = make([]pickupRequest, 0, maxBatchSize)
+		// Empty batch before restarting loop
+		batch = make([]*pickupRequest, 0, maxBatchSize)
 	}
 }
 
-func (m *pickup) tryNextGateway(req pickupRequest) {
+// put pickup request back in batch, targeting next gateway in list of unchecked
+func (m *pickup) tryNextGateway(req *pickupRequest) {
 	if len(req.uncheckedGateways) == 0 {
-		// EXIT
+		jww.ERROR.Printf("Failed to get pickup round %d "+
+			"from all gateways (%v)", req.round.ID, append(req.checkedGateways, req.target))
 		return
 	}
 	select {
-	case m.gatewayMessageRequests <- pickupRequest{
+	case m.gatewayMessageRequests <- &pickupRequest{
 		target:            req.uncheckedGateways[0],
 		round:             req.round,
 		id:                req.id,
 		uncheckedGateways: req.uncheckedGateways[1:],
+		checkedGateways:   append(req.checkedGateways, req.target),
 	}:
 	default:
 	}

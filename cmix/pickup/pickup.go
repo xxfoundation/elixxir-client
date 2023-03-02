@@ -41,7 +41,7 @@ type pickup struct {
 
 	lookupRoundMessages    chan roundLookup
 	messageBundles         chan<- message.Bundle
-	gatewayMessageRequests chan pickupRequest
+	gatewayMessageRequests chan *pickupRequest
 
 	unchecked *store.UncheckedRoundStore
 }
@@ -63,7 +63,7 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 		unchecked:              unchecked,
 		session:                session,
 		comms:                  comms,
-		gatewayMessageRequests: make(chan pickupRequest, params.LookupRoundsBufferLen),
+		gatewayMessageRequests: make(chan *pickupRequest, params.LookupRoundsBufferLen),
 	}
 
 	return m
@@ -74,11 +74,17 @@ func (m *pickup) StartProcessors() stoppable.Stoppable {
 	multi := stoppable.NewMulti("Pickup")
 
 	// Start the message retrieval worker pool
-	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
-		stopper := stoppable.NewSingle(
-			"Message Retriever " + strconv.Itoa(int(i)))
-		go m.processMessageRetrieval(m.comms, stopper)
+	if m.params.BatchMessageRetrieval {
+		stopper := stoppable.NewSingle("Batch Message Retriever")
+		go m.processBatchMessageRetrieval(m.comms, stopper)
 		multi.Add(stopper)
+	} else {
+		for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
+			stopper := stoppable.NewSingle(
+				"Message Retriever " + strconv.Itoa(int(i)))
+			go m.processMessageRetrieval(m.comms, stopper)
+			multi.Add(stopper)
+		}
 	}
 
 	// Start the periodic unchecked round worker

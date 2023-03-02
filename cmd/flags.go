@@ -71,6 +71,7 @@ const (
 	forceHistoricalRoundsFlag   = "forceHistoricalRounds"
 	slowPollingFlag             = "slowPolling"
 	forceMessagePickupRetryFlag = "forceMessagePickupRetry"
+	batchMessagePickupFlag      = "batchMessagePickup"
 
 	// E2E Params
 	e2eMinKeysFlag        = "e2eMinKeys"

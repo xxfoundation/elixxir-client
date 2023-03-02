@@ -17,7 +17,6 @@ import (
 
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
-	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -30,6 +29,8 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
+// TODO: add better error messages
+
 // Wrapper facilitates the sending and receiving file over channels using the
 // event model. It adheres to the FileTransfer interface.
 type Wrapper struct {
@@ -39,8 +40,6 @@ type Wrapper struct {
 	me cryptoChannel.PrivateIdentity
 }
 
-// TODO: mark file as errored (or delete it) in event model on fatal error
-
 // NewWrapper generated a new file transfer wrapper for the channel manager and
 // event model. It allows for sending and receiving of files over channels.
 func NewWrapper(
@@ -49,15 +48,11 @@ func NewWrapper(
 	var w Wrapper
 
 	// Create new file manager and get list of in-progress sends and receives
-	fm, inProgressSends, _, err := newManager(user, params)
+	fm, inProgressSends, inProgressReceives, err := newManager(user, params)
 	if err != nil {
 		return nil, nil, err
 	}
 	w.m = fm
-
-	// Calculate the size of each file part
-	partSize := fileMessage.
-		NewPartMessage(user.GetCmix().GetMaxMessageLength()).GetPartSize()
 
 	eb := func(e channels.EventModel, m channels.Manager,
 		me cryptoChannel.PrivateIdentity) (
@@ -71,23 +66,51 @@ func NewWrapper(
 		w.ev = ev
 		w.me = me
 
-		var sentToRemove []ftCrypto.ID
-		sentFileParts := make(map[ftCrypto.ID][][]byte, len(inProgressSends))
+		// TODO: Currently, each file is looked up in the event model its own
+		//  GetFile call. In the future, if there are performance issues loading
+		//  in-progress files from the event model on startup, then a new event
+		//  model call GetFiles should be added to get all the files at once.
 
-		// Lookup file data each in-progress sent file
-		for _, fid := range inProgressSends {
+		uploads := make(map[ftCrypto.ID]ModelFile, len(inProgressSends))
+		downloads := make(map[ftCrypto.ID]ModelFile, len(inProgressReceives))
+		var staleUploads, staleDownloads []ftCrypto.ID
+
+		// Lookup file data each in-progress uploads
+		for i, fid := range inProgressSends {
 			file, err2 := ev.GetFile(fid)
 			if err2 != nil {
 				jww.ERROR.Printf("[FT] Failed to get in-progress file upload "+
-					"%s from event model; dropping upload: %+v", fid, err)
-				sentToRemove = append(sentToRemove, fid)
+					"%s from event model; dropping upload %d/%d: %+v",
+					fid, i+1, len(inProgressSends), err)
+				staleUploads = append(staleUploads, fid)
 			} else {
-				sentFileParts[fid] = partitionFile(file.FileData, partSize)
+				uploads[fid] = file
 			}
 		}
 
-		// Load file data for each in-progress file back into the file manager
-		err = fm.LoadInProgressTransfers(sentFileParts, sentToRemove)
+		// Load the uploads into file transfer manager
+		err = w.m.loadInProgressUploads(
+			uploads, staleUploads, w.uploadErrorTracker, w.uploadCompleteCB)
+		if err != nil {
+			return nil, err
+		}
+
+		// Lookup file data each in-progress downloads
+		for i, fid := range inProgressReceives {
+			file, err2 := ev.GetFile(fid)
+			if err2 != nil {
+				jww.ERROR.Printf("[FT] Failed to get in-progress file "+
+					"download %s from event model; dropping download %d/%d: %+v",
+					fid, i+1, len(inProgressReceives), err)
+				staleDownloads = append(staleDownloads, fid)
+			} else {
+				downloads[fid] = file
+			}
+		}
+
+		// Load the downloads into file transfer manager
+		err = w.m.loadInProgressDownloads(
+			downloads, staleDownloads, w.downloadCompleteCB)
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +123,7 @@ func NewWrapper(
 
 // StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
 func (w *Wrapper) StartProcesses() (stoppable.Stoppable, error) {
-	return w.m.StartProcesses()
+	return w.m.startProcesses()
 }
 
 // MaxFileNameLen returns the max number of bytes allowed for a file name.
@@ -140,8 +163,7 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 	fid := ftCrypto.NewID(fileData)
 
 	// Check if the file is already uploading
-	st, exists := w.m.sent.GetTransfer(fid)
-	if exists {
+	if st, exists := w.m.sent.GetTransfer(fid); exists {
 		// File upload is already in progress so the progress callback is
 		// registered to the ongoing upload
 		w.m.registerSentProgressCallback(st, progressCB, period)
@@ -149,7 +171,7 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 	}
 
 	// If the file is currently downloading, return an error
-	if _, exists = w.m.received.GetTransfer(fid); exists {
+	if _, exists := w.m.received.GetTransfer(fid); exists {
 		// TODO: Handle an upload that is currently downloading by adding the
 		//  file data to the event model and marking the receive file transfer
 		//  as complete; need to figure out how to handle file link
@@ -166,7 +188,10 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 		}
 
 		// If the file does not exist, add it to the event model and upload it
-		w.ev.ReceiveFile(fid, nil, fileData, netTime.Now(), Uploading)
+		err = w.ev.ReceiveFile(fid, nil, fileData, netTime.Now(), Uploading)
+		if err != nil {
+			return ftCrypto.ID{}, err
+		}
 	} else {
 		var fl FileLink
 		if err = json.Unmarshal(file.FileLink, &fl); err != nil {
@@ -181,9 +206,14 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 		}
 	}
 
+	callbacks := []sentProgressCBs{
+		{progressCB, period},
+		{w.uploadErrorTracker, 0},
+	}
+
 	// If it does not exist in storage or the event model or the file is too
 	// old, then the file needs to be uploaded
-	err = w.m.Send(fid, fileData, retry, w.uploadCompleteCB, progressCB, period)
+	_, err = w.m.send(fid, fileData, retry, w.uploadCompleteCB, callbacks)
 	if err != nil {
 		return ftCrypto.ID{}, err
 	}
@@ -191,12 +221,27 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 	return fid, nil
 }
 
+// uploadErrorTracker is registered on each upload so that if a fatal error
+// occurs, it can be marked in the event model.
+func (w *Wrapper) uploadErrorTracker(_ bool, _, _, _ uint16, st SentTransfer,
+	_ FilePartTracker, err error) {
+	if err != nil {
+		now, status := netTime.Now(), Error
+		err = w.ev.UpdateFile(st.GetFileID(), nil, nil, &now, &status)
+		if err != nil {
+			jww.ERROR.Printf("[FT] Failed to update file %s to mark as "+
+				"failed: %+v", st.GetFileID(), err)
+			return
+		}
+	}
+}
+
 // uploadCompleteCB is called when a file upload completes. It closes out the
 // file send and updates the event model.
 func (w *Wrapper) uploadCompleteCB(fl FileLink) {
 	fileLink, err := json.Marshal(fl)
 	if err != nil {
-		jww.ERROR.Printf("[FT] Failed to JSON marshal %t for file %s: %+v",
+		jww.ERROR.Printf("[FT] Failed to JSON marshal %T for file %s: %+v",
 			fl, fl.FileID, err)
 		return
 	}
@@ -273,11 +318,12 @@ func (w *Wrapper) RegisterSentProgressCallback(fileID ftCrypto.ID,
 
 	switch file.Status {
 	case Complete:
-		// TODO fix missing fields
-		progressCB(true, 0, fl.NumParts, fl.NumParts, &fl, nil, nil)
+		go progressCB(true, 0, fl.NumParts, fl.NumParts, &fl, nil, nil)
+	case Error:
+		go progressCB(false, 0, 0, 0, &fl, nil, errors.New("fatal error"))
 	}
 
-	return w.m.RegisterSentProgressCallback(fileID, progressCB, period)
+	return nil
 }
 
 // RetrySend retries uploading a failed file upload. Returns an error if the
@@ -287,6 +333,14 @@ func (w *Wrapper) RegisterSentProgressCallback(fileID ftCrypto.ID,
 // the progress callback).
 // TODO: write function
 func (w *Wrapper) RetrySend(fileID ftCrypto.ID) error {
+	if st, exists := w.m.sent.GetTransfer(fileID); exists {
+		if st.Status() != store.Failed {
+			return errors.Errorf(errDeleteIncompleteTransfer, st.GetFileID())
+		}
+		if err := w.m.closeSend(st); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -297,21 +351,14 @@ func (w *Wrapper) RetrySend(fileID ftCrypto.ID) error {
 //
 // This function should be called once a transfer completes or errors out
 // (as reported by the progress callback).
-// TODO: handle deletion from event model
 func (w *Wrapper) CloseSend(fileID ftCrypto.ID) error {
-
-	st, exists := w.m.sent.GetTransfer(fileID)
-	if exists {
-		if err := w.m.CloseSend(fileID); err != nil {
+	if st, exists := w.m.sent.GetTransfer(fileID); exists {
+		if err := w.m.closeSend(st); err != nil {
 			return err
 		}
-	} else {
-		w.ev.GetFile(fileID)
 	}
 
-	w.ev.DeleteFile(fileID)
-
-	return w.m.CloseSend(fileID)
+	return w.ev.DeleteFile(fileID)
 }
 
 /* === Receiving ============================================================ */
@@ -328,8 +375,7 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 	}
 
 	// Check if the file is already downloading
-	rt, exists := w.m.received.GetTransfer(fi.FileID)
-	if exists {
+	if rt, exists := w.m.received.GetTransfer(fi.FileID); exists {
 		// File download is already in progress so the progress callback is
 		// registered to the ongoing download
 		w.m.registerReceivedProgressCallback(rt, progressCB, period)
@@ -337,7 +383,7 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 	}
 
 	// If the file is currently uploading, return an error
-	if _, exists = w.m.sent.GetTransfer(fi.FileID); exists {
+	if _, exists := w.m.sent.GetTransfer(fi.FileID); exists {
 		// TODO: Handle a downloading that is currently uploading by immediately
 		//  marking it as complete; need to figure out how to handle file link
 		return ftCrypto.ID{}, errors.Errorf("file currently downloading; " +
@@ -364,21 +410,29 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 		}
 
 		// If the file does not exist, add it to the event model and download it
-		w.ev.ReceiveFile(fi.FileID, fileLink, nil, netTime.Now(), Uploading)
-
-		// Start downloading file
-		rt, err = w.m.handleIncomingTransfer(&fi, progressCB, period)
+		err = w.ev.ReceiveFile(fi.FileID, fileLink, nil, netTime.Now(), Downloading)
 		if err != nil {
 			return ftCrypto.ID{}, err
 		}
 
-		// Register callback to update event model once download is complete
-		w.m.registerReceivedProgressCallback(rt, w.downloadCompleteCB(rt), 0)
+		callbacks := []receivedProgressCBs{
+			{progressCB, period},
+			{w.downloadCompleteCB, 0},
+		}
+
+		// Start downloading file
+		_, err = w.m.handleIncomingTransfer(&fi.FileLink, callbacks)
+		if err != nil {
+			return ftCrypto.ID{}, err
+		}
+
+		return fi.FileID, nil
 	}
 
 	// TODO: if the file exists but is not marked complete, restart the download
 	if file.Status != Complete {
-		return ftCrypto.ID{}, errors.Errorf("file not marked as complete")
+		return ftCrypto.ID{}, errors.Errorf(
+			"file is %s; it must be complete", file.Status)
 	}
 
 	// If the file exists, call the progress callback to indicate it is
@@ -389,33 +443,36 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 
 // downloadCompleteCB is called when a file download completes. It receives the
 // full file (removing it from the file manager) and updates the event model.
-func (w *Wrapper) downloadCompleteCB(
-	rt *store.ReceivedTransfer) ReceivedProgressCallback {
-	return func(completed bool, _, _ uint16, _ ReceivedTransfer,
-		_ FilePartTracker, err error) {
+func (w *Wrapper) downloadCompleteCB(completed bool, _, _ uint16,
+	rt ReceivedTransfer, _ FilePartTracker, err error) {
+	if err != nil {
+		now, status := netTime.Now(), Error
+		err = w.ev.UpdateFile(rt.GetFileID(), nil, nil, &now, &status)
 		if err != nil {
-			jww.ERROR.Printf("[FT] Error downloading file %s (%q): %+v",
-				rt.GetFileID(), rt.FileName(), err)
+			jww.ERROR.Printf("[FT] Failed to update file download %s "+
+				"to mark as failed: %+v", rt.GetFileID(), err)
 			return
 		}
 
-		if completed {
-			// Get completed file
-			fileData, err2 := w.m.receive(rt)
-			if err2 != nil {
-				jww.ERROR.Printf("[FT] Failed to get complete file data for "+
-					"%s (%q): %+v", rt.GetFileID(), rt.FileName(), err2)
-				return
-			}
+		return
+	}
 
-			// Store completed file in event model
-			now := netTime.Now()
-			status := Complete
-			err = w.ev.UpdateFile(rt.GetFileID(), nil, &fileData, &now, &status)
-			if err != nil {
-				jww.ERROR.Printf("[FT] Failed to update downloaded file %s "+
-					"(%q) in event model: %+v", rt.GetFileID(), rt.FileName(), err)
-			}
+	if completed {
+		// Get completed file
+		fileData, err2 := w.m.receiveFromID(rt.GetFileID())
+		if err2 != nil {
+			jww.ERROR.Printf("[FT] Failed to get complete file data for "+
+				"%s: %+v", rt.GetFileID(), err2)
+			return
+		}
+
+		// Store completed file in event model
+		now := netTime.Now()
+		status := Complete
+		err = w.ev.UpdateFile(rt.GetFileID(), nil, &fileData, &now, &status)
+		if err != nil {
+			jww.ERROR.Printf("[FT] Failed to update downloaded file %s in "+
+				"event model: %+v", rt.GetFileID(), err)
 		}
 	}
 }
@@ -423,7 +480,34 @@ func (w *Wrapper) downloadCompleteCB(
 // RegisterReceivedProgressCallback registers the callback to the given file ID.
 func (w *Wrapper) RegisterReceivedProgressCallback(fileID ftCrypto.ID,
 	progressCB ReceivedProgressCallback, period time.Duration) error {
-	return w.m.RegisterReceivedProgressCallback(fileID, progressCB, period)
+	rt, exists := w.m.received.GetTransfer(fileID)
+	if exists {
+		w.m.registerReceivedProgressCallback(rt, progressCB, period)
+		return nil
+	}
+
+	file, err := w.ev.GetFile(fileID)
+	if err != nil {
+		if !channels.CheckNoMessageErr(err) {
+			return err
+		}
+
+		return errors.Errorf(errNoReceivedTransfer, fileID)
+	}
+
+	var fl FileLink
+	if err = json.Unmarshal(file.FileLink, &fl); err != nil {
+		return err
+	}
+
+	switch file.Status {
+	case Complete:
+		go progressCB(true, fl.NumParts, fl.NumParts, &fl, nil, nil)
+	case Error:
+		go progressCB(false, 0, 0, &fl, nil, errors.New("fatal error"))
+	}
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -450,9 +534,9 @@ func (w *Wrapper) Handle(channelID *id.ID, messageID cryptoMessage.ID,
 	_ time.Time, lease time.Duration, _ id.Round, round rounds.Round,
 	_ channels.SentStatus, _, hidden bool) uint64 {
 
-	fi, err := UnmarshalFileInfo(content)
-	if err != nil {
-		jww.ERROR.Printf("[CH] Failed to text unmarshal file information %s "+
+	var fi FileInfo
+	if err := json.Unmarshal(content, &fi); err != nil {
+		jww.ERROR.Printf("[CH] Failed to unmarshal message with file info %s "+
 			"from %x on channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
 			messageID, pubKey, channelID, messageType, timestamp, lease,
 			round.ID, err)

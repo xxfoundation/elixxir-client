@@ -83,19 +83,15 @@ func NewOrLoadReceived(
 // LoadTransfers loads all received transfers in the list from storage into
 // Received  It returns a list of all incomplete transfers so that their
 // fingerprints can be re-added to the listener.
-func (r *Received) LoadTransfers(partialFiles map[ftCrypto.ID][]byte,
-	partSize int) ([]*ReceivedTransfer, error) {
+func (r *Received) LoadTransfers(fidList []ftCrypto.ID) ([]*ReceivedTransfer, error) {
 
-	var errCount, i int
+	var errCount int
 	var err error
-	incompleteTransfer := make([]*ReceivedTransfer, 0, len(partialFiles))
-	for fid, partialFile := range partialFiles {
-		i++
-		r.transfers[fid], err =
-			loadReceivedTransfer(fid, partialFile, partSize, r.kv)
+	incompleteTransfer := make([]*ReceivedTransfer, 0, len(fidList))
+	for i, fid := range fidList {
+		r.transfers[fid], err = loadReceivedTransfer(fid, r.kv)
 		if err != nil {
-			jww.WARN.Printf(
-				warnLoadReceivedTransfer, i, len(partialFiles), fid, err)
+			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(fidList), fid, err)
 			errCount++
 		}
 
@@ -105,8 +101,8 @@ func (r *Received) LoadTransfers(partialFiles map[ftCrypto.ID][]byte,
 	}
 
 	// Return an error if all transfers failed to load
-	if len(partialFiles) > 0 && errCount == len(partialFiles) {
-		return nil, errors.Errorf(errLoadAllReceivedTransfer, len(partialFiles))
+	if len(fidList) > 0 && errCount == len(fidList) {
+		return nil, errors.Errorf(errLoadAllReceivedTransfer, len(fidList))
 	}
 
 	return incompleteTransfer, nil
@@ -114,8 +110,8 @@ func (r *Received) LoadTransfers(partialFiles map[ftCrypto.ID][]byte,
 
 // AddTransfer adds the ReceivedTransfer to the map keyed on its file ID.
 func (r *Received) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	fid ftCrypto.ID, fileName string, transferMAC []byte,
-	fileSize uint32, numParts, numFps uint16) (*ReceivedTransfer, error) {
+	fid ftCrypto.ID, transferMAC []byte, fileSize uint32, numParts,
+	numFps uint16) (*ReceivedTransfer, error) {
 
 	r.mux.Lock()
 	defer r.mux.Unlock()
@@ -125,8 +121,8 @@ func (r *Received) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 		return nil, errors.Errorf(errAddExistingReceivedTransfer, fid)
 	}
 
-	rt, err := newReceivedTransfer(recipient, key, fid, fileName, transferMAC,
-		fileSize, numParts, numFps, r.disableKV, r.kv)
+	rt, err := newReceivedTransfer(recipient, key, fid, transferMAC, fileSize,
+		numParts, numFps, r.disableKV, r.kv)
 	if err != nil {
 		return nil, err
 	}

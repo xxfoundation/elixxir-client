@@ -9,6 +9,7 @@ package channelsFileTransfer
 
 import (
 	"bytes"
+	"encoding/json"
 	"time"
 
 	"github.com/pkg/errors"
@@ -43,21 +44,17 @@ import (
 //     but it is probably best to fix the underlying inefficiency.
 
 const (
-	// FileNameMaxLen is the maximum size, in bytes, for a file name. Currently,
-	// it is set to 48 bytes.
-	FileNameMaxLen = 48
+	// The maximum size, in bytes, for a file name.
+	fileNameMaxLen = 48
 
-	// FileTypeMaxLen is the maximum size, in bytes, for a file type. Currently,
-	// it is set to 8 bytes.
-	FileTypeMaxLen = 8
+	// The maximum size, in bytes, for a file type.
+	fileTypeMaxLen = 8
 
-	// FileMaxSize is the maximum file size that can be transferred. Currently,
-	// it is set to 250 kB.
-	FileMaxSize = 250_000
+	// The maximum file size that can be transferred.
+	fileMaxSize = 250_000
 
-	// PreviewMaxSize is the maximum size, in bytes, for a file preview.
-	// Currently, it is set to 590 bytes.
-	PreviewMaxSize = 590
+	// The maximum size, in bytes, for a file preview.
+	previewMaxSize = 297
 
 	// minPartsSendPerRound is the minimum number of file parts sent each round.
 	minPartsSendPerRound = 1
@@ -88,11 +85,7 @@ const (
 	errNoSentTransfer     = "could not find sent transfer with ID %s"
 	errNoReceivedTransfer = "could not find received transfer with ID %s"
 
-	// newManager
-	errNewOrLoadSent     = "failed to load or create new list of sent file transfers: %+v"
-	errNewOrLoadReceived = "failed to load or create new list of received file transfers: %+v"
-
-	// manager.Send
+	// manager.send
 	errFileNameSize      = "length of filename (%d) greater than max allowed length (%d)"
 	errFileTypeSize      = "length of file type (%d) greater than max allowed length (%d)"
 	fileSizeMaxErr       = "received %d-byte file; maximum size is %d bytes"
@@ -109,7 +102,7 @@ const (
 	errRemoveSentTransfer       = "could not remove file %s from list: %+v"
 
 	// manager.HandleIncomingTransfer
-	errAddNewRt      = "failed to add new file transfer %s (%q): %+v"
+	errAddNewRt = "failed to add new file transfer %s: %+v"
 
 	// manager.Receive
 	errIncompleteFile         = "cannot get incomplete file: missing %d of %d parts"
@@ -194,13 +187,6 @@ type Cmix interface {
 		roundCallback cmix.RoundEventCallback, roundList ...id.Round)
 }
 
-// Storage interface matches a subset of the storage.Session methods used by the
-// manager for easier testing.
-type Storage interface {
-	GetKV() *versioned.KV
-	GetCmixGroup() *cyclic.Group
-}
-
 // newManager creates a new file transfer manager object. If sent or received
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
@@ -211,13 +197,13 @@ func newManager(user FtE2e, params Params) (m *manager,
 	// Create a new list of sent file transfers or load one if it exists
 	sent, inProgressSends, err := store.NewOrLoadSent(kv)
 	if err != nil {
-		return nil, nil, nil, errors.Errorf(errNewOrLoadSent, err)
+		return nil, nil, nil, err
 	}
 
 	// Create a new list of received file transfers or load one if it exists
 	received, inProgressReceives, err := store.NewOrLoadReceived(false, kv)
 	if err != nil {
-		return nil, nil, nil, errors.Errorf(errNewOrLoadReceived, err)
+		return nil, nil, nil, err
 	}
 
 	// Construct manager
@@ -239,40 +225,108 @@ func newManager(user FtE2e, params Params) (m *manager,
 	return m, inProgressSends, inProgressReceives, nil
 }
 
-// LoadInProgressTransfers queues the in-progress sent and received transfers.
-func (m *manager) LoadInProgressTransfers(
-	sentFileParts, receivedFileParts map[ftCrypto.ID][][]byte, sentToRemove []ftCrypto.ID) error {
-	unsentParts, sentParts, err := m.sent.LoadTransfers(sentFileParts)
-	if err != nil {
+// loadInProgressUploads loads the file for each in-progress upload into the
+// manager and restarts their upload from where they left off. Any stale file
+// uploads (files that no longer appear in the event model) are removed from the
+// transfer list.
+func (m *manager) loadInProgressUploads(uploads map[ftCrypto.ID]ModelFile,
+	staleUploads []ftCrypto.ID, progressCB SentProgressCallback,
+	completeCB sendCompleteCallback) error {
+	partSize := fileMessage.
+		NewPartMessage(m.cmix.GetMaxMessageLength()).GetPartSize()
+
+	var i int
+	for fid, file := range uploads {
+		i++
+
+		// Unmarshal file link first; if this fails, skip the entire file
+		var fl FileLink
+		if err := json.Unmarshal(file.FileLink, &fl); err != nil {
+			jww.ERROR.Printf("[FT] Failed to JSON unmarshal %T for file "+
+				"upload %s (%d/%d): %+v", fl, fid, i, len(uploads), err)
+			continue
+		}
+
+		// Load transfer from storage into sent transfer list
+		parts := partitionFile(file.FileData, partSize)
+		st, err := m.sent.LoadTransfer(fid, parts)
+		if err != nil {
+			jww.ERROR.Printf("[FT] Failed to load file %s from uploads "+
+				"(%d/%d): %+v", fid, i, len(uploads), err)
+			continue
+		}
+
+		m.registerSentProgressCallback(st, progressCB, 0)
+
+		// Start tracking the received file parts for the SentTransfer
+		callbacks := []receivedProgressCBs{{
+			m.checkedReceivedParts(st, &fl, completeCB), 0}}
+		_, err = m.handleIncomingTransfer(&fl, callbacks)
+		if err != nil {
+			jww.ERROR.Printf("[FT] Failed to initiate tracking of received "+
+				"parts for file upload %s (%d/%d): %+v",
+				fid, i, len(uploads), err)
+			continue
+		}
+
+		// Add all unsent file parts to queue
+		for _, p := range st.GetUnsentParts() {
+			m.batchQueue <- p
+		}
+
+		// Add all sent file parts to recheck queue
+		if len(st.GetSentParts()) > 0 {
+			m.sentQueue <- &sentPartPacket{st.GetSentParts(), time.Time{}, true}
+		}
+	}
+
+	// Remove all stale transfers
+	if err := m.sent.RemoveTransfers(staleUploads...); err != nil {
 		return err
 	}
-
-	// Add all unsent file parts to queue
-	for _, p := range unsentParts {
-		m.batchQueue <- p
-	}
-
-	// Add all sent file parts to recheck queue
-	if len(sentParts) > 0 {
-		m.sentQueue <- &sentPartPacket{packet: sentParts, loaded: true}
-	}
-
-	incompleteTransfers, err := m.received.LoadTransfers(receivedFileParts)
-	if err != nil {
-		return err
-	}
-
-	if err = m.sent.RemoveTransfers(sentToRemove...); err != nil {
-		return err
-	}
-
-	m.received.LoadTransfers()
 
 	return nil
 }
 
-// StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
-func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
+// loadInProgressDownloads loads the file for each in-progress download into the
+// manager and restarts their download from the beginning. Any stale file
+// downloads (files that no longer appear in the event model) are removed from
+// the transfer list.
+func (m *manager) loadInProgressDownloads(downloads map[ftCrypto.ID]ModelFile,
+	staleDownloads []ftCrypto.ID, progressCB ReceivedProgressCallback) error {
+	var i int
+	for fid, file := range downloads {
+		i++
+
+		// Unmarshal file link first; if this fails, skip the entire file
+		var fl FileLink
+		if err := json.Unmarshal(file.FileLink, &fl); err != nil {
+			jww.ERROR.Printf("[FT] Failed to JSON unmarshal %T for file "+
+				"download %s (%d/%d): %+v", fl, fid, i, len(downloads), err)
+			continue
+		}
+
+		// Add file to be downloaded
+		var err error
+		callbacks := []receivedProgressCBs{{progressCB, 0}}
+		_, err = m.handleIncomingTransfer(&fl, callbacks)
+		if err != nil {
+			jww.ERROR.Printf("[FT] Failed to initiate download of file %s "+
+				"(%d/%d): %+v", fid, i, len(downloads), err)
+			continue
+		}
+	}
+
+	// Remove all stale transfers
+	if err := m.received.RemoveTransfers(staleDownloads...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// startProcesses starts the sending threads. Adheres to the xxdk.Service type.
+func (m *manager) startProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
 	senderPoolStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
@@ -299,22 +353,22 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 // maxFileNameLen returns the max number of bytes allowed for a file name.
 func (m *manager) maxFileNameLen() int {
-	return FileNameMaxLen
+	return fileNameMaxLen
 }
 
 // maxFileTypeLen returns the max number of bytes allowed for a file type.
 func (m *manager) maxFileTypeLen() int {
-	return FileTypeMaxLen
+	return fileTypeMaxLen
 }
 
 // maxFileSize returns the max number of bytes allowed for a file.
 func (m *manager) maxFileSize() int {
-	return FileMaxSize
+	return fileMaxSize
 }
 
 // maxPreviewSize returns the max number of bytes allowed for a file preview.
 func (m *manager) maxPreviewSize() int {
-	return PreviewMaxSize
+	return previewMaxSize
 }
 
 /* === Sending ============================================================== */
@@ -324,7 +378,7 @@ func (m *manager) maxPreviewSize() int {
 func (m *manager) verifyFile(fileData []byte) error {
 	// Return an error if the file is too large or empty
 	if fileLen := len(fileData); fileLen > m.maxFileSize() {
-		return errors.Errorf(fileSizeMaxErr, fileLen, FileMaxSize)
+		return errors.Errorf(fileSizeMaxErr, fileLen, fileMaxSize)
 	} else if fileLen == 0 {
 		return errors.Errorf(fileSizeMinErr, fileLen)
 	}
@@ -337,40 +391,50 @@ func (m *manager) verifyFile(fileData []byte) error {
 // TODO: test
 func (m *manager) verifyFileInfo(fileName, fileType string, preview []byte) error {
 	// Return an error if the file name is too long
-	if len(fileName) > FileNameMaxLen {
-		return errors.Errorf(errFileNameSize, len(fileName), FileNameMaxLen)
+	if len(fileName) > fileNameMaxLen {
+		return errors.Errorf(errFileNameSize, len(fileName), fileNameMaxLen)
 	}
 
 	// Return an error if the file type is too long
-	if len(fileType) > FileTypeMaxLen {
-		return errors.Errorf(errFileTypeSize, len(fileType), FileTypeMaxLen)
+	if len(fileType) > fileTypeMaxLen {
+		return errors.Errorf(errFileTypeSize, len(fileType), fileTypeMaxLen)
 	}
 
 	// Return an error if the preview is too large
-	if len(preview) > PreviewMaxSize {
-		return errors.Errorf(errPreviewSize, len(preview), PreviewMaxSize)
+	if len(preview) > previewMaxSize {
+		return errors.Errorf(errPreviewSize, len(preview), previewMaxSize)
 	}
 
 	return nil
 }
 
-// Send initiates the sending of a file to the recipient and returns a file
+// sendCompleteCallback is called when a file transfer has successfully sent.
+// The returned FileLink can be marshalled and sent to others so that they can
+// receive the file.
+type sendCompleteCallback func(fi FileLink)
+
+type sentProgressCBs struct {
+	cb     SentProgressCallback
+	period time.Duration
+}
+
+// send initiates the sending of a file to the recipient and returns a file
 // ID that uniquely identifies this file transfer.
 //
 // In-progress transfers are restored when closing and reopening; however, a
 // SentProgressCallback must be registered again.
-func (m *manager) Send(fid ftCrypto.ID, fileData []byte, retry float32,
-	completeCB SendCompleteCallback, progressCB SentProgressCallback,
-	period time.Duration) error {
+func (m *manager) send(fid ftCrypto.ID, fileData []byte, retry float32,
+	completeCB sendCompleteCallback, progressCBs []sentProgressCBs) (
+	*store.SentTransfer, error) {
 
 	// Return an error if the file is too large
 	if err := m.verifyFile(fileData); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Return an error if the network is not healthy
 	if !m.cmix.IsHealthy() {
-		return errors.New(errSendNetworkHealth)
+		return nil, errors.New(errSendNetworkHealth)
 	}
 
 	// Generate new transfer key and file ID
@@ -378,7 +442,7 @@ func (m *manager) Send(fid ftCrypto.ID, fileData []byte, retry float32,
 	key, err := ftCrypto.NewTransferKey(rng)
 	if err != nil {
 		rng.Close()
-		return errors.Errorf(errNewKey, err)
+		return nil, errors.Errorf(errNewKey, err)
 	}
 
 	// Generate random identity to send the file to that will be used later for
@@ -386,7 +450,7 @@ func (m *manager) Send(fid ftCrypto.ID, fileData []byte, retry float32,
 	newID, err := id.NewRandomID(rng, id.User)
 	if err != nil {
 		rng.Close()
-		return errors.Errorf(errNewRecipientID, err)
+		return nil, errors.Errorf(errNewRecipientID, err)
 	}
 	rng.Close()
 
@@ -403,26 +467,40 @@ func (m *manager) Send(fid ftCrypto.ID, fileData []byte, retry float32,
 	numFps := calcNumberOfFingerprints(len(parts), retry)
 
 	// Create new sent transfer
-	// TODO: how to handle differing filename and file type
 	sentTimestamp := netTime.Now()
 	st, err := m.sent.AddTransfer(
 		newID, sentTimestamp, &key, fid, fileSize, parts, numFps)
 	if err != nil {
-		return errors.Errorf(errAddSentTransfer, err)
+		return nil, errors.Errorf(errAddSentTransfer, err)
 	}
 
 	// Build FileInfo that will be returned to the user on completion
-	fi := &FileInfo{
-		FileLink: FileLink{
-			FileID:        fid,
-			RecipientID:   st.GetRecipient(),
-			SentTimestamp: time.Time{},
-			Key:           key,
-			Mac:           mac,
-			NumParts:      numParts,
-			Size:          fileSize,
-			Retry:         retry,
-		},
+	fl := &FileLink{
+		FileID:        fid,
+		RecipientID:   st.GetRecipient(),
+		SentTimestamp: sentTimestamp,
+		Key:           key,
+		Mac:           mac,
+		Size:          fileSize,
+		NumParts:      numParts,
+		Retry:         retry,
+	}
+
+	jww.DEBUG.Printf("[FT] Created new sent file transfer %s (size %d bytes, "+
+		"%d parts, retry %f)", st.GetFileID(), fileSize, numParts, retry)
+
+	// Register the progress callback
+	for _, p := range progressCBs {
+		m.registerSentProgressCallback(st, p.cb, p.period)
+	}
+
+	callbacks :=
+		[]receivedProgressCBs{{m.checkedReceivedParts(st, fl, completeCB), 0}}
+
+	// Start tracking the received file parts for the SentTransfer
+	_, err = m.handleIncomingTransfer(fl, callbacks)
+	if err != nil {
+		return nil, err
 	}
 
 	// Add all parts to the send queue
@@ -430,38 +508,11 @@ func (m *manager) Send(fid ftCrypto.ID, fileData []byte, retry float32,
 		m.batchQueue <- p
 	}
 
-	jww.DEBUG.Printf("[FT] Created new sent file transfer %s (size %d bytes, "+
-		"%d parts, retry %f)", st.GetFileID(), fileSize, numParts, retry)
-
-	// Register the progress callback
-	m.registerSentProgressCallback(st, progressCB, period)
-
-	// Start tracking the received file parts for the SentTransfer
-	_, err = m.handleIncomingTransfer(
-		fi, m.checkedReceivedParts(st, fi, completeCB), 0)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return nil, nil
 }
 
-// RegisterSentProgressCallback adds the given callback to the callback manager
-// for the given file ID. Returns an error if the transfer cannot be found.
-func (m *manager) RegisterSentProgressCallback(fid ftCrypto.ID,
-	progressCB SentProgressCallback, period time.Duration) error {
-	st, exists := m.sent.GetTransfer(fid)
-	if !exists {
-		return errors.Errorf(errNoSentTransfer, fid)
-	}
-
-	m.registerSentProgressCallback(st, progressCB, period)
-
-	return nil
-}
-
-// registerSentProgressCallback creates a callback for the sent transfer that
-// will get the most recent progress and send it on the progress callback.
+// registerSentProgressCallback adds the given callback to the callback manager
+// for the given transfer.
 func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 	progressCB SentProgressCallback, period time.Duration) {
 	if progressCB == nil {
@@ -492,7 +543,7 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 	m.callbacks.AddCallback(st.GetFileID(), cb, period)
 }
 
-// CloseSend deletes the sent transfer from storage and the sent transfer list.
+// closeSend deletes the sent transfer from storage and the sent transfer list.
 // Also stops any scheduled progress callbacks and deletes them from the manager
 // to prevent any further calls. Deletion only occurs if the transfer has either
 // completed or failed.
@@ -500,127 +551,79 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 // This function should be called once a transfer completes or errors out (as
 // reported by the progress callback). Returns an error if the transfer has not
 // run out of retries.
-func (m *manager) CloseSend(fid ftCrypto.ID) error {
-	st, exists := m.sent.GetTransfer(fid)
-	if !exists {
-		return errors.Errorf(errNoSentTransfer, fid)
-	}
-
+func (m *manager) closeSend(st *store.SentTransfer) error {
 	// Check that the transfer is either completed or failed
 	if st.Status() != store.Completed && st.Status() != store.Failed {
-		return errors.Errorf(errDeleteIncompleteTransfer, fid)
+		return errors.Errorf(errDeleteIncompleteTransfer, st.GetFileID())
 	}
 
 	// Delete from storage
 	err := st.Delete()
 	if err != nil {
-		return errors.Errorf(errDeleteSentTransfer, fid, err)
+		return errors.Errorf(errDeleteSentTransfer, st.GetFileID(), err)
 	}
 
 	// Delete from transfers list
-	err = m.sent.RemoveTransfer(fid)
+	err = m.sent.RemoveTransfer(st.GetFileID())
 	if err != nil {
-		return errors.Errorf(errRemoveSentTransfer, fid, err)
+		return errors.Errorf(errRemoveSentTransfer, st.GetFileID(), err)
 	}
 
 	// Stop and delete all progress callbacks
-	m.callbacks.Delete(fid)
+	m.callbacks.Delete(st.GetFileID())
 
-	jww.DEBUG.Printf("[FT] Sent file %s has been closed.", fid)
+	jww.DEBUG.Printf("[FT] Sent file %s has been closed.", st.GetFileID())
 
 	return nil
 }
 
 /* === Receiving ============================================================ */
-/*
-// HandleIncomingTransfer starts tracking the received file parts for the
-// given marshalled FileInfo and returns the file's ID and FileInfo.
-//
-// In-progress transfers are restored when closing and reopening; however, a
-// ReceivedProgressCallback must be registered again.
-func (m *manager) HandleIncomingTransfer(fileInfo []byte,
-	progressCB ReceivedProgressCallback, period time.Duration) (
-	ftCrypto.ID, *FileInfo, error) {
 
-	_, fi, err := m.handleIncomingTransfer(fileInfo, progressCB, period)
-	if err != nil {
-		return ftCrypto.ID{}, nil, err
-	}
-	return fi.FileID, fi, nil
-}*/
+// TODO: add one for handleIncomingTransfer
+type receivedProgressCBs struct {
+	cb     ReceivedProgressCallback
+	period time.Duration
+}
 
 // handleIncomingTransfer starts tracking the received file parts for the given
 // file information and returns the ReceivedTransfer object for the file and its
 // FileInfo.
-func (m *manager) handleIncomingTransfer(fi *FileInfo,
-	progressCB ReceivedProgressCallback, period time.Duration) (
+//
+// In-progress transfers are restored when closing and reopening; however, a
+// ReceivedProgressCallback must be registered again.
+func (m *manager) handleIncomingTransfer(fl *FileLink,
+	progressCBs []receivedProgressCBs) (
 	*store.ReceivedTransfer, error) {
 
 	// Calculate the number of fingerprints based on the retry rate
-	numFps := calcNumberOfFingerprints(int(fi.NumParts), fi.Retry)
+	numFps := calcNumberOfFingerprints(int(fl.NumParts), fl.Retry)
 
 	// Store the transfer
-	rt, err := m.received.AddTransfer(fi.RecipientID, &fi.Key, fi.FileID, fi.FileName,
-		fi.Mac, fi.Size, fi.NumParts, numFps)
+	rt, err := m.received.AddTransfer(fl.RecipientID, &fl.Key, fl.FileID,
+		fl.Mac, fl.Size, fl.NumParts, numFps)
 	if err != nil {
-		return nil, errors.Errorf(errAddNewRt, fi.FileID, fi.FileName, err)
+		return nil, errors.Errorf(errAddNewRt, fl.FileID, err)
 	}
 
-	jww.DEBUG.Printf("[FT] Added new received file %s named %q "+
-		"(type %s, size %d bytes, %d parts, %d fingerprints)",
-		rt.GetFileID(), fi.FileName, fi.FileType, fi.Size, fi.NumParts, numFps)
+	jww.DEBUG.Printf("[FT] Added new received file %s "+
+		"(size %d bytes, %d parts, %d fingerprints)",
+		rt.GetFileID(), fl.Size, fl.NumParts, numFps)
+
+	// Register the progress callback
+	for _, c := range progressCBs {
+		m.registerReceivedProgressCallback(rt, c.cb, c.period)
+	}
 
 	// Start tracking fingerprints for each file part
 	m.addFingerprints(rt)
 
-	// Register the progress callback
-	m.registerReceivedProgressCallback(rt, progressCB, period)
-
 	return rt, nil
 }
 
-// Receive concatenates the received file and returns it. Only returns the file
+// receive concatenates the received file and returns it. Only returns the file
 // if all file parts have been received and returns an error otherwise. Also
 // deletes the transfer from storage. Once Receive has been called on a file, it
 // cannot be received again.
-func (m *manager) Receive(fid ftCrypto.ID) ([]byte, error) {
-	rt, exists := m.received.GetTransfer(fid)
-	if !exists {
-		return nil, errors.Errorf(errNoReceivedTransfer, fid)
-	}
-
-	// Return an error if the transfer is not complete
-	if rt.NumReceived() != rt.GetNumParts() {
-		return nil, errors.Errorf(
-			errIncompleteFile, rt.GetNumParts()-rt.NumReceived(), rt.GetNumParts())
-	}
-
-	// Get the file
-	file := rt.GetFile()
-
-	// Delete all unused fingerprints
-	m.cmix.DeleteClientFingerprints(rt.GetRecipient())
-
-	// Delete from storage
-	err := rt.Delete()
-	if err != nil {
-		return nil, errors.Errorf(errDeleteReceivedTransfer, fid, err)
-	}
-
-	// Delete from transfers list
-	err = m.received.RemoveTransfer(fid)
-	if err != nil {
-		return nil, errors.Errorf(errRemoveReceivedTransfer, fid, err)
-	}
-
-	// Stop and delete all progress callbacks
-	m.callbacks.Delete(fid)
-
-	jww.DEBUG.Printf("[FT] Received file %s has been received.", fid)
-
-	return file, nil
-}
-
 func (m *manager) receive(rt *store.ReceivedTransfer) ([]byte, error) {
 	// Return an error if the transfer is not complete
 	if rt.NumReceived() != rt.GetNumParts() {
@@ -657,23 +660,19 @@ func (m *manager) receive(rt *store.ReceivedTransfer) ([]byte, error) {
 	return file, nil
 }
 
-// RegisterReceivedProgressCallback adds the given callback to the callback
-// manager for the given file ID. Returns an error if the transfer cannot be
-// found.
-func (m *manager) RegisterReceivedProgressCallback(fid ftCrypto.ID,
-	progressCB ReceivedProgressCallback, period time.Duration) error {
+// receiveFromID looks up the transfer from the ID and then receives the file.
+// Returns an error if the transfer cannot be found.
+func (m *manager) receiveFromID(fid ftCrypto.ID) ([]byte, error) {
 	rt, exists := m.received.GetTransfer(fid)
 	if !exists {
-		return errors.Errorf(errNoReceivedTransfer, fid)
+		return nil, errors.Errorf(errNoReceivedTransfer, fid)
 	}
 
-	m.registerReceivedProgressCallback(rt, progressCB, period)
-
-	return nil
+	return m.receive(rt)
 }
 
-// registerReceivedProgressCallback creates a callback for the received transfer
-// that will get the most recent progress and send it on the progress callback.
+// RegisterReceivedProgressCallback adds the given callback to the callback
+// manager for the given transfer.
 func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 	progressCB ReceivedProgressCallback, period time.Duration) {
 	if progressCB == nil {
@@ -701,48 +700,6 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 
 	// Add the callback to the callback tracker
 	m.callbacks.AddCallback(rt.GetFileID(), cb, period)
-}
-
-// ReceivedPartsCallback is a callback function that is called every time there
-// are new received parts to be saved.
-type ReceivedPartsCallback func(fileData []byte, err error)
-
-func (m *manager) registerReceivedPartsCallback(fid ftCrypto.ID,
-	partsCB ReceivedPartsCallback, period time.Duration) error {
-	rt, exists := m.received.GetTransfer(fid)
-	if !exists {
-		return errors.Errorf(errNoReceivedTransfer, fid)
-	}
-
-	// Build callback
-	cbID := rt.GetNewCallbackID()
-	cb := func(err error) {
-		// Get transfer progress
-		received, total := rt.NumReceived(), rt.GetNumParts()
-		completed := received == total
-
-		// If the callback data is the same as the last call, skip the call
-		if !rt.CompareAndSwapCallbackFps(cbID, completed, received, total, err) {
-			return
-		}
-
-		if err != nil {
-			partsCB(nil, err)
-		}
-
-		data, err := rt.MarshalPartialFile()
-		if err != nil {
-			partsCB(nil, errors.Wrap(err,
-				"failed to get partial file for saving to the event model"))
-		}
-
-		partsCB(data, nil)
-	}
-
-	// Add the callback to the callback tracker
-	m.callbacks.AddCallback(rt.GetFileID(), cb, period)
-
-	return nil
 }
 
 /* === Utility ============================================================== */

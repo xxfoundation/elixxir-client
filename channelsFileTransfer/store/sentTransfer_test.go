@@ -53,7 +53,7 @@ func Test_newSentTransfer(t *testing.T) {
 		cypherManager:            cypherManager,
 		fid:                      fid,
 		recipient:                id.NewIdFromString("user", id.User, t),
-		sentTimestamp:            netTime.Now(),
+		sentTimestamp:            netTime.Now().Round(0),
 		fileSize:                 calcFileSize(parts),
 		numParts:                 uint16(len(parts)),
 		status:                   Running,
@@ -585,7 +585,7 @@ func Test_generateSentFp_Consistency(t *testing.T) {
 
 // Tests that a SentTransfer loaded via loadSentTransfer matches the original.
 func Test_loadSentTransfer(t *testing.T) {
-	st, _, _, _, kv := newTestSentTransfer(64, t)
+	st, _, _, _, kv := newTestSentTransfer(4, t)
 
 	loadedSt, err := loadSentTransfer(st.fid, st.parts, kv)
 	if err != nil {
@@ -634,7 +634,7 @@ func TestSentTransfer_save(t *testing.T) {
 func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 	st := &SentTransfer{
 		recipient:     id.NewIdFromString("user", id.User, t),
-		sentTimestamp: netTime.Now(),
+		sentTimestamp: netTime.Now().Round(0),
 		status:        Failed,
 	}
 	expected := sentTransferDisk{st.recipient, st.sentTimestamp, st.status}

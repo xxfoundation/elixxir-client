@@ -12,18 +12,8 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
-)
-
-// Error messages.
-const (
-	fileInfoMsgProtoUnmarshalErr    = "error proto unmarshalling %T"
-	fileInfoFileIdUnmarshalErr      = "error unmarshalling file ID"
-	fileInfoRecipientIdUnmarshalErr = "error unmarshalling recipient ID"
 )
 
 // FileInfo contains all the information for a new transfer. This is the
@@ -99,58 +89,3 @@ func (fl *FileLink) GetNumParts() uint16 {
 	return fl.NumParts
 }
 
-// Marshal serialises the FileInfo for sending over the network.
-func (fi *FileInfo) Marshal() ([]byte, error) {
-	// Construct NewFileTransfer message
-	protoMsg := &FileInfoMsg{
-		FileName:      fi.FileName,
-		FileType:      fi.FileType,
-		Retry:         fi.Retry,
-		Preview:       fi.Preview,
-		Fid:           fi.FileID.Marshal(),
-		RecipientID:   fi.RecipientID.Marshal(),
-		SentTimestamp: fi.SentTimestamp.UnixNano(),
-		TransferKey:   fi.Key.Bytes(),
-		TransferMac:   fi.Mac,
-		Size:          fi.Size,
-		NumParts:      uint32(fi.NumParts),
-	}
-
-	return proto.Marshal(protoMsg)
-}
-
-// UnmarshalFileInfo deserializes the FileInfo.
-func UnmarshalFileInfo(data []byte) (*FileInfo, error) {
-	// Unmarshal the request message
-	var fi FileInfoMsg
-	err := proto.Unmarshal(data, &fi)
-	if err != nil {
-		return nil, errors.Wrapf(err, fileInfoMsgProtoUnmarshalErr, &fi)
-	}
-
-	fid, err := ftCrypto.UnmarshalID(fi.Fid)
-	if err != nil {
-		return nil, errors.Wrap(err, fileInfoFileIdUnmarshalErr)
-	}
-
-	recipientID, err := id.Unmarshal(fi.RecipientID)
-	if err != nil {
-		return nil, errors.Wrap(err, fileInfoRecipientIdUnmarshalErr)
-	}
-
-	return &FileInfo{
-		FileLink: FileLink{
-			FileID:        fid,
-			RecipientID:   recipientID,
-			SentTimestamp: time.Unix(0, fi.SentTimestamp),
-			Key:           ftCrypto.UnmarshalTransferKey(fi.GetTransferKey()),
-			Mac:           fi.TransferMac,
-			Size:          fi.Size,
-			NumParts:      uint16(fi.NumParts),
-			Retry:         fi.Retry,
-		},
-		FileName: fi.FileName,
-		FileType: fi.FileType,
-		Preview:  fi.Preview,
-	}, nil
-}

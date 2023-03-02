@@ -390,54 +390,40 @@ var _ EventModel = (*mockEventModel)(nil)
 
 // mockEventModel mocks the EventModel for testing.
 type mockEventModel struct {
-	cb    func(fileMsg)
-	files map[ftCrypto.ID]fileMsg
-	t     testing.TB
+	fileCB    func(ModelFile)
+	msgCB     func(modelMessage channels.ModelMessage)
+	files     map[ftCrypto.ID]ModelFile
+	messages  map[uint64]channels.ModelMessage
+	messageID uint64
+	t         testing.TB
 	sync.RWMutex
 }
 
-func newMockEventModel(cb func(fileMsg), t testing.TB) *mockEventModel {
-	return &mockEventModel{cb: cb, files: make(map[ftCrypto.ID]fileMsg), t: t}
+func newMockEventModel(fileCB func(ModelFile),
+	msgCB func(modelMessage channels.ModelMessage), t testing.TB) *mockEventModel {
+	return &mockEventModel{
+		fileCB:    fileCB,
+		msgCB:     msgCB,
+		files:     make(map[ftCrypto.ID]ModelFile),
+		messages:  make(map[uint64]channels.ModelMessage),
+		messageID: 0,
+		t:         t,
+	}
 }
 
-type fileMsg struct {
-	channelID   *id.ID
-	fileID      ftCrypto.ID
-	nickname    string
-	fileInfo    []byte
-	fileData    []byte
-	pubKey      ed25519.PublicKey
-	dmToken     uint32
-	codeset     uint8
-	timestamp   time.Time
-	lease       time.Duration
-	round       rounds.Round
-	messageType channels.MessageType
-	status      channels.SentStatus
-	pinned      bool
-	hidden      bool
-}
-
-func (m *mockEventModel) ReceiveFileMessage(channelID *id.ID, fileID ftCrypto.ID,
-	nickname string, fileInfo, fileData []byte, pubKey ed25519.PublicKey,
-	dmToken uint32, codeset uint8, timestamp time.Time, lease time.Duration,
-	round rounds.Round, messageType channels.MessageType,
-	status channels.SentStatus, hidden bool) uint64 {
+func (m *mockEventModel) ReceiveFile(fileID ftCrypto.ID, fileLink, fileData []byte,
+	timestamp time.Time, status FileStatus) error {
 	m.Lock()
 	defer m.Unlock()
 
-	m.files[fileID] = fileMsg{channelID, fileID, nickname, fileInfo,
-		fileData, pubKey, dmToken, codeset, timestamp, lease, round,
-		messageType, status, false, hidden}
+	m.files[fileID] = ModelFile{fileID, fileLink, fileData, timestamp, status}
 
-	m.cb(m.files[fileID])
-
-	return 0
+	go m.fileCB(m.files[fileID])
+	return nil
 }
 
-func (m *mockEventModel) UpdateFile(fileID ftCrypto.ID, fileInfo,
-	fileData *[]byte, timestamp *time.Time, round *rounds.Round, pinned,
-	hidden *bool, status *channels.SentStatus) error {
+func (m *mockEventModel) UpdateFile(fileID ftCrypto.ID, fileLink, fileData *[]byte,
+	timestamp *time.Time, status *FileStatus) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -446,46 +432,36 @@ func (m *mockEventModel) UpdateFile(fileID ftCrypto.ID, fileInfo,
 		return channels.NoMessageErr
 	}
 
-	if fileInfo != nil {
-		f.fileInfo = *fileInfo
+	if fileLink != nil {
+		f.FileLink = *fileLink
 	}
 	if fileData != nil {
-		f.fileData = *fileData
+		f.FileData = *fileData
 	}
 	if timestamp != nil {
-		f.timestamp = *timestamp
-	}
-	if round != nil {
-		f.round = *round
-	}
-	if pinned != nil {
-		f.pinned = *pinned
-	}
-	if hidden != nil {
-		f.hidden = *hidden
+		f.Timestamp = *timestamp
 	}
 	if status != nil {
-		f.status = *status
+		f.Status = *status
 	}
 
 	m.files[fileID] = f
 
-	m.cb(m.files[fileID])
+	go m.fileCB(m.files[fileID])
 
 	return nil
 }
 
-func (m *mockEventModel) GetFile(fileID ftCrypto.ID) (
-	fileInfo, fileData []byte, err error) {
+func (m *mockEventModel) GetFile(fileID ftCrypto.ID) (ModelFile, error) {
 	m.Lock()
 	defer m.Unlock()
 
 	f, exists := m.files[fileID]
 	if !exists {
-		return nil, nil, channels.NoMessageErr
+		return ModelFile{}, channels.NoMessageErr
 	}
 
-	return f.fileInfo, f.fileData, nil
+	return f, nil
 }
 
 func (m *mockEventModel) DeleteFile(fileID ftCrypto.ID) error {
@@ -502,8 +478,37 @@ func (m *mockEventModel) DeleteFile(fileID ftCrypto.ID) error {
 
 func (m *mockEventModel) JoinChannel(*cryptoBroadcast.Channel) { panic("implement me") }
 func (m *mockEventModel) LeaveChannel(*id.ID)                  { panic("implement me") }
-func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration, rounds.Round, channels.MessageType, channels.SentStatus, bool) uint64 {
-	panic("implement me")
+func (m *mockEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoMessage.ID, nickname,
+	text string, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
+	m.Lock()
+	defer m.Unlock()
+
+	newID := m.messageID
+	m.messageID++
+	m.messages[newID] = channels.ModelMessage{
+		UUID:            newID,
+		Nickname:        nickname,
+		MessageID:       messageID,
+		ChannelID:       channelID,
+		ParentMessageID: cryptoMessage.ID{},
+		Timestamp:       timestamp,
+		Lease:           lease,
+		Status:          status,
+		Hidden:          hidden,
+		Pinned:          false,
+		Content:         []byte(text),
+		Type:            messageType,
+		Round:           round.ID,
+		PubKey:          pubKey,
+		CodesetVersion:  codeset,
+		DmToken:         dmToken,
+	}
+
+	go m.msgCB(m.messages[newID])
+
+	return newID
 }
 func (m *mockEventModel) ReceiveReply(*id.ID, cryptoMessage.ID, cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration, rounds.Round, channels.MessageType, channels.SentStatus, bool) uint64 {
 	panic("implement me")
@@ -532,25 +537,22 @@ var _ channels.Manager = (*mockChannelsManager)(nil)
 
 // mockChannelsManager mocks the channels.Manager for testing.
 type mockChannelsManager struct {
-	nickname string
-	me       cryptoChannel.PrivateIdentity
-	emh      channels.ExtensionMessageHandler
+	me  cryptoChannel.PrivateIdentity
+	emh []channels.ExtensionMessageHandler
 }
 
-func newMockChannelsManager(ev EventModel, eb channels.ExtensionBuilder,
+func newMockChannelsManager(
 	me cryptoChannel.PrivateIdentity) (*mockChannelsManager, error) {
 	m := &mockChannelsManager{
-		nickname: "",
-		me:       me,
+		me:  me,
+		emh: []channels.ExtensionMessageHandler{},
 	}
-	emh, err := eb(ev, m, me)
-	if err != nil {
-		return nil, err
-	}
-
-	m.emh = emh[0]
 
 	return m, nil
+}
+
+func (m *mockChannelsManager) addEMH(emh ...channels.ExtensionMessageHandler) {
+	m.emh = append(m.emh, emh...)
 }
 
 func (m *mockChannelsManager) GenerateChannel(string, string,
@@ -572,9 +574,11 @@ func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	_ bool, _ cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
-	m.emh.Handle(channelID, cryptoMessage.ID{}, messageType, m.nickname, msg,
-		nil, m.me.PubKey, m.me.GetDMToken(), 0, netTime.Now(), netTime.Now(), validUntil, 0,
-		rounds.Round{}, channels.Delivered, false, false)
+	for _, emh := range m.emh {
+		emh.Handle(channelID, cryptoMessage.ID{}, messageType, "", msg, nil,
+			m.me.PubKey, m.me.GetDMToken(), 0, netTime.Now(), netTime.Now(),
+			validUntil, 0, rounds.Round{}, channels.Delivered, false, false)
+	}
 
 	return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, nil
 }
@@ -610,7 +614,7 @@ func (m *mockChannelsManager) SetNickname(string, *id.ID) error { panic("impleme
 func (m *mockChannelsManager) DeleteNickname(*id.ID) error      { panic("implement me") }
 
 func (m *mockChannelsManager) GetNickname(*id.ID) (nickname string, exists bool) {
-	return m.nickname, true
+	return "", false
 }
 
 func (m *mockChannelsManager) Muted(*id.ID) bool                        { panic("implement me") }

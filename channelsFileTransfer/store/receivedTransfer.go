@@ -10,12 +10,12 @@ package store
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"strconv"
 	"sync"
 
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -39,7 +39,7 @@ const (
 const (
 	// newReceivedTransfer
 	errRtNewCypherManager       = "failed to create new cypher manager: %+v"
-	errRtNewPartStatusVectorErr = "failed to create new state vector for part statuses: %+v"
+	errRtNewPartStatusVectorErr = "could not create new part status state vector"
 
 	// ReceivedTransfer.AddPart
 	errPartOutOfRange   = "part number %d out of range of max %d"
@@ -49,7 +49,8 @@ const (
 	errRtLoadCypherManager    = "failed to load cypher manager from storage: %+v"
 	errRtLoadFields           = "failed to load transfer MAC, number of parts, and file size: %+v"
 	errRtUnmarshalFields      = "failed to unmarshal transfer MAC, number of parts, and file size: %+v"
-	errRtUnmarshalPartialFile = "failed to unmarshal partial file: %+v"
+	errRtLoadPartStatusVector = "failed to load state vector for part statuses: %+v"
+	errRtLoadPart             = "[FT] Failed to load part #%d from storage: %+v"
 
 	// ReceivedTransfer.Delete
 	errRtDeleteCypherManager = "failed to delete cypher manager: %+v"
@@ -68,9 +69,6 @@ type ReceivedTransfer struct {
 
 	// The ID of the transfer
 	fid ftCrypto.ID
-
-	// User given name to file
-	fileName string
 
 	// ID of the recipient of the file transfer
 	recipient *id.ID
@@ -105,9 +103,8 @@ type ReceivedTransfer struct {
 // newReceivedTransfer generates a ReceivedTransfer with the specified transfer
 // key, file ID, and a number of parts.
 func newReceivedTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	fid ftCrypto.ID, fileName string, transferMAC []byte, fileSize uint32,
-	numParts, numFps uint16, disableKV bool, kv *versioned.KV) (
-	*ReceivedTransfer, error) {
+	fid ftCrypto.ID, transferMAC []byte, fileSize uint32, numParts,
+	numFps uint16, disableKV bool, kv *versioned.KV) (*ReceivedTransfer, error) {
 	kv = kv.Prefix(makeReceivedTransferPrefix(fid))
 
 	// Create new cypher manager
@@ -120,13 +117,12 @@ func newReceivedTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	partStatus, err := utility.NewStateVector(
 		uint32(numParts), disableKV, receivedTransferStatusKey, kv)
 	if err != nil {
-		return nil, errors.Errorf(errRtNewPartStatusVectorErr, err)
+		return nil, errors.Wrapf(err, errRtNewPartStatusVectorErr)
 	}
 
 	rt := &ReceivedTransfer{
 		cypherManager:            cypherManager,
 		fid:                      fid,
-		fileName:                 fileName,
 		recipient:                recipient,
 		transferMAC:              transferMAC,
 		fileSize:                 fileSize,
@@ -186,81 +182,6 @@ func (rt *ReceivedTransfer) getFile() []byte {
 	return file
 }
 
-// MarshalPartialFile returns the file as-is with data on which parts have been
-// received.
-func (rt *ReceivedTransfer) MarshalPartialFile() ([]byte, error) {
-	rt.mux.RLock()
-	defer rt.mux.RUnlock()
-
-	buff := bytes.NewBuffer(nil)
-
-	// Get partial file
-	partialFile := rt.getFile()
-
-	// Write length of partial file to buffer
-	err := binary.Write(buff, binary.LittleEndian, uint64(len(partialFile)))
-	if err != nil {
-		return nil, errors.Errorf(
-			"failed to write file length to buffer: %+v", err)
-	}
-
-	// Write partial file to buffer
-	buff.Write(partialFile)
-
-	// Write JSON encoded part status vector to buffer
-	err = json.NewEncoder(buff).Encode(rt.partStatus)
-	if err != nil {
-		return nil, errors.Errorf(
-			"failed to JSON marshal part statuses: %+v", err)
-	}
-
-	return buff.Bytes(), nil
-}
-
-// unmarshalPartialFile unmarshalls the data into a list of parts and the
-// accompanying part statuses vector.
-func (rt *ReceivedTransfer) unmarshalPartialFile(data []byte, partSize int) (
-	[][]byte, *utility.StateVector, error) {
-
-	buff := bytes.NewBuffer(data)
-
-	// Read file length from buffer
-	var fileLen uint64
-	err := binary.Read(buff, binary.LittleEndian, &fileLen)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to read file length")
-	}
-
-	// Read partial file from buffer
-	partialFile := make([]byte, fileLen)
-	n, err := buff.Read(partialFile)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to read file")
-	} else if n != int(fileLen) {
-		return nil, nil, errors.Errorf(
-			"read %d bytes for file; %d bytes expected", n, fileLen)
-	}
-
-	// JSON decode part status vector from buffer
-	partStatus, _ := utility.NewStateVector(
-		0, rt.disableKV, receivedTransferStatusKey, rt.kv)
-	err = json.NewDecoder(buff).Decode(partStatus)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to read part status vector")
-	}
-
-	// Split partial file into file parts
-	parts := make([][]byte, partStatus.GetNumKeys())
-	buff = bytes.NewBuffer(partialFile)
-	for i := uint32(0); i < partStatus.GetNumKeys(); i++ {
-		if partStatus.Used(i) {
-			parts[i] = buff.Next(partSize)
-		}
-	}
-
-	return parts, partStatus, nil
-}
-
 // GetUnusedCyphers returns a list of cyphers with unused fingerprint numbers.
 func (rt *ReceivedTransfer) GetUnusedCyphers() []cypher.Cypher {
 	return rt.cypherManager.GetUnusedCyphers()
@@ -269,11 +190,6 @@ func (rt *ReceivedTransfer) GetUnusedCyphers() []cypher.Cypher {
 // GetFileID returns the file's ID.
 func (rt *ReceivedTransfer) GetFileID() ftCrypto.ID {
 	return rt.fid
-}
-
-// FileName returns the transfer's file name.
-func (rt *ReceivedTransfer) FileName() string {
-	return rt.fileName
 }
 
 // GetRecipient returns the transfer's recipient ID.
@@ -319,7 +235,7 @@ func (rt *ReceivedTransfer) GetNewCallbackID() uint64 {
 // returns true. Returns false if they are the same.
 func (rt *ReceivedTransfer) CompareAndSwapCallbackFps(callbackID uint64,
 	completed bool, received, total uint16, err error) bool {
-	fp := GenerateReceivedFp(completed, received, total, err)
+	fp := generateReceivedFp(completed, received, total, err)
 
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
@@ -332,8 +248,8 @@ func (rt *ReceivedTransfer) CompareAndSwapCallbackFps(callbackID uint64,
 	return false
 }
 
-// GenerateReceivedFp generates a fingerprint for a received progress callback.
-func GenerateReceivedFp(completed bool, received, total uint16, err error) string {
+// generateReceivedFp generates a fingerprint for a received progress callback.
+func generateReceivedFp(completed bool, received, total uint16, err error) string {
 	errString := "<nil>"
 	if err != nil {
 		errString = err.Error()
@@ -351,8 +267,8 @@ func GenerateReceivedFp(completed bool, received, total uint16, err error) strin
 
 // loadReceivedTransfer loads the ReceivedTransfer with the given file ID from
 // storage.
-func loadReceivedTransfer(fid ftCrypto.ID, partialFile []byte, partSize int,
-	kv *versioned.KV) (*ReceivedTransfer, error) {
+func loadReceivedTransfer(
+	fid ftCrypto.ID, kv *versioned.KV) (*ReceivedTransfer, error) {
 	kv = kv.Prefix(makeReceivedTransferPrefix(fid))
 
 	// Load cypher manager
@@ -372,24 +288,36 @@ func loadReceivedTransfer(fid ftCrypto.ID, partialFile []byte, partSize int,
 		return nil, errors.Errorf(errRtUnmarshalFields, err)
 	}
 
+	// Load StateVector for storing statuses of received parts
+	partStatus, err := utility.LoadStateVector(kv, receivedTransferStatusKey)
+	if err != nil {
+		return nil, errors.Errorf(errRtLoadPartStatusVector, err)
+	}
+
+	// Load parts from storage
+	parts := make([][]byte, info.NumParts)
+	for i := range parts {
+		if partStatus.Used(uint32(i)) {
+			parts[i], err = loadPart(i, kv)
+			if err != nil {
+				jww.ERROR.Printf(errRtLoadPart, i, err)
+			}
+		}
+	}
+
 	rt := &ReceivedTransfer{
 		cypherManager:            cypherManager,
 		fid:                      fid,
-		fileName:                 info.FileName,
 		recipient:                info.Recipient,
 		transferMAC:              info.TransferMAC,
 		fileSize:                 info.FileSize,
 		numParts:                 info.NumParts,
+		parts:                    parts,
+		partStatus:               partStatus,
 		currentCallbackID:        0,
 		lastCallbackFingerprints: make(map[uint64]string),
 		disableKV:                false,
 		kv:                       kv,
-	}
-
-	// Load StateVector for storing statuses of received parts
-	rt.parts, rt.partStatus, err = rt.unmarshalPartialFile(partialFile, partSize)
-	if err != nil {
-		return nil, errors.Errorf(errRtUnmarshalPartialFile, err)
 	}
 
 	return rt, nil
@@ -449,7 +377,6 @@ func (rt *ReceivedTransfer) save() error {
 // receivedTransferDisk structure is used to marshal and unmarshal
 // ReceivedTransfer fields to/from storage.
 type receivedTransferDisk struct {
-	FileName    string `json:"fileName"`
 	Recipient   *id.ID `json:"recipient"`
 	TransferMAC []byte `json:"transferMAC"`
 	NumParts    uint16 `json:"numParts"`
@@ -459,7 +386,6 @@ type receivedTransferDisk struct {
 // marshal serialises the ReceivedTransfer's file information.
 func (rt *ReceivedTransfer) marshal() ([]byte, error) {
 	disk := receivedTransferDisk{
-		FileName:    rt.fileName,
 		Recipient:   rt.recipient,
 		TransferMAC: rt.transferMAC,
 		NumParts:    rt.numParts,

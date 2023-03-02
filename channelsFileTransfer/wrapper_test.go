@@ -8,12 +8,13 @@
 package channelsFileTransfer
 
 import (
+	"encoding/json"
+	"gitlab.com/elixxir/client/v4/channels"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -31,9 +32,6 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 	params := DefaultParams()
 	params.ResendWait = 5 * time.Second
 
-	evChan := make(chan fileMsg, 100)
-	ev := newMockEventModel(func(msg fileMsg) { evChan <- msg }, t)
-
 	// Set up the first client
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	storage1 := newMockStorage()
@@ -50,15 +48,15 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 		t.Fatalf("Failed to create new private identity 1: %+v", err)
 	}
 
-	_, err = newMockChannelsManager(ev, eb1, me1)
+	ch1, err := newMockChannelsManager(me1)
 	if err != nil {
 		t.Fatalf("Failed to create new mock channel manager 1: %+v", err)
 	}
 
-	stop1, err := w1.StartProcesses()
-	if err != nil {
-		t.Fatalf("Failed to start processes for manager 1: %+v", err)
-	}
+	evFileCh1 := make(chan ModelFile, 100)
+	evMsgCh1 := make(chan channels.ModelMessage, 100)
+	ev1 := newMockEventModel(func(msg ModelFile) { evFileCh1 <- msg },
+		func(msg channels.ModelMessage) { evMsgCh1 <- msg }, t)
 
 	// Set up the second client
 	myID2 := id.NewIdFromString("myID2", id.User, t)
@@ -76,9 +74,31 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 		t.Fatalf("Failed to create new private identity 2: %+v", err)
 	}
 
-	_, err = newMockChannelsManager(ev, eb2, me2)
+	ch2, err := newMockChannelsManager(me2)
 	if err != nil {
 		t.Fatalf("Failed to create new mock channel manager 2: %+v", err)
+	}
+
+	evFileCh2 := make(chan ModelFile, 100)
+	evMsgCh2 := make(chan channels.ModelMessage, 100)
+	ev2 := newMockEventModel(func(msg ModelFile) { evFileCh2 <- msg },
+		func(msg channels.ModelMessage) { evMsgCh2 <- msg }, t)
+
+	emh1, err := eb1(ev1, ch1, me1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	emh2, err := eb2(ev2, ch2, me2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ch1.addEMH(emh1[0], emh2[0])
+	ch2.addEMH(emh1[0], emh2[0])
+
+	stop1, err := w1.StartProcesses()
+	if err != nil {
+		t.Fatalf("Failed to start processes for manager 1: %+v", err)
 	}
 
 	stop2, err := w2.StartProcesses()
@@ -94,27 +114,20 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 	retry := float32(2.0)
 
 	// Upload file
-	fid, err := w1.Upload(
-		channelID, fileName, fileType, fileData, retry, preview, nil, 0)
+	fid, err := w1.Upload(fileData, retry, nil, 0)
 	if err != nil {
 		t.Fatalf("Failed to upload file: %+v", err)
 	}
 
 	// Check that file is added to the event model with expected values
 	select {
-	case f := <-evChan:
-		expected := fileMsg{
-			channelID:   channelID,
-			fileID:      fid,
-			nickname:    "",
-			fileData:    fileData,
-			pubKey:      me1.PubKey,
-			dmToken:     me1.GetDMToken(),
-			codeset:     0,
-			timestamp:   f.timestamp,
-			lease:       0,
-			messageType: channels.FileTransfer,
-			status:      channels.SendProcessing,
+	case f := <-evFileCh1:
+		expected := ModelFile{
+			FileID:    fid,
+			FileLink:  nil,
+			FileData:  fileData,
+			Timestamp: f.Timestamp,
+			Status:    Uploading,
 		}
 		if !reflect.DeepEqual(f, expected) {
 			t.Errorf("Unexpected data stored in event model."+
@@ -127,49 +140,59 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 	// Check that, once the upload is complete, the status is correctly changed,
 	// the file info is added to the event model, and the transfer was deleted
 	// from the sent transfers in the file manager
-	var fileInfo []byte
+	var fileLink []byte
 	select {
-	case f := <-evChan:
-		if f.status != channels.SendProcessingComplete {
+	case f := <-evFileCh1:
+		if f.Status != Complete {
 			t.Errorf("Uploaded file not marked as complete."+
-				"\nexpected: %s\nreceived: %s",
-				channels.SendProcessingComplete, f.status)
-		} else if f.fileInfo == nil {
-			t.Errorf("File info not set: %v", f.fileInfo)
-		} else if st, exists := w1.m.sent.GetTransfer(f.fileID); exists {
+				"\nexpected: %s\nreceived: %s", Complete, f.Status)
+		} else if f.FileLink == nil {
+			t.Errorf("File link not set: %v", f.FileLink)
+		} else if st, exists := w1.m.sent.GetTransfer(f.FileID); exists {
 			t.Errorf("Transfer not removed from sent transfers: %+v", st)
 		}
-		fileInfo = f.fileInfo
+		fileLink = f.FileLink
 	case <-time.After(timeout):
 		t.Fatalf("Timed out after %s waiting for file to upload.", timeout)
 	}
 
 	// Send the file to the channel
-	_, _, err = w1.Send(channelID, fileInfo, 0, xxdk.GetDefaultCMixParams())
+	_, _, _, err = w1.Send(channelID, fileLink, fileName, fileType, preview, 0,
+		xxdk.GetDefaultCMixParams())
 	if err != nil {
 		t.Fatalf("Failed to send file: %+v", err)
 	}
 
+	var fl FileLink
+	if err = json.Unmarshal(fileLink, &fl); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedFI := FileInfo{fileName, fileType, preview, fl}
+	expectedContent, err := json.Marshal(expectedFI)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Check that the file info is added to the event model
+	var fileInfo []byte
 	select {
-	case f := <-evChan:
-		expected := fileMsg{
-			channelID:   channelID,
-			fileID:      fid,
-			nickname:    "",
-			fileInfo:    fileInfo,
-			pubKey:      me1.PubKey,
-			dmToken:     me1.GetDMToken(),
-			codeset:     0,
-			timestamp:   f.timestamp,
-			lease:       0,
-			messageType: channels.FileTransfer,
-			status:      channels.Delivered,
+	case f := <-evMsgCh2:
+		expected := channels.ModelMessage{
+			ChannelID: channelID,
+			Timestamp: f.Timestamp,
+			Lease:     0,
+			Status:    channels.Delivered,
+			Content:   expectedContent,
+			Type:      channels.FileTransfer,
+			PubKey:    me1.PubKey,
+			DmToken:   me1.GetDMToken(),
 		}
 		if !reflect.DeepEqual(f, expected) {
 			t.Errorf("Unexpected data stored in event model."+
 				"\nexpected: %+v\nreceived: %+v", expected, f)
 		}
+		fileInfo = f.Content
 	case <-time.After(timeout):
 		t.Fatalf("Timed out after %s waiting for file info to be added to the "+
 			"event model.", timeout)
@@ -183,11 +206,10 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 
 	// Check that the download has started
 	select {
-	case f := <-evChan:
-		if f.status != channels.ReceptionProcessing {
+	case f := <-evFileCh2:
+		if f.Status != Downloading {
 			t.Errorf("Download file not marked as started."+
-				"\nexpected: %s\nreceived: %s",
-				channels.ReceptionProcessing, f.status)
+				"\nexpected: %s\nreceived: %s", Downloading, f.Status)
 		}
 	case <-time.After(timeout):
 		t.Fatalf("Timed out after %s waiting for download to start.", timeout)
@@ -195,26 +217,19 @@ func Test_FileTransfer_Smoke2(t *testing.T) {
 
 	// Check that the completed file is added to the event model
 	select {
-	case f := <-evChan:
-		expected := fileMsg{
-			channelID:   channelID,
-			fileID:      fid,
-			nickname:    "",
-			fileInfo:    fileInfo,
-			fileData:    fileData,
-			pubKey:      me1.PubKey,
-			dmToken:     me1.GetDMToken(),
-			codeset:     0,
-			timestamp:   f.timestamp,
-			lease:       0,
-			messageType: channels.FileTransfer,
-			status:      channels.ReceptionProcessingComplete,
+	case f := <-evFileCh2:
+		expected := ModelFile{
+			FileID:    fid,
+			FileLink:  fileLink,
+			FileData:  fileData,
+			Timestamp: f.Timestamp,
+			Status:    Complete,
 		}
 		if !reflect.DeepEqual(f, expected) {
 			t.Errorf("Unexpected data stored in event model."+
 				"\nexpected: %+v\nreceived: %+v", expected, f)
 		}
-		if rt, exists := w2.m.received.GetTransfer(f.fileID); exists {
+		if rt, exists := w2.m.received.GetTransfer(f.FileID); exists {
 			t.Errorf("Transfer not removed from received transfers: %+v", rt)
 		}
 	case <-time.After(timeout):

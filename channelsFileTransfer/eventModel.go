@@ -20,16 +20,16 @@ import (
 type EventModel interface {
 	// ReceiveFile is called when a file upload or download beings.
 	//
-	// The API needs to return a UUID of the message that can be referenced at a
-	// later time.
-	//
 	// fileLink, fileData, and timestamp are nillable and may be updated based
 	// upon the UUID or file ID later. A time of time.Time{} will be passed for
 	// a nilled timestamp.
 	//
-	// fileLink is the JSON of FileLink.
+	// fileID is always unique to the fileData. fileLink is the JSON of
+	// FileLink.
+	//
+	// Returns any fatal errors.
 	ReceiveFile(fileID ftCrypto.ID, fileLink, fileData []byte,
-		timestamp time.Time, status FileStatus) uint64
+		timestamp time.Time, status FileStatus) error
 
 	// UpdateFile is called when a file upload or download completes or changes.
 	//
@@ -49,16 +49,10 @@ type EventModel interface {
 	// channels.NoMessageErr if the file does not exist.
 	GetFile(fileID ftCrypto.ID) (ModelFile, error)
 
-	// GetFiles returns a map of each ModelFile for each file ID.
-	//
-	// If a file does not exist, it is excluded from the returned map.
-	//
-	// Returns any fatal error.
-	GetFiles(fileIDs []ftCrypto.ID) (map[ftCrypto.ID]ModelFile, error)
-
 	// DeleteFile deletes the file with the given file ID.
 	//
-	// It must return channels.NoMessageErr if the file does not exist.
+	// Returns fatal errors. It must return channels.NoMessageErr if the file
+	// does not exist.
 	DeleteFile(fileID ftCrypto.ID) error
 
 	channels.EventModel
@@ -66,12 +60,21 @@ type EventModel interface {
 
 // ModelFile contains a file and all of its information.
 type ModelFile struct {
-	UUID      uint64      `json:"uuid"`
-	FileID    ftCrypto.ID `json:"fileID"`
-	FileLink  []byte      `json:"fileLink"`
-	FileData  []byte      `json:"fileData"`
-	Timestamp time.Time   `json:"timestamp"`
-	Status    FileStatus  `json:"status"`
+	// FileID is the unique ID of this file.
+	FileID ftCrypto.ID `json:"fileID"`
+
+	// FileLink contains all the information needed to download the file data.
+	// It is the JSON of [FileLink].
+	FileLink []byte `json:"fileLink"`
+
+	// FileData is the contents of the file.
+	FileData []byte `json:"fileData"`
+
+	// Timestamp is the last time the file data, link, or status was modified.
+	Timestamp time.Time `json:"timestamp"`
+
+	// The current status of the file in the event model.
+	Status FileStatus `json:"status"`
 }
 
 // FileStatus is the current status of a file stored in the event model.

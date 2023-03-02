@@ -20,11 +20,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
-// SendCompleteCallback is called when a file transfer has successfully sent.
-// The returned FileLink can be marshalled and sent to others so that they can
-// receive the file.
-type SendCompleteCallback func(fi FileLink)
-
 // SentProgressCallback is a callback function that tracks the progress of
 // sending a file.
 //
@@ -76,23 +71,22 @@ type FileTransfer interface {
 	MaxPreviewSize() int
 
 	/* === Sending ========================================================== */
-	/* The process of sending a file involves three main steps:
-		1.  Upload the file to a new identity using Upload. It is added to the
-			event model with the status SendProcessing.
-		2.  Wait for the file to be marked as SendProcessingComplete in the
-			event model and get the file info stored there.
-		3.  Send the file info to the channel using Send.
-
-	   When the file is uploaded, it is broken into individual, equal-length
-	   parts and sent to a randomly generated ID. Every time one of these parts
-	   is sent or received, it is reported on all registered
-	   SentProgressCallbacks for that transfer.
-
-	   A SentProgressCallback is registered on the initial upload. However, if
-	   the client is closed and reopened, the callback must be registered again
-	   using RegisterSentProgressCallback; otherwise, the continued progress of
-	   the transfer will not be reported.
-	*/
+	// The process of sending a file involves three main steps:
+	//  1. Upload the file to a new identity using Upload. It is added to the
+	//     event model with the status SendProcessing.
+	//  2. Wait for the file to be marked as SendProcessingComplete in the event
+	//     model and get the file info stored there.
+	//  3. Send the file info to the channel using Send.
+	//
+	// When the file is uploaded, it is broken into individual, equal-length
+	// parts and sent to a randomly generated ID. Every time one of these parts
+	// is sent or received, it is reported on all registered
+	// SentProgressCallbacks for that transfer.
+	//
+	// A SentProgressCallback is registered on the initial upload. However, if
+	// the client is closed and reopened, the callback must be registered again
+	// using RegisterSentProgressCallback; otherwise, the continued progress of
+	// the transfer will not be reported.
 
 	// Upload starts uploading the file to a new ID that can be sent to the
 	// specified channel when complete. To get progress information about the
@@ -187,23 +181,21 @@ type FileTransfer interface {
 	CloseSend(fileID ftCrypto.ID) error
 
 	/* === Receiving ======================================================== */
-	/* The processes of receiving a file involves four main steps:
-		1. Receiving a new file transfer through a channel set up by the
-		   caller.
-		2. Registering the file transfer and a progress callback with
-		   HandleIncomingTransfer.
-		3. Receiving transfer progress on the progress callback.
-		4. Receiving the complete file using Receive once the callback says
-		   the transfer is complete.
-
-	   Once the file transfer manager has started, it will call the
-	   ReceiveCallback for every new file transfer that is received. Once that
-	   happens, a ReceivedProgressCallback must be registered using
-	   RegisterReceivedProgressCallback to get progress updates on the transfer.
-
-	   When the progress callback reports that the transfer is complete, the
-	   full file can be retrieved using Receive.
-	*/
+	// The processes of receiving a file involves four main steps:
+	//  1. Receiving a new file transfer through a channel set up by the caller.
+	//  2. Registering the file transfer and a progress callback with
+	//     HandleIncomingTransfer.
+	//  3. Receiving transfer progress on the progress callback.
+	//  4. Receiving the complete file using Receive once the callback says the
+	//     transfer is complete.
+	//
+	// Once the file transfer manager has started, it will call the
+	// ReceiveCallback for every new file transfer that is received. Once that
+	// happens, a ReceivedProgressCallback must be registered using
+	// RegisterReceivedProgressCallback to get progress updates on the transfer.a
+	//
+	// When the progress callback reports that the transfer is complete, the
+	// full file can be retrieved using Receive.
 
 	// Download begins the download of the file described in the marshalled
 	// FileInfo. The progress of the download is reported on the

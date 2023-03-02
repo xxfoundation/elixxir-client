@@ -82,6 +82,7 @@ func NewOrLoadSent(kv *versioned.KV) (*Sent, []ftCrypto.ID, error) {
 // It returns unsentParts, a list of all parts that were not sent, and
 // sentParts, a list of all file parts that have been sent but reception has not
 // been confirmed.
+// TODO: remove and update tests
 func (s *Sent) LoadTransfers(fileParts map[ftCrypto.ID][][]byte) (
 	unsentParts, sentParts []*Part, err error) {
 
@@ -89,18 +90,17 @@ func (s *Sent) LoadTransfers(fileParts map[ftCrypto.ID][][]byte) (
 	var errCount, i int
 	for fid, parts := range fileParts {
 		i++
-		s.transfers[fid], err = loadSentTransfer(fid, parts, s.kv)
-		if err != nil {
+
+		st, err2 := s.LoadTransfer(fid, parts)
+		if err2 != nil {
 			jww.WARN.Printf(warnLoadSentTransfer, i, len(fileParts), fid, err)
 			errCount++
 			continue
 		}
 
 		if s.transfers[fid].Status() == Running {
-			unsentParts =
-				append(unsentParts, s.transfers[fid].GetUnsentParts()...)
-			sentParts =
-				append(sentParts, s.transfers[fid].GetSentParts()...)
+			unsentParts = append(unsentParts, st.GetUnsentParts()...)
+			sentParts = append(sentParts, st.GetSentParts()...)
 		}
 	}
 
@@ -110,6 +110,26 @@ func (s *Sent) LoadTransfers(fileParts map[ftCrypto.ID][][]byte) (
 	}
 
 	return unsentParts, sentParts, nil
+}
+
+// LoadTransfer loads the sent transfer with the file ID from storage into Sent
+// and returns it.
+// TODO: test
+func (s *Sent) LoadTransfer(
+	fid ftCrypto.ID, parts [][]byte) (*SentTransfer, error) {
+	// Load sent transfers from storage
+	st, err := loadSentTransfer(fid, parts, s.kv)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add sent transfer to transfer list
+	if _, exists := s.transfers[fid]; exists {
+		return nil, errors.Errorf(errAddExistingSentTransfer, fid)
+	}
+	s.transfers[fid] = st
+
+	return st, nil
 }
 
 // AddTransfer creates a SentTransfer and adds it to the map keyed on its file

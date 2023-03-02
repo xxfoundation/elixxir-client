@@ -20,12 +20,10 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/cypher"
-	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 // Tests that newReceivedTransfer returns a new ReceivedTransfer with the
@@ -53,7 +51,6 @@ func Test_newReceivedTransfer(t *testing.T) {
 	expected := &ReceivedTransfer{
 		cypherManager:            cypherManager,
 		fid:                      fid,
-		fileName:                 "fileName",
 		recipient:                id.NewIdFromString("blob", id.User, t),
 		transferMAC:              []byte("transferMAC"),
 		fileSize:                 fileSize,
@@ -67,8 +64,7 @@ func Test_newReceivedTransfer(t *testing.T) {
 	}
 
 	rt, err := newReceivedTransfer(expected.recipient, &key, fid,
-		expected.fileName, expected.transferMAC, fileSize, numParts, numFps,
-		false, kv)
+		expected.transferMAC, fileSize, numParts, numFps, false, kv)
 	if err != nil {
 		t.Errorf("newReceivedTransfer returned an error: %+v", err)
 	}
@@ -144,44 +140,6 @@ func TestReceivedTransfer_GetFile(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedTransfer.MarshalPartialFile returns bytes that can be
-// unmarshalled by unmarshalPartialFile to result in the same part list and part
-// status vector.
-func TestReceivedTransfer_MarshalPartialFile_UnmarshalPartialFile(t *testing.T) {
-	// Generate parts and make last file part smaller than the rest
-	parts, _ := generateTestParts(16)
-	rt, _, _, _, _ := newTestReceivedTransfer(uint16(len(parts)), t)
-
-	for i, p := range parts {
-		if i%2 == 0 {
-			if err := rt.AddPart(p, i); err != nil {
-				t.Errorf("Failed to add part #%d: %+v", i, err)
-			}
-		}
-	}
-
-	data, err := rt.MarshalPartialFile()
-	if err != nil {
-		t.Errorf("Failed to martial partial file: %+v", err)
-	}
-
-	partSize := fileMessage.NewPartMessage(
-		format.NewMessage(numPrimeBytes).ContentsSize()).GetPartSize()
-	parts, partStatus, err := rt.unmarshalPartialFile(data, partSize)
-	if err != nil {
-		t.Errorf("Failed to unmarshal partial data: %+v", err)
-	}
-
-	if !reflect.DeepEqual(rt.parts, parts) {
-		t.Errorf("Incorrect parts.\nexpected:%#v\nreceived:%#v", rt.parts, parts)
-	}
-
-	if !reflect.DeepEqual(rt.partStatus, partStatus) {
-		t.Errorf("Incorrect part status vector.\nexpected:%#v\nreceived:%#v",
-			rt.partStatus, partStatus)
-	}
-}
-
 // Tests that ReceivedTransfer.GetUnusedCyphers returns the correct number of
 // unused cyphers.
 func TestReceivedTransfer_GetUnusedCyphers(t *testing.T) {
@@ -232,16 +190,6 @@ func TestReceivedTransfer_GetFileID(t *testing.T) {
 	if rt.GetFileID() != rt.fid {
 		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
 			rt.fid, rt.GetFileID())
-	}
-}
-
-// Tests that ReceivedTransfer.FileName returns the correct file name.
-func TestReceivedTransfer_FileName(t *testing.T) {
-	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
-
-	if rt.FileName() != rt.fileName {
-		t.Errorf("Incorrect file name.\nexpected: %s\nreceived: %s",
-			rt.fileName, rt.FileName())
 	}
 }
 
@@ -330,7 +278,7 @@ func TestReceivedTransfer_CopyPartStatusVector(t *testing.T) {
 func TestReceivedTransfer_CompareAndSwapCallbackFps(t *testing.T) {
 	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
-	expected := GenerateReceivedFp(true, 1, 3, nil)
+	expected := generateReceivedFp(true, 1, 3, nil)
 	if !rt.CompareAndSwapCallbackFps(5, true, 1, 3, nil) {
 		t.Error("Did not swap when there is a new fingerprint.")
 	} else if expected != rt.lastCallbackFingerprints[5] {
@@ -343,7 +291,7 @@ func TestReceivedTransfer_CompareAndSwapCallbackFps(t *testing.T) {
 		t.Error("Compared and swapped fingerprints when there was no change.")
 	}
 
-	expected = GenerateReceivedFp(false, 4, 15, errors.New("Error"))
+	expected = generateReceivedFp(false, 4, 15, errors.New("Error"))
 	if !rt.CompareAndSwapCallbackFps(5, false, 4, 15, errors.New("Error")) {
 		t.Error("Did not swap when there is a new fingerprint.")
 	} else if expected != rt.lastCallbackFingerprints[5] {
@@ -353,8 +301,8 @@ func TestReceivedTransfer_CompareAndSwapCallbackFps(t *testing.T) {
 	}
 }
 
-// Consistency test of GenerateReceivedFp.
-func Test_GenerateReceivedFp(t *testing.T) {
+// Consistency test of generateReceivedFp.
+func Test_generateReceivedFp(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	type test struct {
 		completed       bool
@@ -387,7 +335,7 @@ func Test_GenerateReceivedFp(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		fp := GenerateReceivedFp(tt.completed, uint16(tt.received),
+		fp := generateReceivedFp(tt.completed, uint16(tt.received),
 			uint16(tt.total), tt.err)
 
 		if fp != tt.expected {
@@ -416,20 +364,14 @@ func Test_loadReceivedTransfer(t *testing.T) {
 		}
 	}
 
-	partialFile, _ := rt.MarshalPartialFile()
-	partSize := fileMessage.NewPartMessage(
-		format.NewMessage(numPrimeBytes).ContentsSize()).GetPartSize()
-	loadedRt, err := loadReceivedTransfer(rt.fid, partialFile, partSize, kv)
+	loadedRt, err := loadReceivedTransfer(rt.fid, kv)
 	if err != nil {
 		t.Errorf("Failed to load ReceivedTransfer: %+v", err)
 	}
 
-	// loadedRt.partStatus = rt.partStatus
 	if !reflect.DeepEqual(rt, loadedRt) {
 		t.Errorf("Loaded ReceivedTransfer does not match original."+
 			"\nexpected: %+v\nreceived: %+v", rt, loadedRt)
-		t.Errorf("Loaded ReceivedTransfer does not match original."+
-			"\nexpected: %+v\nreceived: %+v", rt.partStatus, loadedRt.partStatus)
 	}
 }
 
@@ -443,10 +385,7 @@ func TestReceivedTransfer_Delete(t *testing.T) {
 		t.Errorf("Delete returned an error: %+v", err)
 	}
 
-	partialFile, _ := rt.MarshalPartialFile()
-	partSize := fileMessage.NewPartMessage(
-		format.NewMessage(numPrimeBytes).ContentsSize()).GetPartSize()
-	_, err = loadReceivedTransfer(rt.fid, partialFile, partSize, kv)
+	_, err = loadReceivedTransfer(rt.fid, kv)
 	if err == nil {
 		t.Errorf("Loaded received transfer that was deleted.")
 	}
@@ -478,12 +417,11 @@ func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 	fid := ftCrypto.NewID([]byte("fileData"))
 	transferMAC := []byte("I am a transfer MAC")
 	numFps = 2 * numParts
-	fileName := "helloFile"
 	_, file = generateTestParts(numParts)
 	fileSize := uint32(len(file))
 
-	rt, err := newReceivedTransfer(recipient, &keyTmp, fid, fileName,
-		transferMAC, fileSize, numParts, numFps, false, kv)
+	rt, err := newReceivedTransfer(recipient, &keyTmp, fid, transferMAC,
+		fileSize, numParts, numFps, false, kv)
 	if err != nil {
 		t.Errorf("Failed to make new ReceivedTransfer: %+v", err)
 	}
@@ -495,14 +433,13 @@ func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 // unmarshalled via unmarshalReceivedTransfer matches the original.
 func TestReceivedTransfer_marshal_unmarshalReceivedTransfer(t *testing.T) {
 	rt := &ReceivedTransfer{
-		fileName:    "transferName",
 		recipient:   id.NewIdFromString("recipient", id.User, t),
 		transferMAC: []byte("I am a transfer MAC"),
 		fileSize:    735,
 		numParts:    153,
 	}
 	expected := receivedTransferDisk{
-		rt.fileName, rt.recipient, rt.transferMAC, rt.numParts, rt.fileSize}
+		rt.recipient, rt.transferMAC, rt.numParts, rt.fileSize}
 
 	data, err := rt.marshal()
 	if err != nil {

@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage"
 )
 
 //go:embed loremIpsum.txt
@@ -26,9 +25,6 @@ var _ FileTransfer = (*Wrapper)(nil)
 
 // Tests that Cmix adheres to the cmix.Client interface.
 var _ Cmix = (cmix.Client)(nil)
-
-// Tests that Storage adheres to the storage.Session interface.
-var _ Storage = (storage.Session)(nil)
 
 // Tests that partitionFile partitions the given file into the expected parts.
 func Test_partitionFile(t *testing.T) {
@@ -96,7 +92,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 	m1 := ftm1.(*manager)
 
-	stop1, err := m1.StartProcesses()
+	stop1, err := m1.startProcesses()
 	if err != nil {
 		t.Errorf("Failed to start processes for manager 1: %+v", err)
 	}
@@ -112,7 +108,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 	m2 := ftm2.(*manager)
 
-	stop2, err := m2.StartProcesses()
+	stop2, err := m2.startProcesses()
 	if err != nil {
 		t.Errorf("Failed to start processes for manager 2: %+v", err)
 	}
@@ -133,7 +129,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 
 	// Send file.
-	_, err = m1.Send(fileName, fileType, fileData, retry, preview,
+	_, err = m1.send(fileName, fileType, fileData, retry, preview,
 		completeCB, sentProgressCb1, 0)
 	if err != nil {
 		t.Errorf("Failed to send file: %+v", err)

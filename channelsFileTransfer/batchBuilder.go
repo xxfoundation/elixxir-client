@@ -118,7 +118,8 @@ func generateRandomPacketSize(rngGen *fastRNG.StreamGenerator) int {
 	// Generate random bytes
 	b, err := csprng.Generate(8, rng)
 	if err != nil {
-		jww.FATAL.Panicf(getRandomNumPartsRandPanic, err)
+		jww.FATAL.Panicf("[FT] Failed to generate random number of file "+
+			"parts to send: %+v", err)
 	}
 
 	// Convert bytes to integer

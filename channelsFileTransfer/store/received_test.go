@@ -16,14 +16,11 @@ import (
 	"strconv"
 	"testing"
 
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
-
-	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests that NewOrLoadReceived returns a new Received when none exist in
@@ -68,7 +65,7 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 		key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 		prng.Read(fileData)
 		fid := ftCrypto.NewID(fileData)
-		_, err = r.AddTransfer(recipient, &key, fid, "file"+strconv.Itoa(i),
+		_, err = r.AddTransfer(recipient, &key, fid,
 			[]byte("transferMAC"+strconv.Itoa(i)), 128, 10, 20)
 		if err != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err)
@@ -101,8 +98,8 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 }
 
 // Tests that NewOrLoadReceived returns a loaded Received when one exist in
-// storage and that Sent.LoadTransfers returns the correct list of incomplete
-// transfers.
+// storage and that Received.LoadTransfers returns the correct list of
+// incomplete transfers.
 func TestReceived_LoadTransfers(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	prng := rand.New(rand.NewSource(42))
@@ -111,7 +108,6 @@ func TestReceived_LoadTransfers(t *testing.T) {
 		t.Errorf("Failed to make new Received: %+v", err)
 	}
 	var expectedIncompleteTransfers []*ReceivedTransfer
-	partialFiles := make(map[ftCrypto.ID][]byte)
 	fileData := make([]byte, 64)
 
 	// Create and add transfers to map and save
@@ -120,28 +116,24 @@ func TestReceived_LoadTransfers(t *testing.T) {
 		key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 		prng.Read(fileData)
 		fid := ftCrypto.NewID(fileData)
-		rt, err2 := r.AddTransfer(recipient, &key, fid, "file"+strconv.Itoa(i),
+		rt, err2 := r.AddTransfer(recipient, &key, fid,
 			[]byte("transferMAC"+strconv.Itoa(i)), 128, 10, 20)
 		if err2 != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err2)
 		}
 		expectedIncompleteTransfers = append(expectedIncompleteTransfers, rt)
-		partialFiles[fid], _ = rt.MarshalPartialFile()
 	}
 	if err = r.save(); err != nil {
 		t.Errorf("Failed to make save filled Receivced: %+v", err)
 	}
 
 	// Load Received
-	loadedReceived, _, err := NewOrLoadReceived(false, kv)
+	loadedReceived, fidList, err := NewOrLoadReceived(false, kv)
 	if err != nil {
 		t.Errorf("Failed to load Received: %+v", err)
 	}
 
-	partSize := fileMessage.NewPartMessage(
-		format.NewMessage(numPrimeBytes).ContentsSize()).GetPartSize()
-	incompleteTransfers, err :=
-		loadedReceived.LoadTransfers(partialFiles, partSize)
+	incompleteTransfers, err := loadedReceived.LoadTransfers(fidList)
 	if err != nil {
 		t.Errorf("Failed to load received transfers: %+v", err)
 	}
@@ -178,8 +170,8 @@ func TestReceived_AddTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 
-	rt, err := r.AddTransfer(
-		recipient, &key, fid, "file", []byte("transferMAC"), 128, 10, 20)
+	rt, err :=
+		r.AddTransfer(recipient, &key, fid, []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -199,7 +191,7 @@ func TestReceived_AddTransfer_TransferAlreadyExists(t *testing.T) {
 	}
 
 	expectedErr := fmt.Sprintf(errAddExistingReceivedTransfer, fid)
-	_, err := r.AddTransfer(nil, nil, fid, "", nil, 0, 0, 0)
+	_, err := r.AddTransfer(nil, nil, fid, nil, 0, 0, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -215,8 +207,8 @@ func TestReceived_GetTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 
-	rt, err := r.AddTransfer(
-		recipient, &key, fid, "file", []byte("transferMAC"), 128, 10, 20)
+	rt, err :=
+		r.AddTransfer(recipient, &key, fid, []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -242,8 +234,8 @@ func TestReceived_RemoveTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 
-	rt, err := r.AddTransfer(
-		recipient, &key, fid, "file", []byte("transferMAC"), 128, 10, 20)
+	rt, err :=
+		r.AddTransfer(recipient, &key, fid, []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -280,12 +272,12 @@ func TestReceived_RemoveTransfers(t *testing.T) {
 	fid2 := ftCrypto.NewID([]byte("fileData2"))
 
 	rt1, err := r.AddTransfer(
-		recipient1, &key1, fid1, "file1", []byte("transferMAC1"), 128, 10, 20)
+		recipient1, &key1, fid1, []byte("transferMAC1"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 	rt2, err := r.AddTransfer(
-		recipient2, &key2, fid2, "file2", []byte("transferMAC2"), 64, 16, 45)
+		recipient2, &key2, fid2, []byte("transferMAC2"), 64, 16, 45)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}

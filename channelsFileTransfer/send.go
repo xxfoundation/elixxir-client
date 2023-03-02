@@ -28,9 +28,6 @@ import (
 
 // Error messages.
 const (
-	// generateRandomPacketSize
-	getRandomNumPartsRandPanic = "[FT] Failed to generate random number of file parts to send: %+v"
-
 	// manager.sendCmix
 	errNoMoreRetries = "file transfer failed: ran our of retries."
 )
@@ -291,8 +288,8 @@ func calcWaitTime(
 // updates their status in the store.SentTransfer. It also updates the sent
 // progress callback on updates and clears the file from memory when the
 // transfer completed.
-func (m *manager) checkedReceivedParts(st *store.SentTransfer, fi *FileInfo,
-	completeCB SendCompleteCallback) ReceivedProgressCallback {
+func (m *manager) checkedReceivedParts(st *store.SentTransfer, fl *FileLink,
+	completeCB sendCompleteCallback) ReceivedProgressCallback {
 	return func(
 		_ bool, _, _ uint16, rt ReceivedTransfer, t FilePartTracker, err error) {
 		// Propagate the error to the sent progress callback
@@ -329,14 +326,20 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, fi *FileInfo,
 		if st.Status() == store.Completed {
 			jww.DEBUG.Printf("[FT] Completed sending and receiving file %s.",
 				st.GetFileID())
-			if err = m.CloseSend(st.GetFileID()); err != nil {
-				jww.ERROR.Printf("Failed to close file transfer send: %+v", err)
+			if err = m.closeSend(st); err != nil {
+				jww.ERROR.Printf(
+					"[FT] Failed to close file transfer send: %+v", err)
 			}
-			if _, err = m.Receive(rt.GetFileID()); err != nil {
-				jww.ERROR.Printf("Failed to receive file transfer: %+v", err)
+			if _, err = m.receiveFromID(rt.GetFileID()); err != nil {
+				jww.ERROR.Printf(
+					"[FT] Failed to receive file transfer: %+v", err)
 			}
 
-			go completeCB(fi.FileLink)
+			// FIXME: Possible bug: The send thinks it failed, but the receiver
+			//  actually gets all the parts. This will cause the (sent) progress
+			//  callback to return with an error but the completed callback to
+			//  be called successfully.
+			go completeCB(*fl)
 		}
 	}
 }

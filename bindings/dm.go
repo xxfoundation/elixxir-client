@@ -169,18 +169,12 @@ func (dc *DMClient) ExportPrivateIdentity(password string) ([]byte, error) {
 	return dc.api.ExportPrivateIdentity(password)
 }
 
-// GetNickname gets a nickname associated with this DM partner
-// (reception) ID.
-func (dc *DMClient) GetNickname(idBytes []byte) (string, error) {
-	chid, err := id.Unmarshal(idBytes)
-	if err != nil {
-		return "", err
-	}
-	nick, exists := dc.api.GetNickname(chid)
+// GetNickname gets a nickname associated with this DM user
+func (cm *DMClient) GetNickname() (string, error) {
+	nick, exists := cm.api.GetNickname()
 	if !exists {
 		return "", errors.New("no nickname found")
 	}
-
 	return nick, nil
 }
 

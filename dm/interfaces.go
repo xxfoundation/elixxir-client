@@ -125,7 +125,8 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
 	Receive(messageID cryptoMessage.ID,
-		nickname string, text []byte, pubKey ed25519.PublicKey,
+		nickname string, text []byte,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
 		dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status Status) uint64
@@ -145,7 +146,9 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
 	ReceiveText(messageID cryptoMessage.ID,
-		nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
+		nickname, text string,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, status Status) uint64
 
@@ -169,7 +172,8 @@ type EventModel interface {
 	// display the codename.
 	ReceiveReply(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, text string,
-		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -193,7 +197,8 @@ type EventModel interface {
 	// display the codename.
 	ReceiveReaction(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, reaction string,
-		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -245,9 +250,8 @@ type cMixClient interface {
 // NickNameManager interface is an object that handles the mapping of nicknames
 // to cMix reception IDs.
 type NickNameManager interface {
-	// GetNickname gets a nickname associated with this DM partner
-	// (reception) ID.
-	GetNickname(id *id.ID) (string, bool)
+	// GetNickname gets a nickname associated with this DM User
+	GetNickname() (string, bool)
 	// SetNickname sets the nickname to use
 	SetNickname(nick string)
 }
@@ -260,7 +264,7 @@ type SendTracker interface {
 		updateStatus updateStatusFunc, rng *fastRNG.StreamGenerator)
 
 	// DenotePendingSend registers a new message to be tracked for sending
-	DenotePendingSend(partnerPublicKey ed25519.PublicKey,
+	DenotePendingSend(partnerPublicKey, senderPubKey ed25519.PublicKey,
 		partnerToken uint32,
 		messageType MessageType,
 		msg *DirectMessage) (uuid uint64, err error)

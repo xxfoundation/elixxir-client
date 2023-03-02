@@ -37,8 +37,9 @@ type DMReceiver interface {
 	//  - text - The bytes content of the message.
 	//  - timestamp - Time the message was received; represented
 	//    as nanoseconds since unix epoch.
-	//  - pubKey - The sender's Ed25519 public key. This is
+	//  - partnerKey - The partners's Ed25519 public key. This is
 	//    required to respond.
+	//  - senderKey - The sender's Ed25519 public key.
 	//  - dmToken - The senders direct messaging token. This is
 	//    required to respond.
 	//  - codeset - The codeset version.
@@ -54,11 +55,12 @@ type DMReceiver interface {
 	//
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
-	Receive(messageID []byte, nickname string, text []byte, pubKey []byte,
+	Receive(messageID []byte, nickname string, text []byte,
+		partnerKey, senderKey []byte,
 		dmToken int32, codeset int, timestamp,
 		roundId, mType, status int64) int64
 
-	// ReceiveTest is called whenever a direct message is
+	// ReceiveText is called whenever a direct message is
 	// received that is a text type. It may be called multiple times
 	// on the same message. It is incumbent on the user of the API
 	// to filter such called by message ID.
@@ -72,8 +74,9 @@ type DMReceiver interface {
 	//    message.
 	//  - nickname - The nickname of the sender of the message.
 	//  - text - The content of the message.
-	//  - pubKey - The sender's Ed25519 public key. This is
+	//  - partnerKey - The partners's Ed25519 public key. This is
 	//    required to respond.
+	//  - senderKey - The sender's Ed25519 public key.
 	//  - dmToken - The senders direct messaging token. This is
 	//    required to respond.
 	//  - codeset - The codeset version.
@@ -90,7 +93,8 @@ type DMReceiver interface {
 	//
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
-	ReceiveText(messageID []byte, nickname, text string, pubKey []byte,
+	ReceiveText(messageID []byte, nickname, text string,
+		partnerKey, senderKey []byte,
 		dmToken int32, codeset int, timestamp,
 		roundId, status int64) int64
 
@@ -110,8 +114,9 @@ type DMReceiver interface {
 	//    that received a reply.
 	//  - nickname - The nickname of the sender of the message.
 	//  - text - The content of the message.
-	//  - pubKey - The sender's Ed25519 public key. This is
+	//  - partnerKey - The partners's Ed25519 public key. This is
 	//    required to respond.
+	//  - senderKey - The sender's Ed25519 public key.
 	//  - dmToken - The senders direct messaging token. This is
 	//    required to respond.
 	//  - codeset - The codeset version.
@@ -129,7 +134,8 @@ type DMReceiver interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveReply(messageID, reactionTo []byte, nickname,
-		text string, pubKey []byte, dmToken int32, codeset int,
+		text string, partnerKey, senderKey []byte,
+		dmToken int32, codeset int,
 		timestamp, roundId, status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a direct
@@ -148,8 +154,9 @@ type DMReceiver interface {
 	//    that received a reply.
 	//  - nickname - The nickname of the sender of the message.
 	//  - reaction - The contents of the reaction message.
-	//  - pubKey - The sender's Ed25519 public key. This is
+	//  - partnerKey - The partners's Ed25519 public key. This is
 	//    required to respond.
+	//  - senderKey - The sender's Ed25519 public key.
 	//  - dmToken - The senders direct messaging token. This is
 	//    required to respond.
 	//  - codeset - The codeset version.
@@ -167,7 +174,8 @@ type DMReceiver interface {
 	// Returns a non-negative unique uuid for the message by which it can be
 	// referenced later with UpdateSentStatus
 	ReceiveReaction(messageID, reactionTo []byte,
-		nickname, reaction string, pubKey []byte, dmToken int32,
+		nickname, reaction string, partnerKey, senderKey []byte,
+		dmToken int32,
 		codeset int, timestamp, roundId,
 		status int64) int64
 
@@ -219,13 +227,13 @@ func NewDMReceiver(dr DMReceiver) dm.EventModel {
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
 func (dmr *dmReceiver) Receive(messageID message.ID,
-	nickname string, text []byte, pubKey ed25519.PublicKey,
+	nickname string, text []byte, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType,
 	status dm.Status) uint64 {
 
 	return uint64(dmr.dr.Receive(messageID[:], nickname,
-		text, pubKey, int32(dmToken), int(codeset),
+		text, partnerKey, senderKey, int32(dmToken), int(codeset),
 		timestamp.UnixNano(), int64(round.ID),
 		int64(mType), int64(status)))
 }
@@ -234,13 +242,13 @@ func (dmr *dmReceiver) Receive(messageID message.ID,
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
 func (dmr *dmReceiver) ReceiveText(messageID message.ID,
-	nickname, text string, pubKey ed25519.PublicKey,
+	nickname, text string, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round,
 	status dm.Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveText(messageID[:], nickname,
-		text, pubKey, int32(dmToken), int(codeset),
+		text, partnerKey, senderKey, int32(dmToken), int(codeset),
 		timestamp.UnixNano(), int64(round.ID), int64(status)))
 }
 
@@ -253,12 +261,13 @@ func (dmr *dmReceiver) ReceiveText(messageID message.ID,
 // initial message. As a result, it may be important to buffer replies.
 func (dmr *dmReceiver) ReceiveReply(messageID message.ID,
 	reactionTo message.ID, nickname, text string,
-	pubKey ed25519.PublicKey, dmToken uint32,
+	partnerKey, senderKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status dm.Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveReply(messageID[:], reactionTo[:],
-		nickname, text, pubKey, int32(dmToken), int(codeset),
+		nickname, text, partnerKey, senderKey, int32(dmToken),
+		int(codeset),
 		timestamp.UnixNano(), int64(round.ID), int64(status)))
 
 }
@@ -272,12 +281,13 @@ func (dmr *dmReceiver) ReceiveReply(messageID message.ID,
 // initial message. As a result, it may be important to buffer reactions.
 func (dmr *dmReceiver) ReceiveReaction(messageID message.ID,
 	reactionTo message.ID, nickname, reaction string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	partnerKey, senderKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveReaction(messageID[:],
-		reactionTo[:], nickname, reaction, pubKey, int32(dmToken),
+		reactionTo[:], nickname, reaction, partnerKey, senderKey,
+		int32(dmToken),
 		int(codeset), timestamp.UnixNano(),
 		int64(round.ID), int64(status)))
 }

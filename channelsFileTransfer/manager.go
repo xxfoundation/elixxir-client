@@ -579,7 +579,6 @@ func (m *manager) closeSend(st *store.SentTransfer) error {
 
 /* === Receiving ============================================================ */
 
-// TODO: add one for handleIncomingTransfer
 type receivedProgressCBs struct {
 	cb     ReceivedProgressCallback
 	period time.Duration

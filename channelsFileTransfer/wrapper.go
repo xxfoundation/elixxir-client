@@ -10,13 +10,13 @@ package channelsFileTransfer
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -164,10 +164,19 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 
 	// Check if the file is already uploading
 	if st, exists := w.m.sent.GetTransfer(fid); exists {
-		// File upload is already in progress so the progress callback is
-		// registered to the ongoing upload
-		w.m.registerSentProgressCallback(st, progressCB, period)
-		return fid, nil
+		if st.Status() != store.Failed {
+			// File upload is already in progress so the progress callback is
+			// registered to the ongoing upload
+			w.m.registerSentProgressCallback(st, progressCB, period)
+			return fid, nil
+		} else {
+			// If the file is failed, then close it out and retry the upload
+			err := w.m.closeSend(st)
+			if err != nil {
+				return ftCrypto.ID{},
+					errors.Errorf("failed to close errored send: %+v", err)
+			}
+		}
 	}
 
 	// If the file is currently downloading, return an error
@@ -193,16 +202,29 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 			return ftCrypto.ID{}, err
 		}
 	} else {
-		var fl FileLink
-		if err = json.Unmarshal(file.FileLink, &fl); err != nil {
-			return ftCrypto.ID{}, err
-		}
-
-		if fl.Expired() {
+		if file.Status == Complete {
 			// If the file exists and is new enough to be downloaded, call the
 			// progress callback to indicate it is complete
-			go progressCB(true, 0, fl.NumParts, fl.NumParts, &fl, nil, nil)
-			return fid, nil
+			var fl FileLink
+			if err = json.Unmarshal(file.FileLink, &fl); err != nil {
+				return ftCrypto.ID{}, err
+			}
+
+			if fl.Expired() {
+				go progressCB(true, 0, fl.NumParts, fl.NumParts, &fl, nil, nil)
+				return fid, nil
+			}
+		} else {
+
+			// If the file is not complete then it has either errored out or in
+			// an invalid state. In either case, clear the status and start the
+			// upload.
+			now, status := netTime.Now(), Uploading
+			err = w.ev.UpdateFile(fid, nil, nil, &now, &status)
+			if err != nil {
+				return ftCrypto.ID{}, errors.Errorf("failed to set existing "+
+					"file %s from %s to %s", fid, file.Status, Uploading)
+			}
 		}
 	}
 
@@ -269,7 +291,6 @@ func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	// TODO: check if a newer link exists in the event model
 	if fl.Expired() {
 		return message.ID{}, rounds.Round{}, ephemeral.Id{}, errors.Errorf(
 			"file link expired; send occured %d ago",
@@ -326,23 +347,31 @@ func (w *Wrapper) RegisterSentProgressCallback(fileID ftCrypto.ID,
 	return nil
 }
 
-// RetrySend retries uploading a failed file upload. Returns an error if the
+// RetryUpload retries uploading a failed file upload. Returns an error if the
 // transfer has not run out of retries.
 //
 // This function should be called once a transfer errors out (as reported by
 // the progress callback).
-// TODO: write function
-func (w *Wrapper) RetrySend(fileID ftCrypto.ID) error {
+func (w *Wrapper) RetryUpload(fileID ftCrypto.ID,
+	progressCB SentProgressCallback, period time.Duration) error {
 	if st, exists := w.m.sent.GetTransfer(fileID); exists {
-		if st.Status() != store.Failed {
-			return errors.Errorf(errDeleteIncompleteTransfer, st.GetFileID())
-		}
 		if err := w.m.closeSend(st); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	file, err := w.ev.GetFile(fileID)
+	if err != nil {
+		return err
+	}
+
+	var fl FileLink
+	if err = json.Unmarshal(file.FileLink, &fl); err != nil {
+		return err
+	}
+
+	_, err = w.Upload(file.FileData, fl.Retry, progressCB, period)
+	return err
 }
 
 // CloseSend deletes a file from the internal storage once a transfer has
@@ -365,13 +394,17 @@ func (w *Wrapper) CloseSend(fileID ftCrypto.ID) error {
 
 // Download beings the download of the file described in the marshalled
 // FileInfo. The progress of the download is reported on the progress callback.
-// TODO: what happens when downloading the same file again?
 func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 	period time.Duration) (ftCrypto.ID, error) {
 
 	var fi FileInfo
 	if err := json.Unmarshal(fileInfo, &fi); err != nil {
 		return ftCrypto.ID{}, err
+	}
+
+	fileLink, err2 := json.Marshal(fi.FileLink)
+	if err2 != nil {
+		return ftCrypto.ID{}, err2
 	}
 
 	// Check if the file is already downloading
@@ -382,12 +415,11 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 		return fi.FileID, nil
 	}
 
-	// If the file is currently uploading, return an error
+	// If the file is currently uploading, alert that the upload is complete
+	// (because the file is already in the event model).
 	if _, exists := w.m.sent.GetTransfer(fi.FileID); exists {
-		// TODO: Handle a downloading that is currently uploading by immediately
-		//  marking it as complete; need to figure out how to handle file link
-		return ftCrypto.ID{}, errors.Errorf("file currently downloading; " +
-			"wait for process to finish to continue")
+		go progressCB(true, fi.NumParts, fi.NumParts, &fi, nil, nil)
+		return fi.FileID, nil
 	}
 
 	// Check if the file exists in the event model
@@ -404,40 +436,54 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 				netTime.Since(fi.SentTimestamp))
 		}
 
-		fileLink, err2 := json.Marshal(fi.FileLink)
-		if err2 != nil {
-			return ftCrypto.ID{}, err2
-		}
-
 		// If the file does not exist, add it to the event model and download it
 		err = w.ev.ReceiveFile(fi.FileID, fileLink, nil, netTime.Now(), Downloading)
 		if err != nil {
 			return ftCrypto.ID{}, err
 		}
+	} else {
+		if file.Status == Complete {
+			// If the file exists, call the progress callback to indicate it is
+			// complete
+			go progressCB(true, fi.NumParts, fi.NumParts, &fi, nil, nil)
+			return fi.FileID, nil
+		} else {
 
-		callbacks := []receivedProgressCBs{
-			{progressCB, period},
-			{w.downloadCompleteCB, 0},
+			// Check if the file link is newer than the stored one
+			var loadedFL FileLink
+			if err = json.Unmarshal(file.FileLink, &loadedFL); err != nil {
+				return ftCrypto.ID{}, err
+			}
+
+			if fi.SentTimestamp.After(loadedFL.SentTimestamp) {
+				if fileLink, err = json.Marshal(loadedFL); err != nil {
+					return ftCrypto.ID{}, err
+				}
+			}
+
+			// If the file is not complete then it has either errored out or in
+			// an invalid state. In either case, clear the status and start the
+			// download.
+			now, status := netTime.Now(), Downloading
+			err = w.ev.UpdateFile(fi.FileID, &fileLink, nil, &now, &status)
+			if err != nil {
+				return ftCrypto.ID{}, errors.Errorf("failed to set existing "+
+					"file %s from %s to %s", fi.FileID, file.Status, Downloading)
+			}
 		}
-
-		// Start downloading file
-		_, err = w.m.handleIncomingTransfer(&fi.FileLink, callbacks)
-		if err != nil {
-			return ftCrypto.ID{}, err
-		}
-
-		return fi.FileID, nil
 	}
 
-	// TODO: if the file exists but is not marked complete, restart the download
-	if file.Status != Complete {
-		return ftCrypto.ID{}, errors.Errorf(
-			"file is %s; it must be complete", file.Status)
+	callbacks := []receivedProgressCBs{
+		{progressCB, period},
+		{w.downloadCompleteCB, 0},
 	}
 
-	// If the file exists, call the progress callback to indicate it is
-	// complete
-	go progressCB(true, fi.NumParts, fi.NumParts, &fi, nil, nil)
+	// Start downloading file
+	_, err = w.m.handleIncomingTransfer(&fi.FileLink, callbacks)
+	if err != nil {
+		return ftCrypto.ID{}, err
+	}
+
 	return fi.FileID, nil
 }
 

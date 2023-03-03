@@ -91,8 +91,8 @@ type FileTransfer interface {
 	// Upload starts uploading the file to a new ID that can be sent to the
 	// specified channel when complete. To get progress information about the
 	// upload, a SentProgressCallback must be registered. All errors returned on
-	// the callback are fatal and the user must take action to either RetrySend
-	// or CloseSend.
+	// the callback are fatal and the user must take action to either
+	// RetryUpload or CloseSend.
 	//
 	// The file is added to the event model at the returned file ID with the
 	// status Uploading. Once the upload is complete, the file link is added to
@@ -165,12 +165,13 @@ type FileTransfer interface {
 	RegisterSentProgressCallback(fileID ftCrypto.ID,
 		progressCB SentProgressCallback, period time.Duration) error
 
-	// RetrySend retries uploading a failed file upload. Returns an error if the
-	// transfer has not run out of retries.
+	// RetryUpload retries uploading a failed file upload. Returns an error if
+	// the transfer has not failed.
 	//
 	// This function should be called once a transfer errors out (as reported by
 	// the progress callback).
-	RetrySend(fileID ftCrypto.ID) error
+	RetryUpload(fileID ftCrypto.ID,
+		progressCB SentProgressCallback, period time.Duration) error
 
 	// CloseSend deletes a file from the internal storage once a transfer has
 	// completed or reached the retry limit. If neither of those condition are

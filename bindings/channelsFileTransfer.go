@@ -91,30 +91,21 @@ func (ft *ChannelsFileTransfer) MaxPreviewSize() int {
 // Upload starts uploading the file to a new ID that can be sent to the
 // specified channel when complete. To get progress information about the
 // upload, a [FtSentProgressCallback] must be registered. All errors returned on
-// the callback are fatal and the user must take action to either [RetrySend] or
-// [CloseSend].
+// the callback are fatal and the user must take action to either [RetryUpload]
+// or [CloseSend].
 //
-// The file is added to the event model at the returned file ID and the status
-// [channels.SendProcessing]. Once the upload is complete, the file info
-// (information required to download the file) is added to the event model and
-// the status is set to [channels.SendProcessingComplete].
+// The file is added to the event model at the returned file ID with the status
+// [channelsFileTransfer.Uploading]. Once the upload is complete, the file link
+// is added to the event model with the status [channelsFileTransfer.Complete].
 //
 // The [FtSentProgressCallback] only indicates the progress of the file upload,
 // not the status of the file in the event model. You must rely on updates from
 // the event model to know when it can be retrieved.
 //
 // Parameters:
-//   - channelIdBytes - Marshalled bytes of the channel's [id.ID] to send the
-//     file to once the upload completes.
-//   - fileName - Human-readable file name. Max length defined by
-//     [MaxFileNameLen].
-//   - fileType - Shorthand that identifies the type of file. Max length defined
-//     by [MaxFileTypeLen].
 //   - fileData - File contents. Max size defined by [MaxFileSize].
 //   - retry - The number of sending retries allowed on send failure (e.g. a
 //     retry of 2.0 with 6 parts means 12 total possible sends).
-//   - preview - A preview of the file data (e.g. a thumbnail). Max size defined
-//     by [MaxPreviewSize].
 //   - progressCB - A callback that reports the progress of the file upload.
 //     The callback is called once on initialization, on every progress
 //     update (or less if restricted by the period), or on fatal error.
@@ -123,21 +114,14 @@ func (ft *ChannelsFileTransfer) MaxPreviewSize() int {
 //
 // Returns:
 //   - Marshalled bytes of [fileTransfer.ID] that uniquely identifies the file.
-func (ft *ChannelsFileTransfer) Upload(channelIdBytes []byte, fileName,
-	fileType string, fileData []byte, retry float32, preview []byte,
+func (ft *ChannelsFileTransfer) Upload(fileData []byte, retry float32,
 	progressCB FtSentProgressCallback, periodMS int) ([]byte, error) {
-	jww.INFO.Printf("[FT] Uploading file transfer to channel %s.",
-		base64.StdEncoding.EncodeToString(channelIdBytes))
-
-	channelID, err := id.Unmarshal(channelIdBytes)
-	if err != nil {
-		return nil, err
-	}
+	jww.INFO.Printf("[FT] Uploading file transfer")
 
 	cb := func(completed bool, sent, received, total uint16,
 		st channelsFT.SentTransfer, t channelsFT.FilePartTracker, err error) {
 		sp := &FtSentProgress{
-			st.FileID(), completed, int(sent), int(received), int(total)}
+			st.GetFileID(), completed, int(sent), int(received), int(total)}
 		data, err2 := json.Marshal(sp)
 		if err2 != nil {
 			jww.FATAL.Panicf("[FT] Failed to JSON marshal %T: %+v", sp, err)
@@ -147,11 +131,7 @@ func (ft *ChannelsFileTransfer) Upload(channelIdBytes []byte, fileName,
 
 	period := time.Duration(periodMS) * time.Millisecond
 
-	fid, err := ft.api.Upload(
-		channelID, fileName, fileType, fileData, retry, preview, cb, period)
-	if err != nil {
-		return nil, err
-	}
+	fid, err := ft.api.Upload(fileData, retry, cb, period)
 	if err != nil {
 		return nil, err
 	}
@@ -166,15 +146,20 @@ func (ft *ChannelsFileTransfer) Upload(channelIdBytes []byte, fileName,
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID] to send the
 //     file to.
-//   - fileInfo - JSON of [channelsFileTransfer.FileInfo] stored in the event
-//     model.
-//   - validUntilMS - How long the file is available for download, in
-//     milliseconds.
+//   - fileLinkJSON - JSON of [channelsFileTransfer.FileLink] stored in the
+//     event model.
+//   - fileName - Human-readable file name. Max length defined by
+//     [MaxFileNameLen].
+//   - fileType - Shorthand that identifies the type of file. Max length defined
+//     by [MaxFileTypeLen].
+//   - preview - A preview of the file data (e.g. a thumbnail). Max size defined
+//     by [MaxPreviewSize].
 //   - validUntilMS - The duration, in milliseconds, that the file is available
 //     in the channel. For the maximum amount of time, use [ValidForever].
 //   - cmixParamsJSON - JSON of [xxdk.CMIXParams]. If left empty
 //     [GetDefaultCMixParams] will be used internally.
-func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileInfo []byte,
+func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileLinkJSON []byte,
+	fileName, fileType string, preview []byte,
 	validUntilMS int, cmixParamsJSON []byte) ([]byte, error) {
 	jww.INFO.Printf("[FT] Sending file transfer to channel %s.",
 		base64.StdEncoding.EncodeToString(channelIdBytes))
@@ -191,13 +176,13 @@ func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileInfo []byte,
 		return nil, err
 	}
 
-	round, ephID, err :=
-		ft.api.Send(channelID, fileInfo, validUntil, params)
+	msgID, round, ephID, err := ft.api.Send(
+		channelID, fileLinkJSON, fileName, fileType, preview, validUntil, params)
 	if err != nil {
 		return nil, err
 	}
 
-	return constructChannelSendReport(nil, round.ID, &ephID)
+	return constructChannelSendReport(&msgID, round.ID, &ephID)
 }
 
 // RegisterSentProgressCallback allows for the registration of a callback to
@@ -211,8 +196,8 @@ func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileInfo []byte,
 // every period regardless of the number of progress updates.
 //
 // In the event that the client is closed and resumed, this function must be
-// used to re-register any callbacks previously registered with this function
-// or [Send].
+// used to re-register any callbacks previously registered with this function or
+// [Send].
 //
 // The [FtSentProgressCallback] only indicates the progress of the file upload,
 // not the status of the file in the event model. You must rely on updates from
@@ -238,7 +223,7 @@ func (ft *ChannelsFileTransfer) RegisterSentProgressCallback(fileIDBytes []byte,
 	cb := func(completed bool, sent, received, total uint16,
 		st channelsFT.SentTransfer, t channelsFT.FilePartTracker, err error) {
 		sp := &FtSentProgress{
-			st.FileID(), completed, int(sent), int(received), int(total)}
+			st.GetFileID(), completed, int(sent), int(received), int(total)}
 		data, err2 := json.Marshal(sp)
 		if err2 != nil {
 			jww.FATAL.Panicf("[FT] Failed to JSON marshal %T: %+v", sp, err)
@@ -251,15 +236,21 @@ func (ft *ChannelsFileTransfer) RegisterSentProgressCallback(fileIDBytes []byte,
 	return ft.api.RegisterSentProgressCallback(fileID, cb, period)
 }
 
-// RetrySend retries uploading a failed file upload. Returns an error if the
-// transfer has not run out of retries.
+// RetryUpload retries uploading a failed file upload. Returns an error if the
+// transfer has not failed.
 //
 // This function should be called once a transfer errors out (as reported by the
 // progress callback).
 //
 // Parameters:
 //   - fileIDBytes - Marshalled bytes of the file's [fileTransfer.ID].
-func (ft *ChannelsFileTransfer) RetrySend(fileIDBytes []byte) error {
+//   - progressCB - A callback that reports the progress of the file upload.
+//     The callback is called once on initialization, on every progress
+//     update (or less if restricted by the period), or on fatal error.
+//   - periodMS - A progress callback will be limited from triggering only
+//     once per period, in milliseconds.
+func (ft *ChannelsFileTransfer) RetryUpload(fileIDBytes []byte,
+	progressCB FtSentProgressCallback, periodMS int) error {
 	jww.INFO.Printf("[FT] Retry send of %s.",
 		base64.StdEncoding.EncodeToString(fileIDBytes))
 
@@ -268,7 +259,20 @@ func (ft *ChannelsFileTransfer) RetrySend(fileIDBytes []byte) error {
 		return errors.Errorf("failed to unmarshal file ID: %+v", err)
 	}
 
-	return ft.api.RetrySend(fileID)
+	cb := func(completed bool, sent, received, total uint16,
+		st channelsFT.SentTransfer, t channelsFT.FilePartTracker, err error) {
+		sp := &FtSentProgress{
+			st.GetFileID(), completed, int(sent), int(received), int(total)}
+		data, err2 := json.Marshal(sp)
+		if err2 != nil {
+			jww.FATAL.Panicf("[FT] Failed to JSON marshal %T: %+v", sp, err)
+		}
+		progressCB.Callback(data, &ChFilePartTracker{t}, err)
+	}
+
+	period := time.Duration(periodMS) * time.Millisecond
+
+	return ft.api.RetryUpload(fileID, cb, period)
 }
 
 // CloseSend deletes a file from the internal storage once a transfer has
@@ -324,7 +328,7 @@ func (ft *ChannelsFileTransfer) Download(fileInfo []byte,
 	cb := func(completed bool, received, total uint16,
 		rt channelsFT.ReceivedTransfer, t channelsFT.FilePartTracker, err error) {
 		rp := &FtReceivedProgress{
-			rt.FileID(), completed, int(received), int(total)}
+			rt.GetFileID(), completed, int(received), int(total)}
 		data, err2 := json.Marshal(rp)
 		if err2 != nil {
 			jww.FATAL.Panicf("[FT] Failed to JSON marshal %T: %+v", rp, err)
@@ -381,7 +385,7 @@ func (ft *ChannelsFileTransfer) RegisterReceivedProgressCallback(
 	cb := func(completed bool, received, total uint16,
 		rt channelsFT.ReceivedTransfer, t channelsFT.FilePartTracker, err error) {
 		rp := &FtReceivedProgress{
-			rt.FileID(), completed, int(received), int(total)}
+			rt.GetFileID(), completed, int(received), int(total)}
 		data, err2 := json.Marshal(rp)
 		if err2 != nil {
 			jww.FATAL.Panicf("[FT] Failed to JSON marshal %T: %+v", rp, err)

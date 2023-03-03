@@ -21,7 +21,7 @@ require (
 	gitlab.com/elixxir/primitives v0.0.3-0.20230214180039-9a25e2d3969c
 	gitlab.com/xx_network/comms v0.0.4-0.20230214180029-5387fb85736d
 	gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd
-	gitlab.com/xx_network/primitives v0.0.4-0.20230203173415-81c2cb07da44
+	gitlab.com/xx_network/primitives v0.0.4-0.20230303193418-d344f7cb1e79
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.5.0
 	golang.org/x/net v0.5.0

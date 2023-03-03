@@ -10,8 +10,10 @@ package sync
 
 import (
 	"bytes"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
 
@@ -26,6 +28,10 @@ const synchronizationEpoch = 2 * time.Hour
 
 const (
 	collectorLogHeader = "COLLECTOR"
+)
+
+const (
+	deviceUpdateRetrievalErr = "failed to retrieve last update from %s"
 )
 
 // todo: docstring
@@ -62,7 +68,6 @@ type Collector struct {
 // NewCollector constructs a collector object.
 func NewCollector(syncPath, myId string, txLog *TransactionLog,
 	remote RemoteStore, kv *RemoteKV) *Collector {
-
 	return &Collector{
 		syncPath:             syncPath,
 		myID:                 myId,
@@ -82,7 +87,6 @@ func (c *Collector) StartProcesses() (stoppable.Stoppable, error) {
 	multiStoppable := stoppable.NewMulti(collectorStoppable)
 	stopper := stoppable.NewSingle(collectorRunnerStoppable)
 	go c.runner(stopper)
-
 	return multiStoppable, nil
 }
 
@@ -95,7 +99,9 @@ func (c *Collector) runner(stop *stoppable.Single) {
 		c.collect()
 	case <-stop.Quit():
 		stop.ToStopped()
-		jww.DEBUG.Printf("[%s] Stopping sync collector: stoppable triggered.")
+		jww.DEBUG.Printf(
+			"[%s] Stopping sync collector: stoppable triggered.",
+			collectorLogHeader)
 		return
 	}
 }
@@ -107,39 +113,50 @@ func (c *Collector) collect() {
 	devices, err := c.remote.ReadDir(c.syncPath)
 	if err != nil {
 		// todo: handle err
-	}
-
-	changes, newUpdates := c.collectChanges(devices)
-
-	// update this record only if we succeed in applying all changes!
-	if err = c.applyChanges(changes); err != nil {
-		//debug( how many changes and how long it took)
+		jww.WARN.Printf("[%s] Failed to read devices: %+v",
+			collectorLogHeader, err)
 		return
 	}
 
-	c.lastUpdates = newUpdates
+	start := netTime.Now()
 
-	// report applied changes failed
+	changes, newUpdates, err := c.collectChanges(devices)
+
+	// update this record only if we succeed in applying all changes!
+	if err = c.applyChanges(changes); err != nil {
+		jww.WARN.Printf("[%s] Failed to apply updates: %+v",
+			collectorLogHeader, err)
+		return
+	}
+
+	elapsed := netTime.Now().Sub(start).Milliseconds()
+	jww.INFO.Printf("[%s] Applied %d new updates took %s",
+		collectorLogHeader, len(newUpdates), elapsed)
+
+	c.lastUpdates = newUpdates
 }
 
 // collectChanges will collate all changes across all devices.
 func (c *Collector) collectChanges(devices []string) (transactionChanges,
-	changeLogger) {
+	changeLogger, error) {
 	// Map of Device to list of (new) transactions
 	changes, newUpdates := make(transactionChanges, 0), make(changeLogger, 0)
 	oldestUpdate := time.Now().Add(-2 * c.SynchronizationEpoch)
-	// drop as much of the following as makes sense into a collect changes func
-	// we want to maximize testability!
-	for _, d := range devices {
-		lastUpdate, err := c.remote.GetLastModified(d)
-		if err != nil {
-			// todo: handle err
-		}
-		// If it’s you, always process. Otherwise only look at it if there are updates from the last
-		// time we checked
-		lastTrackedUpdate := c.lastUpdates[d]
 
-		if d != c.myID &&
+	// Iterate over devices
+	for _, deviceId := range devices {
+
+		// Retrieve updates from device
+		lastUpdate, err := c.remote.GetLastModified(deviceId)
+		if err != nil {
+			return nil, nil, errors.Errorf(deviceUpdateRetrievalErr, deviceId)
+		}
+
+		// Get the last update
+		lastTrackedUpdate := c.lastUpdates[deviceId]
+
+		// If us, read the local log, otherwise read the remote log
+		if deviceId != c.myID ||
 			(lastUpdate.Before(lastTrackedUpdate) ||
 				lastUpdate.Equal(lastTrackedUpdate)) {
 			continue
@@ -152,17 +169,22 @@ func (c *Collector) collectChanges(devices []string) (transactionChanges,
 
 		// If us, read the local log, otherwise read the remote log
 		// TODO: in the future this could work like an open call instead of sucking
-		// the entire thing into memory.
+		//  the entire thing into memory.
 		txLog := []byte{}
-		if d != c.myID {
-			txLog, err = c.remote.Read(d)
+		if deviceId != c.myID {
+			// Retrieve device's transaction log if it is not this device
+			txLog, err = c.remote.Read(deviceId)
 			if err != nil {
-				// todo: handle err
+				// todo: continue or return here?
+				jww.WARN.Printf("failed to retrieve transaction log from device %s", deviceId)
+				continue
 			}
 		} else {
 			txLog, err = c.txLog.serialize()
 			if err != nil {
-				// todo: handle err
+				// todo: continue or return here?
+				jww.WARN.Printf("failed to serialize this device's transaction log: %+v", err)
+				continue
 			}
 		}
 
@@ -170,11 +192,19 @@ func (c *Collector) collectChanges(devices []string) (transactionChanges,
 		// in the future we could turn this into like an iterator, where the “next” change across
 		// all devices get read, but for now drop them into a list per device.
 		// d - identifier (string)
-		changes[d] = readTransactionsAfter(txLog, c.lastUpdates[d], c.GetDeviceSecret(d))
-		newUpdates[d] = lastUpdate
+		changes[deviceId], err = readTransactionsAfter(txLog, c.lastUpdates[deviceId], c.GetDeviceSecret(deviceId))
+		if err != nil {
+			// todo: continue or return here?
+			jww.WARN.Printf("failed to read transaction log for %d: %+v",
+				deviceId, err)
+			continue
+		}
+		newUpdates[deviceId] = lastUpdate
 		//trace(number of changes for this device)
+		jww.TRACE.Printf("Recorded %d changed for device %s",
+			len(changes[deviceId]), deviceId)
 	}
-	return changes, newUpdates
+	return changes, newUpdates, nil
 }
 
 // applyChanges will order the transactionChanges and apply them to the
@@ -187,7 +217,9 @@ func (c *Collector) applyChanges(changes transactionChanges) error {
 		// fixme: is this meant to be the KV? I assumed remote store
 		localVal, lastWrite, err := c.remote.ReadAndGetLastWrite(k)
 		if err != nil {
-			// todo: handle err
+			// todo: continue or return here?
+			jww.WARN.Printf("failed to read for local values for %s: %v", k, err)
+			continue
 		}
 
 		cur := txList[0]
@@ -201,38 +233,39 @@ func (c *Collector) applyChanges(changes transactionChanges) error {
 			}
 
 			if err = c.kv.Set(k, localVal, updateCb); err != nil {
-				// handle err
+				// todo: continue or return here?
+				jww.WARN.Printf("failed to dry for local values for %s: %v", k, err)
+				continue
 			}
 
 		}
 
+		// Go through all transactions
 		for i, tx := range txList {
 			if i == 0 {
 				continue
 			}
-			// Does the remote need to hold the upsert callback registration? Or should it
-			// be done here?
-			// I believe RemoteKV needs to hold the upsert functions because other callers
-			// besides the collector object will need to call it.
-			// upset func
+
 			updateCb := func(newTx Transaction, err error) {
 				cur = newTx
 			}
 
 			if err = c.kv.Set(k, tx.Value, updateCb); err != nil {
-				// handle err
+				// todo: continue or return here?
+				jww.WARN.Printf("failed to read for local values for %s: %v", k, err)
+				continue
 			}
 		}
-		// What about updates that happen between start and end of this loop?
-		// It feels like maybe the entire upsert operation should be done
-		// internally to RemoteKV, not here… Call it apply changes and send a list, right?
-		// I leave this up to the implementer, but the following probably should not trigger
-		// the transaction log.
+
 		if bytes.Equal(cur.Value, localVal) {
 			//trace(same val)
+			jww.TRACE.Printf("Same value for transaction %d", cur)
 		} else {
-			c.kv.Set(k, cur.Value, nil)
-			//debug(sync made on key.. details)
+			if err = c.kv.Set(k, cur.Value, nil); err != nil {
+				// todo: continue or return here?
+				jww.WARN.Printf("failed to read for local values for %s: %v", k, err)
+				continue
+			}
 		}
 	}
 
@@ -242,8 +275,7 @@ func (c *Collector) applyChanges(changes transactionChanges) error {
 // GetDeviceSecret will return the device secret for the given device identifier.
 //
 // Fixme: For now, it will return the master secret, this will be an rpc in
-//
-//	future, return master secret
+//  future, return master secret
 func (c *Collector) GetDeviceSecret(d string) []byte {
 	return c.txLog.deviceSecret
 }
@@ -292,12 +324,13 @@ func nextChange(changes transactionChanges) (transactionChanges, *Transaction,
 // after the given time. This deserializes a TransactionLog and must have the
 // device's secret passed in to decrypt transactions.
 func readTransactionsAfter(txLogSerialized []byte, t time.Time,
-	deviceSecret []byte) []Transaction {
+	deviceSecret []byte) ([]Transaction, error) {
 	txLog := &TransactionLog{
 		deviceSecret: deviceSecret,
 	}
 	if err := txLog.deserialize(txLogSerialized); err != nil {
 		// todo: handle err
+		return nil, errors.Errorf("failed to deserialize transaction log: %+v", err)
 	}
 
 	res := make([]Transaction, 0)

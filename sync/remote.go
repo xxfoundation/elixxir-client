@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
-	"os"
 	"sync"
 	"time"
 )
@@ -349,9 +348,10 @@ func (f *FileSystemRemoteStorage) ReadAndGetLastWrite(
 		return nil, time.Time{}, err
 	}
 
-	if utils.Exists(path) {
+	if !utils.Exists(path) {
 		path = f.baseDir + path
 	}
+
 	data, err := utils.ReadFile(path)
 	if err != nil {
 		return nil, time.Time{}, err
@@ -362,20 +362,6 @@ func (f *FileSystemRemoteStorage) ReadAndGetLastWrite(
 
 // ReadDir reads the named directory, returning all its directory entries
 // sorted by filename.
-// todo: add this to tests.
 func (f *FileSystemRemoteStorage) ReadDir(path string) ([]string, error) {
-	// todo: migrate this to primitives/utils
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-
-	files := make([]string, 0)
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			files = append(files, entry.Name())
-		}
-	}
-
-	return files, nil
+	return utils.ReadDir(path)
 }

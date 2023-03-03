@@ -517,6 +517,8 @@ gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd h1:IleH6U5D/c2
 gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd/go.mod h1:PPPaFoY5Ze1qft9D0a24UHAwlvWEc2GbraihXvKYkf4=
 gitlab.com/xx_network/primitives v0.0.4-0.20230203173415-81c2cb07da44 h1:vNm76SCeKZiCaVL0rCIcqDxMzSVL50g3XO6dQYN8r3Q=
 gitlab.com/xx_network/primitives v0.0.4-0.20230203173415-81c2cb07da44/go.mod h1:wUxbEBGOBJZ/RkAiVAltlC1uIlIrU0dE113Nq7HiOhw=
+gitlab.com/xx_network/primitives v0.0.4-0.20230303193418-d344f7cb1e79 h1:e/l6yAaZkyxBDvnvBqCLn6txqBAUAXErMoogHZJPdyI=
+gitlab.com/xx_network/primitives v0.0.4-0.20230303193418-d344f7cb1e79/go.mod h1:wUxbEBGOBJZ/RkAiVAltlC1uIlIrU0dE113Nq7HiOhw=
 gitlab.com/xx_network/ring v0.0.3-0.20220902183151-a7d3b15bc981 h1:1s0vX9BbkiD0IVXwr3LOaTBcq1wBrWcUWMBK0s8r0Z0=
 gitlab.com/xx_network/ring v0.0.3-0.20220902183151-a7d3b15bc981/go.mod h1:aLzpP2TiZTQut/PVHR40EJAomzugDdHXetbieRClXIM=
 gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec h1:FpfFs4EhNehiVfzQttTuxanPIT43FtkkCFypIod8LHo=

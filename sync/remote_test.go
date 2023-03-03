@@ -185,7 +185,7 @@ var _ RemoteStore = &FileSystemRemoteStorage{}
 // exists within the dependency.
 func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	workingDir := baseDir + "remoteFsSmoke/"
-	path := "test.txt"
+	path := workingDir + "test.txt"
 	data := []byte("Test string.")
 
 	// Delete the test file at the end
@@ -195,17 +195,17 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 
 	// Write to file
 	writeTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write(workingDir+path, data))
+	require.NoError(t, fsRemote.Write(path, data))
 
 	// Read file
-	read, err := fsRemote.Read(workingDir + path)
+	read, err := fsRemote.Read(path)
 	require.NoError(t, err)
 
 	// Ensure read data matches originally written data
 	require.Equal(t, data, read)
 
 	// Retrieve the last modification of the file
-	lastModified, err := fsRemote.GetLastModified(workingDir + path)
+	lastModified, err := fsRemote.GetLastModified(path)
 	require.NoError(t, err)
 
 	//time.Sleep(50 * time.Millisecond)
@@ -227,13 +227,24 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	require.Equal(t, lastWrite, lastModified)
 
 	// Write a new file to remote
-	newPath := "new.txt"
+	newPath := workingDir + "new.txt"
 	newWriteTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write(workingDir+newPath, data))
+	require.NoError(t, fsRemote.Write(newPath, data))
 
 	// Retrieve the last write
 	newLastWrite, err := fsRemote.GetLastWrite()
 	require.NoError(t, err)
+
+	// The last write timestamp should not differ by more than a few
+	// milliseconds from the timestamp taken before the write operation took
+	// place.
+	require.True(t, newWriteTimestamp.Sub(newLastWrite) < 2*time.Millisecond ||
+		newWriteTimestamp.Sub(newLastWrite) > 2*time.Millisecond)
+
+	read, newLastWrite, err = fsRemote.ReadAndGetLastWrite(newPath)
+	require.NoError(t, err)
+
+	require.Equal(t, data, read)
 
 	// The last write timestamp should not differ by more than a few
 	// milliseconds from the timestamp taken before the write operation took

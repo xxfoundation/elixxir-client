@@ -19,6 +19,12 @@ type pickupRequest struct {
 	checkedGateways   []*id.ID
 }
 
+// processBatchMessageRetrieval is an alternative to processMessageRetrieval.
+// It receives a roundLookup request and adds it to a batch, then pings a
+// random gateway with the batch when either batch size == maxBatchSize or
+// batchDelay milliseconds elapses after the first request is added to
+// the batch.  If a pickup fails, it is returned to the batch targeting the
+// next gateway in the batch.
 func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop *stoppable.Single) {
 	maxBatchSize := m.params.MaxBatchSize
 	batchDelay := time.Duration(m.params.BatchDelay) * time.Millisecond
@@ -38,12 +44,23 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			return
 		case <-timer.C:
 			shouldProcess = true
-		case rl := <-m.lookupRoundMessages: // Incoming lookup requests
+		case rl := <-m.lookupRoundMessages:
+			// Add incoming lookup reqeust to unchecked
+			ri := rl.Round
+			err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
+				rl.Identity.Source, rl.Identity.EphId)
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to denote Unchecked Round for round %d",
+					id.Round(ri.ID))
+			}
+
 			// Get shuffled list of gateways in round
 			gwIds := m.getGatewayList(rl)
 
-			// In testing, sometimes ignore requests to force retry
 			if m.params.ForceMessagePickupRetry && m.shouldForceMessagePickupRetry(rl) {
+				// Do not add to the batch, leaving the round to be picked up in
+				// unchecked round scheduler process
 				continue
 			}
 
@@ -69,7 +86,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			continue
 		}
 
-		jww.DEBUG.Printf("[processBatchMessageRetrieval] Checking for messages in rounds %+v", batch)
+		jww.TRACE.Printf("[processBatchMessageRetrieval] Sending batch message request for %d rounds", len(batch))
 
 		// Reset timer & shouldProcess
 		timer.Stop()
@@ -121,7 +138,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			}
 
 			// Process response from proxiedRequest gateway
-			bundle, err := m.processPickupResponse(result, proxiedRequest.id, proxiedRequest.round.ID)
+			bundle, err := m.buildMessageBundle(result, proxiedRequest.id, proxiedRequest.round.ID)
 			if err != nil {
 				jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to process pickup response from proxiedRequest gateway %s: %+v", proxiedRequest.target, err)
 				go m.tryNextGateway(proxiedRequest)
@@ -137,8 +154,10 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 	}
 }
 
-// put pickup request back in batch, targeting next gateway in list of unchecked
+// tryNextGateway sends a pickupRequest back in the batch, targeting the next
+// gateway in list of unchecked gateways.
 func (m *pickup) tryNextGateway(req *pickupRequest) {
+	// If there are no more unchecked gateways, log an error & return
 	if len(req.uncheckedGateways) == 0 {
 		jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to get pickup round %d "+
 			"from all gateways (%v)", req.round.ID, append(req.checkedGateways, req.target))

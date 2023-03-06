@@ -41,7 +41,7 @@ type roundLookup struct {
 
 const noRoundError = "does not have round %d"
 
-// processMessageRetrieval received a roundLookup request and pings the gateways
+// processMessageRetrieval receives a roundLookup request and pings the gateways
 // of that round for messages for the requested Identity in the roundLookup.
 func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 	stop *stoppable.Single) {
@@ -54,12 +54,19 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.Round
 			jww.DEBUG.Printf("[processMessageRetrieval] Checking for messages in round %d", ri.ID)
+			err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
+				rl.Identity.Source, rl.Identity.EphId)
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to denote Unchecked Round for round %d",
+					id.Round(ri.ID))
+			}
+
 			gwIds := m.getGatewayList(rl)
 			// If ForceMessagePickupRetry, we are forcing processUncheckedRounds
 			// by randomly not picking up messages (FOR INTEGRATION TEST). Only
 			// done if round has not been ignored before.
 			var bundle message.Bundle
-			var err error
 			if m.params.ForceMessagePickupRetry {
 				bundle, err = m.forceMessagePickupRetry(
 					ri, rl, comms, gwIds, stop)
@@ -97,17 +104,9 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 	}
 }
 
-// Returns a shuffled list of gateways for a roundLookup
+// getGatewayList returns a shuffled list of gateways for a roundLookup request.
 func (m *pickup) getGatewayList(rl roundLookup) []*id.ID {
 	ri := rl.Round
-
-	err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
-		rl.Identity.Source, rl.Identity.EphId)
-	if err != nil {
-		jww.FATAL.Panicf(
-			"Failed to denote Unchecked Round for round %d",
-			id.Round(ri.ID))
-	}
 
 	// Convert gateways in round to proper ID format
 	gwIds := make([]*id.ID, ri.Topology.Len())
@@ -126,7 +125,7 @@ func (m *pickup) getGatewayList(rl roundLookup) []*id.ID {
 	// first, randomize other members of the team
 	var rndBytes [32]byte
 	stream := m.rng.GetStream()
-	_, err = stream.Read(rndBytes[:])
+	_, err := stream.Read(rndBytes[:])
 	stream.Close()
 	if err != nil {
 		jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
@@ -141,8 +140,8 @@ func (m *pickup) getGatewayList(rl roundLookup) []*id.ID {
 	return gwIds
 }
 
-// getMessagesFromGateway attempts to get messages from their assigned gateway
-// host in the round specified. If successful
+// getMessagesFromGateway attempts to pick up messages from their assigned
+// gateway in the round specified. If successful, it returns a message.Bundle.
 func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms,
 	gwIds []*id.ID, stop *stoppable.Single) (message.Bundle, error) {
@@ -186,7 +185,7 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	}
 	msgResp := result.(*pb.GetMessagesResponse)
 
-	bundle, err := m.processPickupResponse(msgResp, identity, roundID)
+	bundle, err := m.buildMessageBundle(msgResp, identity, roundID)
 	if err != nil {
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to process pickup response for round %d", roundID)
 	}
@@ -198,10 +197,12 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	return bundle, nil
 }
 
-// Process a received message.Bundle
+// processBundle accepts a message.Bundle, EphemeralIdentity and round ID.
+// If the bundle contains any messages, it iterates through them, sending
+// them to the bundle channel for handling, and removing the associated
+// rounds from m.unchecked.
 func (m *pickup) processBundle(bundle message.Bundle, rid receptionID.EphemeralIdentity, ri rounds.Round) {
 	jww.TRACE.Printf("messages: %v\n", bundle.Messages)
-	jww.DEBUG.Printf("[processBundle] got bundle %+v", bundle)
 
 	if len(bundle.Messages) != 0 {
 		// If successful and there are messages, we send them to another
@@ -223,8 +224,9 @@ func (m *pickup) processBundle(bundle message.Bundle, rid receptionID.EphemeralI
 	}
 }
 
-// Process a received pb.GetMessagesResponse into a message.Bundle
-func (m *pickup) processPickupResponse(msgResp *pb.GetMessagesResponse, identity receptionID.EphemeralIdentity, roundID id.Round) (message.Bundle, error) {
+// buildMessageBundle builds a message.Bundle from a passed in
+// pb.GetMessagesResponse, EphemeralIdentity and round ID.
+func (m *pickup) buildMessageBundle(msgResp *pb.GetMessagesResponse, identity receptionID.EphemeralIdentity, roundID id.Round) (message.Bundle, error) {
 	// If there are no messages, print a warning. Due to the probabilistic
 	// nature of the bloom filters, false positives will happen sometimes
 	msgs := msgResp.GetMessages()
@@ -261,12 +263,14 @@ func (m *pickup) processPickupResponse(msgResp *pb.GetMessagesResponse, identity
 	return bundle, nil
 }
 
-// Helper function which forces processUncheckedRounds by randomly not looking
-// up messages.
+// forceMessagePickupRetry is a helper function which forces
+// processUncheckedRounds by randomly not looking up messages.
 func (m *pickup) forceMessagePickupRetry(ri rounds.Round, rl roundLookup,
 	comms MessageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (bundle message.Bundle, err error) {
 	if m.shouldForceMessagePickupRetry(rl) {
+		// Do not call get message, leaving the round to be picked up in
+		// unchecked round scheduler process
 		return
 	}
 
@@ -275,7 +279,8 @@ func (m *pickup) forceMessagePickupRetry(ri rounds.Round, rl roundLookup,
 		ri.ID, rl.Identity, comms, gwIds, stop)
 }
 
-// Randomly determine if a roundLookup should be skipped to force a retry
+// shouldForceMessagePickupRetry randomly determines if a roundLookup
+// should be skipped to force a retry.
 func (m *pickup) shouldForceMessagePickupRetry(rl roundLookup) bool {
 	rnd, _ := m.unchecked.GetRound(
 		rl.Round.ID, rl.Identity.Source, rl.Identity.EphId)
@@ -293,8 +298,6 @@ func (m *pickup) shouldForceMessagePickupRetry(rl roundLookup) bool {
 		result := binary.BigEndian.Uint64(b)
 		if result%2 == 0 {
 			jww.INFO.Printf("Forcing a message pickup retry for round %d", rl.Round.ID)
-			// Do not call get message, leaving the round to be picked up in
-			// unchecked round scheduler process
 			return true
 		}
 	}

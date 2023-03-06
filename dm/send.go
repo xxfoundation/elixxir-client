@@ -58,8 +58,26 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 	partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
-	return dc.SendReply(partnerPubKey, partnerToken, msg,
-		cryptoMessage.ID{}, params)
+
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+
+	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
+	jww.INFO.Printf("[DM][%s] SendText(%s)", tag, pubKeyStr)
+	txt := &Text{
+		Version: textVersion,
+		Text:    msg,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	txtMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
+	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+		params)
 }
 
 // SendDMReply is used to send a formatted direct message reply.
@@ -91,7 +109,7 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 			ephemeral.Id{}, err
 	}
 
-	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+	return dc.Send(partnerPubKey, partnerToken, ReplyType, txtMarshaled,
 		params)
 }
 
@@ -150,7 +168,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	rng := dc.rng.GetStream()
 	defer rng.Close()
 
-	nickname, _ := dc.nm.GetNickname(partnerID)
+	nickname, _ := dc.nm.GetNickname()
 
 	// Generate random nonce to be used for message ID
 	// generation. This makes it so two identical messages sent on
@@ -187,7 +205,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
 	uuid, err := dc.st.DenotePendingSend(*partnerEdwardsPubKey,
-		partnerToken, messageType, directMessage)
+		dc.me.PubKey, partnerToken, messageType, directMessage)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s",
 			err.Error())
@@ -217,6 +235,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	// Now that we have a round ID, derive the msgID
+	jww.INFO.Printf("[DM] DeriveDirectMessage(%s...) Send", partnerID)
 	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
 		directMessage)
 

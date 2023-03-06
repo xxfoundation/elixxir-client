@@ -148,7 +148,7 @@ var dmCmd = &cobra.Command{
 				if dmID.GetDMToken() == msg.dmToken {
 					selfStr = "Self"
 					if !bytes.Equal(dmID.PubKey[:],
-						msg.pubKey[:]) {
+						msg.partnerKey[:]) {
 						jww.FATAL.Panicf(
 							"pubkey mismatch!\n")
 					}
@@ -158,7 +158,7 @@ var dmCmd = &cobra.Command{
 				jww.INFO.Printf("Message received: %s\n", msg)
 				jww.INFO.Printf("RECVDMPUBKEY: %s",
 					base64.RawStdEncoding.EncodeToString(
-						msg.pubKey[:]))
+						msg.partnerKey[:]))
 				jww.INFO.Printf("RECVDMTOKEN: %d", msg.dmToken)
 				receiveCnt++
 			}
@@ -218,18 +218,19 @@ func (nm *nickMgr) GetNickname(id *id.ID) (string, bool) {
 }
 
 type msgInfo struct {
-	messageID message.ID
-	replyID   message.ID
-	nickname  string
-	content   string
-	pubKey    ed25519.PublicKey
-	dmToken   uint32
-	codeset   uint8
-	timestamp time.Time
-	round     rounds.Round
-	mType     dm.MessageType
-	status    dm.Status
-	uuid      uint64
+	messageID  message.ID
+	replyID    message.ID
+	nickname   string
+	content    string
+	partnerKey ed25519.PublicKey
+	senderKey  ed25519.PublicKey
+	dmToken    uint32
+	codeset    uint8
+	timestamp  time.Time
+	round      rounds.Round
+	mType      dm.MessageType
+	status     dm.Status
+	uuid       uint64
 }
 
 func (mi *msgInfo) String() string {
@@ -245,7 +246,7 @@ type receiver struct {
 }
 
 func (r *receiver) receive(messageID message.ID, replyID message.ID,
-	nickname, text string, pubKey ed25519.PublicKey,
+	nickname, text string, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType, status dm.Status) uint64 {
@@ -255,18 +256,19 @@ func (r *receiver) receive(messageID message.ID, replyID message.ID,
 	if !ok {
 		r.uuid += 1
 		msg = &msgInfo{
-			messageID: messageID,
-			replyID:   replyID,
-			nickname:  nickname,
-			content:   text,
-			pubKey:    pubKey,
-			dmToken:   dmToken,
-			codeset:   codeset,
-			timestamp: timestamp,
-			round:     round,
-			mType:     mType,
-			status:    status,
-			uuid:      r.uuid,
+			messageID:  messageID,
+			replyID:    replyID,
+			nickname:   nickname,
+			content:    text,
+			partnerKey: partnerKey,
+			senderKey:  senderKey,
+			dmToken:    dmToken,
+			codeset:    codeset,
+			timestamp:  timestamp,
+			round:      round,
+			mType:      mType,
+			status:     status,
+			uuid:       r.uuid,
 		}
 		r.msgData[messageID] = msg
 	} else {
@@ -277,40 +279,44 @@ func (r *receiver) receive(messageID message.ID, replyID message.ID,
 }
 
 func (r *receiver) Receive(messageID message.ID,
-	nickname string, text []byte, pubKey ed25519.PublicKey,
+	nickname string, text []byte, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType, status dm.Status) uint64 {
 	jww.INFO.Printf("Receive: %v", messageID)
 	return r.receive(messageID, message.ID{}, nickname, string(text),
-		pubKey, dmToken, codeset, timestamp, round, mType, status)
+		partnerKey, senderKey, dmToken, codeset, timestamp, round, mType, status)
 }
 
 func (r *receiver) ReceiveText(messageID message.ID,
-	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
+	nickname, text string, partnerKey, senderKey ed25519.PublicKey,
+	dmToken uint32,
 	codeset uint8, timestamp time.Time,
 	round rounds.Round, status dm.Status) uint64 {
 	jww.INFO.Printf("ReceiveText: %v", messageID)
 	return r.receive(messageID, message.ID{}, nickname, text,
-		pubKey, dmToken, codeset, timestamp, round, dm.TextType, status)
+		partnerKey, senderKey, dmToken, codeset, timestamp, round,
+		dm.TextType, status)
 }
 func (r *receiver) ReceiveReply(messageID message.ID,
 	reactionTo message.ID, nickname, text string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	partnerKey, senderKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
 	jww.INFO.Printf("ReceiveReply: %v", messageID)
 	return r.receive(messageID, reactionTo, nickname, text,
-		pubKey, dmToken, codeset, timestamp, round, dm.TextType, status)
+		partnerKey, senderKey, dmToken, codeset, timestamp, round,
+		dm.TextType, status)
 }
 func (r *receiver) ReceiveReaction(messageID message.ID,
 	reactionTo message.ID, nickname, reaction string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	partnerKey, senderKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
 	status dm.Status) uint64 {
 	jww.INFO.Printf("ReceiveReaction: %v", messageID)
 	return r.receive(messageID, reactionTo, nickname, reaction,
-		pubKey, dmToken, codeset, timestamp, round, dm.ReactionType,
+		partnerKey, senderKey, dmToken, codeset, timestamp, round,
+		dm.ReactionType,
 		status)
 }
 func (r *receiver) UpdateSentStatus(uuid uint64, messageID message.ID,
@@ -325,4 +331,18 @@ func (r *receiver) UpdateSentStatus(uuid uint64, messageID message.ID,
 		return
 	}
 	msg.status = status
+}
+
+func (r *receiver) BlockSender(pubKey ed25519.PublicKey) {
+}
+
+func (r *receiver) UnblockSender(pubKey ed25519.PublicKey) {
+}
+
+func (r *receiver) GetConversation(pubKey ed25519.PublicKey) *dm.ModelConversation {
+	return nil
+}
+
+func (r *receiver) GetConversations() []dm.ModelConversation {
+	return nil
 }

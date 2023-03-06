@@ -565,6 +565,7 @@ func (m *mockChannelsManager) JoinChannel(*cryptoBroadcast.Channel) error { pani
 func (m *mockChannelsManager) LeaveChannel(*id.ID) error                  { panic("implement me") }
 func (m *mockChannelsManager) EnableDirectMessages(*id.ID) error          { panic("implement me") }
 func (m *mockChannelsManager) DisableDirectMessages(*id.ID) error         { panic("implement me") }
+func (m *mockChannelsManager) AreDMsEnabled(*id.ID) bool                  { panic("implement me") }
 func (m *mockChannelsManager) ReplayChannel(*id.ID) error                 { panic("implement me") }
 func (m *mockChannelsManager) GetChannels() []*id.ID                      { panic("implement me") }
 func (m *mockChannelsManager) GetChannel(*id.ID) (*cryptoBroadcast.Channel, error) {

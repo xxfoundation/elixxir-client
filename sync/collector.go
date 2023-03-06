@@ -31,7 +31,7 @@ const (
 )
 
 const (
-	deviceUpdateRetrievalErr = "failed to retrieve last update from %s"
+	deviceUpdateRetrievalErr = "failed to retrieve last update from %s: %+v"
 )
 
 // todo: docstring
@@ -130,7 +130,7 @@ func (c *Collector) collect() {
 	}
 
 	elapsed := netTime.Now().Sub(start).Milliseconds()
-	jww.INFO.Printf("[%s] Applied %d new updates took %s",
+	jww.INFO.Printf("[%s] Applied %d new updates took %d ms",
 		collectorLogHeader, len(newUpdates), elapsed)
 
 	c.lastUpdates = newUpdates
@@ -145,18 +145,15 @@ func (c *Collector) collectChanges(devices []string) (transactionChanges,
 
 	// Iterate over devices
 	for _, deviceId := range devices {
-
 		// Retrieve updates from device
 		lastUpdate, err := c.remote.GetLastModified(deviceId)
 		if err != nil {
-			return nil, nil, errors.Errorf(deviceUpdateRetrievalErr, deviceId)
+			return nil, nil, errors.Errorf(deviceUpdateRetrievalErr, deviceId, err)
 		}
-
 		// Get the last update
 		lastTrackedUpdate := c.lastUpdates[deviceId]
-
 		// If us, read the local log, otherwise read the remote log
-		if deviceId != c.myID ||
+		if deviceId != c.myID &&
 			(lastUpdate.Before(lastTrackedUpdate) ||
 				lastUpdate.Equal(lastTrackedUpdate)) {
 			continue
@@ -195,7 +192,7 @@ func (c *Collector) collectChanges(devices []string) (transactionChanges,
 		changes[deviceId], err = readTransactionsAfter(txLog, c.lastUpdates[deviceId], c.GetDeviceSecret(deviceId))
 		if err != nil {
 			// todo: continue or return here?
-			jww.WARN.Printf("failed to read transaction log for %d: %+v",
+			jww.WARN.Printf("failed to read transaction log for %s: %+v",
 				deviceId, err)
 			continue
 		}
@@ -203,6 +200,7 @@ func (c *Collector) collectChanges(devices []string) (transactionChanges,
 		//trace(number of changes for this device)
 		jww.TRACE.Printf("Recorded %d changed for device %s",
 			len(changes[deviceId]), deviceId)
+
 	}
 	return changes, newUpdates, nil
 }
@@ -259,7 +257,7 @@ func (c *Collector) applyChanges(changes transactionChanges) error {
 
 		if bytes.Equal(cur.Value, localVal) {
 			//trace(same val)
-			jww.TRACE.Printf("Same value for transaction %d", cur)
+			jww.TRACE.Printf("Same value for transaction %+v", cur)
 		} else {
 			if err = c.kv.Set(k, cur.Value, nil); err != nil {
 				// todo: continue or return here?
@@ -275,7 +273,8 @@ func (c *Collector) applyChanges(changes transactionChanges) error {
 // GetDeviceSecret will return the device secret for the given device identifier.
 //
 // Fixme: For now, it will return the master secret, this will be an rpc in
-//  future, return master secret
+//
+//	future, return master secret
 func (c *Collector) GetDeviceSecret(d string) []byte {
 	return c.txLog.deviceSecret
 }
@@ -323,22 +322,21 @@ func nextChange(changes transactionChanges) (transactionChanges, *Transaction,
 // readTransactionsAfter is a utility function which reads all Transaction's
 // after the given time. This deserializes a TransactionLog and must have the
 // device's secret passed in to decrypt transactions.
-func readTransactionsAfter(txLogSerialized []byte, t time.Time,
+func readTransactionsAfter(txLogSerialized []byte, lastUpdate time.Time,
 	deviceSecret []byte) ([]Transaction, error) {
 	txLog := &TransactionLog{
 		deviceSecret: deviceSecret,
 	}
 	if err := txLog.deserialize(txLogSerialized); err != nil {
-		// todo: handle err
 		return nil, errors.Errorf("failed to deserialize transaction log: %+v", err)
 	}
 
 	res := make([]Transaction, 0)
 	for _, tx := range txLog.txs {
-		if tx.Timestamp.After(t) {
+		if tx.Timestamp.After(lastUpdate) {
 			res = append(res, tx)
 		}
 	}
 
-	return res
+	return res, nil
 }

@@ -302,10 +302,7 @@ func NewFileSystemRemoteStorage(baseDir string) *FileSystemRemoteStorage {
 //
 // This utilizes utils.ReadFile under the hood.
 func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
-	if utils.DirExists(path) {
-		return utils.ReadFile(f.baseDir + path)
-	}
-	return utils.ReadFile(path)
+	return utils.ReadFile(f.baseDir + path)
 }
 
 // Write will write data to path. This will return an error if it fails to
@@ -313,10 +310,8 @@ func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
 //
 // This utilizes utils.WriteFileDef under the hood.
 func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
-	if utils.DirExists(path) {
-		return utils.WriteFileDef(f.baseDir+path, data)
-	}
-	return utils.WriteFileDef(path, data)
+
+	return utils.WriteFileDef(f.baseDir+path, data)
 
 }
 
@@ -327,10 +322,7 @@ func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
 // This utilizes utils.GetLastModified under the hood.
 func (f *FileSystemRemoteStorage) GetLastModified(path string) (
 	time.Time, error) {
-	if utils.DirExists(path) {
-		return utils.GetLastModified(f.baseDir + path)
-	}
-	return utils.GetLastModified(path)
+	return utils.GetLastModified(f.baseDir + path)
 }
 
 // GetLastWrite will retrieve the most recent successful write operation

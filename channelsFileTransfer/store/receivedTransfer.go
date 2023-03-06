@@ -150,8 +150,7 @@ func (rt *ReceivedTransfer) AddPart(part []byte, partNum int) error {
 	// Save part
 	rt.parts[partNum] = part
 	if !rt.disableKV {
-		err := savePart(part, partNum, rt.kv)
-		if err != nil {
+		if err := savePart(part, partNum, rt.kv); err != nil {
 			return errors.Errorf(errReceivedPartSave, partNum, err)
 		}
 	}
@@ -222,6 +221,7 @@ func (rt *ReceivedTransfer) CopyPartStatusVector() *utility.StateVector {
 }
 
 // GetNewCallbackID issues a new unique for a callback.
+// TODO: test
 func (rt *ReceivedTransfer) GetNewCallbackID() uint64 {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
@@ -280,6 +280,7 @@ func loadReceivedTransfer(
 	// Load transfer MAC, number of parts, and file size
 	obj, err := kv.Get(receivedTransferStoreKey, receivedTransferStoreVersion)
 	if err != nil {
+		// TODO: test
 		return nil, errors.Errorf(errRtLoadFields, err)
 	}
 

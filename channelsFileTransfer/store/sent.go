@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -33,11 +32,9 @@ const (
 	// NewOrLoadSent
 	errLoadSent            = "error loading sent transfer list from storage: %+v"
 	errUnmarshalSent       = "could not unmarshal sent transfer list: %+v"
-	warnLoadSentTransfer   = "[FT] Failed to load sent transfer %d of %d with ID %s: %+v"
-	errLoadAllSentTransfer = "failed to load all %d sent transfers"
 
 	// Sent.AddTransfer
-	errAddExistingSentTransfer = "sent transfer with ID %s already exists in map."
+	errAddExistingSentTransfer = "upload already exists in map"
 	errNewSentTransfer         = "failed to make new sent transfer: %+v"
 )
 
@@ -78,43 +75,8 @@ func NewOrLoadSent(kv *versioned.KV) (*Sent, []ftCrypto.ID, error) {
 	return s, fidList, nil
 }
 
-// LoadTransfers loads all sent transfers in the list from storage into Sent.
-// It returns unsentParts, a list of all parts that were not sent, and
-// sentParts, a list of all file parts that have been sent but reception has not
-// been confirmed.
-// TODO: remove and update tests
-func (s *Sent) LoadTransfers(fileParts map[ftCrypto.ID][][]byte) (
-	unsentParts, sentParts []*Part, err error) {
-
-	// Load sent transfers from storage
-	var errCount, i int
-	for fid, parts := range fileParts {
-		i++
-
-		st, err2 := s.LoadTransfer(fid, parts)
-		if err2 != nil {
-			jww.WARN.Printf(warnLoadSentTransfer, i, len(fileParts), fid, err)
-			errCount++
-			continue
-		}
-
-		if s.transfers[fid].Status() == Running {
-			unsentParts = append(unsentParts, st.GetUnsentParts()...)
-			sentParts = append(sentParts, st.GetSentParts()...)
-		}
-	}
-
-	// Return an error if all transfers failed to load
-	if len(fileParts) > 0 && errCount == len(fileParts) {
-		return nil, nil, errors.Errorf(errLoadAllSentTransfer, len(fileParts))
-	}
-
-	return unsentParts, sentParts, nil
-}
-
 // LoadTransfer loads the sent transfer with the file ID from storage into Sent
 // and returns it.
-// TODO: test
 func (s *Sent) LoadTransfer(
 	fid ftCrypto.ID, parts [][]byte) (*SentTransfer, error) {
 	// Load sent transfers from storage
@@ -125,7 +87,7 @@ func (s *Sent) LoadTransfer(
 
 	// Add sent transfer to transfer list
 	if _, exists := s.transfers[fid]; exists {
-		return nil, errors.Errorf(errAddExistingSentTransfer, fid)
+		return nil, errors.New(errAddExistingSentTransfer)
 	}
 	s.transfers[fid] = st
 
@@ -135,19 +97,18 @@ func (s *Sent) LoadTransfer(
 // AddTransfer creates a SentTransfer and adds it to the map keyed on its file
 // ID.
 func (s *Sent) AddTransfer(recipient *id.ID, sentTimestamp time.Time,
-	key *ftCrypto.TransferKey, fid ftCrypto.ID, fileSize uint32, parts [][]byte,
-	numFps uint16) (*SentTransfer, error) {
+	key *ftCrypto.TransferKey, mac []byte, fid ftCrypto.ID, fileSize uint32,
+	parts [][]byte, numFps uint16, retry float32) (*SentTransfer, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// TODO: test change where we return an existing transfer, if it exists
 	st, exists := s.transfers[fid]
 	if exists {
-		return nil, errors.Errorf(errAddExistingSentTransfer, fid)
+		return nil, errors.New(errAddExistingSentTransfer)
 	}
 
-	st, err := newSentTransfer(
-		recipient, sentTimestamp, key, fid, fileSize, parts, numFps, s.kv)
+	st, err := newSentTransfer(recipient, sentTimestamp, key, mac, fid,
+		fileSize, parts, numFps, retry, s.kv)
 	if err != nil {
 		return nil, errors.Errorf(errNewSentTransfer, fid)
 	}

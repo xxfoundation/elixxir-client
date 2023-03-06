@@ -10,6 +10,9 @@ package channelsFileTransfer
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -156,6 +159,18 @@ type sentPartPacket struct {
 	loaded bool
 }
 
+// String prints the sentPartPacket in a human-readable form for logging and
+// debugging. This function adheres to the fmt.Stringer interface.
+func (spp *sentPartPacket) String() string {
+	fields := []string{
+		fmt.Sprintf("packets: %s", spp.packet),
+		"sentTime:" + spp.sentTime.String(),
+		"loaded:" + strconv.FormatBool(spp.loaded),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
+}
+
 // FtE2e interface matches a subset of the xxdk.E2e methods used by the file
 // transfer manager for easier testing.
 type FtE2e interface {
@@ -239,14 +254,6 @@ func (m *manager) loadInProgressUploads(uploads map[ftCrypto.ID]ModelFile,
 	for fid, file := range uploads {
 		i++
 
-		// Unmarshal file link first; if this fails, skip the entire file
-		var fl FileLink
-		if err := json.Unmarshal(file.FileLink, &fl); err != nil {
-			jww.ERROR.Printf("[FT] Failed to JSON unmarshal %T for file "+
-				"upload %s (%d/%d): %+v", fl, fid, i, len(uploads), err)
-			continue
-		}
-
 		// Load transfer from storage into sent transfer list
 		parts := partitionFile(file.FileData, partSize)
 		st, err := m.sent.LoadTransfer(fid, parts)
@@ -257,6 +264,17 @@ func (m *manager) loadInProgressUploads(uploads map[ftCrypto.ID]ModelFile,
 		}
 
 		m.registerSentProgressCallback(st, progressCB, 0)
+
+		fl := FileLink{
+			FileID:        st.GetFileID(),
+			RecipientID:   st.GetRecipient(),
+			SentTimestamp: st.SentTimestamp(),
+			Key:           *st.GetKey(),
+			Mac:           st.GetMAC(),
+			Size:          st.GetFileSize(),
+			NumParts:      st.GetNumParts(),
+			Retry:         st.GetRetry(),
+		}
 
 		// Start tracking the received file parts for the SentTransfer
 		callbacks := []receivedProgressCBs{{
@@ -469,7 +487,7 @@ func (m *manager) send(fid ftCrypto.ID, fileData []byte, retry float32,
 	// Create new sent transfer
 	sentTimestamp := netTime.Now()
 	st, err := m.sent.AddTransfer(
-		newID, sentTimestamp, &key, fid, fileSize, parts, numFps)
+		newID, sentTimestamp, &key, mac, fid, fileSize, parts, numFps, retry)
 	if err != nil {
 		return nil, errors.Errorf(errAddSentTransfer, err)
 	}

@@ -64,9 +64,8 @@ type FileLink struct {
 // the sent timestamp (time that the first file part was sent) is greater than
 // the max message life, meaning some or all the file parts no longer exist on
 // the network for download.
-// TODO: test
 func (fl *FileLink) Expired() bool {
-	return netTime.Since(fl.SentTimestamp) > channels.MessageLife
+	return netTime.Since(fl.SentTimestamp) >= channels.MessageLife
 }
 
 // GetFileID returns the file's ID.

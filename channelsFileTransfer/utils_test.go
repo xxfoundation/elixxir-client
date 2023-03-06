@@ -152,6 +152,8 @@ func newMockCmixHandler() *mockCmixHandler {
 }
 
 type mockCmix struct {
+	failSomeSends bool
+
 	myID          *id.ID
 	numPrimeBytes int
 	health        bool
@@ -205,18 +207,18 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 			cmixMsg{rid, targetedMsg, msg}
 
 		// Fail to process some messages so that resending can be tested
-		if m.prng.Intn(20) != 5 {
-			mp, exists := m.handler.processorMap[targetedMsg.Fingerprint]
-			if exists {
-				go func(mp message.Processor, rid id.Round,
-					targetedMsg cmix.TargetedCmixMessage, msg format.Message) {
-					mp.Process(
-						msg,
-						receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
-						rounds.Round{ID: rid},
-					)
-				}(mp, rid, targetedMsg, msg)
-			}
+		if m.failSomeSends && m.prng.Intn(20) != 5 {
+			continue
+		}
+
+		mp, exists := m.handler.processorMap[targetedMsg.Fingerprint]
+		if exists {
+			go func(mp message.Processor, rid id.Round,
+				targetedMsg cmix.TargetedCmixMessage, msg format.Message) {
+				mp.Process(msg, receptionID.EphemeralIdentity{
+					Source: targetedMsg.Recipient}, rounds.Round{ID: rid},
+				)
+			}(mp, rid, targetedMsg, msg)
 		}
 	}
 	return rounds.Round{ID: rid}, []ephemeral.Id{}, nil
@@ -574,13 +576,14 @@ func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	_ bool, _ cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
+	msgID := cryptoMessage.DeriveChannelMessageID(channelID, 0, msg)
 	for _, emh := range m.emh {
-		emh.Handle(channelID, cryptoMessage.ID{}, messageType, "", msg, nil,
-			m.me.PubKey, m.me.GetDMToken(), 0, netTime.Now(), netTime.Now(),
-			validUntil, 0, rounds.Round{}, channels.Delivered, false, false)
+		emh.Handle(channelID, msgID, messageType, "", msg, nil, m.me.PubKey,
+			m.me.GetDMToken(), 0, netTime.Now(), netTime.Now(), validUntil, 0,
+			rounds.Round{}, channels.Delivered, false, false)
 	}
 
-	return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, nil
+	return msgID, rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m *mockChannelsManager) SendMessage(*id.ID, string, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {

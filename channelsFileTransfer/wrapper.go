@@ -10,13 +10,13 @@ package channelsFileTransfer
 import (
 	"crypto/ed25519"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -53,6 +53,9 @@ func NewWrapper(
 		return nil, nil, err
 	}
 	w.m = fm
+	jww.INFO.Printf("[FT] Starting file transfer manager; found %d "+
+		"in-progress uploads and %d in-progress downloads",
+		len(inProgressSends), len(inProgressReceives))
 
 	eb := func(e channels.EventModel, m channels.Manager,
 		me cryptoChannel.PrivateIdentity) (
@@ -97,6 +100,11 @@ func NewWrapper(
 
 		// Lookup file data each in-progress downloads
 		for i, fid := range inProgressReceives {
+			// Skip any downloads that are already handled in the uploads list
+			if _, exists := uploads[fid]; exists {
+				continue
+			}
+
 			file, err2 := ev.GetFile(fid)
 			if err2 != nil {
 				jww.ERROR.Printf("[FT] Failed to get in-progress file "+
@@ -161,15 +169,23 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 
 	// Generate the file ID
 	fid := ftCrypto.NewID(fileData)
+	jww.INFO.Printf("[FT] Preparing upload of file %s of size %d with retry %f",
+		fid, len(fileData), retry)
 
 	// Check if the file is already uploading
 	if st, exists := w.m.sent.GetTransfer(fid); exists {
 		if st.Status() != store.Failed {
+			jww.DEBUG.Printf("[FT] Upload %s already in progress; registering "+
+				"progress callback to in-progress upload", fid)
+
 			// File upload is already in progress so the progress callback is
 			// registered to the ongoing upload
 			w.m.registerSentProgressCallback(st, progressCB, period)
 			return fid, nil
 		} else {
+			jww.DEBUG.Printf("[FT] Upload %s already failed; clearing upload "+
+				"and trying again", fid)
+
 			// If the file is failed, then close it out and retry the upload
 			err := w.m.closeSend(st)
 			if err != nil {
@@ -181,6 +197,7 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 
 	// If the file is currently downloading, return an error
 	if _, exists := w.m.received.GetTransfer(fid); exists {
+		jww.DEBUG.Printf("[FT] File %s already downloading", fid)
 		// TODO: Handle an upload that is currently downloading by adding the
 		//  file data to the event model and marking the receive file transfer
 		//  as complete; need to figure out how to handle file link
@@ -196,12 +213,16 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 			return ftCrypto.ID{}, err
 		}
 
+		jww.DEBUG.Printf("[FT] File %s not found in event model; adding it", fid)
+
 		// If the file does not exist, add it to the event model and upload it
 		err = w.ev.ReceiveFile(fid, nil, fileData, netTime.Now(), Uploading)
 		if err != nil {
 			return ftCrypto.ID{}, err
 		}
 	} else {
+		jww.DEBUG.Printf("[FT] File %s found in event model with status %s",
+			fid, file.Status)
 		if file.Status == Complete {
 			// If the file exists and is new enough to be downloaded, call the
 			// progress callback to indicate it is complete
@@ -210,11 +231,21 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 				return ftCrypto.ID{}, err
 			}
 
-			if fl.Expired() {
-				go progressCB(true, 0, fl.NumParts, fl.NumParts, &fl, nil, nil)
+			if !fl.Expired() {
+				jww.DEBUG.Printf("[FT] Link for file %s is not expired; "+
+					"calling progress callback with completed == true", fid)
+				if progressCB != nil {
+					go progressCB(
+						true, 0, fl.NumParts, fl.NumParts, &fl, nil, nil)
+				}
 				return fid, nil
+			} else {
+				jww.DEBUG.Printf("[FT] Link for file %s expired (age:%s); "+
+					"re-uploading file", fid, netTime.Since(fl.SentTimestamp))
 			}
 		} else {
+			jww.DEBUG.Printf("[FT] Uploading file %s in event model from %s "+
+				"to %s", fid, file.Status, Uploading)
 
 			// If the file is not complete then it has either errored out or in
 			// an invalid state. In either case, clear the status and start the
@@ -232,6 +263,8 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 		{progressCB, period},
 		{w.uploadErrorTracker, 0},
 	}
+
+	jww.DEBUG.Printf("[FT] Uploading file %s of size %d", fid, len(fileData))
 
 	// If it does not exist in storage or the event model or the file is too
 	// old, then the file needs to be uploaded
@@ -402,6 +435,8 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 		return ftCrypto.ID{}, err
 	}
 
+	jww.INFO.Printf("[FT] Initiating download of file %s", fi.FileID)
+
 	fileLink, err2 := json.Marshal(fi.FileLink)
 	if err2 != nil {
 		return ftCrypto.ID{}, err2
@@ -418,7 +453,9 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 	// If the file is currently uploading, alert that the upload is complete
 	// (because the file is already in the event model).
 	if _, exists := w.m.sent.GetTransfer(fi.FileID); exists {
-		go progressCB(true, fi.NumParts, fi.NumParts, &fi, nil, nil)
+		if progressCB != nil {
+			go progressCB(true, fi.NumParts, fi.NumParts, &fi, nil, nil)
+		}
 		return fi.FileID, nil
 	}
 
@@ -445,7 +482,9 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 		if file.Status == Complete {
 			// If the file exists, call the progress callback to indicate it is
 			// complete
-			go progressCB(true, fi.NumParts, fi.NumParts, &fi, nil, nil)
+			if progressCB != nil {
+				go progressCB(true, fi.NumParts, fi.NumParts, &fi, nil, nil)
+			}
 			return fi.FileID, nil
 		} else {
 

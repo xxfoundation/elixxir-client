@@ -20,6 +20,9 @@ import (
 //go:embed loremIpsum.txt
 var loremIpsum string
 
+//go:embed jellyBeans.png
+var jellyBeans []byte
+
 // Tests that Wrapper adheres to the FileTransfer interface.
 var _ FileTransfer = (*Wrapper)(nil)
 

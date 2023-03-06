@@ -72,11 +72,17 @@ type SentTransfer struct {
 	// The time when the file was first queued to send
 	sentTimestamp time.Time
 
+	// The transfer MAC used to verify a file is complete
+	mac []byte
+
 	// The size of the entire file
 	fileSize uint32
 
 	// The number of file parts in the file
 	numParts uint16
+
+	// Determines number of sen retries on failure
+	retry float32
 
 	// Indicates the status of the transfer
 	status TransferStatus
@@ -101,8 +107,9 @@ type SentTransfer struct {
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
 // file ID, and parts.
 func newSentTransfer(recipient *id.ID, sentTimestamp time.Time,
-	key *ftCrypto.TransferKey, fid ftCrypto.ID, fileSize uint32, parts [][]byte,
-	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
+	key *ftCrypto.TransferKey, mac []byte, fid ftCrypto.ID, fileSize uint32,
+	parts [][]byte, numFps uint16, retry float32, kv *versioned.KV) (
+	*SentTransfer, error) {
 	kv = kv.Prefix(makeSentTransferPrefix(fid))
 
 	// Create new cypher manager
@@ -123,8 +130,10 @@ func newSentTransfer(recipient *id.ID, sentTimestamp time.Time,
 		fid:                      fid,
 		recipient:                recipient,
 		sentTimestamp:            sentTimestamp.Round(0),
+		mac:                      mac,
 		fileSize:                 fileSize,
 		numParts:                 uint16(len(parts)),
+		retry:                    retry,
 		status:                   Running,
 		parts:                    parts,
 		partStatus:               partStatus,
@@ -241,6 +250,18 @@ func (st *SentTransfer) SentTimestamp() time.Time {
 	return st.sentTimestamp
 }
 
+// GetKey returns the transfer key used for encrypting/decrypting.
+// TODO: test
+func (st *SentTransfer) GetKey() *ftCrypto.TransferKey {
+	return st.cypherManager.GetKey()
+}
+
+// GetMAC returns the transfer MAC used to verify the file.
+// TODO: test
+func (st *SentTransfer) GetMAC() []byte {
+	return st.mac
+}
+
 // GetFileSize returns the size of the entire file transfer.
 func (st *SentTransfer) GetFileSize() uint32 {
 	return st.fileSize
@@ -261,6 +282,12 @@ func (st *SentTransfer) NumReceived() uint16 {
 	return st.partStatus.GetCount(uint8(ReceivedPart))
 }
 
+// GetRetry returns the retry number.
+// TODO: test
+func (st *SentTransfer) GetRetry() float32 {
+	return st.retry
+}
+
 // CopyPartStatusVector returns a copy of the part status vector that can be
 // used to look up the current status of parts. Note that the statuses are from
 // when this function is called and not realtime.
@@ -269,6 +296,7 @@ func (st *SentTransfer) CopyPartStatusVector() *utility.MultiStateVector {
 }
 
 // GetNewCallbackID issues a new unique for a callback.
+// TODO: test
 func (st *SentTransfer) GetNewCallbackID() uint64 {
 	st.mux.Lock()
 	defer st.mux.Unlock()
@@ -327,6 +355,7 @@ func loadSentTransfer(
 	// Load fileName, recipient ID, status, and file parts
 	obj, err := kv.Get(sentTransferStoreKey, sentTransferStoreVersion)
 	if err != nil {
+		// TODO: test
 		return nil, errors.Errorf(errStLoadFields, err)
 	}
 
@@ -347,8 +376,10 @@ func loadSentTransfer(
 		fid:                      fid,
 		recipient:                info.Recipient,
 		sentTimestamp:            info.SentTimestamp.Round(0),
+		mac:                      info.Mac,
 		fileSize:                 calcFileSize(parts),
 		numParts:                 uint16(len(parts)),
+		retry:                    info.Retry,
 		status:                   info.Status,
 		parts:                    parts,
 		partStatus:               partStatus,
@@ -416,6 +447,8 @@ func (st *SentTransfer) save() error {
 type sentTransferDisk struct {
 	Recipient     *id.ID         `json:"recipient"`
 	SentTimestamp time.Time      `json:"sentTimestamp"`
+	Mac           []byte         `json:"mac"`
+	Retry         float32        `json:"retry"`
 	Status        TransferStatus `json:"status"`
 }
 
@@ -424,6 +457,8 @@ func (st *SentTransfer) marshal() ([]byte, error) {
 	disk := sentTransferDisk{
 		Recipient:     st.recipient,
 		SentTimestamp: st.sentTimestamp,
+		Mac:           st.mac,
+		Retry:         st.retry,
 		Status:        st.status,
 	}
 

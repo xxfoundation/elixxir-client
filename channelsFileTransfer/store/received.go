@@ -91,6 +91,7 @@ func (r *Received) LoadTransfers(fidList []ftCrypto.ID) ([]*ReceivedTransfer, er
 	for i, fid := range fidList {
 		r.transfers[fid], err = loadReceivedTransfer(fid, r.kv)
 		if err != nil {
+			// TODO: test
 			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(fidList), fid, err)
 			errCount++
 		}

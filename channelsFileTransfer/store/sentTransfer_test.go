@@ -36,8 +36,9 @@ func Test_newSentTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 	numFps := uint16(24)
-	parts := [][]byte{[]byte("hello"), []byte("hello"), []byte("hello")}
+	parts := [][]byte{[]byte("hello "), []byte("hello "), []byte("hello")}
 	stKv := kv.Prefix(makeSentTransferPrefix(fid))
+	mac := ftCrypto.CreateTransferMAC([]byte("hello hello hello"), key)
 
 	cypherManager, err := cypher.NewManager(&key, numFps, false, stKv)
 	if err != nil {
@@ -54,8 +55,10 @@ func Test_newSentTransfer(t *testing.T) {
 		fid:                      fid,
 		recipient:                id.NewIdFromString("user", id.User, t),
 		sentTimestamp:            netTime.Now().Round(0),
+		mac:                      mac,
 		fileSize:                 calcFileSize(parts),
 		numParts:                 uint16(len(parts)),
+		retry:                    2.3,
 		status:                   Running,
 		parts:                    parts,
 		partStatus:               partStatus,
@@ -64,8 +67,8 @@ func Test_newSentTransfer(t *testing.T) {
 		kv:                       stKv,
 	}
 
-	st, err := newSentTransfer(expected.recipient, expected.sentTimestamp,
-		&key, fid, expected.fileSize, parts, numFps, kv)
+	st, err := newSentTransfer(expected.recipient, expected.sentTimestamp, &key,
+		expected.mac, fid, expected.fileSize, parts, numFps, expected.retry, kv)
 	if err != nil {
 		t.Errorf("newSentTransfer returned an error: %+v", err)
 	}
@@ -635,9 +638,12 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 	st := &SentTransfer{
 		recipient:     id.NewIdFromString("user", id.User, t),
 		sentTimestamp: netTime.Now().Round(0),
+		mac:           []byte("MAC"),
+		retry:         0.5,
 		status:        Failed,
 	}
-	expected := sentTransferDisk{st.recipient, st.sentTimestamp, st.status}
+	expected := sentTransferDisk{
+		st.recipient, st.sentTimestamp, st.mac, st.retry, st.status}
 
 	data, err := st.marshal()
 	if err != nil {
@@ -695,9 +701,10 @@ func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
 	fid := ftCrypto.NewID([]byte("fileData"))
 	numFps = 2 * numParts
 	parts, file := generateTestParts(numParts)
+	mac := ftCrypto.CreateTransferMAC(file, keyTmp)
 
-	st, err := newSentTransfer(recipient, netTime.Now(), &keyTmp, fid,
-		uint32(len(file)), parts, numFps, kv)
+	st, err := newSentTransfer(recipient, netTime.Now(), &keyTmp, mac, fid,
+		uint32(len(file)), parts, numFps, 1.3, kv)
 	if err != nil {
 		t.Errorf("Failed to make new SentTransfer: %+v", err)
 	}

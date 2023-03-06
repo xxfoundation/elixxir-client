@@ -9,7 +9,6 @@ package store
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -66,9 +65,10 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 		prng.Read(fileData)
 		fid := ftCrypto.NewID(fileData)
 		parts, file := generateTestParts(uint16(10 + i))
-		_, err = s.AddTransfer(
-			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t),
-			netTime.Now(), &key, fid, uint32(len(file)), parts, uint16(2*(10+i)))
+		mac := ftCrypto.CreateTransferMAC(file, key)
+		_, err = s.AddTransfer(id.NewIdFromString("recipient"+strconv.Itoa(i),
+			id.User, t), netTime.Now(), &key, mac, fid, uint32(len(file)),
+			parts, uint16(2*(10+i)), 2)
 		if err != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err)
 		}
@@ -100,8 +100,8 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 }
 
 // Tests that NewOrLoadSent returns a loaded Sent when one exist in storage and
-// that Sent.LoadTransfers returns the correct list of unsent and sent parts.
-func TestSent_LoadTransfers(t *testing.T) {
+// that Sent.LoadTransfer returns the correct list of unsent and sent parts.
+func TestSent_LoadTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	prng := rand.New(rand.NewSource(42))
 	s, _, err := NewOrLoadSent(kv)
@@ -118,9 +118,11 @@ func TestSent_LoadTransfers(t *testing.T) {
 		prng.Read(fileData)
 		fid := ftCrypto.NewID(fileData)
 		parts, file := generateTestParts(uint16(10 + i))
+		mac := ftCrypto.CreateTransferMAC(file, key)
 		st, err2 := s.AddTransfer(
 			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t),
-			netTime.Now(), &key, fid, uint32(len(file)), parts, uint16(2*(10+i)))
+			netTime.Now(), &key, mac, fid, uint32(len(file)), parts,
+			uint16(2*(10+i)), 9.5)
 		if err2 != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err2)
 		}
@@ -138,9 +140,14 @@ func TestSent_LoadTransfers(t *testing.T) {
 		t.Errorf("Failed to load Sent: %+v", err)
 	}
 
-	unsentParts, sentParts, err := loadedSent.LoadTransfers(fileParts)
-	if err != nil {
-		t.Errorf("Failed to load sent transfers: %+v", err)
+	var unsentParts, sentParts []*Part
+	for fid, parts := range fileParts {
+		if st, err2 := loadedSent.LoadTransfer(fid, parts); err2 != nil {
+			t.Errorf("Failed to load transfer %s: %+v", fid, err2)
+		} else if st.Status() == Running {
+			unsentParts = append(unsentParts, st.GetUnsentParts()...)
+			sentParts = append(sentParts, st.GetSentParts()...)
+		}
 	}
 
 	// Check that the loaded Sent matches original
@@ -218,9 +225,10 @@ func TestSent_AddTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 	parts, file := generateTestParts(10)
+	mac := ftCrypto.CreateTransferMAC(file, key)
 
 	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
-		netTime.Now(), &key, fid, uint32(len(file)), parts, 20)
+		netTime.Now(), &key, mac, fid, uint32(len(file)), parts, 20, 0.264)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -239,8 +247,8 @@ func TestSent_AddTransfer_TransferAlreadyExists(t *testing.T) {
 		transfers: map[ftCrypto.ID]*SentTransfer{fid: nil},
 	}
 
-	expectedErr := fmt.Sprintf(errAddExistingSentTransfer, fid)
-	_, err := s.AddTransfer(nil, time.Time{}, nil, fid, 0, nil, 0)
+	expectedErr := errAddExistingSentTransfer
+	_, err := s.AddTransfer(nil, time.Time{}, nil, nil, fid, 0, nil, 0, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -255,9 +263,10 @@ func TestSent_GetTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 	parts, file := generateTestParts(10)
+	mac := ftCrypto.CreateTransferMAC(file, key)
 
 	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
-		netTime.Now(), &key, fid, uint32(len(file)), parts, 20)
+		netTime.Now(), &key, mac, fid, uint32(len(file)), parts, 20, 1.12)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -282,9 +291,11 @@ func TestSent_RemoveTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	fid := ftCrypto.NewID([]byte("fileData"))
 	parts, file := generateTestParts(10)
+	mac := ftCrypto.CreateTransferMAC(file, key)
 
-	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
-		netTime.Now(), &key, fid, uint32(len(file)), parts, 20)
+	st, err := s.AddTransfer(
+		id.NewIdFromString("recipient", id.User, t), netTime.Now(), &key, mac,
+		fid, uint32(len(file)), parts, 20, 0.878)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -319,14 +330,16 @@ func TestSent_RemoveTransfers(t *testing.T) {
 	fid2 := ftCrypto.NewID([]byte("fileData2"))
 	parts1, file1 := generateTestParts(10)
 	parts2, file2 := generateTestParts(15)
+	mac1 := ftCrypto.CreateTransferMAC(file1, key1)
+	mac2 := ftCrypto.CreateTransferMAC(file2, key2)
 
 	st1, err := s.AddTransfer(id.NewIdFromString("recipient1", id.User, t),
-		netTime.Now(), &key1, fid1, uint32(len(file1)), parts1, 20)
+		netTime.Now(), &key1, mac1, fid1, uint32(len(file1)), parts1, 20, 4.23)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 	st2, err := s.AddTransfer(id.NewIdFromString("recipient2", id.User, t),
-		netTime.Now(), &key2, fid2, uint32(len(file2)), parts2, 40)
+		netTime.Now(), &key2, mac2, fid2, uint32(len(file2)), parts2, 40, 1)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}

@@ -53,7 +53,7 @@ func NewKV(data ekv.KeyValue) *KV {
 // Make sure to inspect the version returned in the versioned object
 func (v *KV) Get(key string, version uint64) (*Object, error) {
 	key = v.makeKey(key, version)
-	jww.TRACE.Printf("get %p with key %v", v.r.data, key)
+	// jww.TRACE.Printf("get %p with key %v", v.r.data, key)
 	// get raw data
 	result := Object{}
 	err := v.r.data.Get(key, &result)
@@ -135,7 +135,7 @@ func (v *KV) Delete(key string, version uint64) error {
 // a functionality.
 func (v *KV) Set(key string, object *Object) error {
 	key = v.makeKey(key, object.Version)
-	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
+	// jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }
 

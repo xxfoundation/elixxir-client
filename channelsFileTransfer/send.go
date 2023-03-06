@@ -47,6 +47,9 @@ const (
 
 	// Prefix used for the name of a stoppable used for a sending thread
 	sendThreadStoppableName = "FilePartSendingThread#"
+
+	// Prefix used for the name of a stoppable used for a resending thread
+	resendThreadStoppableName = "FilePartResendBatch#"
 )
 
 // startSendingWorkerPool initialises a worker pool of file part sending
@@ -124,7 +127,7 @@ func (m *manager) sendCmix(packet []*store.Part) {
 	// Clear all old rounds from the sent rounds list
 	m.params.Cmix.ExcludedRounds.(*sentRoundTracker.Manager).RemoveOldRounds()
 
-	jww.DEBUG.Printf("[FT] Sending %d file parts via SendManyCMIX: %s",
+	jww.TRACE.Printf("[FT] Sending %d file parts via SendManyCMIX: %s",
 		len(messages), validParts)
 
 	rid, _, err := m.cmix.SendMany(messages, m.params.Cmix)
@@ -185,7 +188,7 @@ func (m *manager) roundResultsCallback(
 		}
 
 		if allRoundsSucceeded {
-			jww.DEBUG.Printf("[FT] %d file parts sent on round %d (%s)",
+			jww.TRACE.Printf("[FT] %d file parts sent on round %d (%s)",
 				len(packet), rid, printGrouped(grouped))
 
 			// If the round succeeded, then mark all parts as arrived and report
@@ -221,7 +224,7 @@ func (m *manager) resendUnreceived(stop *stoppable.Multi) {
 	mainThreadStop := stoppable.NewSingle("FilePartResendThread")
 	stop.Add(mainThreadStop)
 
-	for {
+	for i := 0; ; i++ {
 		select {
 		case <-mainThreadStop.Quit():
 			jww.DEBUG.Printf("[FT] Stopping file part resend thread (%s): "+
@@ -229,14 +232,15 @@ func (m *manager) resendUnreceived(stop *stoppable.Multi) {
 			mainThreadStop.ToStopped()
 			return
 		case sentMessages := <-m.sentQueue:
-			jww.DEBUG.Printf("[FT] Received sentMessages: %+v", sentMessages)
-			sendQueueStop := stoppable.NewSingle("FilePartResendBatch")
+			sendQueueStop :=
+				stoppable.NewSingle(resendThreadStoppableName + strconv.Itoa(i))
+			// TODO: need to remove this stoppable when done with it
 			stop.Add(sendQueueStop)
 
 			go func(stop *stoppable.Single, sm *sentPartPacket) {
 				waitTime := calcWaitTime(m.params.ResendWait, netTime.Now(), sm)
 
-				jww.DEBUG.Printf("[FT] Scheduled check for resend for %d "+
+				jww.TRACE.Printf("[FT] Scheduled check for resend for %d "+
 					"parts in %s: %v", len(sm.packet), waitTime, sm.packet)
 				select {
 				case <-stop.Quit():
@@ -245,20 +249,20 @@ func (m *manager) resendUnreceived(stop *stoppable.Multi) {
 					stop.ToStopped()
 					return
 				case <-time.After(waitTime):
+					jww.DEBUG.Printf("[FT] Checking if parts needs to be resent: %+v", sm.packet)
 					var resentParts []*store.Part
 					for _, p := range sm.packet {
-						status := p.GetStatus()
-						if status == store.SentPart {
+						if p.GetStatus() == store.SentPart {
 							m.batchQueue <- p
 							resentParts = append(resentParts, p)
 						}
 					}
 					if len(resentParts) > 0 {
-						jww.DEBUG.Printf("[FT] %d of %d parts not received; "+
+						jww.WARN.Printf("[FT] %d of %d parts not received; "+
 							"resending parts: %v",
 							len(resentParts), len(sm.packet), resentParts)
 					} else {
-						jww.DEBUG.Printf("[FT] %d out of %d parts received.",
+						jww.TRACE.Printf("[FT] %d out of %d parts received.",
 							len(sm.packet), len(sm.packet))
 					}
 				}
@@ -315,7 +319,7 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, fl *FileLink,
 
 		// Call the progress callback if any parts were updated
 		if len(partsChanges) > 0 {
-			jww.DEBUG.Printf(
+			jww.TRACE.Printf(
 				"[FT] %d file parts set as received for file %s (%d)",
 				len(partsChanges), st.GetFileID(), partsChanges)
 			m.callbacks.Call(st.GetFileID(), nil)

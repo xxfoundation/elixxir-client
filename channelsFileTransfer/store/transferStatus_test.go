@@ -8,7 +8,6 @@
 package store
 
 import (
-	"strconv"
 	"testing"
 )
 
@@ -19,7 +18,7 @@ func Test_TransferStatus_String(t *testing.T) {
 		Running:   "running",
 		Completed: "completed",
 		Failed:    "failed",
-		100:       invalidTransferStatusStringErr + strconv.Itoa(100),
+		100:       "INVALID STATUS: 100",
 	}
 
 	for status, expected := range testValues {

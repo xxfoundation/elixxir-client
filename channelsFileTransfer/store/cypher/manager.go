@@ -120,6 +120,12 @@ func (m *Manager) GetUnusedCyphers() []Cypher {
 	return cypherList
 }
 
+// GetKey returns the transfer key used for encrypting/decrypting.
+// TODO: test
+func (m *Manager) GetKey() *ftCrypto.TransferKey {
+	return m.key
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////

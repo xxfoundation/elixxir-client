@@ -26,8 +26,6 @@ const (
 	Failed
 )
 
-const invalidTransferStatusStringErr = "INVALID TransferStatus: "
-
 // String prints the string representation of the TransferStatus. This function
 // satisfies the fmt.Stringer interface.
 func (ts TransferStatus) String() string {
@@ -39,7 +37,7 @@ func (ts TransferStatus) String() string {
 	case Failed:
 		return "failed"
 	default:
-		return invalidTransferStatusStringErr + strconv.Itoa(int(ts))
+		return "INVALID STATUS: " + strconv.Itoa(int(ts))
 	}
 }
 

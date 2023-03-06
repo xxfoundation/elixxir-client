@@ -9,15 +9,17 @@ package channelsFileTransfer
 
 import (
 	"encoding/json"
-	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/channels"
+	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Calculates the maximum size of a marshalled FileInfo without a preview and
@@ -64,7 +66,6 @@ func TestFileInfo_Size(t *testing.T) {
 		"Max preview size:", maxPreviewSize)
 }
 
-
 // Tests that a FileInfo JSON marshalled and unmarshalled matches the original.
 func TestFileInfo_JSON_Marshal_Unmarshal(t *testing.T) {
 	prng := rand.New(rand.NewSource(6415))
@@ -98,5 +99,58 @@ func TestFileInfo_JSON_Marshal_Unmarshal(t *testing.T) {
 	if !reflect.DeepEqual(*fi, newTi) {
 		t.Errorf("JSON marshalled and unmarshalled FileInfo does not match "+
 			"original.\nexpected: %+v\nreceived: %+v", *fi, newTi)
+	}
+}
+
+// Tests that FileLink.Expired returns true only for expired timestamps.
+func TestFileLink_Expired(t *testing.T) {
+	fl := FileLink{SentTimestamp: netTime.Now()}
+	if fl.Expired() {
+		t.Errorf("FileLink is not expired: %s", netTime.Since(fl.SentTimestamp))
+	}
+
+	fl = FileLink{SentTimestamp: netTime.Now().Add(-channels.MessageLife)}
+	if !fl.Expired() {
+		t.Errorf("FileLink is expired: %s", netTime.Since(fl.SentTimestamp))
+	}
+}
+
+// Units test of FileLink.GetFileID.
+func TestFileLink_GetFileID(t *testing.T) {
+	fl := FileLink{FileID: ftCrypto.NewID([]byte("fileData"))}
+
+	if fl.GetFileID() != fl.FileID {
+		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
+			fl.GetFileID(), fl.FileID)
+	}
+}
+
+// Units test of FileLink.GetRecipient.
+func TestFileLink_GetRecipient(t *testing.T) {
+	fl := FileLink{RecipientID: id.NewIdFromString("recipient", id.User, t)}
+
+	if fl.GetRecipient() != fl.RecipientID {
+		t.Errorf("Incorrect recipient ID.\nexpected: %s\nreceived: %s",
+			fl.GetRecipient(), fl.RecipientID)
+	}
+}
+
+// Units test of FileLink.GetFileSize.
+func TestFileLink_GetFileSize(t *testing.T) {
+	fl := FileLink{Size: math.MaxUint32}
+
+	if fl.GetFileSize() != fl.Size {
+		t.Errorf("Incorrect recipient ID.\nexpected: %d\nreceived: %d",
+			fl.GetFileSize(), fl.Size)
+	}
+}
+
+// Units test of FileLink.GetNumParts.
+func TestFileLink_GetNumParts(t *testing.T) {
+	fl := FileLink{NumParts: math.MaxUint16}
+
+	if fl.GetNumParts() != fl.NumParts {
+		t.Errorf("Incorrect recipient ID.\nexpected: %d\nreceived: %d",
+			fl.GetNumParts(), fl.NumParts)
 	}
 }

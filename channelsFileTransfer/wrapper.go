@@ -29,8 +29,6 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// TODO: add better error messages
-
 // Wrapper facilitates the sending and receiving file over channels using the
 // event model. It adheres to the FileTransfer interface.
 type Wrapper struct {

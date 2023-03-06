@@ -121,7 +121,6 @@ func (m *Manager) GetUnusedCyphers() []Cypher {
 }
 
 // GetKey returns the transfer key used for encrypting/decrypting.
-// TODO: test
 func (m *Manager) GetKey() *ftCrypto.TransferKey {
 	return m.key
 }

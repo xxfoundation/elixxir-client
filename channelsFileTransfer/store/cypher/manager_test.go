@@ -96,6 +96,23 @@ func TestManager_GetUnusedCyphers(t *testing.T) {
 	}
 }
 
+// Tests Manager.GetKey
+func TestManager_GetKey(t *testing.T) {
+	key, err := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	if err != nil {
+		t.Errorf("Failed to generate transfer key: %+v", err)
+	}
+
+	m, err := NewManager(&key, 0, true, nil)
+	if err != nil {
+		t.Errorf("Failed to make new Manager: %+v", err)
+	}
+
+	if *m.GetKey() != key {
+		t.Errorf("Incorrect key.\nexpected: %s\nreceived: %s", m.GetKey(), key)
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////

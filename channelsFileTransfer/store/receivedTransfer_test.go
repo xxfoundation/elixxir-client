@@ -273,6 +273,18 @@ func TestReceivedTransfer_CopyPartStatusVector(t *testing.T) {
 	}
 }
 
+// Tests that ReceivedTransfer.GetNewCallbackID returns a new incremented ID on
+// each call.
+func TestReceivedTransfer_GetNewCallbackID(t *testing.T) {
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
+	for i := uint64(0); i < 10; i++ {
+		cbID := rt.GetNewCallbackID()
+		if cbID != i {
+			t.Errorf("Unexpected ID.\nexpected: %d\nreceived: %d", i, cbID)
+		}
+	}
+}
+
 // Tests that ReceivedTransfer.CompareAndSwapCallbackFps correctly swaps the
 // fingerprints only when they differ.
 func TestReceivedTransfer_CompareAndSwapCallbackFps(t *testing.T) {

@@ -525,5 +525,3 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			"that the file transfer is complete.")
 	}
 }
-
-// TODO: test loading in-progress downloads

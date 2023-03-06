@@ -39,8 +39,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// TODO:
-//  1. Fix the way received messages are checked. The current way is done
+// TODO: Fix the way received messages are checked. The current way is done
 //     through the received progress callback, which is inefficient. It also
 //     sometimes causes a crash where a part is marked received twice. This
 //     crash can be prevented without any other issue by modifying the stateMap,
@@ -392,7 +391,6 @@ func (m *manager) maxPreviewSize() int {
 /* === Sending ============================================================== */
 
 // verifyFile verifies that the data is within the size range allowed.
-// TODO: test
 func (m *manager) verifyFile(fileData []byte) error {
 	// Return an error if the file is too large or empty
 	if fileLen := len(fileData); fileLen > m.maxFileSize() {
@@ -406,7 +404,6 @@ func (m *manager) verifyFile(fileData []byte) error {
 
 // verifyFile checks all the lengths of the file and its metadata and ensures
 // they are of the valid lengths.
-// TODO: test
 func (m *manager) verifyFileInfo(fileName, fileType string, preview []byte) error {
 	// Return an error if the file name is too long
 	if len(fileName) > fileNameMaxLen {

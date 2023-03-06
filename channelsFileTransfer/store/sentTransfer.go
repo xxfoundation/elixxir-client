@@ -251,13 +251,11 @@ func (st *SentTransfer) SentTimestamp() time.Time {
 }
 
 // GetKey returns the transfer key used for encrypting/decrypting.
-// TODO: test
 func (st *SentTransfer) GetKey() *ftCrypto.TransferKey {
 	return st.cypherManager.GetKey()
 }
 
 // GetMAC returns the transfer MAC used to verify the file.
-// TODO: test
 func (st *SentTransfer) GetMAC() []byte {
 	return st.mac
 }
@@ -283,7 +281,6 @@ func (st *SentTransfer) NumReceived() uint16 {
 }
 
 // GetRetry returns the retry number.
-// TODO: test
 func (st *SentTransfer) GetRetry() float32 {
 	return st.retry
 }
@@ -296,7 +293,6 @@ func (st *SentTransfer) CopyPartStatusVector() *utility.MultiStateVector {
 }
 
 // GetNewCallbackID issues a new unique for a callback.
-// TODO: test
 func (st *SentTransfer) GetNewCallbackID() uint64 {
 	st.mux.Lock()
 	defer st.mux.Unlock()

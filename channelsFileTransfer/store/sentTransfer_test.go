@@ -418,6 +418,26 @@ func TestSentTransfer_SentTimestamp(t *testing.T) {
 	}
 }
 
+// Tests that SentTransfer.GetKey returns the correct transfer key.
+func TestSentTransfer_GetKey(t *testing.T) {
+	st, _, key, _, _ := newTestSentTransfer(16, t)
+
+	if st.GetKey() != key {
+		t.Errorf("Incorrect transfer key.\nexpected: %s\nreceived: %s",
+			key, st.GetKey())
+	}
+}
+
+// Tests that SentTransfer.GetMAC returns the correct transfer MAC.
+func TestSentTransfer_GetMAC(t *testing.T) {
+	st, _, _, _, _ := newTestSentTransfer(16, t)
+
+	if !bytes.Equal(st.GetMAC(), st.mac) {
+		t.Errorf("Incorrect transfer key.\nexpected: %v\nreceived: %v",
+			st.mac, st.GetMAC())
+	}
+}
+
 // Tests that SentTransfer.GetFileSize returns the correct file size.
 func TestSentTransfer_GetFileSize(t *testing.T) {
 	st, parts, _, _, _ := newTestSentTransfer(16, t)
@@ -482,6 +502,17 @@ func TestSentTransfer_NumReceived(t *testing.T) {
 	}
 }
 
+// Tests that SentTransfer.GetRetry returns the correct retry number.
+func TestSentTransfer_GetRetry(t *testing.T) {
+	numParts := uint16(16)
+	st, _, _, _, _ := newTestSentTransfer(numParts, t)
+
+	if st.GetRetry() != st.retry {
+		t.Errorf("Incorrect retry.\nexpected: %f\nreceived: %f",
+			st.retry, st.GetRetry())
+	}
+}
+
 // Tests that the state vector returned by SentTransfer.CopyPartStatusVector
 // has the same values as the original but is a copy.
 func TestSentTransfer_CopyPartStatusVector(t *testing.T) {
@@ -507,6 +538,18 @@ func TestSentTransfer_CopyPartStatusVector(t *testing.T) {
 		t.Errorf("Old copied part status matches new status."+
 			"\nexpected: %v\nreceived: %v",
 			expectedUnsentKeys, receivedUnsentKeys)
+	}
+}
+
+// Tests that SentTransfer.GetNewCallbackID returns a new incremented ID on
+// each call.
+func TestSentTransfer_GetNewCallbackID(t *testing.T) {
+	st, _, _, _, _ := newTestSentTransfer(16, t)
+	for i := uint64(0); i < 10; i++ {
+		cbID := st.GetNewCallbackID()
+		if cbID != i {
+			t.Errorf("Unexpected ID.\nexpected: %d\nreceived: %d", i, cbID)
+		}
 	}
 }
 

@@ -221,7 +221,6 @@ func (rt *ReceivedTransfer) CopyPartStatusVector() *utility.StateVector {
 }
 
 // GetNewCallbackID issues a new unique for a callback.
-// TODO: test
 func (rt *ReceivedTransfer) GetNewCallbackID() uint64 {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()

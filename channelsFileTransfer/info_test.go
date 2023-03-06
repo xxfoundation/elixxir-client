@@ -53,8 +53,6 @@ func TestFileInfo_Size(t *testing.T) {
 		t.Errorf("Failed to marshal FileInfo: %+v", err)
 	}
 
-	t.Logf("%s", data)
-
 	// The maximum payload size of a channel message according to
 	// channels.Manager.SendGeneric
 	const maxPayload = 802

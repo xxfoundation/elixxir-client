@@ -347,7 +347,7 @@ func (m *manager) startProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
 	senderPoolStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
-	resendPartsStop := stoppable.NewMulti(resendPartThreadStoppable)
+	resendPartsStop := stoppable.NewSingle(resendPartThreadStoppable)
 
 	// Start sending threads
 	// Note that the startSendingWorkerPool already creates thread for every

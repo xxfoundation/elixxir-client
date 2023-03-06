@@ -207,7 +207,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 			cmixMsg{rid, targetedMsg, msg}
 
 		// Fail to process some messages so that resending can be tested
-		if m.failSomeSends && m.prng.Intn(20) != 5 {
+		if m.failSomeSends && m.prng.Intn(10) == 5 {
 			continue
 		}
 

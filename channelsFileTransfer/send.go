@@ -47,9 +47,6 @@ const (
 
 	// Prefix used for the name of a stoppable used for a sending thread
 	sendThreadStoppableName = "FilePartSendingThread#"
-
-	// Prefix used for the name of a stoppable used for a resending thread
-	resendThreadStoppableName = "FilePartResendBatch#"
 )
 
 // startSendingWorkerPool initialises a worker pool of file part sending
@@ -219,35 +216,23 @@ func (m *manager) roundResultsCallback(
 // resendUnreceived checks that all successfully sent file have been received
 // after a set amount of times. Any unsent file parts are added back to the
 // queue for sending.
-func (m *manager) resendUnreceived(stop *stoppable.Multi) {
+func (m *manager) resendUnreceived(stop *stoppable.Single) {
 	jww.DEBUG.Printf("[FT] Starting resend unreceived file part thread.")
-	mainThreadStop := stoppable.NewSingle("FilePartResendThread")
-	stop.Add(mainThreadStop)
 
 	for i := 0; ; i++ {
 		select {
-		case <-mainThreadStop.Quit():
+		case <-stop.Quit():
 			jww.DEBUG.Printf("[FT] Stopping file part resend thread (%s): "+
 				"stoppable triggered.", stop.Name())
-			mainThreadStop.ToStopped()
+			stop.ToStopped()
 			return
 		case sentMessages := <-m.sentQueue:
-			sendQueueStop :=
-				stoppable.NewSingle(resendThreadStoppableName + strconv.Itoa(i))
-			// TODO: need to remove this stoppable when done with it
-			stop.Add(sendQueueStop)
-
-			go func(stop *stoppable.Single, sm *sentPartPacket) {
+			go func(sm *sentPartPacket) {
 				waitTime := calcWaitTime(m.params.ResendWait, netTime.Now(), sm)
 
 				jww.TRACE.Printf("[FT] Scheduled check for resend for %d "+
 					"parts in %s: %v", len(sm.packet), waitTime, sm.packet)
 				select {
-				case <-stop.Quit():
-					jww.DEBUG.Printf("[FT] Stopping file part batch resend "+
-						"thread (%s): stoppable triggered.", stop.Name())
-					stop.ToStopped()
-					return
 				case <-time.After(waitTime):
 					jww.DEBUG.Printf("[FT] Checking if parts needs to be resent: %+v", sm.packet)
 					var resentParts []*store.Part
@@ -266,7 +251,7 @@ func (m *manager) resendUnreceived(stop *stoppable.Multi) {
 							len(sm.packet), len(sm.packet))
 					}
 				}
-			}(sendQueueStop, sentMessages)
+			}(sentMessages)
 		}
 	}
 }

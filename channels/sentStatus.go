@@ -24,24 +24,6 @@ const (
 
 	// Failed is the status of a message if it failed to send.
 	Failed SentStatus = 3
-
-	// SendProcessing is the status of a message when it has been added to the
-	// event model, but it is being processes and is not yet ready to be sent.
-	SendProcessing SentStatus = 4
-
-	// SendProcessingComplete is the status of a message when it has been added
-	// to the event model, is ready to be sent, but has not been sent yet.
-	SendProcessingComplete SentStatus = 5
-
-	// ReceptionProcessing is the status of a message when it has been received
-	// and added to the event model, but it is being processes and is not yet
-	// ready to be viewed.
-	ReceptionProcessing SentStatus = 6
-
-	// ReceptionProcessingComplete is the status of a message when it has been
-	// received and processing is complete, but it has not been marked for
-	// viewing yet.
-	ReceptionProcessingComplete SentStatus = 7
 )
 
 // String returns a human-readable version of [SentStatus], used for debugging
@@ -56,14 +38,6 @@ func (ss SentStatus) String() string {
 		return "delivered"
 	case Failed:
 		return "failed"
-	case SendProcessing:
-		return "processing (send)"
-	case SendProcessingComplete:
-		return "processing complete (send)"
-	case ReceptionProcessing:
-		return "processing (receive)"
-	case ReceptionProcessingComplete:
-		return "processing complete (receive)"
 	default:
 		return "Invalid SentStatus: " + strconv.Itoa(int(ss))
 	}

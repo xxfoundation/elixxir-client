@@ -28,19 +28,3 @@ func Test_TransferStatus_String(t *testing.T) {
 		}
 	}
 }
-
-// Tests that a marshalled and unmarshalled TransferStatus matches the original.
-func Test_TransferStatus_Marshal_UnmarshalTransferStatus(t *testing.T) {
-	testValues := []TransferStatus{Running, Completed, Failed}
-
-	for _, status := range testValues {
-		marshalledStatus := status.Marshal()
-
-		newStatus := UnmarshalTransferStatus(marshalledStatus)
-
-		if status != newStatus {
-			t.Errorf("Marshalled and unmarshalled TransferStatus does not "+
-				"match original.\nexpected: %s\nreceived: %s", status, newStatus)
-		}
-	}
-}

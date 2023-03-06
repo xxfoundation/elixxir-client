@@ -30,13 +30,12 @@ const (
 // Error messages.
 const (
 	// NewOrLoadReceived
-	errLoadReceived            = "error loading received transfer list from storage: %+v"
-	errUnmarshalReceived       = "could not unmarshal received transfer list: %+v"
-	warnLoadReceivedTransfer   = "[FT] failed to load received transfer %d of %d with ID %s: %+v"
+	errLoadReceived            = "loading transfer list from storage"
+	errUnmarshalReceived       = "unmarshal transfer list: %+v"
 	errLoadAllReceivedTransfer = "failed to load all %d received transfers"
 
 	// Received.AddTransfer
-	errAddExistingReceivedTransfer = "received transfer with ID %s already exists in map."
+	errAddExistingReceivedTransfer = "transfer already exists"
 )
 
 // Received contains a list of all received transfers.
@@ -66,7 +65,7 @@ func NewOrLoadReceived(
 	obj, err := r.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
 	if err != nil {
 		if kv.Exists(err) {
-			return nil, nil, errors.Errorf(errLoadReceived, err)
+			return nil, nil, errors.Wrap(err, errLoadReceived)
 		} else {
 			return r, nil, nil
 		}
@@ -83,7 +82,8 @@ func NewOrLoadReceived(
 // LoadTransfers loads all received transfers in the list from storage into
 // Received  It returns a list of all incomplete transfers so that their
 // fingerprints can be re-added to the listener.
-func (r *Received) LoadTransfers(fidList []ftCrypto.ID) ([]*ReceivedTransfer, error) {
+func (r *Received) LoadTransfers(
+	fidList []ftCrypto.ID) ([]*ReceivedTransfer, error) {
 
 	var errCount int
 	var err error
@@ -92,7 +92,8 @@ func (r *Received) LoadTransfers(fidList []ftCrypto.ID) ([]*ReceivedTransfer, er
 		r.transfers[fid], err = loadReceivedTransfer(fid, r.kv)
 		if err != nil {
 			// TODO: test
-			jww.WARN.Printf(warnLoadReceivedTransfer, i, len(fidList), fid, err)
+			jww.WARN.Printf("[FT] Failed to load received transfer %d of %d " +
+				"with ID %s: %+v", i, len(fidList), fid, err)
 			errCount++
 		}
 
@@ -119,7 +120,7 @@ func (r *Received) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 
 	_, exists := r.transfers[fid]
 	if exists {
-		return nil, errors.Errorf(errAddExistingReceivedTransfer, fid)
+		return nil, errors.New(errAddExistingReceivedTransfer)
 	}
 
 	rt, err := newReceivedTransfer(recipient, key, fid, transferMAC, fileSize,

@@ -19,7 +19,7 @@ func TestSentPartStatus_String_Consistency(t *testing.T) {
 		ReceivedPart: "received",
 		153:          "INVALID STATUS: 153",
 	}
-	
+
 	for sps, expected := range tests {
 		if sps.String() != expected {
 			t.Errorf(

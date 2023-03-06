@@ -125,7 +125,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	retry := float32(2.0)
 
 	uploadCh := make(chan ftCrypto.ID, 10)
-	uploadCB := func(completed bool, s, r, tt uint16, st SentTransfer, _ FilePartTracker, err error) {
+	uploadCB := func(completed bool, s, r, tt uint16, st SentTransfer,
+		_ FilePartTracker, err error) {
 		if err != nil {
 			t.Fatalf("File transfer error: %+v", err)
 		} else if completed {
@@ -185,8 +186,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 
 	// Send the file to the channel
-	msgID, _, _, err := w1.Send(channelID, fileLink, fileName, fileType, preview, 0,
-		xxdk.GetDefaultCMixParams())
+	msgID, _, _, err := w1.Send(channelID, fileLink, fileName, fileType,
+		preview, 0, xxdk.GetDefaultCMixParams())
 	if err != nil {
 		t.Fatalf("Failed to send file: %+v", err)
 	}
@@ -625,7 +626,8 @@ func Test_FileTransfer_Resend_Smoke(t *testing.T) {
 	retry := float32(2.0)
 
 	uploadCh := make(chan ftCrypto.ID, 10)
-	uploadCB := func(completed bool, s, r, tt uint16, st SentTransfer, _ FilePartTracker, err error) {
+	uploadCB := func(completed bool, s, r, tt uint16, st SentTransfer,
+		_ FilePartTracker, err error) {
 		if err != nil {
 			t.Fatalf("File transfer error: %+v", err)
 		} else if completed {
@@ -685,8 +687,8 @@ func Test_FileTransfer_Resend_Smoke(t *testing.T) {
 	}
 
 	// Send the file to the channel
-	msgID, _, _, err := w1.Send(channelID, fileLink, fileName, fileType, preview, 0,
-		xxdk.GetDefaultCMixParams())
+	msgID, _, _, err := w1.Send(channelID, fileLink, fileName, fileType,
+		preview, 0, xxdk.GetDefaultCMixParams())
 	if err != nil {
 		t.Fatalf("Failed to send file: %+v", err)
 	}

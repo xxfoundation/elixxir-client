@@ -9,7 +9,6 @@ package store
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -190,7 +189,7 @@ func TestReceived_AddTransfer_TransferAlreadyExists(t *testing.T) {
 		transfers: map[ftCrypto.ID]*ReceivedTransfer{fid: nil},
 	}
 
-	expectedErr := fmt.Sprintf(errAddExistingReceivedTransfer, fid)
+	expectedErr := errAddExistingReceivedTransfer
 	_, err := r.AddTransfer(nil, nil, fid, nil, 0, 0, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+

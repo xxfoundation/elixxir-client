@@ -8,7 +8,6 @@
 package channelsFileTransfer
 
 import (
-	"gitlab.com/elixxir/crypto/message"
 	"strconv"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )

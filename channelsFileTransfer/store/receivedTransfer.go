@@ -46,16 +46,15 @@ const (
 	errReceivedPartSave = "failed to save part #%d to storage: %+v"
 
 	// loadReceivedTransfer
-	errRtLoadCypherManager    = "failed to load cypher manager from storage: %+v"
-	errRtLoadFields           = "failed to load transfer MAC, number of parts, and file size: %+v"
-	errRtUnmarshalFields      = "failed to unmarshal transfer MAC, number of parts, and file size: %+v"
-	errRtLoadPartStatusVector = "failed to load state vector for part statuses: %+v"
-	errRtLoadPart             = "[FT] Failed to load part #%d from storage: %+v"
+	errRtLoadCypherManager    = "failed to load cypher manager"
+	errRtLoadFields           = "failed to load transfer information"
+	errRtUnmarshalFields      = "failed to unmarshal transfer information: %+v"
+	errRtLoadPartStatusVector = "failed to load state vector for part statuses"
 
 	// ReceivedTransfer.Delete
-	errRtDeleteCypherManager = "failed to delete cypher manager: %+v"
-	errRtDeleteSentTransfer  = "failed to delete transfer MAC, number of parts, and file size: %+v"
-	errRtDeletePartStatus    = "failed to delete part status state vector: %+v"
+	errRtDeleteCypherManager = "failed to delete cypher manager"
+	errRtDeleteSentTransfer  = "failed to delete transfer info"
+	errRtDeletePartStatus    = "failed to delete part status state vector"
 
 	// ReceivedTransfer.save
 	errMarshalReceivedTransfer = "failed to marshal: %+v"
@@ -248,7 +247,8 @@ func (rt *ReceivedTransfer) CompareAndSwapCallbackFps(callbackID uint64,
 }
 
 // generateReceivedFp generates a fingerprint for a received progress callback.
-func generateReceivedFp(completed bool, received, total uint16, err error) string {
+func generateReceivedFp(
+	completed bool, received, total uint16, err error) string {
 	errString := "<nil>"
 	if err != nil {
 		errString = err.Error()
@@ -273,14 +273,14 @@ func loadReceivedTransfer(
 	// Load cypher manager
 	cypherManager, err := cypher.LoadManager(kv)
 	if err != nil {
-		return nil, errors.Errorf(errRtLoadCypherManager, err)
+		return nil, errors.Wrap(err, errRtLoadCypherManager)
 	}
 
-	// Load transfer MAC, number of parts, and file size
+	// Load transfer information
 	obj, err := kv.Get(receivedTransferStoreKey, receivedTransferStoreVersion)
 	if err != nil {
 		// TODO: test
-		return nil, errors.Errorf(errRtLoadFields, err)
+		return nil, errors.Wrap(err, errRtLoadFields)
 	}
 
 	info, err := unmarshalReceivedTransfer(obj.Data)
@@ -291,7 +291,7 @@ func loadReceivedTransfer(
 	// Load StateVector for storing statuses of received parts
 	partStatus, err := utility.LoadStateVector(kv, receivedTransferStatusKey)
 	if err != nil {
-		return nil, errors.Errorf(errRtLoadPartStatusVector, err)
+		return nil, errors.Wrap(err, errRtLoadPartStatusVector)
 	}
 
 	// Load parts from storage
@@ -300,7 +300,8 @@ func loadReceivedTransfer(
 		if partStatus.Used(uint32(i)) {
 			parts[i], err = loadPart(i, kv)
 			if err != nil {
-				jww.ERROR.Printf(errRtLoadPart, i, err)
+				jww.ERROR.Printf(
+					"[FT] Failed to load part #%d from storage: %+v", i, err)
 			}
 		}
 	}
@@ -331,21 +332,21 @@ func (rt *ReceivedTransfer) Delete() error {
 	// Delete cypher manager
 	err := rt.cypherManager.Delete()
 	if err != nil {
-		return errors.Errorf(errRtDeleteCypherManager, err)
+		return errors.Wrap(err, errRtDeleteCypherManager)
 	}
 
 	if !rt.disableKV {
 		// Delete transfer MAC, number of parts, and file size
 		err = rt.kv.Delete(receivedTransferStoreKey, receivedTransferStoreVersion)
 		if err != nil {
-			return errors.Errorf(errRtDeleteSentTransfer, err)
+			return errors.Wrap(err, errRtDeleteSentTransfer)
 		}
 	}
 
 	// Delete part status state vector
 	err = rt.partStatus.Delete()
 	if err != nil {
-		return errors.Errorf(errRtDeletePartStatus, err)
+		return errors.Wrap(err, errRtDeletePartStatus)
 	}
 
 	return nil

@@ -30,8 +30,8 @@ const (
 // Error messages.
 const (
 	// NewOrLoadSent
-	errLoadSent            = "error loading sent transfer list from storage: %+v"
-	errUnmarshalSent       = "could not unmarshal sent transfer list: %+v"
+	errLoadSent      = "error loading sent transfer list from storage: %+v"
+	errUnmarshalSent = "could not unmarshal sent transfer list: %+v"
 
 	// Sent.AddTransfer
 	errAddExistingSentTransfer = "upload already exists in map"

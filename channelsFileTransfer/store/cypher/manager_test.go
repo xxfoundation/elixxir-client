@@ -143,7 +143,7 @@ func TestLoadManager_LoadKeyError(t *testing.T) {
 	m, kv := newTestManager(64, t)
 	_ = m.kv.Delete(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
 
-	expectedErr := strings.Split(errLoadKey, ":")[0]
+	expectedErr := errLoadKey
 	_, err := LoadManager(kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Unexpected error.\nexpected: %s\nreceived: %+v",
@@ -157,7 +157,7 @@ func TestLoadManager_LoadStateVectorError(t *testing.T) {
 	m, kv := newTestManager(64, t)
 	_ = m.fpVector.Delete()
 
-	expectedErr := strings.Split(errLoadFpVector, ":")[0]
+	expectedErr := errLoadFpVector
 	_, err := LoadManager(kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Unexpected error.\nexpected: %s\nreceived: %+v",

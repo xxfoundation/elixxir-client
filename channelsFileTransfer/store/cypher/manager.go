@@ -31,8 +31,8 @@ const (
 	errSaveKey     = "failed to save transfer key: %+v"
 
 	// LoadManager
-	errLoadKey      = "failed to load transfer key: %+v"
-	errLoadFpVector = "failed to load state vector: %+v"
+	errLoadKey      = "failed to load transfer key"
+	errLoadFpVector = "failed to load state vector"
 
 	// Manager.PopCypher
 	errGetNextFp = "used all %d fingerprints"
@@ -134,12 +134,12 @@ func LoadManager(kv *versioned.KV) (*Manager, error) {
 	kv = kv.Prefix(cypherManagerPrefix)
 	key, err := loadKey(kv)
 	if err != nil {
-		return nil, errors.Errorf(errLoadKey, err)
+		return nil, errors.Wrap(err, errLoadKey)
 	}
 
 	fpVector, err := utility.LoadStateVector(kv, cypherManagerFpVectorKey)
 	if err != nil {
-		return nil, errors.Errorf(errLoadFpVector, err)
+		return nil, errors.Wrap(err, errLoadFpVector)
 	}
 
 	tfp := &Manager{

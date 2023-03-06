@@ -8,12 +8,12 @@
 package channelsFileTransfer
 
 import (
-	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/channels"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // FileInfo contains all the information for a new transfer. This is the
@@ -87,4 +87,3 @@ func (fl *FileLink) GetFileSize() uint32 {
 func (fl *FileLink) GetNumParts() uint16 {
 	return fl.NumParts
 }
-

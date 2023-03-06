@@ -20,14 +20,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
-// Error messages.
-const (
-	// processor.Process
-	errDecryptPart   = "[FT] Failed to decrypt file part for file %s on round %d: %+v"
-	errUnmarshalPart = "[FT] Failed to unmarshal decrypted file part for file %s on round %d: %+v"
-	errAddPart       = "[FT] Failed to add part #%d to transfer file %s: %+v"
-)
-
 // processor manages the reception of file transfer messages. Adheres to the
 // message.Processor interface.
 type processor struct {
@@ -43,19 +35,22 @@ func (p *processor) Process(msg format.Message,
 
 	decryptedPart, err := p.Decrypt(msg)
 	if err != nil {
-		jww.ERROR.Printf(errDecryptPart, p.GetFileID(), round.ID, err)
+		jww.ERROR.Printf("[FT] Failed to decrypt file part for file %s on " +
+			"round %d: %+v", p.GetFileID(), round.ID, err)
 		return
 	}
 
 	partMsg, err := fileMessage.UnmarshalPartMessage(decryptedPart)
 	if err != nil {
-		jww.ERROR.Printf(errUnmarshalPart, p.GetFileID(), round.ID, err)
+		jww.ERROR.Printf("[FT] Failed to unmarshal decrypted file part for " +
+			"file %s on round %d: %+v", p.GetFileID(), round.ID, err)
 		return
 	}
 
 	err = p.AddPart(partMsg.GetPart(), int(partMsg.GetPartNum()))
 	if err != nil {
-		jww.WARN.Printf(errAddPart, partMsg.GetPartNum(), p.GetFileID(), err)
+		jww.WARN.Printf("[FT] Failed to add part #%d to transfer file %s: %+v",
+			partMsg.GetPartNum(), p.GetFileID(), err)
 		return
 	}
 

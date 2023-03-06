@@ -88,18 +88,18 @@ const (
 	errNoReceivedTransfer = "could not find received transfer with ID %s"
 
 	// manager.send
-	errFileNameSize      = "length of filename (%d) greater than max allowed length (%d)"
-	errFileTypeSize      = "length of file type (%d) greater than max allowed length (%d)"
+	errFileNameSize      = "received %d-byte file name; max allowed %d bytes"
+	errFileTypeSize      = "received %d-byte file type; max allowed %d bytes"
 	fileSizeMaxErr       = "received %d-byte file; maximum size is %d bytes"
 	fileSizeMinErr       = "received %d-byte file; file cannot be empty"
-	errPreviewSize       = "size of preview (%d bytes) greater than max allowed size (%d bytes)"
+	errPreviewSize       = "received %d-byte preview type; max allowed %d bytes"
 	errSendNetworkHealth = "network not healthy"
 	errNewKey            = "could not generate new transfer key: %+v"
 	errNewRecipientID    = "could not generate new recipient ID: %+v"
 	errAddSentTransfer   = "failed to add transfer: %+v"
 
 	// manager.CloseSend
-	errDeleteIncompleteTransfer = "cannot delete file %s that has not completed or failed"
+	errDeleteIncompleteTransfer = "file not completed or failed"
 	errDeleteSentTransfer       = "could not delete sent file %s: %+v"
 	errRemoveSentTransfer       = "could not remove file %s from list: %+v"
 
@@ -107,7 +107,7 @@ const (
 	errAddNewRt = "failed to add new file transfer %s: %+v"
 
 	// manager.Receive
-	errIncompleteFile         = "cannot get incomplete file: missing %d of %d parts"
+	errIncompleteFile         = "missing %d of %d parts"
 	errDeleteReceivedTransfer = "could not delete received file %s: %+v"
 	errRemoveReceivedTransfer = "could not remove file %s from list: %+v"
 )
@@ -569,7 +569,7 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 func (m *manager) closeSend(st *store.SentTransfer) error {
 	// Check that the transfer is either completed or failed
 	if st.Status() != store.Completed && st.Status() != store.Failed {
-		return errors.Errorf(errDeleteIncompleteTransfer, st.GetFileID())
+		return errors.New(errDeleteIncompleteTransfer)
 	}
 
 	// Delete from storage

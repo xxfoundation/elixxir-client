@@ -234,7 +234,6 @@ func (m *manager) resendUnreceived(stop *stoppable.Single) {
 					"parts in %s: %v", len(sm.packet), waitTime, sm.packet)
 				select {
 				case <-time.After(waitTime):
-					jww.DEBUG.Printf("[FT] Checking if parts needs to be resent: %+v", sm.packet)
 					var resentParts []*store.Part
 					for _, p := range sm.packet {
 						if p.GetStatus() == store.SentPart {
@@ -316,8 +315,8 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, fl *FileLink,
 			jww.DEBUG.Printf("[FT] Completed sending and receiving file %s.",
 				st.GetFileID())
 			if err = m.closeSend(st); err != nil {
-				jww.ERROR.Printf(
-					"[FT] Failed to close file transfer send: %+v", err)
+				jww.ERROR.Printf("[FT] Failed to close file transfer send %s: " +
+					"%+v", st.GetFileID(), err)
 			}
 			if _, err = m.receiveFromID(rt.GetFileID()); err != nil {
 				jww.ERROR.Printf(

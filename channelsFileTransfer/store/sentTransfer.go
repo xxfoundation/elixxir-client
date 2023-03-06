@@ -37,21 +37,21 @@ const (
 const (
 	// newSentTransfer
 	errStNewCypherManager    = "failed to create new cypher manager: %+v"
-	errStNewPartStatusVector = "failed to create new state vector for part statuses: %+v"
+	errStNewPartStatusVector = "failed to create new state vector for part statuses"
 
 	// SentTransfer.getPartData
 	errNoPartNum = "no part with part number %d exists in file %s"
 
 	// loadSentTransfer
 	errStLoadCypherManager    = "failed to load cypher manager from storage: %+v"
-	errStLoadFields           = "failed to load recipient, status, and parts list: %+v"
-	errStUnmarshalFields      = "failed to unmarshal recipient, status, and parts list: %+v"
-	errStLoadPartStatusVector = "failed to load state vector for part statuses: %+v"
+	errStLoadFields           = "failed to transfer info"
+	errStUnmarshalFields      = "failed to transfer info: %+v"
+	errStLoadPartStatusVector = "failed to load state vector for part statuses"
 
 	// SentTransfer.Delete
-	errStDeleteCypherManager = "failed to delete cypherManager: %+v"
-	errStDeleteSentTransfer  = "failed to delete recipient ID, status, and file parts: %+v"
-	errStDeletePartStatus    = "failed to delete part status multi state vector: %+v"
+	errStDeleteCypherManager = "failed to delete cypherManager"
+	errStDeleteSentTransfer  = "failed to delete transfer info"
+	errStDeletePartStatus    = "failed to delete part status multi state vector"
 
 	// SentTransfer.save
 	errMarshalSentTransfer = "failed to marshal: %+v"
@@ -122,7 +122,7 @@ func newSentTransfer(recipient *id.ID, sentTimestamp time.Time,
 	partStatus, err := utility.NewMultiStateVector(uint16(len(parts)),
 		uint8(numSentStates), stateMap, sentTransferStatusKey, kv)
 	if err != nil {
-		return nil, errors.Errorf(errStNewPartStatusVector, err)
+		return nil, errors.Wrap(err, errStNewPartStatusVector)
 	}
 
 	st := &SentTransfer{
@@ -352,7 +352,7 @@ func loadSentTransfer(
 	obj, err := kv.Get(sentTransferStoreKey, sentTransferStoreVersion)
 	if err != nil {
 		// TODO: test
-		return nil, errors.Errorf(errStLoadFields, err)
+		return nil, errors.Wrap(err, errStLoadFields)
 	}
 
 	info, err := unmarshalSentTransfer(obj.Data)
@@ -364,7 +364,7 @@ func loadSentTransfer(
 	partStatus, err := utility.LoadMultiStateVector(
 		stateMap, sentTransferStatusKey, kv)
 	if err != nil {
-		return nil, errors.Errorf(errStLoadPartStatusVector, err)
+		return nil, errors.Wrap(err, errStLoadPartStatusVector)
 	}
 
 	st := &SentTransfer{
@@ -403,19 +403,19 @@ func (st *SentTransfer) Delete() error {
 	// Delete cypher manager
 	err := st.cypherManager.Delete()
 	if err != nil {
-		return errors.Errorf(errStDeleteCypherManager, err)
+		return errors.Wrap(err, errStDeleteCypherManager)
 	}
 
 	// Delete recipient ID, status, and file parts
 	err = st.kv.Delete(sentTransferStoreKey, sentTransferStoreVersion)
 	if err != nil {
-		return errors.Errorf(errStDeleteSentTransfer, err)
+		return errors.Wrap(err, errStDeleteSentTransfer)
 	}
 
 	// Delete part status multi state vector
 	err = st.partStatus.Delete()
 	if err != nil {
-		return errors.Errorf(errStDeletePartStatus, err)
+		return errors.Wrap(err, errStDeletePartStatus)
 	}
 
 	return nil

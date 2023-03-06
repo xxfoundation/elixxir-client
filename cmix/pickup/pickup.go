@@ -52,6 +52,7 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 	rng *fastRNG.StreamGenerator, instance RoundGetter,
 	session storage.Session) Pickup {
 	unchecked := store.NewOrLoadUncheckedStore(session.GetKV())
+
 	m := &pickup{
 		params:                 params,
 		lookupRoundMessages:    make(chan roundLookup, params.LookupRoundsBufferLen),

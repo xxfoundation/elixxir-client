@@ -72,6 +72,9 @@ const (
 	slowPollingFlag             = "slowPolling"
 	forceMessagePickupRetryFlag = "forceMessagePickupRetry"
 	batchMessagePickupFlag      = "batchMessagePickup"
+	maxPickupBatchSizeFlag      = "maxPickupBatchSize"
+	batchPickupDelayFlag        = "batchPickupDelay"
+	batchPickupTimeoutFlag      = "batchPickupTimeout"
 
 	// E2E Params
 	e2eMinKeysFlag        = "e2eMinKeys"

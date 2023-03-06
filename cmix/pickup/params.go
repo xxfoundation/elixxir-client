@@ -39,6 +39,9 @@ type Params struct {
 	ForceHistoricalRounds bool
 
 	BatchMessageRetrieval bool
+	MaxBatchSize          int
+	BatchDelay            int
+	BatchPickupTimeout    int
 }
 
 // paramsDisk will be the marshal-able and umarshal-able object.

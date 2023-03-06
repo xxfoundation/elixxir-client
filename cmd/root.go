@@ -447,7 +447,6 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	cmixParams.Network.FastPolling = !viper.GetBool(slowPollingFlag)
 	cmixParams.Network.Pickup.ForceMessagePickupRetry = viper.GetBool(
 		forceMessagePickupRetryFlag)
-	cmixParams.Network.Pickup.BatchMessageRetrieval = viper.GetBool(batchMessagePickupFlag)
 	if cmixParams.Network.Pickup.ForceMessagePickupRetry {
 		period := 3 * time.Second
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
@@ -457,6 +456,11 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 		verboseRoundTrackingFlag)
 
 	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
+
+	cmixParams.Network.Pickup.BatchMessageRetrieval = viper.GetBool(batchMessagePickupFlag)
+	cmixParams.Network.Pickup.MaxBatchSize = viper.GetInt(maxPickupBatchSizeFlag)
+	cmixParams.Network.Pickup.BatchPickupTimeout = viper.GetInt(batchPickupTimeoutFlag)
+	cmixParams.Network.Pickup.BatchDelay = viper.GetInt(batchPickupDelayFlag)
 
 	return cmixParams, e2eParams
 }
@@ -1132,10 +1136,25 @@ func init() {
 	viper.BindPFlag(forceMessagePickupRetryFlag,
 		rootCmd.Flags().Lookup(forceMessagePickupRetryFlag))
 
-	rootCmd.Flags().Bool(batchMessagePickupFlag, false,
+	rootCmd.PersistentFlags().Bool(batchMessagePickupFlag, false,
 		"Enables alternate message pickup logic which processes batches")
 	viper.BindPFlag(batchMessagePickupFlag,
-		rootCmd.Flags().Lookup(batchMessagePickupFlag))
+		rootCmd.PersistentFlags().Lookup(batchMessagePickupFlag))
+
+	rootCmd.PersistentFlags().Int(maxPickupBatchSizeFlag, 20,
+		"Set the maximum number of requests in a batch pickup message")
+	viper.BindPFlag(maxPickupBatchSizeFlag,
+		rootCmd.PersistentFlags().Lookup(maxPickupBatchSizeFlag))
+
+	rootCmd.PersistentFlags().Int(batchPickupDelayFlag, 50,
+		"Sets the delay (in MS) before a batch pickup request is sent, even if the batch is not full")
+	viper.BindPFlag(batchPickupDelayFlag,
+		rootCmd.PersistentFlags().Lookup(batchPickupDelayFlag))
+
+	rootCmd.PersistentFlags().Int(batchPickupTimeoutFlag, 250,
+		"Sets the timeout duration (in MS) sent to gateways that proxy batch message pickup requests")
+	viper.BindPFlag(batchPickupTimeoutFlag,
+		rootCmd.PersistentFlags().Lookup(batchPickupTimeoutFlag))
 
 	// E2E Params
 	defaultE2EParams := session.GetDefaultParams()

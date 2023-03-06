@@ -20,8 +20,8 @@ type pickupRequest struct {
 }
 
 func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop *stoppable.Single) {
-	maxBatchSize := 20
-	batchDelay := 50 * time.Millisecond
+	maxBatchSize := m.params.MaxBatchSize
+	batchDelay := time.Duration(m.params.BatchDelay) * time.Millisecond
 
 	batch := make([]*pickupRequest, 0, maxBatchSize)
 	var timer = &time.Timer{
@@ -53,6 +53,8 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		}
 
 		if req != nil {
+			jww.DEBUG.Printf("[processBatchMessageRetrieval] Added round %d to batch", req.round.ID)
+
 			// Add incoming request to batch
 			batch = append(batch, req)
 			if len(batch) >= maxBatchSize {
@@ -67,6 +69,8 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			continue
 		}
 
+		jww.DEBUG.Printf("[processBatchMessageRetrieval] Checking for messages in rounds %+v", batch)
+
 		// Reset timer & shouldProcess
 		timer.Stop()
 		timer = &time.Timer{
@@ -77,9 +81,9 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		// Build batch message request
 		msg := &pb.GetMessagesBatch{
 			Requests: make([]*pb.GetMessages, len(batch)),
-			Timeout:  500,
+			Timeout:  uint64(m.params.BatchPickupTimeout),
 		}
-		jww.INFO.Printf("Batch: %+v", batch)
+
 		for i, v := range batch {
 			msg.Requests[i] = &pb.GetMessages{
 				ClientID: v.id.EphId[:],
@@ -93,7 +97,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			return comms.RequestBatchMessages(host, msg)
 		}, stop)
 		if err != nil {
-			jww.ERROR.Printf("%+v", err)
+			jww.ERROR.Printf("Failed to request batch of messages: %+v", err)
 			continue
 		}
 
@@ -103,7 +107,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			proxiedRequest := batch[i]
 			// Handler gw did not receive response in time/did not have contact with proxiedRequest
 			if result == nil {
-				jww.DEBUG.Printf("Handler gateway did not receive anything from target %s", proxiedRequest.target)
+				jww.DEBUG.Printf("[processBatchMessageRetrieval] Handler gateway did not receive anything from target %s", proxiedRequest.target)
 				go m.tryNextGateway(proxiedRequest)
 				continue
 			}
@@ -111,15 +115,15 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			// Handler gw encountered error getting messages from proxiedRequest
 			respErr := batchResponse.GetErrors()[i]
 			if respErr != "" {
-				jww.ERROR.Printf("Handler gateway encountered error attempting to pick up messages from target %s: %s", proxiedRequest.target, respErr)
+				jww.ERROR.Printf("[processBatchMessageRetrieval] Handler gateway encountered error attempting to pick up messages from target %s: %s", proxiedRequest.target, respErr)
 				go m.tryNextGateway(proxiedRequest)
 				continue
 			}
 
 			// Process response from proxiedRequest gateway
-			bundle, err := m.processPickupResponse(result, proxiedRequest.id, proxiedRequest.round)
+			bundle, err := m.processPickupResponse(result, proxiedRequest.id, proxiedRequest.round.ID)
 			if err != nil {
-				jww.ERROR.Printf("Failed to process pickup response from proxiedRequest gateway %s: %+v", proxiedRequest.target, err)
+				jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to process pickup response from proxiedRequest gateway %s: %+v", proxiedRequest.target, err)
 				go m.tryNextGateway(proxiedRequest)
 				continue
 			}
@@ -136,7 +140,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 // put pickup request back in batch, targeting next gateway in list of unchecked
 func (m *pickup) tryNextGateway(req *pickupRequest) {
 	if len(req.uncheckedGateways) == 0 {
-		jww.ERROR.Printf("Failed to get pickup round %d "+
+		jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to get pickup round %d "+
 			"from all gateways (%v)", req.round.ID, append(req.checkedGateways, req.target))
 		return
 	}

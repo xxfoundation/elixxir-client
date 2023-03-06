@@ -1459,8 +1459,7 @@ func (cm *ChannelsManager) DeleteNickname(channelIDBytes []byte) error {
 	return cm.api.DeleteNickname(channelID)
 }
 
-// GetNickname returns the nickname set for a given channel. Returns an error if
-// there is no nickname set.
+// GetNickname returns the nickname set for a given channel.
 //
 // Parameters:
 //   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
@@ -1472,11 +1471,7 @@ func (cm *ChannelsManager) GetNickname(channelIDBytes []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	nickname, exists := cm.api.GetNickname(channelID)
-	if !exists {
-		return "", errors.New("no nickname found for the given channel")
-	}
-
+	nickname, _ := cm.api.GetNickname(channelID)
 	return nickname, nil
 }
 

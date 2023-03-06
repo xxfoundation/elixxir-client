@@ -74,7 +74,7 @@ func TestFileInfo_JSON_Marshal_Unmarshal(t *testing.T) {
 		FileLink: FileLink{
 			FileID:        ftCrypto.NewID([]byte("fileData")),
 			RecipientID:   id.NewIdFromString("recipient", id.User, t),
-			SentTimestamp: netTime.Now().Round(0),
+			SentTimestamp: netTime.Now().Round(0).UTC(),
 			Key:           ftCrypto.TransferKey{1, 2, 3},
 			Mac:           make([]byte, 32),
 			NumParts:      math.MaxUint16,

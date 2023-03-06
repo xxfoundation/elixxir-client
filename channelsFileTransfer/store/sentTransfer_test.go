@@ -54,7 +54,7 @@ func Test_newSentTransfer(t *testing.T) {
 		cypherManager:            cypherManager,
 		fid:                      fid,
 		recipient:                id.NewIdFromString("user", id.User, t),
-		sentTimestamp:            netTime.Now().Round(0),
+		sentTimestamp:            netTime.Now().Round(0).UTC(),
 		mac:                      mac,
 		fileSize:                 calcFileSize(parts),
 		numParts:                 uint16(len(parts)),
@@ -680,7 +680,7 @@ func TestSentTransfer_save(t *testing.T) {
 func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 	st := &SentTransfer{
 		recipient:     id.NewIdFromString("user", id.User, t),
-		sentTimestamp: netTime.Now().Round(0),
+		sentTimestamp: netTime.Now().Round(0).UTC(),
 		mac:           []byte("MAC"),
 		retry:         0.5,
 		status:        Failed,

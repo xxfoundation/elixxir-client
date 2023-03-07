@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
 	"gitlab.com/elixxir/crypto/dm"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
@@ -221,7 +222,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	rndID, ephIDs, err := send(dc.net, dc.selfReceptionID,
 		partnerID, partnerPubKey, dc.privateKey, partnerToken,
-		directMessage, params, rng)
+		directMessage, params, dc.rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on send: %+v", err)
 		errDenote := dc.st.FailedSend(uuid)
@@ -277,13 +278,18 @@ func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 	return receptionID
 }
 
-func send(net cMixClient, myID *id.ID, partnerID *id.ID, partnerPubKey nike.PublicKey,
+func send(net cMixClient, myID *id.ID, partnerID *id.ID,
+	partnerPubKey nike.PublicKey,
 	myPrivateKey nike.PrivateKey, partnerToken uint32,
-	msg *DirectMessage, params cmix.CMIXParams, rng io.Reader) (rounds.Round,
+	msg *DirectMessage, params cmix.CMIXParams,
+	rngGenerator *fastRNG.StreamGenerator) (rounds.Round,
 	[]ephemeral.Id, error) {
 
 	// Send to Partner
 	assemble := func(rid id.Round) ([]cmix.TargetedCmixMessage, error) {
+		rng := rngGenerator.GetStream()
+		defer rng.Close()
+
 		// SEND
 		msg.RoundID = uint64(rid)
 

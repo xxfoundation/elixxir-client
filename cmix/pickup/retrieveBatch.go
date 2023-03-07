@@ -94,12 +94,11 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 
 		jww.TRACE.Printf("[processBatchMessageRetrieval] Sending batch message request for %d rounds", len(batch))
 
-		// Reset timer & shouldProcess
+		// Reset timer
 		timer.Stop()
 		timer = &time.Timer{
 			C: make(<-chan time.Time),
 		}
-		shouldProcess = false
 
 		// Build batch message request
 		msg := &pb.GetMessagesBatch{

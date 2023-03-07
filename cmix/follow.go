@@ -147,18 +147,18 @@ func (c *client) followNetwork(report ClientErrorReport,
 					c.latencySum/c.numLatencies)
 				c.latencySum, c.numLatencies = 0, 0
 
-				infoMsg := fmt.Sprintf("Polled the network %d times in the "+
+				infoMsg := fmt.Sprintf("[Follow] Polled the network %d times in the "+
 					"last %s, with an average newest packet latency of %s",
 					numPolls, debugTrackPeriod, latencyAvg)
 
-				jww.INFO.Printf(infoMsg)
+				jww.INFO.Printf("[Follow] " + infoMsg)
 				c.events.Report(1, "Polling", "MetricsWithLatency", infoMsg)
 			} else {
 				infoMsg := fmt.Sprintf(
-					"Polled the network %d times in the last %s", numPolls,
+					"[Follow] Polled the network %d times in the last %s", numPolls,
 					debugTrackPeriod)
 
-				jww.INFO.Printf(infoMsg)
+				jww.INFO.Printf("[Follow] " + infoMsg)
 				c.events.Report(1, "Polling", "Metrics", infoMsg)
 			}
 		}
@@ -202,7 +202,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	var startTime time.Time
 
 	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
-		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+		jww.DEBUG.Printf("[Follow] Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
 			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
 			host.GetId())
@@ -231,7 +231,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		}
 		errMsg := fmt.Sprintf("Unable to poll gateway: %+v", err)
 		c.events.Report(10, "Polling", "Error", errMsg)
-		jww.ERROR.Print(errMsg)
+		jww.ERROR.Print("[Follow] " + errMsg)
 		return
 	}
 
@@ -246,7 +246,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
-		jww.ERROR.Printf("Failed to unmarshal: %+v", err)
+		jww.ERROR.Printf("[Follow] Failed to unmarshal: %+v", err)
 		return
 	}
 
@@ -256,7 +256,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	if pollResp.PartialNDF != nil {
 		err = c.instance.UpdatePartialNdf(pollResp.PartialNDF)
 		if err != nil {
-			jww.ERROR.Printf("Unable to update partial NDF: %+v", err)
+			jww.ERROR.Printf("[Follow] Unable to update partial NDF: %+v", err)
 			return
 		}
 
@@ -300,7 +300,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 					// Obtain relevant NodeGateway information
 					nid, err := id.Unmarshal(clientErr.Source)
 					if err != nil {
-						jww.ERROR.Printf("Unable to get NodeID: %+v", err)
+						jww.ERROR.Printf("[Follow] Unable to get NodeID: %+v", err)
 						return
 					}
 
@@ -320,7 +320,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		// with ClientErrors
 		err = c.instance.RoundUpdates(pollResp.Updates)
 		if err != nil {
-			jww.ERROR.Printf("%+v", err)
+			jww.ERROR.Printf("[Follow] %+v", err)
 			return
 		}
 
@@ -342,12 +342,12 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {
-		jww.DEBUG.Printf("Not processing result, identity.Fake == true")
+		jww.DEBUG.Printf("[Follow] Not processing result, identity.Fake == true")
 		return
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.TRACE.Printf("No filters found for the passed ID %d (%s), "+
+		jww.TRACE.Printf("[Follow] No filters found for the passed ID %d (%s), "+
 			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}
@@ -365,6 +365,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
+		jww.TRACE.Printf("[Follow] checking round: %d", rid)
 		hasMessage := Checker(rid, filterList, identity.CR)
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
@@ -386,8 +387,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		// received on this ID by using an estimate of how many rounds the
 		// network runs per second
 		timeSinceStartValid := netTime.Now().Sub(identity.StartValid)
-		roundsDelta :=
-			uint(timeSinceStartValid / time.Second * estimatedRoundsPerSecond)
+		roundsDelta := uint((timeSinceStartValid / time.Second).Seconds() * estimatedRoundsPerSecond)
 		if roundsDelta < c.param.KnownRoundsThreshold {
 			roundsDelta = c.param.KnownRoundsThreshold
 		}
@@ -395,9 +395,13 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		if id.Round(roundsDelta) > lastCheckedRound {
 			// Handles edge case for new networks to prevent starting at
 			// negative rounds
+			jww.WARN.Printf("[Follow] roundsDelta(%d) > lastCheckedRound(%d)",
+				roundsDelta, lastCheckedRound)
 			updatedEarliestRound = 1
 		} else {
 			updatedEarliestRound = lastCheckedRound - id.Round(roundsDelta)
+			jww.TRACE.Printf("[Follow] UpdatedEarliestRound (%d) set to %d - %d",
+				updatedEarliestRound, lastCheckedRound, id.Round(roundsDelta))
 			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
 
 			// If the network appears to be moving faster than our estimate,
@@ -406,6 +410,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			// as long as contacted gateway has all data
 			if updatedEarliestRound > earliestFilterRound {
 				updatedEarliestRound = earliestFilterRound
+				jww.TRACE.Printf("[Follow] updatedEarliestRound set to earliestFilterRound (%d)", earliestFilterRound)
 			}
 		}
 		identity.ER.Set(updatedEarliestRound)
@@ -420,7 +425,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		gwRoundsState.RangeUnchecked(
 			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker, 100)
 
-	jww.DEBUG.Printf("Processed RangeUnchecked for %d, Oldest: %d, "+
+	jww.DEBUG.Printf("[Follow] Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
 		"NewEarliestRemaining: %d, NumWithMessages: %d, NumUnknown: %d",
 		identity.EphId.Int64(), updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
@@ -429,9 +434,9 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {
-		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v",
+		jww.DEBUG.Printf("[Follow] External returns of RangeUnchecked: %d, %v, %v",
 			earliestRemaining, roundsWithMessages, roundsUnknown)
-		jww.DEBUG.Printf("New Earliest Remaining: %d, Gateways last checked: %d",
+		jww.DEBUG.Printf("[Follow] New Earliest Remaining: %d, Gateways last checked: %d",
 			earliestRemaining, gwRoundsState.GetLastChecked())
 	}
 
@@ -455,7 +460,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	identity.CR.Prune()
 	err = identity.CR.SaveCheckedRounds()
 	if err != nil {
-		jww.ERROR.Printf("Could not save rounds for identity %d (%s): %+v",
+		jww.ERROR.Printf("[Follow] Could not save rounds for identity %d (%s): %+v",
 			identity.EphId.Int64(), identity.Source, err)
 	}
 
@@ -470,7 +475,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			trackingStart = earliestRemaining - id.Round(c.param.KnownRoundsThreshold)
 		}
 
-		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)
+		jww.DEBUG.Printf("[Follow] Rounds tracked: %v to %v", trackingStart, earliestRemaining)
 
 		for i := trackingStart; i <= earliestRemaining; i++ {
 			state := Unchecked

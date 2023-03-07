@@ -73,7 +73,9 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	nickMgr := dm.NewNicknameManager(user.api.GetStorage().GetReceptionID(),
+	receptionID := dm.DeriveReceptionID(pi.PubKey, pi.GetDMToken())
+
+	nickMgr := dm.NewNicknameManager(receptionID,
 		user.api.GetStorage().GetKV())
 
 	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
@@ -128,7 +130,9 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	nickMgr := dm.NewNicknameManager(user.api.GetStorage().GetReceptionID(),
+	receptionID := dm.DeriveReceptionID(pi.PubKey, pi.GetDMToken())
+
+	nickMgr := dm.NewNicknameManager(receptionID,
 		user.api.GetStorage().GetKV())
 
 	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())

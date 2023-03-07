@@ -28,8 +28,8 @@ type pickupRequest struct {
 func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop *stoppable.Single) {
 	maxBatchSize := m.params.MaxBatchSize
 	batchDelay := time.Duration(m.params.BatchDelay) * time.Millisecond
+	batch := make(map[id.Round]*pickupRequest)
 
-	batch := make([]*pickupRequest, 0, maxBatchSize)
 	var timer = &time.Timer{
 		C: make(<-chan time.Time),
 	}
@@ -70,15 +70,21 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		}
 
 		if req != nil {
-			jww.DEBUG.Printf("[processBatchMessageRetrieval] Added round %d to batch", req.round.ID)
-
+			rid := req.round.ID
 			// Add incoming request to batch
-			batch = append(batch, req)
-			if len(batch) >= maxBatchSize {
-				shouldProcess = true
-			} else if len(batch) == 1 {
-				timer = time.NewTimer(batchDelay)
+			_, ok := batch[rid]
+			if !ok {
+				jww.DEBUG.Printf("[processBatchMessageRetrieval] Added round %d to batch", rid)
+				batch[req.round.ID] = req
+				if len(batch) >= maxBatchSize {
+					shouldProcess = true
+				} else if len(batch) == 1 {
+					timer = time.NewTimer(batchDelay)
+				}
+			} else {
+				jww.DEBUG.Printf("[processBatchMessageRetrieval] Ignoring request to add round %d; already in batch", rid)
 			}
+
 		}
 
 		// Continue unless batch is full or timer has elapsed
@@ -101,8 +107,11 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			Timeout:  uint64(m.params.BatchPickupTimeout),
 		}
 
-		for i, v := range batch {
-			msg.Requests[i] = &pb.GetMessages{
+		orderedBatch := make([]*pickupRequest, len(batch))
+		index := 0
+		for _, v := range batch {
+			orderedBatch[index] = v
+			msg.Requests[index] = &pb.GetMessages{
 				ClientID: v.id.EphId[:],
 				RoundID:  uint64(v.round.ID),
 				Target:   v.target.Marshal(),
@@ -121,7 +130,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		// Process responses
 		batchResponse := resp.(*pb.GetMessagesResponseBatch)
 		for i, result := range batchResponse.GetResults() {
-			proxiedRequest := batch[i]
+			proxiedRequest := orderedBatch[i]
 			// Handler gw did not receive response in time/did not have contact with proxiedRequest
 			if result == nil {
 				jww.DEBUG.Printf("[processBatchMessageRetrieval] Handler gateway did not receive anything from target %s", proxiedRequest.target)
@@ -150,7 +159,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		}
 
 		// Empty batch before restarting loop
-		batch = make([]*pickupRequest, 0, maxBatchSize)
+		batch = make(map[id.Round]*pickupRequest)
 	}
 }
 

@@ -171,8 +171,6 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	nickname, _ := dc.nm.GetNickname()
 
-	jww.INFO.Printf("Sending with Nickname Field: %s", nickname)
-
 	// Generate random nonce to be used for message ID
 	// generation. This makes it so two identical messages sent on
 	// the same round have different message IDs.

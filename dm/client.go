@@ -189,7 +189,6 @@ func (nm *nickMgr) GetNickname() (string, bool) {
 	}
 	nickObj, err := nm.ekv.Get(nm.storeKey, 0)
 	if err != nil {
-		jww.WARN.Printf("reading nickname: %+v", err)
 		return "", false
 	}
 	nm.nick = string(nickObj.Data)

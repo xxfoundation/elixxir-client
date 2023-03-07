@@ -94,8 +94,6 @@ func (dp *dmProcessor) Process(msg format.Message,
 		return
 	}
 
-	jww.INFO.Printf("Direct Message Nickname Field: %s", directMsg.Nickname)
-
 	// NOTE: There's no signature here, that kind of thing is done
 	// by Noise in the layer doing decryption.
 	//

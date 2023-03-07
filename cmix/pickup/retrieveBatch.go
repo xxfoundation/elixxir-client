@@ -115,6 +115,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 				RoundID:  uint64(v.round.ID),
 				Target:   v.target.Marshal(),
 			}
+			index++
 		}
 
 		// Send batch pickup request to any gateway

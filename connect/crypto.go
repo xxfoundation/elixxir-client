@@ -8,31 +8,31 @@
 package connect
 
 import (
+	"io"
+
 	"github.com/pkg/errors"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
 )
 
 // Sign creates a signature authenticating an identity for a connection.
-func sign(rng io.Reader, rsaPrivKey *rsa.PrivateKey,
+func sign(rng io.Reader, rsaPrivKey rsa.PrivateKey,
 	connectionFp []byte) ([]byte, error) {
 	// The connection fingerprint (hashed) will be used as a nonce
-	opts := rsa.NewDefaultOptions()
+	opts := getCryptoPSSOpts()
 	h := opts.Hash.New()
 	h.Write(connectionFp)
 	nonce := h.Sum(nil)
 
 	// Sign the connection fingerprint
-	return rsa.Sign(rng, rsaPrivKey,
-		opts.Hash, nonce, opts)
+	return rsaPrivKey.SignPSS(rng, opts.Hash, nonce, opts)
 
 }
 
 // Verify takes a signature for an authentication attempt
 // and verifies the information.
-func verify(partnerId *id.ID, partnerPubKey *rsa.PublicKey,
+func verify(partnerId *id.ID, partnerPubKey rsa.PublicKey,
 	signature, connectionFp, salt []byte) error {
 
 	// Verify the partner's known ID against the information passed
@@ -47,13 +47,13 @@ func verify(partnerId *id.ID, partnerPubKey *rsa.PublicKey,
 	}
 
 	// Hash the connection fingerprint
-	opts := rsa.NewDefaultOptions()
+	opts := getCryptoPSSOpts()
 	h := opts.Hash.New()
 	h.Write(connectionFp)
 	nonce := h.Sum(nil)
 
 	// Verify the signature
-	err = rsa.Verify(partnerPubKey, opts.Hash, nonce, signature, opts)
+	err = partnerPubKey.VerifyPSS(opts.Hash, nonce, signature, opts)
 	if err != nil {
 		return err
 	}

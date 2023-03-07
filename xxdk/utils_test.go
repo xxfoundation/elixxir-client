@@ -23,7 +23,6 @@ import (
 	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 func newTestingClient(face interface{}) (*Cmix, error) {
@@ -53,10 +52,7 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 
 	commsManager := connect.NewManagerTesting(face)
 
-	cert, err := utils.ReadFile(testkeys.GetNodeCertPath())
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create new test instance: %v", err)
-	}
+	cert := testkeys.GetNodeCert()
 
 	_, err = commsManager.AddHost(
 		&id.Permissioning, "", cert, connect.GetDefaultHostParams())
@@ -75,8 +71,10 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
+	addChan := make(chan network.NodeGateway, 1)
+	mccc := &mockCertCheckerComm{}
 	sender, err := gateway.NewSender(p, c.GetRng(), def, commsManager,
-		c.storage, nil)
+		c.storage, mccc, addChan)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +92,7 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 		jww.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", face)
 	}
 
-	cert, _ := utils.ReadFile(testkeys.GetNodeCertPath())
+	cert := testkeys.GetNodeCert()
 	nodeID := id.NewIdFromBytes([]byte("gateway"), face)
 	gwId := nodeID.DeepCopy()
 	gwId.SetType(id.Gateway)
@@ -158,7 +156,7 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 // signRoundInfo signs a passed round info with the key tied to the test node's
 // cert used throughout utils and other tests.
 func signRoundInfo(ri *pb.RoundInfo) error {
-	privKeyFromFile := testkeys.LoadFromPath(testkeys.GetNodeKeyPath())
+	privKeyFromFile := testkeys.GetNodeKey()
 
 	pk, err := tls.LoadRSAPrivateKey(string(privKeyFromFile))
 	if err != nil {

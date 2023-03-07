@@ -56,7 +56,7 @@ func NewHistoricalRoundsComm() *historicalRounds {
 const failedHistoricalRoundID = 7
 const completedHistoricalRoundID = 8
 
-//  Mock comms endpoint which returns historical rounds
+// Mock comms endpoint which returns historical rounds
 func (ht *historicalRounds) RequestHistoricalRounds(host *connect.Host,
 	message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error) {
 	// Return one successful and one failed mock round
@@ -85,6 +85,12 @@ type testNetworkManagerGeneric struct {
 	instance *network.Instance
 	sender   gateway.Sender
 }
+
+func (t *testNetworkManagerGeneric) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
@@ -119,9 +125,10 @@ func (t *testNetworkManagerGeneric) SendWithAssembler(recipient *id.ID, assemble
 
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-
-func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage,
-	p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, []ephemeral.Id{}, nil
+}
+func (t *testNetworkManagerGeneric) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, []ephemeral.Id{}, nil
 }
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
@@ -158,10 +165,10 @@ func (t *testNetworkManagerGeneric) AddHealthCallback(f func(bool)) uint64 {
 	return 0
 }
 func (t *testNetworkManagerGeneric) AddIdentity(id *id.ID,
-	validUntil time.Time, persistent bool) {
+	validUntil time.Time, persistent bool, _ message.Processor) {
 }
 func (t *testNetworkManagerGeneric) AddIdentityWithHistory(id *id.ID, validUntil,
-	beginning time.Time, persistent bool) {
+	beginning time.Time, persistent bool, _ message.Processor) {
 }
 
 func (t *testNetworkManagerGeneric) RemoveIdentity(id *id.ID) {}

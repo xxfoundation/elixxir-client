@@ -8,10 +8,11 @@
 package rekey
 
 import (
-	"gitlab.com/elixxir/crypto/e2e"
 	"math/rand"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/crypto/e2e"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
@@ -221,6 +222,11 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 
 type mockNetManager struct{}
 
+func (m *mockNetManager) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
 	// TODO implement me
 	panic("implement me")
@@ -245,14 +251,19 @@ func (m *mockNetManager) SendWithAssembler(recipient *id.ID, assembler cmix.Mess
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
-func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
-	rounds.Round, []ephemeral.Id, error) {
+func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
 
-func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
+func (m *mockNetManager) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
+}
 
-func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool, _ message.Processor) {
+}
+
+func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool, _ message.Processor) {
 }
 
 func (m *mockNetManager) RemoveIdentity(id *id.ID) {}

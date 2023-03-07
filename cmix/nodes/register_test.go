@@ -11,8 +11,8 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"testing"
@@ -21,6 +21,8 @@ import (
 
 // Unit test for registerWithNode
 func TestRegisterWithNode(t *testing.T) {
+	sch := rsa.GetScheme()
+
 	// Generate a stoppable
 	stop := stoppable.NewSingle("test")
 	defer stop.Quit()
@@ -30,7 +32,7 @@ func TestRegisterWithNode(t *testing.T) {
 	defer stream.Close()
 
 	/// Load private key
-	privKeyRsa, err := rsa.LoadPrivateKeyFromPem([]byte(privKey))
+	privKeyRsa, err := sch.UnmarshalPrivateKeyPEM([]byte(privKey))
 	if err != nil {
 		t.Fatalf("Failed to load private Key: %v", err)
 	}

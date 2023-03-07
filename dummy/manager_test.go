@@ -9,11 +9,12 @@ package dummy
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/stoppable"
 	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/stoppable"
 )
 
 // Tests that newManager returns the expected Manager.
@@ -48,7 +49,7 @@ func Test_newManager(t *testing.T) {
 func TestManager_StartDummyTraffic(t *testing.T) {
 	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
-	err := m.SetStatus(true)
+	err := m.Start()
 	if err != nil {
 		t.Errorf("Failed to set status to true.")
 	}
@@ -68,11 +69,10 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
 
 	err = stop.Close()
@@ -80,7 +80,18 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	err = stoppable.WaitForStopped(stop, 5*time.Second)
+	if err != nil {
+		t.Errorf("Failed to wait for stoppable to be stopped: %+v", err)
+	}
+
+	// NOTE: this test was a bit bugged originally, as you can't
+	// stop waiting for message received updated, wait for a few
+	// lines, then stop the process, then expect not to have ever
+	// received a new message.
+	// What we do instead is get the len immediately after stopping, then
+	// wait for some time to see if it changes
+	numReceived = m.net.(*mockCmix).GetMsgListLen()
 	if !stop.IsStopped() {
 		t.Error("Stoppable never stopped.")
 	}
@@ -101,15 +112,15 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 	}
 }
 
-// Tests that Manager.SetStatus prevents messages from being sent and that it
-// can be called multiple times with the same status without it affecting
-// anything. Also tests that the thread quits even when paused.
-func TestManager_SetStatus(t *testing.T) {
+// Tests that Manager.Pause & Manager.Resume prevents messages from being sent and
+// that either may be called multiple times with the same status without it affecting
+// the process. Also tests that the thread quits even when paused.
+func TestManager_PauseResume(t *testing.T) {
 	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
-	err := m.SetStatus(false)
+	err := m.Pause()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Pause returned an error: %+v", err)
 	}
 
 	stop := stoppable.NewSingle("sendThreadTest")
@@ -134,9 +145,9 @@ func TestManager_SetStatus(t *testing.T) {
 	}
 
 	// Setting status to false should cause the messages to not send
-	err = m.SetStatus(false)
+	err = m.Pause()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Pause returned an error: %+v", err)
 	}
 
 	var numReceived int
@@ -146,9 +157,9 @@ func TestManager_SetStatus(t *testing.T) {
 		t.Errorf("Should not have received messages when thread was pasued.")
 	}
 
-	err = m.SetStatus(true)
+	err = m.Start()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Resume returned an error: %+v", err)
 	}
 
 	time.Sleep(3 * time.Millisecond)
@@ -158,18 +169,18 @@ func TestManager_SetStatus(t *testing.T) {
 	}
 
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
 		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
 
 	// Setting status to true multiple times does not interrupt sending
 	for i := 0; i < 3; i++ {
-		err = m.SetStatus(true)
+		err = m.Start()
 		if err != nil {
-			t.Errorf("setStatus returned an error (%d): %+v", i, err)
+			t.Errorf("Resume returned an error (%d): %+v", i, err)
 		}
 	}
 
@@ -186,9 +197,9 @@ func TestManager_SetStatus(t *testing.T) {
 	}
 
 	// Shows that the stoppable still stops when the thread is paused
-	err = m.SetStatus(false)
+	err = m.Pause()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Pause returned an error: %+v", err)
 	}
 	time.Sleep(3 * time.Millisecond)
 	if stat := atomic.LoadUint32(&m.status); stat != paused {
@@ -211,24 +222,24 @@ func TestManager_SetStatus(t *testing.T) {
 	}
 }
 
-// Error path: tests that Manager.SetStatus returns an error if the status
+// Error path: tests that Manager.Pause returns an error if the status
 // cannot be set.
-func TestManager_SetStatus_ChannelError(t *testing.T) {
+func TestManager_Pause_ChannelError(t *testing.T) {
 	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
 	// Send the max number of status changes on the channel
 	for i := 0; i < statusChanLen; i++ {
-		err := m.SetStatus(false)
+		err := m.Pause()
 		if err != nil {
-			t.Errorf("setStatus returned an error (%d): %+v", i, err)
+			t.Errorf("Pause returned an error (%d): %+v", i, err)
 		}
 	}
 
 	// Calling one more time causes an error
 	expectedErr := fmt.Sprintf(setStatusErr, true)
-	err := m.SetStatus(true)
+	err := m.Start()
 	if err == nil || err.Error() != expectedErr {
-		t.Errorf("setStatus returned unexpected error when channel is full."+
+		t.Errorf("Resume returned unexpected error when channel is full."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 
@@ -239,9 +250,9 @@ func TestManager_SetStatus_ChannelError(t *testing.T) {
 func TestManager_GetStatus(t *testing.T) {
 	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
-	err := m.SetStatus(false)
+	err := m.Pause()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Pause returned an error: %+v", err)
 	}
 
 	stop := stoppable.NewSingle("sendThreadTest")
@@ -264,9 +275,9 @@ func TestManager_GetStatus(t *testing.T) {
 	}()
 
 	// Setting status to false should cause the messages to not send
-	err = m.SetStatus(false)
+	err = m.Pause()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Pause returned an error: %+v", err)
 	}
 	if m.GetStatus() {
 		t.Errorf("GetStatus reported thread as running.")
@@ -279,9 +290,9 @@ func TestManager_GetStatus(t *testing.T) {
 		t.Errorf("Should not have received messages when thread was pasued.")
 	}
 
-	err = m.SetStatus(true)
+	err = m.Start()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Resume returned an error: %+v", err)
 	}
 	time.Sleep(3 * time.Millisecond)
 	if !m.GetStatus() {
@@ -298,9 +309,9 @@ func TestManager_GetStatus(t *testing.T) {
 
 	// Setting status to true multiple times does not interrupt sending
 	for i := 0; i < 3; i++ {
-		err = m.SetStatus(true)
+		err = m.Start()
 		if err != nil {
-			t.Errorf("setStatus returned an error (%d): %+v", i, err)
+			t.Errorf("Resume returned an error (%d): %+v", i, err)
 		}
 	}
 	if !m.GetStatus() {
@@ -320,9 +331,9 @@ func TestManager_GetStatus(t *testing.T) {
 	}
 
 	// Shows that the stoppable still stops when the thread is paused
-	err = m.SetStatus(false)
+	err = m.Pause()
 	if err != nil {
-		t.Errorf("setStatus returned an error: %+v", err)
+		t.Errorf("Pause returned an error: %+v", err)
 	}
 	time.Sleep(3 * time.Millisecond)
 	if m.GetStatus() {

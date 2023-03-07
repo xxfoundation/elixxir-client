@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // register initiates registration with user discovery given a specified
@@ -43,7 +42,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 	// Construct the user registration message
 	msg := &pb.UDBUserRegistration{
 		PermissioningSignature: networkSignature,
-		RSAPublicPem:           string(rsa.CreatePublicKeyPem(privKey.GetPublic())),
+		RSAPublicPem:           string(privKey.Public().MarshalPem()),
 		IdentityRegistration: &pb.Identity{
 			Username: username,
 			DhPubKey: dhKeyPub.Bytes(),
@@ -55,7 +54,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 
 	// Sign the identity data and add to user registration message
 	identityDigest := msg.IdentityRegistration.Digest()
-	msg.IdentitySignature, err = rsa.Sign(rng, privKey,
+	msg.IdentitySignature, err = privKey.SignPSS(rng,
 		hash.CMixHash, identityDigest, nil)
 	if err != nil {
 		return errors.Errorf("Failed to sign user's IdentityRegistration: %+v", err)
@@ -69,7 +68,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 
 	// Hash and sign fact
 	hashedFact := factID.Fingerprint(usernameFact)
-	signedFact, err := rsa.Sign(rng, privKey, hash.CMixHash, hashedFact, nil)
+	signedFact, err := privKey.SignPSS(rng, hash.CMixHash, hashedFact, nil)
 	if err != nil {
 		return errors.Errorf("Failed to sign fact: %v", err)
 	}

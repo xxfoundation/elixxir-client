@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/excludedRounds"
@@ -70,34 +71,37 @@ func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	return c.sendWithAssembler(recipient, assembler, cmixParams)
 }
 
-// SendWithAssembler sends a variable cmix payload to the provided recipient.
-// The payload sent is based on the Complier function passed in, which accepts
-// a round ID and returns the necessary payload data.
+// SendWithAssembler sends a variable cMix payload to the provided recipient.
+// The payload sent is based on the MessageAssembler function passed in, which
+// accepts a round ID and returns the necessary payload data.
 // Returns the round ID of the round the payload was sent or an error if it
 // fails.
 // This does not have end-to-end encryption on it and is used exclusively as
-// a send for higher order cryptographic protocols. Do not use unless
+// a send operation for higher order cryptographic protocols. Do not use unless
 // implementing a protocol on top.
 //
 //	recipient - cMix ID of the recipient.
-//	assembler - MessageAssembler function, accepting round ID and returning fingerprint
-//	format.Fingerprint, service message.Service, payload, mac []byte
+//	assembler - MessageAssembler function, accepting round ID and returning
+//	fingerprint	format.Fingerprint, service message.Service, payload, mac []byte
 //
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful sends or errors.
 // WARNING: Do not roll your own crypto.
-func (c *client) SendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
+func (c *client) SendWithAssembler(recipient *id.ID, assembler MessageAssembler,
+	cmixParams CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	// Critical messaging and assembler-based message payloads are not compatible
 	if cmixParams.Critical {
-		return rounds.Round{}, ephemeral.Id{}, errors.New("Cannot send critical messages with a message assembler")
+		return rounds.Round{}, ephemeral.Id{},
+			errors.New("Cannot send critical messages with a message assembler")
 	}
 	return c.sendWithAssembler(recipient, assembler, cmixParams)
 }
 
-// sendWithAssembler wraps the passed in MessageAssembler in a messageAssembler for sendCmixHelper,
-// and sets up critical message handling where applicable.
-func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
+// sendWithAssembler wraps the passed in MessageAssembler in a messageAssembler
+// for sendCmixHelper, and sets up critical message handling where applicable.
+func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
+	cmixParams CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	if !c.Monitor.IsHealthy() {
 		return rounds.Round{}, ephemeral.Id{}, errors.New(
@@ -156,10 +160,12 @@ func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient *id.ID,
-	cmixParams CMIXParams, instance *network.Instance, grp *cyclic.Group,
-	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Reporter,
-	senderId *id.ID, comms SendCmixCommsInterface, attemptTracker attempts.SendAttemptTracker) (rounds.Round, ephemeral.Id, format.Message, error) {
+func sendCmixHelper(sender gateway.Sender, assembler messageAssembler,
+	recipient *id.ID, cmixParams CMIXParams, instance *network.Instance,
+	grp *cyclic.Group, nodes nodes.Registrar, rng *fastRNG.StreamGenerator,
+	events event.Reporter, senderId *id.ID, comms SendCmixCommsInterface,
+	attemptTracker attempts.SendAttemptTracker) (
+	rounds.Round, ephemeral.Id, format.Message, error) {
 
 	if cmixParams.RoundTries == 0 {
 		return rounds.Round{}, ephemeral.Id{}, format.Message{},
@@ -272,7 +278,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 
 		// Flip leading bits randomly to thwart a tagging attack.
 		// See cmix.SetGroupBits for more info.
-		// cmix.SetGroupBits(msg, grp, stream)
+		cmix.SetGroupBits(msg, grp, stream)
 
 		// Retrieve host and key information from round
 		firstGateway, roundKeys, err := processRound(

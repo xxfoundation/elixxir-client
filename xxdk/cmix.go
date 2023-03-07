@@ -29,7 +29,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/region"
@@ -252,9 +251,9 @@ func (c *Cmix) initComms() error {
 
 	// get the user from session
 	transmissionIdentity := c.GetTransmissionIdentity()
-	privKey := transmissionIdentity.RSAPrivatePem
-	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
-	privPEM := rsa.CreatePrivateKeyPem(privKey)
+	privKey := transmissionIdentity.RSAPrivate
+	pubPEM := privKey.Public().MarshalPem()
+	privPEM := privKey.MarshalPem()
 
 	// start comms
 	c.comms, err = client.NewClientComms(transmissionIdentity.ID,
@@ -340,28 +339,28 @@ func (c *Cmix) GetErrorsChannel() <-chan interfaces.ClientError {
 // they are stopped if there is no internet access.
 //
 // Threads Started:
-//  - Network Follower (/network/follow.go)
-//    tracks the network events and hands them off to workers for handling.
-//  - Historical Round Retrieval (/network/rounds/historical.go)
-//    retrieves data about rounds that are too old to be stored by the client.
-//  - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//	  requests all messages in a given round from the gateway of the last nodes.
-//  - Message Handling Worker Group (/network/message/handle.go)
-//	  decrypts and partitions messages when signals via the Switchboard.
-//	- Health Tracker (/network/health),
-//	  via the network instance, tracks the state of the network.
-//  - Garbled Messages (/network/message/garbled.go)
-//	  can be signaled to check all recent messages that could be decoded. It
-//	  uses a message store on disk for persistence.
-//	- Critical Messages (/network/message/critical.go)
-//	  ensures all protocol layer mandatory messages are sent. It uses a message
-//	  store on disk for persistence.
-//	- KeyExchange Trigger (/keyExchange/trigger.go)
-//	  responds to sent rekeys and executes them.
-//  - KeyExchange Confirm (/keyExchange/confirm.go)
-//	  responds to confirmations of successful rekey operations.
-//  - Auth Callback (/auth/callback.go)
-//    handles both auth confirm and requests.
+//   - Network Follower (/network/follow.go)
+//     tracks the network events and hands them off to workers for handling.
+//   - Historical Round Retrieval (/network/rounds/historical.go)
+//     retrieves data about rounds that are too old to be stored by the client.
+//   - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//     requests all messages in a given round from the gateway of the last nodes.
+//   - Message Handling Worker Group (/network/message/handle.go)
+//     decrypts and partitions messages when signals via the Switchboard.
+//   - Health Tracker (/network/health),
+//     via the network instance, tracks the state of the network.
+//   - Garbled Messages (/network/message/garbled.go)
+//     can be signaled to check all recent messages that could be decoded. It
+//     uses a message store on disk for persistence.
+//   - Critical Messages (/network/message/critical.go)
+//     ensures all protocol layer mandatory messages are sent. It uses a message
+//     store on disk for persistence.
+//   - KeyExchange Trigger (/keyExchange/trigger.go)
+//     responds to sent rekeys and executes them.
+//   - KeyExchange Confirm (/keyExchange/confirm.go)
+//     responds to confirmations of successful rekey operations.
+//   - Auth Callback (/auth/callback.go)
+//     handles both auth confirm and requests.
 func (c *Cmix) StartNetworkFollower(timeout time.Duration) error {
 	jww.INFO.Printf(
 		"StartNetworkFollower() \n\tTransmissionID: %s \n\tReceptionID: %s",
@@ -381,11 +380,18 @@ func (c *Cmix) StopNetworkFollower() error {
 	return c.followerServices.stop()
 }
 
+// SetTrackNetworkPeriod allows changing the frequency that follower threads
+// are started.
+func (c *Cmix) SetTrackNetworkPeriod(d time.Duration) {
+	c.network.SetTrackNetworkPeriod(d)
+}
+
 // NetworkFollowerStatus gets the state of the network follower. It returns a
 // status with the following values:
-//  Stopped  - 0
-//  Running  - 2000
-//  Stopping - 3000
+//
+//	Stopped  - 0
+//	Running  - 2000
+//	Stopping - 3000
 func (c *Cmix) NetworkFollowerStatus() Status {
 	jww.INFO.Printf("NetworkFollowerStatus()")
 	return c.followerServices.status()
@@ -455,12 +461,6 @@ func (c *Cmix) GetEventReporter() event.Reporter {
 // the total number of nodes in the NDF. An error is returned if the network
 // is not healthy.
 func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
-	// Return an error if the network is not healthy
-	if !c.GetCmix().IsHealthy() {
-		return 0, 0, errors.New("Cannot get number of nodes " +
-			"registrations when network is not healthy")
-	}
-
 	nodes := c.network.GetInstance().GetPartialNdf().Get().Nodes
 
 	var numRegistered int
@@ -597,7 +597,7 @@ func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 
 // CheckVersionAndSetupStorage checks the client version and creates a new
 // storage for user data. This function is common code shared by NewCmix,
-//// NewPrecannedCmix and NewVanityCmix.
+// // NewPrecannedCmix and NewVanityCmix.
 func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	password []byte, userInfo user.Info, cmixGrp, e2eGrp *cyclic.Group,
 	registrationCode string) (storage.Session, error) {

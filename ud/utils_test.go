@@ -20,10 +20,10 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"io"
 	"math/rand"
 	"testing"
@@ -42,9 +42,11 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 		t.Fatalf("Failed to initialize store %v", err)
 	}
 
+	sch := rsa.GetScheme()
+
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	stream := rngGen.GetStream()
-	privKey, err := rsa.GenerateKey(stream, 1024)
+	privKey, err := sch.Generate(stream, 1024)
 	stream.Close()
 
 	// Create our Manager object
@@ -155,7 +157,7 @@ func getGroup() *cyclic.Group {
 
 type mockUser struct {
 	testing *testing.T
-	key     *rsa.PrivateKey
+	key     rsa.PrivateKey
 }
 
 func (m mockUser) PortableUserInfo() user.Info {

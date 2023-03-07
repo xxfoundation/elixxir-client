@@ -454,6 +454,9 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	}
 	cmixParams.Network.VerboseRoundTracking = viper.GetBool(
 		verboseRoundTrackingFlag)
+
+	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
+
 	return cmixParams, e2eParams
 }
 
@@ -547,6 +550,8 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 				backupPass, err)
 		}
 	}
+
+	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
 
 	return user
 }
@@ -774,7 +779,8 @@ func waitUntilConnected(connected chan bool) {
 				isConnected)
 			break
 		case <-timeoutTimer.C:
-			jww.FATAL.Panicf("timeout on connection after %s", waitTimeout*time.Second)
+			jww.FATAL.Panicf("timeout on connection after %s",
+				waitTimeout*time.Second)
 		}
 	}
 
@@ -795,6 +801,25 @@ func waitUntilConnected(connected chan bool) {
 			}
 		}
 	}()
+}
+
+func waitForRegistration(user *xxdk.Cmix, threshhold float32) {
+	// After connection, make sure we have registered with
+	// at least 85% of the nodes
+	var err error
+	for numReg, total := 0, 100; numReg < int(threshhold*float32(total)); {
+		jww.INFO.Printf("%d < %d", numReg,
+			int(threshhold*float32(total)))
+		time.Sleep(1 * time.Second)
+		numReg, total, err = user.GetNodeRegistrationStatus()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		jww.INFO.Printf("Registering with nodes (%d/%d)...",
+			numReg, total)
+	}
+
 }
 
 func parseRecipient(idStr string) *id.ID {
@@ -980,6 +1005,9 @@ func init() {
 	viper.BindPFlag(passwordFlag, rootCmd.PersistentFlags().Lookup(
 		passwordFlag))
 
+	rootCmd.PersistentFlags().StringArrayP(gatewayWhitelistFlag, "", []string{}, "")
+	viper.BindPFlag(gatewayWhitelistFlag, rootCmd.PersistentFlags().Lookup(gatewayWhitelistFlag))
+
 	rootCmd.PersistentFlags().StringP(ndfFlag, "n", "ndf.json",
 		"Path to the network definition JSON file")
 	viper.BindPFlag(ndfFlag, rootCmd.PersistentFlags().Lookup(ndfFlag))
@@ -1022,9 +1050,9 @@ func init() {
 		"", false, "Force sends to go over multiple rounds if possible")
 	viper.BindPFlag(splitSendsFlag, rootCmd.Flags().Lookup(splitSendsFlag))
 
-	rootCmd.Flags().BoolP(verifySendFlag, "", false,
+	rootCmd.PersistentFlags().BoolP(verifySendFlag, "", false,
 		"Ensure successful message sending by checking for round completion")
-	viper.BindPFlag(verifySendFlag, rootCmd.Flags().Lookup(verifySendFlag))
+	viper.BindPFlag(verifySendFlag, rootCmd.PersistentFlags().Lookup(verifySendFlag))
 
 	rootCmd.PersistentFlags().UintP(receiveCountFlag,
 		"", 1, "How many messages we should wait for before quitting")

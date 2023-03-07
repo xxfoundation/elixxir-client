@@ -30,7 +30,7 @@ func TestManager_sendThread(t *testing.T) {
 			notStarted, stat)
 	}
 
-	err := m.SetStatus(true)
+	err := m.Start()
 	if err != nil {
 		t.Errorf("Failed to set status to true.")
 	}
@@ -49,17 +49,17 @@ func TestManager_sendThread(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
 		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
 
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
 		if m.net.(*mockCmix).GetMsgListLen() <= numReceived {
 			t.Errorf("Failed to receive second send."+

@@ -22,7 +22,9 @@ import (
 )
 
 type Params struct {
+	// TrackNetworkPeriod determines how frequently follower threads are started.
 	TrackNetworkPeriod time.Duration
+
 	// MaxCheckedRounds is the maximum number of rounds to check in a single
 	// iterations network updates.
 	MaxCheckedRounds uint
@@ -63,6 +65,11 @@ type Params struct {
 	// ClockSkewClamp is the window (+/-) in which clock skew is
 	// ignored and local time is used
 	ClockSkewClamp time.Duration
+
+	// WhitelistedGateways is a list of gateway IDs which, if set, will be used
+	// to create a GatewayFilter for the hostpool, ensuring we only connect to
+	// gateways in this list.
+	WhitelistedGateways []string
 
 	Rounds     rounds.Params
 	Pickup     pickup.Params

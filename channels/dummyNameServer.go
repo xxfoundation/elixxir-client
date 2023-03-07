@@ -21,7 +21,7 @@ import (
 //
 // THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func NewDummyNameService(username string, rng io.Reader) (NameService, error) {
-	jww.WARN.Printf("Creating a Dummy Name Service. This is for " +
+	jww.WARN.Printf("[CH] Creating a Dummy Name Service. This is for " +
 		"development and debugging only. It does not produce valid " +
 		"signatures or verify passed signatures. YOU SHOULD NEVER SEE THIS " +
 		"MESSAGE IN PRODUCTION")
@@ -69,7 +69,7 @@ func (dns *dummyNameService) GetUsername() string {
 //
 // THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func (dns *dummyNameService) GetChannelValidationSignature() ([]byte, time.Time) {
-	jww.WARN.Printf("GetChannelValidationSignature called on Dummy Name " +
+	jww.WARN.Printf("[CH] GetChannelValidationSignature called on Dummy Name " +
 		"Service, dummy signature from a random key returned - identity not " +
 		"proven. YOU SHOULD NEVER SEE THIS MESSAGE IN PRODUCTION")
 	return dns.validationSig, dns.lease
@@ -87,7 +87,7 @@ func (dns *dummyNameService) GetChannelPubkey() ed25519.PublicKey {
 // THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func (dns *dummyNameService) SignChannelMessage(message []byte) (
 	signature []byte, err error) {
-	jww.WARN.Printf("SignChannelMessage called on Dummy Name Service, " +
+	jww.WARN.Printf("[CH] SignChannelMessage called on Dummy Name Service, " +
 		"signature from a random key - identity not proven. YOU SHOULD " +
 		"NEVER SEE THIS MESSAGE IN PRODUCTION")
 	sig := ed25519.Sign(dns.private, message)
@@ -102,8 +102,8 @@ func (dns *dummyNameService) SignChannelMessage(message []byte) (
 func (dns *dummyNameService) ValidateChannelMessage(
 	string, time.Time, ed25519.PublicKey, []byte) bool {
 	// Ignore the authorIDSignature
-	jww.WARN.Printf("ValidateChannelMessage called on Dummy Name Service, " +
-		"no validation done - identity not validated. YOU SHOULD NEVER SEE " +
-		"THIS MESSAGE IN PRODUCTION")
+	jww.WARN.Printf("[CH] ValidateChannelMessage called on Dummy Name " +
+		"Service, no validation done - identity not validated. YOU SHOULD " +
+		"NEVER SEE THIS MESSAGE IN PRODUCTION")
 	return true
 }

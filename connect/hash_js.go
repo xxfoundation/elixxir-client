@@ -5,24 +5,17 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package connect
 
-//func TestClient_Follow(t *testing.T) {
-//	m, err := newTestClient(t)
-//	if err != nil {
-//		t.Fatalf("Failed to create test client: %+v", err)
-//	}
-//
-//	clientErrorReport := func(source, message, trace string) {
-//
-//	}
-//	s, err := m.Follow(clientErrorReport)
-//	if err != nil {
-//		t.Errorf("Failed to follow network: %+v", err)
-//	}
-//
-//	err = s.Close()
-//	if err != nil {
-//		t.Errorf("Failed to close follower: %+v", err)
-//	}
-//}
+import (
+	"crypto"
+	"gitlab.com/elixxir/crypto/rsa"
+)
+
+// getCryptoPSSOpts returns the default pss options for signing/verifying
+// when compiled for javascript, use sha256 instead of the default hash
+func getCryptoPSSOpts() *rsa.PSSOptions {
+	opts := rsa.NewDefaultPSSOptions()
+	opts.Hash = crypto.SHA256
+	return opts
+}

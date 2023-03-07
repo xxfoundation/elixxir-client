@@ -5,13 +5,18 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: connect is not supported in WASM at this time.
+// The tests here require a hash that is not SHA and the consistency
+// test requires a different hash ehre.
+//go:build !js || !wasm
+
 package connect
 
 import (
 	"bytes"
 	"testing"
 
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -57,7 +62,9 @@ func TestSignVerify_Consistency(t *testing.T) {
 	// use insecure seeded rng to reproduce key
 	notRand := &CountingReader{count: uint8(0)}
 
-	privKey, err := rsa.GenerateKey(notRand, 1024)
+	sch := rsa.GetScheme()
+
+	privKey, err := sch.Generate(notRand, 1024)
 	if err != nil {
 		t.Fatalf("SignVerify error: "+
 			"Could not generate key: %v", err.Error())
@@ -73,12 +80,12 @@ func TestSignVerify_Consistency(t *testing.T) {
 	salt := make([]byte, 32)
 	copy(salt, "salt")
 
-	partnerId, err := xx.NewID(privKey.GetPublic(), salt, id.User)
+	partnerId, err := xx.NewID(privKey.Public(), salt, id.User)
 	if err != nil {
 		t.Fatalf("NewId error: %v", err)
 	}
 
-	err = verify(partnerId, privKey.GetPublic(), signature, connFp, salt)
+	err = verify(partnerId, privKey.Public(), signature, connFp, salt)
 	if err != nil {
 		t.Fatalf("Verify error: %v", err)
 	}

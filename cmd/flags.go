@@ -79,11 +79,12 @@ const (
 	e2eRekeyThresholdFlag = "e2eRekeyThreshold"
 
 	// Misc
-	sendIdFlag       = "sendid"
-	profileCpuFlag   = "profile-cpu"
-	profileMemFlag   = "profile-mem"
-	userIdPrefixFlag = "userid-prefix"
-	legacyFlag       = "legacy"
+	sendIdFlag           = "sendid"
+	profileCpuFlag       = "profile-cpu"
+	profileMemFlag       = "profile-mem"
+	userIdPrefixFlag     = "userid-prefix"
+	legacyFlag           = "legacy"
+	gatewayWhitelistFlag = "gateway-whitelist"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "channelName"
@@ -96,6 +97,17 @@ const (
 	broadcastFlag            = "broadcast"
 	broadcastSymmetricFlag   = "symmetric"
 	broadcastAsymmetricFlag  = "asymmetric"
+
+	///////////////// Channels subcommand flags ///////////////////////////////
+	channelsNameFlag             = "channelName"
+	channelsChanIdentityPathFlag = "channelIdentityPath"
+	channelsChanPathFlag         = "channelPath"
+	channelsDescriptionFlag      = "channelDescription"
+	channelsJoinFlag             = "joinChannel"
+	channelsKeyPathFlag          = "channelKeyPath"
+	channelsLeaveFlag            = "leaveChannel"
+	channelsNewFlag              = "newChannel"
+	channelsSendFlag             = "sendToChannel"
 
 	///////////////// Connection subcommand flags /////////////////////////////
 	connectionFlag              = "connect"

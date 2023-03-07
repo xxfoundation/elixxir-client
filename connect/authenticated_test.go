@@ -16,8 +16,8 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -42,14 +42,16 @@ func TestConnectWithAuthentication(t *testing.T) {
 	salt := make([]byte, 32)
 	copy(salt, "salt")
 
-	myRsaPrivKey, err := rsa.LoadPrivateKeyFromPem(getPrivKey())
+	sch := rsa.GetScheme()
+
+	myRsaPrivKey, err := sch.UnmarshalPrivateKeyPEM(getPrivKey())
 	if err != nil {
 		t.Fatalf("Failed to load private key: %v", err)
 	}
 
 	// Construct client ID the proper way as server will need to verify it
 	// using the xx.NewID function call
-	myId, err := xx.NewID(myRsaPrivKey.GetPublic(), salt, id.User)
+	myId, err := xx.NewID(myRsaPrivKey.Public(), salt, id.User)
 	if err != nil {
 		t.Fatalf("Failed to generate client's id: %+v", err)
 	}

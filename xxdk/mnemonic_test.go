@@ -5,16 +5,20 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: storage (disk) is not available in wasm
+//go:build !js || !wasm
+
 package xxdk
 
 import (
 	"bytes"
-	"gitlab.com/xx_network/crypto/csprng"
-	xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
-	"gitlab.com/xx_network/primitives/utils"
 	"io"
 	"math/rand"
 	"testing"
+
+	"gitlab.com/xx_network/crypto/csprng"
+	xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
+	"gitlab.com/xx_network/primitives/utils"
 )
 
 func TestStoreSecretWithMnemonic(t *testing.T) {

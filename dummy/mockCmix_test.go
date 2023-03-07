@@ -8,6 +8,9 @@
 package dummy
 
 import (
+	"sync"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -19,8 +22,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 // mockCmix is a testing structure that adheres to cmix.Client.
@@ -28,6 +29,11 @@ type mockCmix struct {
 	messages map[id.ID]format.Message
 	sync.RWMutex
 	payloadSize int
+}
+
+func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func newMockCmix(payloadSize int) cmix.Client {
@@ -81,17 +87,25 @@ func (m mockCmix) GetMaxMessageLength() int {
 	return 100
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockCmix) AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
 	//TODO implement me
 	panic("implement me")
 }

@@ -65,6 +65,9 @@ func GetDefaultParams() Params {
 		UncheckRoundPeriod:         120 * time.Second,
 		ForceMessagePickupRetry:    false,
 		SendTimeout:                3 * time.Second,
+		MaxBatchSize:               20,
+		BatchPickupTimeout:         250,
+		BatchDelay:                 100,
 	}
 }
 

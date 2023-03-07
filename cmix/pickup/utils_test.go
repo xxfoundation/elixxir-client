@@ -144,7 +144,22 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 }
 
 func (mmrc *mockMessageRetrievalComms) RequestBatchMessages(host *connect.Host, req *pb.GetMessagesBatch) (*pb.GetMessagesResponseBatch, error) {
-	return nil, nil
+	ret := make([]*pb.GetMessagesResponse, len(req.GetRequests()))
+	for i, mreq := range req.GetRequests() {
+		targetId, err := id.Unmarshal(mreq.Target)
+		if err != nil {
+
+		}
+		h, err := connect.NewHost(targetId, "0.0.0.0", nil, connect.GetDefaultHostParams())
+		if err != nil {
+
+		}
+		ret[i], err = mmrc.RequestMessages(h, mreq)
+	}
+	return &pb.GetMessagesResponseBatch{
+		Results: ret,
+		Errors:  make([]string, len(ret)),
+	}, nil
 }
 
 func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {

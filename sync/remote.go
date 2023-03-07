@@ -32,7 +32,7 @@ const (
 	intentsKey     = "intentsVersion"
 )
 
-// EventCallback statuses.
+// KeyUpdateCallback statuses.
 const (
 	Disconnected = "Disconnected"
 	Connected    = "Connected"
@@ -42,16 +42,10 @@ const (
 // updateFailureDelay is the backoff period in between retrying to
 const updateFailureDelay = 1 * time.Second
 
-// UpsertCallback will alert the caller when key has been updated.
-type UpsertCallback func(key string, old []byte, new []byte) ([]byte, error)
-
-// EventCallback is the callback used to report the event.
-type EventCallback func(k, v string)
-
 // RemoteKV implements a remote KV to handle transaction logs.
 type RemoteKV struct {
-	// kv is the versioned KV store that will write the transaction.
-	kv *versioned.KV
+	// local is the versioned KV store that will write the transaction.
+	local *versioned.KV
 
 	// txLog is the transaction log used to write transactions.
 	txLog *TransactionLog
@@ -59,17 +53,18 @@ type RemoteKV struct {
 	// Map of upserts to upsert call backs
 	upserts map[string]UpsertCallback
 
-	// Event is the callback used to report events when attempting to call Set.
-	Event EventCallback
+	// KeyUpdate is the callback used to report events when attempting to call Set.
+	KeyUpdate KeyUpdateCallback
 
 	// list of tracked keys
 	// fixme: remove? seems like this is handled by upserts, unless I'm
 	//  missing something?
 	tracked []string
 
-	// Intents is the current intents that we are waiting for on remote storage.
-	// Anytime this is not empty, we are not synchronized. Report that.
-	Intents map[string][]byte
+	// UnsynchedWrites is the pending writes that we are waiting for on remote
+	// storage. Anytime this is not empty, we are not synchronized and this
+	// should be reported.
+	UnsynchedWrites map[string][]byte
 
 	// Connected determines the connectivity of the remote server.
 	connected bool
@@ -77,11 +72,11 @@ type RemoteKV struct {
 	lck sync.RWMutex
 }
 
-// NewOrLoadRemoteKv will construct a new RemoteKV. If data exists on disk, it
+// NewOrLoadRemoteKV will construct a new RemoteKV. If data exists on disk, it
 // will load that context and handle it appropriately.
-func NewOrLoadRemoteKv(transactionLog *TransactionLog, kv *versioned.KV,
+func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
 	upsertsCb map[string]UpsertCallback,
-	eventCb EventCallback, updateCb RemoteStoreCallback) (*RemoteKV, error) {
+	eventCb KeyUpdateCallback, updateCb RemoteStoreCallback) (*RemoteKV, error) {
 
 	// Nil check upsert map
 	if upsertsCb == nil {
@@ -89,12 +84,12 @@ func NewOrLoadRemoteKv(transactionLog *TransactionLog, kv *versioned.KV,
 	}
 
 	rkv := &RemoteKV{
-		kv:        kv.Prefix(remoteKvPrefix),
-		txLog:     transactionLog,
-		upserts:   upsertsCb,
-		Event:     eventCb,
-		Intents:   make(map[string][]byte, 0),
-		connected: true,
+		local:           kv.Prefix(remoteKvPrefix),
+		txLog:           transactionLog,
+		upserts:         upsertsCb,
+		KeyUpdate:       eventCb,
+		UnsynchedWrites: make(map[string][]byte, 0),
+		connected:       true,
 	}
 
 	if err := rkv.loadIntents(); err != nil {
@@ -102,19 +97,12 @@ func NewOrLoadRemoteKv(transactionLog *TransactionLog, kv *versioned.KV,
 	}
 
 	// Re-trigger all lingering intents
-	for key, val := range rkv.Intents {
-		// fixme: probably want to make a worker pool or async here?
-		//  the issue is to handle the error
+	for key, val := range rkv.UnsynchedWrites {
 		// Call the internal to avoid writing to intent what is already there
 		go rkv.set(key, val, updateCb)
 	}
 
 	return rkv, nil
-}
-
-// AddUpsertCallback will add an upsert callback with the given key.
-func (r *RemoteKV) AddUpsertCallback(key string, cb UpsertCallback) {
-	r.upserts[key] = cb
 }
 
 // Get retrieves the data stored in the underlying kv. Will return an error
@@ -123,7 +111,7 @@ func (r *RemoteKV) Get(key string) ([]byte, error) {
 	r.lck.RLock()
 	defer r.lck.RUnlock()
 
-	obj, err := r.kv.Get(key, remoteKvVersion)
+	obj, err := r.local.Get(key, remoteKvVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +153,7 @@ func (r *RemoteKV) set(key string, val []byte,
 	}
 
 	// Write value to KV
-	if err := r.kv.Set(key, obj); err != nil {
+	if err := r.local.Set(key, obj); err != nil {
 		return errors.Errorf("failed to write to kv: %+v", err)
 	}
 
@@ -183,8 +171,8 @@ func (r *RemoteKV) set(key string, val []byte,
 			jww.DEBUG.Printf("Failed to write transaction new transaction (%v) to  remoteKV: %+v", newTx, err)
 
 			// Report to event callback
-			if r.Event != nil {
-				r.Event(Disconnected, fmt.Sprintf("%v", err))
+			if r.KeyUpdate != nil {
+				r.KeyUpdate(Disconnected, fmt.Sprintf("%v", err))
 			}
 
 			r.connected = false
@@ -197,8 +185,8 @@ func (r *RemoteKV) set(key string, val []byte,
 			return
 		} else if r.connected {
 			// Report to event callback
-			if r.Event != nil {
-				r.Event(Connected, "True")
+			if r.KeyUpdate != nil {
+				r.KeyUpdate(Connected, "True")
 			}
 		}
 
@@ -220,9 +208,9 @@ func (r *RemoteKV) set(key string, val []byte,
 	}
 
 	// Report to event callback
-	if r.Event != nil {
+	if r.KeyUpdate != nil {
 		// Report write as successful
-		r.Event(Successful, key)
+		r.KeyUpdate(Successful, key)
 	}
 
 	// If an update callback exists for this key, report via the callback
@@ -237,20 +225,20 @@ func (r *RemoteKV) set(key string, val []byte,
 // addIntent will write the intent to the map. This map will be saved to disk
 // using te kv.
 func (r *RemoteKV) addIntent(key string, val []byte) error {
-	r.Intents[key] = val
+	r.UnsynchedWrites[key] = val
 	return r.saveIntents()
 }
 
 // removeIntent will delete the intent from the map. This modified map will be
 // saved to disk using the kv.
 func (r *RemoteKV) removeIntent(key string) error {
-	delete(r.Intents, key)
+	delete(r.UnsynchedWrites, key)
 	return r.saveIntents()
 }
 
-// saveIntents is a utility function which writes the Intents map to disk.
+// saveIntents is a utility function which writes the UnsynchedWrites map to disk.
 func (r *RemoteKV) saveIntents() error {
-	data, err := json.Marshal(r.Intents)
+	data, err := json.Marshal(r.UnsynchedWrites)
 	if err != nil {
 		return err
 	}
@@ -261,18 +249,18 @@ func (r *RemoteKV) saveIntents() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(intentsKey, obj)
+	return r.local.Set(intentsKey, obj)
 }
 
 // loadIntents will load any intents from kv if present and set it into
-// Intents.
+// UnsynchedWrites.
 func (r *RemoteKV) loadIntents() error {
-	obj, err := r.kv.Get(intentsKey, intentsVersion)
+	obj, err := r.local.Get(intentsKey, intentsVersion)
 	if err != nil { // Return if there isn't any intents stored
 		return nil
 	}
 
-	return json.Unmarshal(obj.Data, &r.Intents)
+	return json.Unmarshal(obj.Data, &r.UnsynchedWrites)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

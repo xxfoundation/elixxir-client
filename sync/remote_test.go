@@ -21,7 +21,7 @@ import (
 // Remote KV Testing
 ///////////////////////////////////////////////////////////////////////////////
 
-// Smoke test of NewOrLoadRemoteKv.
+// Smoke test of NewOrLoadRemoteKV.
 func TestNewOrLoadRemoteKv(t *testing.T) {
 	// Construct transaction log
 	workingDir := baseDir + "removeKvSmoke/"
@@ -32,24 +32,24 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	received, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	received, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Create expected remote kv
 	expected := &RemoteKV{
-		kv:        kv.Prefix(remoteKvPrefix),
-		txLog:     txLog,
-		upserts:   make(map[string]UpsertCallback),
-		Event:     nil,
-		Intents:   make(map[string][]byte, 0),
-		connected: true,
+		local:           kv.Prefix(remoteKvPrefix),
+		txLog:           txLog,
+		upserts:         make(map[string]UpsertCallback),
+		KeyUpdate:       nil,
+		UnsynchedWrites: make(map[string][]byte, 0),
+		connected:       true,
 	}
 
 	// Check equality of created vs expected remote kv
 	require.Equal(t, expected, received)
 }
 
-// Unit test for NewOrLoadRemoteKv. Ensures that it will load if there is data
+// Unit test for NewOrLoadRemoteKV. Ensures that it will load if there is data
 // on disk.
 func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
@@ -64,7 +64,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Add intents to remote KV
@@ -75,10 +75,10 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	}
 
 	// Ensure intents is not empty
-	require.NotEmpty(t, rkv.Intents)
+	require.NotEmpty(t, rkv.UnsynchedWrites)
 
 	// Call NewOrLoad where it should load intents
-	loaded, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	loaded, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Ensure loaded matches original remoteKV
@@ -100,7 +100,7 @@ func TestRemoteKV_Set(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Construct mock update callback
@@ -140,7 +140,7 @@ func TestRemoteKV_Get(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Construct mock update callback

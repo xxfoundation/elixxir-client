@@ -91,8 +91,8 @@ func (ft *ChannelsFileTransfer) MaxPreviewSize() int {
 // Upload starts uploading the file to a new ID that can be sent to the
 // specified channel when complete. To get progress information about the
 // upload, a [FtSentProgressCallback] must be registered. All errors returned on
-// the callback are fatal and the user must take action to either [RetryUpload]
-// or [CloseSend].
+// the callback are fatal and the user must take action to either
+// [ChannelsFileTransfer.RetryUpload] or [ChannelsFileTransfer.CloseSend].
 //
 // The file is added to the event model at the returned file ID with the status
 // [channelsFileTransfer.Uploading]. Once the upload is complete, the file link
@@ -103,7 +103,8 @@ func (ft *ChannelsFileTransfer) MaxPreviewSize() int {
 // the event model to know when it can be retrieved.
 //
 // Parameters:
-//   - fileData - File contents. Max size defined by [MaxFileSize].
+//   - fileData - File contents. Max size defined by
+//     [ChannelsFileTransfer.MaxFileSize].
 //   - retry - The number of sending retries allowed on send failure (e.g. a
 //     retry of 2.0 with 6 parts means 12 total possible sends).
 //   - progressCB - A callback that reports the progress of the file upload.
@@ -140,8 +141,8 @@ func (ft *ChannelsFileTransfer) Upload(fileData []byte, retry float32,
 }
 
 // Send sends the specified file info to the channel. Once a file is uploaded
-// via [Upload], its file info (found in the event model) can be sent to any
-// channel.
+// via [ChannelsFileTransfer.Upload], its file info (found in the event model)
+// can be sent to any channel.
 //
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID] to send the
@@ -156,8 +157,11 @@ func (ft *ChannelsFileTransfer) Upload(fileData []byte, retry float32,
 //     by [MaxPreviewSize].
 //   - validUntilMS - The duration, in milliseconds, that the file is available
 //     in the channel. For the maximum amount of time, use [ValidForever].
-//   - cmixParamsJSON - JSON of [xxdk.CMIXParams]. If left empty
+//   - cmixParamsJSON - JSON of [xxdk.CMIXParams]. If left empty,
 //     [GetDefaultCMixParams] will be used internally.
+//
+// Returns:
+//   - JSON of [ChannelSendReport].
 func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileLinkJSON []byte,
 	fileName, fileType string, preview []byte,
 	validUntilMS int, cmixParamsJSON []byte) ([]byte, error) {
@@ -187,8 +191,8 @@ func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileLinkJSON []byte,
 
 // RegisterSentProgressCallback allows for the registration of a callback to
 // track the progress of an individual file upload. A [FtSentProgressCallback]
-// is auto registered on [Send]; this function should be called when resuming
-// clients or registering extra callbacks.
+// is auto registered on [ChannelsFileTransfer.Send]; this function should be
+// called when resuming clients or registering extra callbacks.
 //
 // The callback will be called immediately when added to report the current
 // progress of the transfer. It will then call every time a file part arrives,
@@ -197,7 +201,7 @@ func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileLinkJSON []byte,
 //
 // In the event that the client is closed and resumed, this function must be
 // used to re-register any callbacks previously registered with this function or
-// [Send].
+// [ChannelsFileTransfer.Send].
 //
 // The [FtSentProgressCallback] only indicates the progress of the file upload,
 // not the status of the file in the event model. You must rely on updates from
@@ -241,6 +245,9 @@ func (ft *ChannelsFileTransfer) RegisterSentProgressCallback(fileIDBytes []byte,
 //
 // This function should be called once a transfer errors out (as reported by the
 // progress callback).
+//
+// A new progress callback must be registered on retry. Any previously
+// registered callbacks are defunct when the upload fails.
 //
 // Parameters:
 //   - fileIDBytes - Marshalled bytes of the file's [fileTransfer.ID].
@@ -297,7 +304,7 @@ func (ft *ChannelsFileTransfer) CloseSend(fileIDBytes []byte) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Download                                                                   //
+// Downloading                                                                //
 ////////////////////////////////////////////////////////////////////////////////
 
 // Download begins the download of the file described in the marshalled
@@ -312,8 +319,8 @@ func (ft *ChannelsFileTransfer) CloseSend(fileIDBytes []byte) error {
 // updates from the event model to know when it can be retrieved.
 //
 // Parameters:
-//   - fileInfo - The marshalled [channelsFileTransfer.FileInfo] bytes received
-//     from a channel.
+//   - fileInfoJSON - The JSON of [channelsFileTransfer.FileInfo] received on a
+//     channel.
 //   - progressCB - A callback that reports the progress of the file download.
 //     The callback is called once on initialization, on every progress update
 //     (or less if restricted by the period), or on fatal error.
@@ -322,7 +329,7 @@ func (ft *ChannelsFileTransfer) CloseSend(fileIDBytes []byte) error {
 //
 // Returns:
 //   - Marshalled bytes of [fileTransfer.ID] that uniquely identifies the file.
-func (ft *ChannelsFileTransfer) Download(fileInfo []byte,
+func (ft *ChannelsFileTransfer) Download(fileInfoJSON []byte,
 	progressCB FtReceivedProgressCallback, periodMS int) ([]byte, error) {
 
 	cb := func(completed bool, received, total uint16,
@@ -338,7 +345,7 @@ func (ft *ChannelsFileTransfer) Download(fileInfo []byte,
 
 	period := time.Duration(periodMS) * time.Millisecond
 
-	fid, err := ft.api.Download(fileInfo, cb, period)
+	fid, err := ft.api.Download(fileInfoJSON, cb, period)
 	if err != nil {
 		return nil, err
 	}
@@ -398,11 +405,53 @@ func (ft *ChannelsFileTransfer) RegisterReceivedProgressCallback(
 	return ft.api.RegisterReceivedProgressCallback(fileID, cb, period)
 }
 
-/* === Receiving ======================================================== */
-
 ////////////////////////////////////////////////////////////////////////////////
 // Callbacks                                                                  //
 ////////////////////////////////////////////////////////////////////////////////
+
+// FtSentProgressCallback contains the method Callback that is called when the
+// progress on a sent file changes or an error occurs in the transfer.
+//
+// The [ChFilePartTracker] can be used to look up the status of individual file
+// parts. Note, when completed == true, the [ChFilePartTracker] may be nil.
+//
+// Any error returned is fatal and the file must either be retried with
+// [ChannelsFileTransfer.RetryUpload] or canceled with
+// [ChannelsFileTransfer.CloseSend].
+//
+// This callback only indicates the status of the file transfer, not the status
+// of the file in the event model. Do NOT use this callback as an indicator of
+// when the file is available in the event model.
+//
+// Parameters:
+//   - payload - JSON of [FtSentProgress], which describes the progress of the
+//     current sent transfer.
+//   - fpt - File part tracker that allows the lookup of the status of
+//     individual file parts.
+//   - err - Fatal errors during sending.
+type FtSentProgressCallback interface {
+	Callback(payload []byte, fpt *ChFilePartTracker, err error)
+}
+
+// FtReceivedProgressCallback contains the method Callback that is called when
+// the progress on a received file changes or an error occurs in the transfer.
+//
+// The [ChFilePartTracker] can be used to look up the status of individual file
+// parts. Note, when completed == true, the [ChFilePartTracker] may be nil.
+//
+// This callback only indicates the status of the file transfer, not the status
+// of the file in the event model. Do NOT use this callback as an indicator of
+// when the file is available in the event model.
+//
+// Parameters:
+//   - payload - JSON of [FtReceivedProgress], which describes the progress of
+//     the current received transfer.
+//   - fpt - File part tracker that allows the lookup of the status of
+//     individual file parts.
+//   - err - Fatal errors during receiving.
+type FtReceivedProgressCallback interface {
+	Callback(payload []byte, fpt *ChFilePartTracker, err error)
+}
 
 // FtSentProgress contains the progress information of a sent file transfer.
 //
@@ -439,44 +488,6 @@ type FtReceivedProgress struct {
 	Completed bool        `json:"completed"` // True if transfer is successful
 	Received  int         `json:"received"`  // Number of parts received
 	Total     int         `json:"total"`     // Total number of file parts
-}
-
-// FtSentProgressCallback contains the method Callback that is called when the
-// progress on a sent file changes or an error occurs in the transfer.
-//
-// Any error returned is fatal and the file must either be retried with
-// [ChannelsFileTransfer.RetrySend] or canceled with
-// [ChannelsFileTransfer.CloseSend].
-//
-// This callback only indicates the status of the file transfer, not the status
-// of the file in the event model. Do NOT use this callback as an indicator of
-// when the file is available in the event model.
-//
-// Parameters:
-//   - payload - JSON of [FtSentProgress], which describes the progress of the
-//     current sent transfer.
-//   - t - file part tracker that allows the lookup of the status of individual
-//     file parts.
-//   - err - Fatal errors during sending.
-type FtSentProgressCallback interface {
-	Callback(payload []byte, t *ChFilePartTracker, err error)
-}
-
-// FtReceivedProgressCallback contains the method Callback that is called when
-// the progress on a received file changes or an error occurs in the download.
-//
-// This callback only indicates the status of the file transfer, not the status
-// of the file in the event model. Do NOT use this callback as an indicator of
-// when the file is available in the event model.
-//
-// Parameters:
-//   - payload - JSON of [FtReceivedProgress], which describes the progress of
-//     the current received transfer.
-//   - t - file part tracker that allows the lookup of the status of individual
-//     file parts.
-//   - err - Fatal errors during receiving.
-type FtReceivedProgressCallback interface {
-	Callback(payload []byte, t *ChFilePartTracker, err error)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

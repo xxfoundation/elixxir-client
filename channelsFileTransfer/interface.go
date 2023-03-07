@@ -20,33 +20,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
-// SentProgressCallback is a callback function that tracks the progress of
-// sending a file.
-//
-// The FilePartTracker can be used to look up the status of individual file
-// parts. Note, when completed == true, the FilePartTracker may be nil.
-//
-// Any error returned is fatal and the file must either be retried with
-// FileTransfer.RetrySend or canceled with FileTransfer.CloseSend.
-//
-// This callback only indicates the status of the file transfer, not the status
-// of the file in the event model. Do NOT use this callback as an indicator of
-// when the file is available in the event model.
-type SentProgressCallback func(completed bool, sent, received, total uint16,
-	st SentTransfer, t FilePartTracker, err error)
-
-// ReceivedProgressCallback is a callback function that tracks the progress of
-// receiving a file.
-//
-// The FilePartTracker can be used to look up the status of individual file
-// parts. Note, when completed == true, the FilePartTracker may be nil.
-//
-// This callback only indicates the status of the file transfer, not the status
-// of the file in the event model. Do NOT use this callback as an indicator of
-// when the file is available in the event model.
-type ReceivedProgressCallback func(completed bool, received, total uint16,
-	rt ReceivedTransfer, t FilePartTracker, err error)
-
 // FileTransfer facilities the sending and receiving of large file transfers.
 // It allows for progress tracking of both inbound and outbound transfers.
 // FileTransfer handles the sending of the file data; however, the caller is
@@ -170,6 +143,9 @@ type FileTransfer interface {
 	//
 	// This function should be called once a transfer errors out (as reported by
 	// the progress callback).
+	//
+	// A new progress callback must be registered on retry. Any previously
+	// registered callbacks are defunct when the upload fails.
 	RetryUpload(fileID ftCrypto.ID,
 		progressCB SentProgressCallback, period time.Duration) error
 
@@ -211,7 +187,7 @@ type FileTransfer interface {
 	// updates from the event model to know when it can be retrieved.
 	//
 	// Parameters:
-	//   - fileInfo - The marshalled FileInfo bytes received from a channel.
+	//   - fileInfo - The JSON of FileInfo received on a channel.
 	//   - progressCB - A callback that reports the progress of the file
 	//     download. The callback is called once on initialization, on every
 	//     progress update (or less if restricted by the period), or on fatal
@@ -253,6 +229,33 @@ type FileTransfer interface {
 	RegisterReceivedProgressCallback(fileID ftCrypto.ID,
 		progressCB ReceivedProgressCallback, period time.Duration) error
 }
+
+// SentProgressCallback is called when the progress on a sent file changes or an
+// error occurs in the transfer.
+//
+// The [FilePartTracker] can be used to look up the status of individual file
+// parts. Note, when completed == true, the [FilePartTracker] may be nil.
+//
+// Any error returned is fatal and the file must either be retried with
+// [FileTransfer.RetryUpload] or canceled with [FileTransfer.CloseSend].
+//
+// This callback only indicates the status of the file transfer, not the status
+// of the file in the event model. Do NOT use this callback as an indicator of
+// when the file is available in the event model.
+type SentProgressCallback func(completed bool, sent, received, total uint16,
+	st SentTransfer, fpt FilePartTracker, err error)
+
+// ReceivedProgressCallback is called when the progress on a received file
+// changes or an error occurs in the transfer.
+//
+// The [FilePartTracker] can be used to look up the status of individual file
+// parts. Note, when completed == true, the [FilePartTracker] may be nil.
+//
+// This callback only indicates the status of the file transfer, not the status
+// of the file in the event model. Do NOT use this callback as an indicator of
+// when the file is available in the event model.
+type ReceivedProgressCallback func(completed bool, received, total uint16,
+	rt ReceivedTransfer, fpt FilePartTracker, err error)
 
 // SentTransfer tracks the information and individual parts of a sent file
 // transfer.

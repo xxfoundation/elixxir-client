@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
 	"gitlab.com/elixxir/crypto/dm"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
@@ -58,8 +59,26 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 	partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
-	return dc.SendReply(partnerPubKey, partnerToken, msg,
-		cryptoMessage.ID{}, params)
+
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+
+	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
+	jww.INFO.Printf("[DM][%s] SendText(%s)", tag, pubKeyStr)
+	txt := &Text{
+		Version: textVersion,
+		Text:    msg,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	txtMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
+	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+		params)
 }
 
 // SendDMReply is used to send a formatted direct message reply.
@@ -91,7 +110,7 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 			ephemeral.Id{}, err
 	}
 
-	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+	return dc.Send(partnerPubKey, partnerToken, ReplyType, txtMarshaled,
 		params)
 }
 
@@ -150,7 +169,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	rng := dc.rng.GetStream()
 	defer rng.Close()
 
-	nickname, _ := dc.nm.GetNickname(partnerID)
+	nickname, _ := dc.nm.GetNickname()
 
 	// Generate random nonce to be used for message ID
 	// generation. This makes it so two identical messages sent on
@@ -187,7 +206,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
 	uuid, err := dc.st.DenotePendingSend(*partnerEdwardsPubKey,
-		partnerToken, messageType, directMessage)
+		dc.me.PubKey, partnerToken, messageType, directMessage)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s",
 			err.Error())
@@ -203,7 +222,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	rndID, ephIDs, err := send(dc.net, dc.selfReceptionID,
 		partnerID, partnerPubKey, dc.privateKey, partnerToken,
-		directMessage, params, rng)
+		directMessage, params, dc.rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on send: %+v", err)
 		errDenote := dc.st.FailedSend(uuid)
@@ -217,6 +236,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	// Now that we have a round ID, derive the msgID
+	jww.INFO.Printf("[DM] DeriveDirectMessage(%s...) Send", partnerID)
 	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
 		directMessage)
 
@@ -258,13 +278,18 @@ func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 	return receptionID
 }
 
-func send(net cMixClient, myID *id.ID, partnerID *id.ID, partnerPubKey nike.PublicKey,
+func send(net cMixClient, myID *id.ID, partnerID *id.ID,
+	partnerPubKey nike.PublicKey,
 	myPrivateKey nike.PrivateKey, partnerToken uint32,
-	msg *DirectMessage, params cmix.CMIXParams, rng io.Reader) (rounds.Round,
+	msg *DirectMessage, params cmix.CMIXParams,
+	rngGenerator *fastRNG.StreamGenerator) (rounds.Round,
 	[]ephemeral.Id, error) {
 
 	// Send to Partner
 	assemble := func(rid id.Round) ([]cmix.TargetedCmixMessage, error) {
+		rng := rngGenerator.GetStream()
+		defer rng.Close()
+
 		// SEND
 		msg.RoundID = uint64(rid)
 

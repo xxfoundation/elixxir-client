@@ -446,7 +446,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		return false
 	}, roundsUnknown, abandon)
 
-	for i := 0; i < len(roundsWithMessages); i++ {
+	for i := len(roundsWithMessages) - 1; i >= 0; i-- {
 		rid := roundsWithMessages[i]
 		// Denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
@@ -461,7 +461,8 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			identity.EphId.Int64(), identity.Source, err)
 	}
 
-	for _, rid := range roundsWithMessages2 {
+	for i := len(roundsWithMessages2) - 1; i >= 0; i-- {
+		rid := roundsWithMessages2[i]
 		c.GetMessagesFromRound(rid, identity.EphemeralIdentity)
 	}
 

@@ -315,8 +315,11 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 // rejected otherwise.
 //
 // Clients will drop the reaction if they do not recognize the reactTo message.
+//
+// The message will auto delete validUntil after the round it is sent in,
+// lasting forever if ValidForever is used.
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
-	reactTo message.ID, params cmix.CMIXParams) (
+	reactTo message.ID, validUntil time.Duration, params cmix.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
@@ -341,7 +344,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	}
 
 	return m.SendGeneric(
-		channelID, Reaction, reactMarshaled, ValidForever, true, params)
+		channelID, Reaction, reactMarshaled, validUntil, true, params)
 }
 
 // replayAdminMessage is used to rebroadcast an admin message asa a norma user.

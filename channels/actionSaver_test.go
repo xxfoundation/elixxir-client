@@ -62,6 +62,8 @@ func TestActionSaver_purge(t *testing.T) {
 				// All other messages are randomly chosen to be purged or not
 				received = time.Unix(100+prng.Int63n(200), 0)
 			}
+
+			received = received.Round(0).UTC()
 			sa := &savedAction{received, message.ID{byte(i), byte(j)},
 				CommandMessage{chanID, message.ID{byte(i), byte(j)}, Delete, "",
 					[]byte("content"), []byte("encryptedPayload"), nil, 0,
@@ -483,6 +485,7 @@ func TestActionSaver_load(t *testing.T) {
 				received = time.Unix(100+prng.Int63n(200), 0)
 			}
 
+			received = received.Round(0).UTC()
 			sa := &savedAction{received, message.ID{byte(i), byte(j)},
 				CommandMessage{channelID, message.ID{byte(i), byte(j)}, Delete,
 					"", []byte("content"), []byte("encryptedPayload"), nil, 0,
@@ -552,6 +555,78 @@ func TestActionSaver_load(t *testing.T) {
 						t.Errorf("Wrong CommandMessage on action %s in channel %s."+
 							"\nexpected: %#v\nreceived: %#v",
 							key, &chanID, sa.CommandMessage, loadedSA.CommandMessage)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.ChannelID, loadedSA.CommandMessage.ChannelID) {
+						t.Errorf("Wrong ChannelID on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.ChannelID,
+							loadedSA.CommandMessage.ChannelID)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.MessageID, loadedSA.CommandMessage.MessageID) {
+						t.Errorf("Wrong MessageID on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.MessageID,
+							loadedSA.CommandMessage.MessageID)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.MessageType, loadedSA.CommandMessage.MessageType) {
+						t.Errorf("Wrong MessageType on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.MessageType,
+							loadedSA.CommandMessage.MessageType)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.Nickname, loadedSA.CommandMessage.Nickname) {
+						t.Errorf("Wrong Nickname on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.Nickname,
+							loadedSA.CommandMessage.Nickname)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.Content, loadedSA.CommandMessage.Content) {
+						t.Errorf("Wrong Content on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.Content,
+							loadedSA.CommandMessage.Content)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.EncryptedPayload, loadedSA.CommandMessage.EncryptedPayload) {
+						t.Errorf("Wrong EncryptedPayload on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.EncryptedPayload,
+							loadedSA.CommandMessage.EncryptedPayload)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.PubKey, loadedSA.CommandMessage.PubKey) {
+						t.Errorf("Wrong PubKey on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.PubKey,
+							loadedSA.CommandMessage.PubKey)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.Codeset, loadedSA.CommandMessage.Codeset) {
+						t.Errorf("Wrong Codeset on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.Codeset,
+							loadedSA.CommandMessage.Codeset)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.Timestamp, loadedSA.CommandMessage.Timestamp) {
+						t.Errorf("Wrong Timestamp on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.Timestamp,
+							loadedSA.CommandMessage.Timestamp)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.OriginatingTimestamp, loadedSA.CommandMessage.OriginatingTimestamp) {
+						t.Errorf("Wrong OriginatingTimestamp on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.OriginatingTimestamp,
+							loadedSA.CommandMessage.OriginatingTimestamp)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.Lease, loadedSA.CommandMessage.Lease) {
+						t.Errorf("Wrong Lease on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.Lease,
+							loadedSA.CommandMessage.Lease)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage.OriginatingRound, loadedSA.CommandMessage.OriginatingRound) {
+						t.Errorf("Wrong OriginatingRound on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v", key, &chanID,
+							sa.CommandMessage.OriginatingRound,
+							loadedSA.CommandMessage.OriginatingRound)
 					}
 				}
 			}

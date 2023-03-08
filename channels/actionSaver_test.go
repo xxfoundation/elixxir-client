@@ -529,14 +529,30 @@ func TestActionSaver_load(t *testing.T) {
 		} else if !reflect.DeepEqual(actions, loadedActions) {
 			t.Errorf("Actions for channel %s do not match."+
 				"\nexpected: %#v\nreceived: %#v", &chanID, actions, loadedActions)
-		} else {
+
 			for key, sa := range actions {
 				loadedSA, exists2 := loadedActions[key]
 				if !exists2 {
 					t.Errorf("Key %s does not exist in channel %s", key, &chanID)
 				} else if !reflect.DeepEqual(sa, loadedSA) {
-					t.Errorf("Actions %s in channel %s do not match."+
+					t.Errorf("Action %s in channel %s do not match."+
 						"\nexpected: %#v\nreceived: %#v", key, &chanID, sa, loadedSA)
+
+					if !reflect.DeepEqual(sa.Received, loadedSA.Received) {
+						t.Errorf("Wrong Received on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v",
+							key, &chanID, sa.Received, loadedSA.Received)
+					}
+					if !reflect.DeepEqual(sa.TargetMessage, loadedSA.TargetMessage) {
+						t.Errorf("Wrong TargetMessage on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v",
+							key, &chanID, sa.TargetMessage, loadedSA.TargetMessage)
+					}
+					if !reflect.DeepEqual(sa.CommandMessage, loadedSA.CommandMessage) {
+						t.Errorf("Wrong CommandMessage on action %s in channel %s."+
+							"\nexpected: %#v\nreceived: %#v",
+							key, &chanID, sa.CommandMessage, loadedSA.CommandMessage)
+					}
 				}
 			}
 		}

@@ -52,6 +52,16 @@ func (sa *savedAction) String() string {
 	return "{" + strings.Join(fields, " ") + "}"
 }
 
+func (sa *savedAction) GoString() string {
+	fields := []string{
+		"Received:" + sa.Received.String(),
+		"TargetMessage:" + sa.TargetMessage.String(),
+		"CommandMessage:" + fmt.Sprintf("%+v", sa.CommandMessage),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
+}
+
 // ActionSaver saves actions that are received that do not apply to any message
 // in storage. The actions are saved and checked against each new message to see
 // if they apply.

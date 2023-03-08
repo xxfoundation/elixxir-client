@@ -482,8 +482,8 @@ func TestActionSaver_load(t *testing.T) {
 			}
 
 			sa := &savedAction{received, message.ID{byte(i), byte(j)},
-				CommandMessage{channelID, message.ID{byte(i), byte(j)}, Delete, "",
-					[]byte("content"), []byte("encryptedPayload"), nil, 0,
+				CommandMessage{channelID, message.ID{byte(i), byte(j)}, Delete,
+					"", []byte("content"), []byte("encryptedPayload"), nil, 0,
 					time.Unix(36, 0), time.Unix(35, 0), 5 * time.Minute, 35,
 					rounds.Round{}, 0, false, false}}
 

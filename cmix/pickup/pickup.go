@@ -39,9 +39,8 @@ type pickup struct {
 
 	instance RoundGetter
 
-	lookupRoundMessages    chan roundLookup
-	messageBundles         chan<- message.Bundle
-	gatewayMessageRequests chan *pickupRequest
+	lookupRoundMessages chan roundLookup
+	messageBundles      chan<- message.Bundle
 
 	unchecked *store.UncheckedRoundStore
 }
@@ -52,19 +51,17 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 	rng *fastRNG.StreamGenerator, instance RoundGetter,
 	session storage.Session) Pickup {
 	unchecked := store.NewOrLoadUncheckedStore(session.GetKV())
-
 	m := &pickup{
-		params:                 params,
-		lookupRoundMessages:    make(chan roundLookup, params.LookupRoundsBufferLen),
-		messageBundles:         bundles,
-		sender:                 sender,
-		historical:             historical,
-		rng:                    rng,
-		instance:               instance,
-		unchecked:              unchecked,
-		session:                session,
-		comms:                  comms,
-		gatewayMessageRequests: make(chan *pickupRequest, params.LookupRoundsBufferLen),
+		params:              params,
+		lookupRoundMessages: make(chan roundLookup, params.LookupRoundsBufferLen),
+		messageBundles:      bundles,
+		sender:              sender,
+		historical:          historical,
+		rng:                 rng,
+		instance:            instance,
+		unchecked:           unchecked,
+		session:             session,
+		comms:               comms,
 	}
 
 	return m
@@ -75,17 +72,11 @@ func (m *pickup) StartProcessors() stoppable.Stoppable {
 	multi := stoppable.NewMulti("Pickup")
 
 	// Start the message retrieval worker pool
-	if m.params.BatchMessageRetrieval {
-		stopper := stoppable.NewSingle("Batch Message Retriever")
-		go m.processBatchMessageRetrieval(m.comms, stopper)
+	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
+		stopper := stoppable.NewSingle(
+			"Message Retriever " + strconv.Itoa(int(i)))
+		go m.processMessageRetrieval(m.comms, stopper)
 		multi.Add(stopper)
-	} else {
-		for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
-			stopper := stoppable.NewSingle(
-				"Message Retriever " + strconv.Itoa(int(i)))
-			go m.processMessageRetrieval(m.comms, stopper)
-			multi.Add(stopper)
-		}
 	}
 
 	// Start the periodic unchecked round worker

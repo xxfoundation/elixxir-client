@@ -56,8 +56,6 @@ type followNetworkComms interface {
 		*pb.GatewayPollResponse, time.Time, time.Duration, error)
 	RequestMessages(host *connect.Host, message *pb.GetMessages) (
 		*pb.GetMessagesResponse, error)
-	RequestBatchMessages(host *connect.Host,
-		message *pb.GetMessagesBatch) (*pb.GetMessagesResponseBatch, error)
 }
 
 // followNetwork polls the network to get updated on the state of nodes, the

@@ -99,7 +99,7 @@ func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
 	// Re-trigger all lingering intents
 	for key, val := range rkv.UnsynchedWrites {
 		// Call the internal to avoid writing to intent what is already there
-		go rkv.set(key, val, updateCb)
+		go rkv.remoteSet(key, val, updateCb)
 	}
 
 	return rkv, nil
@@ -130,21 +130,16 @@ func (r *RemoteKV) Set(key string, val []byte,
 		return err
 	}
 
-	return r.set(key, val, updateCb)
-}
-
-// set is a utility function which will write the transaction to the RemoteKV.
-func (r *RemoteKV) set(key string, val []byte,
-	updateCb RemoteStoreCallback) error {
-
-	var old []byte
-
-	// If an upsert callback exists for the given key, take note of the data
-	// prior to setting
-	if _, exists := r.upserts[key]; exists {
-		old, _ = r.Get(key)
+	// Save locally
+	if err := r.handleLocalSet(key, val); err != nil {
+		return errors.Errorf("failed to write to local kv: %+v", err)
 	}
 
+	return r.remoteSet(key, val, updateCb)
+}
+
+// handleLocalSet will save the key value pair in the local KV.
+func (r *RemoteKV) handleLocalSet(key string, val []byte) error {
 	// Create versioned object for kv.Set
 	obj := &versioned.Object{
 		Version:   remoteKvVersion,
@@ -153,47 +148,16 @@ func (r *RemoteKV) set(key string, val []byte,
 	}
 
 	// Write value to KV
-	if err := r.local.Set(key, obj); err != nil {
-		return errors.Errorf("failed to write to kv: %+v", err)
-	}
+	return r.local.Set(key, obj)
+}
 
-	// Instantiate the remote store callback
+// remoteSet is a utility function which will write the transaction to
+// the RemoteKV.
+func (r *RemoteKV) remoteSet(key string, val []byte,
+	updateCb RemoteStoreCallback) error {
+
 	wrapper := func(newTx Transaction, err error) {
-
-		// Pass context to user-defined callback so they may handle failure for
-		// remote saving
-		if updateCb != nil {
-			updateCb(newTx, err)
-		}
-
-		// Handle error
-		if err != nil {
-			jww.DEBUG.Printf("Failed to write transaction new transaction (%v) to  remoteKV: %+v", newTx, err)
-
-			// Report to event callback
-			if r.KeyUpdate != nil {
-				r.KeyUpdate(Disconnected, fmt.Sprintf("%v", err))
-			}
-
-			r.connected = false
-			// fixme: feels like more thought needs to be put. A recursive cb
-			//  such as this seems like a poor idea. Maybe the callback is
-			//  passed down, and it's the responsibility of the caller to ensure
-			//  remote writing of the txLog?
-			//time.Sleep(updateFailureDelay)
-			//r.txLog.Append(newTx, updateCb)
-			return
-		} else if r.connected {
-			// Report to event callback
-			if r.KeyUpdate != nil {
-				r.KeyUpdate(Connected, "True")
-			}
-		}
-
-		err = r.removeIntent(key)
-		if err != nil {
-			jww.WARN.Printf("Failed to remove intent for key %s: %+v", key, err)
-		}
+		r.handleRemoteSet(newTx, err, updateCb, key)
 	}
 
 	// Write the transaction
@@ -213,13 +177,48 @@ func (r *RemoteKV) set(key string, val []byte,
 		r.KeyUpdate(Successful, key)
 	}
 
-	// If an update callback exists for this key, report via the callback
-	if upserCb, exists := r.upserts[key]; exists {
-		// fixme: how to handle an error here?
-		upserCb(key, old, val)
+	return nil
+}
+
+// handleRemoteSet contains the logic for handling a remoteSet attempt. It will
+// handle and modify state within the RemoteKV for failed remote sets.
+func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
+	updateCb RemoteStoreCallback, key string) {
+
+	// Pass context to user-defined callback, so they may handle failure for
+	// remote saving
+	if updateCb != nil {
+		updateCb(newTx, err)
 	}
 
-	return nil
+	// Handle error
+	if err != nil {
+		jww.DEBUG.Printf("Failed to write transaction new transaction (%v) to  remoteKV: %+v", newTx, err)
+
+		// Report to event callback
+		if r.KeyUpdate != nil {
+			r.KeyUpdate(Disconnected, fmt.Sprintf("%v", err))
+		}
+
+		r.connected = false
+		// fixme: feels like more thought needs to be put. A recursive cb
+		//  such as this seems like a poor idea. Maybe the callback is
+		//  passed down, and it's the responsibility of the caller to ensure
+		//  remote writing of the txLog?
+		//time.Sleep(updateFailureDelay)
+		//r.txLog.Append(newTx, updateCb)
+		return
+	} else if r.connected {
+		// Report to event callback
+		if r.KeyUpdate != nil {
+			r.KeyUpdate(Connected, "True")
+		}
+	}
+
+	err = r.removeIntent(key)
+	if err != nil {
+		jww.WARN.Printf("Failed to remove intent for key %s: %+v", key, err)
+	}
 }
 
 // addIntent will write the intent to the map. This map will be saved to disk

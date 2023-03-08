@@ -18,6 +18,10 @@ type UpsertCallback func(key string, curVal, newVal []byte) ([]byte, error)
 // KeyUpdateCallback is the callback used to report the event.
 type KeyUpdateCallback func(k, v string)
 
+// RemoteStoreCallback is a callback for reporting the status of writing the
+// new transaction to remote storage.
+type RemoteStoreCallback func(newTx Transaction, err error)
+
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
 type RemoteStore interface {

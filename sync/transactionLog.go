@@ -77,10 +77,6 @@ type TransactionLog struct {
 	lck sync.RWMutex
 }
 
-// RemoteStoreCallback is a callback for reporting the status of writing the
-// new transaction to remote storage.
-type RemoteStoreCallback func(newTx Transaction, err error)
-
 // NewOrLoadTransactionLog constructs a new TransactionLog. If the LocalStore
 // has serialized data within Note that by default the
 // log's header is empty. To set this field, call TransactionLog.SetHeader.

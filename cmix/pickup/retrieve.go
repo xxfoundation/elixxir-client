@@ -63,9 +63,6 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 			}
 
 			gwIds := m.getGatewayList(rl)
-			if gwIds == nil {
-				continue
-			}
 			// If ForceMessagePickupRetry, we are forcing processUncheckedRounds
 			// by randomly not picking up messages (FOR INTEGRATION TEST). Only
 			// done if round has not been ignored before.

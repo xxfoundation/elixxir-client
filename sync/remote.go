@@ -92,7 +92,7 @@ func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
 		connected:       true,
 	}
 
-	if err := rkv.loadIntents(); err != nil {
+	if err := rkv.loadUnsynchedWrites(); err != nil {
 		return nil, err
 	}
 
@@ -126,7 +126,7 @@ func (r *RemoteKV) Set(key string, val []byte,
 	defer r.lck.Unlock()
 
 	// Add intent to write transaction
-	if err := r.addIntent(key, val); err != nil {
+	if err := r.addUnsyncedWrite(key, val); err != nil {
 		return err
 	}
 
@@ -215,28 +215,28 @@ func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
 		}
 	}
 
-	err = r.removeIntent(key)
+	err = r.removeUnsyncedWrite(key)
 	if err != nil {
 		jww.WARN.Printf("Failed to remove intent for key %s: %+v", key, err)
 	}
 }
 
-// addIntent will write the intent to the map. This map will be saved to disk
+// addUnsyncedWrite will write the intent to the map. This map will be saved to disk
 // using te kv.
-func (r *RemoteKV) addIntent(key string, val []byte) error {
+func (r *RemoteKV) addUnsyncedWrite(key string, val []byte) error {
 	r.UnsynchedWrites[key] = val
-	return r.saveIntents()
+	return r.saveUnsynchedWrites()
 }
 
-// removeIntent will delete the intent from the map. This modified map will be
+// removeUnsyncedWrite will delete the intent from the map. This modified map will be
 // saved to disk using the kv.
-func (r *RemoteKV) removeIntent(key string) error {
+func (r *RemoteKV) removeUnsyncedWrite(key string) error {
 	delete(r.UnsynchedWrites, key)
-	return r.saveIntents()
+	return r.saveUnsynchedWrites()
 }
 
-// saveIntents is a utility function which writes the UnsynchedWrites map to disk.
-func (r *RemoteKV) saveIntents() error {
+// saveUnsynchedWrites is a utility function which writes the UnsynchedWrites map to disk.
+func (r *RemoteKV) saveUnsynchedWrites() error {
 	data, err := json.Marshal(r.UnsynchedWrites)
 	if err != nil {
 		return err
@@ -251,9 +251,9 @@ func (r *RemoteKV) saveIntents() error {
 	return r.local.Set(intentsKey, obj)
 }
 
-// loadIntents will load any intents from kv if present and set it into
+// loadUnsynchedWrites will load any intents from kv if present and set it into
 // UnsynchedWrites.
-func (r *RemoteKV) loadIntents() error {
+func (r *RemoteKV) loadUnsynchedWrites() error {
 	obj, err := r.local.Get(intentsKey, intentsVersion)
 	if err != nil { // Return if there isn't any intents stored
 		return nil

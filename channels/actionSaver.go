@@ -10,6 +10,8 @@ package channels
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +39,18 @@ const (
 	// actionSaveNickname is the nickname used when replaying an action.
 	actionSaveNickname = "ActionSaver"
 )
+
+func (sa *savedAction) String() string {
+	fields := []string{
+		// "Received:" + sa.Received.String(),
+		"Received:" + fmt.Sprintf("%d", sa.Received.Unix()),
+		"TargetMessage:" + fmt.Sprintf("%+v", sa.TargetMessage[:2]),
+		// "TargetMessage:" + sa.TargetMessage.String(),
+		// "CommandMessage:" + fmt.Sprintf("%+v", sa.CommandMessage),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
+}
 
 // ActionSaver saves actions that are received that do not apply to any message
 // in storage. The actions are saved and checked against each new message to see

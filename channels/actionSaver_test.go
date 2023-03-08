@@ -520,6 +520,17 @@ func TestActionSaver_load(t *testing.T) {
 			"\nexpected: %#v\nreceived: %#v", now, expected, loadedAs.actions)
 	}
 
+	for chanID, actions := range expected {
+		loadedActions, exists := loadedAs.actions[chanID]
+		if !exists {
+			t.Errorf("Channel %s does not exist", chanID)
+		}
+		if !reflect.DeepEqual(actions, loadedActions) {
+			t.Errorf("Actions for channel %s do not match." +
+				"\nexpected: %#v\nreceived: %#v", chanID, actions, loadedActions)
+		}
+	}
+
 	// Check that the loaded message map matches the original after it has been
 	// purged
 	err = as.purge(now)

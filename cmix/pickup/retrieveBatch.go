@@ -57,6 +57,9 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 
 			// Get shuffled list of gateways in round
 			gwIds := m.getGatewayList(rl)
+			if gwIds == nil {
+				continue
+			}
 
 			if m.params.ForceMessagePickupRetry && m.shouldForceMessagePickupRetry(rl) {
 				// Do not add to the batch, leaving the round to be picked up in

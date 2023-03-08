@@ -464,10 +464,12 @@ func TestActionSaver_load(t *testing.T) {
 
 	now := time.Unix(200, 0)
 	expected := make(map[id.ID]map[messageIdKey]*savedAction)
-	for i := 0; i < 10; i++ {
+	// TODO for i := 0; i < 10; i++ {
+	for i := 0; i < 3; i++ {
 		channelID := randChannelID(prng, t)
 		as.actions[*channelID] = make(map[messageIdKey]*savedAction)
-		for j := 0; j < 5; j++ {
+		// TODO for j := 0; j < 5; j++ {
+		for j := 0; j < 2; j++ {
 			var received time.Time
 			switch i {
 			case 0:

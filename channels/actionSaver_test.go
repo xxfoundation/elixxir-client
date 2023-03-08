@@ -517,7 +517,7 @@ func TestActionSaver_load(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, loadedAs.actions) {
 		t.Errorf("Unexpected actions map after purge at %s."+
-			"\nexpected: %+v\nreceived: %+v", now, expected, loadedAs.actions)
+			"\nexpected: %#v\nreceived: %#v", now, expected, loadedAs.actions)
 	}
 
 	// Check that the loaded message map matches the original after it has been
@@ -528,7 +528,7 @@ func TestActionSaver_load(t *testing.T) {
 	}
 	if !reflect.DeepEqual(loadedAs.actions, as.actions) {
 		t.Errorf("Unexpected actions map after purge at %s."+
-			"\nexpected: %+v\nreceived: %+v", now, loadedAs.actions, as.actions)
+			"\nexpected: %#v\nreceived: %#v", now, loadedAs.actions, as.actions)
 	}
 }
 

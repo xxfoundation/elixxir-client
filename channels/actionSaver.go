@@ -8,7 +8,6 @@
 package channels
 
 import (
-	"container/list"
 	"encoding/base64"
 	"encoding/json"
 	"sync"
@@ -62,9 +61,6 @@ type savedAction struct {
 	// TargetMessage is the message ID of the message that the action applies to.
 	TargetMessage message.ID `json:"targetMessage,omitempty"`
 
-	// e is a link to this message in the lease list.
-	e *list.Element
-
 	CommandMessage `json:"commandMessage,omitempty"`
 }
 
@@ -99,7 +95,6 @@ func (as *ActionSaver) purgeThread(stop *stoppable.Single) {
 		"stoppable %s", stop.Name())
 
 	ticker := time.NewTicker(purgeFrequency)
-	// TODO: run on load
 	for {
 		select {
 		case <-stop.Quit():
@@ -152,9 +147,6 @@ func (as *ActionSaver) AddAction(channelID *id.ID, messageID,
 	lease time.Duration, originatingRound id.Round, round rounds.Round,
 	fromAdmin bool) error {
 
-	// When set to true, the list of channels IDs will be updated in storage
-	var channelIdUpdate bool
-
 	// Generate the savedAction object to save
 	sa := &savedAction{
 		Received:      received,
@@ -173,45 +165,56 @@ func (as *ActionSaver) AddAction(channelID *id.ID, messageID,
 			FromAdmin:            fromAdmin,
 		},
 	}
-	jww.INFO.Printf("[CH] Inserting new saved action for target message %s: %+v",
+	jww.DEBUG.Printf(
+		"[CH] Inserting new saved action for target message %s: %+v",
 		targetMessage, sa)
 
-	key := getMessageIdKey(targetMessage)
+	return as.addAction(sa)
+}
+func (as *ActionSaver) addAction(sa *savedAction) error {
+
+	// When set to true, the list of channels IDs will be updated in storage
+	var channelIdUpdate bool
+
+	key := getMessageIdKey(sa.TargetMessage)
 
 	as.mux.Lock()
 	defer as.mux.Unlock()
 
-	if messages, exists := as.actions[*channelID]; !exists {
+	if messages, exists := as.actions[*sa.ChannelID]; !exists {
 		// Add the channel with the saved action if it does not exist
-		as.actions[*channelID] = map[messageIdKey]*savedAction{key: sa}
+		as.actions[*sa.ChannelID] = map[messageIdKey]*savedAction{key: sa}
 		channelIdUpdate = true
 	} else if loadedSa, exists2 := messages[key]; !exists2 {
 		// Add the saved action for this target message if it does not exist
-		as.actions[*channelID][key] = sa
+		as.actions[*sa.ChannelID][key] = sa
 	} else {
 		// If a saved action already exists for this target message, then
 		// determine if this new action overwrites the saved one
 
-		switch sa.MessageType {
-		case Delete:
-			// Delete replaces all other possible actions
-			as.actions[*channelID][key] = sa
-		case Pinned:
-			if originatingTimestamp.After(loadedSa.OriginatingTimestamp) {
-				// If this pin action is newer, then replace it
-				as.actions[*channelID][key] = sa
-			} else {
-				// Drop old pin messages
-				return nil
+		if loadedSa.MessageType != Delete {
+			switch sa.MessageType {
+			case Delete:
+				// Delete replaces all other possible actions
+				as.actions[*sa.ChannelID][key] = sa
+			default:
+				if sa.OriginatingTimestamp.After(loadedSa.OriginatingTimestamp) {
+					// If this pin action is newer, then replace it
+					as.actions[*sa.ChannelID][key] = sa
+				} else {
+					// Drop old pin messages
+					return nil
+				}
 			}
 		}
 	}
 
 	// Update storage
-	return as.updateStorage(channelID, channelIdUpdate)
+	return as.updateStorage(sa.ChannelID, channelIdUpdate)
 }
 
-// UpdateActionFn updates a message if it has a saved action.
+// UpdateActionFn updates a message if it has a saved action. It returns a UUID
+// and an error
 type UpdateActionFn func() (uint64, error)
 
 // CheckSavedActions checks if there is a saved action for the message and
@@ -257,9 +260,9 @@ func (as *ActionSaver) CheckSavedActions(
 	return nil, false
 }
 
-// deleteAction removes the action from the list and the map. This function also
-// updates storage. If the message does not exist, nil is returned. This
-// function is not thread safe.
+// deleteAction removes the action from the map. This function also updates
+// storage. If the message does not exist, nil is returned. This function is not
+// thread safe.
 func (as *ActionSaver) deleteAction(sa *savedAction) error {
 	var loadedSa *savedAction
 	key := getMessageIdKey(sa.TargetMessage)
@@ -354,16 +357,20 @@ func (as *ActionSaver) load(now time.Time) error {
 	// Get list of lease messages and load them into the message map and lease
 	// list
 	for _, channelID := range channelIDs {
-		as.actions[*channelID], err = as.loadActions(channelID)
-		if err != nil {
-			return errors.Wrapf(err, loadSavedActionsMessagesErr, channelID)
+		actionList, err2 := as.loadActions(channelID)
+		if err2 != nil {
+			return errors.Wrapf(err2, loadSavedActionsMessagesErr, channelID)
 		}
 
-		for key, sa := range as.actions[*channelID] {
+		for key, sa := range actionList {
 			// Check if the action is stale
 			if now.Sub(sa.Received) > maxSavedActionAge {
-				delete(as.actions[*channelID], key)
+				delete(actionList, key)
 			}
+		}
+
+		if len(actionList) > 0 {
+			as.actions[*channelID] = actionList
 		}
 	}
 

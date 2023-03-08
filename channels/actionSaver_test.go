@@ -105,7 +105,7 @@ func TestActionSaver_AddAction(t *testing.T) {
 
 	// Test adding new action
 	e := &savedAction{
-		Received:      time.Unix(37, 0),
+		Received:      time.Unix(37, 0).Round(0).UTC(),
 		TargetMessage: message.ID{7},
 		CommandMessage: CommandMessage{
 			ChannelID:            id.NewIdFromString("channelID", id.User, t),
@@ -113,8 +113,8 @@ func TestActionSaver_AddAction(t *testing.T) {
 			MessageType:          Pinned,
 			Content:              []byte("content"),
 			EncryptedPayload:     []byte("encryptedPayload"),
-			Timestamp:            time.Unix(36, 0),
-			OriginatingTimestamp: time.Unix(35, 0),
+			Timestamp:            time.Unix(36, 0).Round(0).UTC(),
+			OriginatingTimestamp: time.Unix(35, 0).Round(0).UTC(),
 			Lease:                5 * time.Minute,
 			OriginatingRound:     35,
 			Round:                rounds.Round{},

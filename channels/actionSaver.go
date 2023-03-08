@@ -149,7 +149,7 @@ func (as *ActionSaver) AddAction(channelID *id.ID, messageID,
 
 	// Generate the savedAction object to save
 	sa := &savedAction{
-		Received:      received,
+		Received:      received.Round(0).UTC(),
 		TargetMessage: targetMessage,
 		CommandMessage: CommandMessage{
 			ChannelID:            channelID,
@@ -157,8 +157,8 @@ func (as *ActionSaver) AddAction(channelID *id.ID, messageID,
 			MessageType:          action,
 			Content:              content,
 			EncryptedPayload:     encryptedPayload,
-			Timestamp:            timestamp,
-			OriginatingTimestamp: originatingTimestamp,
+			Timestamp:            timestamp.Round(0).UTC(),
+			OriginatingTimestamp: originatingTimestamp.Round(0).UTC(),
 			Lease:                lease,
 			OriginatingRound:     originatingRound,
 			Round:                round,

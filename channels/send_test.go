@@ -395,7 +395,8 @@ func Test_manager_SendReaction(t *testing.T) {
 	mbc := &mockBroadcastChannel{}
 	m.channels[*channelID] = &joinedChannel{broadcast: mbc}
 
-	messageID, _, _, err := m.SendReaction(channelID, msg, replyMsgID, *params)
+	messageID, _, _, err := m.SendReaction(
+		channelID, msg, replyMsgID, ValidForever, *params)
 	if err != nil {
 		t.Fatalf("SendReaction error: %+v", err)
 	}

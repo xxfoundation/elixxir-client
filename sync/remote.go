@@ -8,6 +8,7 @@
 package sync
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -111,6 +112,7 @@ func (r *RemoteKV) Get(key string) ([]byte, error) {
 	r.lck.RLock()
 	defer r.lck.RUnlock()
 
+	// Read from local KV
 	obj, err := r.local.Get(key, remoteKvVersion)
 	if err != nil {
 		return nil, err
@@ -119,7 +121,27 @@ func (r *RemoteKV) Get(key string) ([]byte, error) {
 	return obj.Data, nil
 }
 
-// Set will write a transaction to the transaction log.
+// UpsertLocal is a LOCAL ONLY operation which will write the Transaction
+// to local store.
+// todo: test this
+func (r *RemoteKV) UpsertLocal(key string, newVal []byte) error {
+	// Read from local KV
+	obj, err := r.local.Get(key, remoteKvVersion)
+	if err != nil {
+		// Error means key does not exist, simply write to local
+		return r.localSet(key, newVal)
+	}
+
+	curVal := obj.Data
+	if bytes.Equal(curVal, newVal) {
+		jww.TRACE.Printf("Same value for transaction %+v", curVal)
+		return nil
+	}
+
+	return r.localSet(key, newVal)
+}
+
+// Set will write a transaction to the remote and local store.
 func (r *RemoteKV) Set(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 	r.lck.Lock()
@@ -131,24 +153,21 @@ func (r *RemoteKV) Set(key string, val []byte,
 	}
 
 	// Save locally
-	if err := r.handleLocalSet(key, val); err != nil {
+	if err := r.localSet(key, val); err != nil {
 		return errors.Errorf("failed to write to local kv: %+v", err)
 	}
 
 	return r.remoteSet(key, val, updateCb)
 }
 
-// handleLocalSet will save the key value pair in the local KV.
-func (r *RemoteKV) handleLocalSet(key string, val []byte) error {
-	// Create versioned object for kv.Set
-	obj := &versioned.Object{
-		Version:   remoteKvVersion,
-		Timestamp: netTime.Now(),
-		Data:      val,
-	}
-
-	// Write value to KV
-	return r.local.Set(key, obj)
+// RemoteSet will place this Transaction onto the remote server. This is an
+// asynchronous operation and results will be passed back via the
+// RemoteStoreCallback.
+//
+// NO LOCAL STORAGE OPERATION WIL BE PERFORMED.
+func (r *RemoteKV) RemoteSet(key string, val []byte,
+	updateCb RemoteStoreCallback) error {
+	return r.remoteSet(key, val, updateCb)
 }
 
 // remoteSet is a utility function which will write the transaction to
@@ -219,6 +238,19 @@ func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
 	if err != nil {
 		jww.WARN.Printf("Failed to remove intent for key %s: %+v", key, err)
 	}
+}
+
+// localSet will save the key value pair in the local KV.
+func (r *RemoteKV) localSet(key string, val []byte) error {
+	// Create versioned object for kv.Set
+	obj := &versioned.Object{
+		Version:   remoteKvVersion,
+		Timestamp: netTime.Now(),
+		Data:      val,
+	}
+
+	// Write value to KV
+	return r.local.Set(key, obj)
 }
 
 // addUnsyncedWrite will write the intent to the map. This map will be saved to disk

@@ -22,6 +22,9 @@ type KeyUpdateCallback func(k, v string)
 // new transaction to remote storage.
 type RemoteStoreCallback func(newTx Transaction, err error)
 
+// DeviceId is the identified of a certain device that holds account state.
+type DeviceId string
+
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
 type RemoteStore interface {

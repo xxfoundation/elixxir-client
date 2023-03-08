@@ -114,7 +114,7 @@ func TestRemoteKV_Set(t *testing.T) {
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.Set(key, val, updateCb))
+		require.NoError(t, rkv.RemoteSet(key, val, updateCb))
 
 		select {
 		case <-time.After(500 * time.Second):

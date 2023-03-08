@@ -45,7 +45,7 @@ func TestActionSaver_purge(t *testing.T) {
 	prng := rand.New(rand.NewSource(3523))
 	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
 
-	now := time.Unix(200, 0)
+	now := time.Unix(200, 0).Round(0).UTC()
 	expected := make(map[id.ID]map[messageIdKey]*savedAction)
 	for i := 0; i < 6; i++ {
 		chanID := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -62,10 +62,13 @@ func TestActionSaver_purge(t *testing.T) {
 				// All other messages are randomly chosen to be purged or not
 				received = time.Unix(100+prng.Int63n(200), 0)
 			}
+
+			received = received.Round(0).UTC()
 			sa := &savedAction{received, message.ID{byte(i), byte(j)},
 				CommandMessage{chanID, message.ID{byte(i), byte(j)}, Delete, "",
 					[]byte("content"), []byte("encryptedPayload"), nil, 0,
-					time.Unix(36, 0), time.Unix(35, 0), 5 * time.Minute, 35,
+					time.Unix(36, 0).Round(0).UTC(),
+					time.Unix(35, 0).Round(0).UTC(), 5 * time.Minute, 35,
 					rounds.Round{}, 0, false, false}}
 
 			err := as.addAction(sa)
@@ -136,10 +139,11 @@ func TestActionSaver_AddAction(t *testing.T) {
 	}
 
 	// Test adding newer action (it should overwrite the existing one)
-	e2 := &savedAction{time.Unix(47, 0), e.TargetMessage, CommandMessage{
-		e.ChannelID, message.ID{46}, Pinned, "", []byte("1content"),
-		[]byte("1encryptedPayload"), nil, 0, time.Unix(46, 0), time.Unix(45, 0),
-		5 * time.Minute, 45, rounds.Round{}, 0, false, false}}
+	e2 := &savedAction{time.Unix(47, 0).Round(0).UTC(), e.TargetMessage,
+		CommandMessage{e.ChannelID, message.ID{46}, Pinned, "",
+			[]byte("1content"), []byte("1encryptedPayload"), nil, 0,
+			time.Unix(46, 0).Round(0).UTC(), time.Unix(45, 0).Round(0).UTC(),
+			5 * time.Minute, 45, rounds.Round{}, 0, false, false}}
 	err = as.addAction(e2)
 	if err != nil {
 		t.Fatalf("Failed to add action: %+v", err)
@@ -164,10 +168,11 @@ func TestActionSaver_AddAction(t *testing.T) {
 	}
 
 	// Test adding an older delete action (it should overwrite)
-	e = &savedAction{time.Unix(5, 0), e.TargetMessage, CommandMessage{
-		e.ChannelID, message.ID{2}, Delete, "", []byte("2content"),
-		[]byte("2encryptedPayload"), nil, 0, time.Unix(6, 0), time.Unix(4, 0),
-		5 * time.Minute, 2, rounds.Round{}, 0, false, false}}
+	e = &savedAction{time.Unix(5, 0).Round(0).UTC(), e.TargetMessage,
+		CommandMessage{e.ChannelID, message.ID{2}, Delete, "",
+			[]byte("2content"), []byte("2encryptedPayload"), nil, 0,
+			time.Unix(6, 0).Round(0).UTC(), time.Unix(4, 0).Round(0).UTC(),
+			5 * time.Minute, 2, rounds.Round{}, 0, false, false}}
 	err = as.addAction(e)
 	if err != nil {
 		t.Fatalf("Failed to add action: %+v", err)
@@ -180,10 +185,11 @@ func TestActionSaver_AddAction(t *testing.T) {
 	}
 
 	// Test adding newer action after a deletion (it should be ignored)
-	e2 = &savedAction{time.Unix(27, 0), e.TargetMessage, CommandMessage{
-		e.ChannelID, message.ID{16}, Pinned, "", []byte("3content"),
-		[]byte("3encryptedPayload"), nil, 0, time.Unix(16, 0), time.Unix(15, 0),
-		25 * time.Minute, 25, rounds.Round{}, 0, false, false}}
+	e2 = &savedAction{time.Unix(27, 0).Round(0).UTC(), e.TargetMessage,
+		CommandMessage{e.ChannelID, message.ID{16}, Pinned, "",
+			[]byte("3content"), []byte("3encryptedPayload"), nil, 0,
+			time.Unix(16, 0).Round(0).UTC(), time.Unix(15, 0).Round(0).UTC(),
+			25 * time.Minute, 25, rounds.Round{}, 0, false, false}}
 	err = as.addAction(e2)
 	if err != nil {
 		t.Fatalf("Failed to add action: %+v", err)
@@ -196,10 +202,11 @@ func TestActionSaver_AddAction(t *testing.T) {
 	}
 
 	// Test adding action for new target ID to same channel
-	e2 = &savedAction{time.Unix(27, 0), message.ID{50}, CommandMessage{
-		e.ChannelID, message.ID{16}, Pinned, "", []byte("3content"),
-		[]byte("3encryptedPayload"), nil, 0, time.Unix(16, 0), time.Unix(15, 0),
-		25 * time.Minute, 25, rounds.Round{}, 0, false, false}}
+	e2 = &savedAction{time.Unix(27, 0).Round(0).UTC(), message.ID{50},
+		CommandMessage{e.ChannelID, message.ID{16}, Pinned, "",
+			[]byte("3content"), []byte("3encryptedPayload"), nil, 0,
+			time.Unix(16, 0).Round(0).UTC(), time.Unix(15, 0).Round(0).UTC(),
+			25 * time.Minute, 25, rounds.Round{}, 0, false, false}}
 	err = as.addAction(e2)
 	if err != nil {
 		t.Fatalf("Failed to add action: %+v", err)
@@ -226,10 +233,12 @@ func TestActionSaver_CheckSavedActions(t *testing.T) {
 	}
 	as := NewActionSaver(triggerFn, versioned.NewKV(ekv.MakeMemstore()))
 
-	e1 := &savedAction{time.Unix(37, 0), message.ID{7}, CommandMessage{
-		id.NewIdFromString("channelID", id.User, t), message.ID{36}, Pinned, "",
-		[]byte("content"), []byte("encryptedPayload"), nil, 0, time.Unix(36, 0),
-		time.Unix(35, 0), 5 * time.Minute, 35, rounds.Round{}, 0, false, false}}
+	e1 := &savedAction{time.Unix(37, 0).Round(0).UTC(), message.ID{7},
+		CommandMessage{id.NewIdFromString("channelID", id.User, t),
+			message.ID{36}, Pinned, "", []byte("content"),
+			[]byte("encryptedPayload"), nil, 0, time.Unix(36, 0).Round(0).UTC(),
+			time.Unix(35, 0).Round(0).UTC(), 5 * time.Minute, 35,
+			rounds.Round{}, 0, false, false}}
 
 	err := as.addAction(e1)
 	if err != nil {
@@ -255,10 +264,12 @@ func TestActionSaver_CheckSavedActions(t *testing.T) {
 func TestActionSaver_CheckSavedActions_DeletedAction(t *testing.T) {
 	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
 
-	e1 := &savedAction{time.Unix(37, 0), message.ID{7}, CommandMessage{
-		id.NewIdFromString("channelID", id.User, t), message.ID{36}, Delete, "",
-		[]byte("content"), []byte("encryptedPayload"), nil, 0, time.Unix(36, 0),
-		time.Unix(35, 0), 5 * time.Minute, 35, rounds.Round{}, 0, false, false}}
+	e1 := &savedAction{time.Unix(37, 0).Round(0).UTC(), message.ID{7},
+		CommandMessage{id.NewIdFromString("channelID", id.User, t),
+			message.ID{36}, Delete, "", []byte("content"),
+			[]byte("encryptedPayload"), nil, 0, time.Unix(36, 0).Round(0).UTC(),
+			time.Unix(35, 0).Round(0).UTC(), 5 * time.Minute, 35,
+			rounds.Round{}, 0, false, false}}
 
 	err := as.addAction(e1)
 	if err != nil {
@@ -280,10 +291,12 @@ func TestActionSaver_CheckSavedActions_DeletedAction(t *testing.T) {
 func TestActionSaver_deleteAction(t *testing.T) {
 	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
 
-	e1 := &savedAction{time.Unix(37, 0), message.ID{7}, CommandMessage{
-		id.NewIdFromString("channelID", id.User, t), message.ID{36}, Pinned, "",
-		[]byte("content"), []byte("encryptedPayload"), nil, 0, time.Unix(36, 0),
-		time.Unix(35, 0), 5 * time.Minute, 35, rounds.Round{}, 0, false, false}}
+	e1 := &savedAction{time.Unix(37, 0).Round(0).UTC(), message.ID{7},
+		CommandMessage{id.NewIdFromString("channelID", id.User, t),
+			message.ID{36}, Pinned, "", []byte("content"),
+			[]byte("encryptedPayload"), nil, 0, time.Unix(36, 0).Round(0).UTC(),
+			time.Unix(35, 0).Round(0).UTC(), 5 * time.Minute, 35,
+			rounds.Round{}, 0, false, false}}
 	key1 := getMessageIdKey(e1.TargetMessage)
 
 	err := as.addAction(e1)
@@ -291,11 +304,12 @@ func TestActionSaver_deleteAction(t *testing.T) {
 		t.Fatalf("Failed to add action: %+v", err)
 	}
 
-	e2 := &savedAction{Received: time.Unix(2, 0), TargetMessage: message.ID{72},
-		CommandMessage: CommandMessage{e1.ChannelID, message.ID{36}, Pinned, "",
-			[]byte("content2"), []byte("encryptedPayload2"), nil, 0,
-			time.Unix(346, 0), time.Unix(335, 0), 5 * time.Minute, 354,
-			rounds.Round{}, 0, false, false}}
+	e2 := &savedAction{Received: time.Unix(2, 0).Round(0).UTC(),
+		TargetMessage: message.ID{72}, CommandMessage: CommandMessage{
+			e1.ChannelID, message.ID{36}, Pinned, "", []byte("content2"),
+			[]byte("encryptedPayload2"), nil, 0,
+			time.Unix(346, 0).Round(0).UTC(), time.Unix(335, 0).Round(0).UTC(),
+			5 * time.Minute, 354, rounds.Round{}, 0, false, false}}
 	err = as.addAction(e2)
 	if err != nil {
 		t.Fatalf("Failed to add action: %+v", err)
@@ -368,21 +382,23 @@ func TestActionSaver_RemoveChannel(t *testing.T) {
 	as := NewActionSaver(nil, versioned.NewKV(ekv.MakeMemstore()))
 
 	// Add two new actions to two different channels
-	e1 := &savedAction{time.Unix(37, 0), message.ID{7}, CommandMessage{
-		id.NewIdFromString("channelID", id.User, t), message.ID{36}, Pinned,
-		"", []byte("content"), []byte("encryptedPayload"), nil, 0,
-		time.Unix(36, 0), time.Unix(35, 0), 5 * time.Minute, 35, rounds.Round{},
-		0, false, false}}
+	e1 := &savedAction{time.Unix(37, 0).Round(0).UTC(), message.ID{7},
+		CommandMessage{id.NewIdFromString("channelID", id.User, t),
+			message.ID{36}, Pinned, "", []byte("content"),
+			[]byte("encryptedPayload"), nil, 0, time.Unix(36, 0).Round(0).UTC(),
+			time.Unix(35, 0).Round(0).UTC(), 5 * time.Minute, 35, rounds.Round{},
+			0, false, false}}
 	err := as.addAction(e1)
 	if err != nil {
 		t.Fatalf("Failed to add action: %+v", err)
 	}
 
-	e2 := &savedAction{time.Unix(37, 0), message.ID{7}, CommandMessage{
-		id.NewIdFromString("channelID2", id.User, t), message.ID{36}, Pinned,
-		"", []byte("content"), []byte("encryptedPayload"), nil, 0,
-		time.Unix(36, 0), time.Unix(35, 0), 5 * time.Minute, 35, rounds.Round{},
-		0, false, false}}
+	e2 := &savedAction{time.Unix(37, 0).Round(0).UTC(), message.ID{7},
+		CommandMessage{id.NewIdFromString("channelID2", id.User, t),
+			message.ID{36}, Pinned, "", []byte("content"),
+			[]byte("encryptedPayload"), nil, 0, time.Unix(36, 0).Round(0).UTC(),
+			time.Unix(35, 0).Round(0).UTC(), 5 * time.Minute, 35, rounds.Round{},
+			0, false, false}}
 	err = as.addAction(e2)
 	if err != nil {
 		t.Fatalf("Failed to add action: %+v", err)
@@ -462,7 +478,7 @@ func TestActionSaver_load(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	as := NewActionSaver(nil, kv)
 
-	now := time.Unix(200, 0)
+	now := time.Unix(200, 0).Round(0).UTC()
 	expected := make(map[id.ID]map[messageIdKey]*savedAction)
 	for i := 0; i < 10; i++ {
 		channelID := randChannelID(prng, t)
@@ -481,10 +497,12 @@ func TestActionSaver_load(t *testing.T) {
 				received = time.Unix(100+prng.Int63n(200), 0)
 			}
 
+			received = received.Round(0).UTC()
 			sa := &savedAction{received, message.ID{byte(i), byte(j)},
 				CommandMessage{channelID, message.ID{byte(i), byte(j)}, Delete, "",
 					[]byte("content"), []byte("encryptedPayload"), nil, 0,
-					time.Unix(36, 0), time.Unix(35, 0), 5 * time.Minute, 35,
+					time.Unix(36, 0).Round(0).UTC(),
+					time.Unix(35, 0).Round(0).UTC(), 5 * time.Minute, 35,
 					rounds.Round{}, 0, false, false}}
 
 			err := as.addAction(sa)
@@ -557,7 +575,7 @@ func TestActionSaver_load_ChannelListLoadError(t *testing.T) {
 	loadedAs := NewActionSaver(nil, kv)
 
 	expectedErr := loadSavedActionsChanIDsErr
-	err = loadedAs.load(time.Unix(0, 0))
+	err = loadedAs.load(time.Unix(0, 0).Round(0).UTC())
 	if err == nil || kv.Exists(err) || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Failed to get expected error when the channel ID was "+
 			"deleted from straoge.\nexpected: %s\nreceived: %v",
@@ -590,7 +608,7 @@ func TestActionSaver_load_MessagesLoadError(t *testing.T) {
 	loadedAs := NewActionSaver(nil, kv)
 
 	expectedErr := fmt.Sprintf(loadSavedActionsMessagesErr, channelID)
-	err = loadedAs.load(time.Unix(0, 0))
+	err = loadedAs.load(time.Unix(0, 0).Round(0).UTC())
 	if err == nil || kv.Exists(err) || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Failed to get expected error when the actions were deleted "+
 			"from straoge.\nexpected: %s\nreceived: %v", expectedErr, err)

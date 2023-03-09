@@ -9,6 +9,7 @@ package pickup
 
 import (
 	"encoding/binary"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,7 +20,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -61,34 +61,10 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 					id.Round(ri.ID))
 			}
 
-			// Convert gateways in round to proper ID format
-			gwIds := make([]*id.ID, ri.Topology.Len())
-			for i := 0; i < ri.Topology.Len(); i++ {
-				gwId := ri.Topology.GetNodeAtIndex(i).DeepCopy()
-				gwId.SetType(id.Gateway)
-				gwIds[i] = gwId
-			}
-
-			if len(gwIds) == 0 {
-				jww.WARN.Printf("Empty gateway ID List")
+			gwIds := m.GetGwIds(ri)
+			if gwIds == nil {
 				continue
 			}
-
-			// Target the last nodes in the team first because it has messages
-			// first, randomize other members of the team
-			var rndBytes [32]byte
-			stream := m.rng.GetStream()
-			_, err = stream.Read(rndBytes[:])
-			stream.Close()
-			if err != nil {
-				jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
-					"from all gateways (%v): %s", ri.ID, gwIds, err)
-			}
-
-			gwIds[0], gwIds[len(gwIds)-1] = gwIds[len(gwIds)-1], gwIds[0]
-			shuffle.ShuffleSwap(rndBytes[:], len(gwIds)-1, func(i, j int) {
-				gwIds[i+1], gwIds[j+1] = gwIds[j+1], gwIds[i+1]
-			})
 
 			// If ForceMessagePickupRetry, we are forcing processUncheckedRounds
 			// by randomly not picking up messages (FOR INTEGRATION TEST). Only
@@ -151,6 +127,39 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 
 		}
 	}
+}
+
+func (m *pickup) GetGwIds(ri rounds.Round) []*id.ID {
+	// Convert gateways in round to proper ID format
+	gwIds := make([]*id.ID, ri.Topology.Len())
+	for i := 0; i < ri.Topology.Len(); i++ {
+		gwId := ri.Topology.GetNodeAtIndex(i).DeepCopy()
+		gwId.SetType(id.Gateway)
+		gwIds[i] = gwId
+	}
+
+	if len(gwIds) == 0 {
+		jww.WARN.Printf("Empty gateway ID List")
+		return nil
+	}
+
+	// Target the last nodes in the team first because it has messages
+	// first, randomize other members of the team
+	var rndBytes [32]byte
+	stream := m.rng.GetStream()
+	var err error
+	_, err = stream.Read(rndBytes[:])
+	stream.Close()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
+			"from all gateways (%v): %s", ri.ID, gwIds, err)
+	}
+
+	gwIds[0], gwIds[len(gwIds)-1] = gwIds[len(gwIds)-1], gwIds[0]
+	shuffle.ShuffleSwap(rndBytes[:], len(gwIds)-1, func(i, j int) {
+		gwIds[i+1], gwIds[j+1] = gwIds[j+1], gwIds[i+1]
+	})
+	return gwIds
 }
 
 // getMessagesFromGateway attempts to get messages from their assigned gateway

@@ -56,6 +56,8 @@ type followNetworkComms interface {
 		*pb.GatewayPollResponse, time.Time, time.Duration, error)
 	RequestMessages(host *connect.Host, message *pb.GetMessages) (
 		*pb.GetMessagesResponse, error)
+	RequestBatchMessages(host *connect.Host,
+		message *pb.GetMessagesBatch) (*pb.GetMessagesResponseBatch, error)
 }
 
 // followNetwork polls the network to get updated on the state of nodes, the
@@ -151,14 +153,14 @@ func (c *client) followNetwork(report ClientErrorReport,
 					"last %s, with an average newest packet latency of %s",
 					numPolls, debugTrackPeriod, latencyAvg)
 
-				jww.INFO.Printf("[Follow] " + infoMsg)
+				jww.INFO.Println(infoMsg)
 				c.events.Report(1, "Polling", "MetricsWithLatency", infoMsg)
 			} else {
 				infoMsg := fmt.Sprintf(
 					"[Follow] Polled the network %d times in the last %s", numPolls,
 					debugTrackPeriod)
 
-				jww.INFO.Printf("[Follow] " + infoMsg)
+				jww.INFO.Println(infoMsg)
 				c.events.Report(1, "Polling", "Metrics", infoMsg)
 			}
 		}
@@ -365,7 +367,6 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		jww.TRACE.Printf("[Follow] checking round: %d", rid)
 		hasMessage := Checker(rid, filterList, identity.CR)
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))

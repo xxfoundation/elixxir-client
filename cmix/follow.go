@@ -431,7 +431,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {
-		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v",
+		jww.DEBUG.Printf("External returns of RangeUnchecked: %d, %v, %v",
 			earliestRemaining, roundsWithMessages, roundsUnknown)
 		jww.DEBUG.Printf("New Earliest Remaining: %d, Gateways last checked: %d",
 			earliestRemaining, gwRoundsState.GetLastChecked())

@@ -367,6 +367,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
+		// IMPORTANT: DO NOT PUT LOGS HERE, IT RUNS TOO OFTEN AND WILL BREAK
 		hasMessage := Checker(rid, filterList, identity.CR)
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))

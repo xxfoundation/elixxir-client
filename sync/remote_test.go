@@ -21,7 +21,7 @@ import (
 // Remote KV Testing
 ///////////////////////////////////////////////////////////////////////////////
 
-// Smoke test of NewOrLoadRemoteKv.
+// Smoke test of NewOrLoadRemoteKV.
 func TestNewOrLoadRemoteKv(t *testing.T) {
 	// Construct transaction log
 	workingDir := baseDir + "removeKvSmoke/"
@@ -32,24 +32,24 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	received, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	received, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Create expected remote kv
 	expected := &RemoteKV{
-		kv:        kv.Prefix(remoteKvPrefix),
-		txLog:     txLog,
-		upserts:   make(map[string]UpsertCallback),
-		Event:     nil,
-		Intents:   make(map[string][]byte, 0),
-		connected: true,
+		local:           kv.Prefix(remoteKvPrefix),
+		txLog:           txLog,
+		upserts:         make(map[string]UpsertCallback),
+		KeyUpdate:       nil,
+		UnsynchedWrites: make(map[string][]byte, 0),
+		connected:       true,
 	}
 
 	// Check equality of created vs expected remote kv
 	require.Equal(t, expected, received)
 }
 
-// Unit test for NewOrLoadRemoteKv. Ensures that it will load if there is data
+// Unit test for NewOrLoadRemoteKV. Ensures that it will load if there is data
 // on disk.
 func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
@@ -64,21 +64,21 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Add intents to remote KV
 	const numTests = 100
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), "val"+strconv.Itoa(i)
-		require.NoError(t, rkv.addIntent(key, []byte(val)))
+		require.NoError(t, rkv.addUnsyncedWrite(key, []byte(val)))
 	}
 
 	// Ensure intents is not empty
-	require.NotEmpty(t, rkv.Intents)
+	require.NotEmpty(t, rkv.UnsynchedWrites)
 
 	// Call NewOrLoad where it should load intents
-	loaded, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	loaded, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Ensure loaded matches original remoteKV
@@ -100,7 +100,7 @@ func TestRemoteKV_Set(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Construct mock update callback
@@ -114,7 +114,7 @@ func TestRemoteKV_Set(t *testing.T) {
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.Set(key, val, updateCb))
+		require.NoError(t, rkv.RemoteSet(key, val, updateCb))
 
 		select {
 		case <-time.After(500 * time.Second):
@@ -140,7 +140,7 @@ func TestRemoteKV_Get(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKv(txLog, kv, nil, nil, nil)
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Construct mock update callback
@@ -168,6 +168,80 @@ func TestRemoteKV_Get(t *testing.T) {
 
 		require.Equal(t, val, received)
 	}
+}
+
+// Unit test of RemoteKV.addUnsyncedWrite and RemoteKV.removeUnsyncedWrite.
+func TestRemoteKV_AddRemoveUnsyncedWrite(t *testing.T) {
+	const numTests = 100
+
+	// Construct transaction log
+	workingDir := baseDir + "addRemove/"
+	txLog := makeTransactionLog(workingDir, password, t)
+
+	// Delete the test file at the end
+	defer os.RemoveAll(baseDir)
+
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Create remote kv
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
+	require.NoError(t, err)
+
+	// Ensure the map's length is incremented every time
+	for i := 0; i < numTests; i++ {
+		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
+		require.NoError(t, rkv.addUnsyncedWrite(key, val))
+		require.Equal(t, i+1, len(rkv.UnsynchedWrites))
+	}
+
+	// Ensure the map's length is decremented every time
+	for i := 0; i < numTests; i++ {
+		key := "key" + strconv.Itoa(i)
+		require.NoError(t, rkv.removeUnsyncedWrite(key))
+		require.Equal(t, numTests-i-1, len(rkv.UnsynchedWrites))
+	}
+
+}
+
+// Unit test of RemoteKV.saveUnsynchedWrites and RemoteKV.loadUnsynchedWrites.
+func TestRemoteKV_SaveLoadUnsyncedWrite(t *testing.T) {
+	const numTests = 100
+
+	// Construct transaction log
+	workingDir := baseDir + "addRemove/"
+	txLog := makeTransactionLog(workingDir, password, t)
+
+	// Delete the test file at the end
+	defer os.RemoveAll(baseDir)
+
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Create remote kv
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
+	require.NoError(t, err)
+
+	// Add unsynched writes to rkv
+	for i := 0; i < numTests; i++ {
+		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
+		require.NoError(t, rkv.addUnsyncedWrite(key, val))
+	}
+
+	// Save unsynched writes to storage
+	require.NoError(t, rkv.saveUnsynchedWrites())
+
+	// Save current state into variable
+	expected := rkv.UnsynchedWrites
+
+	// Manually clear current state
+	rkv.UnsynchedWrites = nil
+
+	// Load map from store into object
+	require.NoError(t, rkv.loadUnsynchedWrites())
+
+	// Ensure RemoteKV's map matches previous state
+	require.Equal(t, expected, rkv.UnsynchedWrites)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

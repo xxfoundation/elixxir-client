@@ -81,19 +81,19 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	}
 
 	// Register the listener
-	dmc.register(receiver, dmc.st.CheckIfSent)
+	dmc.register(receiver, dmc.st)
 
 	return dmc
 }
 
 // Register registers a listener for direct messages.
 func (dc *dmClient) register(apiReceiver EventModel,
-	checkSent messageReceiveFunc) error {
+	tracker SendTracker) error {
 	beginningOfTime := time.Time{}
 	r := &receiver{
-		c:         dc,
-		api:       apiReceiver,
-		checkSent: checkSent,
+		c:           dc,
+		api:         apiReceiver,
+		sendTracker: tracker,
 	}
 
 	// Initialize Send Tracking

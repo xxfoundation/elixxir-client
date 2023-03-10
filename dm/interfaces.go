@@ -34,31 +34,31 @@ type Client interface {
 	// UnblockDMs enables DMs from a specific user.
 	// UnblockDMs(conversationID *id.ID) error
 
-	// GetPublicKey returns the public key of this client
+	// GetPublicKey returns the public key of this client.
 	GetPublicKey() nike.PublicKey
 
-	// GetToken returns the DM Token of this client
+	// GetToken returns the DM token of this client.
 	GetToken() uint32
 
-	// GetIdentity returns the public identity associated with this DMClient
+	// GetIdentity returns the public identity associated with this client.
 	GetIdentity() codename.Identity
 
 	// ExportPrivateIdentity encrypts and exports the private identity to a
 	// portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
-	// IsBlocked returns if the given sender is blocked
-	// Blocking is controlled by the Receiver / EventModel
+	// IsBlocked indicates if the given sender is blocked.
+	// Blocking is controlled by the receiver/EventModel.
 	IsBlocked(senderPubKey ed25519.PublicKey) bool
 
 	// GetBlockedSenders returns all senders who are blocked by this user.
-	// Blocking is controlled by the Receiver / EventModel
+	// Blocking is controlled by the receiver/EventModel.
 	GetBlockedSenders() []ed25519.PublicKey
 
 	NickNameManager
 }
 
-// Sender implemntors allow the API user to send to a given partner over
+// Sender implementers allow the API user to send to a given partner over
 // cMix.
 type Sender interface {
 	// SendText is used to send a formatted message to another user.
@@ -250,9 +250,9 @@ type cMixClient interface {
 // NickNameManager interface is an object that handles the mapping of nicknames
 // to cMix reception IDs.
 type NickNameManager interface {
-	// GetNickname gets a nickname associated with this DM User
+	// GetNickname gets the nickname associated with this DM user.
 	GetNickname() (string, bool)
-	// SetNickname sets the nickname to use
+	// SetNickname sets the nickname to use for this user.
 	SetNickname(nick string)
 }
 

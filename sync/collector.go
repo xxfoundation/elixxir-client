@@ -124,20 +124,22 @@ func (c *Collector) collect() {
 
 	start := netTime.Now()
 
-	changes, err := c.collectChanges(devices)
+	if err = c.collectChanges(devices); err != nil {
+		jww.WARN.Printf("[%s] Failed to collect updates: %+v",
+			collectorLogHeader, err)
+	}
 
 	// update this record only if we succeed in applying all changes!
-	if err = c.applyChanges(changes); err != nil {
+	if err = c.applyChanges(); err != nil {
 		jww.WARN.Printf("[%s] Failed to apply updates: %+v",
 			collectorLogHeader, err)
 		return
 	}
 
 	elapsed := netTime.Now().Sub(start).Milliseconds()
-	jww.INFO.Printf("[%s] Applied %d new updates took %d ms",
-		collectorLogHeader, len(newUpdates), elapsed)
+	jww.INFO.Printf("[%s] Applied new updates took %d ms",
+		collectorLogHeader, elapsed)
 
-	c.lastUpdates = newUpdates
 }
 
 // collectChanges will collate all changes across all devices.
@@ -211,14 +213,14 @@ func (c *Collector) collectChanges(devices []string) error {
 
 // applyChanges will order the transactionChanges and apply them to the
 // Collector.
-func (c *Collector) applyChanges(changes transactionChanges) error {
+func (c *Collector) applyChanges() error {
 	// Now apply all collected changes
 	ordered := c.deviceTxTracker.Sort()
 	for _, tx := range ordered {
 
-		localVal, lastWrite, err := c.remote.ReadAndGetLastWrite(string(k))
+		localVal, lastWrite, err := c.remote.ReadAndGetLastWrite(tx.Key)
 		if err != nil {
-			jww.WARN.Printf("failed to read for local values for %s: %v", k, err)
+			jww.WARN.Printf("failed to read for local values for %s: %v", tx.Key, err)
 			continue
 		}
 

@@ -344,7 +344,7 @@ func (st *sendTracker) Delivered(messageID message.ID,
 	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED],
 		messageID)
 	st.updateStatus(msgData.UUID, messageID, ts,
-		round, Sent)
+		round, Received)
 	return true
 }
 

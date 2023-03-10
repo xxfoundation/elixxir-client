@@ -156,34 +156,41 @@ func (tl *TransactionLog) Append(newTx Transaction,
 // Note that this operation is NOT thread-safe, and the caller should hold the
 // lck.
 func (tl *TransactionLog) appendUsingInsertion(newTransaction Transaction) {
+	tl.txs = insertionSort(tl.txs, newTransaction)
+}
+
+// insertionSort is a helper function which will insert a new Transaction to
+// the list of Transaction's sorted by its timestamp.
+func insertionSort(curTxs []Transaction, newTransaction Transaction) []Transaction {
 	// If list is empty, just append
-	if tl.txs == nil || len(tl.txs) == 0 {
-		tl.txs = []Transaction{newTransaction}
-		return
+	if curTxs == nil || len(curTxs) == 0 {
+		return []Transaction{newTransaction}
 	}
 
-	for i := len(tl.txs); i != 0; i-- {
+	for i := len(curTxs); i != 0; i-- {
 		curidx := i - 1
-		if tl.txs[curidx].Timestamp.After(newTransaction.Timestamp) {
+		if curTxs[curidx].Timestamp.After(newTransaction.Timestamp) {
 			// If we are the start of the list, place at the beginning
 			if curidx == 0 {
-				tl.txs = append([]Transaction{newTransaction}, tl.txs...)
-				return
+				curTxs = append([]Transaction{newTransaction}, curTxs...)
+				return curTxs
 			}
 			continue
 		}
 		// If the current index is Before, insert just after this index
 		insertidx := i
 		// Just append when we are at the end already
-		if insertidx == len(tl.txs) {
-			tl.txs = append(tl.txs, newTransaction)
+		if insertidx == len(curTxs) {
+			curTxs = append(curTxs, newTransaction)
 		} else {
-			tl.txs = append(tl.txs[:insertidx+1], tl.txs[insertidx:]...)
-			tl.txs[insertidx] = newTransaction
+			curTxs = append(curTxs[:insertidx+1], curTxs[insertidx:]...)
+			curTxs[insertidx] = newTransaction
 
 		}
-		return
+		return curTxs
 	}
+
+	return curTxs
 }
 
 // appendUsingInsertion will write the new Transaction to txs. txs must be

@@ -130,14 +130,21 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) {
 	parentErr := errors.New("failed to UpdateFromMessageID")
 
-	msgToUpdate := buildMessage(
-		nil, messageID.Bytes(), nil, "",
-		nil, nil, 0, 0, *timestamp, 0, 0,
-		0, *pinned, *hidden, *status)
+	msgToUpdate := &Message{
+		Id:        uuid,
+		MessageId: messageID.Marshal(),
+		Hidden:    hidden,
+		Pinned:    pinned,
+	}
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)
 	}
-	msgToUpdate.Id = uuid
+	if timestamp != nil {
+		msgToUpdate.Timestamp = *timestamp
+	}
+	if status != nil {
+		msgToUpdate.Status = uint8(*status)
+	}
 	currentMessage := &Message{Id: msgToUpdate.Id}
 
 	// Build a transaction to prevent race conditions
@@ -175,19 +182,26 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) uint64 {
 	parentErr := errors.New("failed to UpdateFromMessageID")
 
-	msgToUpdate := buildMessage(
-		nil, messageID.Bytes(), nil, "",
-		nil, nil, 0, 0, *timestamp, 0, 0,
-		0, *pinned, *hidden, *status)
+	msgToUpdate := &Message{
+		MessageId: messageID.Marshal(),
+		Hidden:    hidden,
+		Pinned:    pinned,
+	}
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)
+	}
+	if timestamp != nil {
+		msgToUpdate.Timestamp = *timestamp
+	}
+	if status != nil {
+		msgToUpdate.Status = uint8(*status)
 	}
 	currentMessage := &Message{}
 
 	// Build a transaction to prevent race conditions
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Take(currentMessage, "message_id = ?", messageID.Bytes()).Error
+		err := tx.Take(currentMessage, "message_id = ?", messageID.Marshal()).Error
 		if err != nil {
 			return err
 		}
@@ -261,7 +275,9 @@ func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 		jww.WARN.Printf("No MuteUser callback registered!")
 		return
 	}
-	i.muteCb(channelID, pubKey, unmute)
+	if i.muteCb != nil {
+		go i.muteCb(channelID, pubKey, unmute)
+	}
 }
 
 // DeleteMessage removes a message with the given messageID from storage.
@@ -273,6 +289,10 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 
 	if err != nil {
 		return errors.Errorf("Unable to delete Message: %+v", err)
+	}
+
+	if i.deleteCb != nil {
+		go i.deleteCb(messageID)
 	}
 	return nil
 }

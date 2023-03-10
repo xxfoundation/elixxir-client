@@ -277,4 +277,10 @@ type SendTracker interface {
 
 	//CheckIfSent checks if the given message was a sent message
 	CheckIfSent(messageID cryptoMessage.ID, r rounds.Round) bool
+
+	//Delivered marks a message delivered
+	Delivered(msgID cryptoMessage.ID, round rounds.Round) bool
+
+	//StopTracking stops tracking a message
+	StopTracking(msgID cryptoMessage.ID, round rounds.Round) bool
 }

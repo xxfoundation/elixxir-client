@@ -69,11 +69,11 @@ type Collector struct {
 }
 
 // NewCollector constructs a collector object.
-func NewCollector(syncPath string, myId DeviceId, txLog *TransactionLog,
+func NewCollector(syncPath string, myId string, txLog *TransactionLog,
 	remote RemoteStore, kv *RemoteKV) *Collector {
 	return &Collector{
 		syncPath:             syncPath,
-		myID:                 myId,
+		myID:                 DeviceId(myId),
 		lastUpdates:          make(changeLogger, 0),
 		deviceTxTracker:      newDeviceTransactionTracker(),
 		SynchronizationEpoch: synchronizationEpoch,

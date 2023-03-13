@@ -114,6 +114,8 @@ bindings-ios:
     - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - ls
     - zip -r -y iOS.zip Bindings.xcframework
+    - cp iOS.zip iOS-$CI_COMMIT_SHA.zip
+    - /upload-artifact-nohash.sh ios-bindings iOS-$CI_COMMIT_SHA.zip
   artifacts:
     paths:
       - iOS.zip

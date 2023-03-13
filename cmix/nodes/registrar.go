@@ -300,6 +300,8 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	return rk, nil
 }
 
+// handleMissingNode is called when the client encounters a node with which it
+// has not yet registered.  If
 func (r *registrar) handleMissingNode(rk *mixCypher, missingNodeID id.ID) (*key, error) {
 	if rk.ephemeralEdPrivKey == nil {
 		// Generate temp ed25519 for this send
@@ -314,12 +316,12 @@ func (r *registrar) handleMissingNode(rk *mixCypher, missingNodeID id.ID) (*key,
 			if err != nil {
 				return nil, errors.WithMessagef(err, "Failed to unmarshal binary pubkey %+v", n.Ed25519)
 			}
-			secret := rk.ephemeralEdPrivKey.DeriveSecret(nodePubKey)
-			nodeSecretHash := hash.CMixHash.New()
-			nodeSecretHash.Reset()
-			nodeSecretHash.Write(r.session.GetTransmissionID().Bytes())
-			nodeSecretHash.Write(secret)
-			hashBytes := nodeSecretHash.Sum(nil)
+			ephemeralSecret := rk.ephemeralEdPrivKey.DeriveSecret(nodePubKey)
+			ephemeralSecretHash := hash.CMixHash.New()
+			ephemeralSecretHash.Reset()
+			ephemeralSecretHash.Write(r.session.GetTransmissionID().Bytes())
+			ephemeralSecretHash.Write(ephemeralSecret)
+			hashBytes := ephemeralSecretHash.Sum(nil)
 			k := r.session.GetCmixGroup().NewIntFromBytes(hashBytes)
 			return &key{nil, k, nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""}, nil
 		}

@@ -10,6 +10,7 @@ package nodes
 import (
 	"bytes"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
@@ -107,11 +108,16 @@ func Test_mixCypher_Encrypt_Consistency(t *testing.T) {
 	prng.Read(contents)
 	msg.SetContents(contents)
 
-	rk := mixCypher{keys, cmixGrp}
+	_, pub := ecdh.ECDHNIKE.NewKeypair(csprng.NewSystemRNG())
+	rk := mixCypher{keys: keys, g: cmixGrp, ephemeralEdPubKey: pub, ephemeralKeys: make([]bool, len(keys))}
 
 	rid := id.Round(42)
 
-	encMsg, kmacs := rk.Encrypt(msg, salt, rid)
+	encMsg, kmacs, _, receivedPub := rk.Encrypt(msg, salt, rid)
+
+	if !bytes.Equal(receivedPub, pub.Bytes()) {
+		t.Errorf("Did not receive ephemeral pub key\n\tExpeceted: %+v\n\tReceived: %+v\n", pub.Bytes(), receivedPub)
+	}
 
 	if !bytes.Equal(encMsg.Marshal(), expectedPayload) {
 		t.Errorf("Encrypted messages do not match.\nexpected: %v\nreceived: %v",

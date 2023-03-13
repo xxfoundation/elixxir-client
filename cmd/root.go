@@ -143,7 +143,7 @@ var rootCmd = &cobra.Command{
 		total := 100
 		jww.INFO.Printf("Registering with nodes...")
 
-		for numReg < (total*3)/4 {
+		for !cmixParams.Network.DisableNodeRegistration && numReg < (total*3)/4 {
 			time.Sleep(1 * time.Second)
 			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
@@ -454,6 +454,9 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	}
 	cmixParams.Network.VerboseRoundTracking = viper.GetBool(
 		verboseRoundTrackingFlag)
+
+	cmixParams.Network.DisableNodeRegistration = viper.GetBool(disableNodeRegistrationFlag)
+	cmixParams.Network.EnableEphemeralRegistration = viper.GetBool(enableEphemeralRegistrationFlag)
 
 	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
 
@@ -1214,6 +1217,14 @@ func init() {
 	rootCmd.Flags().String(backupIdListFlag, "",
 		"JSON file containing the backed up partner IDs")
 	viper.BindPFlag(backupIdListFlag, rootCmd.Flags().Lookup(backupIdListFlag))
+
+	rootCmd.Flags().BoolP(disableNodeRegistrationFlag, "", false,
+		"Use to disable registering with nodes.  This should be used FOR TESTING PURPOSES ONLY.")
+	viper.BindPFlag(disableNodeRegistrationFlag, rootCmd.Flags().Lookup(disableNodeRegistrationFlag))
+
+	rootCmd.Flags().BoolP(enableEphemeralRegistrationFlag, "", false,
+		"Toggle to use ephemeral ED keys when attempting to send on a round with nodes you have not registered with")
+	viper.BindPFlag(enableEphemeralRegistrationFlag, rootCmd.Flags().Lookup(enableEphemeralRegistrationFlag))
 
 }
 

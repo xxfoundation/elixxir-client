@@ -18,32 +18,33 @@ import (
 //   - []byte - JSON of an array of gomoji.Emoji.
 //
 // Example JSON:
-//  [
-//    {
-//      "slug": "smiling-face",
-//      "character": "☺️",
-//      "unicode_name": "E0.6 smiling face",
-//      "code_point": "263A FE0F",
-//      "group": "Smileys \u0026 Emotion",
-//      "sub_group": "face-affection"
-//    },
-//    {
-//      "slug": "frowning-face",
-//      "character": "☹️",
-//      "unicode_name": "E0.7 frowning face",
-//      "code_point": "2639 FE0F",
-//      "group": "Smileys \u0026 Emotion",
-//      "sub_group": "face-concerned"
-//    },
-//    {
-//      "slug": "banana",
-//      "character": "�",
-//      "unicode_name": "E0.6 banana",
-//      "code_point": "1F34C",
-//      "group": "Food \u0026 Drink",
-//      "sub_group": "food-fruit"
-//    }
-//  ]
+//
+//	[
+//	  {
+//	    "slug": "smiling-face",
+//	    "character": "☺️",
+//	    "unicode_name": "E0.6 smiling face",
+//	    "code_point": "263A FE0F",
+//	    "group": "Smileys \u0026 Emotion",
+//	    "sub_group": "face-affection"
+//	  },
+//	  {
+//	    "slug": "frowning-face",
+//	    "character": "☹️",
+//	    "unicode_name": "E0.7 frowning face",
+//	    "code_point": "2639 FE0F",
+//	    "group": "Smileys \u0026 Emotion",
+//	    "sub_group": "face-concerned"
+//	  },
+//	  {
+//	    "slug": "banana",
+//	    "character": "�",
+//	    "unicode_name": "E0.6 banana",
+//	    "code_point": "1F34C",
+//	    "group": "Food \u0026 Drink",
+//	    "sub_group": "food-fruit"
+//	  }
+//	]
 func SupportedEmojis() ([]byte, error) {
 	return json.Marshal(emoji.SupportedEmojis())
 }

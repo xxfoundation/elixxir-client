@@ -371,12 +371,12 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		select {
 		case <-testPool.testNodes:
 			testCount++
-		case <-time.After(250*time.Millisecond):
+		case <-time.After(250 * time.Millisecond):
 			done = true
 		}
 	}
 	if testCount != 1 {
-		t.Fatalf("Did not receive expected test count." +
+		t.Fatalf("Did not receive expected test count."+
 			"\nexpected: %d\nreceived: %d", 1, testCount)
 	}
 }

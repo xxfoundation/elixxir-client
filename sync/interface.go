@@ -22,8 +22,8 @@ type KeyUpdateCallback func(k, v string)
 // new transaction to remote storage.
 type RemoteStoreCallback func(newTx Transaction, err error)
 
-// DeviceId is the identified of a certain device that holds account state.
-type DeviceId string
+// DeviceID is the identified of a certain device that holds account state.
+type DeviceID string
 
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
@@ -66,3 +66,10 @@ type FileIO interface {
 	// returned if it fails to write to file.
 	Write(path string, data []byte) error
 }
+
+// Miscellaneous and private types.
+type (
+	// changeLogger maps the device ID to the last time the device had updates
+	// read from remote.
+	changeLogger map[DeviceID]time.Time
+)

@@ -33,7 +33,7 @@ func TestDeviceOffset(t *testing.T) {
 	// Populate offset structure with data
 	const numTests = 100
 	for i := 0; i < numTests; i++ {
-		dvcId := DeviceId(strconv.Itoa(i))
+		dvcId := DeviceID(strconv.Itoa(i))
 		dvcOffset[dvcId] = i
 	}
 

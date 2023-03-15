@@ -43,7 +43,7 @@ func TestNewCollector(t *testing.T) {
 
 	expected := &Collector{
 		syncPath:             syncPath,
-		myID:                 DeviceId(myId),
+		myID:                 DeviceID(myId),
 		lastUpdates:          make(changeLogger, 0),
 		SynchronizationEpoch: synchronizationEpoch,
 		deviceTxTracker:      newDeviceTransactionTracker(),
@@ -97,11 +97,12 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	myId := "testingMyId"
 	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
 
-	require.NoError(t, collector.collectChanges(devices))
+	_, err = collector.collectChanges(devices)
+	require.NoError(t, err)
 
 	// Ensure device tracker has proper length for all devices
 	for _, dvcId := range devices {
-		received := collector.deviceTxTracker.changes[DeviceId(dvcId)]
+		received := collector.deviceTxTracker.changes[DeviceID(dvcId)]
 		require.Len(t, received, 6)
 	}
 
@@ -147,7 +148,8 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	// Construct collector
 	myId := "testingMyId"
 	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
-	require.NoError(t, collector.collectChanges(devices))
+	_, err = collector.collectChanges(devices)
+	require.NoError(t, err)
 	require.NoError(t, collector.applyChanges())
 
 }
@@ -168,7 +170,7 @@ func TestDeviceTransactionTracker_AddToDevice(t *testing.T) {
 	}
 
 	// Add changes to tracker
-	deviceId := DeviceId("device")
+	deviceId := DeviceID("device")
 	dvcTracker.AddToDevice(deviceId, changes)
 
 	// Ensure changes have been put into tracker
@@ -195,7 +197,7 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 	}
 
 	// Add changes to tracker
-	deviceId := DeviceId("device")
+	deviceId := DeviceID("device")
 	dvcTracker.AddToDevice(deviceId, changes)
 
 	// Ensure next retrieves changes put into tracker

@@ -12,7 +12,7 @@ import (
 const xxdkDeviceOffsetHeader = "XXDKTXLOGDVCOFFST"
 
 // deviceOffset is the last index a certain device ID has read.
-type deviceOffset map[DeviceId]int
+type deviceOffset map[DeviceID]int
 
 func newDeviceOffset() deviceOffset {
 	return make(deviceOffset, 0)

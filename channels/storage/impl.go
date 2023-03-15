@@ -131,10 +131,12 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	parentErr := errors.New("failed to UpdateFromMessageID")
 
 	msgToUpdate := &Message{
-		Id:        uuid,
-		MessageId: messageID.Marshal(),
-		Hidden:    hidden,
-		Pinned:    pinned,
+		Id:     uuid,
+		Hidden: hidden,
+		Pinned: pinned,
+	}
+	if messageID != nil {
+		msgToUpdate.MessageId = messageID.Marshal()
 	}
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)

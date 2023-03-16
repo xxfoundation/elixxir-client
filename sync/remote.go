@@ -48,8 +48,8 @@ type RemoteKV struct {
 	// local is the versioned KV store that will write the transaction.
 	local *versioned.KV
 
-	// txLog is the transaction log used to write transactions.
-	txLog *TransactionLog
+	// TxLog is the transaction log used to write transactions.
+	TxLog *TransactionLog
 
 	// Map of upserts to upsert call backs
 	upserts map[string]UpsertCallback
@@ -86,7 +86,7 @@ func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
 
 	rkv := &RemoteKV{
 		local:           kv.Prefix(remoteKvPrefix),
-		txLog:           transactionLog,
+		TxLog:           transactionLog,
 		upserts:         upsertsCb,
 		KeyUpdate:       eventCb,
 		UnsynchedWrites: make(map[string][]byte, 0),
@@ -181,7 +181,7 @@ func (r *RemoteKV) remoteSet(key string, val []byte,
 
 	// Write the transaction
 	newTx := NewTransaction(netTime.Now(), key, val)
-	if err := r.txLog.Append(newTx, wrapper); err != nil {
+	if err := r.TxLog.Append(newTx, wrapper); err != nil {
 		return err
 	}
 
@@ -223,9 +223,9 @@ func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
 		// fixme: feels like more thought needs to be put. A recursive cb
 		//  such as this seems like a poor idea. Maybe the callback is
 		//  passed down, and it's the responsibility of the caller to ensure
-		//  remote writing of the txLog?
+		//  remote writing of the TxLog?
 		//time.Sleep(updateFailureDelay)
-		//r.txLog.Append(newTx, updateCb)
+		//r.TxLog.Append(newTx, updateCb)
 		return
 	} else if r.connected {
 		// Report to event callback

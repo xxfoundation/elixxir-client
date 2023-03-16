@@ -11,6 +11,20 @@ import (
 	"time"
 )
 
+// UpsertCallback is a custom upsert handling for specific keys. When an upsert
+// is not defined, the default is used (overwrite the previous key).
+type UpsertCallback func(key string, curVal, newVal []byte) ([]byte, error)
+
+// KeyUpdateCallback is the callback used to report the event.
+type KeyUpdateCallback func(k, v string)
+
+// RemoteStoreCallback is a callback for reporting the status of writing the
+// new transaction to remote storage.
+type RemoteStoreCallback func(newTx Transaction, err error)
+
+// DeviceId is the identified of a certain device that holds account state.
+type DeviceId string
+
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
 type RemoteStore interface {

@@ -23,6 +23,9 @@ const headerVersion = 0
 const (
 	entryDoesNotExistErr      = "entry for key %s could not be found."
 	headerUnexpectedSerialErr = "unexpected data in serialized header."
+	headerDecodeErr           = "failed to decode header info: %+v"
+	headerUnmarshalErr        = "failed to unmarshal header json: %+v"
+	headerMarshalErr          = "failed to marshal header: %+v"
 )
 
 // Header is header information for a transaction log. It inherits the header
@@ -75,7 +78,7 @@ func (h *Header) serialize() ([]byte, error) {
 	// Marshal header into JSON
 	headerMarshal, err := json.Marshal(h)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf(headerMarshalErr, err)
 	}
 
 	// Construct header info
@@ -94,16 +97,16 @@ func deserializeHeader(headerSerial []byte) (*Header, error) {
 		return nil, errors.Errorf(headerUnexpectedSerialErr)
 	}
 
-	// Decode transaction
+	// Decode header
 	headerInfo, err := base64.URLEncoding.DecodeString(splitter[1])
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf(headerDecodeErr, err)
 	}
 
 	// Unmarshal header
 	hdr := &Header{}
 	if err = json.Unmarshal(headerInfo, hdr); err != nil {
-		return nil, err
+		return nil, errors.Errorf(headerUnmarshalErr, err)
 	}
 
 	return hdr, nil

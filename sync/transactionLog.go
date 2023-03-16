@@ -36,7 +36,6 @@ const (
 	writeToStoreErr           = "failed to write to local store: %+v"
 	loadFromLocalStoreErr     = "failed to deserialize log from local store at path %s: %+v"
 	deserializeTransactionErr = "failed to deserialize transaction (%d/%d): %+v"
-	nilRemoteCb               = "cannot set remote store callback to be nil"
 )
 
 // TransactionLog will log all Transaction's to a storage interface. It will
@@ -66,6 +65,9 @@ type TransactionLog struct {
 	// timestamp.
 	txs []Transaction
 
+	// offsets is the last index a certain device ID has read.
+	offsets deviceOffset
+
 	// deviceSecret is the secret for the device that the TransactionLog will
 	// be stored.
 	deviceSecret []byte
@@ -76,10 +78,6 @@ type TransactionLog struct {
 
 	lck sync.RWMutex
 }
-
-// RemoteStoreCallback is a callback for reporting the status of writing the
-// new transaction to remote storage.
-type RemoteStoreCallback func(newTx Transaction, err error)
 
 // NewOrLoadTransactionLog constructs a new TransactionLog. If the LocalStore
 // has serialized data within Note that by default the
@@ -227,8 +225,21 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 	headerInfoLen := len(headerSerialized)
 	buff.Write(serializeInt(headerInfoLen))
 
-	// Write serialized header to bufer
+	// Write serialized header to buffer
 	buff.Write(headerSerialized)
+
+	// Serialize the device offset
+	offsetSerialized, err := tl.offsets.serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	// Write the length of the serialized offset
+	offsetLen := len(offsetSerialized)
+	buff.Write(serializeInt(offsetLen))
+
+	// Write the serialized offsets
+	buff.Write(offsetSerialized)
 
 	// Retrieve the last written timestamp from remote
 	lastRemoteWrite, err := tl.remote.GetLastWrite()
@@ -284,6 +295,19 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 	// Set the header
 	tl.Header = hdr
 
+	// Extract offset length from buffer
+	offsetLen := deserializeInt(buff.Next(8))
+	serializedOffset := buff.Next(int(offsetLen))
+
+	// Deserialize the offset
+	offset, err := deserializeDeviceOffset(serializedOffset)
+	if err != nil {
+		return err
+	}
+
+	// Set the offset
+	tl.offsets = offset
+
 	// Deserialize length of transactions list
 	listLen := binary.LittleEndian.Uint64(buff.Next(8))
 
@@ -324,7 +348,6 @@ func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte,
 
 	// Do not let remote writing block operations
 	go tl.saveToRemote(newTx, dataToSave, remoteCb)
-
 	return nil
 }
 
@@ -347,22 +370,4 @@ func (tl *TransactionLog) saveToRemote(newTx Transaction, dataToSave []byte,
 
 	// Use callback to report status of remote write.
 	remoteCb(newTx, tl.remote.Write(tl.path, dataToSave))
-}
-
-// serializeInt is a utility function which serializes an integer into a byte
-// slice.
-//
-// This is the inverse operation of deserializeInt.
-func serializeInt(i int) []byte {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(i))
-	return b
-}
-
-// deserializeInt is a utility function which deserializes byte data into an
-// integer.
-//
-// This is the inverse operation of serializeInt.
-func deserializeInt(b []byte) uint64 {
-	return binary.LittleEndian.Uint64(b)
 }

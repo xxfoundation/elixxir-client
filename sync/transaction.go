@@ -55,7 +55,7 @@ type transaction struct {
 // WARNING: THIS IS A BINDINGS ONLY METHOD.
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 	// Marshal the current transaction
-	return json.Marshal(t)
+	return json.Marshal(transaction(*t))
 }
 
 // UnmarshalJSON adheres to json.Unmarshaler.
@@ -63,12 +63,12 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 // WARNING: THIS IS A BINDINGS ONLY METHOD.
 func (t *Transaction) UnmarshalJSON(data []byte) error {
 	// Unmarshal transaction
-	tx := Transaction{}
+	tx := transaction{}
 	if err := json.Unmarshal(data, &tx); err != nil {
 		return err
 	}
 
-	*t = tx
+	*t = Transaction(tx)
 	return nil
 }
 

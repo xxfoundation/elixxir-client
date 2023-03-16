@@ -54,7 +54,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	expected := &TransactionLog{
 		path:         baseDir,
 		local:        localStore,
-		Remote:       remoteStore,
+		remote:       remoteStore,
 		Header:       NewHeader(),
 		txs:          make([]Transaction, 0),
 		deviceSecret: deviceSecret,
@@ -209,7 +209,7 @@ func TestTransactionLog_Save(t *testing.T) {
 		t.Fatalf("Test timed!")
 	case <-finishedWritingToRemote:
 		// Read from remote
-		dataFromRemote, err := txLog.Remote.Read(txLog.path)
+		dataFromRemote, err := txLog.remote.Read(txLog.path)
 		require.NoError(t, err)
 
 		// Ensure read data from remote matches originally written
@@ -219,7 +219,7 @@ func TestTransactionLog_Save(t *testing.T) {
 	// Now that remote data is written, ensure it is present in remote:
 
 	// Read from remote
-	dataFromRemote, err := txLog.Remote.Read(txLog.path)
+	dataFromRemote, err := txLog.remote.Read(txLog.path)
 	require.NoError(t, err)
 
 	// Ensure read data from remote matches originally written
@@ -346,7 +346,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	newTxLog := &TransactionLog{
 		path:         baseDir,
 		local:        localStore,
-		Remote:       remoteStore,
+		remote:       remoteStore,
 		deviceSecret: deviceSecret,
 		rng:          txLog.rng,
 	}

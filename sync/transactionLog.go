@@ -56,7 +56,7 @@ type TransactionLog struct {
 	// should be asynchronous.
 	//
 	// FileSystemRemoteStorage is provided as an example.
-	Remote RemoteStore
+	remote RemoteStore
 
 	// Header is the Header of the TransactionLog.
 	Header *Header
@@ -103,7 +103,7 @@ func NewOrLoadTransactionLog(path string, local LocalStore, remote RemoteStore,
 		Header:       NewHeader(),
 		path:         path,
 		local:        local,
-		Remote:       remote,
+		remote:       remote,
 		txs:          make([]Transaction, 0),
 		deviceSecret: deviceSecret,
 		rng:          rng,
@@ -173,17 +173,18 @@ func (tl *TransactionLog) appendUsingInsertion(newTransaction Transaction) {
 			continue
 		}
 		// If the current index is Before, insert just after this index
-		insertidx := i
+		insertionIndex := i
 		// Just append when we are at the end already
-		if insertidx == len(tl.txs) {
+		if insertionIndex == len(tl.txs) {
 			tl.txs = append(tl.txs, newTransaction)
 		} else {
-			tl.txs = append(tl.txs[:insertidx+1], tl.txs[insertidx:]...)
-			tl.txs[insertidx] = newTransaction
+			tl.txs = append(tl.txs[:insertionIndex+1], tl.txs[insertionIndex:]...)
+			tl.txs[insertionIndex] = newTransaction
 
 		}
 		return
 	}
+	return
 }
 
 // appendUsingInsertion will write the new Transaction to txs. txs must be
@@ -242,7 +243,7 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 	buff.Write(offsetSerialized)
 
 	// Retrieve the last written timestamp from remote
-	lastRemoteWrite, err := tl.Remote.GetLastWrite()
+	lastRemoteWrite, err := tl.remote.GetLastWrite()
 	if err != nil {
 		return nil, errors.Errorf(getLastWriteErr, err)
 	}
@@ -334,8 +335,8 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 
 // save writes the data passed int to file, both remotely and locally. The data
 // created from serialize.
-func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte,
-	remoteCb RemoteStoreCallback) error {
+func (tl *TransactionLog) save(newTx Transaction,
+	dataToSave []byte, remoteCb RemoteStoreCallback) error {
 	// Save to local storage (if set)
 	if tl.local == nil {
 		jww.FATAL.Panicf("[%s] Cannot write to a nil local store", logHeader)
@@ -356,7 +357,7 @@ func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte,
 func (tl *TransactionLog) saveToRemote(newTx Transaction, dataToSave []byte,
 	remoteCb RemoteStoreCallback) {
 	// Check if remote is set
-	if tl.Remote == nil {
+	if tl.remote == nil {
 		jww.FATAL.Panicf("[%s] Cannot write to a nil remote store", logHeader)
 	}
 
@@ -369,5 +370,5 @@ func (tl *TransactionLog) saveToRemote(newTx Transaction, dataToSave []byte,
 	jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
 
 	// Use callback to report status of remote write.
-	remoteCb(newTx, tl.Remote.Write(tl.path, dataToSave))
+	remoteCb(newTx, tl.remote.Write(tl.path, dataToSave))
 }

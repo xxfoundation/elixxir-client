@@ -213,20 +213,20 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV Methods                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
-// SyncRemoteKV implements a remote KV to handle transaction logs. These will
+// RemoteKV implements a remote KV to handle transaction logs. These will
 // write and read state data from another device to a remote storage interface.
-type SyncRemoteKV struct {
+type RemoteKV struct {
 	rkv *sync.RemoteKV
 }
 
 // RemoteStoreReport will contain the data from the remote storage interface.
 type RemoteStoreReport struct {
 	// LastModified is the timestamp (in ns) of the last time the specific path
-	// was modified. Refer to SyncRemoteKV.GetLastModified.
+	// was modified. Refer to RemoteKV.GetLastModified.
 	LastModified int64
 
 	// LastWrite is the timestamp (in ns) of the last write to the remote
-	// storage interface by any device. Refer to SyncRemoteKV.GetLastWrite.
+	// storage interface by any device. Refer to RemoteKV.GetLastWrite.
 	LastWrite int64
 	// Data []byte
 }
@@ -242,7 +242,7 @@ type RemoteStoreCallback interface {
 	Callback(newTx []byte, err string)
 }
 
-// NewOrLoadSyncRemoteKV will construct a SyncRemoteKV.
+// NewOrLoadSyncRemoteKV will construct a RemoteKV.
 //
 // Parameters:
 //   - e2eID - ID of the e2e object in the tracker.
@@ -251,7 +251,7 @@ type RemoteStoreCallback interface {
 func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 	keyUpdateCb KeyUpdateCallback, remoteStoreCb RemoteStoreCallback,
 	remote RemoteStore, local LocalStore,
-	upsertCbKeys []string) (*SyncRemoteKV, error) {
+	upsertCbKeys []string) (*RemoteKV, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
@@ -283,16 +283,7 @@ func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 	// Construct update CB
 	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction,
 		err error) {
-		if err != nil {
-			remoteStoreCb.Callback(nil, err.Error())
-		}
-
-		serialized, err := newTx.MarshalJSON()
-		if err != nil {
-			remoteStoreCb.Callback(nil, err.Error())
-		}
-
-		remoteStoreCb.Callback(serialized, "")
+		remoteStoreCbUtil(remoteStoreCb, newTx, err)
 	}
 
 	// Construct or load a transaction loc
@@ -310,17 +301,42 @@ func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 		return nil, err
 	}
 
-	return &SyncRemoteKV{rkv: rkv}, nil
+	return &RemoteKV{rkv: rkv}, nil
 }
 
 // Write will write a transaction to the remote and local store.
-func (s *SyncRemoteKV) Write(path string, data []byte) error {
-	var updateCb sync.RemoteStoreCallback
+//
+// Parameters:
+//   - path - string. The key that this data will be written to (ie the device name).
+//   - data - byte data. The data that will be stored (ie state data).
+//   - cb - A RemoteStoreCallback.
+func (s *RemoteKV) Write(path string, data []byte, cb RemoteStoreCallback) error {
+	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction, err error) {
+		remoteStoreCbUtil(cb, newTx, err)
+	}
 	return s.rkv.Set(path, data, updateCb)
 }
 
 // Read retrieves the data stored in the underlying kv. Will return an error
 // if the data at this key cannot be retrieved.
-func (s *SyncRemoteKV) Read(path string) ([]byte, error) {
+//
+// Parameters:
+//   - path - string. The key that this data will be written to (ie the device name).
+func (s *RemoteKV) Read(path string) ([]byte, error) {
 	return s.rkv.Get(path)
+}
+
+// remoteStoreCbUtil is a utility function for the RemoteStoreCallback.
+func remoteStoreCbUtil(cb RemoteStoreCallback, newTx sync.Transaction, err error) {
+	if err != nil {
+		cb.Callback(nil, err.Error())
+	}
+
+	serialized, err := newTx.MarshalJSON()
+	if err != nil {
+		cb.Callback(nil, err.Error())
+	}
+
+	cb.Callback(serialized, "")
+
 }

@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/v4/sync"
+	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -149,6 +150,65 @@ func (r *RemoteStoreFileSystem) GetLastWrite() ([]byte, error) {
 	return json.Marshal(rsr)
 }
 
+// remoteStoreFileSystemWrapper is an internal Go wrapper for
+// RemoteStoreFileSystem that adheres to sync.RemoteStore.
+// fixme: reviewer, is this the correct solution?
+type remoteStoreFileSystemWrapper struct {
+	bindingsAPI RemoteStore
+}
+
+// newRemoteStoreFileSystemWrapper constructs a remoteStoreFileSystemWrapper.
+func newRemoteStoreFileSystemWrapper(
+	bindingsAPI RemoteStore) *remoteStoreFileSystemWrapper {
+	return &remoteStoreFileSystemWrapper{bindingsAPI: bindingsAPI}
+}
+
+// Read will read from the provided file path and return the data at that
+// path. An error will be returned if it failed to read the file.
+func (r *remoteStoreFileSystemWrapper) Read(path string) ([]byte, error) {
+	return r.bindingsAPI.Read(path)
+}
+
+// Write will write to the file path the provided data. An error will be
+// returned if it fails to write to file.
+func (r *remoteStoreFileSystemWrapper) Write(path string, data []byte) error {
+	return r.bindingsAPI.Write(path, data)
+}
+
+// GetLastModified will return when the file at the given file path was last
+// modified. If the implementation that adheres to this interface does not
+// support this, Write or Read should be implemented to either write a
+// separate timestamp file or add a prefix.
+func (r *remoteStoreFileSystemWrapper) GetLastModified(path string) (time.Time, error) {
+	reportData, err := r.bindingsAPI.GetLastModified(path)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	rsr := &RemoteStoreReport{}
+	if err = json.Unmarshal(reportData, rsr); err != nil {
+		return time.Time{}, err
+	}
+
+	return time.Unix(0, rsr.LastModified), nil
+}
+
+// GetLastWrite will retrieve the most recent successful write operation
+// that was received by RemoteStore.
+func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
+	reportData, err := r.bindingsAPI.GetLastWrite()
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	rsr := &RemoteStoreReport{}
+	if err = json.Unmarshal(reportData, rsr); err != nil {
+		return time.Time{}, err
+	}
+
+	return time.Unix(0, rsr.LastWrite), nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // RemoteKV Methods                                                           //
 ////////////////////////////////////////////////////////////////////////////////
@@ -236,7 +296,8 @@ func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 	}
 
 	// Construct or load a transaction loc
-	txLog, err := sync.NewOrLoadTransactionLog(txLogPath, local, remote,
+	txLog, err := sync.NewOrLoadTransactionLog(txLogPath, local,
+		newRemoteStoreFileSystemWrapper(remote),
 		deviceSecret, rng)
 	if err != nil {
 		return nil, err

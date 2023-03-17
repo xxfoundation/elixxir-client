@@ -206,9 +206,13 @@ type RemoteKVCallbacks interface {
 	// has been updated locally.
 	RemoteStoreResult(newTx []byte, err string)
 
-	// UpsertCallbacks are the methods used for upserting a value for a given
-	// key. Refer to [sync.UpsertCallbacks].
-	sync.UpsertCallbacks
+	//// UpsertCallbacks are the methods used for upserting a value for a given
+	//// key. Refer to [sync.UpsertCallbacks].
+	//sync.UpsertCallbacks
+
+	GetUpsertFunc(key string) sync.UpsertCallback
+
+	HasUpsertFunc(key string) bool
 }
 
 // NewOrLoadSyncRemoteKV will construct a [RemoteKV].

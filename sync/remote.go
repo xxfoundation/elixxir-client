@@ -133,8 +133,7 @@ func (r *RemoteKV) UpsertLocal(key string, newVal []byte) error {
 
 	// Call upsert callback if it exists
 	if r.upserts.HasUpsertFunc(key) {
-		cb := r.upserts.GetUpsertFunc(key)
-		go cb(key, curVal, newVal)
+		go r.upserts.GetUpsertFunc(key).Callback(key, curVal, newVal)
 	}
 
 	return r.localSet(key, newVal)

@@ -234,9 +234,6 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	var deviceSecret []byte = []byte("dummy, replace")
 	// deviceSecret = e2eCl.GetDeviceSecret()
 
-	// todo: How to do this one?
-	//
-
 	// Construct the key update CB
 	var eventCb sync.KeyUpdateCallback = func(k, v string) {
 		remoteKvCallbacks.KeyUpdated(k, v)

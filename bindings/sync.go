@@ -17,13 +17,6 @@ import (
 // Local Storage Interface & Implementation(s)                                //
 ////////////////////////////////////////////////////////////////////////////////
 
-// FileIO contains the interface to write and read files to a specific path.
-type FileIO sync.FileIO
-
-// LocalStore is the mechanism that all local storage implementations should
-// adhere to.
-type LocalStore sync.LocalStore
-
 // LocalStoreEKV is a structure adhering to [LocalStore]. This utilizes
 // [versioned.KV] file IO operations.
 type LocalStoreEKV struct {
@@ -62,8 +55,8 @@ func (ls *LocalStoreEKV) Write(path string, data []byte) error {
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
 type RemoteStore interface {
-	// FileIO is used to write and read files.
-	FileIO
+	// FileIO is used to write and read files. Refer to [sync.FileIO].
+	sync.FileIO
 
 	// GetLastModified returns when the file at the given file path was last
 	// modified. If the implementation that adheres to this interface does not
@@ -216,12 +209,14 @@ type RemoteKV struct {
 type RemoteStoreReport struct {
 	// LastModified is the timestamp (in nanoseconds) of the last time the
 	// specific path was modified. Refer to sync.RemoteKV.GetLastModified.
-	LastModified int64
+	LastModified int64 `json:"lastModified"`
 
 	// LastWrite is the timestamp (in nanoseconds) of the last write to the
 	// remote storage interface by any device. Refer to
 	// sync.RemoteKV.GetLastWrite.
-	LastWrite int64
+	LastWrite int64 `json:"lastWrite"`
+
+	Error string `json:"error,omitempty"`
 
 	// Data []byte
 }
@@ -259,11 +254,11 @@ type UpsertCallback interface {
 //     that had unsuccessful reports.
 //   - remote - A [RemoteStore]. This should be what the remote storage operation
 //     wrapper wrapped should adhere.
-//   - local - A [LocalStore]. This should be what a local storage option adheres
-//     to.
+//   - local - A [sync.LocalStore]. This should be what a local storage option
+//     adheres to.
 func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 	keyUpdateCb KeyUpdateCallback, remoteStoreCb RemoteStoreCallback,
-	remote RemoteStore, local LocalStore,
+	remote RemoteStore, local sync.LocalStore,
 	upsertCbKeys []string) (*RemoteKV, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {

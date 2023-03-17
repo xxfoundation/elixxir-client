@@ -9,6 +9,8 @@ package sync
 
 import (
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"os"
 	"testing"
 )
@@ -23,8 +25,11 @@ func TestEkvLocalStore_Smoke(t *testing.T) {
 	path := "test.txt"
 	data := []byte("Test string.")
 
-	localStore, err := NewEkvLocalStore(baseDir, "password")
-	require.NoError(t, err)
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Construct local store
+	localStore := NewEkvLocalStore(kv)
 
 	// Delete the test file at the end
 	defer func() {

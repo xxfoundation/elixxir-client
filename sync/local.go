@@ -9,12 +9,12 @@ package sync
 
 import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const (
 	ekvLocalStoreVersion = 0
+	ekvLocalStorePrefix  = "sync/LocalKV"
 )
 
 // EkvLocalStore is a structure adhering to LocalStore. This utilizes
@@ -24,14 +24,10 @@ type EkvLocalStore struct {
 }
 
 // NewEkvLocalStore is a constructor for EkvLocalStore.
-func NewEkvLocalStore(baseDir, password string) (*EkvLocalStore, error) {
-	fs, err := ekv.NewFilestore(baseDir, password)
-	if err != nil {
-		return nil, err
-	}
+func NewEkvLocalStore(kv *versioned.KV) *EkvLocalStore {
 	return &EkvLocalStore{
-		data: versioned.NewKV(fs),
-	}, nil
+		data: kv.Prefix(ekvLocalStorePrefix),
+	}
 }
 
 // Read reads data from path. This will return an error if it fails to read from

@@ -11,6 +11,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"os"
 	"sort"
 	"strconv"
@@ -30,9 +32,10 @@ const (
 // Intentionally constructs TransactionLog manually for testing purposes.
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir/", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
+	baseDir, password := "testDir", "password"
+	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
+	localStore := NewEkvLocalStore(versioned.NewKV(fs))
 
 	// Delete the test file at the end
 	defer func() {
@@ -72,13 +75,15 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 // Intentionally constructs TransactionLog manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir/", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
+	baseDir, password := "testDir", "password"
+	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
+	localStore := NewEkvLocalStore(versioned.NewKV(fs))
 
 	// Delete the test file at the end
 	defer func() {
 		require.NoError(t, os.RemoveAll(baseDir))
+		require.NoError(t, os.RemoveAll(baseDir+baseDir))
 	}()
 
 	// Construct remote store
@@ -305,9 +310,10 @@ func TestTransactionLog_Serialize(t *testing.T) {
 // Intentionally constructs TransactionLog manually for testing purposes.
 func TestTransactionLog_Deserialize(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir/", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
+	baseDir, password := "testDir", "password"
+	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
+	localStore := NewEkvLocalStore(versioned.NewKV(fs))
 
 	// Delete the test file at the end
 	defer func() {
@@ -405,8 +411,9 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
+	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(b, err)
+	localStore := NewEkvLocalStore(versioned.NewKV(fs))
 
 	// Delete the test file at the end
 	defer func() {
@@ -455,7 +462,9 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
-	localStore, err := NewEkvLocalStore(baseDir, password)
+	fs, err := ekv.NewFilestore(baseDir, password)
+	require.NoError(b, err)
+	localStore := NewEkvLocalStore(versioned.NewKV(fs))
 	require.NoError(b, err)
 
 	// Delete the test file at the end

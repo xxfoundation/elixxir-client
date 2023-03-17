@@ -36,10 +36,11 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create expected remote kv
+
 	expected := &RemoteKV{
 		local:          kv.Prefix(remoteKvPrefix),
 		txLog:          txLog,
-		upserts:        make(map[string]UpsertCallback),
+		upserts:        nil,
 		KeyUpdate:      nil,
 		UnsyncedWrites: make(map[string][]byte, 0),
 		connected:      true,
@@ -242,6 +243,57 @@ func TestRemoteKV_SaveLoadUnsyncedWrite(t *testing.T) {
 
 	// Ensure RemoteKV's map matches previous state
 	require.Equal(t, expected, rkv.UnsyncedWrites)
+}
+
+// Unit test for RemoteKV.UpsertLocal
+func TestRemoteKV_UpsertLocal(t *testing.T) {
+	const numTests = 100
+
+	// Construct transaction log
+	workingDir := baseDir + "addRemove/"
+	txLog := makeTransactionLog(workingDir, password, t)
+
+	// Delete the test file at the end
+	defer os.RemoveAll(baseDir)
+
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Create remote kv
+	mockUpserter := &mockUpserts{c: make(chan mockUpsert, 2*numTests)}
+
+	rkv, err := NewOrLoadRemoteKV(txLog, kv, mockUpserter, nil, nil)
+	require.NoError(t, err)
+
+	// Populate w/ initial values
+	firstVals := make(map[string][]byte, numTests)
+	for i := 0; i < numTests; i++ {
+		key, oldVal := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
+		require.NoError(t, rkv.UpsertLocal(key, oldVal))
+		firstVals[key] = oldVal
+	}
+
+	// Update all initial vals
+	for i := 0; i < numTests; i++ {
+		// Upsert locally
+		key, newVal := "key"+strconv.Itoa(i), []byte("newVal"+strconv.Itoa(i))
+		require.NoError(t, rkv.UpsertLocal(key, newVal))
+
+		// Should receive off of channel from mock upsert handler
+		received := <-mockUpserter.c
+
+		// Expected value
+		expected := mockUpsert{
+			key:    key,
+			curVal: firstVals[key],
+			newVal: newVal,
+		}
+
+		// Ensure consistency between expected and received
+		require.Equal(t, expected, received)
+
+	}
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -145,3 +145,28 @@ func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Tim
 
 	return res
 }
+
+// mockUpserts is the mock upsert handler passed to RemoteKV.
+type mockUpserts struct {
+	c chan mockUpsert
+}
+
+// Mock upsert containing the key, old value and new value.
+type mockUpsert struct {
+	key            string
+	curVal, newVal []byte
+}
+
+// HasUpsertFunc is a mock function which will always have a callback.
+func (m *mockUpserts) HasUpsertFunc(key string) bool {
+	return true
+}
+
+// GetUpsertFunc will return a mock callback to be called. This will send on
+// a channel.
+func (m *mockUpserts) GetUpsertFunc(key string) UpsertCallback {
+	return func(key string, curVal, newVal []byte) ([]byte, error) {
+		m.c <- mockUpsert{key: key, curVal: curVal, newVal: newVal}
+		return nil, nil
+	}
+}

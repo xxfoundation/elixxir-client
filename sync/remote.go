@@ -52,14 +52,12 @@ type RemoteKV struct {
 	txLog *TransactionLog
 
 	// Map of upserts to upsert call backs
-	upserts map[string]UpsertCallback
+	upserts UpsertCallbacks
 
 	// KeyUpdate is the callback used to report events when attempting to call Set.
 	KeyUpdate KeyUpdateCallback
 
 	// list of tracked keys
-	// fixme: remove? seems like this is handled by upserts, unless I'm
-	//  missing something?
 	tracked []string
 
 	// UnsyncedWrites is the pending writes that we are waiting for on remote
@@ -76,13 +74,8 @@ type RemoteKV struct {
 // NewOrLoadRemoteKV constructs a new RemoteKV. If data exists on disk, it loads
 // that context and handle it appropriately.
 func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
-	upsertsCb map[string]UpsertCallback,
+	upsertsCb UpsertCallbacks,
 	eventCb KeyUpdateCallback, updateCb RemoteStoreCallback) (*RemoteKV, error) {
-
-	// Nil check upsert map
-	if upsertsCb == nil {
-		upsertsCb = make(map[string]UpsertCallback, 0)
-	}
 
 	rkv := &RemoteKV{
 		local:          kv.Prefix(remoteKvPrefix),
@@ -136,6 +129,12 @@ func (r *RemoteKV) UpsertLocal(key string, newVal []byte) error {
 	if bytes.Equal(curVal, newVal) {
 		jww.TRACE.Printf("Same value for transaction %+v", curVal)
 		return nil
+	}
+
+	// Call upsert callback if it exists
+	if r.upserts.HasUpsertFunc(key) {
+		cb := r.upserts.GetUpsertFunc(key)
+		go cb(key, curVal, newVal)
 	}
 
 	return r.localSet(key, newVal)

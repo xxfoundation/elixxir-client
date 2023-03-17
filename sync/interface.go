@@ -15,6 +15,18 @@ import (
 // is not defined, the default is used (overwrite the previous key).
 type UpsertCallback func(key string, curVal, newVal []byte) ([]byte, error)
 
+// UpsertCallbacks are the methods used for upserting a value for a given
+// key. If a callback is registered for a key, when this key has its value
+// modified the upsert will be called.
+type UpsertCallbacks interface {
+	// HasUpsertFunc will return a boolean value indicating whether a
+	// [sync.UpsertCallback] exists for the given key.
+	HasUpsertFunc(key string) bool
+
+	// GetUpsertFunc will retrieve a [sync.UpsertCallback] for the given key.
+	GetUpsertFunc(key string) UpsertCallback
+}
+
 // KeyUpdateCallback is the callback used to report the event.
 type KeyUpdateCallback func(k, v string)
 

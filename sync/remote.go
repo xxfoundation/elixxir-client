@@ -62,10 +62,10 @@ type RemoteKV struct {
 	//  missing something?
 	tracked []string
 
-	// UnsynchedWrites is the pending writes that we are waiting for on remote
+	// UnsyncedWrites is the pending writes that we are waiting for on remote
 	// storage. Anytime this is not empty, we are not synchronized and this
 	// should be reported.
-	UnsynchedWrites map[string][]byte
+	UnsyncedWrites map[string][]byte
 
 	// Connected determines the connectivity of the remote server.
 	connected bool
@@ -73,8 +73,8 @@ type RemoteKV struct {
 	lck sync.RWMutex
 }
 
-// NewOrLoadRemoteKV will construct a new RemoteKV. If data exists on disk, it
-// will load that context and handle it appropriately.
+// NewOrLoadRemoteKV constructs a new RemoteKV. If data exists on disk, it loads
+// that context and handle it appropriately.
 func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
 	upsertsCb map[string]UpsertCallback,
 	eventCb KeyUpdateCallback, updateCb RemoteStoreCallback) (*RemoteKV, error) {
@@ -85,20 +85,20 @@ func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
 	}
 
 	rkv := &RemoteKV{
-		local:           kv.Prefix(remoteKvPrefix),
-		txLog:           transactionLog,
-		upserts:         upsertsCb,
-		KeyUpdate:       eventCb,
-		UnsynchedWrites: make(map[string][]byte, 0),
-		connected:       true,
+		local:          kv.Prefix(remoteKvPrefix),
+		txLog:          transactionLog,
+		upserts:        upsertsCb,
+		KeyUpdate:      eventCb,
+		UnsyncedWrites: make(map[string][]byte, 0),
+		connected:      true,
 	}
 
-	if err := rkv.loadUnsynchedWrites(); err != nil {
+	if err := rkv.loadUnsyncedWrites(); err != nil {
 		return nil, err
 	}
 
 	// Re-trigger all lingering intents
-	for key, val := range rkv.UnsynchedWrites {
+	for key, val := range rkv.UnsyncedWrites {
 		// Call the internal to avoid writing to intent what is already there
 		go rkv.remoteSet(key, val, updateCb)
 	}
@@ -256,20 +256,20 @@ func (r *RemoteKV) localSet(key string, val []byte) error {
 // addUnsyncedWrite will write the intent to the map. This map will be saved to disk
 // using te kv.
 func (r *RemoteKV) addUnsyncedWrite(key string, val []byte) error {
-	r.UnsynchedWrites[key] = val
-	return r.saveUnsynchedWrites()
+	r.UnsyncedWrites[key] = val
+	return r.saveUnsyncedWrites()
 }
 
 // removeUnsyncedWrite will delete the intent from the map. This modified map will be
 // saved to disk using the kv.
 func (r *RemoteKV) removeUnsyncedWrite(key string) error {
-	delete(r.UnsynchedWrites, key)
-	return r.saveUnsynchedWrites()
+	delete(r.UnsyncedWrites, key)
+	return r.saveUnsyncedWrites()
 }
 
-// saveUnsynchedWrites is a utility function which writes the UnsynchedWrites map to disk.
-func (r *RemoteKV) saveUnsynchedWrites() error {
-	data, err := json.Marshal(r.UnsynchedWrites)
+// saveUnsyncedWrites is a utility function which writes the UnsyncedWrites map to disk.
+func (r *RemoteKV) saveUnsyncedWrites() error {
+	data, err := json.Marshal(r.UnsyncedWrites)
 	if err != nil {
 		return err
 	}
@@ -283,23 +283,23 @@ func (r *RemoteKV) saveUnsynchedWrites() error {
 	return r.local.Set(intentsKey, obj)
 }
 
-// loadUnsynchedWrites will load any intents from kv if present and set it into
-// UnsynchedWrites.
-func (r *RemoteKV) loadUnsynchedWrites() error {
+// loadUnsyncedWrites will load any intents from kv if present and set it into
+// UnsyncedWrites.
+func (r *RemoteKV) loadUnsyncedWrites() error {
 	obj, err := r.local.Get(intentsKey, intentsVersion)
 	if err != nil { // Return if there isn't any intents stored
 		return nil
 	}
 
-	return json.Unmarshal(obj.Data, &r.UnsynchedWrites)
+	return json.Unmarshal(obj.Data, &r.UnsyncedWrites)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Remote File System Implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-// FileSystemRemoteStorage is a structure adhering to RemoteStore. This
-// utilizes the os.File IO operations. Implemented for testing purposes for
+// FileSystemRemoteStorage is a structure adhering to [RemoteStore]. This
+// utilizes the [os.File] IO operations. Implemented for testing purposes for
 // transaction logs.
 type FileSystemRemoteStorage struct {
 	baseDir string

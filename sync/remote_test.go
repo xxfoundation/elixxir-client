@@ -37,12 +37,12 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 
 	// Create expected remote kv
 	expected := &RemoteKV{
-		local:           kv.Prefix(remoteKvPrefix),
-		txLog:           txLog,
-		upserts:         make(map[string]UpsertCallback),
-		KeyUpdate:       nil,
-		UnsynchedWrites: make(map[string][]byte, 0),
-		connected:       true,
+		local:          kv.Prefix(remoteKvPrefix),
+		txLog:          txLog,
+		upserts:        make(map[string]UpsertCallback),
+		KeyUpdate:      nil,
+		UnsyncedWrites: make(map[string][]byte, 0),
+		connected:      true,
 	}
 
 	// Check equality of created vs expected remote kv
@@ -75,7 +75,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	}
 
 	// Ensure intents is not empty
-	require.NotEmpty(t, rkv.UnsynchedWrites)
+	require.NotEmpty(t, rkv.UnsyncedWrites)
 
 	// Call NewOrLoad where it should load intents
 	loaded, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
@@ -192,19 +192,19 @@ func TestRemoteKV_AddRemoveUnsyncedWrite(t *testing.T) {
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
 		require.NoError(t, rkv.addUnsyncedWrite(key, val))
-		require.Equal(t, i+1, len(rkv.UnsynchedWrites))
+		require.Equal(t, i+1, len(rkv.UnsyncedWrites))
 	}
 
 	// Ensure the map's length is decremented every time
 	for i := 0; i < numTests; i++ {
 		key := "key" + strconv.Itoa(i)
 		require.NoError(t, rkv.removeUnsyncedWrite(key))
-		require.Equal(t, numTests-i-1, len(rkv.UnsynchedWrites))
+		require.Equal(t, numTests-i-1, len(rkv.UnsyncedWrites))
 	}
 
 }
 
-// Unit test of RemoteKV.saveUnsynchedWrites and RemoteKV.loadUnsynchedWrites.
+// Unit test of RemoteKV.saveUnsyncedWrites and RemoteKV.loadUnsyncedWrites.
 func TestRemoteKV_SaveLoadUnsyncedWrite(t *testing.T) {
 	const numTests = 100
 
@@ -222,26 +222,26 @@ func TestRemoteKV_SaveLoadUnsyncedWrite(t *testing.T) {
 	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
-	// Add unsynched writes to rkv
+	// Add unsynced writes to rkv
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
 		require.NoError(t, rkv.addUnsyncedWrite(key, val))
 	}
 
-	// Save unsynched writes to storage
-	require.NoError(t, rkv.saveUnsynchedWrites())
+	// Save unsynced writes to storage
+	require.NoError(t, rkv.saveUnsyncedWrites())
 
 	// Save current state into variable
-	expected := rkv.UnsynchedWrites
+	expected := rkv.UnsyncedWrites
 
 	// Manually clear current state
-	rkv.UnsynchedWrites = nil
+	rkv.UnsyncedWrites = nil
 
 	// Load map from store into object
-	require.NoError(t, rkv.loadUnsynchedWrites())
+	require.NoError(t, rkv.loadUnsyncedWrites())
 
 	// Ensure RemoteKV's map matches previous state
-	require.Equal(t, expected, rkv.UnsynchedWrites)
+	require.Equal(t, expected, rkv.UnsyncedWrites)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

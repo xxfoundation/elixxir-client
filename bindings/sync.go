@@ -14,26 +14,15 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// Local Storage Interface and Implementation(s)                              //
+// Local Storage Interface & Implementation(s)                                //
 ////////////////////////////////////////////////////////////////////////////////
 
 // FileIO contains the interface to write and read files to a specific path.
-type FileIO interface {
-	// Read reads from the provided file path and returns the data at that path.
-	// An error is returned if it failed to read the file.
-	Read(path string) ([]byte, error)
-
-	// Write writes to the file path the provided data. An error is returned if
-	// it fails to write to file.
-	Write(path string, data []byte) error
-}
+type FileIO sync.FileIO
 
 // LocalStore is the mechanism that all local storage implementations should
 // adhere to.
-type LocalStore interface {
-	// FileIO is used to write and read files.
-	FileIO
-}
+type LocalStore sync.LocalStore
 
 // LocalStoreEKV is a structure adhering to [LocalStore]. This utilizes
 // [versioned.KV] file IO operations.
@@ -119,6 +108,9 @@ func (r *RemoteStoreFileSystem) Write(path string, data []byte) error {
 // modified. If the implementation that adheres to this interface does not
 // support this, [Write] or [Read] should be implemented to either write a
 // separate timestamp file or add a prefix.
+//
+// Returns:
+//   - []byte - A JSON marshalled [RemoteStoreReport].
 func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
 	ts, err := r.api.GetLastModified(path)
 	if err != nil {
@@ -134,6 +126,9 @@ func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
 
 // GetLastWrite retrieves the most recent successful write operation that was
 // received by [RemoteStoreFileSystem].
+//
+// Returns:
+//   - []byte - A JSON marshalled [RemoteStoreReport].
 func (r *RemoteStoreFileSystem) GetLastWrite() ([]byte, error) {
 	ts, err := r.api.GetLastWrite()
 	if err != nil {
@@ -231,23 +226,41 @@ type RemoteStoreReport struct {
 	// Data []byte
 }
 
-// KeyUpdateCallback is the callback used to report the event.
+// KeyUpdateCallback is the callback to be called any time a Key is updated by
+// another device tracked by the RemoteKV store.
 type KeyUpdateCallback interface {
 	Callback(key, val string)
 }
 
-// RemoteStoreCallback is a callback for reporting the status of writing the
-// new transaction to remote storage.
+// RemoteStoreCallback is called to report network save results after the key
+// has been updated locally.
 type RemoteStoreCallback interface {
 	Callback(newTx []byte, err string)
 }
 
-// NewOrLoadSyncRemoteKV constructs a [RemoteKV].
+// UpsertCallback is a custom upsert handling for specific keys. When an upsert
+// is not defined, the default is used (overwrite the previous key).
+type UpsertCallback interface {
+	ForMe(key string) bool
+	Callback(key string, curVal, newVal []byte) ([]byte, error)
+}
+
+// NewOrLoadSyncRemoteKV will construct a [RemoteKV].
 //
 // Parameters:
 //   - e2eID - ID of [E2e] object in tracker.
-//   - txLogPath - The path that the state data for this device will be written
-//     to locally (e.g., sync/txLog.txt).
+//   - txLogPath - the path that the state data for this device will be written
+//     to locally (e.g. sync/txLog.txt).
+//   - keyUpdateCb - a [KeyUpdateCallback] that will be called when the value of
+//     a key is modified by another device.
+//   - remoteStoreCb - a [RemoteStoreCallback] that will be called to report the
+//     results of a write to the remote storage option AFTER a key has been
+//     saved locally. This will be used to report any previously called sets
+//     that had unsuccessful reports.
+//   - remote - A [RemoteStore]. This should be what the remote storage operation
+//     wrapper wrapped should adhere.
+//   - local - A [LocalStore]. This should be what a local storage option adheres
+//     to.
 func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 	keyUpdateCb KeyUpdateCallback, remoteStoreCb RemoteStoreCallback,
 	remote RemoteStore, local LocalStore,
@@ -307,9 +320,11 @@ func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 // Write writes a transaction to the remote and local store.
 //
 // Parameters:
-//   - path - The key that this data will be written to (i.e., the device name).
+//   - path - The key that this data will be written to (i.e., the device
+//     name).
 //   - data - The data that will be stored (i.e., state data).
-//   - cb - A [RemoteStoreCallback].
+//   - cb - A [RemoteStoreCallback]. This may be nil if you do not care about the
+//     network report.
 func (s *RemoteKV) Write(path string, data []byte, cb RemoteStoreCallback) error {
 	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction, err error) {
 		remoteStoreCbUtil(cb, newTx, err)

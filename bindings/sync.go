@@ -14,41 +14,6 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// Local Storage Interface & Implementation(s)                                //
-////////////////////////////////////////////////////////////////////////////////
-
-// LocalStoreEKV is a structure adhering to [LocalStore]. This utilizes
-// [versioned.KV] file IO operations.
-type LocalStoreEKV struct {
-	api *sync.EkvLocalStore
-}
-
-// NewEkvLocalStore is a constructor for [LocalStoreEKV].
-func NewEkvLocalStore(baseDir, password string) (*LocalStoreEKV, error) {
-	api, err := sync.NewEkvLocalStore(baseDir, password)
-	if err != nil {
-		return nil, err
-	}
-
-	return &LocalStoreEKV{api: api}, nil
-}
-
-// Read reads data from path. This returns an error if it fails to read from the
-// file path.
-//
-// This utilizes [ekv.KeyValue] under the hood.
-func (ls *LocalStoreEKV) Read(path string) ([]byte, error) {
-	return ls.api.Read(path)
-}
-
-// Write writes data to the path. This returns an error if it fails to write.
-//
-// This utilizes [ekv.KeyValue] under the hood.
-func (ls *LocalStoreEKV) Write(path string, data []byte) error {
-	return ls.api.Write(path, data)
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Remote Storage Interface and Implementation(s)                             //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -205,7 +170,16 @@ type RemoteKV struct {
 	rkv *sync.RemoteKV
 }
 
-// RemoteStoreReport contains the data from the remote storage interface.
+// RemoteStoreReport represents the report from any call to a method of
+// [RemoteStore].
+//
+// Example JSON:
+//
+//	{
+//	 "lastModified": 1679173966663412908,
+//	 "lastWrite": 1679130886663413268,
+//	 "error": "Example error (may not exist if successful)"
+//	}
 type RemoteStoreReport struct {
 	// LastModified is the timestamp (in nanoseconds) of the last time the
 	// specific path was modified. Refer to sync.RemoteKV.GetLastModified.
@@ -221,23 +195,20 @@ type RemoteStoreReport struct {
 	// Data []byte
 }
 
-// KeyUpdateCallback is the callback to be called any time a Key is updated by
-// another device tracked by the RemoteKV store.
-type KeyUpdateCallback interface {
-	Callback(key, val string)
-}
+// RemoteKVCallbacks is an interface for the [RemoteKV]. This will handle all
+// callbacks used for the various operations [RemoteKV] supports.
+type RemoteKVCallbacks interface {
+	// KeyUpdated is the callback to be called any time a Key is updated by
+	// another device tracked by the RemoteKV store.
+	KeyUpdated(key, val string)
 
-// RemoteStoreCallback is called to report network save results after the key
-// has been updated locally.
-type RemoteStoreCallback interface {
-	Callback(newTx []byte, err string)
-}
+	// RemoteStoreResult is called to report network save results after the key
+	// has been updated locally.
+	RemoteStoreResult(newTx []byte, err string)
 
-// UpsertCallback is a custom upsert handling for specific keys. When an upsert
-// is not defined, the default is used (overwrite the previous key).
-type UpsertCallback interface {
-	ForMe(key string) bool
-	Callback(key string, curVal, newVal []byte) ([]byte, error)
+	// UpsertCallbacks are the methods used for upserting a value for a given
+	// key. Refer to [sync.UpsertCallbacks].
+	sync.UpsertCallbacks
 }
 
 // NewOrLoadSyncRemoteKV will construct a [RemoteKV].
@@ -246,55 +217,46 @@ type UpsertCallback interface {
 //   - e2eID - ID of [E2e] object in tracker.
 //   - txLogPath - the path that the state data for this device will be written
 //     to locally (e.g. sync/txLog.txt).
-//   - keyUpdateCb - a [KeyUpdateCallback] that will be called when the value of
-//     a key is modified by another device.
-//   - remoteStoreCb - a [RemoteStoreCallback] that will be called to report the
-//     results of a write to the remote storage option AFTER a key has been
-//     saved locally. This will be used to report any previously called sets
-//     that had unsuccessful reports.
-//   - remote - A [RemoteStore]. This should be what the remote storage operation
-//     wrapper wrapped should adhere.
-//   - local - A [sync.LocalStore]. This should be what a local storage option
-//     adheres to.
-func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
-	keyUpdateCb KeyUpdateCallback, remoteStoreCb RemoteStoreCallback,
-	remote RemoteStore, local sync.LocalStore,
-	upsertCbKeys []string) (*RemoteKV, error) {
+//   - remoteKvCallbacks - A [RemoteKVCallbacks]. These will be the callbacks
+//     that are called for RemoteStore operations.
+//   - remote - A [RemoteStore]. This should be what the remote storage
+//     operation wrapper wrapped should adhere.
+func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
+	remote RemoteStore) (*RemoteKV, error) {
+
+	// Retrieve
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
 
-	rng := e2eCl.api.GetRng().GetStream()
-
 	// todo: properly define
-	var deviceSecret []byte
+	var deviceSecret []byte = []byte("dummy, replace")
 	// deviceSecret = e2eCl.GetDeviceSecret()
 
 	// todo: How to do this one?
-	var upsertCb map[string]sync.UpsertCallback
-	// fixme do this? :
-	//	 pass in upsertCbKeys []string, upsertCbsList []upsertCallback?
-	//	 require.EqualLen(upsertCbKeys, upsertCbsList)
-	// 	 upsertCbs = make(map[string]sync.UpsertCallback, 0)
-	// 	 for i, key := range upsertCbKeys {
-	// 	 		upsertCbs[key] = sync.UpsertCallback {
-	//	 			upsertCbsList[i].Callback()
-	//       	}
-	// 	 }
-	//  is upsertCbsList []upsertCallback a valid param via bindings?
+	//
 
 	// Construct the key update CB
 	var eventCb sync.KeyUpdateCallback = func(k, v string) {
-		keyUpdateCb.Callback(k, v)
+		remoteKvCallbacks.KeyUpdated(k, v)
 	}
 	// Construct update CB
 	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction,
 		err error) {
-		remoteStoreCbUtil(remoteStoreCb, newTx, err)
+		remoteStoreCbUtil(remoteKvCallbacks, newTx, err)
 	}
 
-	// Construct or load a transaction loc
+	// Construct local storage
+	local := sync.NewEkvLocalStore(e2eCl.api.GetStorage().GetKV())
+
+	// Construct txLog path
+	txLogPath := "txLog/" + e2eCl.api.GetReceptionIdentity().ID.String()
+
+	// Retrieve rng
+	rng := e2eCl.api.GetRng().GetStream()
+
+	// Construct or load a transaction log
 	txLog, err := sync.NewOrLoadTransactionLog(txLogPath, local,
 		newRemoteStoreFileSystemWrapper(remote),
 		deviceSecret, rng)
@@ -304,7 +266,7 @@ func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 
 	// Construct remote KV
 	rkv, err := sync.NewOrLoadRemoteKV(txLog, e2eCl.api.GetStorage().GetKV(),
-		upsertCb, eventCb, updateCb)
+		remoteKvCallbacks, eventCb, updateCb)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +282,7 @@ func NewOrLoadSyncRemoteKV(e2eID int, txLogPath string,
 //   - data - The data that will be stored (i.e., state data).
 //   - cb - A [RemoteStoreCallback]. This may be nil if you do not care about the
 //     network report.
-func (s *RemoteKV) Write(path string, data []byte, cb RemoteStoreCallback) error {
+func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction, err error) {
 		remoteStoreCbUtil(cb, newTx, err)
 	}
@@ -337,15 +299,15 @@ func (s *RemoteKV) Read(path string) ([]byte, error) {
 }
 
 // remoteStoreCbUtil is a utility function for the RemoteStoreCallback.
-func remoteStoreCbUtil(cb RemoteStoreCallback, newTx sync.Transaction, err error) {
+func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Transaction, err error) {
 	if err != nil {
-		cb.Callback(nil, err.Error())
+		cb.RemoteStoreResult(nil, err.Error())
 	}
 
 	serialized, err := newTx.MarshalJSON()
 	if err != nil {
-		cb.Callback(nil, err.Error())
+		cb.RemoteStoreResult(nil, err.Error())
 	}
 
-	cb.Callback(serialized, "")
+	cb.RemoteStoreResult(serialized, "")
 }

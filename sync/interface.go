@@ -13,7 +13,7 @@ import (
 
 // UpsertCallback is a custom upsert handling for specific keys. When an upsert
 // is not defined, the default is used (overwrite the previous key).
-type UpsertCallback func(key string, curVal, newVal []byte) ([]byte, error)
+type UpsertCallback func(key string, curVal, newVal []byte)
 
 // UpsertCallbacks are the methods used for upserting a value for a given
 // key. If a callback is registered for a key, when this key has its value

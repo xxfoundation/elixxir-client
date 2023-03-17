@@ -165,8 +165,7 @@ func (m *mockUpserts) HasUpsertFunc(key string) bool {
 // GetUpsertFunc will return a mock callback to be called. This will send on
 // a channel.
 func (m *mockUpserts) GetUpsertFunc(key string) UpsertCallback {
-	return func(key string, curVal, newVal []byte) ([]byte, error) {
+	return func(key string, curVal, newVal []byte) {
 		m.c <- mockUpsert{key: key, curVal: curVal, newVal: newVal}
-		return nil, nil
 	}
 }

@@ -181,7 +181,7 @@ type RemoteKV struct {
 //		  "lastModified": 1679173966663412908,
 //		  "lastWrite": 1679130886663413268,
 //		  "error": "Example error (may not exist if successful)"
-//	  }
+//	   }
 type RemoteStoreReport struct {
 	// Key is the key of the transaction that was written to remote. Getting
 	// this via the callback indicates that there is a report for this key.
@@ -255,7 +255,10 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// Construct local storage
-	local := sync.NewEkvLocalStore(e2eCl.api.GetStorage().GetKV())
+	local, err := sync.NewOrLoadEkvLocalStore(e2eCl.api.GetStorage().GetKV())
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct txLog path
 	txLogPath := "txLog/" + e2eCl.api.GetReceptionIdentity().ID.String()
@@ -272,7 +275,8 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// Construct remote KV
-	rkv, err := sync.NewOrLoadRemoteKV(txLog, e2eCl.api.GetStorage().GetKV(), eventCb, updateCb)
+	rkv, err := sync.NewOrLoadRemoteKV(txLog, e2eCl.api.GetStorage().GetKV(),
+		eventCb, updateCb)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +288,8 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 //
 // Parameters:
 //   - path - The key that this data will be written to (i.e., the device
-//     name).
+//     name, the channel name, etc.). Certain keys should follow a pattern
+//     and contain special characters (see GetList for details).
 //   - data - The data that will be stored (i.e., state data).
 //   - cb - A [RemoteStoreCallback]. This may be nil if you do not care about the
 //     network report.
@@ -302,6 +307,20 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 //   - path - The key that this data will be written to (i.e., the device name).
 func (s *RemoteKV) Read(path string) ([]byte, error) {
 	return s.rkv.Get(path)
+}
+
+// GetList is a wrapper of [sync.LocalStore.GetList].
+//
+// Parameters:
+//   - name - string. Some prefix to a Write operation. For example, if writing
+//     "channels-123" and "channels-abc" to RemoteKV, GetList("channels")
+//     retrieves data on both channels. All data that contains no
+//     [sync.LocalStoreKeyDelimiter] can be retrieved using GetList("").
+//
+// Returns:
+//   - []byte - A JSON marshalled [sync.KeyValueMap].
+func (s *RemoteKV) GetList(name string) ([]byte, error) {
+	return s.rkv.GetList(name)
 }
 
 // remoteStoreCbUtil is a utility function for the RemoteStoreCallback.

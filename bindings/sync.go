@@ -316,7 +316,7 @@ func (s *RemoteKV) Read(path string) ([]byte, error) {
 	return s.rkv.Get(path)
 }
 
-// GetList will return all entries for a path (or key) that contain the name
+// GetList returns all entries for a path (or key) that contain the name
 // parameter from the local store.
 //
 // For example, assuming the usage of the [sync.LocalStoreKeyDelimiter], if both

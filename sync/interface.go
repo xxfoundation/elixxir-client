@@ -50,7 +50,7 @@ type LocalStore interface {
 	// FileIO is used to write and read files.
 	FileIO
 
-	// GetList will return a KeyValueMap. This return all locally stored data
+	// GetList returns a KeyValueMap. This return all locally stored data
 	// for all keys starting with the provided name followed by the
 	// LocalStoreKeyDelimiter.
 	//

@@ -162,6 +162,17 @@ func (r *RemoteKV) RemoteSet(key string, val []byte,
 	return r.remoteSet(key, val, updateCb)
 }
 
+// GetList is a wrapper of [LocalStore.GetList]. This will return a JSON
+// marshalled [KeyValueMap].
+func (r *RemoteKV) GetList(name string) ([]byte, error) {
+	valList, err := r.txLog.local.GetList(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(valList)
+}
+
 // remoteSet is a utility function which will write the transaction to
 // the RemoteKV.
 func (r *RemoteKV) remoteSet(key string, val []byte,

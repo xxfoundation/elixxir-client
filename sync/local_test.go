@@ -12,14 +12,11 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"os"
+	"strconv"
 	"testing"
 )
 
-// Smoke test for EkvLocalStore that executes every method of LocalStore.
-//
-// As of writing, EkvLocalStore heavily utilizes the ekv.KeyValue
-// implementation. As such, testing is light touch as heavier testing exists
-// within the dependency.
+// Smoke test for EkvLocalStore that executes Read/Write methods of LocalStore.
 func TestEkvLocalStore_Smoke(t *testing.T) {
 	baseDir := "testDir"
 	path := "test.txt"
@@ -29,7 +26,8 @@ func TestEkvLocalStore_Smoke(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Construct local store
-	localStore := NewEkvLocalStore(kv)
+	localStore, err := NewOrLoadEkvLocalStore(kv)
+	require.NoError(t, err)
 
 	// Delete the test file at the end
 	defer func() {
@@ -46,5 +44,102 @@ func TestEkvLocalStore_Smoke(t *testing.T) {
 
 	// Ensure read data matches originally written data
 	require.Equal(t, data, read)
+}
 
+// Tests that when calling EkvLocalStore.Write, EkvLocalStore.keyLists is
+// modified.
+func TestEkvLocalStore_Write_KeyList(t *testing.T) {
+	baseDir := "testDir"
+	path := "test.txt"
+	const numTests = 100
+
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Construct local store
+	localStore, err := NewOrLoadEkvLocalStore(kv)
+	require.NoError(t, err)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(t, os.RemoveAll(baseDir))
+
+	}()
+
+	// Write data to local store
+	for i := 0; i < numTests; i++ {
+		curPath := path + LocalStoreKeyDelimiter + strconv.Itoa(i)
+		data := []byte("Test string." + strconv.Itoa(i))
+		require.NoError(t, localStore.Write(curPath, data))
+
+		// check that list has been modified
+		listElem, key := path, strconv.Itoa(i)
+
+		// Ensure key list has been modified
+		require.Contains(t, localStore.keyLists, listElem)
+		require.Contains(t, localStore.keyLists[listElem], key)
+	}
+
+}
+
+// Unit test for EkvLocalStore.GetList.
+func TestEkvLocalStore_GetList(t *testing.T) {
+	baseDir := "testDir"
+	path := "test.txt"
+	const numTests = 100
+
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Construct local store
+	localStore, err := NewOrLoadEkvLocalStore(kv)
+	require.NoError(t, err)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(t, os.RemoveAll(baseDir))
+	}()
+
+	// Write data to local store
+	expected := make(KeyValueMap, 0)
+	for i := 0; i < numTests; i++ {
+		curPath := path + LocalStoreKeyDelimiter + strconv.Itoa(i)
+		data := []byte("Test string." + strconv.Itoa(i))
+		require.NoError(t, localStore.Write(curPath, data))
+		expected[curPath] = data
+	}
+
+	received, err := localStore.GetList(path)
+	require.NoError(t, err)
+	require.Equal(t, expected, received)
+}
+
+// Tests that loading an EkvLocalStore will load the key list.
+func TestEkvLocalStore_Loading(t *testing.T) {
+	baseDir := "testDir"
+	path := "test.txt"
+	const numTests = 100
+
+	// Construct kv
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Construct local store
+	localStore, err := NewOrLoadEkvLocalStore(kv)
+	require.NoError(t, err)
+
+	// Delete the test file at the end
+	defer func() {
+		require.NoError(t, os.RemoveAll(baseDir))
+	}()
+
+	// Write data to local store
+	for i := 0; i < numTests; i++ {
+		curPath := path + LocalStoreKeyDelimiter + strconv.Itoa(i)
+		data := []byte("Test string." + strconv.Itoa(i))
+		require.NoError(t, localStore.Write(curPath, data))
+	}
+
+	loadedLocalStore, err := NewOrLoadEkvLocalStore(kv)
+	require.NoError(t, err)
+	require.Equal(t, localStore.keyLists, loadedLocalStore.keyLists)
 }

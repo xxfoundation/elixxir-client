@@ -63,7 +63,8 @@ func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog 
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
 
-	localStore := NewEkvLocalStore(versioned.NewKV(fs))
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	require.NoError(t, err)
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
@@ -146,28 +147,8 @@ func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Tim
 	return res
 }
 
-// mockUpserts is the mock upsert handler passed to RemoteKV.
-type mockUpserts struct {
-	c chan mockUpsert
-}
-
 // Mock upsert containing the key, old value and new value.
 type mockUpsert struct {
 	key            string
 	curVal, newVal []byte
-}
-
-// HasUpsertFunc is a mock function which will always have a callback.
-func (m *mockUpserts) HasUpsertFunc(key string) bool {
-	return true
-}
-
-// GetUpsertFunc will return a mock callback to be called. This will send on
-// a channel.
-func (m *mockUpserts) GetUpsertFunc(key string) UpsertCallback {
-	return m
-}
-
-func (m *mockUpserts) Callback(key string, curVal, newVal []byte) {
-	m.c <- mockUpsert{key: key, curVal: curVal, newVal: newVal}
 }

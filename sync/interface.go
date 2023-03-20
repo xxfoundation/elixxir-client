@@ -49,7 +49,19 @@ type RemoteStore interface {
 type LocalStore interface {
 	// FileIO is used to write and read files.
 	FileIO
+
+	// GetList will return a KeyValueMap. This return all locally stored data
+	// for all keys starting with the provided name followed by the
+	// LocalStoreKeyDelimiter.
+	//
+	// Example: Assuming a delimiter as "-", if you wrote "channels-123" and
+	// "channels-abc" using [FileIO.Write] with some arbitrary data, calling
+	// GetList("channels") would return a KeyValueMap containing keys
+	// channels-123" and "channels-abc" with their respective data.
+	GetList(name string) (KeyValueMap, error)
 }
+
+const LocalStoreKeyDelimiter = "-"
 
 // FileIO contains the interface to write and read files to a specific path.
 type FileIO interface {
@@ -61,3 +73,23 @@ type FileIO interface {
 	// it fails to write to file.
 	Write(path string, data []byte) error
 }
+
+// EkvLocalStore type definitions.
+type (
+	// KeyList is the type for the all keys added to LocalStore. If there is a
+	// defined delimiter in the key, an entry will be added to the
+	// DelimitedList. For example, assuming a delimiter of "-", the keys
+	// "channels-123" and "channels-abc" will have 2 separate entries in the
+	// DelimitedList, but will be retrievable from key list using the key
+	// "channels".
+	KeyList map[string]DelimitedList
+
+	// DelimitedList is the list of all sub-keys for a given delimited key.
+	// For the example given in KeyList's description, there would be entries
+	// for "123" and "abc".
+	DelimitedList map[string]struct{}
+
+	// KeyValueMap maps the full key (non-delimited) to the data that was stored
+	// when calling [FileIO.Write] on this key.
+	KeyValueMap map[string][]byte
+)

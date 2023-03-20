@@ -35,7 +35,8 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	baseDir, password := "testDir", "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
-	localStore := NewEkvLocalStore(versioned.NewKV(fs))
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	require.NoError(t, err)
 
 	// Delete the test file at the end
 	defer func() {
@@ -78,7 +79,8 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	baseDir, password := "testDir", "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
-	localStore := NewEkvLocalStore(versioned.NewKV(fs))
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	require.NoError(t, err)
 
 	// Delete the test file at the end
 	defer func() {
@@ -313,7 +315,8 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	baseDir, password := "testDir", "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
-	localStore := NewEkvLocalStore(versioned.NewKV(fs))
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	require.NoError(t, err)
 
 	// Delete the test file at the end
 	defer func() {
@@ -413,7 +416,8 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	baseDir, password := "testDir", "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(b, err)
-	localStore := NewEkvLocalStore(versioned.NewKV(fs))
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	require.NoError(b, err)
 
 	// Delete the test file at the end
 	defer func() {
@@ -464,7 +468,7 @@ func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	baseDir, password := "testDir", "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(b, err)
-	localStore := NewEkvLocalStore(versioned.NewKV(fs))
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
 	require.NoError(b, err)
 
 	// Delete the test file at the end

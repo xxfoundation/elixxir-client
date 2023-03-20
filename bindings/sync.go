@@ -175,13 +175,13 @@ type RemoteKV struct {
 //
 // Example JSON:
 //
-//			{
-//		     "key": "exampleKey",
-//	      "Value": "ZXhhbXBsZVZhbHVl",
-//			 "lastModified": 1679173966663412908,
-//			 "lastWrite": 1679130886663413268,
-//			 "error": "Example error (may not exist if successful)"
-//			}
+//		 {
+//		  "key": "exampleKey",
+//		  "value": "ZXhhbXBsZVZhbHVl",
+//		  "lastModified": 1679173966663412908,
+//		  "lastWrite": 1679130886663413268,
+//		  "error": "Example error (may not exist if successful)"
+//	  }
 type RemoteStoreReport struct {
 	// Key is the key of the transaction that was written to remote. Getting
 	// this via the callback indicates that there is a report for this key.
@@ -227,8 +227,9 @@ type RemoteKVCallbacks interface {
 //     to locally (e.g. sync/txLog.txt).
 //   - remoteKvCallbacks - A [RemoteKVCallbacks]. These will be the callbacks
 //     that are called for RemoteStore operations.
-//   - remote - A [RemoteStore]. This should be what the remote storage
-//     operation wrapper wrapped should adhere.
+//   - remote - A [RemoteStore]. This will be a structure the consumer
+//     implements. This acts as a wrapper around the remote storage API
+//     (e.g. Google Drive's API, DropBox's API, etc.).
 func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	remote RemoteStore) (*RemoteKV, error) {
 

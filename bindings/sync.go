@@ -316,13 +316,17 @@ func (s *RemoteKV) Read(path string) ([]byte, error) {
 	return s.rkv.Get(path)
 }
 
-// GetList is a wrapper of [sync.LocalStore.GetList].
+// GetList will return all entries for a path (or key) that contain the name
+// parameter from the local store.
+//
+// For example, assuming the usage of the [sync.LocalStoreKeyDelimiter], if both
+// "channels-123" and "channels-abc" are written to RemoteKV,
+// GetList("channels") will retrieve the data for both channels. All data that
+// contains no [sync.LocalStoreKeyDelimiter] can be retrieved using GetList("").
 //
 // Parameters:
-//   - name - string. Some prefix to a Write operation. For example, if writing
-//     "channels-123" and "channels-abc" to RemoteKV, GetList("channels")
-//     retrieves data on both channels. All data that contains no
-//     [sync.LocalStoreKeyDelimiter] can be retrieved using GetList("").
+//   - name - Some prefix to a Write operation. If no prefix applies, simply
+//     use the empty string
 //
 // Returns:
 //   - []byte - A JSON marshalled [sync.KeyValueMap].

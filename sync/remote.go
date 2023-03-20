@@ -10,7 +10,6 @@ package sync
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -51,9 +50,6 @@ type RemoteKV struct {
 	// txLog is the transaction log used to write transactions.
 	txLog *TransactionLog
 
-	// Map of upserts to upsert call backs
-	upserts UpsertCallbacks
-
 	// KeyUpdate is the callback used to report events when attempting to call Set.
 	KeyUpdate KeyUpdateCallback
 
@@ -74,13 +70,12 @@ type RemoteKV struct {
 // NewOrLoadRemoteKV constructs a new RemoteKV. If data exists on disk, it loads
 // that context and handle it appropriately.
 func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
-	upsertsCb UpsertCallbacks,
-	eventCb KeyUpdateCallback, updateCb RemoteStoreCallback) (*RemoteKV, error) {
+	eventCb KeyUpdateCallback,
+	updateCb RemoteStoreCallback) (*RemoteKV, error) {
 
 	rkv := &RemoteKV{
 		local:          kv.Prefix(remoteKvPrefix),
 		txLog:          transactionLog,
-		upserts:        upsertsCb,
 		KeyUpdate:      eventCb,
 		UnsyncedWrites: make(map[string][]byte, 0),
 		connected:      true,
@@ -131,9 +126,8 @@ func (r *RemoteKV) UpsertLocal(key string, newVal []byte) error {
 		return nil
 	}
 
-	// Call upsert callback if it exists
-	if r.upserts.HasUpsertFunc(key) {
-		go r.upserts.GetUpsertFunc(key).Callback(key, curVal, newVal)
+	if r.KeyUpdate != nil {
+		r.KeyUpdate(key, curVal, newVal, true)
 	}
 
 	return r.localSet(key, newVal)
@@ -174,7 +168,7 @@ func (r *RemoteKV) remoteSet(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 
 	wrapper := func(newTx Transaction, err error) {
-		r.handleRemoteSet(newTx, err, updateCb, key)
+		r.handleRemoteSet(newTx, err, updateCb)
 	}
 
 	// Write the transaction
@@ -191,7 +185,7 @@ func (r *RemoteKV) remoteSet(key string, val []byte,
 	// Report to event callback
 	if r.KeyUpdate != nil {
 		// Report write as successful
-		r.KeyUpdate(Successful, key)
+		r.KeyUpdate(key, nil, val, true)
 	}
 
 	return nil
@@ -200,7 +194,7 @@ func (r *RemoteKV) remoteSet(key string, val []byte,
 // handleRemoteSet contains the logic for handling a remoteSet attempt. It will
 // handle and modify state within the RemoteKV for failed remote sets.
 func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
-	updateCb RemoteStoreCallback, key string) {
+	updateCb RemoteStoreCallback) {
 
 	// Pass context to user-defined callback, so they may handle failure for
 	// remote saving
@@ -210,11 +204,12 @@ func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
 
 	// Handle error
 	if err != nil {
-		jww.DEBUG.Printf("Failed to write transaction new transaction (%v) to  remoteKV: %+v", newTx, err)
+		jww.DEBUG.Printf("Failed to write new transaction (%v) to  remoteKV: %+v",
+			newTx, err)
 
 		// Report to event callback
 		if r.KeyUpdate != nil {
-			r.KeyUpdate(Disconnected, fmt.Sprintf("%v", err))
+			r.KeyUpdate(newTx.Key, nil, newTx.Value, false)
 		}
 
 		r.connected = false
@@ -228,13 +223,14 @@ func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
 	} else if r.connected {
 		// Report to event callback
 		if r.KeyUpdate != nil {
-			r.KeyUpdate(Connected, "True")
+			r.KeyUpdate(newTx.Key, nil, newTx.Value, true)
 		}
 	}
 
-	err = r.removeUnsyncedWrite(key)
+	err = r.removeUnsyncedWrite(newTx.Key)
 	if err != nil {
-		jww.WARN.Printf("Failed to remove intent for key %s: %+v", key, err)
+		jww.WARN.Printf("Failed to remove intent for key %s: %+v",
+			newTx.Key, err)
 	}
 }
 

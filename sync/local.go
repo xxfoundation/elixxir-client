@@ -21,6 +21,7 @@ const (
 // [versioned.KV] file IO operations.
 type EkvLocalStore struct {
 	data *versioned.KV
+	keys []string
 }
 
 // NewEkvLocalStore is a constructor for EkvLocalStore.

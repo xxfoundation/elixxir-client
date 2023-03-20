@@ -175,12 +175,22 @@ type RemoteKV struct {
 //
 // Example JSON:
 //
-//	{
-//	 "lastModified": 1679173966663412908,
-//	 "lastWrite": 1679130886663413268,
-//	 "error": "Example error (may not exist if successful)"
-//	}
+//			{
+//		     "key": "exampleKey",
+//	      "Value": "ZXhhbXBsZVZhbHVl",
+//			 "lastModified": 1679173966663412908,
+//			 "lastWrite": 1679130886663413268,
+//			 "error": "Example error (may not exist if successful)"
+//			}
 type RemoteStoreReport struct {
+	// Key is the key of the transaction that was written to remote. Getting
+	// this via the callback indicates that there is a report for this key.
+	Key string
+
+	// Value is the value of the transaction that was written to remote for
+	// the key.
+	Value []byte
+
 	// LastModified is the timestamp (in nanoseconds) of the last time the
 	// specific path was modified. Refer to sync.RemoteKV.GetLastModified.
 	LastModified int64 `json:"lastModified"`
@@ -191,8 +201,6 @@ type RemoteStoreReport struct {
 	LastWrite int64 `json:"lastWrite"`
 
 	Error string `json:"error,omitempty"`
-
-	// Data []byte
 }
 
 // RemoteKVCallbacks is an interface for the [RemoteKV]. This will handle all
@@ -200,19 +208,15 @@ type RemoteStoreReport struct {
 type RemoteKVCallbacks interface {
 	// KeyUpdated is the callback to be called any time a Key is updated by
 	// another device tracked by the RemoteKV store.
-	KeyUpdated(key, val string)
+	KeyUpdated(key string, oldVal, newVal []byte, updated bool)
 
 	// RemoteStoreResult is called to report network save results after the key
 	// has been updated locally.
-	RemoteStoreResult(newTx []byte, err string)
-
-	//// UpsertCallbacks are the methods used for upserting a value for a given
-	//// key. Refer to [sync.UpsertCallbacks].
-	//sync.UpsertCallbacks
-
-	GetUpsertFunc(key string) sync.UpsertCallback
-
-	HasUpsertFunc(key string) bool
+	//
+	// NOTE: Errors originate from the authentication & writing code in regard
+	// to remote which is handled by the user of this API. As a result, this
+	// callback provides no information in simple implementations.
+	RemoteStoreResult(remoteStoreReport []byte)
 }
 
 // NewOrLoadSyncRemoteKV will construct a [RemoteKV].
@@ -239,8 +243,9 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	// deviceSecret = e2eCl.GetDeviceSecret()
 
 	// Construct the key update CB
-	var eventCb sync.KeyUpdateCallback = func(k, v string) {
-		remoteKvCallbacks.KeyUpdated(k, v)
+	var eventCb sync.KeyUpdateCallback = func(key string, oldVal, newVal []byte,
+		updated bool) {
+		remoteKvCallbacks.KeyUpdated(key, oldVal, newVal, updated)
 	}
 	// Construct update CB
 	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction,
@@ -266,8 +271,7 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// Construct remote KV
-	rkv, err := sync.NewOrLoadRemoteKV(txLog, e2eCl.api.GetStorage().GetKV(),
-		remoteKvCallbacks, eventCb, updateCb)
+	rkv, err := sync.NewOrLoadRemoteKV(txLog, e2eCl.api.GetStorage().GetKV(), eventCb, updateCb)
 	if err != nil {
 		return nil, err
 	}
@@ -301,14 +305,16 @@ func (s *RemoteKV) Read(path string) ([]byte, error) {
 
 // remoteStoreCbUtil is a utility function for the RemoteStoreCallback.
 func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Transaction, err error) {
-	if err != nil {
-		cb.RemoteStoreResult(nil, err.Error())
+
+	report := &RemoteStoreReport{
+		Key:   newTx.Key,
+		Value: newTx.Value,
 	}
 
-	serialized, err := newTx.MarshalJSON()
 	if err != nil {
-		cb.RemoteStoreResult(nil, err.Error())
+		report.Error = err.Error()
 	}
 
-	cb.RemoteStoreResult(serialized, "")
+	reportJson, _ := json.Marshal(&RemoteStoreReport{Error: err.Error()})
+	cb.RemoteStoreResult(reportJson)
 }

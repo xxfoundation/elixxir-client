@@ -27,10 +27,14 @@ type RemoteStore interface {
 	// modified. If the implementation that adheres to this interface does not
 	// support this, FileIO.Write or FileIO.Read should be implemented to either
 	// write a separate timestamp file or add a prefix.
+	//
+	// Returns the JSON of [RemoteStoreReport].
 	GetLastModified(path string) ([]byte, error)
 
 	// GetLastWrite retrieves the most recent successful write operation that
 	// was received by RemoteStore.
+	//
+	// Returns the JSON of [RemoteStoreReport].
 	GetLastWrite() ([]byte, error)
 }
 
@@ -68,7 +72,7 @@ func (r *RemoteStoreFileSystem) Write(path string, data []byte) error {
 // separate timestamp file or add a prefix.
 //
 // Returns:
-//   - []byte - A JSON marshalled [RemoteStoreReport].
+//   - []byte - JSON of [RemoteStoreReport].
 func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
 	ts, err := r.api.GetLastModified(path)
 	if err != nil {
@@ -86,7 +90,7 @@ func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
 // received by [RemoteStoreFileSystem].
 //
 // Returns:
-//   - []byte - A JSON marshalled [RemoteStoreReport].
+//   - []byte - JSON of [RemoteStoreReport].
 func (r *RemoteStoreFileSystem) GetLastWrite() ([]byte, error) {
 	ts, err := r.api.GetLastWrite()
 	if err != nil {
@@ -200,22 +204,26 @@ type RemoteStoreReport struct {
 	// sync.RemoteKV.GetLastWrite.
 	LastWrite int64 `json:"lastWrite"`
 
+	// Any error that occurs. It is omitted when no error occurred.
 	Error string `json:"error,omitempty"`
 }
 
 // RemoteKVCallbacks is an interface for the [RemoteKV]. This will handle all
 // callbacks used for the various operations [RemoteKV] supports.
 type RemoteKVCallbacks interface {
-	// KeyUpdated is the callback to be called any time a Key is updated by
+	// KeyUpdated is the callback to be called any time a key is updated by
 	// another device tracked by the RemoteKV store.
 	KeyUpdated(key string, oldVal, newVal []byte, updated bool)
 
 	// RemoteStoreResult is called to report network save results after the key
 	// has been updated locally.
 	//
-	// NOTE: Errors originate from the authentication & writing code in regard
+	// NOTE: Errors originate from the authentication and writing code in regard
 	// to remote which is handled by the user of this API. As a result, this
 	// callback provides no information in simple implementations.
+	//
+	// Parameters:
+	//   - remoteStoreReport - JSON of [RemoteStoreReport].
 	RemoteStoreResult(remoteStoreReport []byte)
 }
 
@@ -223,13 +231,11 @@ type RemoteKVCallbacks interface {
 //
 // Parameters:
 //   - e2eID - ID of [E2e] object in tracker.
-//   - txLogPath - the path that the state data for this device will be written
-//     to locally (e.g. sync/txLog.txt).
 //   - remoteKvCallbacks - A [RemoteKVCallbacks]. These will be the callbacks
-//     that are called for RemoteStore operations.
+//     that are called for [RemoteStore] operations.
 //   - remote - A [RemoteStore]. This will be a structure the consumer
 //     implements. This acts as a wrapper around the remote storage API
-//     (e.g. Google Drive's API, DropBox's API, etc.).
+//     (e.g., Google Drive's API, DropBox's API, etc.).
 func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	remote RemoteStore) (*RemoteKV, error) {
 
@@ -240,7 +246,7 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// todo: properly define
-	var deviceSecret []byte = []byte("dummy, replace")
+	var deviceSecret = []byte("dummy, replace")
 	// deviceSecret = e2eCl.GetDeviceSecret()
 
 	// Construct the key update CB
@@ -275,7 +281,8 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// Construct remote KV
-	rkv, err := sync.NewOrLoadRemoteKV(txLog, e2eCl.api.GetStorage().GetKV(),
+	rkv, err := sync.NewOrLoadRemoteKV(
+		txLog, e2eCl.api.GetStorage().GetKV(),
 		eventCb, updateCb)
 	if err != nil {
 		return nil, err
@@ -291,10 +298,10 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 //     name, the channel name, etc.). Certain keys should follow a pattern
 //     and contain special characters (see GetList for details).
 //   - data - The data that will be stored (i.e., state data).
-//   - cb - A [RemoteStoreCallback]. This may be nil if you do not care about the
+//   - cb - A [RemoteKVCallbacks]. This may be nil if you do not care about the
 //     network report.
 func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
-	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction, err error) {
+	var updateCb = func(newTx sync.Transaction, err error) {
 		remoteStoreCbUtil(cb, newTx, err)
 	}
 	return s.rkv.Set(path, data, updateCb)
@@ -323,7 +330,7 @@ func (s *RemoteKV) GetList(name string) ([]byte, error) {
 	return s.rkv.GetList(name)
 }
 
-// remoteStoreCbUtil is a utility function for the RemoteStoreCallback.
+// remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.
 func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Transaction, err error) {
 
 	report := &RemoteStoreReport{

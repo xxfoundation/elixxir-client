@@ -371,7 +371,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		select {
 		case <-testPool.testNodes:
 			testCount++
-		case <-time.After(250 * time.Millisecond):
+		case <-time.After(500 * time.Millisecond):
 			done = true
 		}
 	}

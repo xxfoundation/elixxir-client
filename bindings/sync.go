@@ -294,9 +294,9 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 // Write writes a transaction to the remote and local store.
 //
 // Parameters:
-//   - path - The key that this data will be written to (i.e., the device
-//     name, the channel name, etc.). Certain keys should follow a pattern
-//     and contain special characters (see GetList for details).
+//   - path - The key that this data will be written to (i.e., the device name,
+//     the channel name, etc.). Certain keys should follow a pattern and contain
+//     special characters (see [RemoteKV.GetList] for details).
 //   - data - The data that will be stored (i.e., state data).
 //   - cb - A [RemoteKVCallbacks]. This may be nil if you do not care about the
 //     network report.
@@ -320,32 +320,30 @@ func (s *RemoteKV) Read(path string) ([]byte, error) {
 // parameter from the local store.
 //
 // For example, assuming the usage of the [sync.LocalStoreKeyDelimiter], if both
-// "channels-123" and "channels-abc" are written to RemoteKV,
+// "channels-123" and "channels-abc" are written to [RemoteKV], then
 // GetList("channels") will retrieve the data for both channels. All data that
 // contains no [sync.LocalStoreKeyDelimiter] can be retrieved using GetList("").
 //
 // Parameters:
 //   - name - Some prefix to a Write operation. If no prefix applies, simply
-//     use the empty string
+//     use the empty string.
 //
 // Returns:
-//   - []byte - A JSON marshalled [sync.KeyValueMap].
+//   - []byte - JSON of [sync.KeyValueMap].
 func (s *RemoteKV) GetList(name string) ([]byte, error) {
 	return s.rkv.GetList(name)
 }
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.
 func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Transaction, err error) {
-
-	report := &RemoteStoreReport{
-		Key:   newTx.Key,
-		Value: newTx.Value,
-	}
-
+	var report RemoteStoreReport
 	if err != nil {
 		report.Error = err.Error()
+	} else {
+		report.Key = newTx.Key
+		report.Value = newTx.Value
 	}
 
-	reportJson, _ := json.Marshal(&RemoteStoreReport{Error: err.Error()})
+	reportJson, _ := json.Marshal(report)
 	cb.RemoteStoreResult(reportJson)
 }

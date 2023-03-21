@@ -143,7 +143,7 @@ var rootCmd = &cobra.Command{
 		total := 100
 		jww.INFO.Printf("Registering with nodes...")
 
-		for numReg < (total*3)/4 {
+		for !cmixParams.Network.DisableNodeRegistration && numReg < (total*3)/4 {
 			time.Sleep(1 * time.Second)
 			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
@@ -455,7 +455,15 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	cmixParams.Network.VerboseRoundTracking = viper.GetBool(
 		verboseRoundTrackingFlag)
 
+	cmixParams.Network.DisableNodeRegistration = viper.GetBool(disableNodeRegistrationFlag)
+	cmixParams.Network.EnableEphemeralRegistration = viper.GetBool(enableEphemeralRegistrationFlag)
+
 	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
+
+	cmixParams.Network.Pickup.BatchMessageRetrieval = viper.GetBool(batchMessagePickupFlag)
+	cmixParams.Network.Pickup.MaxBatchSize = viper.GetInt(maxPickupBatchSizeFlag)
+	cmixParams.Network.Pickup.BatchPickupTimeout = viper.GetInt(batchPickupTimeoutFlag)
+	cmixParams.Network.Pickup.BatchDelay = viper.GetInt(batchPickupDelayFlag)
 
 	return cmixParams, e2eParams
 }
@@ -1131,6 +1139,26 @@ func init() {
 	viper.BindPFlag(forceMessagePickupRetryFlag,
 		rootCmd.Flags().Lookup(forceMessagePickupRetryFlag))
 
+	rootCmd.PersistentFlags().Bool(batchMessagePickupFlag, false,
+		"Enables alternate message pickup logic which processes batches")
+	viper.BindPFlag(batchMessagePickupFlag,
+		rootCmd.PersistentFlags().Lookup(batchMessagePickupFlag))
+
+	rootCmd.PersistentFlags().Int(maxPickupBatchSizeFlag, 20,
+		"Set the maximum number of requests in a batch pickup message")
+	viper.BindPFlag(maxPickupBatchSizeFlag,
+		rootCmd.PersistentFlags().Lookup(maxPickupBatchSizeFlag))
+
+	rootCmd.PersistentFlags().Int(batchPickupDelayFlag, 50,
+		"Sets the delay (in MS) before a batch pickup request is sent, even if the batch is not full")
+	viper.BindPFlag(batchPickupDelayFlag,
+		rootCmd.PersistentFlags().Lookup(batchPickupDelayFlag))
+
+	rootCmd.PersistentFlags().Int(batchPickupTimeoutFlag, 250,
+		"Sets the timeout duration (in MS) sent to gateways that proxy batch message pickup requests")
+	viper.BindPFlag(batchPickupTimeoutFlag,
+		rootCmd.PersistentFlags().Lookup(batchPickupTimeoutFlag))
+
 	// E2E Params
 	defaultE2EParams := session.GetDefaultParams()
 	rootCmd.Flags().UintP(e2eMinKeysFlag,
@@ -1189,6 +1217,14 @@ func init() {
 	rootCmd.Flags().String(backupIdListFlag, "",
 		"JSON file containing the backed up partner IDs")
 	viper.BindPFlag(backupIdListFlag, rootCmd.Flags().Lookup(backupIdListFlag))
+
+	rootCmd.Flags().BoolP(disableNodeRegistrationFlag, "", false,
+		"Use to disable registering with nodes.  This should be used FOR TESTING PURPOSES ONLY.")
+	viper.BindPFlag(disableNodeRegistrationFlag, rootCmd.Flags().Lookup(disableNodeRegistrationFlag))
+
+	rootCmd.Flags().BoolP(enableEphemeralRegistrationFlag, "", false,
+		"Toggle to use ephemeral ED keys when attempting to send on a round with nodes you have not registered with")
+	viper.BindPFlag(enableEphemeralRegistrationFlag, rootCmd.Flags().Lookup(enableEphemeralRegistrationFlag))
 
 }
 

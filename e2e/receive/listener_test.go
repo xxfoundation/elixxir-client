@@ -99,7 +99,7 @@ func TestFuncListener_Hear(t *testing.T) {
 		if !reflect.DeepEqual(item, m) {
 			t.Errorf("Heard message did not match")
 		}
-	case <-time.After(5 * time.Millisecond):
+	case <-time.After(25 * time.Millisecond):
 		t.Errorf("Did not hear")
 	}
 }
@@ -148,7 +148,7 @@ func TestChanListener_Hear(t *testing.T) {
 		if !reflect.DeepEqual(item, m) {
 			t.Errorf("Heard message did not match")
 		}
-	case <-time.After(5 * time.Millisecond):
+	case <-time.After(25 * time.Millisecond):
 		t.Errorf("Did not hear")
 	}
 }

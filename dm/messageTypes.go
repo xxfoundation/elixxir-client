@@ -20,7 +20,10 @@ const (
 	TextType MessageType = 1
 
 	// Reaction denotes that the message is a reaction to another message.
-	ReactionType MessageType = 2
+	ReplyType MessageType = 2
+
+	// Reaction denotes that the message is a reaction to another message.
+	ReactionType MessageType = 3
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -29,6 +32,8 @@ func (mt MessageType) String() string {
 	switch mt {
 	case TextType:
 		return "Text"
+	case ReplyType:
+		return "Reply"
 	case ReactionType:
 		return "Reaction"
 	default:

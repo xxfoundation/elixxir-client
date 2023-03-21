@@ -246,6 +246,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler,
 		jww.DEBUG.Printf("[Send-%s] Best round found, took %s: %d",
 			cmixParams.DebugTag, netTime.Since(startSearch), bestRound.ID)
 
+		startSend := time.Now()
 		// Determine whether the selected round contains any
 		// nodes that are blacklisted by the CMIXParams object
 		containsBlacklisted := false
@@ -344,8 +345,9 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler,
 
 		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc,
 			cmixParams.Stop, cmixParams.SendTimeout)
-		jww.DEBUG.Printf("[Send-%s] sendToPreferred %s returned",
-			cmixParams.DebugTag, firstGateway)
+		sendElapsed := netTime.Since(startSend)
+		jww.DEBUG.Printf("[Send-%s] sendToPreferred %s returned after %s",
+			cmixParams.DebugTag, firstGateway, sendElapsed)
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {
@@ -370,10 +372,11 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
+			totalElapsed := netTime.Since(timeStart)
 			m := fmt.Sprintf("[Send-%s] Successfully sent to EphID %v "+
 				"(source: %s) in round %d (msgDigest: %s), elapsed: %s "+
 				"numRoundTries: %d", cmixParams.DebugTag, ephID.Int64(),
-				recipient, bestRound.ID, msg.Digest(), elapsed, numRoundTries)
+				recipient, bestRound.ID, msg.Digest(), totalElapsed, numRoundTries)
 
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSend", "Metric", m)

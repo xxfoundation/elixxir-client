@@ -100,7 +100,6 @@ func TestEventReporting(t *testing.T) {
 			len(evts), 4)
 	}
 
-
 	if err = stop.Close(); err != nil {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}

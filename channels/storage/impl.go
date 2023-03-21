@@ -128,13 +128,15 @@ func (i *impl) ReceiveReaction(channelID *id.ID, messageID, reactionTo message.I
 // make no update.
 func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *time.Time,
 	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) {
-	parentErr := errors.New("failed to UpdateFromMessageID")
+	parentErr := errors.New("failed to UpdateFromUUID")
 
 	msgToUpdate := &Message{
-		Id:        uuid,
-		MessageId: messageID.Marshal(),
-		Hidden:    hidden,
-		Pinned:    pinned,
+		Id:     uuid,
+		Hidden: hidden,
+		Pinned: pinned,
+	}
+	if messageID != nil {
+		msgToUpdate.MessageId = messageID.Marshal()
 	}
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)
@@ -275,7 +277,9 @@ func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 		jww.WARN.Printf("No MuteUser callback registered!")
 		return
 	}
-	i.muteCb(channelID, pubKey, unmute)
+	if i.muteCb != nil {
+		go i.muteCb(channelID, pubKey, unmute)
+	}
 }
 
 // DeleteMessage removes a message with the given messageID from storage.
@@ -287,6 +291,10 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 
 	if err != nil {
 		return errors.Errorf("Unable to delete Message: %+v", err)
+	}
+
+	if i.deleteCb != nil {
+		go i.deleteCb(messageID)
 	}
 	return nil
 }

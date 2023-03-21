@@ -22,7 +22,6 @@ import (
 // Happy path.
 func Test_manager_processBatchMessageRetrieval(t *testing.T) {
 	// General initializations
-	connect.TestingOnlyDisableTLS = true
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
@@ -80,21 +79,20 @@ func Test_manager_processBatchMessageRetrieval(t *testing.T) {
 
 	}()
 
+	// Receive the bundle over the channel
 	var testBundle message.Bundle
-
 	select {
 	case testBundle = <-messageBundleChan:
-	case <-time.After(1500 * time.Millisecond):
+	case <-time.After(300 * time.Millisecond):
 		t.Errorf("Timed out waiting for messageBundleChan.")
 	}
 
-	err = stop.Close()
-	if err != nil {
+	// Close the process
+	if err = stop.Close(); err != nil {
 		t.Errorf("Failed to signal close to process: %+v", err)
 	}
 
 	// Ensure bundle received and has expected values
-	time.Sleep(2 * time.Second)
 	if reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Fatal("Did not receive a message bundle over the channel")
 	}

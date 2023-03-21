@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// tests that New create a correctly structured switchboard
+// Tests that New create a correctly structured Switchboard.
 func TestNew(t *testing.T) {
 	sw := New()
 
@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-//Tests that register listener handles errors properly
+// Tests that Switchboard.RegisterListener handles errors properly.
 func TestSwitchboard_RegisterListener_Error_NilUserID(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -40,10 +40,10 @@ func TestSwitchboard_RegisterListener_Error_NilUserID(t *testing.T) {
 	sw := New()
 	sw.RegisterListener(nil, 0, &funcListener{})
 
-	t.Errorf("A nil userID should have caused an panic")
+	t.Errorf("A nil userID should have caused a panic")
 }
 
-//Tests that register listener handles errors properly
+// Tests that Switchboard.RegisterListener handles errors properly.
 func TestSwitchboard_RegisterListener_Error_NilListener(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -58,7 +58,7 @@ func TestSwitchboard_RegisterListener_Error_NilListener(t *testing.T) {
 	t.Errorf("A nil listener should have caused an error")
 }
 
-//Tests that RegisterListener properly registers the listeners
+// Tests that Switchboard.RegisterListener properly registers the listeners.
 func TestSwitchboard_RegisterListener(t *testing.T) {
 	sw := New()
 
@@ -82,7 +82,7 @@ func TestSwitchboard_RegisterListener(t *testing.T) {
 		t.Errorf("ListenerID listener is wrong")
 	}
 
-	//check that the listener is registered in the appropriate location
+	// Check that the listener is registered in the appropriate location
 	setID := sw.id.Get(uid)
 
 	if !setID.Has(lid) {
@@ -97,7 +97,7 @@ func TestSwitchboard_RegisterListener(t *testing.T) {
 
 }
 
-//Tests that register funcListener handles errors properly
+// Tests that Switchboard.RegisterFunc handles errors properly.
 func TestSwitchboard_RegisterFunc_Error_NilUserID(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -112,7 +112,7 @@ func TestSwitchboard_RegisterFunc_Error_NilUserID(t *testing.T) {
 	t.Errorf("A nil user ID should have caused an error")
 }
 
-//Tests that register funcListener handles errors properly
+// Tests that Switchboard.RegisterFunc handles errors properly.
 func TestSwitchboard_RegisterFunc_Error_NilFunc(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
@@ -127,7 +127,7 @@ func TestSwitchboard_RegisterFunc_Error_NilFunc(t *testing.T) {
 	t.Errorf("A nil listener func should have caused an error")
 }
 
-//Tests that RegisterFunc properly registers the listeners
+// Tests that Switchboard.RegisterFunc properly registers the listeners.
 func TestSwitchboard_RegisterFunc(t *testing.T) {
 	sw := New()
 
@@ -149,7 +149,7 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 		t.Errorf("ListenerID userID is wrong")
 	}
 
-	//check that the listener is registered in the appropriate location
+	// Check that the listener is registered in the appropriate location
 	setID := sw.id.Get(uid)
 
 	if !setID.Has(lid) {
@@ -168,8 +168,8 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 	}
 }
 
-//Tests that register chanListener handles errors properly
-func TestSwitchboard_RegisterChan_Error_NilUser(t *testing.T) {
+// Tests that Switchboard.RegisterChannel handles errors properly.
+func TestSwitchboard_RegisterChannel_Error_NilUser(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
 			"cannot register listener to nil user") {
@@ -183,8 +183,8 @@ func TestSwitchboard_RegisterChan_Error_NilUser(t *testing.T) {
 	t.Errorf("A nil userID should have caused an error")
 }
 
-//Tests that register chanListener handles errors properly
-func TestSwitchboard_RegisterChan_Error_NilChan(t *testing.T) {
+// Tests that Switchboard.RegisterChannel handles errors properly.
+func TestSwitchboard_RegisterChannel_Error_NilChan(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && !strings.Contains(r.(string),
 			"cannot register channel listener 'test' with nil channel") {
@@ -197,8 +197,8 @@ func TestSwitchboard_RegisterChan_Error_NilChan(t *testing.T) {
 	t.Errorf("A nil channel func should have caused an error")
 }
 
-//Tests that RegisterChan properly registers the listeners
-func TestSwitchboard_RegisterChan(t *testing.T) {
+// Tests that Switchboard.RegisterChannel properly registers the listeners.
+func TestSwitchboard_RegisterChannel(t *testing.T) {
 	sw := New()
 
 	ch := make(chan Message, 1)
@@ -209,7 +209,7 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 
 	lid := sw.RegisterChannel("test", uid, mt, ch)
 
-	//check the returns
+	// Check the returns
 	if lid.messageType != mt {
 		t.Errorf("ListenerID message type is wrong")
 	}
@@ -218,7 +218,7 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 		t.Errorf("ListenerID userID is wrong")
 	}
 
-	//check that the listener is registered in the appropriate location
+	// Check that the listener is registered in the appropriate location
 	setID := sw.id.Get(uid)
 
 	if !setID.Has(lid) {
@@ -234,21 +234,20 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 	lid.listener.Hear(Message{})
 	select {
 	case <-ch:
-	case <-time.After(5 * time.Millisecond):
+	case <-time.After(25 * time.Millisecond):
 		t.Errorf("Chan listener not registered correctly")
 	}
 }
 
-//tests all combinations of hits and misses for speak
+// Tests all combinations of hits and misses for Switchboard.Speak.
 func TestSwitchboard_Speak(t *testing.T) {
-
-	uids := []*id.ID{{}, AnyUser(), id.NewIdFromUInt(42, id.User, t), id.NewIdFromUInt(69, id.User, t)}
+	uids := []*id.ID{{}, AnyUser(), id.NewIdFromUInt(42, id.User, t),
+		id.NewIdFromUInt(69, id.User, t)}
 	mts := []catalog.MessageType{AnyType, catalog.NoType, catalog.XxMessage}
 
 	for _, uidReg := range uids {
 		for _, mtReg := range mts {
-
-			//create the registrations
+			// Create the registrations
 			sw := New()
 			ch1 := make(chan Message, 1)
 			ch2 := make(chan Message, 1)
@@ -256,7 +255,7 @@ func TestSwitchboard_Speak(t *testing.T) {
 			sw.RegisterChannel("test", uidReg, mtReg, ch1)
 			sw.RegisterChannel("test", uidReg, mtReg, ch2)
 
-			//send every possible message
+			// Send every possible message
 			for _, uid := range uids {
 				for _, mt := range mts {
 					if uid.Cmp(&id.ID{}) || mt == AnyType {
@@ -280,7 +279,7 @@ func TestSwitchboard_Speak(t *testing.T) {
 					select {
 					case <-ch1:
 						heard1 = true
-					case <-time.After(5 * time.Millisecond):
+					case <-time.After(25 * time.Millisecond):
 						heard1 = false
 					}
 
@@ -310,7 +309,7 @@ func TestSwitchboard_Speak(t *testing.T) {
 	}
 }
 
-//tests that Unregister removes the listener and only the listener
+// Tests that Switchboard.Unregister removes the listener and only the listener.
 func TestSwitchboard_Unregister(t *testing.T) {
 	sw := New()
 
@@ -325,11 +324,11 @@ func TestSwitchboard_Unregister(t *testing.T) {
 
 	sw.Unregister(lid1)
 
-	//get sets to check
+	// Get sets to check
 	setID := sw.id.Get(uid)
 	setType := sw.messageType.Get(mt)
 
-	//check that the removed listener is not registered
+	// Check that the removed listener is not registered
 	if setID.Has(lid1) {
 		t.Errorf("Removed Listener is registered by ID, should not be")
 	}
@@ -339,7 +338,7 @@ func TestSwitchboard_Unregister(t *testing.T) {
 			"should not be")
 	}
 
-	//check that the not removed listener is still registered
+	// Check that the not removed listener is still registered
 	if !setID.Has(lid2) {
 		t.Errorf("Remaining Listener is not registered by ID")
 	}

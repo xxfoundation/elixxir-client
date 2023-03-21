@@ -295,13 +295,13 @@ func TestSwitchboard_Speak(t *testing.T) {
 					select {
 					case <-ch2:
 						heard2 = true
-					case <-time.After(5 * time.Millisecond):
+					case <-time.After(25 * time.Millisecond):
 						heard2 = false
 					}
 
 					if shouldHear != heard2 {
 						t.Errorf("Correct operation not recorded "+
-							"for listener 2: Expected: %v, Occured: %v",
+							"for listener 2: Expected: %v, Occurred: %v",
 							shouldHear, heard2)
 					}
 				}

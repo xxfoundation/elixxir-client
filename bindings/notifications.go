@@ -152,7 +152,7 @@ func RegisterForNotifications(e2eId int, token string) error {
 		return err
 	}
 
-	return user.api.RegisterForNotifications(token)
+	return user.api.RegisterForNotifications(user.api.GetReceptionIdentity().ID, token)
 }
 
 // UnregisterForNotifications turns off notifications for this client.
@@ -165,5 +165,5 @@ func UnregisterForNotifications(e2eId int) error {
 		return err
 	}
 
-	return user.api.UnregisterForNotifications()
+	return user.api.UnregisterForNotifications(user.api.GetReceptionIdentity().ID)
 }

@@ -8,6 +8,7 @@
 package broadcast
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +51,32 @@ func newMockCmix(handler *mockCmixHandler) *mockCmix {
 	}
 }
 
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+
+	key := strings.Join(append(newService.Tags, string(newService.Identifier)), ",")
+	if _, exists := m.handler.processorMap[*clientID][key]; !exists {
+		m.handler.processorMap[*clientID][key] =
+			[]message.Processor{response}
+		return
+	}
+
+	m.handler.processorMap[*clientID][newService.String()] =
+		append(m.handler.processorMap[*clientID][strings.Join(newService.Tags, ",")], response)
+}
+
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+
+	for tag := range m.handler.processorMap[*clientID] {
+		delete(m.handler.processorMap[*clientID], tag)
+	}
+}
+
 func (m *mockCmix) GetMaxMessageLength() int {
 	return format.NewMessage(m.numPrimeBytes).ContentsSize()
 }
@@ -71,15 +98,16 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID,
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
-	for _, p := range m.handler.processorMap[*recipient][service.Tag] {
-		p.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	key := strings.Join(append(service.(message.CompressedService).Tags, string(service.(message.CompressedService).Identifier)), ",")
+	for _, p := range m.handler.processorMap[*recipient][key] {
+		p.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
-	service message.Service, payload, mac []byte, _ cmix.CMIXParams) (
+	service cmix.Service, payload, mac []byte, _ cmix.CMIXParams) (
 	id.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetContents(payload)
@@ -88,8 +116,9 @@ func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
 
 	m.handler.Lock()
 	defer m.handler.Unlock()
-	for _, p := range m.handler.processorMap[*recipient][service.Tag] {
-		p.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	key := strings.Join(append(service.(message.CompressedService).Tags, string(service.(message.CompressedService).Identifier)), ",")
+	for _, p := range m.handler.processorMap[*recipient][key] {
+		p.Process(msg, service.(message.CompressedService).Tags, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return 0, ephemeral.Id{}, nil

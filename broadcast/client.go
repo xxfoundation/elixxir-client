@@ -72,7 +72,7 @@ func (bc *broadcastClient) RegisterRSAtoPublicListener(
 		method: RSAToPublic,
 	}
 
-	service := bc.GetSymmetricCompressedService(tags)
+	service := bc.GetRSAToPublicCompressedService(tags)
 
 	bc.net.UpsertCompressedService(bc.channel.ReceptionID, service, p)
 	return p, nil

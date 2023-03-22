@@ -110,6 +110,14 @@ func newMockCmix(
 	}
 }
 
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { panic("implement me") }
 
 func (m *mockCmix) GetMaxMessageLength() int {
@@ -117,7 +125,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
+func (m *mockCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte,
 	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
@@ -129,7 +137,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 		msg.SetContents(targetedMsg.Payload)
 		msg.SetMac(targetedMsg.Mac)
 		msg.SetKeyFP(targetedMsg.Fingerprint)
-		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg,
+		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg, []string{},
 			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
 			rounds.Round{ID: 42})
 	}

@@ -26,7 +26,7 @@ import (
 type testProcessor struct {
 }
 
-func (t *testProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+func (t *testProcessor) Process(_ format.Message, _ []string, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 
 }
 
@@ -161,7 +161,11 @@ func Test_handler_handleMessageHelper_Service(t *testing.T) {
 
 	ecrMsg := format.NewMessage(2056)
 	ecrMsg.SetContents(contents)
-	ecrMsg.SetSIH(s.Hash(ecrMsg.GetContents()))
+	SIH, err := s.Hash(nil, ecrMsg.GetContents())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ecrMsg.SetSIH(SIH)
 
 	testRound := rounds.Round{
 		Timestamps:       make(map[states.Round]time.Time),

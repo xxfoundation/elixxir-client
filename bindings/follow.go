@@ -73,7 +73,7 @@ func (c *Cmix) StopNetworkFollower() error {
 // are started.
 //
 // Parameters:
-//  - periodMS - The duration of the period, in milliseconds.
+//   - periodMS - The duration of the period, in milliseconds.
 func (c *Cmix) SetTrackNetworkPeriod(periodMS int) {
 	period := time.Duration(periodMS) * time.Millisecond
 	c.api.SetTrackNetworkPeriod(period)
@@ -325,7 +325,7 @@ func (c *Cmix) TrackServicesWithIdentity(e2eId int,
 	}
 
 	receptionId := user.api.GetReceptionIdentity().ID
-	c.api.GetCmix().TrackServices(func(list message.ServiceList) {
+	c.api.GetCmix().TrackServices(func(list message.ServiceList, compressedList message.CompressedServiceList) {
 		res := make(message.ServiceList)
 		res[*receptionId] = list[*receptionId]
 		cb.Callback(json.Marshal(res))
@@ -344,7 +344,7 @@ func (c *Cmix) TrackServicesWithIdentity(e2eId int,
 //   - cb - A TrackServicesCallback, which will be passed the marshalled
 //     message.ServiceList.
 func (c *Cmix) TrackServices(cb TrackServicesCallback) {
-	c.api.GetCmix().TrackServices(func(list message.ServiceList) {
+	c.api.GetCmix().TrackServices(func(list message.ServiceList, compressedList message.CompressedServiceList) {
 		cb.Callback(json.Marshal(list))
 	})
 }

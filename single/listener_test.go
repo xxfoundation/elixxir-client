@@ -254,7 +254,7 @@ func (m mockListenCmix) GetMaxMessageLength() int {
 }
 
 func (m mockListenCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
-	service cMixMsg.Service, payload, mac []byte, _ cmix.CMIXParams) (
+	service cmix.Service, payload, mac []byte, _ cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetContents(payload)
@@ -263,11 +263,12 @@ func (m mockListenCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
 
 	m.handler.Lock()
 	defer m.handler.Unlock()
-	for _, p := range m.handler.serviceMap[*recipient][service.Tag] {
-		p.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	svc := service.(cMixMsg.Service)
+	for _, p := range m.handler.serviceMap[*recipient][svc.Tag] {
+		p.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 	for _, p := range m.handler.fingerprintMap[*recipient][fingerprint] {
-		p.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+		p.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return rounds.Round{}, ephemeral.Id{}, nil

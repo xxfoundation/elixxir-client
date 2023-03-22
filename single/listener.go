@@ -61,7 +61,7 @@ func Listen(tag string, myID *id.ID, privKey *cyclic.Int, net ListenCmix,
 }
 
 // Process decrypts and collates the encrypted single-use request message.
-func (l *listener) Process(ecrMsg format.Message,
+func (l *listener) Process(ecrMsg format.Message, tags []string,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	err := l.process(ecrMsg, receptionID, round)
 	if err != nil {

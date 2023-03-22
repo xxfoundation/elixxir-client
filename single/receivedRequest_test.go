@@ -180,13 +180,21 @@ func newMockRequestCmix(sendPayload chan format.Message, t *testing.T) *mockRequ
 	}
 }
 
+func (m *mockRequestCmix) UpsertCompressedService(clientID *id.ID, newService cmixMsg.CompressedService,
+	response cmixMsg.Processor) {
+}
+func (m *mockRequestCmix) DeleteCompressedService(clientID *id.ID, toDelete cmixMsg.CompressedService,
+	processor cmixMsg.Processor) {
+
+}
+
 func (m *mockRequestCmix) GetMaxMessageLength() int {
 	msg := format.NewMessage(m.numPrimeBytes)
 	return msg.ContentsSize()
 }
 
 func (m *mockRequestCmix) Send(_ *id.ID, fp format.Fingerprint,
-	_ cmixMsg.Service, payload, mac []byte, _ cmix.CMIXParams) (
+	_ cmix.Service, payload, mac []byte, _ cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetMac(mac)

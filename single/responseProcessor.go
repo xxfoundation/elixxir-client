@@ -35,7 +35,7 @@ type responseProcessor struct {
 
 // Process decrypts a response part and adds it to the collator - returning
 // a full response to the callback when all parts are received.
-func (rsp *responseProcessor) Process(ecrMsg format.Message,
+func (rsp *responseProcessor) Process(ecrMsg format.Message, tags []string,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	decrypted, err := rsp.cy.decrypt(ecrMsg.GetContents(), ecrMsg.GetMac())

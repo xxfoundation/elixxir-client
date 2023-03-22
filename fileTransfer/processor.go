@@ -37,7 +37,7 @@ type processor struct {
 
 // Process decrypts and hands off the file part message and adds it to the
 // correct file transfer.
-func (p *processor) Process(msg format.Message,
+func (p *processor) Process(msg format.Message, _ []string,
 	_ receptionID.EphemeralIdentity, round rounds.Round) {
 
 	decryptedPart, err := p.Decrypt(msg)

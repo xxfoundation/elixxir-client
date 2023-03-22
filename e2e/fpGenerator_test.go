@@ -124,7 +124,7 @@ func newMockFpgCmix() *mockFpgCmix {
 
 func (m *mockFpgCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 func (m *mockFpgCmix) GetMaxMessageLength() int                                   { return 0 }
-func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 func (m *mockFpgCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
@@ -167,6 +167,14 @@ func (m *mockFpgCmix) DeleteFingerprint(uid *id.ID, fp format.Fingerprint) {
 	if _, exists := m.processors[*uid]; exists {
 		delete(m.processors[*uid], fp)
 	}
+}
+
+func (m *mockFpgCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockFpgCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
 }
 
 func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                       {}

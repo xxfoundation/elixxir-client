@@ -22,11 +22,11 @@ type UnsafeProcessor struct {
 	tag string
 }
 
-func (up *UnsafeProcessor) Process(ecrMsg format.Message,
+func (up *UnsafeProcessor) Process(ecrMsg format.Message, tags []string,
 	receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
 	//check if the message is unencrypted
-	jww.INFO.Printf("Unsafe PRocessed received: contents: %v, fp: %v, mac: %v, sih: %v",
+	jww.INFO.Printf("Unsafe Processed received: contents: %v, fp: %v, mac: %v, sih: %v",
 		ecrMsg.GetContents(), ecrMsg.GetKeyFP(), ecrMsg.GetMac(), ecrMsg.GetSIH())
 	unencrypted, sender := e2e.IsUnencrypted(ecrMsg)
 	if !unencrypted && sender == nil {

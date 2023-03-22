@@ -33,7 +33,7 @@ type receivedRequestService struct {
 	reset bool
 }
 
-func (rrs *receivedRequestService) Process(message format.Message,
+func (rrs *receivedRequestService) Process(message format.Message, _ []string,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	authState := rrs.s
 

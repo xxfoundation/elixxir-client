@@ -68,7 +68,7 @@ type CompressedService struct {
 	lazyPreimage *sih.Preimage
 }
 
-func (cs *CompressedService) ForMe(pickup *id.ID, contents, hash []byte) (
+func (cs CompressedService) ForMe(pickup *id.ID, contents, hash []byte) (
 	bool, []string) {
 	tags, found, err := sih.EvaluateCompessedSIH(pickup, hash,
 		cs.Identifier, cs.Tags, contents)
@@ -78,14 +78,14 @@ func (cs *CompressedService) ForMe(pickup *id.ID, contents, hash []byte) (
 	return found, tags
 }
 
-func (cs *CompressedService) Hash(pickup *id.ID, contents []byte) ([]byte, error) {
+func (cs CompressedService) Hash(pickup *id.ID, contents []byte) ([]byte, error) {
 	found, err := sih.MakeCompessedSIH(pickup, contents,
 		cs.Identifier, cs.Tags)
 
 	return found, err
 }
 
-func (cs *CompressedService) preimage() sih.Preimage {
+func (cs CompressedService) preimage() sih.Preimage {
 	if cs.lazyPreimage == nil {
 		// All compressed services with the same identifier have the
 		// same preimage because the tags selection is what option will
@@ -98,7 +98,7 @@ func (cs *CompressedService) preimage() sih.Preimage {
 	return *cs.lazyPreimage
 }
 
-func (cs *CompressedService) String() string {
+func (cs CompressedService) String() string {
 	p := cs.preimage()
 	return fmt.Sprintf("Tags: %s, Identifier: %s, source: %s, "+
 		"preimage:%s", cs.Tags, base64.StdEncoding.EncodeToString(cs.Identifier),

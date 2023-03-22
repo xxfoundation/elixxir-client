@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	asymmetricRSAToPublicBroadcastServiceTag = "AsymmToPublicBcast"
-	asymmCMixSendTag                         = "AsymmetricBroadcast"
-	internalPayloadSizeLength                = 2
+	asymmetricRSAToPublicBroadcastServicePostfix = "AsymmToPublicBcast"
+	asymmCMixSendTag                             = "AsymmetricBroadcast"
+	internalPayloadSizeLength                    = 2
 )
 
 // BroadcastRSAtoPublic broadcasts the payload to the channel. Requires a
@@ -97,10 +97,7 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 		// Create service using asymmetric broadcast service tag and channel
 		// reception ID allows anybody with this info to listen for messages on
 		// this channel
-		service = message.CompressedService{
-			Identifier: append(bc.channel.ReceptionID.Bytes(), []byte(asymmetricRSAToPublicBroadcastServiceTag)...),
-			Tags:       tags,
-		}
+		service = bc.GetRSAToPublicCompressedService(tags)
 
 		if cMixParams.DebugTag == cmix.DefaultDebugTag {
 			cMixParams.DebugTag = asymmCMixSendTag
@@ -123,4 +120,11 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 	r, ephID, err :=
 		bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
 	return singleEncryptedPayload, r, ephID, err
+}
+
+func (bc *broadcastClient) GetRSAToPublicCompressedService(tags []string) message.CompressedService {
+	return message.CompressedService{
+		Identifier: bc.asymIdentifier,
+		Tags:       tags,
+	}
 }

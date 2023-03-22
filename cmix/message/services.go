@@ -278,11 +278,13 @@ func (sm *ServicesManager) DeleteCompressedService(clientID *id.ID, toDelete Com
 }
 
 // DeleteClientService deletes the mapping associated with an ID.
+// deletes both services and compressed services
 func (sm *ServicesManager) DeleteClientService(clientID *id.ID) {
 	sm.Lock()
 	defer sm.Unlock()
 
 	delete(sm.services, *clientID)
+	delete(sm.compressedServices, *clientID)
 }
 
 func (s service) String() string {

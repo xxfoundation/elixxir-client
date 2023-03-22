@@ -26,20 +26,20 @@ const (
 
 // Tags.
 const (
-	symmCMixSendTag              = "SymmBcast"
-	symmetricBroadcastServiceTag = "SymmetricBroadcast"
+	symmCMixSendTag                  = "SymmBcast"
+	symmetricBroadcastServicePostfix = "SymmetricBroadcast"
 )
 
 // Broadcast broadcasts a payload to a symmetric channel. The payload must be of
 // size [broadcastClient.MaxPayloadSize] or smaller.
 //
 // The network must be healthy to send.
-func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
+func (bc *broadcastClient) Broadcast(payload []byte, tags []string, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	assemble := func(rid id.Round) ([]byte, error) {
 		return payload, nil
 	}
-	return bc.BroadcastWithAssembler(assemble, cMixParams)
+	return bc.BroadcastWithAssembler(assemble, tags, cMixParams)
 }
 
 // BroadcastWithAssembler broadcasts a payload over a symmetric channel with a
@@ -50,14 +50,14 @@ func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams)
 //
 // The network must be healthy to send.
 func (bc *broadcastClient) BroadcastWithAssembler(
-	assembler Assembler, cMixParams cmix.CMIXParams) (
+	assembler Assembler, tags []string, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	if !bc.net.IsHealthy() {
 		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
 	assemble := func(rid id.Round) (fp format.Fingerprint,
-		service message.Service, encryptedPayload, mac []byte, err error) {
+		service cmix.Service, encryptedPayload, mac []byte, err error) {
 
 		// Assemble the passed payload
 		payload, err := assembler(rid)
@@ -82,10 +82,7 @@ func (bc *broadcastClient) BroadcastWithAssembler(
 
 		// Create service using symmetric broadcast service tag & channel reception ID
 		// Allows anybody with this info to listen for messages on this channel
-		service = message.Service{
-			Identifier: bc.channel.ReceptionID.Bytes(),
-			Tag:        symmetricBroadcastServiceTag,
-		}
+		service = bc.GetSymmetricCompressedService(tags)
 
 		if cMixParams.DebugTag == cmix.DefaultDebugTag {
 			cMixParams.DebugTag = symmCMixSendTag
@@ -95,4 +92,11 @@ func (bc *broadcastClient) BroadcastWithAssembler(
 
 	return bc.net.SendWithAssembler(
 		bc.channel.ReceptionID, assemble, cMixParams)
+}
+
+func (bc *broadcastClient) GetSymmetricCompressedService(tags []string) message.CompressedService {
+	return message.CompressedService{
+		Identifier: bc.symIdentifier,
+		Tags:       tags,
+	}
 }

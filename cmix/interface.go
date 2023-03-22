@@ -60,7 +60,7 @@ type Client interface {
 	// (along with the reason). Blocks until successful sends or errors.
 	// WARNING: Do not roll your own crypto.
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service message.Service, payload, mac []byte, cmixParams CMIXParams) (
+		service Service, payload, mac []byte, cmixParams CMIXParams) (
 		rounds.Round, ephemeral.Id, error)
 
 	// SendMany sends many "raw" cMix message payloads to the provided
@@ -250,6 +250,7 @@ type Client interface {
 		processor message.Processor)
 
 	// DeleteClientService deletes the mapping associated with an ID.
+	// deletes both services and compressed services
 	DeleteClientService(clientID *id.ID)
 
 	// DeleteCompressedService - If only a single response is associated with the preimage,

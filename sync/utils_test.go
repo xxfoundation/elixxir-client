@@ -3,6 +3,8 @@ package sync
 import (
 	"encoding/base64"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/utils"
 	"math/rand"
 	"os"
@@ -58,9 +60,11 @@ func TestDeviceOffset(t *testing.T) {
 // testing purposes.
 func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog {
 	// Construct local store
-	localStore, err := NewEkvLocalStore(baseDir, password)
+	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
 
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	require.NoError(t, err)
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
@@ -141,4 +145,10 @@ func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Tim
 	}
 
 	return res
+}
+
+// Mock upsert containing the key, old value and new value.
+type mockUpsert struct {
+	key            string
+	curVal, newVal []byte
 }

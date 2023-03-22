@@ -50,6 +50,28 @@ type transaction struct {
 	Value     []byte
 }
 
+// MarshalJSON adheres to json.Marshaler.
+//
+// WARNING: THIS IS A BINDINGS ONLY METHOD.
+func (t *Transaction) MarshalJSON() ([]byte, error) {
+	// Marshal the current transaction
+	return json.Marshal(transaction(*t))
+}
+
+// UnmarshalJSON adheres to json.Unmarshaler.
+//
+// WARNING: THIS IS A BINDINGS ONLY METHOD.
+func (t *Transaction) UnmarshalJSON(data []byte) error {
+	// Unmarshal transaction
+	tx := transaction{}
+	if err := json.Unmarshal(data, &tx); err != nil {
+		return err
+	}
+
+	*t = Transaction(tx)
+	return nil
+}
+
 // serialize serializes a Transaction object. More accurately, since the
 // serialization will be stored remotely, serialize will encrypt the Transaction
 // and encode the encryption.
@@ -64,7 +86,7 @@ func (t *Transaction) serialize(deviceSecret []byte, index int,
 	rng io.Reader) ([]byte, error) {
 
 	// Marshal the current transaction
-	txMarshal, err := json.Marshal(t)
+	txMarshal, err := t.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}

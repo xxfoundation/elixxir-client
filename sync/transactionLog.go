@@ -173,17 +173,18 @@ func (tl *TransactionLog) appendUsingInsertion(newTransaction Transaction) {
 			continue
 		}
 		// If the current index is Before, insert just after this index
-		insertidx := i
+		insertionIndex := i
 		// Just append when we are at the end already
-		if insertidx == len(tl.txs) {
+		if insertionIndex == len(tl.txs) {
 			tl.txs = append(tl.txs, newTransaction)
 		} else {
-			tl.txs = append(tl.txs[:insertidx+1], tl.txs[insertidx:]...)
-			tl.txs[insertidx] = newTransaction
+			tl.txs = append(tl.txs[:insertionIndex+1], tl.txs[insertionIndex:]...)
+			tl.txs[insertionIndex] = newTransaction
 
 		}
 		return
 	}
+	return
 }
 
 // appendUsingInsertion will write the new Transaction to txs. txs must be
@@ -334,8 +335,8 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 
 // save writes the data passed int to file, both remotely and locally. The data
 // created from serialize.
-func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte,
-	remoteCb RemoteStoreCallback) error {
+func (tl *TransactionLog) save(newTx Transaction,
+	dataToSave []byte, remoteCb RemoteStoreCallback) error {
 	// Save to local storage (if set)
 	if tl.local == nil {
 		jww.FATAL.Panicf("[%s] Cannot write to a nil local store", logHeader)

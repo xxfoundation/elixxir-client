@@ -24,7 +24,7 @@ type Processor interface {
 	// It is a security vulnerability to reuse a fingerprint. It leaks privacy
 	// and can lead to compromise of message contents and integrity.
 	Process(message format.Message, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round)
+		round rounds.Round, tags []string)
 
 	// Stringer interface for debugging
 	fmt.Stringer

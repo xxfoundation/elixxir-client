@@ -26,7 +26,7 @@ func TestServicesManager_Add_DeleteService(t *testing.T) {
 	if s.numServices != 1 {
 		t.Errorf("Expected successful service add increment")
 	}
-	if len(s.tmap[*testId]) != 1 {
+	if len(s.services[*testId]) != 1 {
 		t.Errorf("Expected successful service add")
 	}
 
@@ -35,7 +35,7 @@ func TestServicesManager_Add_DeleteService(t *testing.T) {
 	if s.numServices != 0 {
 		t.Errorf("Expected successful service remove decrement")
 	}
-	if len(s.tmap[*testId]) != 0 {
+	if len(s.services[*testId]) != 0 {
 		t.Errorf("Expected successful service remove")
 	}
 }

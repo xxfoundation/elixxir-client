@@ -12,39 +12,45 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"io"
 )
 
 // RegisterForNotifications allows a client to register for push notifications.
 // Note that clients are not required to register for push notifications,
 // especially as these rely on third parties (i.e., Firebase *cough* *cough*
 // Google's palantir *cough*) that may represent a security risk to the user.
-func (m *E2e) RegisterForNotifications(token string) error {
+// A client can register to receive push notifications on many IDs.
+func (c *Cmix) RegisterForNotifications(toBeNotifiedOn *id.ID, token string) error {
 	jww.INFO.Printf("RegisterForNotifications(%s)", token)
 	// Pull the host from the manage
-	notificationBotHost, ok := m.GetComms().GetHost(&id.NotificationBot)
+	notificationBotHost, ok := c.GetComms().GetHost(&id.NotificationBot)
 	if !ok {
 		return errors.New("RegisterForNotifications: " +
 			"Failed to retrieve host for notification bot")
 	}
-	intermediaryReceptionID, sig, err := m.getIidAndSig()
+	stream := c.GetRng().GetStream()
+	defer stream.Close()
+	intermediaryReceptionID, sig, err := getIidAndSig(c.GetStorage().GetTransmissionRSA(),
+		toBeNotifiedOn, stream)
 	if err != nil {
 		return err
 	}
 
-	privKey := m.GetStorage().GetTransmissionRSA()
+	privKey := c.GetStorage().GetTransmissionRSA()
 	pubPEM := privKey.Public().MarshalPem()
-	regSig := m.GetStorage().GetTransmissionRegistrationValidationSignature()
-	regTS := m.GetStorage().GetRegistrationTimestamp()
+	regSig := c.GetStorage().GetTransmissionRegistrationValidationSignature()
+	regTS := c.GetStorage().GetRegistrationTimestamp()
 
 	// Send the register message
-	_, err = m.GetComms().RegisterForNotifications(notificationBotHost,
+	_, err = c.GetComms().RegisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationRegisterRequest{
 			Token:                 token,
 			IntermediaryId:        intermediaryReceptionID,
 			TransmissionRsa:       pubPEM,
-			TransmissionSalt:      m.GetStorage().GetTransmissionSalt(),
+			TransmissionSalt:      c.GetStorage().GetTransmissionSalt(),
 			TransmissionRsaSig:    regSig,
 			IIDTransmissionRsaSig: sig,
 			RegistrationTimestamp: regTS.UnixNano(),
@@ -59,19 +65,23 @@ func (m *E2e) RegisterForNotifications(token string) error {
 }
 
 // UnregisterForNotifications turns off notifications for this client.
-func (m *E2e) UnregisterForNotifications() error {
+func (c *Cmix) UnregisterForNotifications(toBeNotifiedOn *id.ID) error {
 	jww.INFO.Printf("UnregisterForNotifications()")
 	// Pull the host from the manage
-	notificationBotHost, ok := m.GetComms().GetHost(&id.NotificationBot)
+	notificationBotHost, ok := c.GetComms().GetHost(&id.NotificationBot)
 	if !ok {
 		return errors.New("Failed to retrieve host for notification bot")
 	}
-	intermediaryReceptionID, sig, err := m.getIidAndSig()
+
+	stream := c.GetRng().GetStream()
+	defer stream.Close()
+	intermediaryReceptionID, sig, err := getIidAndSig(c.GetStorage().GetTransmissionRSA(),
+		toBeNotifiedOn, stream)
 	if err != nil {
 		return err
 	}
 	// Sends the unregister message
-	_, err = m.GetComms().UnregisterForNotifications(notificationBotHost,
+	_, err = c.GetComms().UnregisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationUnregisterRequest{
 			IntermediaryId:        intermediaryReceptionID,
 			IIDTransmissionRsaSig: sig,
@@ -85,9 +95,9 @@ func (m *E2e) UnregisterForNotifications() error {
 	return nil
 }
 
-func (m *E2e) getIidAndSig() ([]byte, []byte, error) {
+func getIidAndSig(signer rsa.PrivateKey, toBeNotified *id.ID, rng io.Reader) ([]byte, []byte, error) {
 	intermediaryReceptionID, err := ephemeral.GetIntermediaryId(
-		m.GetStorage().GetReceptionID())
+		toBeNotified)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err,
 			"RegisterForNotifications: Failed to form intermediary ID")
@@ -103,13 +113,11 @@ func (m *E2e) getIidAndSig() ([]byte, []byte, error) {
 			"RegisterForNotifications: Failed to write intermediary ID to hash")
 	}
 
-	stream := m.GetRng().GetStream()
-	sig, err := m.GetStorage().GetTransmissionRSA().SignPSS(stream,
+	sig, err := signer.SignPSS(rng,
 		hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err,
 			"RegisterForNotifications: Failed to sign intermediary ID")
 	}
-	stream.Close()
 	return intermediaryReceptionID, sig, nil
 }

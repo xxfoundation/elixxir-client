@@ -40,9 +40,10 @@ must be re-added before StartNetworkFollower is called.
 
 type ServicesManager struct {
 	// Map reception ID to sih.Preimage to service
-	tmap        map[id.ID]map[sih.Preimage]service
-	trackers    []ServicesTracker
-	numServices uint
+	services           map[id.ID]map[sih.Preimage]service
+	compressedServices map[id.ID]map[sih.Preimage]compressedService
+	trackers           []ServicesTracker
+	numServices        uint
 	sync.Mutex
 }
 
@@ -52,9 +53,15 @@ type service struct {
 	defaultList []Processor
 }
 
+type compressedService struct {
+	CompressedService
+	Processor
+	defaultList []Processor
+}
+
 func NewServices() *ServicesManager {
 	return &ServicesManager{
-		tmap:        make(map[id.ID]map[sih.Preimage]service),
+		services:    make(map[id.ID]map[sih.Preimage]service),
 		trackers:    make([]ServicesTracker, 0),
 		numServices: 0,
 	}
@@ -69,48 +76,53 @@ func NewServices() *ServicesManager {
 // These services are returned to the caller along with a true boolean.
 // If the map has been exhausted with no matches found, it returns nil and false.
 func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
-	ecrMsgContents []byte) ([]Processor, bool) {
+	ecrMsgContents []byte) ([]Processor, []string, bool) {
 	sm.Lock()
 	defer sm.Unlock()
 	cid := *clientID
 
-	services, exists := sm.tmap[cid]
-	if !exists {
-		return nil, false
-	}
+	if services, exists := sm.services[cid]; exists {
+		// NOTE: We exit on the first service match
+		for _, s := range services {
+			// Check if the SIH matches this service
+			if s.ForMe(ecrMsgContents, receivedSIH) {
+				if s.defaultList == nil && s.Tag != sih.Default {
+					//skip if the processor is nil
+					if s.Processor == nil {
+						jww.ERROR.Printf("<nil> processor: %s",
+							s.Tag)
+						return []Processor{}, nil, true
+					}
+					// Return this service directly if not
+					// the default service
+					return []Processor{s}, []string{s.Tag}, true
 
-	// NOTE: We exit on the first service match
-	for _, s := range services {
-		// Check if the SIH matches this service
-		if s.ForMe(ecrMsgContents, receivedSIH) {
-			if s.defaultList == nil && s.Tag != sih.Default {
-				//skip if the processor is nil
-				if s.Processor == nil {
-					jww.ERROR.Printf("<nil> processor: %s",
-						s.Tag)
-					return []Processor{}, true
+				} else if s.defaultList != nil {
+					// If it is default and the default
+					// list is not empty, then return the
+					// default list
+					return s.defaultList, []string{sih.Default}, true
 				}
-				// Return this service directly if not
-				// the default service
-				return []Processor{s}, true
 
-			} else if s.defaultList != nil {
-				// If it is default and the default
-				// list is not empty, then return the
-				// default list
-				return s.defaultList, true
+				// Return false if it is for me, but I have
+				// nothing registered to respond to default
+				// queries
+				return []Processor{}, nil, false
 			}
-
-			// Return false if it is for me, but I have
-			// nothing registered to respond to default
-			// queries
-			return []Processor{}, false
+			jww.TRACE.Printf("Evaluated service not for me (%s): %s",
+				clientID, s)
 		}
-		jww.TRACE.Printf("Evaluated service not for me (%s): %s",
-			clientID, s)
 	}
 
-	return nil, false
+	if compressed, exists := sm.compressedServices[cid]; exists {
+		for _, c := range compressed {
+			if forMe, tags := c.ForMe(clientID, ecrMsgContents, receivedSIH); forMe {
+				return []Processor{c.Processor}, tags, true
+			}
+		}
+	}
+
+	return nil, nil, false
 }
 
 // AddService adds a service which can call a message handing function or be
@@ -136,8 +148,8 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service, respo
 	}
 
 	// Initialize the map for the ID if needed
-	if _, exists := sm.tmap[*clientID]; !exists {
-		sm.tmap[*clientID] = make(map[sih.Preimage]service)
+	if _, exists := sm.services[*clientID]; !exists {
+		sm.services[*clientID] = make(map[sih.Preimage]service)
 	}
 
 	// Handle default tag behavior
@@ -146,14 +158,14 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service, respo
 			jww.FATAL.Panicf("Cannot accept a malformed 'Default' " +
 				"service, Identifier must match clientID")
 		}
-		oldDefault, exists := sm.tmap[*clientID][newService.preimage()]
+		oldDefault, exists := sm.services[*clientID][newService.preimage()]
 		if exists {
 			newEntry = oldDefault
 			oldDefault.defaultList = append(oldDefault.defaultList, response)
 		} else {
 			newEntry.Metadata = clientID[:]
 		}
-	} else if _, exists := sm.tmap[*clientID][newService.preimage()]; exists {
+	} else if _, exists := sm.services[*clientID][newService.preimage()]; exists {
 		jww.FATAL.Panicf("Cannot add service %s, an identical "+
 			"service already exists", newService.Tag)
 	}
@@ -162,7 +174,38 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service, respo
 		clientID)
 
 	// Add the service to the internal map
-	sm.tmap[*clientID][newService.preimage()] = newEntry
+	sm.services[*clientID][newService.preimage()] = newEntry
+	sm.numServices++
+
+	// Signal that a new service was added
+	sm.triggerServiceTracking()
+}
+
+// UpsertCompressedService adds a compressed service which can call a message
+// handing function or be used for notifications. Online a single compressed
+// service can be registered to an identifier. If the same identifier is used,
+// it will replace the old one.
+func (sm *ServicesManager) UpsertCompressedService(clientID *id.ID, newService CompressedService,
+	response Processor) {
+	sm.Lock()
+	defer sm.Unlock()
+
+	newEntry := compressedService{
+		CompressedService: newService,
+		Processor:         response,
+		defaultList:       nil,
+	}
+
+	// Initialize the map for the ID if needed
+	if _, exists := sm.compressedServices[*clientID]; !exists {
+		sm.compressedServices[*clientID] = make(map[sih.Preimage]compressedService)
+	}
+
+	jww.DEBUG.Printf("Adding compressed service %s, clientID: %s", newService,
+		clientID)
+
+	// Add the service to the internal map
+	sm.compressedServices[*clientID][newService.preimage()] = newEntry
 	sm.numServices++
 
 	// Signal that a new service was added
@@ -179,7 +222,7 @@ func (sm *ServicesManager) DeleteService(clientID *id.ID, toDelete Service,
 	defer sm.Unlock()
 	cid := *clientID
 
-	idTmap, exists := sm.tmap[cid]
+	idTmap, exists := sm.services[cid]
 	if !exists {
 		return
 	}
@@ -208,12 +251,38 @@ func (sm *ServicesManager) DeleteService(clientID *id.ID, toDelete Service,
 	return
 }
 
+// DeleteCompressedService - If only a single response is associated with the preimage,
+// the entire preimage is removed. If there is more than one response, only the
+// given response is removed. If nil is passed in for response, all triggers for
+// the preimage will be removed.
+func (sm *ServicesManager) DeleteCompressedService(clientID *id.ID, toDelete CompressedService,
+	processor Processor) {
+	sm.Lock()
+	defer sm.Unlock()
+	cid := *clientID
+
+	idTmap, exists := sm.compressedServices[cid]
+	if !exists {
+		return
+	}
+
+	_, exists = idTmap[toDelete.preimage()]
+	if !exists {
+		return
+	}
+
+	delete(idTmap, toDelete.preimage())
+	sm.numServices--
+	sm.triggerServiceTracking()
+	return
+}
+
 // DeleteClientService deletes the mapping associated with an ID.
 func (sm *ServicesManager) DeleteClientService(clientID *id.ID) {
 	sm.Lock()
 	defer sm.Unlock()
 
-	delete(sm.tmap, *clientID)
+	delete(sm.services, *clientID)
 }
 
 func (s service) String() string {

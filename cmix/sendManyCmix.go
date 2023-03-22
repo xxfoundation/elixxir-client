@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
-	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/nodes"
 	"gitlab.com/elixxir/client/v4/event"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -41,7 +40,7 @@ type TargetedCmixMessage struct {
 	Recipient   *id.ID
 	Payload     []byte
 	Fingerprint format.Fingerprint
-	Service     message.Service
+	Service     Service
 	Mac         []byte
 }
 
@@ -127,7 +126,7 @@ func (c *client) sendManyWithAssembler(recipients []*id.ID,
 			msg.SetKeyFP(messages[i].Fingerprint)
 			msg.SetContents(messages[i].Payload)
 			msg.SetMac(messages[i].Mac)
-			msg.SetSIH(messages[i].Service.Hash(msg.GetContents()))
+			msg.SetSIH(messages[i].Service.Hash(messages[i].Recipient, msg.GetContents()))
 
 			acms[i] = assembledCmixMessage{
 				Recipient: messages[i].Recipient,

@@ -25,14 +25,12 @@ type Service struct {
 	lazyPreimage *sih.Preimage
 }
 
-func (si Service) Hash(_ *id.ID, contents []byte) []byte {
-	preimage := si.preimage()
-	return sih.Hash(preimage, contents)
+func (si Service) Hash(_ *id.ID, contents []byte) ([]byte, error) {
+	return sih.Hash(si.preimage(), contents), nil
 }
 
 func (si Service) HashFromMessageHash(messageHash []byte) []byte {
-	preimage := si.preimage()
-	return sih.HashFromMessageHash(preimage, messageHash)
+	return sih.HashFromMessageHash(si.preimage(), messageHash)
 }
 
 func (si Service) preimage() sih.Preimage {

@@ -125,7 +125,11 @@ func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 		msg := format.NewMessage(c.session.GetCmixGroup().GetP().ByteLen())
 		msg.SetContents(payload)
 		msg.SetKeyFP(fingerprint)
-		msg.SetSIH(service.Hash(recipient, msg.GetContents()))
+		sih, err := service.Hash(recipient, msg.GetContents())
+		if err != nil {
+			return format.Message{}, err
+		}
+		msg.SetSIH(sih)
 		msg.SetMac(mac)
 
 		jww.TRACE.Printf("sendCmix Contents: %v, KeyFP: %v, MAC: %v, SIH: %v",

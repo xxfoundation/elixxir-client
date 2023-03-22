@@ -126,7 +126,11 @@ func (c *client) sendManyWithAssembler(recipients []*id.ID,
 			msg.SetKeyFP(messages[i].Fingerprint)
 			msg.SetContents(messages[i].Payload)
 			msg.SetMac(messages[i].Mac)
-			msg.SetSIH(messages[i].Service.Hash(messages[i].Recipient, msg.GetContents()))
+			sih, err := messages[i].Service.Hash(messages[i].Recipient, msg.GetContents())
+			if err != nil {
+				return nil, err
+			}
+			msg.SetSIH(sih)
 
 			acms[i] = assembledCmixMessage{
 				Recipient: messages[i].Recipient,

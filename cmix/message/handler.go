@@ -41,6 +41,10 @@ type Handler interface {
 	// Services
 	AddService(clientID *id.ID, newService Service, response Processor)
 	DeleteService(clientID *id.ID, toDelete Service, response Processor)
+	UpsertCompressedService(clientID *id.ID, newService CompressedService,
+		response Processor)
+	DeleteCompressedService(clientID *id.ID, toDelete CompressedService,
+		processor Processor)
 	DeleteClientService(clientID *id.ID)
 	TrackServices(triggerTracker ServicesTracker)
 

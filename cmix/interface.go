@@ -203,6 +203,11 @@ type Client interface {
 
 	   Services are address to the session. When starting a new client, all
 	   services must be re-added before StartNetworkFollower is called.
+
+	   Compressed Services allow a server with many optional tags. They
+	   achieve this by using a bloom filter to compress multiple tags
+	   together. The rate of false positives increases exponentially after more than
+	   4 tags are used in sending on the same compressed service.
 	*/
 
 	// AddService adds a service that can call a message handing function or be
@@ -389,7 +394,7 @@ type manyMessageAssembler func(rid id.Round) ([]assembledCmixMessage, error)
 // It takes in the ID that is being sent to as well as the contents
 // of the message.
 type Service interface {
-	Hash(pickup *id.ID, contents []byte) []byte
+	Hash(pickup *id.ID, contents []byte) ([]byte, error)
 }
 
 // MessageAssembler func accepts a round ID, returning fingerprint, service,

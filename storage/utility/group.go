@@ -15,7 +15,7 @@ import (
 
 const currentGroupVersion = 0
 
-func StoreGroup(kv *versioned.KV, grp *cyclic.Group, key string) error {
+func StoreGroup(kv *KV, grp *cyclic.Group, key string) error {
 	now := netTime.Now()
 
 	data, err := grp.GobEncode()
@@ -23,22 +23,22 @@ func StoreGroup(kv *versioned.KV, grp *cyclic.Group, key string) error {
 		return err
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentGroupVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
-	return kv.Set(key, &obj)
+	return kv.Set(key, obj.Marshal())
 }
 
-func LoadGroup(kv *versioned.KV, key string) (*cyclic.Group, error) {
-	vo, err := kv.Get(key, currentGroupVersion)
+func LoadGroup(kv *KV, key string) (*cyclic.Group, error) {
+	data, err := kv.Get(key, currentGroupVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	grp := &cyclic.Group{}
 
-	return grp, grp.GobDecode(vo.Data)
+	return grp, grp.GobDecode(data)
 }

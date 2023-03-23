@@ -19,9 +19,9 @@ const usernameKey = "username"
 
 func (u *User) loadUsername() {
 	u.usernameMux.Lock()
-	obj, err := u.kv.Get(usernameKey, currentUsernameVersion)
+	data, err := u.kv.Get(usernameKey, currentUsernameVersion)
 	if err == nil {
-		u.username = string(obj.Data)
+		u.username = string(data)
 	}
 	u.usernameMux.Unlock()
 }
@@ -39,7 +39,7 @@ func (u *User) SetUsername(username string) error {
 		Data:      []byte(username),
 	}
 
-	err := u.kv.Set(usernameKey, obj)
+	err := u.kv.Set(usernameKey, obj.Marshal())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the username: %s", err)
 	}

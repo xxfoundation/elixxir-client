@@ -10,6 +10,7 @@ package clientVersion
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -25,32 +26,32 @@ const (
 // Store stores the version of the client's storage.
 type Store struct {
 	version version.Version
-	kv      *versioned.KV
+	kv      *utility.KV
 	sync.RWMutex
 }
 
 // NewStore returns a new clientVersion store.
-func NewStore(newVersion version.Version, kv *versioned.KV) (*Store, error) {
+func NewStore(newVersion version.Version, kv *utility.KV) (*Store, error) {
 	s := &Store{
 		version: newVersion,
-		kv:      kv.Prefix(prefix),
+		kv:      kv,
 	}
 
 	return s, s.save()
 }
 
 // LoadStore loads the clientVersion storage object.
-func LoadStore(kv *versioned.KV) (*Store, error) {
+func LoadStore(kv *utility.KV) (*Store, error) {
 	s := &Store{
-		kv: kv.Prefix(prefix),
+		kv: kv,
 	}
 
-	obj, err := s.kv.Get(storeKey, storeVersion)
+	data, err := s.kv.Get(storeKey, storeVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	s.version, err = version.ParseVersion(string(obj.Data))
+	s.version, err = version.ParseVersion(string(data))
 	if err != nil {
 		return nil, errors.Errorf("failed to parse client version: %+v", err)
 	}
@@ -107,11 +108,11 @@ func (s *Store) update(newVersion version.Version) error {
 func (s *Store) save() error {
 	timeNow := netTime.Now()
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   storeVersion,
 		Timestamp: timeNow,
 		Data:      []byte(s.version.String()),
 	}
 
-	return s.kv.Set(storeKey, &obj)
+	return s.kv.Set(storeKey, obj.Marshal())
 }

@@ -8,6 +8,7 @@
 package user
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"math/rand"
 	"testing"
 
@@ -25,7 +26,7 @@ import (
 func TestUser_SetUsername(t *testing.T) {
 	sch := rsa.GetScheme()
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
@@ -40,7 +41,7 @@ func TestUser_SetUsername(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+	u, err := NewUser(utilKv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
@@ -58,13 +59,14 @@ func TestUser_SetUsername(t *testing.T) {
 		t.Error("Did not error when attempting to set a new username")
 	}
 
-	o, err := u.kv.Get(usernameKey, 0)
+	data, err := u.kv.Get(usernameKey, 0)
 	if err != nil {
 		t.Errorf("Didn't get username from user kv store: %+v", err)
 	}
 
-	if string(o.Data) != u1 {
-		t.Errorf("Expected username was not stored.\nExpected: %s\tReceived: %s", u1, string(o.Data))
+	if string(data) != u1 {
+		t.Errorf("Expected username was not stored."+
+			"\nExpected: %s\tReceived: %s", u1, string(data))
 	}
 }
 
@@ -72,7 +74,7 @@ func TestUser_SetUsername(t *testing.T) {
 func TestUser_GetUsername(t *testing.T) {
 	sch := rsa.GetScheme()
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
@@ -87,7 +89,7 @@ func TestUser_GetUsername(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+	u, err := NewUser(utilKv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
@@ -113,7 +115,7 @@ func TestUser_GetUsername(t *testing.T) {
 func TestUser_loadUsername(t *testing.T) {
 	sch := rsa.GetScheme()
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
@@ -128,7 +130,7 @@ func TestUser_loadUsername(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
+	u, err := NewUser(utilKv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
@@ -136,11 +138,12 @@ func TestUser_loadUsername(t *testing.T) {
 
 	u1 := "zezima"
 
-	err = u.kv.Set(usernameKey, &versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentUsernameVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte(u1),
-	})
+	}
+	err = u.kv.Set(usernameKey, obj.Marshal())
 	u.loadUsername()
 	if u.username != u1 {
 		t.Errorf("Username was not properly loaded from kv.\nExpected: %s, Received: %s", u1, u.username)

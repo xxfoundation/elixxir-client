@@ -78,11 +78,11 @@ func (s *session) newRegStatus() error {
 
 // loads registration status from disk.
 func (s *session) loadRegStatus() error {
-	obj, err := s.Get(registrationStatusKey)
+	data, err := s.Get(registrationStatusKey)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to load registration status")
 	}
-	s.regStatus = regStatusUnmarshalBinary(obj.Data)
+	s.regStatus = regStatusUnmarshalBinary(data)
 	return nil
 }
 

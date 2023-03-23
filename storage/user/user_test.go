@@ -8,6 +8,7 @@
 package user
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"math/rand"
 	"testing"
 
@@ -24,8 +25,8 @@ import (
 func TestLoadUser(t *testing.T) {
 	sch := rsa.GetScheme()
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	_, err := LoadUser(kv)
+	utilKv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	_, err := LoadUser(utilKv)
 
 	if err == nil {
 		t.Errorf("Should have failed to load identity from empty kv")
@@ -44,13 +45,13 @@ func TestLoadUser(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
-		reception, false, dhPrivKey, dhPubKey, kv)
-	err = ci.save(kv)
+		reception, false, dhPrivKey, dhPubKey, utilKv)
+	err = ci.save(utilKv)
 	if err != nil {
 		t.Errorf("Failed to save ci to kv: %+v", err)
 	}
 
-	_, err = LoadUser(kv)
+	_, err = LoadUser(utilKv)
 	if err != nil {
 		t.Errorf("Failed to load user: %+v", err)
 	}
@@ -60,7 +61,7 @@ func TestLoadUser(t *testing.T) {
 func TestNewUser(t *testing.T) {
 	sch := rsa.GetScheme()
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 
@@ -73,7 +74,7 @@ func TestNewUser(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+	u, err := NewUser(utilKv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)

@@ -10,6 +10,7 @@ package user
 import (
 	"bytes"
 	"crypto/rand"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -24,6 +25,7 @@ import (
 // Test for NewCryptographicIdentity function
 func TestNewCryptographicIdentity(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 
@@ -39,7 +41,7 @@ func TestNewCryptographicIdentity(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	_ = newCryptographicIdentity(uid, uid, salt, salt, transmission,
-		reception, false, dhPrivKey, dhPubKey, kv)
+		reception, false, dhPrivKey, dhPubKey, utilKv)
 
 	_, err := kv.Get(cryptographicIdentityKey, currentCryptographicIdentityVersion)
 	if err != nil {
@@ -50,6 +52,8 @@ func TestNewCryptographicIdentity(t *testing.T) {
 // Test loading cryptographic identity from KV store
 func TestLoadCryptographicIdentity(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 
@@ -65,14 +69,14 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
-		reception, false, dhPrivKey, dhPubKey, kv)
+		reception, false, dhPrivKey, dhPubKey, utilKv)
 
-	err := ci.save(kv)
+	err := ci.save(utilKv)
 	if err != nil {
 		t.Errorf("Did not store cryptographic identity: %+v", err)
 	}
 
-	newCi, err := loadCryptographicIdentity(kv)
+	newCi, err := loadCryptographicIdentity(utilKv)
 	if err != nil {
 		t.Errorf("Failed to load cryptographic identity: %+v", err)
 	}
@@ -88,6 +92,8 @@ func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
 	prng := rand.Reader
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("zezima", id.User, t)
 	pk1, err := sch.Generate(prng, 256)
 	if err != nil {
@@ -105,7 +111,7 @@ func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
 	ci := newCryptographicIdentity(
-		uid, uid, salt, salt, pk1, pk2, false, dhPrivKey, dhPubKey, kv)
+		uid, uid, salt, salt, pk1, pk2, false, dhPrivKey, dhPubKey, utilKv)
 	if ci.GetReceptionRSA().GetD().Cmp(pk2.GetD()) != 0 {
 		t.Errorf("Did not receive expected RSA key.  Expected: %+v, Received: %+v", pk2, ci.GetReceptionRSA())
 	}
@@ -117,6 +123,8 @@ func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
 	prng := rand.Reader
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("zezima", id.User, t)
 	pk1, err := sch.Generate(prng, 256)
 	if err != nil {
@@ -134,7 +142,7 @@ func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
 	ci := newCryptographicIdentity(
-		uid, uid, salt, salt, pk1, pk2, false, dhPrivKey, dhPubKey, kv)
+		uid, uid, salt, salt, pk1, pk2, false, dhPrivKey, dhPubKey, utilKv)
 	if ci.GetTransmissionRSA().GetD().Cmp(pk1.GetD()) != 0 {
 		t.Errorf("Did not receive expected RSA key.  Expected: %+v, Received: %+v", pk1, ci.GetTransmissionRSA())
 	}
@@ -149,6 +157,8 @@ func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("zezima", id.User, t)
 	ts := []byte("transmission salt")
 	rs := []byte("reception salt")
@@ -159,7 +169,7 @@ func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
 	ci := newCryptographicIdentity(uid, uid, ts, rs, transmission,
-		reception, false, dhPrivKey, dhPubKey, kv)
+		reception, false, dhPrivKey, dhPubKey, utilKv)
 	if bytes.Compare(ci.GetTransmissionSalt(), ts) != 0 {
 		t.Errorf("Did not get expected salt.  Expected: %+v, Received: %+v", ts, ci.GetTransmissionSalt())
 	}
@@ -174,6 +184,8 @@ func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("zezima", id.User, t)
 	ts := []byte("transmission salt")
 	rs := []byte("reception salt")
@@ -184,7 +196,7 @@ func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
 	ci := newCryptographicIdentity(uid, uid, ts, rs, transmission,
-		reception, false, dhPrivKey, dhPubKey, kv)
+		reception, false, dhPrivKey, dhPubKey, utilKv)
 	if bytes.Compare(ci.GetReceptionSalt(), rs) != 0 {
 		t.Errorf("Did not get expected salt.  Expected: %+v, Received: %+v", rs, ci.GetReceptionSalt())
 	}
@@ -199,6 +211,8 @@ func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	rid := id.NewIdFromString("zezima", id.User, t)
 	tid := id.NewIdFromString("jakexx360", id.User, t)
 	salt := []byte("salt")
@@ -208,7 +222,8 @@ func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	ci := newCryptographicIdentity(tid, rid, salt, salt, transmission, reception, false, dhPrivKey, dhPubKey, kv)
+	ci := newCryptographicIdentity(tid, rid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey, utilKv)
 	if !ci.GetTransmissionID().Cmp(tid) {
 		t.Errorf("Did not receive expected user ID.  Expected: %+v, Received: %+v", tid, ci.GetTransmissionID())
 	}
@@ -223,6 +238,8 @@ func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	rid := id.NewIdFromString("zezima", id.User, t)
 	tid := id.NewIdFromString("jakexx360", id.User, t)
 	salt := []byte("salt")
@@ -232,7 +249,8 @@ func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	ci := newCryptographicIdentity(tid, rid, salt, salt, transmission, reception, false, dhPrivKey, dhPubKey, kv)
+	ci := newCryptographicIdentity(tid, rid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey, utilKv)
 	if !ci.GetReceptionID().Cmp(rid) {
 		t.Errorf("Did not receive expected user ID.  Expected: %+v, Received: %+v", rid, ci.GetReceptionID())
 	}
@@ -247,6 +265,8 @@ func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
 	reception, _ := sch.Generate(prng, 256)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 
@@ -255,7 +275,8 @@ func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission, reception, true, dhPrivKey, dhPubKey, kv)
+	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
+		reception, true, dhPrivKey, dhPubKey, utilKv)
 	if !ci.IsPrecanned() {
 		t.Error("I really don't know how this could happen")
 	}

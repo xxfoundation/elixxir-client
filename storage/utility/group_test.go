@@ -17,10 +17,10 @@ import (
 
 // Unit test for StoreGroup
 func TestStoreGroup(t *testing.T) {
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	utilKv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
 	grp := getTestGroup()
-	err := StoreGroup(vkv, grp, "testKey")
+	err := StoreGroup(utilKv, grp, "testKey")
 	if err != nil {
 		t.Errorf("Failed to store group in kv: %+v", err)
 	}
@@ -28,17 +28,16 @@ func TestStoreGroup(t *testing.T) {
 
 // Unit test for LoadGroup
 func TestLoadGroup(t *testing.T) {
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	utilKv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	grp := getTestGroup()
 
 	grpKey := "testKey"
-	err := StoreGroup(vkv, grp, grpKey)
+	err := StoreGroup(utilKv, grp, grpKey)
 	if err != nil {
 		t.Errorf("Failed to store group in kv: %+v", err)
 	}
 
-	loaded, err := LoadGroup(vkv, grpKey)
+	loaded, err := LoadGroup(utilKv, grpKey)
 	if err != nil {
 		t.Errorf("Failed to load stored group: %+v", err)
 	}

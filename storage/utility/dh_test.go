@@ -15,12 +15,13 @@ import (
 
 // Unit test for StoreCyclicKey
 func TestStoreCyclicKey(t *testing.T) {
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	vkv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &KV{Local: vkv}
+
 	grp := getTestGroup()
 	x := grp.NewInt(77)
 
-	err := StoreCyclicKey(vkv, x, "testKey")
+	err := StoreCyclicKey(utilKv, x, "testKey")
 	if err != nil {
 		t.Error("Failed to store cyclic key")
 	}
@@ -28,18 +29,19 @@ func TestStoreCyclicKey(t *testing.T) {
 
 // Unit test for LoadCyclicKey
 func TestLoadCyclicKey(t *testing.T) {
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	vkv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &KV{Local: vkv}
+
 	grp := getTestGroup()
 	x := grp.NewInt(77)
 
 	intKey := "testKey"
-	err := StoreCyclicKey(vkv, x, intKey)
+	err := StoreCyclicKey(utilKv, x, intKey)
 	if err != nil {
 		t.Errorf("Failed to store cyclic key: %+v", err)
 	}
 
-	loaded, err := LoadCyclicKey(vkv, intKey)
+	loaded, err := LoadCyclicKey(utilKv, intKey)
 	if err != nil {
 		t.Errorf("Failed to load cyclic key: %+v", err)
 	}
@@ -50,13 +52,14 @@ func TestLoadCyclicKey(t *testing.T) {
 
 // Unit test for DeleteCyclicKey
 func TestDeleteCyclicKey(t *testing.T) {
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	vkv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &KV{Local: vkv}
+
 	grp := getTestGroup()
 	x := grp.NewInt(77)
 
 	intKey := "testKey"
-	err := StoreCyclicKey(vkv, x, intKey)
+	err := StoreCyclicKey(utilKv, x, intKey)
 	if err != nil {
 		t.Errorf("Failed to store cyclic key: %+v", err)
 	}
@@ -66,7 +69,7 @@ func TestDeleteCyclicKey(t *testing.T) {
 		t.Fatalf("DeleteCyclicKey returned an error: %v", err)
 	}
 
-	_, err = LoadCyclicKey(vkv, intKey)
+	_, err = LoadCyclicKey(utilKv, intKey)
 	if err == nil {
 		t.Errorf("DeleteCyclicKey error: Should not load deleted key: %+v", err)
 	}

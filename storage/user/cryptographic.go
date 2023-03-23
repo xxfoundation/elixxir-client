@@ -64,7 +64,7 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsa, receptionRsa rsa.PrivateKey,
 	isPrecanned bool, e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int,
-	kv *versioned.KV) *CryptographicIdentity {
+	kv *utility.KV) *CryptographicIdentity {
 
 	ci := &CryptographicIdentity{
 		transmissionID:     transmissionID,
@@ -86,10 +86,12 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 	return ci
 }
 
-// loadOriginalCryptographicIdentity attempts to load the originalCryptographicIdentityVersion CryptographicIdentity
-func loadOriginalCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
+// loadOriginalCryptographicIdentity attempts to load the
+// originalCryptographicIdentityVersion CryptographicIdentity
+func loadOriginalCryptographicIdentity(kv *utility.KV) (
+	*CryptographicIdentity, error) {
 	result := &CryptographicIdentity{}
-	obj, err := kv.Get(cryptographicIdentityKey, originalCryptographicIdentityVersion)
+	data, err := kv.Get(cryptographicIdentityKey, originalCryptographicIdentityVersion)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to get version %d user "+
 			"cryptographic identity from EKV", originalCryptographicIdentityVersion)
@@ -97,7 +99,7 @@ func loadOriginalCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity
 	var resultBuffer bytes.Buffer
 	decodable := &ciDisk{}
 
-	resultBuffer.Write(obj.Data)
+	resultBuffer.Write(data)
 	dec := gob.NewDecoder(&resultBuffer)
 	err = dec.Decode(decodable)
 	if err != nil {
@@ -116,9 +118,9 @@ func loadOriginalCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity
 	return result, nil
 }
 
-func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
+func loadCryptographicIdentity(kv *utility.KV) (*CryptographicIdentity, error) {
 	result := &CryptographicIdentity{}
-	obj, err := kv.Get(cryptographicIdentityKey,
+	data, err := kv.Get(cryptographicIdentityKey,
 		currentCryptographicIdentityVersion)
 	if err != nil {
 		result, err = loadOriginalCryptographicIdentity(kv)
@@ -133,7 +135,7 @@ func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error)
 	}
 
 	decodable := &ciDiskV1{}
-	err = json.Unmarshal(obj.Data, decodable)
+	err = json.Unmarshal(data, decodable)
 	if err != nil {
 		return nil, err
 	}
@@ -165,21 +167,18 @@ func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error)
 // loadLegacyDHKeys attempts to load DH Keys from legacy storage. It
 // prints a warning to the log as users should be using ReceptionIdentity
 // instead of PortableUserInfo
-func loadLegacyDHKeys(kv *versioned.KV) (pub, priv *cyclic.Int) {
+func loadLegacyDHKeys(kv *utility.KV) (pub, priv *cyclic.Int) {
 	// Legacy package prefixes and keys, see e2e/ratchet/storage.go
-	packagePrefix := "e2eSession"
 	pubKeyKey := "DhPubKey"
 	privKeyKey := "DhPrivKey"
 
-	kvPrefix := kv.Prefix(packagePrefix)
-
-	privKey, err := utility.LoadCyclicKey(kvPrefix, privKeyKey)
+	privKey, err := utility.LoadCyclicKey(kv, privKeyKey)
 	if err != nil {
 		jww.ERROR.Printf("Failed to load e2e DH private key: %v", err)
 		return nil, nil
 	}
 
-	pubKey, err := utility.LoadCyclicKey(kvPrefix, pubKeyKey)
+	pubKey, err := utility.LoadCyclicKey(kv, pubKeyKey)
 	if err != nil {
 		jww.ERROR.Printf("Failed to load e2e DH public key: %v", err)
 		return nil, nil
@@ -188,7 +187,7 @@ func loadLegacyDHKeys(kv *versioned.KV) (pub, priv *cyclic.Int) {
 	return pubKey, privKey
 }
 
-func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
+func (ci *CryptographicIdentity) save(kv *utility.KV) error {
 	dhPriv, err := ci.e2eDhPrivateKey.MarshalJSON()
 	if err != nil {
 		return err
@@ -215,13 +214,13 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 		return err
 	}
 
-	obj := &versioned.Object{
+	object := versioned.Object{
 		Version:   currentCryptographicIdentityVersion,
 		Timestamp: netTime.Now(),
 		Data:      enc,
 	}
 
-	return kv.Set(cryptographicIdentityKey, obj)
+	return kv.Set(cryptographicIdentityKey, object.Marshal())
 }
 
 func (ci *CryptographicIdentity) GetTransmissionID() *id.ID {

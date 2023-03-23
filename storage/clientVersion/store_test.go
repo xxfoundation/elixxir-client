@@ -8,6 +8,7 @@
 package clientVersion
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
@@ -22,10 +23,10 @@ func TestNewStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	expected := &Store{
 		version: version.New(42, 43, "44"),
-		kv:      kv.Prefix(prefix),
+		kv:      &utility.KV{Local: kv},
 	}
 
-	test, err := NewStore(expected.version, kv)
+	test, err := NewStore(expected.version, expected.kv)
 	if err != nil {
 		t.Errorf("NewStore() returned an error: %+v", err)
 	}
@@ -43,14 +44,14 @@ func TestLoadStore(t *testing.T) {
 
 	expected := &Store{
 		version: ver,
-		kv:      kv.Prefix(prefix),
+		kv:      &utility.KV{Local: kv},
 	}
 	err := expected.save()
 	if err != nil {
 		t.Fatalf("Failed to save Store: %+v", err)
 	}
 
-	test, err := LoadStore(kv)
+	test, err := LoadStore(expected.kv)
 	if err != nil {
 		t.Errorf("LoadStore() returned an error: %+v", err)
 	}
@@ -64,19 +65,19 @@ func TestLoadStore(t *testing.T) {
 // Error path: an error is returned when the loaded Store has an invalid version
 // that fails to be parsed.
 func TestLoadStore_ParseVersionError(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	obj := versioned.Object{
+	utilKv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	obj := &versioned.Object{
 		Version:   storeVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte("invalid version"),
 	}
 
-	err := kv.Prefix(prefix).Set(storeKey, &obj)
+	err := utilKv.Set(storeKey, obj.Marshal())
 	if err != nil {
 		t.Fatalf("Failed to save Store: %+v", err)
 	}
 
-	_, err = LoadStore(kv)
+	_, err = LoadStore(utilKv)
 	if err == nil || !strings.Contains(err.Error(), "failed to parse client version") {
 		t.Errorf("LoadStore() did not return an error when the client version "+
 			"is invalid: %+v", err)
@@ -90,7 +91,7 @@ func TestStore_Get(t *testing.T) {
 
 	s := &Store{
 		version: expected,
-		kv:      kv.Prefix(prefix),
+		kv:      &utility.KV{Local: kv},
 	}
 
 	test := s.Get()
@@ -105,7 +106,7 @@ func TestStore_CheckUpdateRequired(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	storedVersion := version.New(1, 2, "3")
 	newVersion := version.New(2, 3, "4")
-	s, err := NewStore(storedVersion, kv)
+	s, err := NewStore(storedVersion, &utility.KV{Local: kv})
 	if err != nil {
 		t.Fatalf("Failed to generate a new Store: %+v", err)
 	}
@@ -132,7 +133,7 @@ func TestStore_CheckUpdateRequired_EqualVersions(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	storedVersion := version.New(2, 3, "3")
 	newVersion := version.New(2, 3, "4")
-	s, err := NewStore(storedVersion, kv)
+	s, err := NewStore(storedVersion, &utility.KV{Local: kv})
 	if err != nil {
 		t.Fatalf("Failed to generate a new Store: %+v", err)
 	}
@@ -159,7 +160,7 @@ func TestStore_CheckUpdateRequired_NewVersionTooOldError(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	storedVersion := version.New(2, 3, "4")
 	newVersion := version.New(1, 2, "3")
-	s, err := NewStore(storedVersion, kv)
+	s, err := NewStore(storedVersion, &utility.KV{Local: kv})
 	if err != nil {
 		t.Fatalf("Failed to generate a new Store: %+v", err)
 	}
@@ -190,7 +191,7 @@ func TestStore_update(t *testing.T) {
 
 	s := &Store{
 		version: ver1,
-		kv:      kv.Prefix(prefix),
+		kv:      &utility.KV{Local: kv.Prefix(prefix)},
 	}
 
 	err := s.update(ver2)
@@ -211,7 +212,7 @@ func TestStore_save(t *testing.T) {
 
 	s := &Store{
 		version: ver,
-		kv:      kv.Prefix(prefix),
+		kv:      &utility.KV{Local: kv.Prefix(prefix)},
 	}
 
 	err := s.save()
@@ -219,19 +220,13 @@ func TestStore_save(t *testing.T) {
 		t.Errorf("save() returned an error: %+v", err)
 	}
 
-	obj, err := s.kv.Get(storeKey, storeVersion)
+	data, err := s.kv.Get(storeKey, storeVersion)
 	if err != nil {
 		t.Errorf("Failed to load clientVersion store: %+v", err)
 	}
 
-	if ver.String() != string(obj.Data) {
+	if ver.String() != string(data) {
 		t.Errorf("Failed to get correct data from stored object."+
-			"\nexpected: %s\nreceived: %s", ver.String(), obj.Data)
+			"\nexpected: %s\nreceived: %s", ver.String(), data)
 	}
-
-	if storeVersion != obj.Version {
-		t.Errorf("Failed to get correct version from stored object."+
-			"\nexpected: %d\nreceived: %d", storeVersion, obj.Version)
-	}
-
 }

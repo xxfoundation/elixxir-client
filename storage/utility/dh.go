@@ -15,7 +15,7 @@ import (
 
 const currentCyclicVersion = 0
 
-func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
+func StoreCyclicKey(kv *KV, cy *cyclic.Int, key string) error {
 	now := netTime.Now()
 
 	data, err := cy.GobEncode()
@@ -23,24 +23,24 @@ func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
 		return err
 	}
 
-	obj := versioned.Object{
+	object := versioned.Object{
 		Version:   currentCyclicVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
-	return kv.Set(key, &obj)
+	return kv.Set(key, object.Marshal())
 }
 
-func LoadCyclicKey(kv *versioned.KV, key string) (*cyclic.Int, error) {
-	vo, err := kv.Get(key, currentCyclicVersion)
+func LoadCyclicKey(kv *KV, key string) (*cyclic.Int, error) {
+	data, err := kv.Get(key, currentCyclicVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	cy := &cyclic.Int{}
 
-	return cy, cy.GobDecode(vo.Data)
+	return cy, cy.GobDecode(data)
 }
 
 // DeleteCyclicKey deletes a given cyclic key from storage

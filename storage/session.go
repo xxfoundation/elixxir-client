@@ -10,6 +10,8 @@
 package storage
 
 import (
+	"encoding/json"
+	"io"
 	"math/rand"
 	"sync"
 	"testing"
@@ -18,6 +20,7 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 
 	"gitlab.com/elixxir/client/v4/storage/utility"
+	accountSync "gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/xx_network/crypto/large"
 
 	"github.com/pkg/errors"
@@ -33,20 +36,33 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-const currentSessionVersion = 0
-
 // NOTE: These are set this way for legacy purposes. If you want to change them
 // you will need to set up and upgrade path for old session files
 const cmixGroupKey = "cmix/GroupKey"
 const e2eGroupKey = "e2eSession/Group"
 
+// Error messages.
+const (
+	// Remote KV error messages.
+	initLocalStoreErr = "failed to initialize local store: %+v"
+	initTxLogErr      = "failed to initialize transaction log: %+v"
+	initRemoteKvErr   = "failed to create or load remote kv: %+v"
+	remoteKvIsNilErr  = "cannot retrieve a nil remote KV"
+)
+
 // Session object, backed by encrypted versioned.KVc
 type Session interface {
 	GetClientVersion() version.Version
-	Get(key string) (*versioned.Object, error)
+	Get(key string) ([]byte, error)
 	Set(key string, object *versioned.Object) error
 	Delete(key string) error
-	GetKV() *versioned.KV
+
+	InitRemoteKV(remote accountSync.RemoteStore,
+		eventCb accountSync.KeyUpdateCallback,
+		updateCb accountSync.RemoteStoreCallback,
+		rng io.Reader) error
+	GetKV() *utility.KV
+
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	ForwardRegistrationStatus(regStatus RegistrationStatus) error
@@ -74,7 +90,7 @@ type Session interface {
 }
 
 type session struct {
-	kv *versioned.KV
+	kv *utility.KV
 
 	// memoized data
 	mux       sync.RWMutex
@@ -100,7 +116,10 @@ func initStore(baseDir, password string) (*session, error) {
 	}
 
 	s = &session{
-		kv: versioned.NewKV(fs),
+		kv: &utility.KV{
+			Local:  versioned.NewKV(fs),
+			Remote: nil,
+		},
 	}
 
 	return s, nil
@@ -185,29 +204,76 @@ func Load(baseDir, password string, currentVersion version.Version) (Session, er
 	return s, nil
 }
 
+// InitRemoteKV will initialize an [accountSync.RemoteKV] for the session. If
+// this is not called, session's rkv field will be nil and no remote storage
+// operations can be performed.
+func (s *session) InitRemoteKV(remote accountSync.RemoteStore,
+	eventCb accountSync.KeyUpdateCallback,
+	updateCb accountSync.RemoteStoreCallback, rng io.Reader) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	// Construct local storage
+	local, err := accountSync.NewOrLoadEkvLocalStore(s.kv.Local)
+	if err != nil {
+		return errors.WithMessage(err, initLocalStoreErr)
+	}
+
+	// todo: properly define
+	var deviceSecret = []byte("dummy, replace")
+	// deviceSecret = s.GetDeviceSecret()
+
+	// Construct txLog path
+	txLogPath := "txLog/" + s.User.GetReceptionID().String()
+
+	// Construct or load a transaction log
+	txLog, err := accountSync.NewOrLoadTransactionLog(txLogPath, local,
+		remote,
+		deviceSecret, rng)
+	if err != nil {
+		return errors.WithMessage(err, initTxLogErr)
+	}
+
+	// Construct remote KV
+	rkv, err := accountSync.NewOrLoadRemoteKV(
+		txLog, s.kv.Local,
+		eventCb, updateCb)
+	if err != nil {
+		return errors.WithMessage(err, initRemoteKvErr)
+	}
+
+	s.kv.Remote = rkv
+
+	return nil
+}
+
 // GetClientVersion returns the version of the client storage.
 func (s *session) GetClientVersion() version.Version {
 	return s.clientVersion.Get()
 }
 
 // Get an object from the session
-func (s *session) Get(key string) (*versioned.Object, error) {
-	return s.kv.Get(key, currentSessionVersion)
+func (s *session) Get(key string) ([]byte, error) {
+	return s.kv.Get(key, utility.CurrentSessionVersion)
 }
 
 // Set a value in the session. If you wish to maintain versioning,
 // the [versioned.Object]'s Version field must be set.
 func (s *session) Set(key string, object *versioned.Object) error {
-	return s.kv.Set(key, object)
+	data, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+	return s.kv.Set(key, data)
 }
 
 // Delete a value in the session
 func (s *session) Delete(key string) error {
-	return s.kv.Delete(key, currentSessionVersion)
+	return s.kv.Delete(key)
 }
 
-// GetKV returns the Session versioned.KV.
-func (s *session) GetKV() *versioned.KV {
+// GetKV returns the Session's KV.
+func (s *session) GetKV() *utility.KV {
 	return s.kv
 }
 
@@ -233,7 +299,12 @@ func InitTestingSession(i interface{}) Session {
 	sch := rsa.GetScheme()
 	privKey, _ := sch.UnmarshalPrivateKeyPEM([]byte("-----BEGIN PRIVATE KEY-----\nMIIJQQIBADANBgkqhkiG9w0BAQEFAASCCSswggknAgEAAoICAQC7Dkb6VXFn4cdp\nU0xh6ji0nTDQUyT9DSNW9I3jVwBrWfqMc4ymJuonMZbuqK+cY2l+suS2eugevWZr\ntzujFPBRFp9O14Jl3fFLfvtjZvkrKbUMHDHFehascwzrp3tXNryiRMmCNQV55TfI\nTVCv8CLE0t1ibiyOGM9ZWYB2OjXt59j76lPARYww5qwC46vS6+3Cn2Yt9zkcrGes\nkWEFa2VttHqF910TP+DZk2R5C7koAh6wZYK6NQ4S83YQurdHAT51LKGrbGehFKXq\n6/OAXCU1JLi3kW2PovTb6MZuvxEiRmVAONsOcXKu7zWCmFjuZZwfRt2RhnpcSgzf\nrarmsGM0LZh6JY3MGJ9YdPcVGSz+Vs2E4zWbNW+ZQoqlcGeMKgsIiQ670g0xSjYI\nCqldpt79gaET9PZsoXKEmKUaj6pq1d4qXDk7s63HRQazwVLGBdJQK8qX41eCdR8V\nMKbrCaOkzD5zgnEu0jBBAwdMtcigkMIk1GRv91j7HmqwryOBHryLi6NWBY3tjb4S\no9AppDQB41SH3SwNenAbNO1CXeUqN0hHX6I1bE7OlbjqI7tXdrTllHAJTyVVjenP\nel2ApMXp+LVRdDbKtwBiuM6+n+z0I7YYerxN1gfvpYgcXm4uye8dfwotZj6H2J/u\nSALsU2v9UHBzprdrLSZk2YpozJb+CQIDAQABAoICAARjDFUYpeU6zVNyCauOM7BA\ns4FfQdHReg+zApTfWHosDQ04NIc9CGbM6e5E9IFlb3byORzyevkllf5WuMZVWmF8\nd1YBBeTftKYBn2Gwa42Ql9dl3eD0wQ1gUWBBeEoOVZQ0qskr9ynpr0o6TfciWZ5m\nF50UWmUmvc4ppDKhoNwogNU/pKEwwF3xOv2CW2hB8jyLQnk3gBZlELViX3UiFKni\n/rCfoYYvDFXt+ABCvx/qFNAsQUmerurQ3Ob9igjXRaC34D7F9xQ3CMEesYJEJvc9\nGjvr5DbnKnjx152HS56TKhK8gp6vGHJz17xtWECXD3dIUS/1iG8bqXuhdg2c+2aW\nm3MFpa5jgpAawUWc7c32UnqbKKf+HI7/x8J1yqJyNeU5SySyYSB5qtwTShYzlBW/\nyCYD41edeJcmIp693nUcXzU+UAdtpt0hkXS59WSWlTrB/huWXy6kYXLNocNk9L7g\niyx0cOmkuxREMHAvK0fovXdVyflQtJYC7OjJxkzj2rWO+QtHaOySXUyinkuTb5ev\nxNhs+ROWI/HAIE9buMqXQIpHx6MSgdKOL6P6AEbBan4RAktkYA6y5EtH/7x+9V5E\nQTIz4LrtI6abaKb4GUlZkEsc8pxrkNwCqOAE/aqEMNh91Na1TOj3f0/a6ckGYxYH\npyrvwfP2Ouu6e5FhDcCBAoIBAQDcN8mK99jtrH3q3Q8vZAWFXHsOrVvnJXyHLz9V\n1Rx/7TnMUxvDX1PIVxhuJ/tmHtxrNIXOlps80FCZXGgxfET/YFrbf4H/BaMNJZNP\nag1wBV5VQSnTPdTR+Ijice+/ak37S2NKHt8+ut6yoZjD7sf28qiO8bzNua/OYHkk\nV+RkRkk68Uk2tFMluQOSyEjdsrDNGbESvT+R1Eotupr0Vy/9JRY/TFMc4MwJwOoy\ns7wYr9SUCq/cYn7FIOBTI+PRaTx1WtpfkaErDc5O+nLLEp1yOrfktl4LhU/r61i7\nfdtafUACTKrXG2qxTd3w++mHwTwVl2MwhiMZfxvKDkx0L2gxAoIBAQDZcxKwyZOy\ns6Aw7igw1ftLny/dpjPaG0p6myaNpeJISjTOU7HKwLXmlTGLKAbeRFJpOHTTs63y\ngcmcuE+vGCpdBHQkaCev8cve1urpJRcxurura6+bYaENO6ua5VzF9BQlDYve0YwY\nlbJiRKmEWEAyULjbIebZW41Z4UqVG3MQI750PRWPW4WJ2kDhksFXN1gwSnaM46KR\nPmVA0SL+RCPcAp/VkImCv0eqv9exsglY0K/QiJfLy3zZ8QvAn0wYgZ3AvH3lr9rJ\nT7pg9WDb+OkfeEQ7INubqSthhaqCLd4zwbMRlpyvg1cMSq0zRvrFpwVlSY85lW4F\ng/tgjJ99W9VZAoIBAH3OYRVDAmrFYCoMn+AzA/RsIOEBqL8kaz/Pfh9K4D01CQ/x\naqryiqqpFwvXS4fLmaClIMwkvgq/90ulvuCGXeSG52D+NwW58qxQCxgTPhoA9yM9\nVueXKz3I/mpfLNftox8sskxl1qO/nfnu15cXkqVBe4ouD+53ZjhAZPSeQZwHi05h\nCbJ20gl66M+yG+6LZvXE96P8+ZQV80qskFmGdaPozAzdTZ3xzp7D1wegJpTz3j20\n3ULKAiIb5guZNU0tEZz5ikeOqsQt3u6/pVTeDZR0dxnyFUf/oOjmSorSG75WT3sA\n0ZiR0SH5mhFR2Nf1TJ4JHmFaQDMQqo+EG6lEbAECggEAA7kGnuQ0lSCiI3RQV9Wy\nAa9uAFtyE8/XzJWPaWlnoFk04jtoldIKyzHOsVU0GOYOiyKeTWmMFtTGANre8l51\nizYiTuVBmK+JD/2Z8/fgl8dcoyiqzvwy56kX3QUEO5dcKO48cMohneIiNbB7PnrM\nTpA3OfkwnJQGrX0/66GWrLYP8qmBDv1AIgYMilAa40VdSyZbNTpIdDgfP6bU9Ily\nG7gnyF47HHPt5Cx4ouArbMvV1rof7ytCrfCEhP21Lc46Ryxy81W5ZyzoQfSxfdKb\nGyDR+jkryVRyG69QJf5nCXfNewWbFR4ohVtZ78DNVkjvvLYvr4qxYYLK8PI3YMwL\nsQKCAQB9lo7JadzKVio+C18EfNikOzoriQOaIYowNaaGDw3/9KwIhRsKgoTs+K5O\ngt/gUoPRGd3M2z4hn5j4wgeuFi7HC1MdMWwvgat93h7R1YxiyaOoCTxH1klbB/3K\n4fskdQRxuM8McUebebrp0qT5E0xs2l+ABmt30Dtd3iRrQ5BBjnRc4V//sQiwS1aC\nYi5eNYCQ96BSAEo1dxJh5RI/QxF2HEPUuoPM8iXrIJhyg9TEEpbrEJcxeagWk02y\nOMEoUbWbX07OzFVvu+aJaN/GlgiogMQhb6IiNTyMlryFUleF+9OBA8xGHqGWA6nR\nOaRA5ZbdE7g7vxKRV36jT3wvD7W+\n-----END PRIVATE KEY-----\n"))
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	s := &session{kv: kv}
+	s := &session{
+		kv: &utility.KV{
+			Local:  kv,
+			Remote: nil,
+		},
+	}
 	uid := id.NewIdFromString("zezima", id.User, i)
 
 	prng := rand.New(rand.NewSource(42))
@@ -242,7 +313,7 @@ func InitTestingSession(i interface{}) Session {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false, dhPrivKey, dhPubKey)
+	u, err := user.NewUser(s.kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false, dhPrivKey, dhPubKey)
 	if err != nil {
 		jww.FATAL.Panicf("InitTestingSession failed to create dummy user: %+v", err)
 	}

@@ -9,7 +9,7 @@ package user
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -29,21 +29,23 @@ type User struct {
 	username    string
 	usernameMux sync.RWMutex
 
-	kv *versioned.KV
+	kv *utility.KV
 }
 
 // builds a new user.
-func NewUser(kv *versioned.KV, transmissionID, receptionID *id.ID, transmissionSalt,
-	receptionSalt []byte, transmissionRsa, receptionRsa rsa.PrivateKey, isPrecanned bool,
+func NewUser(kv *utility.KV, transmissionID, receptionID *id.ID,
+	transmissionSalt, receptionSalt []byte, transmissionRsa,
+	receptionRsa rsa.PrivateKey, isPrecanned bool,
 	e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int) (*User, error) {
 
-	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt,
-		receptionSalt, transmissionRsa, receptionRsa, isPrecanned, e2eDhPrivateKey, e2eDhPublicKey, kv)
+	ci := newCryptographicIdentity(transmissionID, receptionID,
+		transmissionSalt, receptionSalt, transmissionRsa, receptionRsa,
+		isPrecanned, e2eDhPrivateKey, e2eDhPublicKey, kv)
 
 	return &User{CryptographicIdentity: ci, kv: kv}, nil
 }
 
-func LoadUser(kv *versioned.KV) (*User, error) {
+func LoadUser(kv *utility.KV) (*User, error) {
 	ci, err := loadCryptographicIdentity(kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load user "+

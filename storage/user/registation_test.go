@@ -10,6 +10,7 @@ package user
 import (
 	"bytes"
 	"encoding/binary"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"math/rand"
 	"testing"
 	"time"
@@ -29,6 +30,8 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 	sch := rsa.GetScheme()
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 
@@ -41,7 +44,7 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+	u, err := NewUser(utilKv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
@@ -77,6 +80,8 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 	sch := rsa.GetScheme()
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 
@@ -89,7 +94,7 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+	u, err := NewUser(utilKv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
@@ -102,13 +107,13 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 			sig, u.transmissionRegValidationSig)
 	}
 
-	obj, err := u.kv.Get(transmissionRegValidationSigKey, 0)
+	data, err := u.kv.Get(transmissionRegValidationSigKey, 0)
 	if err != nil {
 		t.Errorf("Failed to get reg vaildation signature key: %+v", err)
 	}
-	if bytes.Compare(obj.Data, sig) != 0 {
+	if bytes.Compare(data, sig) != 0 {
 		t.Errorf("Did not properly set reg validation signature key in kv store.\nExpected: %+v, Received: %+v",
-			sig, obj.Data)
+			sig, data)
 	}
 
 	sig = []byte("testreceptionsignature")
@@ -118,13 +123,13 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 			sig, u.receptionRegValidationSig)
 	}
 
-	obj, err = u.kv.Get(receptionRegValidationSigKey, 0)
+	data, err = u.kv.Get(receptionRegValidationSigKey, 0)
 	if err != nil {
 		t.Errorf("Failed to get reg vaildation signature key: %+v", err)
 	}
-	if bytes.Compare(obj.Data, sig) != 0 {
+	if bytes.Compare(data, sig) != 0 {
 		t.Errorf("Did not properly set reg validation signature key in kv store.\nExpected: %+v, Received: %+v",
-			sig, obj.Data)
+			sig, data)
 	}
 }
 
@@ -133,6 +138,8 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	sch := rsa.GetScheme()
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 
@@ -145,7 +152,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+	u, err := NewUser(utilKv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
@@ -189,6 +196,8 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 	sch := rsa.GetScheme()
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 
@@ -201,7 +210,7 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+	u, err := NewUser(utilKv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
@@ -221,13 +230,13 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 	}
 
 	// Pull timestamp from kv
-	obj, err := u.kv.Get(registrationTimestampKey, registrationTimestampVersion)
+	data, err := u.kv.Get(registrationTimestampKey, registrationTimestampVersion)
 	if err != nil {
 		t.Errorf("Failed to get reg vaildation signature key: %+v", err)
 	}
 
 	// Check if kv data is expected
-	unixNano := binary.BigEndian.Uint64(obj.Data)
+	unixNano := binary.BigEndian.Uint64(data)
 	if testTime.UnixNano() != int64(unixNano) {
 		t.Errorf("Timestamp pulled from kv was not expected."+
 			"\n\tExpected: %d\n\tReceieved: %d", testTime.UnixNano(), unixNano)
@@ -251,6 +260,8 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 	sch := rsa.GetScheme()
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	utilKv := &utility.KV{Local: kv}
+
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 
@@ -263,7 +274,7 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
-	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
+	u, err := NewUser(utilKv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)

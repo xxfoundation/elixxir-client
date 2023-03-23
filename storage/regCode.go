@@ -31,9 +31,9 @@ func (s *session) SetRegCode(regCode string) {
 
 // Returns the stored network definition json file
 func (s *session) GetRegCode() (string, error) {
-	regCode, err := s.Get(regCodeKey)
+	data, err := s.Get(regCodeKey)
 	if err != nil {
 		return "", errors.WithMessage(err, "Failed to load the regcode")
 	}
-	return string(regCode.Data), nil
+	return string(data), nil
 }

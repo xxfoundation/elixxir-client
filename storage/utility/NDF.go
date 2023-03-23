@@ -18,13 +18,13 @@ import (
 
 const currentNDFVersion = 0
 
-func LoadNDF(kv *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
-	vo, err := kv.Get(key, currentNDFVersion)
+func LoadNDF(kv *KV, key string) (*ndf.NetworkDefinition, error) {
+	data, err := kv.Get(key, currentNDFVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	netDef, err := ndf.Unmarshal(vo.Data)
+	netDef, err := ndf.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func LoadNDF(kv *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
 	return netDef, err
 }
 
-func SaveNDF(kv *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
+func SaveNDF(kv *KV, key string, ndf *ndf.NetworkDefinition) error {
 	marshaled, err := ndf.Marshal()
 	if err != nil {
 		return err
@@ -40,11 +40,11 @@ func SaveNDF(kv *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 
 	now := netTime.Now()
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentNDFVersion,
 		Timestamp: now,
 		Data:      marshaled,
 	}
 
-	return kv.Set(key, &obj)
+	return kv.Set(key, obj.Marshal())
 }

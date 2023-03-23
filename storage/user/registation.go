@@ -47,10 +47,10 @@ func (u *User) GetRegistrationTimestamp() time.Time {
 // Loads the transmission Identity Validation Signature if it exists in the ekv
 func (u *User) loadTransmissionRegistrationValidationSignature() {
 	u.rvsMux.Lock()
-	obj, err := u.kv.Get(transmissionRegValidationSigKey,
+	data, err := u.kv.Get(transmissionRegValidationSigKey,
 		currentRegValidationSigVersion)
 	if err == nil {
-		u.transmissionRegValidationSig = obj.Data
+		u.transmissionRegValidationSig = data
 	}
 	u.rvsMux.Unlock()
 }
@@ -58,10 +58,10 @@ func (u *User) loadTransmissionRegistrationValidationSignature() {
 // Loads the reception Identity Validation Signature if it exists in the ekv
 func (u *User) loadReceptionRegistrationValidationSignature() {
 	u.rvsMux.Lock()
-	obj, err := u.kv.Get(receptionRegValidationSigKey,
+	data, err := u.kv.Get(receptionRegValidationSigKey,
 		currentRegValidationSigVersion)
 	if err == nil {
-		u.receptionRegValidationSig = obj.Data
+		u.receptionRegValidationSig = data
 	}
 	u.rvsMux.Unlock()
 }
@@ -69,10 +69,10 @@ func (u *User) loadReceptionRegistrationValidationSignature() {
 // Loads the registration timestamp if it exists in the ekv
 func (u *User) loadRegistrationTimestamp() {
 	u.rvsMux.Lock()
-	obj, err := u.kv.Get(registrationTimestampKey,
+	data, err := u.kv.Get(registrationTimestampKey,
 		registrationTimestampVersion)
 	if err == nil {
-		tsNano := binary.BigEndian.Uint64(obj.Data)
+		tsNano := binary.BigEndian.Uint64(data)
 		u.registrationTimestamp = time.Unix(0, int64(tsNano))
 	}
 	u.rvsMux.Unlock()
@@ -95,7 +95,7 @@ func (u *User) SetTransmissionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(transmissionRegValidationSigKey, obj)
+	err := u.kv.Set(transmissionRegValidationSigKey, obj.Marshal())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the transmission Identity Validation "+
 			"Signature: %s", err)
@@ -121,7 +121,7 @@ func (u *User) SetReceptionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(receptionRegValidationSigKey, obj)
+	err := u.kv.Set(receptionRegValidationSigKey, obj.Marshal())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception Identity Validation "+
 			"Signature: %s", err)
@@ -151,7 +151,7 @@ func (u *User) SetRegistrationTimestamp(tsNano int64) {
 		Data:      tsBytes,
 	}
 
-	err := u.kv.Set(registrationTimestampKey, obj)
+	err := u.kv.Set(registrationTimestampKey, obj.Marshal())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception timestamp: %s", err)
 	}

@@ -20,7 +20,7 @@ import (
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -128,7 +128,7 @@ type manager struct {
 	myID      *id.ID
 	cmix      Cmix
 	cmixGroup *cyclic.Group
-	kv        *versioned.KV
+	kv        *utility.KV
 	rng       *fastRNG.StreamGenerator
 }
 
@@ -162,7 +162,7 @@ type Cmix interface {
 // Storage interface matches a subset of the storage.Session methods used by the
 // manager for easier testing.
 type Storage interface {
-	GetKV() *versioned.KV
+	GetKV() *utility.KV
 	GetCmixGroup() *cyclic.Group
 }
 

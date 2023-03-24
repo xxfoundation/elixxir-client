@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -43,19 +44,19 @@ type Sent struct {
 	transfers map[ftCrypto.TransferID]*SentTransfer
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  *utility.KV
 }
 
 // NewOrLoadSent attempts to load Sent from storage. Or if none exist, then a
 // new Sent is returned. If running transfers were loaded from storage, a list
 // of unsent parts is returned.
-func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
+func NewOrLoadSent(kv *utility.KV) (*Sent, []Part, error) {
 	s := &Sent{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentTransfersStorePrefix),
+		kv:        kv,
 	}
 
-	obj, err := s.kv.Get(sentTransfersStoreKey, sentTransfersStoreVersion)
+	data, err := s.kv.Get(makeSentTransferKvKey(), sentTransfersStoreVersion)
 	if err != nil {
 		if !kv.Exists(err) {
 			// Return the new Sent if none exists in storage
@@ -67,7 +68,7 @@ func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
 	}
 
 	// Load list of saved sent transfers from storage
-	tidList, err := unmarshalTransferIdList(obj.Data)
+	tidList, err := unmarshalTransferIdList(data)
 	if err != nil {
 		return nil, nil, errors.Errorf(errUnmarshalSent, err)
 	}
@@ -164,7 +165,7 @@ func (s *Sent) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(sentTransfersStoreKey, obj)
+	return s.kv.Set(makeSentTransferKvKey(), obj.Marshal())
 }
 
 // marshalSentTransfersMap serialises the list of transfer IDs from a
@@ -189,4 +190,8 @@ func unmarshalTransferIdList(data []byte) ([]ftCrypto.TransferID, error) {
 	}
 
 	return tidList, nil
+}
+
+func makeSentTransferKvKey() string {
+	return sentTransfersStorePrefix + sentTransfersStoreKey
 }

@@ -51,15 +51,14 @@ type Manager struct {
 	// (has its own storage backend)
 	fpVector *utility.StateVector
 
-	kv *versioned.KV
+	kv *utility.KV
 }
 
 // NewManager returns a new cypher Manager initialised with the given number of
 // fingerprints.
-func NewManager(key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) (
+func NewManager(key *ftCrypto.TransferKey, numFps uint16,
+	kv *utility.KV, prefix string) (
 	*Manager, error) {
-
-	kv = kv.Prefix(cypherManagerPrefix)
 
 	fpVector, err := utility.NewStateVector(
 		kv, cypherManagerFpVectorKey, uint32(numFps))
@@ -67,7 +66,7 @@ func NewManager(key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) (
 		return nil, errors.Errorf(errNewFpVector, err)
 	}
 
-	err = saveKey(key, kv)
+	err = saveKey(key, kv, prefix)
 	if err != nil {
 		return nil, errors.Errorf(errSaveKey, err)
 	}
@@ -118,9 +117,8 @@ func (m *Manager) GetUnusedCyphers() []Cypher {
 ////////////////////////////////////////////////////////////////////////////////
 
 // LoadManager loads the Manager from storage.
-func LoadManager(kv *versioned.KV) (*Manager, error) {
-	kv = kv.Prefix(cypherManagerPrefix)
-	key, err := loadKey(kv)
+func LoadManager(kv *utility.KV, prefix string) (*Manager, error) {
+	key, err := loadKey(kv, prefix)
 	if err != nil {
 		return nil, errors.Errorf(errLoadKey, err)
 	}
@@ -157,23 +155,27 @@ func (m *Manager) Delete() error {
 }
 
 // saveKey saves the transfer key to storage.
-func saveKey(key *ftCrypto.TransferKey, kv *versioned.KV) error {
+func saveKey(key *ftCrypto.TransferKey, kv *utility.KV, prefix string) error {
 	obj := &versioned.Object{
 		Version:   cypherManagerKeyStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      key.Bytes(),
 	}
 
-	return kv.Set(cypherManagerKeyStoreKey, obj)
+	return kv.Set(makeKeyPrefix(prefix), obj.Marshal())
 }
 
 // loadKey loads the transfer key from storage.
-func loadKey(kv *versioned.KV) (*ftCrypto.TransferKey, error) {
-	obj, err := kv.Get(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
+func loadKey(kv *utility.KV, prefix string) (*ftCrypto.TransferKey, error) {
+	data, err := kv.Get(makeKeyPrefix(prefix), cypherManagerKeyStoreVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	key := ftCrypto.UnmarshalTransferKey(obj.Data)
+	key := ftCrypto.UnmarshalTransferKey(data)
 	return &key, nil
+}
+
+func makeKeyPrefix(prefix string) string {
+	return prefix + cypherManagerPrefix + cypherManagerKeyStoreKey
 }

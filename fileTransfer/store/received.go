@@ -9,6 +9,7 @@ package store
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -42,19 +43,20 @@ type Received struct {
 	transfers map[ftCrypto.TransferID]*ReceivedTransfer
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  *utility.KV
 }
 
 // NewOrLoadReceived attempts to load a Received from storage. Or if none exist,
 // then a new Received is returned. Also returns a list of all transfers that
 // have unreceived file parts so their fingerprints can be re-added.
-func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error) {
+func NewOrLoadReceived(kv *utility.KV) (*Received, []*ReceivedTransfer, error) {
 	s := &Received{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
-		kv:        kv.Prefix(receivedTransfersStorePrefix),
+		kv:        kv,
 	}
 
-	obj, err := s.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
+	data, err := s.kv.Get(makeReceivedTransferKvKey(),
+		receivedTransfersStoreVersion)
 	if err != nil {
 		if kv.Exists(err) {
 			return nil, nil, errors.Errorf(errLoadReceived, err)
@@ -63,7 +65,7 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 		}
 	}
 
-	tidList, err := unmarshalTransferIdList(obj.Data)
+	tidList, err := unmarshalTransferIdList(data)
 	if err != nil {
 		return nil, nil, errors.Errorf(errUnmarshalReceived, err)
 	}
@@ -157,7 +159,7 @@ func (r *Received) save() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(receivedTransfersStoreKey, obj)
+	return r.kv.Set(makeReceivedTransferKvKey(), obj.Marshal())
 }
 
 // marshalReceivedTransfersMap serialises the list of transfer IDs from a
@@ -171,4 +173,8 @@ func marshalReceivedTransfersMap(
 	}
 
 	return json.Marshal(tidList)
+}
+
+func makeReceivedTransferKvKey() string {
+	return receivedTransfersStorePrefix + receivedTransfersStoreKey
 }

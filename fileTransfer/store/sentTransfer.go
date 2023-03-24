@@ -89,18 +89,17 @@ type SentTransfer struct {
 	lastCallbackFingerprint string
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  *utility.KV
 }
 
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
 // transfer ID, and parts.
 func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
-	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
+	numFps uint16, kv *utility.KV) (*SentTransfer, error) {
 
 	// Create new cypher manager
-	cypherManager, err := cypher.NewManager(key, numFps, kv)
+	cypherManager, err := cypher.NewManager(key, numFps, kv, makeSentTransferPrefix(tid))
 	if err != nil {
 		return nil, errors.Errorf(errStNewCypherManager, err)
 	}
@@ -255,23 +254,22 @@ func generateSentFp(completed bool, arrived, total uint16, err error) string {
 
 // loadSentTransfer loads the SentTransfer with the given transfer ID from
 // storage.
-func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
+func loadSentTransfer(tid *ftCrypto.TransferID, kv *utility.KV) (
 	*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
 
 	// Load cypher manager
-	cypherManager, err := cypher.LoadManager(kv)
+	cypherManager, err := cypher.LoadManager(kv, makeSentTransferPrefix(tid))
 	if err != nil {
 		return nil, errors.Errorf(errStLoadCypherManager, err)
 	}
 
 	// Load fileName, recipient ID, status, and file parts
-	obj, err := kv.Get(sentTransferStoreKey, sentTransferStoreVersion)
+	data, err := kv.Get(sentTransferStoreKey, sentTransferStoreVersion)
 	if err != nil {
 		return nil, errors.Errorf(errStLoadFields, err)
 	}
 
-	fileName, recipient, status, parts, err := unmarshalSentTransfer(obj.Data)
+	fileName, recipient, status, parts, err := unmarshalSentTransfer(data)
 	if err != nil {
 		return nil, errors.Errorf(errStUnmarshalFields, err)
 	}
@@ -346,7 +344,7 @@ func (st *SentTransfer) save() error {
 		Data:      data,
 	}
 
-	return st.kv.Set(sentTransferStoreKey, obj)
+	return st.kv.Set(sentTransferStoreKey, obj.Marshal())
 }
 
 // sentTransferDisk structure is used to marshal and unmarshal SentTransfer

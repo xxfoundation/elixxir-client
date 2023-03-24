@@ -90,18 +90,18 @@ type ReceivedTransfer struct {
 	lastCallbackFingerprint string
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  *utility.KV
 }
 
 // newReceivedTransfer generates a ReceivedTransfer with the specified transfer
 // key, transfer ID, and a number of parts.
 func newReceivedTransfer(key *ftCrypto.TransferKey, tid *ftCrypto.TransferID,
 	fileName string, transferMAC []byte, fileSize uint32, numParts,
-	numFps uint16, kv *versioned.KV) (*ReceivedTransfer, error) {
-	kv = kv.Prefix(makeReceivedTransferPrefix(tid))
+	numFps uint16, kv *utility.KV) (*ReceivedTransfer, error) {
 
 	// Create new cypher manager
-	cypherManager, err := cypher.NewManager(key, numFps, kv)
+	cypherManager, err := cypher.NewManager(key, numFps, kv,
+		makeReceivedTransferPrefix(tid))
 	if err != nil {
 		return nil, errors.Errorf(errRtNewCypherManager, err)
 	}
@@ -243,24 +243,23 @@ func generateReceivedFp(completed bool, received, total uint16, err error) strin
 
 // loadReceivedTransfer loads the ReceivedTransfer with the given transfer ID
 // from storage.
-func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
+func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *utility.KV) (
 	*ReceivedTransfer, error) {
-	kv = kv.Prefix(makeReceivedTransferPrefix(tid))
 
 	// Load cypher manager
-	cypherManager, err := cypher.LoadManager(kv)
+	cypherManager, err := cypher.LoadManager(kv, makeReceivedTransferPrefix(tid))
 	if err != nil {
 		return nil, errors.Errorf(errRtLoadCypherManager, err)
 	}
 
 	// Load transfer MAC, number of parts, and file size
-	obj, err := kv.Get(receivedTransferStoreKey, receivedTransferStoreVersion)
+	data, err := kv.Get(receivedTransferStoreKey, receivedTransferStoreVersion)
 	if err != nil {
 		return nil, errors.Errorf(errRtLoadFields, err)
 	}
 
 	fileName, transferMAC, numParts, fileSize, err :=
-		unmarshalReceivedTransfer(obj.Data)
+		unmarshalReceivedTransfer(data)
 	if err != nil {
 		return nil, errors.Errorf(errRtUnmarshalFields, err)
 	}
@@ -339,7 +338,7 @@ func (rt *ReceivedTransfer) save() error {
 	}
 
 	// Save versioned object
-	return rt.kv.Set(receivedTransferStoreKey, vo)
+	return rt.kv.Set(receivedTransferStoreKey, vo.Marshal())
 }
 
 // receivedTransferDisk structure is used to marshal and unmarshal
@@ -378,23 +377,23 @@ func unmarshalReceivedTransfer(data []byte) (fileName string,
 }
 
 // savePart saves the given part to storage keying on its part number.
-func savePart(part []byte, partNum int, kv *versioned.KV) error {
+func savePart(part []byte, partNum int, kv *utility.KV) error {
 	obj := &versioned.Object{
 		Version:   receivedPartStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      part,
 	}
 
-	return kv.Set(makeReceivedPartKey(partNum), obj)
+	return kv.Set(makeReceivedPartKey(partNum), obj.Marshal())
 }
 
 // loadPart loads the part with the given part number from storage.
-func loadPart(partNum int, kv *versioned.KV) ([]byte, error) {
-	obj, err := kv.Get(makeReceivedPartKey(partNum), receivedPartStoreVersion)
+func loadPart(partNum int, kv *utility.KV) ([]byte, error) {
+	data, err := kv.Get(makeReceivedPartKey(partNum), receivedPartStoreVersion)
 	if err != nil {
 		return nil, err
 	}
-	return obj.Data, nil
+	return data, nil
 }
 
 // makeReceivedTransferPrefix generates the unique prefix used on the key value

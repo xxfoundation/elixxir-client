@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -150,14 +151,13 @@ const (
 //
 // The private key can retrieved from storage via loadChannelPrivateKey.
 func saveChannelPrivateKey(
-	channelID *id.ID, pk rsa.PrivateKey, kv *versioned.KV) error {
-	return kv.Set(makeChannelPrivateKeyStoreKey(channelID),
-		&versioned.Object{
-			Version:   channelPrivateKeyStoreVersion,
-			Timestamp: netTime.Now(),
-			Data:      pk.MarshalPem(),
-		},
-	)
+	channelID *id.ID, pk rsa.PrivateKey, kv *utility.KV) error {
+	obj := &versioned.Object{
+		Version:   channelPrivateKeyStoreVersion,
+		Timestamp: netTime.Now(),
+		Data:      pk.MarshalPem(),
+	}
+	return kv.Set(makeChannelPrivateKeyStoreKey(channelID), obj.Marshal())
 }
 
 // loadChannelPrivateKey retrieves the [rsa.PrivateKey] for the given channel ID
@@ -165,19 +165,19 @@ func saveChannelPrivateKey(
 //
 // The private key is saved to storage via saveChannelPrivateKey.
 func loadChannelPrivateKey(
-	channelID *id.ID, kv *versioned.KV) (rsa.PrivateKey, error) {
-	obj, err := kv.Get(
+	channelID *id.ID, kv *utility.KV) (rsa.PrivateKey, error) {
+	data, err := kv.Get(
 		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	return rsa.GetScheme().UnmarshalPrivateKeyPEM(obj.Data)
+	return rsa.GetScheme().UnmarshalPrivateKeyPEM(data)
 }
 
 // deleteChannelPrivateKey deletes the private key from storage for the given
 // channel ID.
-func deleteChannelPrivateKey(channelID *id.ID, kv *versioned.KV) error {
+func deleteChannelPrivateKey(channelID *id.ID, kv *utility.KV) error {
 	return kv.Delete(
 		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
 }

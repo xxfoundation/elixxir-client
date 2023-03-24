@@ -8,11 +8,11 @@
 package backup
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -49,7 +49,7 @@ type Backup struct {
 	e2e     E2e
 	session Session
 	ud      UserDiscovery
-	kv      *versioned.KV
+	kv      *utility.KV
 	rng     *fastRNG.StreamGenerator
 
 	mux sync.RWMutex
@@ -92,7 +92,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 // password.
 func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
-	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
+	kv *utility.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
 
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
@@ -137,7 +137,7 @@ func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 // a new callback. Call this to resume backups that have already been
 // initialized. Returns an error if backups have not already been initialized.
 func ResumeBackup(updateBackupCb UpdateBackupFn, container *xxdk.Container,
-	e2e E2e, session Session, ud UserDiscovery, kv *versioned.KV,
+	e2e E2e, session Session, ud UserDiscovery, kv *utility.KV,
 	rng *fastRNG.StreamGenerator) (*Backup, error) {
 	_, _, _, err := loadBackup(kv)
 	if err != nil {
@@ -185,6 +185,7 @@ func (b *Backup) getKeySaltParams(password string) (
 // The passed in reason will be printed to the log when the backup is sent. It
 // should be in the past tense. For example, if a contact is deleted, the
 // reason can be "contact deleted" and the log will show:
+//
 //	Triggering backup: contact deleted
 func (b *Backup) TriggerBackup(reason string) {
 	b.mux.RLock()

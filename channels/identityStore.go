@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -11,7 +12,8 @@ const (
 	identityStoreStorageVersion = 0
 )
 
-func storeIdentity(kv *versioned.KV, ident cryptoChannel.PrivateIdentity) error {
+func storeIdentity(kv *utility.KV, ident cryptoChannel.PrivateIdentity,
+	storageTag string) error {
 	data := ident.Marshal()
 	obj := &versioned.Object{
 		Version:   identityStoreStorageVersion,
@@ -19,13 +21,19 @@ func storeIdentity(kv *versioned.KV, ident cryptoChannel.PrivateIdentity) error 
 		Data:      data,
 	}
 
-	return kv.Set(identityStoreStorageKey, obj)
+	return kv.Set(makeIdentityKvKey(storageTag), obj.Marshal())
 }
 
-func loadIdentity(kv *versioned.KV) (cryptoChannel.PrivateIdentity, error) {
-	obj, err := kv.Get(identityStoreStorageKey, identityStoreStorageVersion)
+func loadIdentity(kv *utility.KV,
+	storageTag string) (cryptoChannel.PrivateIdentity, error) {
+	data, err := kv.Get(makeIdentityKvKey(storageTag),
+		identityStoreStorageVersion)
 	if err != nil {
 		return cryptoChannel.PrivateIdentity{}, err
 	}
-	return cryptoChannel.UnmarshalPrivateIdentity(obj.Data)
+	return cryptoChannel.UnmarshalPrivateIdentity(data)
+}
+
+func makeIdentityKvKey(tag string) string {
+	return tag + identityStoreStorageKey
 }

@@ -33,7 +33,7 @@ type e2eMessage struct {
 
 // SaveMessage saves the e2eMessage as a versioned object at the specified key
 // in the key value store.
-func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
+func (emh *e2eMessageHandler) SaveMessage(kv *utility.KV, m interface{},
 	key string) error {
 	msg := m.(e2eMessage)
 
@@ -44,30 +44,30 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 	}
 
 	// Create versioned object
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentE2EMessageVersion,
 		Timestamp: netTime.Now(),
 		Data:      b,
 	}
 
 	// Save versioned object
-	return kv.Set(key, &obj)
+	return kv.Set(key, obj.Marshal())
 }
 
 // LoadMessage returns the e2eMessage with the specified key from the key value
 // store. An empty message and error are returned if the message could not be
 // retrieved.
-func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (
+func (emh *e2eMessageHandler) LoadMessage(kv *utility.KV, key string) (
 	interface{}, error) {
 	// Load the versioned object
-	vo, err := kv.Get(key, currentE2EMessageVersion)
+	data, err := kv.Get(key, currentE2EMessageVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal data into e2eMessage
 	msg := e2eMessage{}
-	if err := json.Unmarshal(vo.Data, &msg); err != nil {
+	if err := json.Unmarshal(data, &msg); err != nil {
 		jww.FATAL.Panicf("cannot unmarshal e2e message for storage: %s",
 			err)
 	}
@@ -77,7 +77,7 @@ func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (
 
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
-func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV,
+func (emh *e2eMessageHandler) DeleteMessage(kv *utility.KV,
 	key string) error {
 	return kv.Delete(key, currentE2EMessageVersion)
 }

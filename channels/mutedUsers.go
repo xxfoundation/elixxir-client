@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -43,12 +44,12 @@ type mutedUserManager struct {
 	list map[id.ID]map[mutedUserKey]struct{}
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  *utility.KV
 }
 
 // newOrLoadMutedUserManager loads an existing mutedUserManager from storage, if
 // it exists. Otherwise, it initialises a new empty mutedUserManager.
-func newOrLoadMutedUserManager(kv *versioned.KV) (*mutedUserManager, error) {
+func newOrLoadMutedUserManager(kv *utility.KV) (*mutedUserManager, error) {
 	mum := newMutedUserManager(kv)
 
 	err := mum.load()
@@ -60,7 +61,7 @@ func newOrLoadMutedUserManager(kv *versioned.KV) (*mutedUserManager, error) {
 }
 
 // newMutedUserManager initializes a new and empty mutedUserManager.
-func newMutedUserManager(kv *versioned.KV) *mutedUserManager {
+func newMutedUserManager(kv *utility.KV) *mutedUserManager {
 	return &mutedUserManager{
 		list: make(map[id.ID]map[mutedUserKey]struct{}),
 		kv:   kv,
@@ -256,19 +257,19 @@ func (mum *mutedUserManager) saveChannelList() error {
 		Data:      data,
 	}
 
-	return mum.kv.Set(mutedChannelListStoreKey, obj)
+	return mum.kv.Set(mutedChannelListStoreKey, obj.Marshal())
 }
 
 // loadChannelList retrieves the list of channel IDs with muted users from
 // storage.
 func (mum *mutedUserManager) loadChannelList() ([]*id.ID, error) {
-	obj, err := mum.kv.Get(mutedChannelListStoreKey, mutedChannelListStoreVer)
+	channelData, err := mum.kv.Get(mutedChannelListStoreKey, mutedChannelListStoreVer)
 	if err != nil {
 		return nil, err
 	}
 
 	var channelIdList []*id.ID
-	return channelIdList, json.Unmarshal(obj.Data, &channelIdList)
+	return channelIdList, json.Unmarshal(channelData, &channelIdList)
 }
 
 // saveMutedUsers stores the muted user list for the given channel to storage.
@@ -289,21 +290,21 @@ func (mum *mutedUserManager) saveMutedUsers(channelID *id.ID) error {
 		Data:      data,
 	}
 
-	return mum.kv.Set(makeMutedChannelStoreKey(channelID), obj)
+	return mum.kv.Set(makeMutedChannelStoreKey(channelID), obj.Marshal())
 }
 
 // loadMutedUsers retrieves the muted user list for the given channel from
 // storage.
 func (mum *mutedUserManager) loadMutedUsers(
 	channelID *id.ID) (map[mutedUserKey]struct{}, error) {
-	obj, err := mum.kv.Get(
+	channelData, err := mum.kv.Get(
 		makeMutedChannelStoreKey(channelID), mutedChannelListStoreVer)
 	if err != nil {
 		return nil, err
 	}
 
 	var list map[mutedUserKey]struct{}
-	return list, json.Unmarshal(obj.Data, &list)
+	return list, json.Unmarshal(channelData, &list)
 }
 
 // deleteMutedUsers deletes the muted user file for this channel ID from

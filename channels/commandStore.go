@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/message"
@@ -30,14 +31,14 @@ const (
 // CommandStore stores message information about channel commands in storage.
 // Each message
 type CommandStore struct {
-	kv *versioned.KV
+	kv *utility.KV
 }
 
 // NewCommandStore initialises a new message CommandStore object with a prefixed
 // KV.
-func NewCommandStore(kv *versioned.KV) *CommandStore {
+func NewCommandStore(kv *utility.KV) *CommandStore {
 	return &CommandStore{
-		kv: kv.Prefix(commandStorePrefix),
+		kv: kv,
 	}
 }
 
@@ -46,7 +47,7 @@ func (cs *CommandStore) SaveCommand(channelID *id.ID, messageID message.ID,
 	messageType MessageType, nickname string, content, encryptedPayload []byte,
 	pubKey ed25519.PublicKey, codeset uint8, timestamp,
 	originatingTimestamp time.Time, lease time.Duration,
-	originatingRound id.Round,round rounds.Round, status SentStatus, fromAdmin,
+	originatingRound id.Round, round rounds.Round, status SentStatus, fromAdmin,
 	userMuted bool) error {
 
 	m := CommandMessage{
@@ -83,7 +84,7 @@ func (cs *CommandStore) SaveCommand(channelID *id.ID, messageID message.ID,
 	jww.INFO.Printf(
 		"[CH] Storing command message %s for channel %s with key %s",
 		messageType, channelID, key)
-	return cs.kv.Set(key, obj)
+	return cs.kv.Set(makeCommandStoreKvKey(key), obj.Marshal())
 }
 
 // LoadCommand loads the command message from storage.
@@ -94,13 +95,13 @@ func (cs *CommandStore) LoadCommand(channelID *id.ID,
 		"[CH] Loading command message %s for channel %s with key %s",
 		messageType, channelID, key)
 
-	obj, err := cs.kv.Get(key, commandStoreVersion)
+	cmdMsgData, err := cs.kv.Get(makeCommandStoreKvKey(key), commandStoreVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	var m CommandMessage
-	return &m, json.Unmarshal(obj.Data, &m)
+	return &m, json.Unmarshal(cmdMsgData, &m)
 }
 
 // DeleteCommand deletes the command message from storage.
@@ -110,7 +111,7 @@ func (cs *CommandStore) DeleteCommand(
 	jww.INFO.Printf(
 		"[CH] Deleting command message %s for channel %s with key %s",
 		messageType, channelID, key)
-	return cs.kv.Delete(key, commandStoreVersion)
+	return cs.kv.Delete(makeCommandStoreKvKey(key), commandStoreVersion)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -229,4 +230,8 @@ func (afp commandFingerprint) key() commandFingerprintKey {
 // debugging and logging. This function adheres to the fmt.Stringer interface.
 func (afp commandFingerprint) String() string {
 	return hex.EncodeToString(afp[:])
+}
+
+func makeCommandStoreKvKey(tag string) string {
+	return commandStorePrefix + tag
 }

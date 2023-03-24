@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
@@ -43,13 +44,11 @@ type Buff struct {
 	lookup         map[truncatedMessageID]*Message
 	oldest, newest uint32
 	mux            sync.RWMutex
-	kv             *versioned.KV
+	kv             *utility.KV
 }
 
 // NewBuff initializes a new ring buffer with size n.
-func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
-	kv = kv.Prefix(ringBuffPrefix)
-
+func NewBuff(kv *utility.KV, n int) (*Buff, error) {
 	// Construct object
 	rb := &Buff{
 		buff:   make([]*Message, n),
@@ -170,17 +169,16 @@ func (b *Buff) handleMessageOverwrite() {
 
 // LoadBuff loads the ring buffer from storage. It loads all messages from
 // storage and repopulates the buffer.
-func LoadBuff(kv *versioned.KV) (*Buff, error) {
-	kv = kv.Prefix(ringBuffPrefix)
+func LoadBuff(kv *utility.KV) (*Buff, error) {
 
 	// Extract ring buffer from storage
-	vo, err := kv.Get(ringBuffKey, ringBuffVersion)
+	data, err := kv.Get(ringBuffPrefix+ringBuffKey, ringBuffVersion)
 	if err != nil {
 		return nil, errors.Errorf(loadBuffErr, err)
 	}
 
 	// Unmarshal ring buffer from data
-	newest, oldest, list := unmarshalBuffer(vo.Data)
+	newest, oldest, list := unmarshalBuffer(data)
 
 	// Construct buffer
 	rb := &Buff{
@@ -230,8 +228,7 @@ func (b *Buff) saveBuff() error {
 		Timestamp: netTime.Now(),
 		Data:      b.marshal(),
 	}
-
-	return b.kv.Set(ringBuffKey, obj)
+	return b.kv.Set(ringBuffPrefix+ringBuffKey, obj.Marshal())
 }
 
 // marshal creates a byte buffer containing serialized information on the Buff.
@@ -293,20 +290,20 @@ func (b *Buff) saveMessage(msg *Message) error {
 	}
 
 	return b.kv.Set(
-		makeMessageKey(msg.MessageId.truncate()), obj)
+		makeMessageKey(msg.MessageId.truncate()), obj.Marshal())
 
 }
 
 // loadMessage loads a message given truncatedMessageID from storage.
-func loadMessage(tmID truncatedMessageID, kv *versioned.KV) (*Message, error) {
+func loadMessage(tmID truncatedMessageID, kv *utility.KV) (*Message, error) {
 	// Load message from storage
-	vo, err := kv.Get(makeMessageKey(tmID), messageVersion)
+	data, err := kv.Get(makeMessageKey(tmID), messageVersion)
 	if err != nil {
 		return nil, errors.Errorf(loadMessageErr, tmID, err)
 	}
 
 	// Unmarshal message
-	return unmarshalMessage(vo.Data), nil
+	return unmarshalMessage(data), nil
 }
 
 // makeMessageKey generates te key used to save a message to storage.

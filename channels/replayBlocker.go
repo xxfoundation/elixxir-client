@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
@@ -40,7 +41,7 @@ type replayBlocker struct {
 	replay triggerLeaseReplay
 
 	store *CommandStore
-	kv    *versioned.KV
+	kv    *utility.KV
 	mux   sync.Mutex
 }
 
@@ -75,7 +76,7 @@ type commandMessage struct {
 // newOrLoadReplayBlocker loads an existing replayBlocker from storage, if it
 // exists. Otherwise, it initialises a new empty replayBlocker.
 func newOrLoadReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
-	kv *versioned.KV) (*replayBlocker, error) {
+	kv *utility.KV) (*replayBlocker, error) {
 	rb := newReplayBlocker(replay, store, kv)
 
 	err := rb.load()
@@ -88,12 +89,12 @@ func newOrLoadReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
 
 // newReplayBlocker initialises a new empty replayBlocker.
 func newReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
-	kv *versioned.KV) *replayBlocker {
+	kv *utility.KV) *replayBlocker {
 	return &replayBlocker{
 		commandsByChannel: make(map[id.ID]map[commandFingerprintKey]*commandMessage),
 		replay:            replay,
 		store:             store,
-		kv:                kv.Prefix(replayBlockerStoragePrefix),
+		kv:                kv,
 	}
 }
 
@@ -307,19 +308,20 @@ func (rb *replayBlocker) storeCommandChannelsList() error {
 		Data:      data,
 	}
 
-	return rb.kv.Set(commandChannelListKey, obj)
+	return rb.kv.Set(commandChannelListKey, obj.Marshal())
 }
 
 // loadCommandChannelsList loads the list of all channel IDs in the command list
 // from storage.
 func (rb *replayBlocker) loadCommandChannelsList() ([]*id.ID, error) {
-	obj, err := rb.kv.Get(commandChannelListKey, commandChannelListVer)
+	key := makeReplayKvKey(commandChannelListKey)
+	data, err := rb.kv.Get(key, commandChannelListVer)
 	if err != nil {
 		return nil, err
 	}
 
 	var channelIDs []*id.ID
-	return channelIDs, json.Unmarshal(obj.Data, &channelIDs)
+	return channelIDs, json.Unmarshal(data, &channelIDs)
 }
 
 // storeCommandMessages stores the map of commandMessage objects for the given
@@ -341,32 +343,37 @@ func (rb *replayBlocker) storeCommandMessages(channelID *id.ID) error {
 		Data:      data,
 	}
 
-	return rb.kv.Set(makeChannelCommandMessagesKey(channelID), obj)
+	key := makeReplayKvKey(makeChannelCommandMessagesKey(channelID))
+	return rb.kv.Set(key, obj.Marshal())
 }
 
 // loadCommandMessages loads the map of commandMessage from storage keyed on the
 // channel ID.
 func (rb *replayBlocker) loadCommandMessages(channelID *id.ID) (
 	map[commandFingerprintKey]*commandMessage, error) {
-	obj, err := rb.kv.Get(
-		makeChannelCommandMessagesKey(channelID), channelCommandMessagesVer)
+	key := makeReplayKvKey(makeChannelCommandMessagesKey(channelID))
+	data, err := rb.kv.Get(key, channelCommandMessagesVer)
 	if err != nil {
 		return nil, err
 	}
 
 	var messages map[commandFingerprintKey]*commandMessage
-	return messages, json.Unmarshal(obj.Data, &messages)
+	return messages, json.Unmarshal(data, &messages)
 }
 
 // deleteCommandMessages deletes the map of commandMessage from storage that is
 // keyed on the channel ID.
 func (rb *replayBlocker) deleteCommandMessages(channelID *id.ID) error {
-	return rb.kv.Delete(
-		makeChannelCommandMessagesKey(channelID), channelCommandMessagesVer)
+	key := makeReplayKvKey(makeChannelCommandMessagesKey(channelID))
+	return rb.kv.Delete(key, channelCommandMessagesVer)
 }
 
 // makeChannelCommandMessagesKey creates a key for saving channel replay
 // messages to storage.
 func makeChannelCommandMessagesKey(channelID *id.ID) string {
 	return hex.EncodeToString(channelID.Marshal())
+}
+
+func makeReplayKvKey(tag string) string {
+	return replayBlockerStoragePrefix + tag
 }

@@ -3,6 +3,7 @@ package channels
 import (
 	"encoding/json"
 	"errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,12 +20,12 @@ const (
 type nicknameManager struct {
 	byChannel map[id.ID]string
 	mux       sync.RWMutex
-	kv        *versioned.KV
+	kv        *utility.KV
 }
 
 // LoadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
-func LoadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
+func LoadOrNewNicknameManager(kv *utility.KV) *nicknameManager {
 	nm := &nicknameManager{
 		byChannel: make(map[id.ID]string),
 		kv:        kv,
@@ -101,18 +102,18 @@ func (nm *nicknameManager) save() error {
 		Data:      data,
 	}
 
-	return nm.kv.Set(nicknameStoreStorageKey, obj)
+	return nm.kv.Set(nicknameStoreStorageKey, obj.Marshal())
 }
 
 // load restores the nickname manager from disk.
 func (nm *nicknameManager) load() error {
-	obj, err := nm.kv.Get(nicknameStoreStorageKey, nicknameStoreStorageVersion)
+	data, err := nm.kv.Get(nicknameStoreStorageKey, nicknameStoreStorageVersion)
 	if err != nil {
 		return err
 	}
 
 	list := make([]channelIDToNickname, 0)
-	err = json.Unmarshal(obj.Data, &list)
+	err = json.Unmarshal(data, &list)
 	if err != nil {
 		return err
 	}

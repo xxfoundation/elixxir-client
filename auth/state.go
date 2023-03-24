@@ -62,7 +62,7 @@ type state struct {
 //
 //	In some cases, for example client <-> server communications, connections
 //	are treated as ephemeral. To do so in auth, pass in an ephemeral e2e (made
-//	with a memory only versioned.KV) as well as a memory only versioned.KV for
+//	with a memory only utility.KV) as well as a memory only utility.KV for
 //	NewState and use GetDefaultTemporaryParams() for the parameters
 func NewState(kv *utility.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,

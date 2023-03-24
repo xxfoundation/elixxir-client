@@ -9,6 +9,7 @@ package ud
 
 import (
 	"encoding/binary"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -20,7 +21,7 @@ const isRegisteredVersion = 0
 
 // IsRegistered loads from storage if the user is registered with user
 // discovery.
-func IsRegistered(kv *versioned.KV) bool {
+func IsRegistered(kv *utility.KV) bool {
 	_, err := kv.Get(isRegisteredKey, isRegisteredVersion)
 	if err != nil {
 		return false
@@ -30,7 +31,7 @@ func IsRegistered(kv *versioned.KV) bool {
 }
 
 // setRegistered sets the user to registered
-func setRegistered(kv *versioned.KV) error {
+func setRegistered(kv *utility.KV) error {
 	data := make([]byte, 4)
 	binary.BigEndian.PutUint32(data, 1)
 	obj := &versioned.Object{
@@ -39,7 +40,7 @@ func setRegistered(kv *versioned.KV) error {
 		Data:      data,
 	}
 
-	if err := kv.Set(isRegisteredKey, obj); err != nil {
+	if err := kv.Set(isRegisteredKey, obj.Marshal()); err != nil {
 		jww.FATAL.Panicf("Failed to store that the client is "+
 			"registered: %+v", err)
 	}

@@ -10,6 +10,7 @@ package channels
 import (
 	"encoding/json"
 	"errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 	"time"
 
@@ -68,7 +69,7 @@ type sendTracker struct {
 	net Client
 
 	rngSrc *fastRNG.StreamGenerator
-	kv     *versioned.KV
+	kv     *utility.KV
 	mux    sync.RWMutex
 }
 
@@ -80,7 +81,7 @@ type messageReceiveFunc func(
 // loadSendTracker loads a sent tracker, restoring from disk. It will register a
 // function with the cmix client, delayed on when the network goes healthy,
 // which will attempt to discover the status of all rounds that are outstanding.
-func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
+func loadSendTracker(net Client, kv *utility.KV, trigger triggerEventFunc,
 	adminTrigger triggerAdminEventFunc, updateStatus UpdateFromUuidFunc,
 	rngSource *fastRNG.StreamGenerator) *sendTracker {
 	st := &sendTracker{
@@ -146,11 +147,14 @@ func (st *sendTracker) storeSent() error {
 	if err != nil {
 		return err
 	}
-	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
+
+	obj := &versioned.Object{
 		Version:   sendTrackerStorageVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
-	})
+	}
+
+	return st.kv.Set(sendTrackerStorageKey, obj.Marshal())
 }
 
 // store writes the list of rounds that have been.
@@ -161,22 +165,24 @@ func (st *sendTracker) storeUnsent() error {
 		return err
 	}
 
-	return st.kv.Set(sendTrackerUnsentStorageKey, &versioned.Object{
+	obj := &versioned.Object{
 		Version:   sendTrackerUnsentStorageVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
-	})
+	}
+
+	return st.kv.Set(sendTrackerUnsentStorageKey, obj.Marshal())
 }
 
 // load will get the stored rounds to be checked from disk and builds internal
 // datastructures.
 func (st *sendTracker) load() error {
-	obj, err := st.kv.Get(sendTrackerStorageKey, sendTrackerStorageVersion)
+	data, err := st.kv.Get(sendTrackerStorageKey, sendTrackerStorageVersion)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(obj.Data, &st.byRound)
+	err = json.Unmarshal(data, &st.byRound)
 	if err != nil {
 		return err
 	}
@@ -188,13 +194,13 @@ func (st *sendTracker) load() error {
 		}
 	}
 
-	obj, err = st.kv.Get(
+	data, err = st.kv.Get(
 		sendTrackerUnsentStorageKey, sendTrackerUnsentStorageVersion)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(obj.Data, &st.unsent)
+	err = json.Unmarshal(data, &st.unsent)
 	if err != nil {
 		return err
 	}

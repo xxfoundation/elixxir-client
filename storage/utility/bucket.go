@@ -25,7 +25,7 @@ const (
 // BucketStore stores a leaky bucket into storage. The bucket
 // is saved in a JSON-able format.
 type BucketStore struct {
-	kv *versioned.KV
+	kv *KV
 }
 
 // bucketDisk is a JSON-able structure used to store
@@ -37,9 +37,9 @@ type bucketDisk struct {
 
 // NewStoredBucket creates a new, empty Bucket and saves it to storage.
 func NewStoredBucket(capacity, leaked uint32, leakDuration time.Duration,
-	kv *versioned.KV) *rateLimiting.Bucket {
+	kv *KV) *rateLimiting.Bucket {
 	bs := &BucketStore{
-		kv: kv.Prefix(bucketStorePrefix),
+		kv: kv,
 	}
 
 	bs.save(0, netTime.Now().UnixNano())
@@ -59,20 +59,20 @@ func (s *BucketStore) save(inBucket uint32, timestamp int64) {
 	data, err := json.Marshal(&bd)
 	if err != nil {
 		jww.ERROR.Printf("Failed to marshal %s bucket data for"+
-			" storage: %v", s.kv.GetPrefix(), err)
+			" storage: %v", bucketStorePrefix, err)
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   bucketStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	err = s.kv.Set(bucketStoreKey, &obj)
+	err = s.kv.Set(bucketStorePrefix+bucketStoreKey, obj.Marshal())
 
 	if err != nil {
 		jww.ERROR.Printf("Failed to store %s bucket data: %v",
-			s.kv.GetPrefix(), err)
+			bucketStorePrefix, err)
 	}
 }
 
@@ -82,9 +82,9 @@ func (s *BucketStore) save(inBucket uint32, timestamp int64) {
 
 // LoadBucket is a storage operation which loads a bucket from storage.
 func LoadBucket(capacity, leaked uint32, leakDuration time.Duration,
-	kv *versioned.KV) (*rateLimiting.Bucket, error) {
+	kv *KV) (*rateLimiting.Bucket, error) {
 	bs := &BucketStore{
-		kv: kv.Prefix(bucketStorePrefix),
+		kv: kv,
 	}
 	inBucket, ts, err := bs.load()
 	if err != nil {
@@ -99,14 +99,14 @@ func LoadBucket(capacity, leaked uint32, leakDuration time.Duration,
 // and loads it back into BucketStore.
 func (s *BucketStore) load() (uint32, int64, error) {
 	// Load the versioned object
-	vo, err := s.kv.Get(bucketStoreKey, bucketStoreVersion)
+	data, err := s.kv.Get(bucketStorePrefix+bucketStoreKey, bucketStoreVersion)
 	if err != nil {
 		return 0, 0, err
 	}
 
 	bd := bucketDisk{}
 
-	err = json.Unmarshal(vo.Data, &bd)
+	err = json.Unmarshal(data, &bd)
 	if err != nil {
 		return 0, 0, err
 	}

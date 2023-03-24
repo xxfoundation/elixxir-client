@@ -238,52 +238,36 @@ type RemoteKVCallbacks interface {
 //     (e.g., Google Drive's API, DropBox's API, etc.).
 func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	remote RemoteStore) (*RemoteKV, error) {
-
-	// Retrieve
+	// Retrieve the client
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
-
-	// todo: properly define
-	var deviceSecret = []byte("dummy, replace")
-	// deviceSecret = e2eCl.GetDeviceSecret()
 
 	// Construct the key update CB
 	var eventCb sync.KeyUpdateCallback = func(key string, oldVal, newVal []byte,
 		updated bool) {
 		remoteKvCallbacks.KeyUpdated(key, oldVal, newVal, updated)
 	}
+
 	// Construct update CB
 	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction,
 		err error) {
 		remoteStoreCbUtil(remoteKvCallbacks, newTx, err)
 	}
 
-	// Construct local storage
-	local, err := sync.NewOrLoadEkvLocalStore(e2eCl.api.GetStorage().GetKV())
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct txLog path
-	txLogPath := "txLog/" + e2eCl.api.GetReceptionIdentity().ID.String()
-
 	// Retrieve rng
 	rng := e2eCl.api.GetRng().GetStream()
 
-	// Construct or load a transaction log
-	txLog, err := sync.NewOrLoadTransactionLog(txLogPath, local,
-		newRemoteStoreFileSystemWrapper(remote),
-		deviceSecret, rng)
+	// Initialize remote KV
+	err = e2eCl.api.GetStorage().InitRemoteKV(
+		newRemoteStoreFileSystemWrapper(remote), eventCb, updateCb, rng)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct remote KV
-	rkv, err := sync.NewOrLoadRemoteKV(
-		txLog, e2eCl.api.GetStorage().GetKV(),
-		eventCb, updateCb)
+	// Retrieve remote KV
+	rkv, err := e2eCl.api.GetStorage().GetRemoteKV()
 	if err != nil {
 		return nil, err
 	}

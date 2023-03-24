@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/group"
@@ -98,28 +99,28 @@ func (g Group) DeepCopy() Group {
 }
 
 // store saves an individual Group to storage keying on the group ID.
-func (g Group) store(kv *versioned.KV) error {
+func (g Group) store(kv *utility.KV) error {
 	obj := &versioned.Object{
 		Version:   groupStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      g.Serialize(),
 	}
 
-	return kv.Set(groupStoreKey(g.ID), obj)
+	return kv.Set(groupStoreKey(g.ID), obj.Marshal())
 }
 
 // loadGroup returns the group with the corresponding ID from storage.
-func loadGroup(groupID *id.ID, kv *versioned.KV) (Group, error) {
-	obj, err := kv.Get(groupStoreKey(groupID), groupStoreVersion)
+func loadGroup(groupID *id.ID, kv *utility.KV) (Group, error) {
+	data, err := kv.Get(groupStoreKey(groupID), groupStoreVersion)
 	if err != nil {
 		return Group{}, errors.Errorf(kvGetGroupErr, groupID, err)
 	}
 
-	return DeserializeGroup(obj.Data)
+	return DeserializeGroup(data)
 }
 
 // removeGroup deletes the given group from storage.
-func removeGroup(groupID *id.ID, kv *versioned.KV) error {
+func removeGroup(groupID *id.ID, kv *utility.KV) error {
 	return kv.Delete(groupStoreKey(groupID), groupStoreVersion)
 }
 

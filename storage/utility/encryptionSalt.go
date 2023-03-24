@@ -21,8 +21,7 @@ const saltSize = 32
 // NewOrLoadSalt will attempt to find a stored salt if one exists.
 // If one does not exist in storage, a new one will be generated. The newly
 // generated salt will be stored.
-func NewOrLoadSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
-	kv = kv.Prefix(saltPrefix)
+func NewOrLoadSalt(kv *KV, stream io.Reader) ([]byte, error) {
 	salt, err := loadSalt(kv)
 	if err != nil {
 		jww.WARN.Printf("Failed to load salt, generating new one...")
@@ -34,18 +33,18 @@ func NewOrLoadSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
 
 // loadSalt is a helper function which attempts to load a stored salt from
 // memory.
-func loadSalt(kv *versioned.KV) ([]byte, error) {
-	obj, err := kv.Get(saltKey, saltVersion)
+func loadSalt(kv *KV) ([]byte, error) {
+	saltData, err := kv.Get(makeSaltKey(saltKey), saltVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	return obj.Data, nil
+	return saltData, nil
 }
 
-// newSalt generates a new random salt. This salt is stored and returned
-// to the caller.
-func newSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
+// newSalt generates a new random salt. This salt is stored and returned to the
+// caller.
+func newSalt(kv *KV, stream io.Reader) ([]byte, error) {
 	// Generate a new salt
 	salt := make([]byte, saltSize)
 	_, err := stream.Read(salt)
@@ -60,10 +59,9 @@ func newSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
 		Data:      salt,
 	}
 
-	err = kv.Set(saltKey, obj)
-	if err != nil {
-		return nil, err
-	}
+	return salt, kv.Set(makeSaltKey(saltKey), obj.Marshal())
+}
 
-	return salt, nil
+func makeSaltKey(tag string) string {
+	return saltPrefix + tag
 }

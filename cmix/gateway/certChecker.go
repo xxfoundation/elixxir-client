@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/hash"
@@ -37,14 +38,14 @@ type CertCheckerCommInterface interface {
 
 // certChecker stores verified certificates and handles verification checking
 type certChecker struct {
-	kv    *versioned.KV
+	kv    *utility.KV
 	comms CertCheckerCommInterface
 }
 
 // newCertChecker initializes a certChecker object
-func newCertChecker(comms CertCheckerCommInterface, kv *versioned.KV) *certChecker {
+func newCertChecker(comms CertCheckerCommInterface, kv *utility.KV) *certChecker {
 	return &certChecker{
-		kv:    kv.Prefix(certCheckerPrefix),
+		kv:    kv,
 		comms: comms,
 	}
 }
@@ -113,24 +114,25 @@ func verifyRemoteCertificate(cert, sig []byte, gwHost *connect.Host) error {
 // fingerprint for a given gateway, or returns an error if not found
 func (cc *certChecker) loadGatewayCertificateFingerprint(id *id.ID) ([]byte, error) {
 	key := getKey(id)
-	obj, err := cc.kv.Get(key, certCheckerStorageVer)
+	data, err := cc.kv.Get(key, certCheckerStorageVer)
 	if err != nil {
 		return nil, err
 	}
-	return obj.Data, err
+	return data, err
 }
 
 // storeGatewayCertificateFingerprint stores the certificate fingerprint for a given gateway
 func (cc *certChecker) storeGatewayCertificateFingerprint(fingerprint []byte, id *id.ID) error {
 	key := getKey(id)
-	return cc.kv.Set(key, &versioned.Object{
+	obj := &versioned.Object{
 		Version:   certCheckerStorageVer,
 		Timestamp: time.Now(),
 		Data:      fingerprint,
-	})
+	}
+	return cc.kv.Set(key, obj.Marshal())
 }
 
 // getKey is a helper function to generate the key for a gateway certificate fingerprint
 func getKey(id *id.ID) string {
-	return fmt.Sprintf(keyTemplate, id.String())
+	return certCheckerPrefix + fmt.Sprintf(keyTemplate, id.String())
 }

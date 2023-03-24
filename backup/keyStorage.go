@@ -10,6 +10,7 @@ package backup
 import (
 	"bytes"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -30,7 +31,7 @@ const (
 )
 
 // saveBackup saves the key, salt, and params to storage.
-func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error {
+func saveBackup(key, salt []byte, params backup.Params, kv *utility.KV) error {
 
 	obj := &versioned.Object{
 		Version:   cryptoStorageVersion,
@@ -38,21 +39,22 @@ func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error 
 		Data:      marshalBackup(key, salt, params),
 	}
 
-	return kv.Set(cryptoStorageKey, obj)
+	return kv.Set(cryptoStorageKey, obj.Marshal())
 }
 
 // loadBackup loads the key, salt, and params from storage.
-func loadBackup(kv *versioned.KV) (key, salt []byte, params backup.Params, err error) {
-	obj, err := kv.Get(cryptoStorageKey, cryptoStorageVersion)
+func loadBackup(kv *utility.KV) (key, salt []byte,
+	params backup.Params, err error) {
+	backupData, err := kv.Get(cryptoStorageKey, cryptoStorageVersion)
 	if err != nil {
 		return
 	}
 
-	return unmarshalBackup(obj.Data)
+	return unmarshalBackup(backupData)
 }
 
 // deleteBackup deletes the key, salt, and params from storage.
-func deleteBackup(kv *versioned.KV) error {
+func deleteBackup(kv *utility.KV) error {
 	return kv.Delete(cryptoStorageKey, cryptoStorageVersion)
 }
 

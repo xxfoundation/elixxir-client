@@ -17,6 +17,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
@@ -99,7 +100,7 @@ type ActionLeaseList struct {
 	rb *replayBlocker
 
 	store *CommandStore
-	kv    *versioned.KV
+	kv    *utility.KV
 	rng   *fastRNG.StreamGenerator
 }
 
@@ -152,7 +153,7 @@ type leaseMessage struct {
 // NewOrLoadActionLeaseList loads an existing ActionLeaseList from storage, if
 // it exists. Otherwise, it initialises a new empty ActionLeaseList.
 func NewOrLoadActionLeaseList(triggerFn triggerActionEventFunc,
-	store *CommandStore, kv *versioned.KV, rng *fastRNG.StreamGenerator) (
+	store *CommandStore, kv *utility.KV, rng *fastRNG.StreamGenerator) (
 	*ActionLeaseList, error) {
 	all := NewActionLeaseList(triggerFn, store, kv, rng)
 
@@ -171,7 +172,7 @@ func NewOrLoadActionLeaseList(triggerFn triggerActionEventFunc,
 
 // NewActionLeaseList initialises a new empty ActionLeaseList.
 func NewActionLeaseList(triggerFn triggerActionEventFunc, store *CommandStore,
-	kv *versioned.KV, rng *fastRNG.StreamGenerator) *ActionLeaseList {
+	kv *utility.KV, rng *fastRNG.StreamGenerator) *ActionLeaseList {
 	all := &ActionLeaseList{
 		leases:             list.New(),
 		messagesByChannel:  make(map[id.ID]map[commandFingerprintKey]*leaseMessage),
@@ -364,7 +365,7 @@ func (all *ActionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 func (all *ActionLeaseList) AddMessage(channelID *id.ID, messageID message.ID,
 	action MessageType, unsanitizedPayload, sanitizedPayload,
 	encryptedPayload []byte, timestamp, originatingTimestamp time.Time,
-	lease time.Duration,originatingRound id.Round, round rounds.Round,
+	lease time.Duration, originatingRound id.Round, round rounds.Round,
 	fromAdmin bool) error {
 
 	// Calculate lease trigger time
@@ -888,19 +889,19 @@ func (all *ActionLeaseList) storeLeaseChannels() error {
 		Data:      data,
 	}
 
-	return all.kv.Set(channelLeaseKey, obj)
+	return all.kv.Set(channelLeaseKey, obj.Marshal())
 }
 
 // loadLeaseChannels loads the list of all channel IDs in the lease list from
 // storage.
 func (all *ActionLeaseList) loadLeaseChannels() ([]*id.ID, error) {
-	obj, err := all.kv.Get(channelLeaseKey, channelLeaseVer)
+	data, err := all.kv.Get(channelLeaseKey, channelLeaseVer)
 	if err != nil {
 		return nil, err
 	}
 
 	var channelIDs []*id.ID
-	return channelIDs, json.Unmarshal(obj.Data, &channelIDs)
+	return channelIDs, json.Unmarshal(data, &channelIDs)
 }
 
 // storeLeaseMessages stores the list of leaseMessage objects for the given
@@ -922,21 +923,21 @@ func (all *ActionLeaseList) storeLeaseMessages(channelID *id.ID) error {
 		Data:      data,
 	}
 
-	return all.kv.Set(makeChannelLeaseMessagesKey(channelID), obj)
+	return all.kv.Set(makeChannelLeaseMessagesKey(channelID), obj.Marshal())
 }
 
 // loadLeaseMessages loads the list of leaseMessage from storage keyed on the
 // channel ID.
 func (all *ActionLeaseList) loadLeaseMessages(channelID *id.ID) (
 	map[commandFingerprintKey]*leaseMessage, error) {
-	obj, err := all.kv.Get(
+	data, err := all.kv.Get(
 		makeChannelLeaseMessagesKey(channelID), channelLeaseMessagesVer)
 	if err != nil {
 		return nil, err
 	}
 
 	var messages map[commandFingerprintKey]*leaseMessage
-	return messages, json.Unmarshal(obj.Data, &messages)
+	return messages, json.Unmarshal(data, &messages)
 }
 
 // deleteLeaseMessages deletes the list of leaseMessage from storage that is

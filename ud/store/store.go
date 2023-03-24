@@ -12,6 +12,7 @@ package ud
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -43,14 +44,12 @@ type Store struct {
 	// Stores facts that have been added by UDB but unconfirmed facts.
 	// Maps confirmID to fact
 	unconfirmedFacts map[string]fact.Fact
-	kv               *versioned.KV
+	kv               *util.KV
 	mux              sync.RWMutex
 }
 
 // newStore creates a new, empty Store object.
-func newStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(prefix)
-
+func newStore(kv *util.KV) (*Store, error) {
 	s := &Store{
 		confirmedFacts:   make(map[fact.Fact]struct{}),
 		unconfirmedFacts: make(map[string]fact.Fact),
@@ -90,15 +89,14 @@ func (s *Store) saveConfirmedFacts() error {
 	}
 
 	// Construct versioned object
-	now := netTime.Now()
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   version,
-		Timestamp: now,
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
 	// Save to storage
-	return s.kv.Set(confirmedFactKey, &obj)
+	return s.kv.Set(prefix+confirmedFactKey, obj.Marshal())
 }
 
 // saveUnconfirmedFacts saves all data within Store.unconfirmedFacts into storage.
@@ -109,15 +107,14 @@ func (s *Store) saveUnconfirmedFacts() error {
 	}
 
 	// Construct versioned object
-	now := netTime.Now()
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   version,
-		Timestamp: now,
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
 	// Save to storage
-	return s.kv.Set(unconfirmedFactKey, &obj)
+	return s.kv.Set(unconfirmedFactKey, obj.Marshal())
 
 }
 
@@ -126,10 +123,10 @@ func (s *Store) saveUnconfirmedFacts() error {
 /////////////////////////////////////////////////////////////////
 
 // NewOrLoadStore loads the Store object from the provided versioned.KV.
-func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
+func NewOrLoadStore(kv *util.KV) (*Store, error) {
 
 	s := &Store{
-		kv: kv.Prefix(prefix),
+		kv: kv,
 	}
 	if err := s.load(); err != nil {
 		if !s.kv.Exists(err) {
@@ -164,13 +161,13 @@ func (s *Store) load() error {
 // It is the inverse operation of saveConfirmedFacts.
 func (s *Store) loadConfirmedFacts() error {
 	// Pull data from storage
-	obj, err := s.kv.Get(confirmedFactKey, version)
+	data, err := s.kv.Get(confirmedFactKey, version)
 	if err != nil {
 		return err
 	}
 
 	// Place the map in memory
-	s.confirmedFacts, err = s.unmarshalConfirmedFacts(obj.Data)
+	s.confirmedFacts, err = s.unmarshalConfirmedFacts(data)
 	if err != nil {
 		return err
 	}
@@ -182,13 +179,13 @@ func (s *Store) loadConfirmedFacts() error {
 // It is the inverse operation of saveUnconfirmedFacts.
 func (s *Store) loadUnconfirmedFacts() error {
 	// Pull data from storage
-	obj, err := s.kv.Get(unconfirmedFactKey, version)
+	data, err := s.kv.Get(unconfirmedFactKey, version)
 	if err != nil {
 		return err
 	}
 
 	// Place the map in memory
-	s.unconfirmedFacts, err = s.unmarshalUnconfirmedFacts(obj.Data)
+	s.unconfirmedFacts, err = s.unmarshalUnconfirmedFacts(data)
 	if err != nil {
 		return err
 	}
@@ -209,7 +206,7 @@ type unconfirmedFactDisk struct {
 }
 
 // marshalConfirmedFacts is a marshaller which serializes the data
-//// in the confirmedFacts map into a JSON.
+// // in the confirmedFacts map into a JSON.
 func (s *Store) marshalConfirmedFacts() ([]byte, error) {
 	// Flatten confirmed facts to a list
 	fStrings := s.serializeConfirmedFacts()
@@ -260,9 +257,10 @@ func (s *Store) unmarshalConfirmedFacts(data []byte) (map[fact.Fact]struct{}, er
 	return confirmedFacts, nil
 }
 
-// unmarshalUnconfirmedFacts is a function which deserializes the data from storage
-// into a structure matching the unconfirmedFacts map.
-func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, error) {
+// unmarshalUnconfirmedFacts is a function which deserializes the data from
+// storage into a structure matching the unconfirmedFacts map.
+func (s *Store) unmarshalUnconfirmedFacts(data []byte) (
+	map[string]fact.Fact, error) {
 	// Unmarshal into list
 	var ufdList []unconfirmedFactDisk
 	err := json.Unmarshal(data, &ufdList)

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/xx_network/primitives/id"
@@ -48,13 +49,13 @@ func (m *manager) storeUnsafe() error {
 		Data:      data,
 	}
 
-	return m.kv.Set(joinedChannelsKey, obj)
+	return m.kv.Set(joinedChannelsKey, obj.Marshal())
 }
 
 // loadChannels loads all currently joined channels from disk and registers them
 // for message reception.
 func (m *manager) loadChannels() {
-	obj, err := m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
+	data, err := m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
 	if !m.kv.Exists(err) {
 		m.channels = make(map[id.ID]*joinedChannel)
 		return
@@ -63,7 +64,7 @@ func (m *manager) loadChannels() {
 	}
 
 	chList := make([]*id.ID, 0, len(m.channels))
-	if err = json.Unmarshal(obj.Data, &chList); err != nil {
+	if err = json.Unmarshal(data, &chList); err != nil {
 		jww.FATAL.Panicf("[CH] Failed to load channels: %+v", err)
 	}
 
@@ -188,7 +189,7 @@ type joinedChannelDisk struct {
 }
 
 // Store writes the given channel to a unique storage location within the EKV.
-func (jc *joinedChannel) Store(kv *versioned.KV) error {
+func (jc *joinedChannel) Store(kv *utility.KV) error {
 	jcd := joinedChannelDisk{jc.broadcast.Get()}
 	data, err := json.Marshal(&jcd)
 	if err != nil {
@@ -201,18 +202,19 @@ func (jc *joinedChannel) Store(kv *versioned.KV) error {
 		Data:      data,
 	}
 
-	return kv.Set(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID), obj)
+	return kv.Set(
+		makeJoinedChannelKey(jc.broadcast.Get().ReceptionID), obj.Marshal())
 }
 
 // loadJoinedChannel loads a given channel from ekv storage.
 func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
-	obj, err := m.kv.Get(makeJoinedChannelKey(channelID), joinedChannelVersion)
+	data, err := m.kv.Get(makeJoinedChannelKey(channelID), joinedChannelVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	jcd := &joinedChannelDisk{}
-	err = json.Unmarshal(obj.Data, jcd)
+	err = json.Unmarshal(data, jcd)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +229,7 @@ func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
 }
 
 // delete removes the channel from the kv.
-func (jc *joinedChannel) delete(kv *versioned.KV) error {
+func (jc *joinedChannel) delete(kv *utility.KV) error {
 	return kv.Delete(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
 		joinedChannelVersion)
 }

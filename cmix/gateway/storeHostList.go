@@ -41,13 +41,13 @@ func saveHostList(kv *utility.KV, list []*id.ID) error {
 }
 
 // getHostList returns the host list from storage.
-func getHostList(kv *versioned.KV) ([]*id.ID, error) {
+func getHostList(kv *utility.KV) ([]*id.ID, error) {
 	obj, err := kv.Get(makeHostListKvKey(), hostListVersion)
 	if err != nil {
 		return nil, errors.Errorf(getStorageErr, err)
 	}
 
-	return unmarshalHostList(obj.Data)
+	return unmarshalHostList(obj)
 }
 
 // marshalHostList marshals the list of IDs into a byte slice.

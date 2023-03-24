@@ -32,7 +32,7 @@ const (
 		"after error %v: %+v"
 )
 
-// AuthenticatedConnection is a connect.Connection interface that
+// AuthenticatedConnection is a [connect.Connection] interface that
 // has the receiver authenticating their identity back to the
 // initiator.
 type AuthenticatedConnection interface {

@@ -14,6 +14,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 	"time"
 
@@ -85,14 +86,14 @@ type sendTracker struct {
 
 	net cMixClient
 
-	kv *versioned.KV
+	kv *utility.KV
 
 	rngSrc *fastRNG.StreamGenerator
 }
 
 // NewSendTracker returns an uninitialized SendTracker object. The DM
 // Client will call Init to initialize it.
-func NewSendTracker(kv *versioned.KV) SendTracker {
+func NewSendTracker(kv *utility.KV) SendTracker {
 	return &sendTracker{kv: kv}
 }
 
@@ -401,11 +402,12 @@ func (st *sendTracker) storeSent() error {
 	if err != nil {
 		return err
 	}
-	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
+	obj := &versioned.Object{
 		Version:   sendTrackerStorageVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
-	})
+	}
+	return st.kv.Set(sendTrackerStorageKey, obj.Marshal())
 }
 
 // store writes the list of rounds that have been.
@@ -415,23 +417,24 @@ func (st *sendTracker) storeUnsent() error {
 	if err != nil {
 		return err
 	}
-
-	return st.kv.Set(sendTrackerUnsentStorageKey, &versioned.Object{
+	obj := &versioned.Object{
 		Version:   sendTrackerUnsentStorageVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
-	})
+	}
+
+	return st.kv.Set(sendTrackerUnsentStorageKey, obj.Marshal())
 }
 
 // load will get the stored rounds to be checked from disk and builds internal
 // datastructures.
 func (st *sendTracker) load() error {
-	obj, err := st.kv.Get(sendTrackerStorageKey, sendTrackerStorageVersion)
+	data, err := st.kv.Get(sendTrackerStorageKey, sendTrackerStorageVersion)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(obj.Data, &st.byRound)
+	err = json.Unmarshal(data, &st.byRound)
 	if err != nil {
 		return err
 	}
@@ -443,13 +446,13 @@ func (st *sendTracker) load() error {
 		}
 	}
 
-	obj, err = st.kv.Get(
+	data, err = st.kv.Get(
 		sendTrackerUnsentStorageKey, sendTrackerUnsentStorageVersion)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(obj.Data, &st.unsent)
+	err = json.Unmarshal(data, &st.unsent)
 	if err != nil {
 		return err
 	}

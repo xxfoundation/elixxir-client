@@ -10,6 +10,7 @@ package dm
 import (
 	"crypto/ed25519"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"strings"
 	sync "sync"
 	"time"
@@ -108,7 +109,7 @@ func (dc *dmClient) register(apiReceiver EventModel,
 	return nil
 }
 
-func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
+func NewNicknameManager(id *id.ID, ekv *utility.KV) NickNameManager {
 	return &nickMgr{
 		ekv:      ekv,
 		storeKey: fmt.Sprintf(nickStoreKey, id.String()),
@@ -118,7 +119,7 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 
 type nickMgr struct {
 	storeKey string
-	ekv      *versioned.KV
+	ekv      *utility.KV
 	nick     string
 	sync.Mutex
 }
@@ -191,7 +192,7 @@ func (nm *nickMgr) GetNickname() (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	nm.nick = string(nickObj.Data)
+	nm.nick = string(nickObj)
 	return nm.nick, true
 }
 
@@ -205,5 +206,5 @@ func (nm *nickMgr) SetNickname(nick string) {
 		Timestamp: time.Now(),
 		Data:      []byte(nick),
 	}
-	nm.ekv.Set(nm.storeKey, nickObj)
+	nm.ekv.Set(nm.storeKey, nickObj.Marshal())
 }

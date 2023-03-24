@@ -48,21 +48,21 @@ func (s *Store) StoreConfirmation(partner *id.ID,
 		Data:      confirmBytes,
 	}
 
-	return s.kv.Set(makeConfirmationKey(partner), obj)
+	return s.kv.Set(makeConfirmationKey(partner), obj.Marshal())
 }
 
 // LoadConfirmation loads the confirmation for the given partner and fingerprint
 // from storage.
 func (s *Store) LoadConfirmation(partner *id.ID) (
 	[]byte, []byte, format.Fingerprint, error) {
-	obj, err := s.kv.Get(
+	confirmData, err := s.kv.Get(
 		makeConfirmationKey(partner), currentConfirmationVersion)
 	if err != nil {
 		return nil, nil, format.Fingerprint{}, err
 	}
 
 	confirm := storedConfirm{}
-	if err = json.Unmarshal(obj.Data, &confirm); err != nil {
+	if err = json.Unmarshal(confirmData, &confirm); err != nil {
 		return nil, nil, format.Fingerprint{}, err
 	}
 

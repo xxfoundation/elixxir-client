@@ -11,23 +11,23 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"sync"
-
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"sync"
 )
 
 const currentSentRequestVersion = 1
 
 type SentRequest struct {
-	kv *versioned.KV
+	kv *utility.KV
 
 	partner                 *id.ID
 	partnerHistoricalPubKey *cyclic.Int
@@ -51,7 +51,7 @@ type sentRequestDisk struct {
 	Reset                   bool
 }
 
-func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
+func newSentRequest(kv *utility.KV, partner *id.ID, partnerHistoricalPubKey,
 	myPrivKey, myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
 	sidHPubA *sidh.PublicKey, fp format.Fingerprint, reset bool) (*SentRequest, error) {
 
@@ -70,7 +70,8 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 	return sr, sr.save()
 }
 
-func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
+func loadSentRequest(kv *utility.KV, partner *id.ID,
+	grp *cyclic.Group) (*SentRequest, error) {
 
 	srKey := makeSentRequestKey(partner)
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
@@ -91,7 +92,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 
 	srd := &sentRequestDisk{}
 
-	if err := json.Unmarshal(obj.Data, srd); err != nil {
+	if err := json.Unmarshal(obj, srd); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Unmarshal "+
 			"SentRequest Auth with %s", partner)
 	}
@@ -204,13 +205,13 @@ func (sr *SentRequest) save() error {
 		return err
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentSentRequestVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	return sr.kv.Set(makeSentRequestKey(sr.partner), &obj)
+	return sr.kv.Set(makeSentRequestKey(sr.partner), obj.Marshal())
 }
 
 func (sr *SentRequest) delete() {
@@ -283,9 +284,9 @@ func makeSentRequestKeyV0(partner *id.ID) string {
 
 // upgradeSentRequestKeyV0 upgrads the srKey from version 0 to 1 by
 // changing the version number.
-func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
+func upgradeSentRequestKeyV0(kv *utility.KV, partner *id.ID) error {
 	oldKey := makeSentRequestKeyV0(partner)
-	obj, err := kv.Get(oldKey, 0)
+	data, err := kv.Get(oldKey, 0)
 	if err != nil {
 		return err
 	}
@@ -293,8 +294,12 @@ func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
 	jww.INFO.Printf("Upgrading legacy srKey for %s", partner)
 
 	// Note: uses same encoding, just different keys
-	obj.Version = 1
-	err = kv.Set(makeSentRequestKey(partner), obj)
+	obj := &versioned.Object{
+		Version:   1,
+		Timestamp: netTime.Now(),
+		Data:      data,
+	}
+	err = kv.Set(makeSentRequestKey(partner), obj.Marshal())
 	if err != nil {
 		return err
 	}

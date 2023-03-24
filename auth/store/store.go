@@ -8,7 +8,10 @@
 package store
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/e2e"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -29,7 +32,7 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
-	kv           *versioned.KV
+	kv           *utility.KV
 	grp          *cyclic.Group
 	receivedByID map[id.ID]*ReceivedRequest
 	sentByID     map[id.ID]*SentRequest
@@ -38,45 +41,46 @@ type Store struct {
 
 	srh SentRequestHandler
 
-	mux sync.RWMutex
+	mux         sync.RWMutex
+	receptionId *id.ID
 }
 
 // NewOrLoadStore loads an extant new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
 // If no store can be found, it creates a new one
-func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
-	kv = kv.Prefix(storePrefix)
-
+func NewOrLoadStore(kv *utility.KV, e e2e.Handler, srh SentRequestHandler) (*Store, error) {
 	s := &Store{
 		kv:                   kv,
-		grp:                  grp,
+		grp:                  e.GetGroup(),
 		receivedByID:         make(map[id.ID]*ReceivedRequest),
 		sentByID:             make(map[id.ID]*SentRequest),
 		previousNegotiations: make(map[id.ID]bool),
 		srh:                  srh,
+		receptionId:          e.GetReceptionID(),
 	}
 
 	var requestList []requestDisk
 
 	//load all receivedByID
-	sentObj, err := kv.Get(requestMapKey, requestMapVersion)
+	sentObj, err := kv.Get(makeStorePrefix(e.GetReceptionID()),
+		requestMapVersion)
 	if err != nil {
 		//no store can be found, lets make a new one
 		jww.WARN.Printf("No auth store could be found, making a new one")
-		s, err := newStore(kv, grp, srh)
+		s, err := newStore(kv, e.GetGroup(), srh)
 		if err != nil {
 			return nil, errors.WithMessagef(err, "Failed to load requestMap")
 		}
 		return s, nil
 	}
 
-	if err := json.Unmarshal(sentObj.Data, &requestList); err != nil {
+	if err := json.Unmarshal(sentObj, &requestList); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to "+
 			"unmarshal SentRequestMap")
 	}
 
 	jww.TRACE.Printf("%d found when loading AuthStore, prefix %s",
-		len(requestList), kv.GetPrefix())
+		len(requestList), makeStorePrefix(e.GetReceptionID()))
 
 	for _, rDisk := range requestList {
 
@@ -89,7 +93,7 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 
 		switch requestType {
 		case Sent:
-			sr, err := loadSentRequest(kv, partner, grp)
+			sr, err := loadSentRequest(kv, partner, e.GetGroup())
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored sentRequest: %+v", err)
 			}
@@ -119,6 +123,11 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 	return s, nil
 }
 
+func makeStorePrefix(receptionId *id.ID) string {
+	return "authStore:" + base64.StdEncoding.EncodeToString(
+		receptionId.Marshal()) + storePrefix + requestMapKey
+}
+
 func (s *Store) save() error {
 	requestIDList := make([]requestDisk, 0, len(s.receivedByID)+len(s.sentByID))
 	for _, rr := range s.receivedByID {
@@ -141,18 +150,18 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   requestMapVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	return s.kv.Set(requestMapKey, &obj)
+	return s.kv.Set(requestMapKey, obj.Marshal())
 }
 
 // NewStore creates a new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
-func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
+func newStore(kv *utility.KV, grp *cyclic.Group, srh SentRequestHandler) (
 	*Store, error) {
 	s := &Store{
 		kv:                   kv,
@@ -214,7 +223,7 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	jww.DEBUG.Printf("AddReceived new contact: %s, prefix: %s",
-		c.ID, s.kv.GetPrefix())
+		c.ID, makeStorePrefix(s.receptionId))
 
 	if _, ok := s.receivedByID[*c.ID]; ok {
 		return errors.Errorf("Cannot add contact for partner "+

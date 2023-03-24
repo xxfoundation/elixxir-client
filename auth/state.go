@@ -9,6 +9,7 @@ package auth
 
 import (
 	"encoding/base64"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/auth/store"
@@ -18,7 +19,6 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -51,21 +51,23 @@ type state struct {
 // Bases its reception identity and keys off of what is found in e2e.
 // Uses this ID to modify the kv prefix for a unique storage path
 // Parameters:
-//   The params object passed in determines the services that will be used
-//   to pick up requests and signal notifications. These are unique to an
-//   identity, so multiple auth states with the same service tags with
-//   different identities can run simultaneously.
-//   Default parameters can be retrieved via GetDefaultParameters()
+//
+//	The params object passed in determines the services that will be used
+//	to pick up requests and signal notifications. These are unique to an
+//	identity, so multiple auth states with the same service tags with
+//	different identities can run simultaneously.
+//	Default parameters can be retrieved via GetDefaultParameters()
+//
 // Temporary:
-//   In some cases, for example client <-> server communications, connections
-//   are treated as ephemeral. To do so in auth, pass in an ephemeral e2e (made
-//   with a memory only versioned.KV) as well as a memory only versioned.KV for
-//   NewState and use GetDefaultTemporaryParams() for the parameters
-func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
+//
+//	In some cases, for example client <-> server communications, connections
+//	are treated as ephemeral. To do so in auth, pass in an ephemeral e2e (made
+//	with a memory only versioned.KV) as well as a memory only versioned.KV for
+//	NewState and use GetDefaultTemporaryParams() for the parameters
+func NewState(kv *utility.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,
 	sessParams session.Params, callbacks Callbacks,
 	backupTrigger func(reason string)) (State, error) {
-	kv = kv.Prefix(makeStorePrefix(e2e.GetReceptionID()))
 	return NewStateLegacy(kv, net, e2e, rng, event, authParams, sessParams,
 		callbacks, backupTrigger)
 }
@@ -74,7 +76,7 @@ func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 // be found. Bases its reception identity and keys off of what is found in e2e.
 // Does not modify the kv prefix for backwards compatibility.
 // Otherwise, acts the same as NewState
-func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
+func NewStateLegacy(kv *utility.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,
 	sessParams session.Params, callbacks Callbacks,
 	backupTrigger func(reason string)) (State, error) {
@@ -93,7 +95,7 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 
 	// create the store
 	var err error
-	s.store, err = store.NewOrLoadStore(kv, e2e.GetGroup(),
+	s.store, err = store.NewOrLoadStore(kv, e2e,
 		&sentRequestHandler{s: s})
 
 	// register services

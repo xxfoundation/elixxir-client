@@ -12,6 +12,7 @@ import (
 	"crypto/hmac"
 	"encoding/binary"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -112,14 +113,15 @@ func (s *Store) savePreviousNegotiations() error {
 		Data:      marshalPreviousNegotiations(s.previousNegotiations),
 	}
 
-	return s.kv.Set(negotiationPartnersKey, obj)
+	key := makeStorePrefix(s.receptionId) + negotiationPartnersKey
+	return s.kv.Set(key, obj.Marshal())
 }
 
 // newOrLoadPreviousNegotiations loads the list of previousNegotiations partners
 // from storage.
 func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 
-	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
+	prevNegotiation, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 
 	// V0 Upgrade Path
 	if !s.kv.Exists(err) {
@@ -127,7 +129,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 		if upgradeErr != nil {
 			return nil, errors.Wrapf(err, "%+v", upgradeErr)
 		}
-		obj, err = s.kv.Get(negotiationPartnersKey,
+		prevNegotiation, err = s.kv.Get(negotiationPartnersKey,
 			negotiationPartnersVersion)
 	}
 
@@ -139,7 +141,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 		return nil, err
 	}
 
-	return unmarshalPreviousNegotiations(obj.Data)
+	return unmarshalPreviousNegotiations(prevNegotiation)
 }
 
 // marshalPreviousNegotiations marshals the list of partners into a byte slice.
@@ -180,7 +182,7 @@ func unmarshalPreviousNegotiations(b []byte) (map[id.ID]bool,
 // saveNegotiationFingerprints saves the list of sentByFingerprints for the given
 // partner to storage.
 func saveNegotiationFingerprints(
-	partner *id.ID, kv *versioned.KV, fingerprints ...[]byte) error {
+	partner *id.ID, kv *utility.KV, fingerprints ...[]byte) error {
 
 	obj := &versioned.Object{
 		Version:   currentNegotiationFingerprintsVersion,
@@ -188,19 +190,19 @@ func saveNegotiationFingerprints(
 		Data:      marshalNegotiationFingerprints(fingerprints...),
 	}
 
-	return kv.Set(makeNegotiationFingerprintsKey(partner), obj)
+	return kv.Set(makeNegotiationFingerprintsKey(partner), obj.Marshal())
 }
 
 // loadNegotiationFingerprints loads the list of sentByFingerprints for the given
 // partner from storage.
-func loadNegotiationFingerprints(partner *id.ID, kv *versioned.KV) ([][]byte, error) {
+func loadNegotiationFingerprints(partner *id.ID, kv *utility.KV) ([][]byte, error) {
 	fpKey := makeNegotiationFingerprintsKey(partner)
-	obj, err := kv.Get(fpKey, currentNegotiationFingerprintsVersion)
+	negFp, err := kv.Get(fpKey, currentNegotiationFingerprintsVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	return unmarshalNegotiationFingerprints(obj.Data), nil
+	return unmarshalNegotiationFingerprints(negFp), nil
 }
 
 // marshalNegotiationFingerprints marshals the list of sentByFingerprints into a byte
@@ -269,22 +271,22 @@ func unmarshalPreviousNegotiationsV0(buf []byte) map[id.ID]struct{} {
 
 // upgradePreviousNegotiationsV0 upgrades the negotiations Partners key from V0
 // to V1
-func upgradePreviousNegotiationsV0(kv *versioned.KV) error {
-	obj, err := kv.Get(negotiationPartnersKey, 0)
+func upgradePreviousNegotiationsV0(kv *utility.KV) error {
+	oldPrevNegData, err := kv.Get(negotiationPartnersKey, 0)
 	if !kv.Exists(err) {
 		return nil
 	}
 
-	old := unmarshalPreviousNegotiationsV0(obj.Data)
+	old := unmarshalPreviousNegotiationsV0(oldPrevNegData)
 	newPrevNegotiations := make(map[id.ID]bool)
 	for id := range old {
 		newPrevNegotiations[id] = true
 	}
-	obj = &versioned.Object{
+	obj := &versioned.Object{
 		Version:   negotiationPartnersVersion,
 		Timestamp: netTime.Now(),
 		Data: marshalPreviousNegotiations(
 			newPrevNegotiations),
 	}
-	return kv.Set(negotiationPartnersKey, obj)
+	return kv.Set(negotiationPartnersKey, obj.Marshal())
 }

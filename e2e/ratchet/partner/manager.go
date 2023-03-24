@@ -18,7 +18,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -32,7 +31,7 @@ const relationshipFpLength = 15
 
 // Implements the partner.Manager interface
 type manager struct {
-	kv *versioned.KV
+	kv *utility.KV
 
 	myID    *id.ID
 	partner *id.ID
@@ -52,13 +51,13 @@ type manager struct {
 }
 
 // NewManager creates the relationship and its first Send and Receive sessions.
-func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
+func NewManager(kv *utility.KV, myID, partnerID *id.ID, myPrivKey,
 	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, sendParams,
 	receiveParams session.Params, cyHandler session.CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) Manager {
 
-	kv = kv.Prefix(makeManagerPrefix(partnerID))
+	//kv = kv.Prefix(makeManagerPrefix(partnerID))
 
 	m := &manager{
 		kv:                      kv,
@@ -109,13 +108,13 @@ func (c ConnectionFp) String() string {
 		c.fingerprint)[:relationshipFpLength]
 }
 
-//LoadManager loads a relationship and all buffers and sessions from disk
-func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
+// LoadManager loads a relationship and all buffers and sessions from disk
+func LoadManager(kv *utility.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (Manager, error) {
 
 	m := &manager{
-		kv:        kv.Prefix(makeManagerPrefix(partnerID)),
+		kv:        kv,
 		myID:      myID,
 		partner:   partnerID,
 		cyHandler: cyHandler,
@@ -179,25 +178,28 @@ func (m *manager) Delete() error {
 // relationship adjacent information from storage
 func (m *manager) deleteRelationships() error {
 
-	// Delete the send information
-	sendKv := m.kv.Prefix(session.Send.Prefix())
+	// Delete the send operation's information
 	m.send.Delete()
-	if err := deleteRelationshipFingerprint(sendKv); err != nil {
+
+	err := m.kv.Delete(makeRelationshipSentKey(relationshipFingerprintKey),
+		currentRelationshipVersion)
+	if err != nil {
 		return err
 	}
-	if err := sendKv.Delete(relationshipKey,
+	if err := m.kv.Delete(makeRelationshipSentKey(relationshipKey),
 		currentRelationshipVersion); err != nil {
 		return errors.Errorf("cannot delete send relationship: %v",
 			err)
 	}
 
 	// Delete the receive information
-	receiveKv := m.kv.Prefix(session.Receive.Prefix())
 	m.receive.Delete()
-	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
+	err = m.kv.Delete(makeRelationshipRecvKey(relationshipFingerprintKey),
+		currentRelationshipVersion)
+	if err != nil {
 		return err
 	}
-	if err := receiveKv.Delete(relationshipKey,
+	if err := m.kv.Delete(makeRelationshipRecvKey(relationshipKey),
 		currentRelationshipVersion); err != nil {
 		return errors.Errorf("cannot delete receive relationship: %v",
 			err)
@@ -336,4 +338,12 @@ func (m *manager) Contact() contact.Contact {
 
 func makeManagerPrefix(pid *id.ID) string {
 	return fmt.Sprintf(managerPrefix, pid)
+}
+
+func makeRelationshipRecvKey(key string) string {
+	return session.Receive.Prefix() + key
+}
+
+func makeRelationshipSentKey(key string) string {
+	return session.Receive.Prefix() + key
 }

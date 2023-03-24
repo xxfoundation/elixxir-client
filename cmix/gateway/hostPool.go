@@ -13,7 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
@@ -56,7 +56,7 @@ type hostPool struct {
 	manager   HostManager
 	filterMux sync.Mutex
 	filter    Filter
-	kv        *versioned.KV
+	kv        *utility.KV
 	addChan   chan commNetwork.NodeGateway
 
 	/* Computed parameters*/
@@ -155,7 +155,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		params:        params,
 		manager:       getter,
 		filter:        params.GatewayFilter,
-		kv:            storage.GetKV().Prefix(hostListPrefix),
+		kv:            storage.GetKV(),
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
 		addChan: addChan,
@@ -304,13 +304,13 @@ func (hp *hostPool) getFilter() Filter {
 // getHostList returns the host list from storage.
 // it will trip the list if it is too long and
 // extend it if it is too short
-func getHostPreparedList(kv *versioned.KV, poolSize int) ([]*id.ID, error) {
-	obj, err := kv.Get(hostListKey, hostListVersion)
+func getHostPreparedList(kv *utility.KV, poolSize int) ([]*id.ID, error) {
+	hostListData, err := kv.Get(makeHostListKvKey(), hostListVersion)
 	if err != nil {
 		return make([]*id.ID, poolSize), errors.Errorf(getStorageErr, err)
 	}
 
-	rawHL, err := unmarshalHostList(obj.Data)
+	rawHL, err := unmarshalHostList(hostListData)
 	if err != nil {
 		return make([]*id.ID, poolSize), err
 	}

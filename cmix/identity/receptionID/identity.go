@@ -9,6 +9,7 @@ package receptionID
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"strconv"
 	"strings"
 	"time"
@@ -55,14 +56,14 @@ type Identity struct {
 	ProcessNext *Identity
 }
 
-func loadIdentity(kv *versioned.KV) (Identity, error) {
-	obj, err := kv.Get(identityStorageKey, identityStorageVersion)
+func loadIdentity(kv *utility.KV, prefix string) (Identity, error) {
+	identityData, err := kv.Get(prefix+identityStorageKey, identityStorageVersion)
 	if err != nil {
 		return Identity{}, errors.WithMessage(err, "Failed to load Identity")
 	}
 
 	r := Identity{}
-	err = json.Unmarshal(obj.Data, &r)
+	err = json.Unmarshal(identityData, &r)
 	if err != nil {
 		return Identity{}, errors.WithMessage(err, "Failed to unmarshal Identity")
 	}
@@ -70,7 +71,7 @@ func loadIdentity(kv *versioned.KV) (Identity, error) {
 	return r, nil
 }
 
-func (i Identity) store(kv *versioned.KV) error {
+func (i Identity) store(kv *utility.KV, prefix string) error {
 	// Marshal the registration
 	regStr, err := json.Marshal(&i)
 	if err != nil {
@@ -85,7 +86,7 @@ func (i Identity) store(kv *versioned.KV) error {
 	}
 
 	// Store the data
-	err = kv.Set(identityStorageKey, obj)
+	err = kv.Set(prefix+identityStorageKey, obj.Marshal())
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store Identity")
 	}
@@ -93,7 +94,7 @@ func (i Identity) store(kv *versioned.KV) error {
 	return nil
 }
 
-func (i Identity) delete(kv *versioned.KV) error {
+func (i Identity) delete(kv *utility.KV, prefix string) error {
 	return kv.Delete(identityStorageKey, identityStorageVersion)
 }
 

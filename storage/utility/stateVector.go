@@ -48,12 +48,12 @@ type StateVector struct {
 	numAvailable   uint32 // Number of unused keys
 
 	key string // Unique string used to save/load object from storage
-	kv  *versioned.KV
+	kv  *KV
 	mux sync.RWMutex
 }
 
 // NewStateVector generates a new StateVector with the specified number of keys.
-func NewStateVector(kv *versioned.KV, key string, numKeys uint32) (
+func NewStateVector(kv *KV, key string, numKeys uint32) (
 	*StateVector, error) {
 
 	// Calculate the number of 64-bit blocks needed to store numKeys
@@ -352,20 +352,20 @@ type stateVectorDisk struct {
 
 // LoadStateVector loads a StateVector with the specified key from the given
 // versioned storage.
-func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
+func LoadStateVector(kv *KV, key string) (*StateVector, error) {
 	sv := &StateVector{
 		key: makeStateVectorKey(key),
 		kv:  kv,
 	}
 
 	// Load StateVector data from storage
-	obj, err := kv.Get(sv.key, currentStateVectorVersion)
+	data, err := kv.Get(sv.key, currentStateVectorVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal data
-	err = sv.unmarshal(obj.Data)
+	err = sv.unmarshal(data)
 	if err != nil {
 		return nil, errors.Errorf(loadUnmarshalErr, err)
 	}
@@ -382,13 +382,13 @@ func (sv *StateVector) save() error {
 	}
 
 	// Create the versioned object
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentStateVectorVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	return sv.kv.Set(sv.key, &obj)
+	return sv.kv.Set(sv.key, obj.Marshal())
 }
 
 // Delete remove the StateVector from storage.
@@ -498,7 +498,7 @@ func (sv *StateVector) SetNumAvailableTEST(numAvailable uint32, x interface{}) {
 }
 
 // SetKvTEST sets the kv. This should only be used for testing.
-func (sv *StateVector) SetKvTEST(kv *versioned.KV, x interface{}) {
+func (sv *StateVector) SetKvTEST(kv *KV, x interface{}) {
 	switch x.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break

@@ -54,12 +54,12 @@ func StoreReceptionIdentity(key string, identity ReceptionIdentity, net *Cmix) e
 // LoadReceptionIdentity loads the given identity in Cmix storage with the given
 // key.
 func LoadReceptionIdentity(key string, net *Cmix) (ReceptionIdentity, error) {
-	storageObj, err := net.GetStorage().Get(key)
+	data, err := net.GetStorage().Get(key)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}
 
-	return UnmarshalReceptionIdentity(storageObj.Data)
+	return UnmarshalReceptionIdentity(data)
 }
 
 // Marshal returns the JSON representation of a ReceptionIdentity.

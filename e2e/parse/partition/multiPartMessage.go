@@ -13,6 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
@@ -43,18 +44,16 @@ type multiPartMessage struct {
 	KeyResidue e2e.KeyResidue
 
 	parts [][]byte
-	kv    *versioned.KV
+	kv    *utility.KV
 	mux   sync.Mutex
 }
 
 // loadOrCreateMultiPartMessage loads an extant multipart message store or
 // creates a new one and saves it if one does not exist.
 func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
-	kv *versioned.KV) *multiPartMessage {
-	kv = kv.Prefix(versioned.MakePartnerPrefix(sender)).
-		Prefix(makeMultiPartMessagePrefix(messageID))
+	kv *utility.KV) *multiPartMessage {
 
-	obj, err := kv.Get(messageKey, currentMultiPartMessageVersion)
+	data, err := kv.Get(messageKey, currentMultiPartMessageVersion)
 	if err != nil {
 		if !kv.Exists(err) {
 			mpm := &multiPartMessage{
@@ -81,7 +80,7 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 
 	mpm := &multiPartMessage{kv: kv}
 
-	if err = json.Unmarshal(obj.Data, mpm); err != nil {
+	if err = json.Unmarshal(data, mpm); err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal multipart message from %s "+
 			"messageID %d: %+v", sender, messageID, err)
 	}
@@ -95,13 +94,13 @@ func (mpm *multiPartMessage) save() error {
 		return errors.Wrap(err, "Failed to unmarshal multipart message")
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentMultiPartMessageVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	return mpm.kv.Set(messageKey, &obj)
+	return mpm.kv.Set(messageKey, obj.Marshal())
 }
 
 func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {
@@ -229,7 +228,8 @@ func (mpm *multiPartMessage) delete() int {
 	}
 
 	// key := makeMultiPartMessageKey(mpm.MessageID)
-	err = mpm.kv.Delete(messageKey, currentMultiPartMessageVersion)
+	err = mpm.kv.Delete(mpm.makeKvStoreKey()+messageKey,
+		currentMultiPartMessageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to delete multipart message from %s "+
 			"messageID %d: %+v", mpm.Sender, mpm.MessageID, err)
@@ -240,4 +240,9 @@ func (mpm *multiPartMessage) delete() int {
 
 func makeMultiPartMessagePrefix(messageID uint64) string {
 	return "MessageID:" + strconv.FormatUint(messageID, 10)
+}
+
+func (mpm *multiPartMessage) makeKvStoreKey() string {
+	return (versioned.MakePartnerPrefix(mpm.Sender)) +
+		(makeMultiPartMessagePrefix(mpm.MessageID))
 }

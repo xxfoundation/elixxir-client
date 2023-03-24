@@ -10,6 +10,7 @@ package store
 import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -97,13 +98,13 @@ type UnknownRounds struct {
 	params UnknownRoundsParams
 
 	// Key Value store to save data to disk
-	kv *versioned.KV
+	kv *utility.KV
 
 	mux sync.Mutex
 }
 
 // NewUnknownRounds builds and returns a new UnknownRounds object.
-func NewUnknownRounds(kv *versioned.KV,
+func NewUnknownRounds(kv *utility.KV,
 	params UnknownRoundsParams) *UnknownRounds {
 
 	urs := newUnknownRounds(kv, params)
@@ -115,8 +116,7 @@ func NewUnknownRounds(kv *versioned.KV,
 	return urs
 }
 
-func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) *UnknownRounds {
-	kv = kv.Prefix(unknownRoundPrefix)
+func newUnknownRounds(kv *utility.KV, params UnknownRoundsParams) *UnknownRounds {
 
 	urs := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
@@ -129,20 +129,20 @@ func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) *UnknownRoun
 
 // LoadUnknownRounds loads the data for a UnknownRounds from disk into an
 // object.
-func LoadUnknownRounds(kv *versioned.KV,
+func LoadUnknownRounds(kv *utility.KV,
 	params UnknownRoundsParams) *UnknownRounds {
-	kv = kv.Prefix(unknownRoundPrefix)
 
 	urs := newUnknownRounds(kv, params)
 
 	// get the versioned data from the kv
-	obj, err := kv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)
+	unknownRoundData, err := kv.Get(makeUnknownRoundKvKey(),
+		unknownRoundsStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load UnknownRounds: %+v", err)
 	}
 
 	// Process the data into the object
-	err = urs.unmarshal(obj.Data)
+	err = urs.unmarshal(unknownRoundData)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal UnknownRounds: %+v", err)
 	}
@@ -223,14 +223,14 @@ func (urs *UnknownRounds) save() error {
 	}
 
 	// Save to disk
-	return urs.kv.Set(unknownRoundsStorageKey, obj)
+	return urs.kv.Set(makeUnknownRoundKvKey(), obj.Marshal())
 }
 
 func (urs *UnknownRounds) Delete() {
 	urs.mux.Lock()
 	defer urs.mux.Unlock()
 	if urs.params.Stored {
-		err := urs.kv.Delete(unknownRoundPrefix, unknownRoundsStorageVersion)
+		err := urs.kv.Delete(makeUnknownRoundKvKey(), unknownRoundsStorageVersion)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to delete unknown rounds: %+v", err)
 		}
@@ -254,4 +254,8 @@ func (urs *UnknownRounds) Get(round id.Round) (bool, uint64) {
 	}
 	return exist, *numCheck
 
+}
+
+func makeUnknownRoundKvKey() string {
+	return unknownRoundPrefix + unknownRoundsStorageKey
 }

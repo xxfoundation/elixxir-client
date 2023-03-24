@@ -36,7 +36,7 @@ type meteredCmixMessage struct {
 
 // SaveMessage saves the message as a versioned object at the specified key in
 // the key value store.
-func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
+func (*meteredCmixMessageHandler) SaveMessage(kv *utility.KV, m interface{},
 	key string) error {
 	msg := m.(meteredCmixMessage)
 
@@ -46,29 +46,29 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 	}
 
 	// Create versioned object
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   utility.CurrentMessageBufferVersion,
 		Timestamp: netTime.Now(),
 		Data:      marshaled,
 	}
 
 	// Save versioned object
-	return kv.Set(key, &obj)
+	return kv.Set(key, obj.Marshal())
 }
 
 // LoadMessage returns the message with the specified key from the key value
 // store. An empty message and error are returned if the message could not be
 // retrieved.
-func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (
+func (*meteredCmixMessageHandler) LoadMessage(kv *utility.KV, key string) (
 	interface{}, error) {
 	// Load the versioned object
-	vo, err := kv.Get(key, utility.CurrentMessageBufferVersion)
+	data, err := kv.Get(key, utility.CurrentMessageBufferVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	msg := meteredCmixMessage{}
-	err = json.Unmarshal(vo.Data, &msg)
+	err = json.Unmarshal(data, &msg)
 	if err != nil {
 		return nil,
 			errors.WithMessage(err, "Failed to unmarshal metered cmix message")
@@ -80,7 +80,7 @@ func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (
 
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
-func (*meteredCmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
+func (*meteredCmixMessageHandler) DeleteMessage(kv *utility.KV, key string) error {
 	return kv.Delete(key, utility.CurrentMessageBufferVersion)
 }
 
@@ -102,11 +102,11 @@ func (*meteredCmixMessageHandler) HashMessage(m interface{}) utility.MessageHash
 // messages.
 type MeteredCmixMessageBuffer struct {
 	mb  *utility.MessageBuffer
-	kv  *versioned.KV
+	kv  *utility.KV
 	key string
 }
 
-func NewMeteredCmixMessageBuffer(kv *versioned.KV, key string) (
+func NewMeteredCmixMessageBuffer(kv *utility.KV, key string) (
 	*MeteredCmixMessageBuffer, error) {
 	mb, err := utility.NewMessageBuffer(kv, &meteredCmixMessageHandler{}, key)
 	if err != nil {
@@ -116,7 +116,7 @@ func NewMeteredCmixMessageBuffer(kv *versioned.KV, key string) (
 	return &MeteredCmixMessageBuffer{mb: mb, kv: kv, key: key}, nil
 }
 
-func LoadMeteredCmixMessageBuffer(kv *versioned.KV, key string) (
+func LoadMeteredCmixMessageBuffer(kv *utility.KV, key string) (
 	*MeteredCmixMessageBuffer, error) {
 	mb, err := utility.LoadMessageBuffer(kv, &meteredCmixMessageHandler{}, key)
 	if err != nil {
@@ -126,7 +126,7 @@ func LoadMeteredCmixMessageBuffer(kv *versioned.KV, key string) (
 	return &MeteredCmixMessageBuffer{mb: mb, kv: kv, key: key}, nil
 }
 
-func NewOrLoadMeteredCmixMessageBuffer(kv *versioned.KV, key string) (
+func NewOrLoadMeteredCmixMessageBuffer(kv *utility.KV, key string) (
 	*MeteredCmixMessageBuffer, error) {
 	mb, err := utility.LoadMessageBuffer(kv, &meteredCmixMessageHandler{}, key)
 	if err != nil {

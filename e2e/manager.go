@@ -11,6 +11,7 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -45,7 +46,7 @@ type manager struct {
 	grp         *cyclic.Group
 	crit        *critical
 	rekeyParams rekey.Params
-	kv          *versioned.KV
+	kv          *utility.KV
 
 	// Generic Callbacks for all E2E operations; by default this is nil and
 	// ignored until set via RegisterCallbacks
@@ -60,30 +61,35 @@ const legacyE2EKey = "legacyE2ESystem"
 const e2eRekeyParamsKey = "e2eRekeyParams"
 const e2eRekeyParamsVer = 0
 
-// Init Creates stores. After calling, use load
+// Init initializes a Handler. After calling, use Load to retrieve the Handler.
 // Passes the ID public key which is used for the relationship
 // uses the passed ID to modify the kv prefix for a unique storage path
-func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+func Init(kv *utility.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	jww.INFO.Printf("Initializing new e2e.Handler for %s", myID.String())
-	kv = kv.Prefix(makeE2ePrefix(myID))
 	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }
 
-func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+// initE2E is a helper function which will initialize a Handler.
+func initE2E(kv *utility.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
+
 	rekeyParamsData, err := json.Marshal(rekeyParams)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to marshal rekeyParams")
 	}
-	err = kv.Set(e2eRekeyParamsKey, &versioned.Object{
+
+	obj := &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
-	})
+	}
+
+	err = kv.Set(makeE2ePrefix(myID)+e2eRekeyParamsKey, obj.Marshal())
 	if err != nil {
 		return errors.WithMessage(err, "Failed to save rekeyParams")
 	}
+
 	return ratchet.New(kv, myID, privKey, grp)
 }
 
@@ -92,10 +98,9 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // You can use a memkv for an ephemeral e2e id
 // Can be initialized with a nil cmix.Client, but will crash on start - use when
 // prebuilding e2e identity to be used later
-func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
+func Load(kv *utility.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
-	kv = kv.Prefix(makeE2ePrefix(myID))
 	return loadE2E(kv, net, myID, grp, rng, events)
 }
 
@@ -107,7 +112,7 @@ func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 // You can use a memkv for an ephemeral e2e id
 // Can be initialized with a nil cmix.Client, but will crash on start - use when
 // prebuilding e2e identity to be used later
-func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
+func LoadLegacy(kv *utility.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter, params rekey.Params) (Handler, error) {
 
@@ -128,20 +133,24 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 		}
 	}
 
-	// Store the rekey params to disk/memory
-	err = kv.Set(e2eRekeyParamsKey, &versioned.Object{
+	obj := &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
-	})
+	}
+
+	// Store the rekey params to disk/memory
+	err = kv.Set(e2eRekeyParamsKey, obj.Marshal())
 	if err != nil {
 		return nil, err
 	}
-	err = kv.Set(legacyE2EKey, &versioned.Object{
+
+	obj = &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      []byte{1},
-	})
+	}
+	err = kv.Set(legacyE2EKey, obj.Marshal())
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +160,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 
 }
 
-func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
+func loadE2E(kv *utility.KV, net cmix.Client, myDefaultID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
 
@@ -179,7 +188,7 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 		return nil, errors.WithMessage(err,
 			"Failed to load rekeyParams")
 	}
-	err = json.Unmarshal(rekeyParams.Data, &m.rekeyParams)
+	err = json.Unmarshal(rekeyParams, &m.rekeyParams)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to unmarshal rekeyParams data")

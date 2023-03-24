@@ -8,6 +8,7 @@
 package partition
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
@@ -15,29 +16,29 @@ import (
 
 const currentMultiPartMessagePartVersion = 0
 
-func loadPart(kv *versioned.KV, partNum uint8) ([]byte, error) {
+func loadPart(kv *utility.KV, partNum uint8) ([]byte, error) {
 	key := makeMultiPartMessagePartKey(partNum)
 
-	obj, err := kv.Get(key, currentMultiPartMessageVersion)
+	data, err := kv.Get(key, currentMultiPartMessageVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	return obj.Data, nil
+	return data, nil
 }
 
-func savePart(kv *versioned.KV, partNum uint8, part []byte) error {
+func savePart(kv *utility.KV, partNum uint8, part []byte) error {
 	key := makeMultiPartMessagePartKey(partNum)
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentMultiPartMessageVersion,
 		Timestamp: netTime.Now(),
 		Data:      part,
 	}
-	return kv.Set(key, &obj)
+	return kv.Set(key, obj.Marshal())
 }
 
-func deletePart(kv *versioned.KV, partNum uint8) error {
+func deletePart(kv *utility.KV, partNum uint8) error {
 	key := makeMultiPartMessagePartKey(partNum)
 	return kv.Delete(key, currentMultiPartMessageVersion)
 }

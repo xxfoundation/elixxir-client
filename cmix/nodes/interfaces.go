@@ -9,7 +9,7 @@ package nodes
 
 import (
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -87,7 +87,7 @@ type session interface {
 	GetTransmissionID() *id.ID
 	IsPrecanned() bool
 	GetCmixGroup() *cyclic.Group
-	GetKV() *versioned.KV
+	GetKV() *utility.KV
 	GetTransmissionRSA() rsa.PrivateKey
 	GetRegistrationTimestamp() time.Time
 	GetTransmissionSalt() []byte

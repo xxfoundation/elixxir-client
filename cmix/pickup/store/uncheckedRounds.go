@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
@@ -61,7 +62,7 @@ type UncheckedRound struct {
 }
 
 // marshal serializes UncheckedRound r into a byte slice.
-func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
+func (r UncheckedRound) marshal(kv *utility.KV) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	// Store teh round info
 	if r.Info != nil && !r.storageUpToDate {
@@ -104,7 +105,7 @@ func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
 }
 
 // unmarshal deserializes round data from buff into UncheckedRound r.
-func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
+func (r *UncheckedRound) unmarshal(kv *utility.KV, buff *bytes.Buffer) error {
 	// Deserialize the roundInfo
 	r.Id = id.Round(binary.LittleEndian.Uint64(buff.Next(uint64Size)))
 
@@ -135,7 +136,7 @@ func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
 	return nil
 }
 
-func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo, recipient *id.ID,
+func storeRoundInfo(kv *utility.KV, info *pb.RoundInfo, recipient *id.ID,
 	ephID ephemeral.Id) error {
 	now := netTime.Now()
 
@@ -145,33 +146,33 @@ func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo, recipient *id.ID,
 			"Failed to store individual unchecked round")
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   roundInfoVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
 	return kv.Set(
-		roundKey(id.Round(info.ID), recipient, ephID), &obj)
+		roundKey(id.Round(info.ID), recipient, ephID), obj.Marshal())
 }
 
-func loadRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,
+func loadRoundInfo(kv *utility.KV, id id.Round, recipient *id.ID,
 	ephID ephemeral.Id) (*pb.RoundInfo, error) {
 
-	vo, err := kv.Get(roundKey(id, recipient, ephID), roundInfoVersion)
+	data, err := kv.Get(roundKey(id, recipient, ephID), roundInfoVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	ri := &pb.RoundInfo{}
-	if err = proto.Unmarshal(vo.Data, ri); err != nil {
+	if err = proto.Unmarshal(data, ri); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to unmarshal roundInfo")
 	}
 
 	return ri, nil
 }
 
-func deleteRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,
+func deleteRoundInfo(kv *utility.KV, id id.Round, recipient *id.ID,
 	ephID ephemeral.Id) error {
 	return kv.Delete(roundKey(id, recipient, ephID), roundInfoVersion)
 }

@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -49,21 +48,17 @@ type Ratchet struct {
 	sInterface  Services
 	servicesMux sync.RWMutex
 
-	kv *versioned.KV
+	kv *util.KV
 }
 
 // New creates a new store for the passed user ID and private key.
 // The store can then be accessed by calling LoadStore.
 // Does not create at a unique prefix, if multiple Ratchets are needed, make
 // sure to add an uint prefix to the KV before instantiation.
-func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+func New(kv *util.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group) error {
-
 	// Generate public key
 	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
-
-	// Modify the prefix of the KV
-	kv = kv.Prefix(packagePrefix)
 
 	r := &Ratchet{
 		managers: make(map[id.ID]partner.Manager),

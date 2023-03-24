@@ -10,6 +10,7 @@ package partner
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	session2 "gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -37,29 +38,27 @@ func makeRelationshipFingerprint(t session2.RelationshipType, grp *cyclic.Group,
 	return nil
 }
 
-func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
+func storeRelationshipFingerprint(fp []byte, kv *utility.KV) error {
 	now := netTime.Now()
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentRelationshipVersion,
 		Timestamp: now,
 		Data:      fp,
 	}
 
-	return kv.Set(relationshipFingerprintKey, &obj)
+	return kv.Set(relationshipFingerprintKey, obj.Marshal())
 }
 
-func loadRelationshipFingerprint(kv *versioned.KV) []byte {
+func loadRelationshipFingerprint(kv *utility.KV) []byte {
 	obj, err := kv.Get(relationshipFingerprintKey,
 		currentRelationshipVersion)
 	if err != nil {
 		jww.FATAL.Panicf("cannot load relationshipFingerprint at %s: "+
-			"%s", kv.GetFullKey(relationshipFingerprintKey,
-			currentRelationshipFingerprintVersion), err)
+			"%s", relationshipFingerprintKey, err)
 	}
-	return obj.Data
+	return obj
 }
 
-func deleteRelationshipFingerprint(kv *versioned.KV) error {
-	return kv.Delete(relationshipFingerprintKey,
-		currentRelationshipVersion)
+func deleteRelationshipFingerprint(kv *utility.KV) error {
+	return kv.Delete(relationshipFingerprintKey, currentRelationshipVersion)
 }

@@ -29,10 +29,10 @@ const (
 )
 
 // Load loads an extant ratchet from disk
-func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
-	cyHandler session.CypherHandler, services Services, rng *fastRNG.StreamGenerator) (
+func Load(kv *util.KV, myID *id.ID, grp *cyclic.Group,
+	cyHandler session.CypherHandler, services Services,
+	rng *fastRNG.StreamGenerator) (
 	*Ratchet, error) {
-	kv = kv.Prefix(packagePrefix)
 
 	privKey, err := util.LoadCyclicKey(kv, privKeyKey)
 	if err != nil {
@@ -66,7 +66,7 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 	if err != nil {
 		return nil, err
 	} else {
-		err = r.unmarshal(obj.Data)
+		err = r.unmarshal(obj)
 		if err != nil {
 			return nil, err
 		}
@@ -93,13 +93,13 @@ func (r *Ratchet) save() error {
 		return err
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentStoreVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
-	return r.kv.Set(storeKey, &obj)
+	return r.kv.Set(makeE2ePrefix(r.myID)+storeKey, obj.Marshal())
 }
 
 // ekv functions
@@ -174,4 +174,8 @@ func (r *Ratchet) unmarshal(b []byte) error {
 	}
 
 	return nil
+}
+
+func makeE2ePrefix(myid *id.ID) string {
+	return "e2eStore:" + myid.String()
 }

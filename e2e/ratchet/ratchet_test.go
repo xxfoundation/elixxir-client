@@ -53,7 +53,7 @@ func TestNewStore(t *testing.T) {
 		t.Errorf("get() error when getting Ratchet from KV: %v", err)
 	}
 
-	if !bytes.Equal(expectedData, key.Data) {
+	if !bytes.Equal(expectedData, key) {
 		t.Errorf("NewStore() returned incorrect Ratchet."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedData,
 			key.Data)

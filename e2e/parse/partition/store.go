@@ -11,6 +11,7 @@ import (
 	"crypto/hmac"
 	"encoding/binary"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 	"time"
 
@@ -34,15 +35,15 @@ const activePartitionVersion = 0
 type Store struct {
 	multiParts  map[multiPartID]*multiPartMessage
 	activeParts map[*multiPartMessage]bool
-	kv          *versioned.KV
+	kv          *utility.KV
 	mux         sync.Mutex
 }
 
-func NewOrLoad(kv *versioned.KV) *Store {
+func NewOrLoad(kv *utility.KV) *Store {
 	partitionStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
 		activeParts: make(map[*multiPartMessage]bool),
-		kv:          kv.Prefix(packagePrefix),
+		kv:          kv,
 	}
 
 	partitionStore.loadActivePartitions()
@@ -155,13 +156,13 @@ func (s *Store) saveActiveParts() {
 		jww.FATAL.Panicf("Could not save active partitions: %+v", err)
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   activePartitionVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	err = s.kv.Set(activePartitions, &obj)
+	err = s.kv.Set(activePartitions, obj.Marshal())
 	if err != nil {
 		jww.FATAL.Panicf("Could not save active partitions: %+v", err)
 	}
@@ -170,14 +171,14 @@ func (s *Store) saveActiveParts() {
 func (s *Store) loadActivePartitions() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	obj, err := s.kv.Get(activePartitions, activePartitionVersion)
+	data, err := s.kv.Get(activePartitions, activePartitionVersion)
 	if err != nil {
 		jww.DEBUG.Printf("Could not load active partitions: %s", err.Error())
 		return
 	}
 
 	activeList := make([]*multiPartMessage, 0)
-	if err = json.Unmarshal(obj.Data, &activeList); err != nil {
+	if err = json.Unmarshal(data, &activeList); err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal active partitions: %+v", err)
 	}
 	jww.INFO.Printf("loadActivePartitions found %d active", len(activeList))

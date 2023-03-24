@@ -29,11 +29,11 @@ func StoreCyclicKey(kv *KV, cy *cyclic.Int, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, object.Marshal())
+	return kv.Set(makeStorageKey(key), object.Marshal())
 }
 
 func LoadCyclicKey(kv *KV, key string) (*cyclic.Int, error) {
-	data, err := kv.Get(key, currentCyclicVersion)
+	data, err := kv.Get(makeStorageKey(key), currentCyclicVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,10 @@ func LoadCyclicKey(kv *KV, key string) (*cyclic.Int, error) {
 }
 
 // DeleteCyclicKey deletes a given cyclic key from storage
-func DeleteCyclicKey(kv *versioned.KV, key string) error {
-	return kv.Delete(key, currentCyclicVersion)
+func DeleteCyclicKey(kv *KV, key string) error {
+	return kv.Delete(makeStorageKey(key), currentCyclicVersion)
+}
+
+func makeStorageKey(key string) string {
+	return "e2eSession/" + key
 }

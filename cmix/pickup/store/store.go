@@ -10,6 +10,7 @@ package store
 import (
 	"bytes"
 	"encoding/binary"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 	"testing"
 
@@ -26,13 +27,11 @@ import (
 type UncheckedRoundStore struct {
 	list map[roundIdentity]UncheckedRound
 	mux  sync.RWMutex
-	kv   *versioned.KV
+	kv   *utility.KV
 }
 
 // NewUncheckedStore is a constructor for a UncheckedRoundStore.
-func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
-	kv = kv.Prefix(uncheckedRoundPrefix)
-
+func NewUncheckedStore(kv *utility.KV) (*UncheckedRoundStore, error) {
 	urs := &UncheckedRoundStore{
 		list: make(map[roundIdentity]UncheckedRound, 0),
 		kv:   kv,
@@ -42,8 +41,7 @@ func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 }
 
 // NewOrLoadUncheckedStore is a constructor for a UncheckedRoundStore.
-func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
-	kv = kv.Prefix(uncheckedRoundPrefix)
+func NewOrLoadUncheckedStore(kv *utility.KV) *UncheckedRoundStore {
 
 	urs, err := LoadUncheckedStore(kv)
 	if err == nil {
@@ -63,9 +61,8 @@ func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
 }
 
 // LoadUncheckedStore loads a deserializes a UncheckedRoundStore from memory.
-func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
-	kv = kv.Prefix(uncheckedRoundPrefix)
-	vo, err := kv.Get(uncheckedRoundKey, uncheckedRoundVersion)
+func LoadUncheckedStore(kv *utility.KV) (*UncheckedRoundStore, error) {
+	data, err := kv.Get(uncheckedRoundPrefix+uncheckedRoundKey, uncheckedRoundVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +72,7 @@ func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 		kv:   kv,
 	}
 
-	err = urs.unmarshal(vo.Data)
+	err = urs.unmarshal(data)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load rounds from storage")
 	}
@@ -246,7 +243,7 @@ func (s *UncheckedRoundStore) save() error {
 	}
 
 	// Save to storage
-	err = s.kv.Set(uncheckedRoundKey, obj)
+	err = s.kv.Set(uncheckedRoundPrefix+uncheckedRoundKey, obj.Marshal())
 	if err != nil {
 		return errors.WithMessagef(err,
 			"Could not store data for unchecked rounds")

@@ -336,13 +336,13 @@ func getOldTimestampStore(session storage.Session) (time.Time, error) {
 }
 
 // unmarshalTimestamp unmarshal the stored timestamp into a time.Time.
-func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
-	if lastTimestampObj == nil || lastTimestampObj.Data == nil {
+func unmarshalTimestamp(lastTimestampObj []byte) (time.Time, error) {
+	if lastTimestampObj == nil {
 		return netTime.Now(), nil
 	}
 
 	lastTimestamp := time.Time{}
-	err := lastTimestamp.UnmarshalBinary(lastTimestampObj.Data)
+	err := lastTimestamp.UnmarshalBinary(lastTimestampObj)
 	return lastTimestamp, err
 }
 
@@ -467,7 +467,7 @@ func (t *manager) save() {
 		Data:      data,
 	}
 
-	err = t.session.GetKV().Set(TrackerListKey, obj)
+	err = t.session.GetKV().Set(TrackerListKey, obj.Marshal())
 	if err != nil {
 		jww.FATAL.Panicf("Unable to save TrackedID list: %+v", err)
 	}
@@ -477,10 +477,10 @@ func (t *manager) save() {
 func (t *manager) load() error {
 	t.mux.Lock()
 	defer t.mux.Unlock()
-	obj, err := t.session.GetKV().Get(TrackerListKey, TrackerListVersion)
+	data, err := t.session.GetKV().Get(TrackerListKey, TrackerListVersion)
 	if err != nil {
 		return err
 	}
 
-	return json.Unmarshal(obj.Data, &t.tracked)
+	return json.Unmarshal(data, &t.tracked)
 }

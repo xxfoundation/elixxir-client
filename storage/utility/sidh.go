@@ -80,36 +80,36 @@ const currentSIDHPubKeyVersion = 0
 
 // StoreSIDHPubKeyA is a helper to store the requestor public key (which is
 // always of type A)
-func StoreSIDHPublicKey(kv *versioned.KV, sidH *sidh.PublicKey, key string) error {
+func StoreSIDHPublicKey(kv *KV, sidH *sidh.PublicKey, key string) error {
 	now := netTime.Now()
 
 	sidHBytes := make([]byte, sidH.Size()+1)
 	sidHBytes[0] = byte(sidH.Variant())
 	sidH.Export(sidHBytes[1:])
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentSIDHPubKeyVersion,
 		Timestamp: now,
 		Data:      sidHBytes,
 	}
 
-	return kv.Set(key, &obj)
+	return kv.Set(key, obj.Marshal())
 }
 
 // LoadSIDHPubKeyA loads a public key from storage.
-func LoadSIDHPublicKey(kv *versioned.KV, key string) (*sidh.PublicKey, error) {
-	vo, err := kv.Get(key, currentSIDHPubKeyVersion)
+func LoadSIDHPublicKey(kv *KV, key string) (*sidh.PublicKey, error) {
+	data, err := kv.Get(key, currentSIDHPubKeyVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	variant := sidh.KeyVariant(vo.Data[0])
+	variant := sidh.KeyVariant(data[0])
 	sidHPubkey := NewSIDHPublicKey(variant)
-	return sidHPubkey, sidHPubkey.Import(vo.Data[1:])
+	return sidHPubkey, sidHPubkey.Import(data[1:])
 }
 
 // DeleteSIDHPubKey removes the key from the store
-func DeleteSIDHPublicKey(kv *versioned.KV, key string) error {
+func DeleteSIDHPublicKey(kv *KV, key string) error {
 	return kv.Delete(key, currentSIDHPubKeyVersion)
 }
 

@@ -269,7 +269,7 @@ func (s *session) Set(key string, object *versioned.Object) error {
 
 // Delete a value in the session
 func (s *session) Delete(key string) error {
-	return s.kv.Delete(key)
+	return s.kv.Delete(key, utility.CurrentSessionVersion)
 }
 
 // GetKV returns the Session's KV.

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -33,7 +34,7 @@ type Conversation struct {
 
 	// Private and non-stored data
 	partner *id.ID
-	kv      *versioned.KV
+	kv      *utility.KV
 	mux     sync.Mutex
 }
 
@@ -47,7 +48,7 @@ type conversationDisk struct {
 // LoadOrMakeConversation returns the Conversation with the given ID, if it can
 // be found in KV. Otherwise, a new conversation with the given ID is generated,
 // saved to KV, and returned.
-func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
+func LoadOrMakeConversation(kv *utility.KV, partner *id.ID) *Conversation {
 	c, err := loadConversation(kv, partner)
 	if err != nil && kv.Exists(err) {
 		jww.FATAL.Panicf("Failed to load conversation from storage: %+v", err)
@@ -127,10 +128,10 @@ func (c *Conversation) GetNextSendID() (uint64, uint32) {
 }
 
 // loadConversation returns the Conversation with the given ID from KV storage.
-func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {
+func loadConversation(kv *utility.KV, partner *id.ID) (*Conversation, error) {
 	key := makeConversationKey(partner)
 
-	obj, err := kv.Get(key, currentConversationVersion)
+	data, err := kv.Get(key, currentConversationVersion)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to Load conversation")
 	}
@@ -140,7 +141,7 @@ func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {
 		kv:      kv,
 	}
 
-	if err = c.unmarshal(obj.Data); err != nil {
+	if err = c.unmarshal(data); err != nil {
 		return nil, errors.WithMessage(err, "Failed to Load conversation")
 	}
 
@@ -154,14 +155,14 @@ func (c *Conversation) save() error {
 		return err
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentConversationVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
 	key := makeConversationKey(c.partner)
-	return c.kv.Set(key, &obj)
+	return c.kv.Set(key, obj.Marshal())
 }
 
 // delete removes the Conversation from KV storage.

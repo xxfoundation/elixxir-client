@@ -10,12 +10,12 @@ package message
 import (
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"strconv"
 	"sync"
 	"time"
 
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -64,7 +64,7 @@ type handler struct {
 	FallthroughManager
 }
 
-func NewHandler(param Params, kv *versioned.KV, events event.Reporter,
+func NewHandler(param Params, kv *utility.KV, events event.Reporter,
 	standardID *id.ID) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)

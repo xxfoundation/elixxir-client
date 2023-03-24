@@ -9,6 +9,7 @@ package xxdk
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"time"
 
 	"github.com/pkg/errors"
@@ -68,7 +69,7 @@ func Login(net *Cmix, callbacks AuthCallbacks,
 func LoginEphemeral(net *Cmix, callbacks AuthCallbacks,
 	identity ReceptionIdentity, params E2EParams) (m *E2e, err error) {
 	return login(net, callbacks, identity,
-		versioned.NewKV(ekv.MakeMemstore()), params)
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}, params)
 }
 
 // loginLegacy creates a new E2e backed by the xxdk.Cmix persistent
@@ -114,7 +115,7 @@ func loginLegacy(net *Cmix, callbacks AuthCallbacks,
 
 // login creates a new xxdk.E2e backed by the given versioned.KV.
 func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
-	kv *versioned.KV, params E2EParams) (m *E2e, err error) {
+	kv *utility.KV, params E2EParams) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
 	privatePem, err := identity.GetRSAPrivateKey()

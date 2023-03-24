@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/shuffle"
@@ -36,7 +37,7 @@ type Store struct {
 	active  []*registration
 	present map[idHash]struct{}
 
-	kv *versioned.KV
+	kv *utility.KV
 
 	mux sync.Mutex
 }
@@ -59,7 +60,7 @@ func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
 }
 
 // NewOrLoadStore creates a new reception store that starts empty.
-func NewOrLoadStore(kv *versioned.KV) *Store {
+func NewOrLoadStore(kv *utility.KV) *Store {
 
 	s, err := loadStore(kv)
 	if err != nil {
@@ -69,7 +70,7 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 		s = &Store{
 			active:  []*registration{},
 			present: make(map[idHash]struct{}),
-			kv:      kv.Prefix(receptionPrefix),
+			kv:      kv,
 		}
 
 		// Store the empty list
@@ -81,11 +82,10 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 	return s
 }
 
-func loadStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(receptionPrefix)
+func loadStore(kv *utility.KV) (*Store, error) {
 
 	// Load the versioned object for the reception list
-	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)
+	identitiesData, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to get the reception storage list")
@@ -93,7 +93,7 @@ func loadStore(kv *versioned.KV) (*Store, error) {
 
 	// JSON unmarshal identities list
 	var identities []storedReference
-	if err = json.Unmarshal(vo.Data, &identities); err != nil {
+	if err = json.Unmarshal(identitiesData, &identities); err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to unmarshal the stored identity list")
 	}
@@ -132,7 +132,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	err = s.kv.Set(receptionStoreStorageKey, obj)
+	err = s.kv.Set(receptionStoreStorageKey, obj.Marshal())
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store reception store")
 	}
@@ -317,7 +317,8 @@ func (s *Store) SetToExpire(addressSize uint8) {
 	for i, active := range s.active {
 		if active.AddressSize < addressSize && active.EndValid.After(expire) {
 			s.active[i].EndValid = expire
-			err := s.active[i].store(s.kv)
+			prefix := regPrefix(active.EphId, active.Source, active.StartValid)
+			err := s.active[i].store(s.kv, prefix)
 			if err != nil {
 				jww.ERROR.Printf("Failed to store identity %d: %+v", i, err)
 			}

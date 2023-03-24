@@ -13,7 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
@@ -42,7 +42,7 @@ var delayTable = [5]time.Duration{
 // registrar is an implementation of the Registrar interface.
 type registrar struct {
 	nodes map[id.ID]*key
-	kv    *versioned.KV
+	kv    *utility.KV
 	mux   sync.RWMutex
 
 	session session
@@ -78,7 +78,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 
 	running := int64(0)
 
-	kv := session.GetKV().Prefix(prefix)
+	kv := session.GetKV()
 	r := &registrar{
 		nodes:          make(map[id.ID]*key),
 		kv:             kv,
@@ -88,7 +88,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 		numnodesGetter: numNodesGetter,
 	}
 
-	obj, err := kv.Get(storeKey, currentKeyVersion)
+	data, err := kv.Get(storeKey, currentKeyVersion)
 	if err != nil {
 		// If there is no stored data, make a new node handler
 		jww.WARN.Printf("Failed to load Node Registrar, creating a new object.")
@@ -97,7 +97,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 			return nil, errors.WithMessagef(err, "Failed to make a new registrar")
 		}
 	} else {
-		err = r.unmarshal(obj.Data)
+		err = r.unmarshal(data)
 		if err != nil {
 			return nil, err
 		}

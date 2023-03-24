@@ -8,10 +8,10 @@
 package conversation
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -19,15 +19,15 @@ const conversationKeyPrefix = "conversation"
 
 type Store struct {
 	loadedConversations map[id.ID]*Conversation
-	kv                  *versioned.KV
+	kv                  *utility.KV
 	mux                 sync.RWMutex
 }
 
 // NewStore returns a new conversation Store made off of the KV.
-func NewStore(kv *versioned.KV) *Store {
+func NewStore(kv *utility.KV) *Store {
 	return &Store{
 		loadedConversations: make(map[id.ID]*Conversation),
-		kv:                  kv.Prefix(conversationKeyPrefix),
+		kv:                  kv,
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID/store"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	// "gitlab.com/xx_network/primitives/netTime"
@@ -24,10 +24,10 @@ type registration struct {
 	UR *store.UnknownRounds
 	ER *store.EarliestRound
 	CR *store.CheckedRounds
-	kv *versioned.KV
+	kv *utility.KV
 }
 
-func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
+func newRegistration(reg Identity, kv *utility.KV) (*registration, error) {
 	// Round the times to remove the monotonic clocks for future saving
 	reg.StartValid = reg.StartValid.Round(0)
 	reg.EndValid = reg.EndValid.Round(0)
@@ -39,9 +39,6 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	// 	return nil, errors.New("Cannot create a registration for an " +
 	// 		"identity which has expired")
 	// }
-
-	// Set the prefix
-	kv = kv.Prefix(regPrefix(reg.EphId, reg.Source, reg.StartValid))
 
 	r := &registration{
 		Identity: reg,
@@ -62,7 +59,8 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	// If this is not address, then store everything
 	if !reg.Ephemeral {
 		// Store the registration
-		if err = reg.store(kv); err != nil {
+		prefix := regPrefix(reg.EphId, reg.Source, reg.StartValid)
+		if err = reg.store(kv, prefix); err != nil {
 			return nil, errors.WithMessage(err, "failed to store registration")
 		}
 	}
@@ -71,11 +69,9 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 }
 
 func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
-	kv *versioned.KV) (*registration, error) {
+	kv *utility.KV) (*registration, error) {
 
-	kv = kv.Prefix(regPrefix(EphId, Source, startValid))
-
-	reg, err := loadIdentity(kv)
+	reg, err := loadIdentity(kv, regPrefix(EphId, Source, startValid))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to load identity "+
 			"for %s", regPrefix(EphId, Source, startValid))
@@ -107,7 +103,8 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 func (r *registration) Delete() error {
 	if !r.Ephemeral {
 		r.UR.Delete()
-		if err := r.delete(r.kv); err != nil {
+		prefix := regPrefix(r.EphId, r.Source, r.StartValid)
+		if err := r.delete(r.kv, prefix); err != nil {
 			return errors.WithMessagef(
 				err, "Failed to delete registration public data %s", r)
 		}

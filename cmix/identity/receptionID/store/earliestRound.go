@@ -10,6 +10,7 @@ package store
 import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -23,12 +24,12 @@ const (
 
 type EarliestRound struct {
 	stored bool
-	kv     *versioned.KV
+	kv     *utility.KV
 	rid    id.Round
 	mux    sync.Mutex
 }
 
-func NewEarliestRound(stored bool, kv *versioned.KV) *EarliestRound {
+func NewEarliestRound(stored bool, kv *utility.KV) *EarliestRound {
 	ur := &EarliestRound{
 		stored: stored,
 		kv:     kv,
@@ -39,19 +40,19 @@ func NewEarliestRound(stored bool, kv *versioned.KV) *EarliestRound {
 	return ur
 }
 
-func LoadEarliestRound(kv *versioned.KV) *EarliestRound {
+func LoadEarliestRound(kv *utility.KV) *EarliestRound {
 	ur := &EarliestRound{
 		stored: true,
 		kv:     kv,
 		rid:    0,
 	}
 
-	obj, err := kv.Get(earliestRoundStorageKey, earliestRoundStorageVersion)
+	earliestRndData, err := kv.Get(earliestRoundStorageKey, earliestRoundStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get the earliest round: %+v", err)
 	}
 
-	err = json.Unmarshal(obj.Data, &ur.rid)
+	err = json.Unmarshal(earliestRndData, &ur.rid)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal the earliest round: %+v", err)
 	}
@@ -72,7 +73,7 @@ func (ur *EarliestRound) save() {
 			Data:      urStr,
 		}
 
-		err = ur.kv.Set(earliestRoundStorageKey, obj)
+		err = ur.kv.Set(earliestRoundStorageKey, obj.Marshal())
 		if err != nil {
 			jww.FATAL.Panicf("Failed to store the earliest round: %+v", err)
 		}

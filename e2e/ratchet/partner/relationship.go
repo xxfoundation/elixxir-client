@@ -9,6 +9,8 @@ package partner
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"strconv"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -31,7 +33,7 @@ const relationshipFingerprintKey = "relationshipFingerprint"
 type relationship struct {
 	t session.RelationshipType
 
-	kv *versioned.KV
+	kv *utility.KV
 
 	sessions    []*session.Session
 	sessionByID map[session.SessionID]*session.Session
@@ -60,14 +62,14 @@ type ServiceHandler interface {
 // Should be refactored to create an empty relationship, with a second call
 // adding the session
 // todo - doscstring
-func NewRelationship(kv *versioned.KV, t session.RelationshipType,
+func NewRelationship(kv *utility.KV, t session.RelationshipType,
 	myID, partnerID *id.ID, myOriginPrivateKey,
 	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
 	originPartnerSIDHPubKey *sidh.PublicKey, initialParams session.Params,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) *relationship {
 
-	kv = kv.Prefix(t.Prefix())
+	//kv = kv.Prefix(t.Prefix())
 
 	fingerprint := makeRelationshipFingerprint(t, grp,
 		myOriginPrivateKey, partnerOriginPublicKey, myID,
@@ -115,11 +117,9 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 }
 
 // todo - doscstring
-func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
+func LoadRelationship(kv *utility.KV, t session.RelationshipType, myID,
 	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*relationship, error) {
-
-	kv = kv.Prefix(t.Prefix())
 
 	r := &relationship{
 		t:           t,
@@ -132,12 +132,12 @@ func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
 		rng:         rng,
 	}
 
-	obj, err := kv.Get(relationshipKey, currentRelationshipVersion)
+	obj, err := kv.Get(r.makeKey(), currentRelationshipVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.unmarshal(obj.Data)
+	err = r.unmarshal(obj)
 
 	if err != nil {
 		return nil, err
@@ -155,16 +155,20 @@ func (r *relationship) save() error {
 		return err
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentRelationshipVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
-	return r.kv.Set(relationshipKey, &obj)
+	return r.kv.Set(r.makeKey(), obj.Marshal())
 }
 
-//ekv functions
+func (r *relationship) makeKey() string {
+	return r.partnerID.String() + r.t.Prefix() + relationshipKey
+}
+
+// ekv functions
 func (r *relationship) marshal() ([]byte, error) {
 	sessions := make([]session.SessionID, len(r.sessions))
 
@@ -433,8 +437,8 @@ func (r *relationship) clean() {
 
 		if err := r.save(); err != nil {
 			jww.FATAL.Printf("cannot save Session Buffer %s after "+
-				"clean: %s", r.kv.GetFullKey(relationshipKey,
-				currentRelationshipVersion), err)
+				"clean: %s",
+				relationshipKey+strconv.Itoa(currentRelationshipVersion), err)
 		}
 	}
 }

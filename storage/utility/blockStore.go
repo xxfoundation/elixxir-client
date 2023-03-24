@@ -57,11 +57,11 @@ type BlockStore struct {
 	blockSize  int // The maximum number of items allowed in a block
 	firstSaved int // The index of the oldest block in the list
 	lastSaved  int // The index of the newest block in the list
-	kv         *versioned.KV
+	kv         *KV
 }
 
 // NewBlockStore returns a new BlockStore and saves it to storage.
-func NewBlockStore(numBlocks, blockSize int, kv *versioned.KV) (*BlockStore, error) {
+func NewBlockStore(numBlocks, blockSize int, kv *KV) (*BlockStore, error) {
 	bs := &BlockStore{
 		block:      make([][]byte, 0, blockSize),
 		numBlocks:  numBlocks,
@@ -76,7 +76,7 @@ func NewBlockStore(numBlocks, blockSize int, kv *versioned.KV) (*BlockStore, err
 
 // LoadBlockStore returns the BlockStore from storage and a concatenation of all
 // blocks in storage.
-func LoadBlockStore(kv *versioned.KV) (*BlockStore, [][]byte, error) {
+func LoadBlockStore(kv *KV) (*BlockStore, [][]byte, error) {
 	bs := &BlockStore{kv: kv}
 
 	// get BlockStore parameters from storage
@@ -155,14 +155,14 @@ func (bs *BlockStore) saveBlock() error {
 	}
 
 	// Construct versioning object
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   blockVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
 	// Save to storage
-	err = bs.kv.Set(bs.getKey(bs.lastSaved), &obj)
+	err = bs.kv.Set(bs.getKey(bs.lastSaved), obj.Marshal())
 	if err != nil {
 		return errors.Errorf(bKvSaveErr, bs.lastSaved, err)
 	}
@@ -173,14 +173,14 @@ func (bs *BlockStore) saveBlock() error {
 // loadBlock loads the block with the index from storage.
 func (bs *BlockStore) loadBlock(i int) ([][]byte, error) {
 	// get the data from the kv
-	obj, err := bs.kv.Get(bs.getKey(i), blockVersion)
+	blockData, err := bs.kv.Get(bs.getKey(i), blockVersion)
 	if err != nil {
 		return nil, errors.Errorf(bKvLoadErr, i, err)
 	}
 
 	// Unmarshal the block
 	var block [][]byte
-	err = json.Unmarshal(obj.Data, &block)
+	err = json.Unmarshal(blockData, &block)
 	if err != nil {
 		return nil, errors.Errorf(bJsonUnmarshalErr, i, err)
 	}
@@ -214,14 +214,14 @@ func (bs *BlockStore) getKey(i int) string {
 // block data.
 func (bs *BlockStore) save() error {
 	// Construct versioning object
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   blockStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      bs.marshal(),
 	}
 
 	// Save to storage
-	err := bs.kv.Set(blockStoreKey, &obj)
+	err := bs.kv.Set(blockStoreKey, obj.Marshal())
 	if err != nil {
 		return errors.Errorf(bsKvSaveErr, err)
 	}
@@ -238,13 +238,13 @@ func (bs *BlockStore) save() error {
 // load loads BlockStore parameters from storage.
 func (bs *BlockStore) load() error {
 	// get the data from the kv
-	obj, err := bs.kv.Get(blockStoreKey, blockStoreVersion)
+	blockStoreData, err := bs.kv.Get(blockStoreKey, blockStoreVersion)
 	if err != nil {
 		return errors.Errorf(bsKvLoadErr, err)
 	}
 
 	// Unmarshal the data into a BlockStore
-	err = bs.unmarshal(obj.Data)
+	err = bs.unmarshal(blockStoreData)
 	if err != nil {
 		return errors.Errorf(bsKvUnmarshalErr, err)
 	}

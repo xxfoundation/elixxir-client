@@ -8,6 +8,7 @@
 package parse
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e/parse/conversation"
 	"gitlab.com/elixxir/client/v4/e2e/parse/partition"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -33,7 +33,7 @@ type Partitioner struct {
 	partition         *partition.Store
 }
 
-func NewPartitioner(kv *versioned.KV, messageSize int) *Partitioner {
+func NewPartitioner(kv *utility.KV, messageSize int) *Partitioner {
 	p := Partitioner{
 		baseMessageSize:   messageSize,
 		firstContentsSize: messageSize - firstHeaderLen,

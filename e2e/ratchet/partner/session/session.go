@@ -36,7 +36,7 @@ const sessionKey = "session"
 
 type Session struct {
 	//prefixed kv
-	kv *versioned.KV
+	kv *utility.KV
 	//params
 	e2eParams Params
 
@@ -124,8 +124,8 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 
-//NewSession - Generator which creates all keys and structures
-func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
+// NewSession - Generator which creates all keys and structures
+func NewSession(kv *utility.KV, t RelationshipType, partner *id.ID, myPrivKey,
 	partnerPubKey, baseKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, trigger SessionID,
 	relationshipFingerprint []byte, negotiationStatus Negotiation,
@@ -155,7 +155,6 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 	}
 
 	session.finalizeKeyNegotiation()
-	session.kv = kv.Prefix(MakeSessionPrefix(session.sID))
 	session.buildChildKeys()
 
 	myPubKey := dh.GeneratePublicKey(session.myPrivKey, grp)
@@ -184,28 +183,28 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 }
 
 // LoadSession and state vector from kv and populate runtime fields
-func LoadSession(kv *versioned.KV, sessionID SessionID,
+func LoadSession(kv *utility.KV, sessionID SessionID,
 	relationshipFingerprint []byte, cyHandler CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
 	session := Session{
-		kv:        kv.Prefix(MakeSessionPrefix(sessionID)),
+		kv:        kv,
 		sID:       sessionID,
 		cyHandler: cyHandler,
 		grp:       grp,
 		rng:       rng,
 	}
 
-	obj, err := session.kv.Get(sessionKey, currentSessionVersion)
+	data, err := session.kv.Get(MakeSessionPrefix(sessionID), currentSessionVersion)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to load %s",
-			session.kv.GetFullKey(sessionKey, currentSessionVersion))
+			MakeSessionPrefix(sessionID))
 	}
 
 	// TODO: Not necessary until we have versions on this object...
 	//obj, err := sessionUpgradeTable.Upgrade(obj)
 
-	err = session.unmarshal(obj.Data)
+	err = session.unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +230,7 @@ func (s *Session) Save() error {
 		return err
 	}
 
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentSessionVersion,
 		Timestamp: now,
 		Data:      data,
@@ -239,7 +238,7 @@ func (s *Session) Save() error {
 
 	jww.WARN.Printf("saving with KV: %v", s.kv)
 
-	return s.kv.Set(sessionKey, &obj)
+	return s.kv.Set(MakeSessionPrefix(s.sID), obj.Marshal())
 }
 
 /*METHODS*/
@@ -298,7 +297,7 @@ func (s *Session) GetSource() SessionID {
 	return s.partnerSource
 }
 
-//underlying definition of session id
+// underlying definition of session id
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
@@ -600,7 +599,7 @@ func (s *Session) buildChildKeys() {
 	}
 }
 
-//returns key objects for all unused keys
+// returns key objects for all unused keys
 func (s *Session) getUnusedKeys() []Cypher {
 	keyNums := s.keyState.GetUnusedKeyNums()
 
@@ -612,7 +611,7 @@ func (s *Session) getUnusedKeys() []Cypher {
 	return keys
 }
 
-//ekv functions
+// ekv functions
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 
@@ -697,7 +696,7 @@ func (s *Session) unmarshal(b []byte) error {
 
 // MakeSessionPrefix builds the prefix
 func MakeSessionPrefix(sid SessionID) string {
-	return fmt.Sprintf(sessionPrefix, sid)
+	return fmt.Sprintf(sessionPrefix, sid) + sessionKey
 }
 
 // todo - doscstring

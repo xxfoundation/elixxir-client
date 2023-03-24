@@ -10,12 +10,11 @@ import (
 
 // Smoke test
 func TestNewOrLoadSalt(t *testing.T) {
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	utilKv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	rng := csprng.NewSystemRNG()
 
-	_, err := NewOrLoadSalt(vkv, rng)
+	_, err := NewOrLoadSalt(utilKv, rng)
 	if err != nil {
 		t.Fatalf("NewOrLoadSalt error: %+v", err)
 	}
@@ -26,17 +25,16 @@ func TestNewOrLoadSalt(t *testing.T) {
 // salt that exists in storage.
 func TestLoadSalt(t *testing.T) {
 
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	utilKv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	rng := csprng.NewSystemRNG()
 
-	original, err := NewOrLoadSalt(vkv, rng)
+	original, err := NewOrLoadSalt(utilKv, rng)
 	if err != nil {
 		t.Fatalf("NewOrLoadSalt error: %+v", err)
 	}
 
-	loaded, err := NewOrLoadSalt(vkv, rng)
+	loaded, err := NewOrLoadSalt(utilKv, rng)
 	if err != nil {
 		t.Fatalf("NewOrLoadSalt error: %+v", err)
 	}

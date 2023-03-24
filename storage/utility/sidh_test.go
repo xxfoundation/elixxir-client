@@ -19,8 +19,7 @@ import (
 // TestStoreLoadDeleteSIDHPublicKey tests the load/store/delete functions
 // for SIDH Public Keys
 func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
-	kv := ekv.MakeMemstore()
-	vkv := versioned.NewKV(kv)
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
 	myRng := rng.GetStream()
 	x1 := NewSIDHPublicKey(sidh.KeyVariantSidhA)
@@ -29,11 +28,11 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 	p1.GeneratePublicKey(x1)
 
 	k1 := "testKey1"
-	err := StoreSIDHPublicKey(vkv, x1, k1)
+	err := StoreSIDHPublicKey(kv, x1, k1)
 	if err != nil {
 		t.Errorf("Failed to store key: %+v", err)
 	}
-	loaded1, err := LoadSIDHPublicKey(vkv, k1)
+	loaded1, err := LoadSIDHPublicKey(kv, k1)
 	if err != nil {
 		t.Errorf("Failed to load key: %+v", err)
 	}
@@ -41,11 +40,11 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 		t.Errorf("Stored key did not match loaded:\n\t%s\n\t%s\n",
 			StringSIDHPubKey(x1), StringSIDHPubKey(loaded1))
 	}
-	err = DeleteSIDHPublicKey(vkv, k1)
+	err = DeleteSIDHPublicKey(kv, k1)
 	if err != nil {
 		t.Fatalf("DeleteSIDHPublicKey returned an error: %v", err)
 	}
-	_, err = LoadSIDHPublicKey(vkv, k1)
+	_, err = LoadSIDHPublicKey(kv, k1)
 	if err == nil {
 		t.Errorf("Should not load deleted key: %+v", err)
 	}
@@ -58,11 +57,11 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 	p2.GeneratePublicKey(x2)
 
 	k2 := "testKey2"
-	err = StoreSIDHPublicKey(vkv, x2, k2)
+	err = StoreSIDHPublicKey(kv, x2, k2)
 	if err != nil {
 		t.Errorf("Failed to store key: %+v", err)
 	}
-	loaded2, err := LoadSIDHPublicKey(vkv, k2)
+	loaded2, err := LoadSIDHPublicKey(kv, k2)
 	if err != nil {
 		t.Errorf("Failed to load key: %+v", err)
 	}
@@ -70,11 +69,11 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 		t.Errorf("Stored key did not match loaded:\n\t%s\n\t%s\n",
 			StringSIDHPubKey(x2), StringSIDHPubKey(loaded2))
 	}
-	err = DeleteSIDHPublicKey(vkv, k2)
+	err = DeleteSIDHPublicKey(kv, k2)
 	if err != nil {
 		t.Fatalf("DeleteSIDHPublicKey returned an error: %v", err)
 	}
-	_, err = LoadSIDHPublicKey(vkv, k2)
+	_, err = LoadSIDHPublicKey(kv, k2)
 	if err == nil {
 		t.Errorf("Should not load deleted key: %+v", err)
 	}

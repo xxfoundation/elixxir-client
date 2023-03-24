@@ -40,7 +40,7 @@ func TestNewBlockStore(t *testing.T) {
 		blockSize:  20,
 		firstSaved: 0,
 		lastSaved:  0,
-		kv:         versioned.NewKV(ekv.MakeMemstore()),
+		kv:         &KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 
 	bs, err := NewBlockStore(expected.numBlocks, expected.blockSize, expected.kv)
@@ -81,8 +81,8 @@ func TestBlockStore_Store_LoadBlockStore(t *testing.T) {
 		// Calculate the expected data
 		expected := make([][]byte, len(iter[v.dataCutIndex:]))
 		copy(expected, iter[v.dataCutIndex:])
-
-		bs, err := NewBlockStore(v.numBlocks, v.blockSize, versioned.NewKV(ekv.MakeMemstore()))
+		utilKv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+		bs, err := NewBlockStore(v.numBlocks, v.blockSize, utilKv)
 		if err != nil {
 			t.Errorf("Failed to create new BlockStore (%d): %+v", i, err)
 		}
@@ -132,7 +132,7 @@ func TestBlockStore_saveBlock_loadBlock(t *testing.T) {
 		blockSize:  20,
 		firstSaved: 0,
 		lastSaved:  0,
-		kv:         versioned.NewKV(ekv.MakeMemstore()),
+		kv:         &KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 
 	for i := range bs.block {
@@ -166,7 +166,7 @@ func TestBlockStore_saveBlock_SaveError(t *testing.T) {
 		blockSize:  20,
 		firstSaved: 0,
 		lastSaved:  0,
-		kv:         versioned.NewKV(ekv.MakeMemstore()),
+		kv:         &KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 
 	for i := range bs.block {
@@ -194,7 +194,7 @@ func TestBlockStore_saveBlock_SaveError(t *testing.T) {
 // Error path: loading of nonexistent key returns an error.
 func TestBlockStore_loadBlock_LoadStorageError(t *testing.T) {
 	expectedErr := strings.SplitN(bKvLoadErr, "%", 2)[0]
-	bs := &BlockStore{kv: versioned.NewKV(ekv.MakeMemstore())}
+	bs := &BlockStore{kv: &KV{Local: versioned.NewKV(ekv.MakeMemstore())}}
 	_, err := bs.loadBlock(0)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("loadBlock() did not return the expected error."+
@@ -204,18 +204,18 @@ func TestBlockStore_loadBlock_LoadStorageError(t *testing.T) {
 
 // Error path: unmarshalling of invalid data fails.
 func TestBlockStore_loadBlock_UnmarshalError(t *testing.T) {
-	bs := &BlockStore{kv: versioned.NewKV(ekv.MakeMemstore())}
+	bs := &BlockStore{kv: &KV{Local: versioned.NewKV(ekv.MakeMemstore())}}
 	expectedErr := strings.SplitN(bJsonUnmarshalErr, "%", 2)[0]
 
 	// Construct object with invalid data
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   blockVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte("invalid JSON"),
 	}
 
 	// Save to storage
-	err := bs.kv.Set(bs.getKey(bs.lastSaved), &obj)
+	err := bs.kv.Set(bs.getKey(bs.lastSaved), obj.Marshal())
 	if err != nil {
 		t.Errorf("Failed to save data to KV: %+v", err)
 	}
@@ -235,7 +235,7 @@ func TestBlockStore_pruneBlocks(t *testing.T) {
 		blockSize:  32,
 		firstSaved: 0,
 		lastSaved:  0,
-		kv:         versioned.NewKV(ekv.MakeMemstore()),
+		kv:         &KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 
 	// Save blocks to storage
@@ -300,7 +300,7 @@ func TestBlockStore_getKey_Consistency(t *testing.T) {
 func TestBlockStore_save_load(t *testing.T) {
 	bs := &BlockStore{
 		numBlocks: 5, blockSize: 6, firstSaved: 7, lastSaved: 8,
-		kv: versioned.NewKV(ekv.MakeMemstore()),
+		kv: &KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 
 	err := bs.save()
@@ -324,7 +324,7 @@ func TestBlockStore_save_load(t *testing.T) {
 func TestBlockStore_load_KvGetError(t *testing.T) {
 	expectedErr := strings.SplitN(bsKvLoadErr, "%", 2)[0]
 
-	testBS := &BlockStore{kv: versioned.NewKV(ekv.MakeMemstore())}
+	testBS := &BlockStore{kv: &KV{Local: versioned.NewKV(ekv.MakeMemstore())}}
 	err := testBS.load()
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("load() did not return an error for a nonexistent item in storage."+
@@ -335,17 +335,17 @@ func TestBlockStore_load_KvGetError(t *testing.T) {
 // Error path: unmarshalling of invalid data fails.
 func TestBlockStore_load_UnmarshalError(t *testing.T) {
 	expectedErr := strings.SplitN(bsKvUnmarshalErr, "%", 2)[0]
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	// Construct invalid versioning object
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   blockStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte("invalid data"),
 	}
 
 	// Save to storage
-	err := kv.Set(blockStoreKey, &obj)
+	err := kv.Set(blockStoreKey, obj.Marshal())
 	if err != nil {
 		t.Fatalf("failed to save object to storage: %+v", err)
 	}

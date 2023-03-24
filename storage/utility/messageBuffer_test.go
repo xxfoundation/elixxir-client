@@ -24,13 +24,13 @@ type testHandler struct {
 	messages map[string][]byte
 }
 
-func (th *testHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
+func (th *testHandler) SaveMessage(kv *KV, m interface{}, key string) error {
 	mBytes := m.([]byte)
 	th.messages[key] = mBytes
 	return nil
 }
 
-func (th *testHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
+func (th *testHandler) LoadMessage(kv *KV, key string) (interface{}, error) {
 	m, ok := th.messages[key]
 	if !ok {
 		return nil, os.ErrNotExist
@@ -38,7 +38,7 @@ func (th *testHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, e
 	return m, nil
 }
 
-func (th *testHandler) DeleteMessage(kv *versioned.KV, key string) error {
+func (th *testHandler) DeleteMessage(kv *KV, key string) error {
 	_, ok := th.messages[key]
 	if !ok {
 		return os.ErrNotExist
@@ -70,7 +70,7 @@ func TestNewMessageBuffer(t *testing.T) {
 		messages:           make(map[MessageHash]struct{}),
 		processingMessages: make(map[MessageHash]struct{}),
 		handler:            th,
-		kv:                 versioned.NewKV(ekv.MakeMemstore()),
+		kv:                 &KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		key:                "testKey",
 	}
 
@@ -94,7 +94,7 @@ func TestLoadMessageBuffer(t *testing.T) {
 		messages:           make(map[MessageHash]struct{}),
 		processingMessages: make(map[MessageHash]struct{}),
 		handler:            th,
-		kv:                 versioned.NewKV(ekv.MakeMemstore()),
+		kv:                 &KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		key:                "testKey",
 	}
 	_ = addTestMessages(expectedMB, 20)
@@ -124,7 +124,7 @@ func TestLoadMessageBuffer(t *testing.T) {
 
 // Tests happy path of save() with a new empty MessageBuffer.
 func TestMessageBuffer_save_NewMB(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	key := "testKey"
 
 	mb, err := NewMessageBuffer(kv, newTestHandler(), key)
@@ -137,14 +137,14 @@ func TestMessageBuffer_save_NewMB(t *testing.T) {
 		t.Errorf("save() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
 	}
-	obj, err := kv.Get(key, 0)
+	data, err := kv.Get(key, 0)
 	if err != nil {
 		t.Errorf("save() did not correctly save buffer with key %+v to storage."+
 			"\n\terror: %v", key, err)
 	}
 
 	var messageArr []MessageHash
-	err = json.Unmarshal(obj.Data, &messageArr)
+	err = json.Unmarshal(data, &messageArr)
 	if !reflect.DeepEqual([]MessageHash{}, messageArr) {
 		t.Errorf("save() returned versioned object with incorrect data."+
 			"\n\texpected: %#v\n\treceived: %#v",
@@ -154,7 +154,7 @@ func TestMessageBuffer_save_NewMB(t *testing.T) {
 
 // Tests happy path of save().
 func TestMessageBuffer_save(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	key := "testKey"
 	mb, err := NewMessageBuffer(kv, newTestHandler(), key)
 	if err != nil {
@@ -168,14 +168,14 @@ func TestMessageBuffer_save(t *testing.T) {
 		t.Errorf("save() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
 	}
-	obj, err := kv.Get(key, 0)
+	data, err := kv.Get(key, 0)
 	if err != nil {
 		t.Errorf("save() did not correctly save buffer with key %+v to storage."+
 			"\n\terror: %v", key, err)
 	}
 
 	var messageArr []MessageHash
-	err = json.Unmarshal(obj.Data, &messageArr)
+	err = json.Unmarshal(data, &messageArr)
 	if !cmpMessageHash(expectedMH, messageArr) {
 		t.Errorf("save() returned versioned object with incorrect data."+
 			"\n\texpected: %v\n\treceived: %v",
@@ -186,7 +186,8 @@ func TestMessageBuffer_save(t *testing.T) {
 // Tests happy path of MessageBuffer.Add().
 func TestMessageBuffer_Add(t *testing.T) {
 	// Create new MessageBuffer and fill with messages
-	testMB, err := NewMessageBuffer(versioned.NewKV(ekv.MakeMemstore()), newTestHandler(), "testKey")
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testMB, err := NewMessageBuffer(kv, newTestHandler(), "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -216,7 +217,8 @@ func TestMessageBuffer_Add(t *testing.T) {
 // Tests happy path of MessageBuffer.Next().
 func TestMessageBuffer_Next(t *testing.T) {
 	// Create new MessageBuffer and fill with messages
-	testMB, err := NewMessageBuffer(versioned.NewKV(ekv.MakeMemstore()), newTestHandler(), "testKey")
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testMB, err := NewMessageBuffer(kv, newTestHandler(), "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -246,7 +248,8 @@ func TestMessageBuffer_Next(t *testing.T) {
 
 func TestMessageBuffer_InvalidNext(t *testing.T) {
 	// Create new MessageBuffer and fill with messages
-	testMB, err := NewMessageBuffer(versioned.NewKV(ekv.MakeMemstore()), newTestHandler(), "testKey")
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testMB, err := NewMessageBuffer(kv, newTestHandler(), "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -267,7 +270,8 @@ func TestMessageBuffer_InvalidNext(t *testing.T) {
 func TestMessageBuffer_Succeeded(t *testing.T) {
 	th := newTestHandler()
 	// Create new MessageBuffer and fill with message
-	testMB, err := NewMessageBuffer(versioned.NewKV(ekv.MakeMemstore()), th, "testKey")
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testMB, err := NewMessageBuffer(kv, th, "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -293,7 +297,8 @@ func TestMessageBuffer_Succeeded(t *testing.T) {
 func TestMessageBuffer_Failed(t *testing.T) {
 	th := newTestHandler()
 	// Create new MessageBuffer and fill with message
-	testMB, err := NewMessageBuffer(versioned.NewKV(ekv.MakeMemstore()), th, "testKey")
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testMB, err := NewMessageBuffer(kv, th, "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}

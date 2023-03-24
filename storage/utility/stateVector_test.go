@@ -23,7 +23,7 @@ import (
 // Tests that NewStateVector creates the expected new StateVector and that it is
 // saved to storage.
 func TestNewStateVector(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	key := "myTestKey"
 	numKeys := uint32(275)
 	expected := &StateVector{
@@ -559,7 +559,7 @@ func TestLoadStateVector(t *testing.T) {
 // original.
 func TestLoadStateVector_GetError(t *testing.T) {
 	key := "StateVectorLoadStateVector"
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expectedErr := "object not found"
 
 	_, err := LoadStateVector(kv, key)
@@ -574,15 +574,15 @@ func TestLoadStateVector_GetError(t *testing.T) {
 // original.
 func TestLoadStateVector_UnmarshalError(t *testing.T) {
 	key := "StateVectorLoadStateVector"
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	// Save invalid StateVector to storage
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   currentStateVectorVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte("invalidStateVector"),
 	}
-	err := kv.Set(makeStateVectorKey(key), &obj)
+	err := kv.Set(makeStateVectorKey(key), obj.Marshal())
 	if err != nil {
 		t.Errorf("Failed to save invalid StateVector to storage: %+v", err)
 	}
@@ -600,13 +600,15 @@ func TestLoadStateVector_UnmarshalError(t *testing.T) {
 // be loaded.
 func TestStateVector_save(t *testing.T) {
 	key := "StateVectorSave"
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
 	sv := &StateVector{
 		vect:           make([]uint64, (1000+63)/64),
 		firstAvailable: 0,
 		numKeys:        1000,
 		numAvailable:   1000,
 		key:            makeStateVectorKey(key),
-		kv:             versioned.NewKV(ekv.MakeMemstore()),
+		kv:             kv,
 	}
 	expectedData, err := sv.marshal()
 	if err != nil {
@@ -625,7 +627,7 @@ func TestStateVector_save(t *testing.T) {
 		t.Errorf("Failed to load StateVector from storage: %+v", err)
 	}
 
-	if !bytes.Equal(expectedData, loadedData.Data) {
+	if !bytes.Equal(expectedData, loadedData) {
 		t.Errorf("Loaded data does not match expected."+
 			"\nexpected: %v\nreceived: %v", expectedData, loadedData)
 	}
@@ -711,13 +713,14 @@ func Test_makeStateVectorKey(t *testing.T) {
 // can be loaded.
 func TestStateVector_SaveTEST(t *testing.T) {
 	key := "StateVectorSaveTEST"
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	sv := &StateVector{
 		vect:           make([]uint64, (1000+63)/64),
 		firstAvailable: 0,
 		numKeys:        1000,
 		numAvailable:   1000,
 		key:            makeStateVectorKey(key),
-		kv:             versioned.NewKV(ekv.MakeMemstore()),
+		kv:             kv,
 	}
 	expectedData, err := sv.marshal()
 	if err != nil {
@@ -736,7 +739,7 @@ func TestStateVector_SaveTEST(t *testing.T) {
 		t.Errorf("Failed to load StateVector from storage: %+v", err)
 	}
 
-	if !bytes.Equal(expectedData, loadedData.Data) {
+	if !bytes.Equal(expectedData, loadedData) {
 		t.Errorf("Loaded data does not match expected."+
 			"\nexpected: %v\nreceived: %v", expectedData, loadedData)
 	}
@@ -853,7 +856,7 @@ func TestStateVector_SetNumAvailableTEST_InvalidInterfaceError(t *testing.T) {
 func TestStateVector_SetKvTEST(t *testing.T) {
 	sv := newTestStateVector("SetKvTEST", 1000, t)
 
-	kv := versioned.NewKV(ekv.MakeMemstore()).Prefix("NewKV")
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	sv.SetKvTEST(kv, t)
 
 	if sv.kv != kv {
@@ -881,7 +884,7 @@ func TestStateVector_SetKvTEST_InvalidInterfaceError(t *testing.T) {
 // newTestStateVector produces a new StateVector using the specified number of
 // keys and key string for testing.
 func newTestStateVector(key string, numKeys uint32, t *testing.T) *StateVector {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	sv, err := NewStateVector(kv, key, numKeys)
 	if err != nil {

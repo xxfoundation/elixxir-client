@@ -23,21 +23,22 @@ import (
 // Tests that newReceivedTransfer returns a new ReceivedTransfer with the
 // expected values.
 func Test_newReceivedTransfer(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	numFps := uint16(24)
 	parts, _ := generateTestParts(16)
 	fileSize := uint32(len(parts) * len(parts[0]))
 	numParts := uint16(len(parts))
-	rtKv := kv.Prefix(makeReceivedTransferPrefix(&tid))
 
-	cypherManager, err := cypher.NewManager(&key, numFps, rtKv)
+	cypherManager, err := cypher.NewManager(&key, numFps, kv, makeReceivedTransferPrefix(&tid))
 	if err != nil {
+		makeReceivedTransferPrefix(&tid)
 		t.Errorf("Failed to make new cypher manager: %+v", err)
 	}
 	partStatus, err := utility.NewStateVector(
-		rtKv, receivedTransferStatusKey, uint32(numParts))
+		kv, receivedTransferStatusKey, uint32(numParts))
 	if err != nil {
 		t.Errorf("Failed to make new state vector: %+v", err)
 	}
@@ -51,7 +52,7 @@ func Test_newReceivedTransfer(t *testing.T) {
 		numParts:      numParts,
 		parts:         make([][]byte, numParts),
 		partStatus:    partStatus,
-		kv:            rtKv,
+		kv:            kv,
 	}
 
 	rt, err := newReceivedTransfer(&key, &tid, expected.fileName,
@@ -331,8 +332,8 @@ func TestReceivedTransfer_save(t *testing.T) {
 // newTestReceivedTransfer creates a new ReceivedTransfer for testing.
 func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 	rt *ReceivedTransfer, file []byte, key *ftCrypto.TransferKey,
-	numFps uint16, kv *versioned.KV) {
-	kv = versioned.NewKV(ekv.MakeMemstore())
+	numFps uint16, kv *utility.KV) {
+	kv = &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	transferMAC := []byte("I am a transfer MAC")
@@ -394,7 +395,7 @@ func TestReceivedTransfer_marshal_unmarshalReceivedTransfer(t *testing.T) {
 
 // Tests that the part saved to storage via savePart can be loaded.
 func Test_savePart_loadPart(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	part := []byte("I am a part.")
 	partNum := 18
 

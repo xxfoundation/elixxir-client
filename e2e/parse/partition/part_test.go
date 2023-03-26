@@ -9,6 +9,7 @@ package partition
 
 import (
 	"bytes"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -20,7 +21,7 @@ import (
 func Test_savePart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
@@ -39,9 +40,9 @@ func Test_savePart(t *testing.T) {
 	}
 
 	// Check if the data is correct
-	if !bytes.Equal(part, obj.Data) {
+	if !bytes.Equal(part, obj) {
 		t.Errorf("Part retrieved from key value store is not expected."+
-			"\nexpected: %v\nreceived: %v", part, obj.Data)
+			"\nexpected: %v\nreceived: %v", part, obj)
 	}
 }
 
@@ -49,15 +50,17 @@ func Test_savePart(t *testing.T) {
 func Test_loadPart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	rootKv := versioned.NewKV(ekv.MakeMemstore())
+	rootKv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
 	key := makeMultiPartMessagePartKey(partNum)
 
 	// Save part to key value store
+	obj := &versioned.Object{Timestamp: netTime.Now(), Data: part}
 	err := rootKv.Set(
-		key, &versioned.Object{Timestamp: netTime.Now(), Data: part})
+		key, obj.Marshal())
 	if err != nil {
 		t.Errorf("Failed to set object: %+v", err)
 	}
@@ -80,7 +83,7 @@ func Test_loadPart(t *testing.T) {
 func Test_loadPart_NotFoundError(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
@@ -102,7 +105,7 @@ func Test_loadPart_NotFoundError(t *testing.T) {
 func TestDeletePart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)

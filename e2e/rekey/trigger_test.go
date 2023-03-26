@@ -70,7 +70,7 @@ func TestHandleTrigger(t *testing.T) {
 	// Maintain an ID for bob
 	bobID = id.NewIdFromBytes([]byte("test"), t)
 	aliceID = id.NewIdFromString("zezima", id.User, t)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	err := ratchet.New(kv, aliceID, alicePrivKey, grp)
 	if err != nil {

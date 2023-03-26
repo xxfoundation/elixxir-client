@@ -27,19 +27,18 @@ import (
 // Tests that newSentTransfer returns a new SentTransfer with the expected
 // values.
 func Test_newSentTransfer(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	numFps := uint16(24)
 	parts := [][]byte{[]byte("hello"), []byte("hello"), []byte("hello")}
-	stKv := kv.Prefix(makeSentTransferPrefix(&tid))
 
-	cypherManager, err := cypher.NewManager(&key, numFps, stKv)
+	cypherManager, err := cypher.NewManager(&key, numFps, kv, makeSentTransferPrefix(&tid))
 	if err != nil {
 		t.Errorf("Failed to make new cypher manager: %+v", err)
 	}
 	partStatus, err := utility.NewStateVector(
-		stKv, sentTransferStatusKey, uint32(len(parts)))
+		kv, sentTransferStatusKey, uint32(len(parts)))
 	if err != nil {
 		t.Errorf("Failed to make new state vector: %+v", err)
 	}
@@ -54,7 +53,7 @@ func Test_newSentTransfer(t *testing.T) {
 		status:        Running,
 		parts:         parts,
 		partStatus:    partStatus,
-		kv:            stKv,
+		kv:            kv,
 	}
 
 	st, err := newSentTransfer(expected.recipient, &key, &tid,
@@ -450,8 +449,9 @@ const numPrimeBytes = 512
 
 // newTestSentTransfer creates a new SentTransfer for testing.
 func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
-	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) {
-	kv = versioned.NewKV(ekv.MakeMemstore())
+	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv *utility.KV) {
+	kv = &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())

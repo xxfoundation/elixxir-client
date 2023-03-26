@@ -10,6 +10,7 @@ package partition
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/v4/catalog"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
@@ -21,11 +22,11 @@ import (
 
 // Tests happy path of NewOrLoad.
 func TestNewOrLoad(t *testing.T) {
-	rootKv := versioned.NewKV(ekv.MakeMemstore())
+	rootKv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expectedStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
 		activeParts: make(map[*multiPartMessage]bool),
-		kv:          rootKv.Prefix(packagePrefix),
+		kv:          rootKv,
 	}
 
 	store := NewOrLoad(rootKv)
@@ -39,7 +40,8 @@ func TestNewOrLoad(t *testing.T) {
 // Tests happy path of Store.AddFirst.
 func TestStore_AddFirst(t *testing.T) {
 	part := []byte("Test message.")
-	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
+
+	s := NewOrLoad(&util.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 	b := make([]byte, e2e.KeyResidueLength)
 	kr, err := e2e.UnmarshalKeyResidue(b)
 	if err != nil {
@@ -71,7 +73,7 @@ func TestStore_AddFirst(t *testing.T) {
 func TestStore_Add(t *testing.T) {
 	part1 := []byte("Test message.")
 	part2 := []byte("Second Sentence.")
-	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
+	s := NewOrLoad(&util.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 	b := make([]byte, e2e.KeyResidueLength)
 	kr, err := e2e.UnmarshalKeyResidue(b)
 	if err != nil {
@@ -112,7 +114,7 @@ func TestStore_prune(t *testing.T) {
 	// new message
 	part1 := []byte("Test message.")
 	part2 := []byte("Second Sentence.")
-	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
+	s := NewOrLoad(&util.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 
 	partner1 := id.NewIdFromString("User", id.User, t)
 	messageId1 := uint64(5)

@@ -40,7 +40,8 @@ func Test_manager_SendE2E_Smoke(t *testing.T) {
 	netHandler := newMockCmixHandler()
 
 	// Generate new E2E manager
-	myKv := versioned.NewKV(ekv.MakeMemstore())
+	myKv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
 	myID := id.NewIdFromString("myID", id.User, t)
 	myNet := newMockCmix(myID, netHandler, t)
 	m1 := &manager{
@@ -67,7 +68,7 @@ func Test_manager_SendE2E_Smoke(t *testing.T) {
 		myKv, myID, m1.grp, myFpGen, myServices, streamGen)
 
 	// Generate new E2E manager
-	partnerKv := versioned.NewKV(ekv.MakeMemstore())
+	partnerKv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	partnerID := id.NewIdFromString("partnerID", id.User, t)
 	partnerNet := newMockCmix(partnerID, netHandler, t)
 	m2 := &manager{

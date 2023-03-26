@@ -9,6 +9,7 @@ package ratchet
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -30,25 +31,26 @@ import (
 func TestNewStore(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expectedStore := &Ratchet{
 		managers:               make(map[id.ID]partner.Manager),
 		advertisedDHPrivateKey: privKey,
 		advertisedDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
 		grp:                    grp,
-		kv:                     kv.Prefix(packagePrefix),
+		kv:                     kv,
 	}
 	expectedData, err := expectedStore.marshal()
 	if err != nil {
 		t.Fatalf("marshal() produced an error: %v", err)
 	}
 
-	err = New(kv, &id.ID{}, privKey, grp)
+	myId := id.NewIdFromBytes([]byte("me"), t)
+	err = New(kv, myId, privKey, grp)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
 
-	key, err := expectedStore.kv.Get(storeKey, 0)
+	key, err := expectedStore.kv.Get(makeE2ePrefix(myId)+storeKey, 0)
 	if err != nil {
 		t.Errorf("get() error when getting Ratchet from KV: %v", err)
 	}
@@ -56,7 +58,7 @@ func TestNewStore(t *testing.T) {
 	if !bytes.Equal(expectedData, key) {
 		t.Errorf("NewStore() returned incorrect Ratchet."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedData,
-			key.Data)
+			key)
 	}
 }
 

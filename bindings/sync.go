@@ -267,10 +267,7 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// Retrieve remote KV
-	rkv, err := e2eCl.api.GetStorage().GetRemoteKV()
-	if err != nil {
-		return nil, err
-	}
+	rkv := e2eCl.api.GetStorage().GetKV().Remote
 
 	return &RemoteKV{rkv: rkv}, nil
 }

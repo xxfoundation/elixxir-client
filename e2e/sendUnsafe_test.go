@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e/ratchet"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/elixxir/client/v4/e2e/rekey"
+	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -30,7 +31,7 @@ func TestManager_SendUnsafe(t *testing.T) {
 	netHandler := newMockCmixHandler()
 
 	// Generate new E2E manager
-	myKv := versioned.NewKV(ekv.MakeMemstore())
+	myKv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	myID := id.NewIdFromString("myID", id.User, t)
 	myNet := newMockCmix(myID, netHandler, t)
 	m1 := &manager{
@@ -57,7 +58,7 @@ func TestManager_SendUnsafe(t *testing.T) {
 		myKv, myID, m1.grp, myFpGen, myServices, streamGen)
 
 	// Generate new E2E manager
-	partnerKv := versioned.NewKV(ekv.MakeMemstore())
+	partnerKv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	partnerID := id.NewIdFromString("partnerID", id.User, t)
 	partnerNet := newMockCmix(partnerID, netHandler, t)
 	m2 := &manager{

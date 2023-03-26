@@ -10,6 +10,7 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
@@ -24,10 +25,10 @@ import (
 // Tests that NewOrLoadSent returns a new Sent when none exist in storage and
 // that the list of unsent parts is nil.
 func TestNewOrLoadSent_New(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expected := &Sent{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentTransfersStorePrefix),
+		kv:        kv,
 	}
 
 	s, unsentParts, err := NewOrLoadSent(kv)
@@ -49,7 +50,7 @@ func TestNewOrLoadSent_New(t *testing.T) {
 // Tests that NewOrLoadSent returns a loaded Sent when one exist in storage and
 // that the list of unsent parts is correct.
 func TestNewOrLoadSent_Load(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s, _, err := NewOrLoadSent(kv)
 	if err != nil {
 		t.Errorf("Failed to make new Sent: %+v", err)
@@ -70,6 +71,8 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 		}
 		expectedUnsentParts = append(expectedUnsentParts, st.GetUnsentParts()...)
 	}
+
+	t.Logf("saving in test")
 	if err = s.save(); err != nil {
 		t.Errorf("Failed to make save filled Sent: %+v", err)
 	}
@@ -119,7 +122,7 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 
 // Tests that Sent.AddTransfer makes a new transfer and adds it to the list.
 func TestSent_AddTransfer(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -156,7 +159,7 @@ func TestSent_AddTransfer_TransferAlreadyExists(t *testing.T) {
 
 // Tests that Sent.GetTransfer returns the expected transfer.
 func TestSent_GetTransfer(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -183,7 +186,7 @@ func TestSent_GetTransfer(t *testing.T) {
 
 // Tests that Sent.RemoveTransfer removes the transfer from the list.
 func TestSent_RemoveTransfer(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -222,7 +225,7 @@ func TestSent_RemoveTransfer(t *testing.T) {
 // Tests that Sent.save saves the transfer ID list to storage by trying to load
 // it after a save.
 func TestSent_save(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s, _, _ := NewOrLoadSent(kv)
 	s.transfers = map[ftCrypto.TransferID]*SentTransfer{
 		{0}: nil, {1}: nil,
@@ -234,7 +237,7 @@ func TestSent_save(t *testing.T) {
 		t.Errorf("Failed to save transfer ID list: %+v", err)
 	}
 
-	_, err = s.kv.Get(sentTransfersStoreKey, sentTransfersStoreVersion)
+	_, err = s.kv.Get(makeSentTransferKvKey(), sentTransfersStoreVersion)
 	if err != nil {
 		t.Errorf("Failed to load transfer ID list: %+v", err)
 	}

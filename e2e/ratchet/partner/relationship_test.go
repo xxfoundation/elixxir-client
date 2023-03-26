@@ -843,7 +843,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	}
 }
 
-func makeTestRelationshipManager(t *testing.T) (*manager, *versioned.KV) {
+func makeTestRelationshipManager(t *testing.T) (*manager, *util.KV) {
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
 			"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE"+
@@ -875,7 +875,7 @@ func makeTestRelationshipManager(t *testing.T) (*manager, *versioned.KV) {
 	mySIDHPrivKey.Generate(rng)
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	frng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	return &manager{
 		kv:                      kv,

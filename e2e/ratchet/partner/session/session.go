@@ -152,6 +152,7 @@ func NewSession(kv *utility.KV, t RelationshipType, partner *id.ID, myPrivKey,
 		cyHandler:               cyHandler,
 		grp:                     grp,
 		rng:                     rng,
+		kv:                      kv,
 	}
 
 	session.finalizeKeyNegotiation()

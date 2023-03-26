@@ -8,6 +8,7 @@
 package parse
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/e2e"
 	"testing"
 
@@ -26,7 +27,9 @@ var ipsumTestStr = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cra
 
 // Test that NewPartitioner outputs a correctly made Partitioner
 func TestNewPartitioner(t *testing.T) {
-	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), 4096)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	p := NewPartitioner(kv, 4096)
 
 	if p.baseMessageSize != 4096 {
 		t.Errorf("baseMessageSize content mismatch."+
@@ -59,7 +62,9 @@ func TestNewPartitioner(t *testing.T) {
 
 // Test that no error is returned running Partitioner.Partition.
 func TestPartitioner_Partition(t *testing.T) {
-	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), len(ipsumTestStr))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	p := NewPartitioner(kv, len(ipsumTestStr))
 
 	_, _, err := p.Partition(
 		&id.DummyUser, catalog.XxMessage, netTime.Now(), []byte(ipsumTestStr))
@@ -70,7 +75,8 @@ func TestPartitioner_Partition(t *testing.T) {
 
 // Test that Partitioner.HandlePartition can handle a message part.
 func TestPartitioner_HandlePartition(t *testing.T) {
-	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), len(ipsumTestStr))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	p := NewPartitioner(kv, len(ipsumTestStr))
 	m := newMessagePart(1107, 1, []byte(ipsumTestStr), len(ipsumTestStr)+headerLen)
 
 	_, _, _ = p.HandlePartition(
@@ -83,7 +89,9 @@ func TestPartitioner_HandlePartition(t *testing.T) {
 
 // Test that HandlePartition can handle a first message part
 func TestPartitioner_HandleFirstPartition(t *testing.T) {
-	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), 256)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	p := NewPartitioner(kv, 256)
 	m := newFirstMessagePart(
 		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr), len([]byte(ipsumTestStr))+firstHeaderLen)
 

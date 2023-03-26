@@ -54,7 +54,7 @@ func getGroup() *cyclic.Group {
 }
 
 // newTestManager returns a new relationship for testing.
-func newTestManager(t *testing.T) (manager, *versioned.KV) {
+func newTestManager(t *testing.T) (manager, *util.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}
@@ -81,7 +81,7 @@ func newTestManager(t *testing.T) (manager, *versioned.KV) {
 	}
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	partnerID := id.NewIdFromString("partner", id.User, t)
 
 	myId := id.NewIdFromString("me", id.User, t)

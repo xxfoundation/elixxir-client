@@ -21,17 +21,17 @@ import (
 // Tests that NewManager returns a new Manager that matches the expected
 // manager.
 func TestNewManager(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	numFps := uint16(64)
-	fpv, _ := utility.NewStateVector(kv.Prefix(cypherManagerPrefix),
+	fpv, _ := utility.NewStateVector(kv,
 		cypherManagerFpVectorKey, uint32(numFps))
 	expected := &Manager{
 		key:      &ftCrypto.TransferKey{1, 2, 3},
 		fpVector: fpv,
-		kv:       kv.Prefix(cypherManagerPrefix),
+		kv:       kv,
 	}
 
-	manager, err := NewManager(expected.key, numFps, kv)
+	manager, err := NewManager(expected.key, numFps, kv, cypherManagerPrefix)
 	if err != nil {
 		t.Errorf("NewManager returned an error: %+v", err)
 	}
@@ -106,7 +106,7 @@ func TestLoadManager(t *testing.T) {
 		m.fpVector.Use(i)
 	}
 
-	newManager, err := LoadManager(kv)
+	newManager, err := LoadManager(kv, "")
 	if err != nil {
 		t.Errorf("Failed to load manager: %+v", err)
 	}
@@ -126,7 +126,7 @@ func TestManager_Delete(t *testing.T) {
 		t.Errorf("Failed to delete manager: %+v", err)
 	}
 
-	_, err = LoadManager(m.kv)
+	_, err = LoadManager(m.kv, "")
 	if err == nil {
 		t.Error("Failed to receive error when loading manager that was deleted.")
 	}
@@ -134,15 +134,15 @@ func TestManager_Delete(t *testing.T) {
 
 // Tests that a transfer key saved via saveKey can be loaded via loadKey.
 func Test_saveKey_loadKey(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	key := &ftCrypto.TransferKey{42}
 
-	err := saveKey(key, kv)
+	err := saveKey(key, kv, "")
 	if err != nil {
 		t.Errorf("Error when saving key: %+v", err)
 	}
 
-	loadedKey, err := loadKey(kv)
+	loadedKey, err := loadKey(kv, "")
 	if err != nil {
 		t.Errorf("Error when loading key: %+v", err)
 	}
@@ -154,14 +154,14 @@ func Test_saveKey_loadKey(t *testing.T) {
 }
 
 // newTestManager creates a new Manager for testing.
-func newTestManager(numFps uint16, t *testing.T) (*Manager, *versioned.KV) {
+func newTestManager(numFps uint16, t *testing.T) (*Manager, *utility.KV) {
 	key, err := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	if err != nil {
 		t.Errorf("Failed to generate transfer key: %+v", err)
 	}
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	m, err := NewManager(&key, numFps, kv)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	m, err := NewManager(&key, numFps, kv, "")
 	if err != nil {
 		t.Errorf("Failed to make new Manager: %+v", err)
 	}

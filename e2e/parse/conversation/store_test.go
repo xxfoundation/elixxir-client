@@ -8,6 +8,7 @@
 package conversation
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -17,7 +18,7 @@ import (
 
 // Happy path.
 func TestStore_Delete(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	store := NewStore(kv)
 	pIDs := make([]*id.ID, 10)
 

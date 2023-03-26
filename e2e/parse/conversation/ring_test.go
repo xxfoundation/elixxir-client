@@ -8,6 +8,7 @@
 package conversation
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"reflect"
@@ -19,7 +20,7 @@ import (
 // TestNewBuff tests the creation of a Buff object.
 func TestNewBuff(t *testing.T) {
 	// Initialize buffer
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	buffLen := 20
 	testBuff, err := NewBuff(kv, buffLen)
 	if err != nil {
@@ -33,7 +34,7 @@ func TestNewBuff(t *testing.T) {
 	}
 
 	// Check that buffer exists in KV
-	_, err = kv.Prefix(ringBuffPrefix).Get(ringBuffKey, ringBuffVersion)
+	_, err = kv.Get(ringBuffPrefix+ringBuffKey, ringBuffVersion)
 	if err != nil {
 		t.Errorf("Failed to load Buff from KV: %+v", err)
 	}
@@ -43,7 +44,8 @@ func TestNewBuff(t *testing.T) {
 // the Buff.buff, buff.lookup, and proper index updates.
 func TestBuff_Add(t *testing.T) {
 	// Initialize buffer
-	testBuff, err := NewBuff(versioned.NewKV(ekv.MakeMemstore()), 20)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testBuff, err := NewBuff(kv, 20)
 	if err != nil {
 		t.Errorf("Failed to make new Buff: %+v", err)
 	}
@@ -98,7 +100,9 @@ func TestBuff_Add(t *testing.T) {
 // value is overwritten.
 func TestBuff_Add_Overflow(t *testing.T) {
 	buffLen := 20
-	testBuff, err := NewBuff(versioned.NewKV(ekv.MakeMemstore()), buffLen)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	testBuff, err := NewBuff(kv, buffLen)
 	if err != nil {
 		t.Errorf("Failed to make new Buff: %+v", err)
 	}
@@ -142,7 +146,8 @@ func TestBuff_Add_Overflow(t *testing.T) {
 // Tests that Buff.Get returns the latest inserted Message.
 func TestBuff_Get(t *testing.T) {
 	// Initialize buffer
-	testBuff, err := NewBuff(versioned.NewKV(ekv.MakeMemstore()), 20)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testBuff, err := NewBuff(kv, 20)
 	if err != nil {
 		t.Errorf("Failed to make new Buff: %+v", err)
 	}
@@ -196,7 +201,8 @@ func TestBuff_Get(t *testing.T) {
 // MessageID.
 func TestBuff_GetByMessageID(t *testing.T) {
 	// Initialize buffer
-	testBuff, err := NewBuff(versioned.NewKV(ekv.MakeMemstore()), 20)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	testBuff, err := NewBuff(kv, 20)
 	if err != nil {
 		t.Errorf("Failed to make new Buff: %+v", err)
 	}
@@ -234,8 +240,9 @@ func TestBuff_GetByMessageID(t *testing.T) {
 // that does not exist in Buff.
 func TestBuff_GetByMessageID_Error(t *testing.T) {
 	// Initialize buffer
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	buffLen := 20
+
 	testBuff, err := NewBuff(kv, buffLen)
 	if err != nil {
 		t.Errorf("Failed to make new Buff: %+v", err)
@@ -254,7 +261,7 @@ func TestBuff_GetByMessageID_Error(t *testing.T) {
 
 func TestBuff_GetNextMessage(t *testing.T) {
 	// Initialize buffer
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	buffLen := 20
 	testBuff, err := NewBuff(kv, buffLen)
 	if err != nil {
@@ -298,7 +305,7 @@ func TestBuff_GetNextMessage(t *testing.T) {
 
 func TestLoadBuff(t *testing.T) {
 	// Initialize buffer
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	buffLen := 20
 	testBuff, err := NewBuff(kv, buffLen)
 	if err != nil {

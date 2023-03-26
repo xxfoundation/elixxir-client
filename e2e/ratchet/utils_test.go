@@ -31,10 +31,10 @@ import (
 )
 
 // Constructor for a mock ratchet
-func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
+func makeTestRatchet() (*Ratchet, *util.KV, error) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	err := New(kv, &id.ID{}, privKey, grp)
 	if err != nil {

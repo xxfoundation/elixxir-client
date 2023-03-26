@@ -264,7 +264,7 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *utility.KV) (
 	}
 
 	// Load fileName, recipient ID, status, and file parts
-	data, err := kv.Get(sentTransferStoreKey, sentTransferStoreVersion)
+	data, err := kv.Get(makeSentTransferPrefix(tid), sentTransferStoreVersion)
 	if err != nil {
 		return nil, errors.Errorf(errStLoadFields, err)
 	}
@@ -316,7 +316,7 @@ func (st *SentTransfer) Delete() error {
 	}
 
 	// Delete recipient ID, status, and file parts
-	err = st.kv.Delete(sentTransferStoreKey, sentTransferStoreVersion)
+	err = st.kv.Delete(makeSentTransferPrefix(st.tid), sentTransferStoreVersion)
 	if err != nil {
 		return errors.Errorf(errStDeleteSentTransfer, err)
 	}
@@ -344,7 +344,7 @@ func (st *SentTransfer) save() error {
 		Data:      data,
 	}
 
-	return st.kv.Set(sentTransferStoreKey, obj.Marshal())
+	return st.kv.Set(makeSentTransferPrefix(st.tid), obj.Marshal())
 }
 
 // sentTransferDisk structure is used to marshal and unmarshal SentTransfer

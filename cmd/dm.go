@@ -64,7 +64,7 @@ var dmCmd = &cobra.Command{
 		var dmID codename.PrivateIdentity
 		if ekv.Exists(err) {
 			dmID, err = codename.UnmarshalPrivateIdentity(
-				dmIDObj.Data)
+				dmIDObj)
 		} else {
 			dmID, err = codename.GenerateIdentity(rng)
 		}
@@ -74,11 +74,12 @@ var dmCmd = &cobra.Command{
 		dmToken := dmID.GetDMToken()
 		pubKeyBytes := dmID.PubKey[:]
 
-		ekv.Set("dmID", &versioned.Object{
+		obj := &versioned.Object{
 			Version:   0,
 			Timestamp: time.Now(),
 			Data:      dmID.Marshal(),
-		})
+		}
+		ekv.Set("dmID", obj.Marshal())
 
 		jww.INFO.Printf("DMPUBKEY: %s",
 			base64.RawStdEncoding.EncodeToString(pubKeyBytes))

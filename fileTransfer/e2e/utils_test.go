@@ -8,6 +8,9 @@
 package e2e
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	accountSync "gitlab.com/elixxir/client/v4/sync"
+	"io"
 	"sync"
 	"time"
 
@@ -342,7 +345,7 @@ func (m *mockE2e) DeletePartnerCallbacks(*id.ID)             { panic("implement 
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockStorage struct {
-	kv        *versioned.KV
+	kv        *utility.KV
 	cmixGroup *cyclic.Group
 }
 
@@ -353,18 +356,21 @@ func newMockStorage() *mockStorage {
 	rng.Close()
 
 	return &mockStorage{
-		kv:        versioned.NewKV(ekv.MakeMemstore()),
+		kv:        &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		cmixGroup: cyclic.NewGroup(large.NewIntFromBytes(b), large.NewInt(2)),
 	}
 }
 
-func (m *mockStorage) GetClientVersion() version.Version     { panic("implement me") }
-func (m *mockStorage) Get(string) (*versioned.Object, error) { panic("implement me") }
-func (m *mockStorage) Set(string, *versioned.Object) error   { panic("implement me") }
-func (m *mockStorage) Delete(string) error                   { panic("implement me") }
-func (m *mockStorage) GetKV() *versioned.KV                  { return m.kv }
-func (m *mockStorage) GetCmixGroup() *cyclic.Group           { return m.cmixGroup }
-func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement me") }
+func (m *mockStorage) Get(key string) ([]byte, error) { panic("implement me") }
+func (m *mockStorage) InitRemoteKV(remote accountSync.RemoteStore, eventCb accountSync.KeyUpdateCallback, updateCb accountSync.RemoteStoreCallback, rng io.Reader) error {
+	panic("implement me")
+}
+func (m *mockStorage) GetKV() *utility.KV                  { return m.kv }
+func (m *mockStorage) GetClientVersion() version.Version   { panic("implement me") }
+func (m *mockStorage) Set(string, *versioned.Object) error { panic("implement me") }
+func (m *mockStorage) Delete(string) error                 { panic("implement me") }
+func (m *mockStorage) GetCmixGroup() *cyclic.Group         { return m.cmixGroup }
+func (m *mockStorage) GetE2EGroup() *cyclic.Group          { panic("implement me") }
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {
 	panic("implement me")
 }

@@ -8,7 +8,9 @@
 package store
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -67,12 +69,14 @@ func NewOrLoadSent(kv *utility.KV) (*Sent, []Part, error) {
 		}
 	}
 
+	fmt.Println("loaded: ", base64.StdEncoding.EncodeToString(data))
+
 	// Load list of saved sent transfers from storage
 	tidList, err := unmarshalTransferIdList(data)
 	if err != nil {
 		return nil, nil, errors.Errorf(errUnmarshalSent, err)
 	}
-
+	fmt.Println("tid list ", tidList)
 	// Load sent transfers from storage
 	var errCount int
 	var unsentParts []Part
@@ -164,6 +168,9 @@ func (s *Sent) save() error {
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
+
+	fmt.Println("saved: ", base64.StdEncoding.EncodeToString(data))
+	fmt.Println("saved transfers: ", s.transfers)
 
 	return s.kv.Set(makeSentTransferKvKey(), obj.Marshal())
 }

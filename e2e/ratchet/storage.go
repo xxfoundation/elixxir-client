@@ -62,7 +62,7 @@ func Load(kv *util.KV, myID *id.ID, grp *cyclic.Group,
 		sInterface: services,
 	}
 
-	obj, err := kv.Get(storeKey, currentStoreVersion)
+	obj, err := kv.Get(makeE2ePrefix(r.myID)+storeKey, currentStoreVersion)
 	if err != nil {
 		return nil, err
 	} else {

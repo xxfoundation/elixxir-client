@@ -263,11 +263,11 @@ type failure struct {
 	Err error
 }
 
-////
+// //
 // stateStore wraps a kv and stores contact state for the restoration
 // TODO: Right now, it uses 1 contact-per-key approach, but it might make sense
 // to wrap this in a mutex and load/store a whole list
-////
+// //
 const stateStoreFmt = "restoreContactsFromBackup/v1/%s"
 
 type stateStore struct {
@@ -298,11 +298,11 @@ func (s stateStore) get(id *id.ID) (restoreState, *contact.Contact, error) {
 	if err != nil {
 		return contactNotFound, nil, err
 	}
-	user, err := contact.Unmarshal(val.Data[1:])
+	user, err := contact.Unmarshal(val[1:])
 	if err != nil {
 		return contactFound, nil, err
 	}
-	return restoreState(val.Data[0]), &user, nil
+	return restoreState(val[0]), &user, nil
 }
 
 // stateStore END

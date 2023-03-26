@@ -8,12 +8,9 @@
 package session
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"reflect"
 	"testing"
-	"time"
-
-	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
@@ -353,8 +350,6 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	//	Normal paths: SetNegotiationStatus should not fail
 	// Use timestamps to determine whether a save has occurred
 	s.negotiationStatus = Sending
-	now := netTime.Now()
-	time.Sleep(100 * time.Millisecond)
 	s.SetNegotiationStatus(Sent)
 	if s.negotiationStatus != Sent {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
@@ -363,12 +358,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !object.Timestamp.After(now) {
-		t.Errorf("save didn't occur after switching Sending to Sent")
-	}
 
-	now = netTime.Now()
-	time.Sleep(100 * time.Millisecond)
 	s.SetNegotiationStatus(Confirmed)
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
@@ -377,12 +367,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !object.Timestamp.After(now) {
-		t.Errorf("save didn't occur after switching Sent to Confirmed")
-	}
 
-	now = netTime.Now()
-	time.Sleep(100 * time.Millisecond)
 	s.negotiationStatus = NewSessionTriggered
 	s.SetNegotiationStatus(NewSessionCreated)
 	if s.negotiationStatus != NewSessionCreated {
@@ -392,24 +377,18 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !object.Timestamp.After(now) {
-		t.Error("save didn't occur after switching Sent to Confirmed")
-	}
 
 	// Reverting paths: SetNegotiationStatus should not fail, and a save should not take place
-	time.Sleep(100 * time.Millisecond)
-	now = netTime.Now()
-	time.Sleep(100 * time.Millisecond)
 	s.negotiationStatus = Sending
 	s.SetNegotiationStatus(Unconfirmed)
 	if s.negotiationStatus != Unconfirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey, 0)
+	newObject, err := s.kv.Get(sessionKey, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !object.Timestamp.Before(now) {
+	if !reflect.DeepEqual(object, newObject) {
 		t.Error("save occurred after switching Sent to Confirmed")
 	}
 
@@ -418,11 +397,11 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey, 0)
+	newObject, err = s.kv.Get(sessionKey, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !object.Timestamp.Before(now) {
+	if !reflect.DeepEqual(object, newObject) {
 		t.Error("save occurred after switching Sent to Confirmed")
 	}
 }

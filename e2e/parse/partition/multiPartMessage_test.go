@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
@@ -26,6 +27,7 @@ import (
 // Tests the creation part of loadOrCreateMultiPartMessage.
 func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 	// Set up expected test value
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
 		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
@@ -34,7 +36,7 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 		PresentParts:    0,
 		SenderTimestamp: time.Time{},
 		MessageType:     0,
-		kv:              versioned.NewKV(ekv.MakeMemstore()),
+		kv:              kv,
 	}
 	expectedData, err := json.Marshal(expectedMpm)
 	if err != nil {
@@ -52,10 +54,10 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 		t.Errorf("Get failed to get multiPartMessage storage: %+v", err)
 	}
 
-	if !bytes.Equal(expectedData, obj.Data) {
+	if !bytes.Equal(expectedData, obj) {
 		t.Errorf("loadOrCreateMultiPartMessage did not save the "+
 			"multiPartMessage correctly.\nexpected: %+v\nreceived: %+v",
-			expectedData, obj.Data)
+			expectedData, obj)
 	}
 }
 
@@ -63,6 +65,7 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 	// Set up expected test value
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expectedMpm := &multiPartMessage{
 		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		MessageID:       prng.Uint64(),
@@ -70,7 +73,7 @@ func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 		PresentParts:    0,
 		SenderTimestamp: time.Time{},
 		MessageType:     0,
-		kv:              versioned.NewKV(ekv.MakeMemstore()),
+		kv:              kv,
 	}
 	err := expectedMpm.save()
 	if err != nil {
@@ -134,9 +137,10 @@ func CheckMultiPartMessages(
 func TestMultiPartMessage_Add(t *testing.T) {
 	// Generate test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mpm := loadOrCreateMultiPartMessage(
 		id.NewIdFromUInt(prng.Uint64(), id.User, t), prng.Uint64(),
-		versioned.NewKV(ekv.MakeMemstore()))
+		kv)
 	partNums, parts := generateParts(prng, 0)
 
 	for i := range partNums {
@@ -165,10 +169,10 @@ func TestMultiPartMessage_Add(t *testing.T) {
 		t.Errorf("get failed to get multiPartMessage from key value store: %v", err)
 	}
 
-	if !bytes.Equal(expectedData, obj.Data) {
+	if !bytes.Equal(expectedData, obj) {
 		t.Errorf("loadOrCreateMultiPartMessage did not save the "+
 			"multiPartMessage correctly.\nexpected: %+v\nreceived: %+v",
-			expectedData, obj.Data)
+			expectedData, obj)
 	}
 }
 
@@ -176,6 +180,7 @@ func TestMultiPartMessage_Add(t *testing.T) {
 func TestMultiPartMessage_AddFirst(t *testing.T) {
 	// Generate test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expectedMpm := &multiPartMessage{
 		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		MessageID:       prng.Uint64(),
@@ -184,7 +189,7 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 		SenderTimestamp: netTime.Now(),
 		MessageType:     catalog.NoType,
 		parts:           make([][]byte, 3),
-		kv:              versioned.NewKV(ekv.MakeMemstore()),
+		kv:              kv,
 	}
 	expectedMpm.parts[2] = []byte{5, 8, 78, 9}
 	npm := loadOrCreateMultiPartMessage(expectedMpm.Sender,
@@ -211,9 +216,10 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 	// Create multiPartMessage and fill with random parts
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mid := prng.Uint64()
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mpm := loadOrCreateMultiPartMessage(
 		id.NewIdFromUInt(prng.Uint64(), id.User, t), mid,
-		versioned.NewKV(ekv.MakeMemstore()))
+		kv)
 	partNums, parts := generateParts(prng, 75)
 
 	// Check that IsComplete is false where there are no parts
@@ -258,12 +264,12 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 // Tests happy path of multiPartMessage.delete.
 func TestMultiPartMessage_delete(t *testing.T) {
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mpm := loadOrCreateMultiPartMessage(
 		id.NewIdFromUInt(prng.Uint64(), id.User, t), prng.Uint64(), kv)
 
 	mpm.delete()
-	obj, err := kv.Get(messageKey, 0)
+	obj, err := kv.Get(mpm.makeKvStoreKey()+messageKey, 0)
 	if kv.Exists(err) {
 		t.Errorf("delete did not properly delete key %s."+
 			"\n\tobject received: %+v", messageKey, obj)

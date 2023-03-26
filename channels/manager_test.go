@@ -9,6 +9,7 @@ package channels
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"math/rand"
 	"os"
 	"reflect"
@@ -53,7 +54,8 @@ func TestManager_JoinChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -96,7 +98,8 @@ func TestManager_LeaveChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -240,7 +243,8 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -286,7 +290,8 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)

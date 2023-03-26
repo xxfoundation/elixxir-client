@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"
@@ -32,7 +33,7 @@ import (
 // after the original has been saved.
 func Test_newOrLoadReplayBlocker(t *testing.T) {
 	prng := rand.New(rand.NewSource(986))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewCommandStore(kv)
 	expected := newReplayBlocker(nil, s, kv)
 
@@ -80,13 +81,13 @@ func Test_newOrLoadReplayBlocker(t *testing.T) {
 
 // Tests that newReplayBlocker returns the expected new replayBlocker.
 func Test_newReplayBlocker(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewCommandStore(kv)
 
 	expected := &replayBlocker{
 		commandsByChannel: make(map[id.ID]map[commandFingerprintKey]*commandMessage),
 		store:             s,
-		kv:                kv.Prefix(replayBlockerStoragePrefix),
+		kv:                kv,
 	}
 
 	rb := newReplayBlocker(nil, s, kv)
@@ -106,7 +107,7 @@ func Test_replayBlocker_verifyReplay(t *testing.T) {
 		replayChan <- &commandMessage{channelID, action, payload, 0, 0}
 		return nil
 	}
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(replay, NewCommandStore(kv), kv)
 
 	cm := &commandMessage{
@@ -185,7 +186,7 @@ func Test_replayBlocker_verifyReplay(t *testing.T) {
 // message map.
 func Test_replayBlocker_removeCommand(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 
 	const m, n, o = 20, 5, 3
@@ -246,7 +247,7 @@ func Test_replayBlocker_removeCommand(t *testing.T) {
 // message for a channel that does not exist.
 func Test_replayBlocker_removeCommand_NoChannel(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 
 	err := rb.removeCommand(
@@ -266,7 +267,7 @@ func Test_replayBlocker_removeCommand_NoChannel(t *testing.T) {
 // message that does not exist (but the channel does)
 func Test_replayBlocker_removeCommand_NoMessage(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 
 	cm := &commandMessage{
@@ -289,7 +290,7 @@ func Test_replayBlocker_removeCommand_NoMessage(t *testing.T) {
 // the message map for the given channel.
 func Test_replayBlocker_removeChannelCommands(t *testing.T) {
 	prng := rand.New(rand.NewSource(2345))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 
 	const m, n, o = 20, 5, 3
@@ -359,7 +360,7 @@ func Test_replayBlocker_removeChannelCommands(t *testing.T) {
 // the original.
 func Test_replayBlocker_load(t *testing.T) {
 	prng := rand.New(rand.NewSource(986))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewCommandStore(kv)
 	rb := newReplayBlocker(nil, s, kv)
 
@@ -416,7 +417,7 @@ func Test_replayBlocker_load(t *testing.T) {
 // Error path: Tests that replayBlocker.load returns the expected error when no
 // channel IDs can be loaded from storage.
 func Test_replayBlocker_load_ChannelListLoadError(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 	expectedErr := loadCommandChanIDsErr
 
@@ -430,7 +431,7 @@ func Test_replayBlocker_load_ChannelListLoadError(t *testing.T) {
 // Error path: Tests that replayBlocker.load returns the expected error when no
 // command messages can be loaded from storage.
 func Test_replayBlocker_load_CommandMessagesLoadError(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 
 	channelID := randChannelID(rand.New(rand.NewSource(456)), t)
@@ -456,7 +457,7 @@ func Test_replayBlocker_load_CommandMessagesLoadError(t *testing.T) {
 func Test_replayBlocker_storeCommandChannelsList_loadCommandChannelsList(t *testing.T) {
 	const n = 10
 	prng := rand.New(rand.NewSource(986))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 	expectedIDs := make([]*id.ID, n)
 
@@ -503,7 +504,7 @@ func Test_replayBlocker_storeCommandChannelsList_loadCommandChannelsList(t *test
 // Error path: Tests that replayBlocker.loadCommandChannelsList returns an error
 // when trying to load from storage when nothing was saved.
 func Test_replayBlocker_loadCommandChannelsList_StorageError(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 
 	_, err := rb.loadCommandChannelsList()
@@ -517,7 +518,7 @@ func Test_replayBlocker_loadCommandChannelsList_StorageError(t *testing.T) {
 // replayBlocker.storeCommandMessages and replayBlocker.loadCommandMessages.
 func Test_replayBlocker_storeCommandMessages_loadCommandMessages(t *testing.T) {
 	prng := rand.New(rand.NewSource(986))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 	channelID := randChannelID(prng, t)
 	rb.commandsByChannel[*channelID] =
@@ -555,7 +556,7 @@ func Test_replayBlocker_storeCommandMessages_loadCommandMessages(t *testing.T) {
 // file from storage when the list is empty.
 func Test_replayBlocker_storeCommandMessages_EmptyList(t *testing.T) {
 	prng := rand.New(rand.NewSource(986))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 	channelID := randChannelID(prng, t)
 	rb.commandsByChannel[*channelID] =
@@ -594,7 +595,7 @@ func Test_replayBlocker_storeCommandMessages_EmptyList(t *testing.T) {
 // when trying to load from storage when nothing was saved.
 func Test_replayBlocker_loadCommandMessages_StorageError(t *testing.T) {
 	prng := rand.New(rand.NewSource(986))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 
 	_, err := rb.loadCommandMessages(randChannelID(prng, t))
@@ -608,7 +609,7 @@ func Test_replayBlocker_loadCommandMessages_StorageError(t *testing.T) {
 // from storage.
 func Test_replayBlocker_deleteCommandMessages(t *testing.T) {
 	prng := rand.New(rand.NewSource(986))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rb := newReplayBlocker(nil, NewCommandStore(kv), kv)
 	channelID := randChannelID(prng, t)
 	rb.commandsByChannel[*channelID] =

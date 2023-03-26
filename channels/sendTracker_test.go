@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 	"time"
 
@@ -42,7 +43,7 @@ func (mc *mockClient) RemoveHealthCallback(uint64)                              
 
 // Test MessageReceive basic logic.
 func TestSendTracker_MessageReceive(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	uuidNum := uint64(0)
 	rid := id.Round(2)
 
@@ -128,7 +129,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 func TestSendTracker_failedSend(t *testing.T) {
 	triggerCh := make(chan SentStatus)
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	adminTrigger := func(*id.ID, *ChannelMessage, []byte, time.Time,
 		cryptoMessage.ID, receptionID.EphemeralIdentity, rounds.Round,
@@ -199,7 +200,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 func TestSendTracker_send(t *testing.T) {
 	triggerCh := make(chan bool)
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
@@ -270,7 +271,7 @@ func TestSendTracker_send(t *testing.T) {
 
 // Test loading stored byRound map from storage.
 func TestSendTracker_load_store(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 
@@ -295,7 +296,7 @@ func TestSendTracker_load_store(t *testing.T) {
 }
 
 func TestRoundResult_callback(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	triggerCh := make(chan bool)
 	update := func(uuid uint64, messageID *cryptoMessage.ID,
 		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,

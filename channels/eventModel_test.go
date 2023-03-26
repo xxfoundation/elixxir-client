@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -40,7 +41,8 @@ const (
 
 func Test_initEvents(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// verify the model is registered
@@ -148,8 +150,9 @@ func TestReceiveMessageHandler_CheckSpace(t *testing.T) {
 
 func Test_events_RegisterReceiveHandler(t *testing.T) {
 	me := &MockEvent{}
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Test that a new reception handler can be registered.
@@ -241,8 +244,9 @@ func (dh *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
 
 func Test_events_triggerEvents(t *testing.T) {
 	me := &MockEvent{}
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	dummy := &dummyMessageTypeHandler{}
@@ -285,8 +289,9 @@ func Test_events_triggerEvents(t *testing.T) {
 
 func Test_events_triggerEvents_noChannel(t *testing.T) {
 	me := &MockEvent{}
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	dummy := &dummyMessageTypeHandler{}
@@ -317,7 +322,9 @@ func Test_events_triggerEvents_noChannel(t *testing.T) {
 
 func Test_events_triggerAdminEvents(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 	dummy := &dummyMessageTypeHandler{}
 
@@ -360,7 +367,9 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 
 func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 	dummy := &dummyMessageTypeHandler{}
 	mt := AdminText
@@ -386,7 +395,9 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 	}
 }
 func TestEvents_triggerActionEvent(t *testing.T) {
-	e := initEvents(&MockEvent{}, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	e := initEvents(&MockEvent{}, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 	dummy := &dummyMessageTypeHandler{}
 
@@ -430,7 +441,8 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 
 func Test_events_receiveTextMessage_Message(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -477,7 +489,8 @@ func Test_events_receiveTextMessage_Message(t *testing.T) {
 
 func Test_events_receiveTextMessage_Reply(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -521,7 +534,9 @@ func Test_events_receiveTextMessage_Reply(t *testing.T) {
 
 func Test_events_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -565,7 +580,8 @@ func Test_events_receiveTextMessage_Reply_BadReply(t *testing.T) {
 
 func Test_events_receiveReaction(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -609,7 +625,8 @@ func Test_events_receiveReaction(t *testing.T) {
 
 func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -651,7 +668,8 @@ func Test_events_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 
 func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 	me := &MockEvent{}
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -695,7 +713,9 @@ func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 // Unit test of events.receiveDelete.
 func Test_events_receiveDelete(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -739,7 +759,9 @@ func Test_events_receiveDelete(t *testing.T) {
 // Unit test of events.receivePinned.
 func Test_events_receivePinned(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -787,7 +809,8 @@ func Test_events_receivePinned(t *testing.T) {
 // Unit test of events.receivePinned.
 func Test_events_receiveMute(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event
@@ -837,7 +860,8 @@ func Test_events_receiveMute(t *testing.T) {
 // Unit test of events.receiveAdminReplay.
 func Test_events_receiveAdminReplay(t *testing.T) {
 	me, prng := &MockEvent{}, csprng.NewSystemRNG()
-	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e := initEvents(me, 512, kv,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
 
 	// Craft the input for the event

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -27,7 +28,7 @@ import (
 // storage after the original has been saved.
 func Test_newOrLoadMutedUserManager(t *testing.T) {
 	prng := rand.New(rand.NewSource(32))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expected := newMutedUserManager(kv)
 
 	mum, err := newOrLoadMutedUserManager(kv)
@@ -55,7 +56,7 @@ func Test_newOrLoadMutedUserManager(t *testing.T) {
 
 // Tests that newMutedUserManager returns the new expected mutedUserManager.
 func Test_newMutedUserManager(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expected := &mutedUserManager{
 		list: make(map[id.ID]map[mutedUserKey]struct{}),
 		kv:   kv,
@@ -73,7 +74,7 @@ func Test_newMutedUserManager(t *testing.T) {
 // all the users are saved to storage.
 func Test_mutedUserManager_muteUser(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mum := newMutedUserManager(kv)
 
 	expected := make(map[id.ID]map[mutedUserKey]struct{})
@@ -108,7 +109,7 @@ func Test_mutedUserManager_muteUser(t *testing.T) {
 // and that all the users are removed from storage.
 func Test_mutedUserManager_unmuteUser(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mum := newMutedUserManager(kv)
 
 	expected := make(map[id.ID]map[mutedUserKey]ed25519.PublicKey)
@@ -154,7 +155,7 @@ func Test_mutedUserManager_unmuteUser(t *testing.T) {
 // Tests that mutedUserManager.isMuted only returns true for users in the list.
 func Test_mutedUserManager_isMuted(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mum := newMutedUserManager(kv)
 
 	expected := make(map[id.ID][]ed25519.PublicKey)
@@ -193,7 +194,7 @@ func Test_mutedUserManager_isMuted(t *testing.T) {
 // keys.
 func Test_mutedUserManager_getMutedUsers(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mum := newMutedUserManager(kv)
 
 	expected := make(map[id.ID][]ed25519.PublicKey)
@@ -250,7 +251,7 @@ func Test_mutedUserManager_getMutedUsers(t *testing.T) {
 // are no valid users to return.
 func Test_mutedUserManager_getMutedUsers_Empty(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mum := newMutedUserManager(kv)
 
 	// Test getting list for channel that does not exist
@@ -291,7 +292,7 @@ func Test_mutedUserManager_getMutedUsers_Empty(t *testing.T) {
 // and from storage.
 func Test_mutedUserManager_removeChannel(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mum := newMutedUserManager(kv)
 
 	channelID := &id.ID{}
@@ -322,7 +323,7 @@ func Test_mutedUserManager_removeChannel(t *testing.T) {
 // list and a user list with users added.
 func TestIsNicknameValid_mutedUserManager_len(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mum := newMutedUserManager(kv)
 
 	channelID := randChannelID(prng, t)
@@ -364,7 +365,7 @@ func Test_mutedUserManager_save_load(t *testing.T) {
 				makeMutedUserKey(makeEd25519PubKey(prng, t)): {},
 			},
 		},
-		kv: versioned.NewKV(ekv.MakeMemstore()),
+		kv: &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 
 	for channelID := range mum.list {
@@ -389,7 +390,7 @@ func Test_mutedUserManager_save_load(t *testing.T) {
 // Error path: Tests that mutedUserManager.load returns an error when there is
 // no channel list to load.
 func Test_mutedUserManager_load_LoadChannelListError(t *testing.T) {
-	mum := newMutedUserManager(versioned.NewKV(ekv.MakeMemstore()))
+	mum := newMutedUserManager(&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 	expectedErr := loadMutedChannelsErr
 
 	err := mum.load()
@@ -403,7 +404,7 @@ func Test_mutedUserManager_load_LoadChannelListError(t *testing.T) {
 // no users saved to storage for the channel list.
 func Test_mutedUserManager_load_LoadUserListError(t *testing.T) {
 	prng := rand.New(rand.NewSource(953))
-	mum := newMutedUserManager(versioned.NewKV(ekv.MakeMemstore()))
+	mum := newMutedUserManager(&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 
 	channelID := randChannelID(prng, t)
 	mum.list[*channelID] = make(map[mutedUserKey]struct{})
@@ -424,7 +425,7 @@ func Test_mutedUserManager_load_LoadUserListError(t *testing.T) {
 // using mutedUserManager.saveChannelList and mutedUserManager.loadChannelList.
 func Test_mutedUserManager_saveChannelList_loadChannelList(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	mum := newMutedUserManager(versioned.NewKV(ekv.MakeMemstore()))
+	mum := newMutedUserManager(&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 
 	expected := []*id.ID{
 		randChannelID(prng, t), randChannelID(prng, t),
@@ -466,7 +467,7 @@ func Test_mutedUserManager_saveChannelList_loadChannelList(t *testing.T) {
 // mutedUserManager.loadMutedUsers.
 func Test_mutedUserManager_saveMutedUsers_loadMutedUsers(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	mum := newMutedUserManager(versioned.NewKV(ekv.MakeMemstore()))
+	mum := newMutedUserManager(&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 
 	channelID := randChannelID(prng, t)
 	mum.list[*channelID] = map[mutedUserKey]struct{}{
@@ -497,7 +498,7 @@ func Test_mutedUserManager_saveMutedUsers_loadMutedUsers(t *testing.T) {
 // when it is empty.
 func Test_mutedUserManager_saveMutedUsers_EmptyList(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	mum := newMutedUserManager(versioned.NewKV(ekv.MakeMemstore()))
+	mum := newMutedUserManager(&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 
 	channelID := randChannelID(prng, t)
 	mum.list[*channelID] = map[mutedUserKey]struct{}{
@@ -529,7 +530,7 @@ func Test_mutedUserManager_saveMutedUsers_EmptyList(t *testing.T) {
 // given channel from storage.
 func Test_mutedUserManager_deleteMutedUsers(t *testing.T) {
 	prng := rand.New(rand.NewSource(189))
-	mum := newMutedUserManager(versioned.NewKV(ekv.MakeMemstore()))
+	mum := newMutedUserManager(&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())})
 
 	channelID := randChannelID(prng, t)
 	mum.list[*channelID] = map[mutedUserKey]struct{}{

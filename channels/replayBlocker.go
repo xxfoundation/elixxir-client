@@ -308,7 +308,8 @@ func (rb *replayBlocker) storeCommandChannelsList() error {
 		Data:      data,
 	}
 
-	return rb.kv.Set(commandChannelListKey, obj.Marshal())
+	key := makeReplayKvKey(commandChannelListKey)
+	return rb.kv.Set(key, obj.Marshal())
 }
 
 // loadCommandChannelsList loads the list of all channel IDs in the command list

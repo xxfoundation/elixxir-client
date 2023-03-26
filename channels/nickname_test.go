@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"strconv"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 // Unit test. Tests that once you set a nickname with SetNickname, you can
 // retrieve the nickname using GetNickname.
 func TestNicknameManager_SetGetNickname(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
@@ -35,7 +36,7 @@ func TestNicknameManager_SetGetNickname(t *testing.T) {
 // Unit test. Tests that once you set a nickname with SetNickname, you can
 // retrieve the nickname using GetNickname after a reload.
 func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
@@ -66,7 +67,7 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 // Error case: Tests that nicknameManager.GetNickname returns a false boolean
 // if no nickname has been set with the channel ID.
 func TestNicknameManager_GetNickname_Error(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {
@@ -83,7 +84,7 @@ func TestNicknameManager_GetNickname_Error(t *testing.T) {
 // Unit test. Check that once you SetNickname and DeleteNickname,
 // GetNickname returns a false boolean.
 func TestNicknameManager_DeleteNickname(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	nm := LoadOrNewNicknameManager(kv)
 
 	for i := 0; i < numTests; i++ {

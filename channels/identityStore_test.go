@@ -9,6 +9,7 @@ package channels
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/ekv"
@@ -23,13 +24,13 @@ func TestStoreLoadIdentity(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	err = storeIdentity(kv, privIdentity)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	err = storeIdentity(kv, privIdentity, "")
 	if err != nil {
 		t.Fatalf("storeIdentity error: %+v", err)
 	}
 
-	loadedIdentity, err := loadIdentity(kv)
+	loadedIdentity, err := loadIdentity(kv, "")
 	if err != nil {
 		t.Fatalf("loadIdentity error: %+v", err)
 	}

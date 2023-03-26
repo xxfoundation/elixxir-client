@@ -9,6 +9,7 @@ package channels
 
 import (
 	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -24,7 +25,7 @@ func newPrivKeyTestManager() *manager {
 	return &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		rng:      fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:       versioned.NewKV(ekv.MakeMemstore()),
+		kv:       &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 }
 
@@ -114,7 +115,7 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 	m := &manager{
 		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
+		kv:  &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 	}
 
 	invalidChannelID := id.NewIdFromString("someID", id.User, t)
@@ -238,7 +239,7 @@ func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 // Tests that a rsa.PrivateKey saved to storage with saveChannelPrivateKey and
 // loaded with loadChannelPrivateKey matches the original.
 func Test_saveChannelPrivateKey_loadChannelPrivateKey(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	c, pk, err := cryptoBroadcast.NewChannel(
 		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
 	if err != nil {
@@ -265,7 +266,7 @@ func Test_saveChannelPrivateKey_loadChannelPrivateKey(t *testing.T) {
 // Error path: Tests that loadChannelPrivateKey returns an error when there is
 // nothing saved to storage for the given channel ID.
 func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	channelID, _ := id.NewRandomID(rand.New(rand.NewSource(654)), id.User)
 
 	_, err := loadChannelPrivateKey(channelID, kv)
@@ -278,7 +279,7 @@ func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
 // Tests that deleteChannelPrivateKey deletes the private key for the channel
 // from storage.
 func Test_deleteChannelPrivateKey(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	c, pk, err := cryptoBroadcast.NewChannel(
 		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
 	if err != nil {

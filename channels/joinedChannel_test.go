@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
@@ -44,8 +45,9 @@ func Test_manager_store(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi, kv,
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -92,7 +94,8 @@ func Test_manager_loadChannels(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	mFace, err := NewManagerBuilder(pi, kv,
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -176,7 +179,8 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -222,7 +226,8 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -259,7 +264,8 @@ func Test_manager_removeChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -305,7 +311,8 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -338,7 +345,8 @@ func Test_manager_getChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -380,7 +388,8 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -414,7 +423,8 @@ func Test_manager_getChannels(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -459,7 +469,7 @@ func Test_manager_getChannels(t *testing.T) {
 // Tests that joinedChannel.Store saves the joinedChannel to the expected place
 // in the ekv.
 func Test_joinedChannel_Store(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	ch, _, err := newTestChannel(
 		"name", "description", rng.GetStream(), cryptoBroadcast.Public)
@@ -495,7 +505,8 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
+	mFace, err := NewManagerBuilder(pi,
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, mockAddServiceFn)
@@ -538,7 +549,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 // Tests that joinedChannel.delete deletes the stored joinedChannel from the
 // ekv.
 func Test_joinedChannel_delete(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	ch, _, err := newTestChannel(
 		"name", "description", rng.GetStream(), cryptoBroadcast.Public)

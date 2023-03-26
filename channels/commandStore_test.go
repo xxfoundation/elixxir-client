@@ -10,6 +10,7 @@ package channels
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/message"
@@ -25,8 +26,8 @@ import (
 
 // Tests that NewCommandStore returns the expected CommandStore.
 func TestNewCommandStore(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	expected := &CommandStore{kv.Prefix(commandStorePrefix)}
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	expected := &CommandStore{kv}
 
 	cs := NewCommandStore(kv)
 
@@ -39,7 +40,8 @@ func TestNewCommandStore(t *testing.T) {
 // Tests that a number of channel messages can be saved and loaded from storage.
 func TestCommandStore_SaveCommand_LoadCommand(t *testing.T) {
 	prng := rand.New(rand.NewSource(430_956))
-	cs := NewCommandStore(versioned.NewKV(ekv.MakeMemstore()))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	cs := NewCommandStore(kv)
 
 	expected := make([]*CommandMessage, 20)
 	for i := range expected {
@@ -107,7 +109,8 @@ func TestCommandStore_SaveCommand_LoadCommand(t *testing.T) {
 // returns an error that signifies the object does not exist, as verified by
 // KV.Exists.
 func TestCommandStore_LoadCommand_EmptyStorageError(t *testing.T) {
-	cs := NewCommandStore(versioned.NewKV(ekv.MakeMemstore()))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	cs := NewCommandStore(kv)
 
 	_, err := cs.LoadCommand(&id.ID{1}, Delete, []byte("content"))
 	if cs.kv.Exists(err) {
@@ -118,7 +121,8 @@ func TestCommandStore_LoadCommand_EmptyStorageError(t *testing.T) {
 // Tests that CommandStore.DeleteCommand deletes all the command messages.
 func TestCommandStore_DeleteCommand(t *testing.T) {
 	prng := rand.New(rand.NewSource(430_956))
-	cs := NewCommandStore(versioned.NewKV(ekv.MakeMemstore()))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	cs := NewCommandStore(kv)
 
 	expected := make([]*CommandMessage, 20)
 	for i := range expected {

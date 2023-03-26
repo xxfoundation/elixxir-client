@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/ekv"
@@ -23,7 +24,7 @@ import (
 )
 
 func TestNewOrLoadStore_New(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expected := &Store{
 		active: make([]*registration, 0),
 		kv:     kv,
@@ -42,7 +43,7 @@ func TestNewOrLoadStore_New(t *testing.T) {
 	}
 
 	var testStoredReference []storedReference
-	err = json.Unmarshal(obj.Data, &testStoredReference)
+	err = json.Unmarshal(obj, &testStoredReference)
 	if err != nil {
 		t.Errorf("Failed to unmarshal []storedReference: %+v", err)
 	}
@@ -53,7 +54,7 @@ func TestNewOrLoadStore_New(t *testing.T) {
 }
 
 func TestNewOrLoadStore_Load(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
@@ -84,7 +85,7 @@ func TestNewOrLoadStore_Load(t *testing.T) {
 }
 
 func TestStore_save(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
@@ -105,25 +106,22 @@ func TestStore_save(t *testing.T) {
 		t.Errorf("save() produced an error: %+v", err)
 	}
 
-	obj, err := kv.Prefix(receptionPrefix).Get(receptionStoreStorageKey, 0)
+	obj, err := kv.Get(receptionStoreStorageKey, 0)
 	if err != nil {
 		t.Errorf("get() produced an error: %+v", err)
 	}
 
 	expectedData, err := json.Marshal(expected)
-	if obj.Version != receptionStoreStorageVersion {
-		t.Errorf("Rectrieved version incorrect.\nexpected: %d\nreceived: %d",
-			receptionStoreStorageVersion, obj.Version)
-	}
 
-	if !bytes.Equal(expectedData, obj.Data) {
+	if !bytes.Equal(expectedData, obj) {
 		t.Errorf("Rectrieved data incorrect.\nexpected: %s\nreceived: %s",
-			expectedData, obj.Data)
+			expectedData, obj)
 	}
 }
 
 func TestStore_makeStoredReferences(t *testing.T) {
-	s := NewOrLoadStore(versioned.NewKV(ekv.MakeMemstore()))
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	expected := make([]storedReference, 0)
 
@@ -152,7 +150,7 @@ func TestStore_makeStoredReferences(t *testing.T) {
 }
 
 func TestStore_GetIdentities(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
@@ -304,7 +302,7 @@ func TestStore_GetIdentities(t *testing.T) {
 }
 
 func TestStore_GetIdentities_NoIdentities(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
@@ -331,7 +329,7 @@ func TestStore_GetIdentities_NoIdentities(t *testing.T) {
 }
 
 func TestStore_GetIdentities_BadNum(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
@@ -374,7 +372,7 @@ func getIDFp(identity EphemeralIdentity) uint64 {
 }
 
 func TestStore_AddIdentity(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
@@ -394,7 +392,7 @@ func TestStore_AddIdentity(t *testing.T) {
 }
 
 func TestStore_RemoveIdentity(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
@@ -413,7 +411,7 @@ func TestStore_RemoveIdentity(t *testing.T) {
 }
 
 func TestStore_prune(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	runs := 10
@@ -448,7 +446,7 @@ func TestStore_prune(t *testing.T) {
 }
 
 func TestStore_selectIdentity(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	runs := 10

@@ -8,6 +8,7 @@
 package message
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 	"time"
 
@@ -36,7 +37,8 @@ func (t *testProcessor) String() string {
 
 // Test that a message is handled when no service or fingerprint exists and message needs to be removed
 func Test_handler_handleMessage_NoResult(t *testing.T) {
-	garbled, err := NewOrLoadMeteredCmixMessageBuffer(versioned.NewKV(ekv.MakeMemstore()), inProcessKey)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)
 	if err != nil {
 		t.Errorf("Failed to load or new the Garbled Messages system: %v", err)
 	}

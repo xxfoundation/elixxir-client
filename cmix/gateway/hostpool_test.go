@@ -82,7 +82,7 @@ func Test_newHostPool_HostListStore(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
+	err := saveHostList(testStorage.GetKV(), addedIDs)
 	if err != nil {
 		t.Fatalf("Failed to store host list: %+v", err)
 	}
@@ -215,7 +215,7 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
+	err := saveHostList(testStorage.GetKV(), addedIDs)
 	if err != nil {
 		t.Fatalf("Failed to store host list: %+v", err)
 	}
@@ -288,7 +288,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
+	err := saveHostList(testStorage.GetKV(), addedIDs)
 	if err != nil {
 		t.Fatalf("Failed to store host list: %+v", err)
 	}

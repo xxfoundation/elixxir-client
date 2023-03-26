@@ -8,6 +8,7 @@
 package cmix
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 
 	bloom "gitlab.com/elixxir/bloomfilter"
@@ -42,7 +43,7 @@ func TestChecker(t *testing.T) {
 	}
 
 	// Init a kv and a checked rounds structure
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	cr, err := store.NewCheckedRounds(5, kv)
 	if err != nil {
 		t.Errorf("Failed to create checked rounds store: %+v", err)

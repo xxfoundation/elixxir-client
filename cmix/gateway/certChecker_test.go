@@ -9,6 +9,7 @@ package gateway
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -20,7 +21,7 @@ import (
 
 // Test load & store functions for cert checker
 func Test_certChecker_loadStore(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	cc := newCertChecker(&mockCertCheckerComm{}, kv)
 
 	// FIXME: This should load from a variable not disk.

@@ -8,6 +8,7 @@
 package receptionID
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -20,7 +21,7 @@ import (
 )
 
 func TestIdentity_store_loadIdentity(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{
 			EphId:  ephemeral.Id{},
@@ -34,12 +35,12 @@ func TestIdentity_store_loadIdentity(t *testing.T) {
 		Ephemeral:   false,
 	}
 
-	err := r.store(kv)
+	err := r.store(kv, "")
 	if err != nil {
 		t.Errorf("Failed to store: %+v", err)
 	}
 
-	rLoad, err := loadIdentity(kv)
+	rLoad, err := loadIdentity(kv, "")
 	if err != nil {
 		t.Errorf("Failed to load: %+v", err)
 	}
@@ -51,7 +52,7 @@ func TestIdentity_store_loadIdentity(t *testing.T) {
 }
 
 func TestIdentity_delete(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{
 			EphId:  ephemeral.Id{},
@@ -65,17 +66,17 @@ func TestIdentity_delete(t *testing.T) {
 		Ephemeral:   false,
 	}
 
-	err := r.store(kv)
+	err := r.store(kv, "")
 	if err != nil {
 		t.Errorf("Failed to store: %s", err)
 	}
 
-	err = r.delete(kv)
+	err = r.delete(kv, "")
 	if err != nil {
 		t.Errorf("Failed to delete: %s", err)
 	}
 
-	_, err = loadIdentity(kv)
+	_, err = loadIdentity(kv, "")
 	if err == nil {
 		t.Error("Load after delete succeeded.")
 	}
@@ -115,7 +116,7 @@ func TestIdentity_Equal(t *testing.T) {
 // Identity.ProcessNext is loaded. This test is exhaustive by making a reasonably
 // long Identity.ProcessNext linked list, and checking if all Identity's are loaded.
 func TestIdentity_store_loadProcessNext(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	const numTests = 10
 
 	// Construct the first identity, which will be stored
@@ -164,13 +165,13 @@ func TestIdentity_store_loadProcessNext(t *testing.T) {
 
 	// Save the first identity. This should be the head of
 	// the created linked list, and thus all nodes (Identity's) should be saved.
-	err := first.store(kv)
+	err := first.store(kv, "")
 	if err != nil {
 		t.Errorf("Failed to store: %s", err)
 	}
 
 	// Load the identity
-	loadedIdentity, err := loadIdentity(kv)
+	loadedIdentity, err := loadIdentity(kv, "")
 	if err != nil {
 		t.Errorf("Failed to load: %+v", err)
 	}

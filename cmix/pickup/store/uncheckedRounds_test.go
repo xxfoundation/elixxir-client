@@ -9,6 +9,7 @@ package store
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/ekv"
@@ -21,11 +22,11 @@ import (
 
 // Unit test
 func TestNewUncheckedStore(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore := &UncheckedRoundStore{
 		list: make(map[roundIdentity]UncheckedRound),
-		kv:   kv.Prefix(uncheckedRoundPrefix),
+		kv:   kv,
 	}
 
 	store, err := NewUncheckedStore(kv)
@@ -62,20 +63,20 @@ func TestNewUncheckedStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal UncheckedRoundStore: %+v", err)
 	}
-	roundData, err := store.kv.Get(uncheckedRoundKey, uncheckedRoundVersion)
+	roundData, err := store.kv.Get(uncheckedRoundPrefix+uncheckedRoundKey, uncheckedRoundVersion)
 	if err != nil {
 		t.Fatalf("Failed to get round list from storage: %+v", err)
 	}
 
-	if !bytes.Equal(expectedRoundData, roundData.Data) {
+	if !bytes.Equal(expectedRoundData, roundData) {
 		t.Fatalf("Data from store unexpected.\nexpected %+v\nreceived: %v",
-			expectedRoundData, roundData.Data)
+			expectedRoundData, roundData)
 	}
 }
 
 // Unit test.
 func TestLoadUncheckedStore(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore, err := NewUncheckedStore(kv)
 	if err != nil {
@@ -116,7 +117,7 @@ func TestLoadUncheckedStore(t *testing.T) {
 
 // Unit test.
 func TestUncheckedRoundStore_AddRound(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore, err := NewUncheckedStore(kv)
 	if err != nil {
@@ -141,7 +142,7 @@ func TestUncheckedRoundStore_AddRound(t *testing.T) {
 
 // Unit test.
 func TestUncheckedRoundStore_GetRound(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore, err := NewUncheckedStore(kv)
 	if err != nil {
@@ -188,7 +189,7 @@ func TestUncheckedRoundStore_GetRound(t *testing.T) {
 
 // Tests that two identifies for the same round can be retrieved separately.
 func TestUncheckedRoundStore_GetRound_TwoIDs(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	s, err := NewUncheckedStore(kv)
 	if err != nil {
@@ -261,7 +262,7 @@ func TestUncheckedRoundStore_GetRound_TwoIDs(t *testing.T) {
 
 // Unit test
 func TestUncheckedRoundStore_GetList(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore, err := NewUncheckedStore(kv)
 	if err != nil {
@@ -302,7 +303,7 @@ func TestUncheckedRoundStore_GetList(t *testing.T) {
 
 // Unit test.
 func TestUncheckedRoundStore_IncrementCheck(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore, err := NewUncheckedStore(kv)
 	if err != nil {
@@ -359,7 +360,7 @@ func TestUncheckedRoundStore_IncrementCheck(t *testing.T) {
 
 // Unit test
 func TestUncheckedRoundStore_Remove(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	testStore, err := NewUncheckedStore(kv)
 	if err != nil {
 		t.Fatalf("Failed to make new UncheckedRoundStore: %+v", err)

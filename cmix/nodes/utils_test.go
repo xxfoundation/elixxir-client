@@ -8,6 +8,7 @@
 package nodes
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -172,7 +172,7 @@ func (m mockSession) GetCmixGroup() *cyclic.Group {
 	return nil
 }
 
-func (m mockSession) GetKV() *versioned.KV {
+func (m mockSession) GetKV() *utility.KV {
 	return nil
 }
 

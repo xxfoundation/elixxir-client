@@ -8,6 +8,7 @@
 package receptionID
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -44,7 +45,7 @@ func Test_newRegistration_Ephemeral(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
@@ -68,7 +69,7 @@ func Test_newRegistration_Persistent(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
@@ -79,8 +80,9 @@ func Test_newRegistration_Persistent(t *testing.T) {
 		t.Fatalf("Registration creation failed when it should have "+
 			"succeeded: %+v", err)
 	}
+	prefix := regPrefix(reg.EphId, reg.Source, reg.StartValid)
 
-	if _, err = reg.kv.Get(identityStorageKey, 0); err != nil {
+	if _, err = reg.kv.Get(prefix+identityStorageKey, 0); err != nil {
 		t.Errorf("Persistent identity did not store the identity when "+
 			"it should: %+v.", err)
 	}
@@ -92,7 +94,7 @@ func Test_loadRegistration(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
@@ -118,7 +120,7 @@ func Test_registration_Delete(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2

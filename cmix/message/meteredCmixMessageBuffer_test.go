@@ -27,7 +27,7 @@ import (
 func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
 	mcmh := &meteredCmixMessageHandler{}
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	testMsgs, _ := makeTestMeteredCmixMessage(10)
 
 	for _, msg := range testMsgs {
@@ -41,7 +41,7 @@ func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 		}
 
 		// Try to get message
-		obj, err := kv.Get(key, 0)
+		data, err := kv.Get(key, 0)
 		if err != nil {
 			t.Errorf("get() returned an error: %v", err)
 		}
@@ -52,10 +52,10 @@ func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 		}
 
 		// Test if message retrieved matches expected
-		if !bytes.Equal(msgData, obj.Data) {
+		if !bytes.Equal(msgData, data) {
 			t.Errorf("SaveMessage() returned versioned object with incorrect data."+
 				"\n\texpected: %v\n\treceived: %v",
-				msg, obj.Data)
+				msg, data)
 		}
 	}
 }
@@ -64,7 +64,7 @@ func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 func Test_meteredCmixMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
 	mcmh := &meteredCmixMessageHandler{}
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	testMsgs, _ := makeTestMeteredCmixMessage(10)
 
 	for i, msg := range testMsgs {
@@ -98,7 +98,7 @@ func Test_meteredCmixMessageHandler_LoadMessage(t *testing.T) {
 func Test_meteredCmixMessageHandler_DeleteMessage(t *testing.T) {
 	// Set up test values
 	mcmh := &meteredCmixMessageHandler{}
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	testMsgs, _ := makeTestMeteredCmixMessage(10)
 
 	for _, msg := range testMsgs {
@@ -130,8 +130,9 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 	testMsgs := makeTestFormatMessages(2)
 
 	// Create new buffer
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	mcmb, err := NewMeteredCmixMessageBuffer(
-		versioned.NewKV(ekv.MakeMemstore()), "testKey")
+		kv, "testKey")
 	if err != nil {
 		t.Errorf("NewMeteredCmixMessageBuffer() returned an error."+
 			"\nexpected: %v\nrecieved: %v", nil, err)

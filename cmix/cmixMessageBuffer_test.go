@@ -25,7 +25,7 @@ import (
 func Test_cmixMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	testMsgs, ids, _ := makeTestCmixMessages(10)
 
 	for i := range testMsgs {
@@ -49,9 +49,9 @@ func Test_cmixMessageHandler_SaveMessage(t *testing.T) {
 		}
 
 		// Test if message retrieved matches expected
-		if !bytes.Equal(msg.Marshal(), obj.Data) {
+		if !bytes.Equal(msg.Marshal(), obj) {
 			t.Errorf("Failed to get expected message from storage."+
-				"\nexpected: %v\nreceived: %v", msg, obj.Data)
+				"\nexpected: %v\nreceived: %v", msg, obj)
 		}
 	}
 }
@@ -60,7 +60,7 @@ func Test_cmixMessageHandler_SaveMessage(t *testing.T) {
 func Test_cmixMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	testMsgs, ids, _ := makeTestCmixMessages(10)
 
 	for i := range testMsgs {
@@ -95,7 +95,7 @@ func Test_cmixMessageBuffer_Smoke(t *testing.T) {
 	testMsgs, ids, _ := makeTestCmixMessages(2)
 
 	// Create new buffer
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	cmb, err := NewOrLoadCmixMessageBuffer(kv, "testKey")
 	if err != nil {
 		t.Errorf("Failed to make new cmixMessageHandler: %+v", err)

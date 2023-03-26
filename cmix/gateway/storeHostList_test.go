@@ -29,7 +29,7 @@ func Test_saveHostList_getHostList(t *testing.T) {
 
 	// Init storage
 	testStorage := storage.InitTestingSession(t)
-	storeKv := testStorage.GetKV().Prefix(hostListPrefix)
+	storeKv := testStorage.GetKV()
 
 	// Save into storage
 	err := saveHostList(storeKv, list)
@@ -57,7 +57,7 @@ func Test_getHostList_StorageError(t *testing.T) {
 
 	// Init storage
 	testStorage := storage.InitTestingSession(t)
-	storeKv := testStorage.GetKV().Prefix(hostListPrefix)
+	storeKv := testStorage.GetKV()
 
 	// Construct expected error
 	expectedErr := strings.SplitN(getStorageErr, "%", 2)[0]

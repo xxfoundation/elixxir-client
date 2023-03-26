@@ -37,7 +37,7 @@ func saveHostList(kv *utility.KV, list []*id.ID) error {
 		Timestamp: netTime.Now(),
 	}
 
-	return kv.Set(hostListKey, obj.Marshal())
+	return kv.Set(makeHostListKvKey(), obj.Marshal())
 }
 
 // getHostList returns the host list from storage.

@@ -11,6 +11,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/ekv"
@@ -29,7 +30,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestHandler_CheckInProgressMessages(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	h := NewHandler(Params{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,

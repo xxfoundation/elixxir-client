@@ -10,6 +10,7 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -20,10 +21,10 @@ import (
 
 // Happy path
 func TestNewUnknownRounds(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	expectedStore := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
-		kv:     kv.Prefix(unknownRoundPrefix),
+		kv:     kv,
 		params: DefaultUnknownRoundsParams(),
 	}
 
@@ -44,22 +45,22 @@ func TestNewUnknownRounds(t *testing.T) {
 		t.Fatalf("json.Marshal produced an error: %v", err)
 	}
 
-	key, err := store.kv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)
+	key, err := store.kv.Get(makeUnknownRoundKvKey(), unknownRoundsStorageVersion)
 	if err != nil {
 		t.Fatalf("get encoutnered an error when getting Store from KV: %v", err)
 	}
 
 	// Check that the stored data is the data outputted by marshal
-	if !bytes.Equal(expectedData, key.Data) {
+	if !bytes.Equal(expectedData, key) {
 		t.Errorf("NewUnknownRounds returned incorrect Store."+
-			"\nexpected: %+v\nreceived: %+v", expectedData, key.Data)
+			"\nexpected: %+v\nreceived: %+v", expectedData, key)
 	}
 
 }
 
 // Full test.
 func TestUnknownRounds_Iterate(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Return true only for rounds that are even
@@ -128,7 +129,7 @@ func TestUnknownRounds_Iterate(t *testing.T) {
 
 // Unit test
 func TestLoadUnknownRounds(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Construct 3 lists of round IDs

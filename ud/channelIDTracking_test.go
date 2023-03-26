@@ -3,6 +3,7 @@ package ud
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 	"time"
 
@@ -60,7 +61,7 @@ func TestLoadSaveRegistration(t *testing.T) {
 	signature := make([]byte, 64)
 	reg := newRegistrationDisk(publicKey, privateKey, lease, signature)
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	registrationDisk, err := loadRegistrationDisk(kv)
 	require.Error(t, err)
@@ -84,7 +85,7 @@ func TestChannelIDTracking(t *testing.T) {
 	require.NoError(t, err)
 
 	tnm := newTestNetworkManager(t)
-	managerkv := versioned.NewKV(ekv.MakeMemstore())
+	managerkv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	udStore, err := store.NewOrLoadStore(managerkv)
 	m := &Manager{
 		user: mockE2e{
@@ -114,7 +115,7 @@ func TestChannelIDTracking(t *testing.T) {
 
 	// register
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	comms := new(mockComms)
 	username := "Alice"
 

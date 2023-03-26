@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/v4/event"
 	"gitlab.com/elixxir/client/v4/single"
 	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	store "gitlab.com/elixxir/client/v4/ud/store"
 	"gitlab.com/elixxir/crypto/contact"
@@ -36,7 +37,7 @@ import (
 )
 
 func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	udStore, err := store.NewOrLoadStore(kv)
 	if err != nil {
 		t.Fatalf("Failed to initialize store %v", err)
@@ -53,13 +54,14 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 	tnm := newTestNetworkManager(t)
 	m := &Manager{
 		user: mockE2e{
-			grp:     getGroup(),
-			events:  event.NewEventManager(),
-			rng:     rngGen,
-			kv:      kv,
-			network: tnm,
-			t:       t,
-			key:     privKey,
+			grp:       getGroup(),
+			events:    event.NewEventManager(),
+			mockStore: mockStorage{kv: kv},
+			rng:       rngGen,
+			kv:        kv,
+			network:   tnm,
+			t:         t,
+			key:       privKey,
 		},
 		store: udStore,
 		comms: &mockComms{},

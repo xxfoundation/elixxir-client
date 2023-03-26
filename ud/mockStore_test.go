@@ -10,28 +10,37 @@ package ud
 import (
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	accountSync "gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"io"
 	"time"
 )
 
-type mockStorage struct{}
-
-func (m mockStorage) GetKV() *versioned.KV {
-	return versioned.NewKV(ekv.MakeMemstore())
+type mockStorage struct {
+	kv *utility.KV
 }
 
-func (m mockStorage) GetClientVersion() version.Version {
+func (m mockStorage) Get(key string) ([]byte, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m mockStorage) Get(key string) (*versioned.Object, error) {
+func (m mockStorage) InitRemoteKV(remote accountSync.RemoteStore, eventCb accountSync.KeyUpdateCallback, updateCb accountSync.RemoteStoreCallback, rng io.Reader) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockStorage) GetKV() *utility.KV {
+	return m.kv
+}
+
+func (m mockStorage) GetClientVersion() version.Version {
 	//TODO implement me
 	panic("implement me")
 }

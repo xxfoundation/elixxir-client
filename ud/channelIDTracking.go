@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
@@ -30,27 +31,27 @@ var ErrChannelLeaseSignature = errors.New("failure to validate lease signature")
 
 // loadRegistrationDisk loads a registrationDisk from the kv
 // and returns the registrationDisk.
-func loadRegistrationDisk(kv *versioned.KV) (registrationDisk, error) {
-	obj, err := kv.Get(registrationDiskKey, registrationDiskVersion)
+func loadRegistrationDisk(kv *utility.KV) (registrationDisk, error) {
+	data, err := kv.Get(registrationDiskKey, registrationDiskVersion)
 	if err != nil {
 		return registrationDisk{}, err
 	}
-	return UnmarshallRegistrationDisk(obj.Data)
+	return UnmarshallRegistrationDisk(data)
 }
 
 // saveRegistrationDisk saves the given saveRegistrationDisk to
 // the given kv.
-func saveRegistrationDisk(kv *versioned.KV, reg registrationDisk) error {
+func saveRegistrationDisk(kv *utility.KV, reg registrationDisk) error {
 	regBytes, err := reg.Marshall()
 	if err != nil {
 		return err
 	}
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   registrationDiskVersion,
 		Timestamp: netTime.Now(),
 		Data:      regBytes,
 	}
-	return kv.Set(registrationDiskKey, &obj)
+	return kv.Set(registrationDiskKey, obj.Marshal())
 }
 
 // registrationDisk is used to encapsulate the channel user's key pair,
@@ -150,7 +151,7 @@ func (r registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
 // repetitive scheduling of new lease registrations when the
 // current lease expires.
 type clientIDTracker struct {
-	kv *versioned.KV
+	kv *utility.KV
 
 	username string
 
@@ -168,7 +169,7 @@ type clientIDTracker struct {
 var _ channels.NameService = (*clientIDTracker)(nil)
 
 // newclientIDTracker creates a new clientIDTracker.
-func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv *versioned.KV,
+func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv *utility.KV,
 	receptionIdentity xxdk.ReceptionIdentity, udPubKey ed25519.PublicKey, rngSource *fastRNG.StreamGenerator) *clientIDTracker {
 
 	reg, err := loadRegistrationDisk(kv)

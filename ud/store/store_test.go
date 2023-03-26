@@ -9,6 +9,7 @@ package ud
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/fact"
@@ -18,7 +19,7 @@ import (
 
 // Test it loads a Store from storage if it exists.
 func TestNewOrLoadStore_LoadStore(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
@@ -41,7 +42,7 @@ func TestNewOrLoadStore_LoadStore(t *testing.T) {
 
 // Test that it creates a new store if an old one is not in storage.
 func TestNewOrLoadStore_NewStore(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	receivedStore, err := NewOrLoadStore(kv)
 	if err != nil {
@@ -51,7 +52,7 @@ func TestNewOrLoadStore_NewStore(t *testing.T) {
 	expectedStore := &Store{
 		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
 		unconfirmedFacts: make(map[string]fact.Fact, 0),
-		kv:               kv.Prefix(prefix),
+		kv:               kv,
 	}
 
 	if !reflect.DeepEqual(expectedStore, receivedStore) {
@@ -64,14 +65,14 @@ func TestNewOrLoadStore_NewStore(t *testing.T) {
 }
 
 func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
 		t.Errorf("newStore() produced an error: %v", err)
 	}
 
-	data, err := expectedStore.kv.Get(confirmedFactKey, version)
+	data, err := expectedStore.kv.Get(prefix+confirmedFactKey, version)
 	if err != nil {
 		t.Errorf("get() error when getting Store from KV: %v", err)
 	}
@@ -81,13 +82,13 @@ func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 		t.Fatalf("marshalConfirmedFact error: %+v", err)
 	}
 
-	if !bytes.Equal(expectedData, data.Data) {
+	if !bytes.Equal(expectedData, data) {
 		t.Errorf("newStore() returned incorrect Store."+
 			"\nexpected: %+v\nreceived: %+v", expectedData,
-			data.Data)
+			data)
 	}
 
-	recieved, err := expectedStore.unmarshalConfirmedFacts(data.Data)
+	recieved, err := expectedStore.unmarshalConfirmedFacts(data)
 	if err != nil {
 		t.Fatalf("unmarshalUnconfirmedFacts error: %v", err)
 	}
@@ -100,7 +101,7 @@ func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 }
 
 func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
@@ -117,13 +118,13 @@ func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
 		t.Fatalf("marshalConfirmedFact error: %+v", err)
 	}
 
-	if !bytes.Equal(expectedData, data.Data) {
+	if !bytes.Equal(expectedData, data) {
 		t.Errorf("newStore() returned incorrect Store."+
 			"\nexpected: %+v\nreceived: %+v", expectedData,
-			data.Data)
+			data)
 	}
 
-	recieved, err := expectedStore.unmarshalUnconfirmedFacts(data.Data)
+	recieved, err := expectedStore.unmarshalUnconfirmedFacts(data)
 	if err != nil {
 		t.Fatalf("unmarshalUnconfirmedFacts error: %v", err)
 	}

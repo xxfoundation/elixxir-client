@@ -47,7 +47,7 @@ func getGroup() *cyclic.Group {
 
 }
 
-func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Negotiation, t *testing.T) (*Session, *versioned.KV) {
+func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Negotiation, t *testing.T) (*Session, *util.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}
@@ -68,7 +68,7 @@ func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Neg
 }
 
 // Make a default test session with some things populated
-func makeTestSession() (*Session, *versioned.KV) {
+func makeTestSession() (*Session, *util.KV) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
@@ -87,7 +87,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 
 	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
 		mySIDHPrivKey, partnerSIDHPubKey)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	sid := GetSessionIDFromBaseKey(baseKey)
 
 	s := &Session{
@@ -98,7 +98,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 		partnerSIDHPubKey: partnerSIDHPubKey,
 		e2eParams:         GetDefaultParams(),
 		sID:               sid,
-		kv:                kv.Prefix(MakeSessionPrefix(sid)),
+		kv:                kv,
 		t:                 Receive,
 		negotiationStatus: Confirmed,
 		rekeyThreshold:    5,

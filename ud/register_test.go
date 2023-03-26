@@ -41,7 +41,6 @@ func TestManager_register(t *testing.T) {
 	prng := NewPrng(42)
 
 	mockSig := []byte("mock")
-
 	err := m.register("testUser", mockSig, prng, c)
 	if err != nil {
 		t.Errorf("register() returned an error: %+v", err)

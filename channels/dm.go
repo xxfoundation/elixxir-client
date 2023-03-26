@@ -33,18 +33,18 @@ func (m *manager) saveDMTokens() error {
 		Data:      toStore,
 	}
 
-	return m.kv.Set(dmStoreKey, vo)
+	return m.kv.Set(dmStoreKey, vo.Marshal())
 }
 
 // loadDMTokens from storage, or create a new dmTokens object.
 func (m *manager) loadDMTokens() {
-	obj, err := m.kv.Get(dmStoreKey, dmStoreVersion)
+	data, err := m.kv.Get(dmStoreKey, dmStoreVersion)
 	if err != nil {
 		jww.INFO.Printf("loading new dmTokens for channels: %v", err)
 		m.dmTokens = make(map[id.ID]uint32)
 		return
 	}
-	err = json.Unmarshal(obj.Data, &m.dmTokens)
+	err = json.Unmarshal(data, &m.dmTokens)
 	if err != nil {
 		jww.ERROR.Printf("unmarshal channel dmTokens: %v", err)
 		m.dmTokens = make(map[id.ID]uint32)

@@ -8,6 +8,7 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/fact"
@@ -18,7 +19,7 @@ import (
 
 func TestNewStore(t *testing.T) {
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	_, err := newStore(kv)
 	if err != nil {
@@ -30,7 +31,7 @@ func TestNewStore(t *testing.T) {
 // Unit test
 func TestStore_RestoreFromBackUp(t *testing.T) {
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	s, err := newStore(kv)
 	if err != nil {
@@ -59,7 +60,7 @@ func TestStore_RestoreFromBackUp(t *testing.T) {
 // Error case.
 func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	s, err := newStore(kv)
 	if err != nil {
@@ -88,7 +89,7 @@ func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
 }
 
 func TestStore_ConfirmFact(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
@@ -126,7 +127,7 @@ func TestStore_ConfirmFact(t *testing.T) {
 }
 
 func TestStore_StoreUnconfirmedFact(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
@@ -154,7 +155,7 @@ func TestStore_StoreUnconfirmedFact(t *testing.T) {
 }
 
 func TestStore_DeleteFact(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
@@ -186,7 +187,7 @@ func TestStore_DeleteFact(t *testing.T) {
 }
 
 func TestStore_BackUpMissingFacts(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
@@ -226,7 +227,7 @@ func TestStore_BackUpMissingFacts(t *testing.T) {
 }
 
 func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	expectedStore, err := newStore(kv)
 	if err != nil {
@@ -268,7 +269,7 @@ func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
 }
 
 func TestStore_GetFacts(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore, err := newStore(kv)
 	if err != nil {
@@ -322,7 +323,7 @@ func TestStore_GetFacts(t *testing.T) {
 }
 
 func TestStore_GetFactStrings(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	testStore, err := newStore(kv)
 	if err != nil {

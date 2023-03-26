@@ -19,7 +19,7 @@ import (
 	"gitlab.com/elixxir/client/v4/event"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
@@ -39,7 +39,7 @@ type mockE2e struct {
 	grp       *cyclic.Group
 	events    event.Reporter
 	rng       *fastRNG.StreamGenerator
-	kv        *versioned.KV
+	kv        *utility.KV
 	network   cmix.Client
 	mockStore mockStorage
 	t         testing.TB

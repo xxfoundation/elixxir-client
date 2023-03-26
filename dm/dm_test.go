@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"os"
 	"testing"
 
@@ -43,8 +44,8 @@ func TestE2EDMs(t *testing.T) {
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
-	ekvA := versioned.NewKV(ekv.MakeMemstore())
-	ekvB := versioned.NewKV(ekv.MakeMemstore())
+	ekvA := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	ekvB := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	stA := NewSendTracker(ekvA)
 	stB := NewSendTracker(ekvB)

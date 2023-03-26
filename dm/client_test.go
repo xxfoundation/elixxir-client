@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,7 @@ func TestNick(t *testing.T) {
 	// partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 	// 	partner.GetDMToken())
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	nnm := NewNicknameManager(myID, kv)
 
@@ -70,8 +71,8 @@ func TestBlock(t *testing.T) {
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
-	ekvA := versioned.NewKV(ekv.MakeMemstore())
-	ekvB := versioned.NewKV(ekv.MakeMemstore())
+	ekvA := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	ekvB := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
 	stA := NewSendTracker(ekvA)
 	stB := NewSendTracker(ekvB)

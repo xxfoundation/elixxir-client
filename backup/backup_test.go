@@ -9,6 +9,7 @@ package backup
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"reflect"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ import (
 // Tests that Backup.InitializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Test_InitializeBackup(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
@@ -79,7 +80,7 @@ func Test_InitializeBackup(t *testing.T) {
 // callback but keeps the password.
 func Test_ResumeBackup(t *testing.T) {
 	// Start the first backup
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan1 := make(chan []byte)
 	cb1 := func(encryptedBackup []byte) { cbChan1 <- encryptedBackup }
@@ -396,7 +397,7 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 		newMockE2e(t),
 		newMockSession(t),
 		newMockUserDiscovery(),
-		versioned.NewKV(ekv.MakeMemstore()),
+		&utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	)
 	if err != nil {
@@ -409,7 +410,7 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 // Tests that Backup.InitializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Benchmark_InitializeBackup(t *testing.B) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }

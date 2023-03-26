@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	e2eImport "gitlab.com/elixxir/client/v4/e2e"
 	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
@@ -85,7 +86,7 @@ func TestNewManager(t *testing.T) {
 // Tests that NewManager loads a group storage when it exists.
 func TestNewManager_LoadStorage(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(prng),
@@ -124,7 +125,7 @@ func TestNewManager_LoadStorage(t *testing.T) {
 // Error path: an error is returned when a group cannot be loaded from storage.
 func TestNewManager_LoadError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(rand.New(rand.NewSource(42))),
@@ -140,7 +141,7 @@ func TestNewManager_LoadError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to add group: %+v", err)
 	}
-	_ = kv.Prefix("GroupChatListStore").Delete("GroupChat/"+g.ID.String(), 0)
+	_ = kv.Delete("GroupChat/"+g.ID.String(), 0)
 
 	expectedErr := strings.SplitN(newGroupStoreErr, "%", 2)[0]
 

@@ -10,22 +10,34 @@ package groupChat
 import (
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	accountSync "gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"io"
 	"time"
 )
 
 // mockSession is a storage.Session implementation for testing.
 type mockSession struct {
-	kv *versioned.KV
+	kv *utility.KV
 }
 
-func newMockSesion(kv *versioned.KV) storage.Session {
+func (m mockSession) GetKV() *utility.KV {
+	if m.kv != nil {
+		return m.kv
+	}
+
+	return &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+
+}
+
+func newMockSesion(kv *utility.KV) storage.Session {
 	return mockSession{kv: kv}
 }
 
@@ -33,24 +45,21 @@ func (m mockSession) GetE2EGroup() *cyclic.Group {
 	return getGroup()
 }
 
-func (m mockSession) GetKV() *versioned.KV {
-	if m.kv != nil {
-		return m.kv
-	}
-
-	return versioned.NewKV(ekv.MakeMemstore())
-}
-
 /////////////////////////////////////////////////////////////////////////////////////
 // Unused & unimplemented methods of the test object ////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
-func (m mockSession) GetClientVersion() version.Version {
+func (m mockSession) Get(key string) ([]byte, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m mockSession) Get(key string) (*versioned.Object, error) {
+func (m mockSession) InitRemoteKV(remote accountSync.RemoteStore, eventCb accountSync.KeyUpdateCallback, updateCb accountSync.RemoteStoreCallback, rng io.Reader) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockSession) GetClientVersion() version.Version {
 	//TODO implement me
 	panic("implement me")
 }

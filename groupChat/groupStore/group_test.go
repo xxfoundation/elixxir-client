@@ -8,6 +8,7 @@
 package groupStore
 
 import (
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
@@ -104,7 +105,7 @@ func TestGroup_DeepCopy(t *testing.T) {
 
 // Unit test of Group.store.
 func TestGroup_store(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 
 	err := g.store(kv)
@@ -112,12 +113,12 @@ func TestGroup_store(t *testing.T) {
 		t.Errorf("store returned an error: %+v", err)
 	}
 
-	obj, err := kv.Get(groupStoreKey(g.ID), groupStoreVersion)
+	data, err := kv.Get(groupStoreKey(g.ID), groupStoreVersion)
 	if err != nil {
 		t.Errorf("Failed to get group from storage: %+v", err)
 	}
 
-	newGrp, err := DeserializeGroup(obj.Data)
+	newGrp, err := DeserializeGroup(data)
 	if err != nil {
 		t.Errorf("Failed to deserialize group: %+v", err)
 	}
@@ -130,7 +131,7 @@ func TestGroup_store(t *testing.T) {
 
 // Unit test of Group.loadGroup.
 func Test_loadGroup(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 
 	err := g.store(kv)
@@ -151,7 +152,7 @@ func Test_loadGroup(t *testing.T) {
 
 // Error path: an error is returned when no group with the ID exists in storage.
 func Test_loadGroup_InvalidGroupIdError(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 	expectedErr := strings.SplitN(kvGetGroupErr, "%", 2)[0]
 
@@ -164,7 +165,7 @@ func Test_loadGroup_InvalidGroupIdError(t *testing.T) {
 
 // Unit test of Group.removeGroup.
 func Test_removeGroup(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 
 	err := g.store(kv)

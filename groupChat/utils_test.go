@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/event"
 	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -44,7 +45,8 @@ func newTestManager(t testing.TB) (*manager, gs.Group) {
 
 	g := newTestGroupWithUser(m.getE2eGroup(), user.ID, user.DhKey,
 		m.getE2eHandler().GetHistoricalDHPrivkey(), prng, t)
-	gStore, err := gs.NewStore(versioned.NewKV(ekv.MakeMemstore()), user)
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	gStore, err := gs.NewStore(kv, user)
 	if err != nil {
 		t.Fatalf("Failed to create new group store: %+v", err)
 	}
@@ -68,8 +70,9 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 		ID:    m.getReceptionIdentity().ID,
 		DhKey: m.getE2eHandler().GetHistoricalDHPubkey(),
 	}
+	kv := &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
 
-	gStore, err := gs.NewStore(versioned.NewKV(ekv.MakeMemstore()), user)
+	gStore, err := gs.NewStore(kv, user)
 	if err != nil {
 		t.Fatalf("Failed to create new group store: %+v", err)
 	}

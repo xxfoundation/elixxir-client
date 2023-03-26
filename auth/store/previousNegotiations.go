@@ -120,8 +120,8 @@ func (s *Store) savePreviousNegotiations() error {
 // newOrLoadPreviousNegotiations loads the list of previousNegotiations partners
 // from storage.
 func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
-
-	prevNegotiation, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
+	prefix := makeStorePrefix(s.receptionId) + negotiationPartnersKey
+	prevNegotiation, err := s.kv.Get(prefix, negotiationPartnersVersion)
 
 	// V0 Upgrade Path
 	if !s.kv.Exists(err) {
@@ -129,6 +129,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 		if upgradeErr != nil {
 			return nil, errors.Wrapf(err, "%+v", upgradeErr)
 		}
+		// todo: reviewer double check this
 		prevNegotiation, err = s.kv.Get(negotiationPartnersKey,
 			negotiationPartnersVersion)
 	}

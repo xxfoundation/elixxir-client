@@ -9,6 +9,7 @@ package store
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math/rand"
 	"reflect"
@@ -22,14 +23,12 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -41,10 +40,11 @@ func (msrh *mockSentRequestHandler) Delete(sr *SentRequest) {}
 
 // Happy path.
 func TestNewOrLoadStore(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
-
-	_, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e2eMock := &mockE2eHandler{
+		receptionId: id.NewIdFromBytes([]byte("test"), t),
+	}
+	_, err := NewOrLoadStore(kv, e2eMock, &mockSentRequestHandler{})
 	if err != nil {
 		t.Errorf("NewStore() returned an error: %+v", err)
 	}
@@ -84,15 +84,18 @@ func TestLoadStore(t *testing.T) {
 	}
 
 	// Attempt to load the store
-	store, err := NewOrLoadStore(kv, s.grp, &mockSentRequestHandler{})
+	mockE2e := &mockE2eHandler{receptionId: id.NewIdFromBytes([]byte("tes"), t)}
+	store, err := NewOrLoadStore(kv, mockE2e, &mockSentRequestHandler{})
 	if err != nil {
 		t.Errorf("LoadStore() returned an error: %+v", err)
 	}
 
 	srLoaded, ok := store.sentByID[*sr.partner]
 	if !ok {
-		t.Error("Sent request could not be found")
+		t.Fatalf("Sent request could not be found")
 	}
+
+	fmt.Println(srLoaded)
 
 	if sr.myPrivKey == srLoaded.myPrivKey && sr.mySidHPrivKeyA == srLoaded.mySidHPrivKeyA && sr.mySidHPubKeyA == srLoaded.mySidHPubKeyA && sr.fingerprint == srLoaded.fingerprint && sr.partnerHistoricalPubKey == sr.partnerHistoricalPubKey {
 		t.Errorf("GetReceivedRequest() returned incorrect send req."+
@@ -868,11 +871,12 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 
 }
 
-func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
-
-	store, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
+func makeTestStore(t *testing.T) (*Store, *util.KV) {
+	kv := &util.KV{Local: versioned.NewKV(ekv.MakeMemstore())}
+	e2eMock := &mockE2eHandler{
+		receptionId: id.NewIdFromBytes([]byte("tes"), t),
+	}
+	store, err := NewOrLoadStore(kv, e2eMock, &mockSentRequestHandler{})
 	if err != nil {
 		t.Fatalf("Failed to create new Store: %+v", err)
 	}

@@ -5,29 +5,22 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/v4/auth/store"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
-	"testing"
 	"time"
 )
 
@@ -162,11 +155,6 @@ func (m mockE2eHandler) DeletePartnerCallbacks(partnerID *id.ID) {
 	panic("implement me")
 }
 
-type mockSentRequestHandler struct{}
-
-func (msrh *mockSentRequestHandler) Add(sr *store.SentRequest)    {}
-func (msrh *mockSentRequestHandler) Delete(sr *store.SentRequest) {}
-
 func getGroup() *cyclic.Group {
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
@@ -194,42 +182,4 @@ func newPayload(size int, s string) []byte {
 	b := make([]byte, size)
 	copy(b[:], s)
 	return b
-}
-
-func newOwnership(s string) []byte {
-	ownership := make([]byte, ownershipSize)
-	copy(ownership[:], s)
-	return ownership
-}
-
-func makeTestRound(t *testing.T) rounds.Round {
-	nids := []*id.ID{
-		id.NewIdFromString("one", id.User, t),
-		id.NewIdFromString("two", id.User, t),
-		id.NewIdFromString("three", id.User, t)}
-	r := rounds.Round{
-		ID:               2,
-		State:            states.REALTIME,
-		Topology:         connect.NewCircuit(nids),
-		Timestamps:       nil,
-		Errors:           nil,
-		BatchSize:        0,
-		AddressSpaceSize: 0,
-		UpdateID:         0,
-		Raw: &mixmessages.RoundInfo{
-			ID:                         5,
-			UpdateID:                   0,
-			State:                      2,
-			BatchSize:                  5,
-			Topology:                   [][]byte{[]byte("test"), []byte("test")},
-			Timestamps:                 []uint64{uint64(netTime.Now().UnixNano()), uint64(netTime.Now().UnixNano())},
-			Errors:                     nil,
-			ClientErrors:               nil,
-			ResourceQueueTimeoutMillis: 0,
-			Signature:                  nil,
-			AddressSpaceSize:           0,
-			EccSignature:               nil,
-		},
-	}
-	return r
 }

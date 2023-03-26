@@ -27,18 +27,19 @@ import (
 
 // Tests the four possible cases of Store.CheckIfNegotationIsNew:
 //  1. If the partner does not exist, add partner with the new fingerprint.
-//		Returns newFingerprint = true, latest = true.
-//	2. If the partner exists and the fingerprint does not, add the fingerprint.
-//		Returns newFingerprint = true, latest = true.
-//	3. If the partner exists and the fingerprint exists, do nothing.
-//		Return newFingerprint = false, latest = false.
-//	4. If the partner exists, the fingerprint exists, and the fingerprint is the
+//     Returns newFingerprint = true, latest = true.
+//  2. If the partner exists and the fingerprint does not, add the fingerprint.
+//     Returns newFingerprint = true, latest = true.
+//  3. If the partner exists and the fingerprint exists, do nothing.
+//     Return newFingerprint = false, latest = false.
+//  4. If the partner exists, the fingerprint exists, and the fingerprint is the
 //     latest, do nothing.
-//      Return newFingerprint = false, latest = true.
+//     Return newFingerprint = false, latest = true.
 func TestStore_AddIfNew(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(ekv.MakeMemstore()),
+		kv:                   &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		previousNegotiations: make(map[id.ID]bool),
+		receptionId:          id.NewIdFromBytes([]byte("test"), t),
 	}
 	prng := rand.New(rand.NewSource(42))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
@@ -162,8 +163,9 @@ func TestStore_AddIfNew(t *testing.T) {
 // previousNegotiations in storage and any confirmations in storage.
 func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(ekv.MakeMemstore()),
+		kv:                   &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		previousNegotiations: make(map[id.ID]bool),
+		receptionId:          id.NewIdFromBytes([]byte("test"), t),
 	}
 	prng := rand.New(rand.NewSource(42))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
@@ -258,8 +260,9 @@ func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 // via Store.savePreviousNegotiations andStore.newOrLoadPreviousNegotiations.
 func TestStore_savePreviousNegotiations_newOrLoadPreviousNegotiations(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(ekv.MakeMemstore()),
+		kv:                   &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		previousNegotiations: make(map[id.ID]bool),
+		receptionId:          id.NewIdFromBytes([]byte("test"), t),
 	}
 	prng := rand.New(rand.NewSource(42))
 	expected := make(map[id.ID]bool)
@@ -292,8 +295,9 @@ func TestStore_savePreviousNegotiations_newOrLoadPreviousNegotiations(t *testing
 // they do not exist.
 func TestStore_newOrLoadPreviousNegotiations_noNegotiations(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(ekv.MakeMemstore()),
+		kv:                   &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
 		previousNegotiations: make(map[id.ID]bool),
+		receptionId:          id.NewIdFromBytes([]byte("test"), t),
 	}
 	expected := make(map[id.ID]bool)
 
@@ -340,7 +344,9 @@ func Test_marshalPreviousNegotiations_unmarshalPreviousNegotiations(t *testing.T
 // loaded from storage via Store.saveNegotiationFingerprints and
 // Store.loadNegotiationFingerprints.
 func TestStore_saveNegotiationFingerprints_loadNegotiationFingerprints(t *testing.T) {
-	s := &Store{kv: versioned.NewKV(ekv.MakeMemstore())}
+	s := &Store{
+		kv:          &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())},
+		receptionId: id.NewIdFromBytes([]byte("test"), t)}
 	rng := csprng.NewSystemRNG()
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 

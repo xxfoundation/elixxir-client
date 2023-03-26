@@ -67,7 +67,7 @@ func NewOrLoadStore(kv *utility.KV, e e2e.Handler, srh SentRequestHandler) (*Sto
 	if err != nil {
 		//no store can be found, lets make a new one
 		jww.WARN.Printf("No auth store could be found, making a new one")
-		s, err := newStore(kv, e.GetGroup(), srh)
+		s, err := newStore(kv, e, srh)
 		if err != nil {
 			return nil, errors.WithMessagef(err, "Failed to load requestMap")
 		}
@@ -156,20 +156,21 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(requestMapKey, obj.Marshal())
+	return s.kv.Set(makeStorePrefix(s.receptionId), obj.Marshal())
 }
 
 // NewStore creates a new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
-func newStore(kv *utility.KV, grp *cyclic.Group, srh SentRequestHandler) (
+func newStore(kv *utility.KV, e e2e.Handler, srh SentRequestHandler) (
 	*Store, error) {
 	s := &Store{
 		kv:                   kv,
-		grp:                  grp,
+		grp:                  e.GetGroup(),
 		receivedByID:         make(map[id.ID]*ReceivedRequest),
 		sentByID:             make(map[id.ID]*SentRequest),
 		previousNegotiations: make(map[id.ID]bool),
 		srh:                  srh,
+		receptionId:          e.GetReceptionID(),
 	}
 
 	err := s.savePreviousNegotiations()

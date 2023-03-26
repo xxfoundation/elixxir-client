@@ -28,7 +28,7 @@ import (
 // saved and loaded from storage via Store.StoreConfirmation and
 // Store.LoadConfirmation.
 func TestStore_StoreConfirmation_LoadConfirmation(t *testing.T) {
-	s := &Store{kv: versioned.NewKV(ekv.MakeMemstore())}
+	s := &Store{kv: &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}}
 	prng := rand.New(rand.NewSource(42))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
@@ -99,7 +99,7 @@ func TestStore_StoreConfirmation_LoadConfirmation(t *testing.T) {
 // Tests that Store.DeleteConfirmation deletes the correct confirmation from
 // storage and that it cannot be loaded from storage.
 func TestStore_deleteConfirmation(t *testing.T) {
-	s := &Store{kv: versioned.NewKV(ekv.MakeMemstore())}
+	s := &Store{kv: &utility.KV{Local: versioned.NewKV(ekv.MakeMemstore())}}
 	prng := rand.New(rand.NewSource(42))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 

@@ -25,14 +25,11 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/v4/storage"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -129,8 +126,8 @@ func (mc *mockCallbacks) Reset(requestor contact.Contact, receptionID receptionI
 
 func TestManager_ReplayRequests(t *testing.T) {
 	sess := storage.InitTestingSession(t)
-
-	s, err := store.NewOrLoadStore(sess.GetKV(), sess.GetCmixGroup(), &mockSentRequestHandler{})
+	e2eMock := &mockE2eHandler{receptionId: id.NewIdFromBytes([]byte("test"), t)}
+	s, err := store.NewOrLoadStore(sess.GetKV(), e2eMock, &mockSentRequestHandler{})
 	if err != nil {
 		t.Errorf("Failed to create store: %+v", err)
 	}
@@ -192,22 +189,6 @@ loop:
 			"\nExpected: 1"+
 			"\nReceived: %d", numChannelReceived)
 	}
-}
-
-func makeTestStore(t *testing.T) (*store.Store, *versioned.KV, []*cyclic.Int) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
-	privKeys := make([]*cyclic.Int, 10)
-	for i := range privKeys {
-		privKeys[i] = grp.NewInt(rand.Int63n(170) + 1)
-	}
-
-	store, err := store.NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
-	if err != nil {
-		t.Fatalf("Failed to create new Store: %+v", err)
-	}
-
-	return store, kv, privKeys
 }
 
 func genSidhAKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {

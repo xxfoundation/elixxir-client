@@ -124,6 +124,8 @@ func managersEqual(expected, received *manager, t *testing.T) bool {
 			expected.receive, received.receive)
 		equal = false
 	}
+
+	//require.Equal(t, expected.send, received.send)
 	if !relationshipsEqual(expected.send, received.send) {
 		t.Errorf("Did not Receive expected Manager.Send."+
 			"\n\texpected: %+v\n\treceived: %+v",

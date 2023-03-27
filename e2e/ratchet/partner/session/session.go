@@ -184,7 +184,7 @@ func NewSession(kv *utility.KV, t RelationshipType, partner *id.ID, myPrivKey,
 }
 
 // LoadSession and state vector from kv and populate runtime fields
-func LoadSession(kv *utility.KV, sessionID SessionID,
+func LoadSession(kv *utility.KV, t RelationshipType, sessionID SessionID,
 	relationshipFingerprint []byte, cyHandler CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
@@ -194,9 +194,10 @@ func LoadSession(kv *utility.KV, sessionID SessionID,
 		cyHandler: cyHandler,
 		grp:       grp,
 		rng:       rng,
+		t:         t,
 	}
 
-	data, err := session.kv.Get(MakeSessionPrefix(sessionID), currentSessionVersion)
+	data, err := session.kv.Get(session.t.Prefix()+MakeSessionPrefix(sessionID), currentSessionVersion)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to load %s",
 			MakeSessionPrefix(sessionID))
@@ -238,8 +239,7 @@ func (s *Session) Save() error {
 	}
 
 	jww.WARN.Printf("saving with KV: %v", s.kv)
-
-	return s.kv.Set(MakeSessionPrefix(s.sID), obj.Marshal())
+	return s.kv.Set(s.t.Prefix()+MakeSessionPrefix(s.sID), obj.Marshal())
 }
 
 /*METHODS*/
@@ -587,7 +587,7 @@ func (s *Session) buildChildKeys() {
 	// To generate the state vector key correctly,
 	// basekey must be computed as the session ID is the hash of basekey
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", numKeys)
+	s.keyState, err = utility.NewStateVector(s.kv, s.t.Prefix(), numKeys)
 	if err != nil {
 		jww.FATAL.Printf("Failed key generation: %s", err)
 	}
@@ -687,7 +687,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.partner, _ = id.Unmarshal(sd.Partner)
 	copy(s.partnerSource[:], sd.Trigger)
 
-	s.keyState, err = utility.LoadStateVector(s.kv, "")
+	s.keyState, err = utility.LoadStateVector(s.kv, s.t.Prefix())
 	if err != nil {
 		return err
 	}

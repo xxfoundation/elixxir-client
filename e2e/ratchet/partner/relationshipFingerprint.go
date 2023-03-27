@@ -38,19 +38,19 @@ func makeRelationshipFingerprint(t session2.RelationshipType, grp *cyclic.Group,
 	return nil
 }
 
-func storeRelationshipFingerprint(fp []byte, kv *utility.KV) error {
+func (r *relationship) storeRelationshipFingerprint() error {
 	now := netTime.Now()
 	obj := &versioned.Object{
 		Version:   currentRelationshipVersion,
 		Timestamp: now,
-		Data:      fp,
+		Data:      r.fingerprint,
 	}
 
-	return kv.Set(relationshipFingerprintKey, obj.Marshal())
+	return r.kv.Set(r.t.Prefix()+relationshipFingerprintKey, obj.Marshal())
 }
 
-func loadRelationshipFingerprint(kv *utility.KV) []byte {
-	obj, err := kv.Get(relationshipFingerprintKey,
+func (r *relationship) loadRelationshipFingerprint() []byte {
+	obj, err := r.kv.Get(r.t.Prefix()+relationshipFingerprintKey,
 		currentRelationshipVersion)
 	if err != nil {
 		jww.FATAL.Panicf("cannot load relationshipFingerprint at %s: "+

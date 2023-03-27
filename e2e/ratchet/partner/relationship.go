@@ -69,16 +69,9 @@ func NewRelationship(kv *utility.KV, t session.RelationshipType,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) *relationship {
 
-	//kv = kv.Prefix(t.Prefix())
-
 	fingerprint := makeRelationshipFingerprint(t, grp,
 		myOriginPrivateKey, partnerOriginPublicKey, myID,
 		partnerID)
-
-	if err := storeRelationshipFingerprint(fingerprint, kv); err != nil {
-		jww.FATAL.Panicf("Failed to store relationship fingerpint "+
-			"for new relationship: %+v", err)
-	}
 
 	r := &relationship{
 		t:           t,
@@ -91,6 +84,11 @@ func NewRelationship(kv *utility.KV, t session.RelationshipType,
 		myID:        myID,
 		partnerID:   partnerID,
 		rng:         rng,
+	}
+
+	if err := r.storeRelationshipFingerprint(); err != nil {
+		jww.FATAL.Panicf("Failed to store relationship fingerpint "+
+			"for new relationship: %+v", err)
 	}
 
 	// set to confirmed because the first session is always confirmed as a
@@ -188,11 +186,11 @@ func (r *relationship) unmarshal(b []byte) error {
 		return err
 	}
 
-	r.fingerprint = loadRelationshipFingerprint(r.kv)
+	r.fingerprint = r.loadRelationshipFingerprint()
 
 	//load all the sessions
 	for _, sid := range sessions {
-		s, err := session.LoadSession(r.kv, sid, r.fingerprint,
+		s, err := session.LoadSession(r.kv, r.t, sid, r.fingerprint,
 			r.cyHandler, r.grp, r.rng)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load session %s for %s: %+v",

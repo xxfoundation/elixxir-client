@@ -76,6 +76,13 @@ func TestLoadRelationship(t *testing.T) {
 
 // Shows that a deleted Relationship can no longer be pulled from store
 func Test_deleteRelationship(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("deleteRelationshipFingerprint error: " +
+				"Did not panic when loading deleted fingerprint")
+		}
+	}()
+
 	mgr, kv := makeTestRelationshipManager(t)
 
 	// Generate send relationship
@@ -100,10 +107,6 @@ func Test_deleteRelationship(t *testing.T) {
 		t.Fatalf("DeleteRelationship error: Should not have loaded deleted relationship: %v", err)
 	}
 
-	_, err = LoadRelationship(kv, session.Receive, mgr.myID, mgr.partner, mockCyHandler{}, mgr.grp, mgr.rng)
-	if err == nil {
-		t.Fatalf("DeleteRelationship error: Should not have loaded deleted relationship: %v", err)
-	}
 }
 
 // Shows that a deleted relationship fingerprint can no longer be pulled from store
@@ -129,7 +132,7 @@ func TestRelationship_deleteRelationshipFingerprint(t *testing.T) {
 			"Could not delete fingerprint: %v", err)
 	}
 
-	loadRelationshipFingerprint(mgr.kv)
+	mgr.receive.loadRelationshipFingerprint()
 }
 
 // Shows that Relationship returns a valid session buff

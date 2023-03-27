@@ -55,14 +55,12 @@ func TestLoadManager(t *testing.T) {
 	newM, err := LoadManager(kv, expectedM.myID, expectedM.partner,
 		expectedM.cyHandler, expectedM.grp, expectedM.rng)
 	if err != nil {
-		t.Errorf("LoadManager() returned an error: %v", err)
+		t.Fatalf("LoadManager() returned an error: %v", err)
 	}
-	m := newM.(*manager)
-
 	// Check if the loaded relationship matches the expected
-	if !managersEqual(&expectedM, m, t) {
+	if !managersEqual(&expectedM, newM.(*manager), t) {
 		t.Errorf("LoadManager() did not produce the expected Manager."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
+			"\n\texpected: %+v\n\treceived: %+v", expectedM, newM.(*manager))
 	}
 }
 
@@ -169,7 +167,7 @@ func TestManager_NewSendSession(t *testing.T) {
 	}
 }
 
-//Tests happy path of Manager.GetKeyForSending.
+// Tests happy path of Manager.GetKeyForSending.
 func TestManager_GetKeyForSending(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)

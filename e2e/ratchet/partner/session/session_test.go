@@ -354,7 +354,8 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Sent {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err := s.kv.Get(sessionKey, 0)
+	key := MakeSessionPrefix(s.sID)
+	object, err := s.kv.Get(key, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,7 +364,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey, 0)
+	object, err = s.kv.Get(key, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +374,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != NewSessionCreated {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey, 0)
+	object, err = s.kv.Get(key, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +385,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Unconfirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	newObject, err := s.kv.Get(sessionKey, 0)
+	newObject, err := s.kv.Get(key, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +398,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	newObject, err = s.kv.Get(sessionKey, 0)
+	newObject, err = s.kv.Get(key, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,28 +21,28 @@ import (
 //
 //	[
 //	  {
-//	    "slug": "smiling-face",
-//	    "character": "☺️",
-//	    "unicode_name": "E0.6 smiling face",
-//	    "code_point": "263A FE0F",
-//	    "group": "Smileys \u0026 Emotion",
-//	    "sub_group": "face-affection"
+//      "character": "☹️",
+//      "name": "frowning face",
+//      "comment": "E0.7",
+//      "codePoint": "2639 FE0F",
+//      "group": "Smileys \u0026 Emotion",
+//      "subgroup": "face-concerned"
 //	  },
 //	  {
-//	    "slug": "frowning-face",
-//	    "character": "☹️",
-//	    "unicode_name": "E0.7 frowning face",
-//	    "code_point": "2639 FE0F",
-//	    "group": "Smileys \u0026 Emotion",
-//	    "sub_group": "face-concerned"
+//      "character": "☺️",
+//      "name": "smiling face",
+//      "comment": "E0.6",
+//      "codePoint": "263A FE0F",
+//      "group": "Smileys \u0026 Emotion",
+//      "subgroup": "face-affection"
 //	  },
 //	  {
-//	    "slug": "banana",
-//	    "character": "�",
-//	    "unicode_name": "E0.6 banana",
-//	    "code_point": "1F34C",
-//	    "group": "Food \u0026 Drink",
-//	    "sub_group": "food-fruit"
+//      "character": "☢️",
+//      "name": "radioactive",
+//      "comment": "E1.0",
+//      "codePoint": "2622 FE0F",
+//      "group": "Symbols",
+//      "subgroup": "warning"
 //	  }
 //	]
 func SupportedEmojis() ([]byte, error) {

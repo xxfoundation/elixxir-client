@@ -8,6 +8,7 @@
 package emoji
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -15,8 +16,19 @@ import (
 func TestSupportedEmojis(t *testing.T) {
 	emojis := SupportedEmojis()
 
-	if len(emojis) < 1 {
-		t.Errorf("No emojis in the list of supported emojis: %v", emojis)
+	if len(emojis) != len(emojiMap) {
+		t.Errorf("Incorrect number of emojis.\nexpected: %d\nreceived: %d",
+			len(emojiMap), len(emojis))
+	}
+}
+
+// Unit test of SupportedEmojisMap.
+func TestSupportedEmojisMap(t *testing.T) {
+	emojis := SupportedEmojisMap()
+
+	if !reflect.DeepEqual(emojis, emojiMap) {
+		t.Errorf("Incorrect map.\nexpected: %v\nreceived: %v",
+			emojiMap, emojis)
 	}
 }
 
@@ -55,6 +67,7 @@ func TestValidateReaction(t *testing.T) {
 		{"👍👍👍", InvalidReaction},
 		{"👍😘A", InvalidReaction},
 		{"🧏‍♀️", nil},
+		{"❤️", nil},
 	}
 
 	for i, r := range tests {

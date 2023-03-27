@@ -68,6 +68,7 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 		}
 		expectedIncompleteTransfers = append(expectedIncompleteTransfers, rt)
 	}
+
 	if err = r.save(); err != nil {
 		t.Errorf("Failed to make save filled Receivced: %+v", err)
 	}
@@ -79,10 +80,13 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 	}
 
 	// Check that the loaded Received matches original
-	//require.Equal(t, r.transfers, loadedReceived.transfers)
-	if !reflect.DeepEqual(r, loadedReceived) {
-		t.Errorf("Loaded Received does not match original."+
-			"\nexpected: %#v\nreceived: %#v", r, loadedReceived)
+	require.Len(t, r.transfers, len(loadedReceived.transfers))
+	for key, val := range r.transfers {
+		loaded, ok := loadedReceived.transfers[key]
+		require.True(t, ok)
+
+		require.Equal(t, val, loaded)
+
 	}
 
 	sort.Slice(incompleteTransfers, func(i, j int) bool {
@@ -98,10 +102,7 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 	require.Equal(t, expectedIncompleteTransfers, incompleteTransfers)
 
 	// Check that the incomplete transfers matches expected
-	if reflect.DeepEqual(expectedIncompleteTransfers, incompleteTransfers) {
-		t.Errorf("Incorrect incomplete transfers.\nexpected: %v\nreceived: %v",
-			expectedIncompleteTransfers, incompleteTransfers)
-	}
+	require.ElementsMatch(t, expectedIncompleteTransfers, incompleteTransfers)
 }
 
 // Tests that Received.AddTransfer makes a new transfer and adds it to the list.

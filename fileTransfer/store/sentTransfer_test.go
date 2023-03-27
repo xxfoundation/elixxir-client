@@ -38,7 +38,7 @@ func Test_newSentTransfer(t *testing.T) {
 		t.Errorf("Failed to make new cypher manager: %+v", err)
 	}
 	partStatus, err := utility.NewStateVector(
-		kv, sentTransferStatusKey, uint32(len(parts)))
+		kv, makeSentTransferPrefix(&tid), uint32(len(parts)))
 	if err != nil {
 		t.Errorf("Failed to make new state vector: %+v", err)
 	}
@@ -372,7 +372,7 @@ func TestSentTransfer_save(t *testing.T) {
 		t.Errorf("save returned an error: %+v", err)
 	}
 
-	_, err = st.kv.Get(sentTransferStoreKey, sentTransferStoreVersion)
+	_, err = st.kv.Get(makeSentTransferPrefix(st.tid), sentTransferStoreVersion)
 	if err != nil {
 		t.Errorf("Failed to load saved SentTransfer: %+v", err)
 	}

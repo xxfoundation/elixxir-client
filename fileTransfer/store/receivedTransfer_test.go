@@ -323,7 +323,7 @@ func TestReceivedTransfer_save(t *testing.T) {
 		t.Errorf("save returned an error: %+v", err)
 	}
 
-	_, err = rt.kv.Get(receivedTransferStoreKey, receivedTransferStoreVersion)
+	_, err = rt.kv.Get(receivedTransferStoreKey+makeReceivedTransferPrefix(rt.tid), receivedTransferStoreVersion)
 	if err != nil {
 		t.Errorf("Failed to load saved ReceivedTransfer: %+v", err)
 	}

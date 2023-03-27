@@ -253,7 +253,8 @@ func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *utility.KV) (
 	}
 
 	// Load transfer MAC, number of parts, and file size
-	data, err := kv.Get(receivedTransferStoreKey, receivedTransferStoreVersion)
+	key := receivedTransferStoreKey + makeReceivedTransferPrefix(tid)
+	data, err := kv.Get(key, receivedTransferStoreVersion)
 	if err != nil {
 		return nil, errors.Errorf(errRtLoadFields, err)
 	}
@@ -308,7 +309,8 @@ func (rt *ReceivedTransfer) Delete() error {
 	}
 
 	// Delete transfer MAC, number of parts, and file size
-	err = rt.kv.Delete(receivedTransferStoreKey, receivedTransferStoreVersion)
+	key := receivedTransferStoreKey + makeReceivedTransferPrefix(rt.tid)
+	err = rt.kv.Delete(key, receivedTransferStoreVersion)
 	if err != nil {
 		return errors.Errorf(errRtDeleteSentTransfer, err)
 	}
@@ -338,7 +340,8 @@ func (rt *ReceivedTransfer) save() error {
 	}
 
 	// Save versioned object
-	return rt.kv.Set(receivedTransferStoreKey, vo.Marshal())
+	key := receivedTransferStoreKey + makeReceivedTransferPrefix(rt.tid)
+	return rt.kv.Set(key, vo.Marshal())
 }
 
 // receivedTransferDisk structure is used to marshal and unmarshal

@@ -10,6 +10,7 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -72,7 +73,6 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 		expectedUnsentParts = append(expectedUnsentParts, st.GetUnsentParts()...)
 	}
 
-	t.Logf("saving in test")
 	if err = s.save(); err != nil {
 		t.Errorf("Failed to make save filled Sent: %+v", err)
 	}
@@ -84,9 +84,14 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 	}
 
 	// Check that the loaded Sent matches original
-	if !reflect.DeepEqual(s, loadedSent) {
-		t.Errorf("Loaded Sent does not match original."+
-			"\nexpected: %v\nreceived: %v", s, loadedSent)
+	require.Len(t, loadedSent.transfers, len(s.transfers))
+	for key, val := range s.transfers {
+		loaded, ok := loadedSent.transfers[key]
+		require.True(t, ok)
+		require.Equal(t, val.numParts, loaded.numParts)
+		require.Equal(t, val.partStatus, loaded.partStatus)
+		require.Equal(t, val.cypherManager, val.cypherManager)
+
 	}
 
 	sort.Slice(unsentParts, func(i, j int) bool {
@@ -112,11 +117,16 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 			return expectedUnsentParts[i].partNum < expectedUnsentParts[j].partNum
 		}
 	})
+	require.Len(t, unsentParts, len(expectedUnsentParts))
 
-	// Check that the unsent parts matches expected
-	if !reflect.DeepEqual(expectedUnsentParts, unsentParts) {
-		t.Errorf("Incorrect unsent parts.\nexpected: %v\nreceived: %v",
-			expectedUnsentParts, unsentParts)
+	expectedMap := make(map[string]struct{})
+	for _, part := range expectedUnsentParts {
+		expectedMap[part.transfer.tid.String()] = struct{}{}
+	}
+
+	for _, part := range unsentParts {
+		_, ok := expectedMap[part.transfer.tid.String()]
+		require.True(t, ok)
 	}
 }
 

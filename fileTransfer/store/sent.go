@@ -8,7 +8,6 @@
 package store
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -69,14 +68,12 @@ func NewOrLoadSent(kv *utility.KV) (*Sent, []Part, error) {
 		}
 	}
 
-	fmt.Println("loaded: ", base64.StdEncoding.EncodeToString(data))
-
 	// Load list of saved sent transfers from storage
 	tidList, err := unmarshalTransferIdList(data)
+
 	if err != nil {
 		return nil, nil, errors.Errorf(errUnmarshalSent, err)
 	}
-	fmt.Println("tid list ", tidList)
 	// Load sent transfers from storage
 	var errCount int
 	var unsentParts []Part
@@ -84,6 +81,7 @@ func NewOrLoadSent(kv *utility.KV) (*Sent, []Part, error) {
 		tid := tidList[i]
 		s.transfers[tid], err = loadSentTransfer(&tid, s.kv)
 		if err != nil {
+			fmt.Printf("failed to load %s, %v", tid.String(), err)
 			jww.WARN.Printf(warnLoadSentTransfer, i, len(tidList), tid, err)
 			errCount++
 			continue
@@ -168,9 +166,6 @@ func (s *Sent) save() error {
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
-
-	fmt.Println("saved: ", base64.StdEncoding.EncodeToString(data))
-	fmt.Println("saved transfers: ", s.transfers)
 
 	return s.kv.Set(makeSentTransferKvKey(), obj.Marshal())
 }

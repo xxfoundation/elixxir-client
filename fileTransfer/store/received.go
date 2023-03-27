@@ -69,7 +69,6 @@ func NewOrLoadReceived(kv *utility.KV) (*Received, []*ReceivedTransfer, error) {
 	if err != nil {
 		return nil, nil, errors.Errorf(errUnmarshalReceived, err)
 	}
-
 	var errCount int
 	unfinishedTransfer := make([]*ReceivedTransfer, 0, len(tidList))
 	for i := range tidList {

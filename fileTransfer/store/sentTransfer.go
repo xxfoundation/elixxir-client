@@ -106,7 +106,7 @@ func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 
 	// Create new state vector for storing statuses of arrived parts
 	partStatus, err := utility.NewStateVector(
-		kv, sentTransferStatusKey, uint32(len(parts)))
+		kv, makeSentTransferPrefix(tid), uint32(len(parts)))
 	if err != nil {
 		return nil, errors.Errorf(errStNewPartStatusVector, err)
 	}
@@ -275,7 +275,7 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *utility.KV) (
 	}
 
 	// Load state vector for storing statuses of arrived parts
-	partStatus, err := utility.LoadStateVector(kv, sentTransferStatusKey)
+	partStatus, err := utility.LoadStateVector(kv, makeSentTransferPrefix(tid))
 	if err != nil {
 		return nil, errors.Errorf(errStLoadPartStatusVector, err)
 	}
@@ -337,7 +337,6 @@ func (st *SentTransfer) save() error {
 	if err != nil {
 		return errors.Errorf(errMarshalSentTransfer, err)
 	}
-
 	obj := &versioned.Object{
 		Version:   sentTransferStoreVersion,
 		Timestamp: netTime.Now(),

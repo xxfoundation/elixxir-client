@@ -120,7 +120,8 @@ func TestSession_Load(t *testing.T) {
 	// initialize a new one for Load, which will set a prefix internally
 
 	// Load another, identical session from the storage
-	sessionB, err := LoadSession(kv, sessionA.GetID(), sessionA.relationshipFingerprint,
+	sessionB, err := LoadSession(kv, sessionA.t, sessionA.GetID(),
+		sessionA.relationshipFingerprint,
 		sessionA.cyHandler, sessionA.grp, sessionA.rng)
 	if err != nil {
 		t.Fatal(err)
@@ -354,7 +355,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Sent {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	key := MakeSessionPrefix(s.sID)
+	key := s.t.Prefix() + MakeSessionPrefix(s.sID)
 	object, err := s.kv.Get(key, 0)
 	if err != nil {
 		t.Fatal(err)

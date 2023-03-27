@@ -109,7 +109,7 @@ func makeTestSession() (*Session, *util.KV) {
 	}
 	var err error
 	s.keyState, err = util.NewStateVector(s.kv,
-		"", 1024)
+		s.t.Prefix(), 1024)
 	if err != nil {
 		panic(err)
 	}

@@ -689,6 +689,7 @@ func (s *Session) unmarshal(b []byte) error {
 
 	s.keyState, err = utility.LoadStateVector(s.kv, s.t.Prefix())
 	if err != nil {
+		fmt.Printf("state vector\n")
 		return err
 	}
 

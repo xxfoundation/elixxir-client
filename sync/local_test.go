@@ -11,14 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
-	"os"
 	"strconv"
 	"testing"
 )
 
 // Smoke test for EkvLocalStore that executes Read/Write methods of LocalStore.
 func TestEkvLocalStore_Smoke(t *testing.T) {
-	baseDir := "testDir"
 	path := "test.txt"
 	data := []byte("Test string.")
 
@@ -28,12 +26,6 @@ func TestEkvLocalStore_Smoke(t *testing.T) {
 	// Construct local store
 	localStore, err := NewOrLoadEkvLocalStore(kv)
 	require.NoError(t, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-
-	}()
 
 	// Write to file
 	require.NoError(t, localStore.Write(path, data))
@@ -49,7 +41,6 @@ func TestEkvLocalStore_Smoke(t *testing.T) {
 // Tests that when calling EkvLocalStore.Write, EkvLocalStore.keyLists is
 // modified.
 func TestEkvLocalStore_Write_KeyList(t *testing.T) {
-	baseDir := "testDir"
 	path := "test.txt"
 	const numTests = 100
 
@@ -59,12 +50,6 @@ func TestEkvLocalStore_Write_KeyList(t *testing.T) {
 	// Construct local store
 	localStore, err := NewOrLoadEkvLocalStore(kv)
 	require.NoError(t, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-
-	}()
 
 	// Write data to local store
 	for i := 0; i < numTests; i++ {
@@ -84,7 +69,6 @@ func TestEkvLocalStore_Write_KeyList(t *testing.T) {
 
 // Unit test for EkvLocalStore.GetList.
 func TestEkvLocalStore_GetList(t *testing.T) {
-	baseDir := "testDir"
 	path := "test.txt"
 	const numTests = 100
 
@@ -94,11 +78,6 @@ func TestEkvLocalStore_GetList(t *testing.T) {
 	// Construct local store
 	localStore, err := NewOrLoadEkvLocalStore(kv)
 	require.NoError(t, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
 
 	// Write data to local store
 	expected := make(KeyValueMap, 0)
@@ -116,7 +95,6 @@ func TestEkvLocalStore_GetList(t *testing.T) {
 
 // Tests that loading an EkvLocalStore will load the key list.
 func TestEkvLocalStore_Loading(t *testing.T) {
-	baseDir := "testDir"
 	path := "test.txt"
 	const numTests = 100
 
@@ -126,11 +104,6 @@ func TestEkvLocalStore_Loading(t *testing.T) {
 	// Construct local store
 	localStore, err := NewOrLoadEkvLocalStore(kv)
 	require.NoError(t, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
 
 	// Write data to local store
 	for i := 0; i < numTests; i++ {

@@ -48,7 +48,10 @@ type Buff struct {
 
 // NewBuff initializes a new ring buffer with size n.
 func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
-	kv = kv.Prefix(ringBuffPrefix)
+	kv, err := kv.Prefix(ringBuffPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct object
 	rb := &Buff{
@@ -171,7 +174,10 @@ func (b *Buff) handleMessageOverwrite() {
 // LoadBuff loads the ring buffer from storage. It loads all messages from
 // storage and repopulates the buffer.
 func LoadBuff(kv *versioned.KV) (*Buff, error) {
-	kv = kv.Prefix(ringBuffPrefix)
+	kv, err := kv.Prefix(ringBuffPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Extract ring buffer from storage
 	vo, err := kv.Get(ringBuffKey, ringBuffVersion)

@@ -78,7 +78,10 @@ func LoadRegistrar(session session, sender gateway.Sender,
 
 	running := int64(0)
 
-	kv := session.GetKV().Prefix(prefix)
+	kv, err := session.GetKV().Prefix(prefix)
+	if err != nil {
+		return nil, err
+	}
 	r := &registrar{
 		nodes:          make(map[id.ID]*key),
 		kv:             kv,

@@ -50,9 +50,13 @@ type Sent struct {
 // new Sent is returned. If running transfers were loaded from storage, a list
 // of unsent parts is returned.
 func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
+	kv, err := kv.Prefix(sentTransfersStorePrefix)
+	if err != nil {
+		return nil, nil, err
+	}
 	s := &Sent{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentTransfersStorePrefix),
+		kv:        kv,
 	}
 
 	obj, err := s.kv.Get(sentTransfersStoreKey, sentTransfersStoreVersion)

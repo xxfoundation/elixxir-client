@@ -49,9 +49,13 @@ type Received struct {
 // then a new Received is returned. Also returns a list of all transfers that
 // have unreceived file parts so their fingerprints can be re-added.
 func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error) {
+	kv, err := kv.Prefix(receivedTransfersStorePrefix)
+	if err != nil {
+		return nil, nil, err
+	}
 	s := &Received{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
-		kv:        kv.Prefix(receivedTransfersStorePrefix),
+		kv:        kv,
 	}
 
 	obj, err := s.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)

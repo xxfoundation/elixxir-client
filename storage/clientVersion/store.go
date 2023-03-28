@@ -31,9 +31,13 @@ type Store struct {
 
 // NewStore returns a new clientVersion store.
 func NewStore(newVersion version.Version, kv *versioned.KV) (*Store, error) {
+	kv, err := kv.Prefix(prefix)
+	if err != nil {
+		return nil, err
+	}
 	s := &Store{
 		version: newVersion,
-		kv:      kv.Prefix(prefix),
+		kv:      kv,
 	}
 
 	return s, s.save()
@@ -41,8 +45,12 @@ func NewStore(newVersion version.Version, kv *versioned.KV) (*Store, error) {
 
 // LoadStore loads the clientVersion storage object.
 func LoadStore(kv *versioned.KV) (*Store, error) {
+	kv, err := kv.Prefix(prefix)
+	if err != nil {
+		return nil, err
+	}
 	s := &Store{
-		kv: kv.Prefix(prefix),
+		kv: kv,
 	}
 
 	obj, err := s.kv.Get(storeKey, storeVersion)

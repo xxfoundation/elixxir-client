@@ -45,7 +45,10 @@ type Store struct {
 // sentByFingerprints so they can be used to trigger receivedByID.
 // If no store can be found, it creates a new one
 func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
-	kv = kv.Prefix(storePrefix)
+	kv, err := kv.Prefix(storePrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	s := &Store{
 		kv:                   kv,

@@ -43,8 +43,12 @@ type certChecker struct {
 
 // newCertChecker initializes a certChecker object
 func newCertChecker(comms CertCheckerCommInterface, kv *versioned.KV) *certChecker {
+	checkerKv, err := kv.Prefix(certCheckerPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", certCheckerPrefix, err)
+	}
 	return &certChecker{
-		kv:    kv.Prefix(certCheckerPrefix),
+		kv:    checkerKv,
 		comms: comms,
 	}
 }

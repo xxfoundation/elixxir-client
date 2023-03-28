@@ -37,8 +37,11 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 
 	// Create expected remote kv
 
+	kv, err = kv.Prefix(remoteKvPrefix)
+	require.NoError(t, err)
+
 	expected := &RemoteKV{
-		local:          kv.Prefix(remoteKvPrefix),
+		local:          kv,
 		txLog:          txLog,
 		KeyUpdate:      nil,
 		UnsyncedWrites: make(map[string][]byte, 0),

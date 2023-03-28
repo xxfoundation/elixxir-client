@@ -89,11 +89,15 @@ func newOrLoadReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
 // newReplayBlocker initialises a new empty replayBlocker.
 func newReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
 	kv *versioned.KV) *replayBlocker {
+	kv, err := kv.Prefix(replayBlockerStoragePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("[CH] Failed to add prefix %s to KV: %+v", replayBlockerStoragePrefix, err)
+	}
 	return &replayBlocker{
 		commandsByChannel: make(map[id.ID]map[commandFingerprintKey]*commandMessage),
 		replay:            replay,
 		store:             store,
-		kv:                kv.Prefix(replayBlockerStoragePrefix),
+		kv:                kv,
 	}
 }
 

@@ -59,7 +59,10 @@ type Manager struct {
 func NewManager(key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) (
 	*Manager, error) {
 
-	kv = kv.Prefix(cypherManagerPrefix)
+	kv, err := kv.Prefix(cypherManagerPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	fpVector, err := utility.NewStateVector(
 		kv, cypherManagerFpVectorKey, uint32(numFps))
@@ -119,7 +122,10 @@ func (m *Manager) GetUnusedCyphers() []Cypher {
 
 // LoadManager loads the Manager from storage.
 func LoadManager(kv *versioned.KV) (*Manager, error) {
-	kv = kv.Prefix(cypherManagerPrefix)
+	kv, err := kv.Prefix(cypherManagerPrefix)
+	if err != nil {
+		return nil, err
+	}
 	key, err := loadKey(kv)
 	if err != nil {
 		return nil, errors.Errorf(errLoadKey, err)

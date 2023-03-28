@@ -87,8 +87,14 @@ func makeTestSession() (*Session, *versioned.KV) {
 
 	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
 		mySIDHPrivKey, partnerSIDHPubKey)
-	kv := versioned.NewKV(ekv.MakeMemstore())
 	sid := GetSessionIDFromBaseKey(baseKey)
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	newKv, err := kv.Prefix(MakeSessionPrefix(sid))
+	if err != nil {
+		panic(err)
+	}
 
 	s := &Session{
 		baseKey:           baseKey,
@@ -98,7 +104,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 		partnerSIDHPubKey: partnerSIDHPubKey,
 		e2eParams:         GetDefaultParams(),
 		sID:               sid,
-		kv:                kv.Prefix(MakeSessionPrefix(sid)),
+		kv:                newKv,
 		t:                 Receive,
 		negotiationStatus: Confirmed,
 		rekeyThreshold:    5,
@@ -107,7 +113,6 @@ func makeTestSession() (*Session, *versioned.KV) {
 		cyHandler:         &mockCyHandler{},
 		rng:               fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
-	var err error
 	s.keyState, err = util.NewStateVector(s.kv,
 		"", 1024)
 	if err != nil {

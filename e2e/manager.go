@@ -66,7 +66,11 @@ const e2eRekeyParamsVer = 0
 func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	jww.INFO.Printf("Initializing new e2e.Handler for %s", myID.String())
-	kv = kv.Prefix(makeE2ePrefix(myID))
+	kv, err := kv.Prefix(makeE2ePrefix(myID))
+	if err != nil {
+		return err
+	}
+
 	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }
 
@@ -95,7 +99,10 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
-	kv = kv.Prefix(makeE2ePrefix(myID))
+	kv, err := kv.Prefix(makeE2ePrefix(myID))
+	if err != nil {
+		return nil, err
+	}
 	return loadE2E(kv, net, myID, grp, rng, events)
 }
 

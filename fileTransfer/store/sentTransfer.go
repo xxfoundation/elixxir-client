@@ -24,7 +24,7 @@ import (
 
 // Storage keys and versions.
 const (
-	sentTransferStorePrefix  = "SentFileTransferStore/"
+	sentTransferStorePrefix  = "SentFileTransferStore-"
 	sentTransferStoreKey     = "SentTransfer"
 	sentTransferStoreVersion = 0
 	sentTransferStatusKey    = "SentPartStatusVector"
@@ -97,7 +97,10 @@ type SentTransfer struct {
 func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
 	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
+	kv, err := kv.Prefix(makeSentTransferPrefix(tid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Create new cypher manager
 	cypherManager, err := cypher.NewManager(key, numFps, kv)
@@ -257,7 +260,10 @@ func generateSentFp(completed bool, arrived, total uint16, err error) string {
 // storage.
 func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 	*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
+	kv, err := kv.Prefix(makeSentTransferPrefix(tid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Load cypher manager
 	cypherManager, err := cypher.LoadManager(kv)
@@ -388,5 +394,5 @@ func unmarshalSentTransfer(data []byte) (fileName string, recipient *id.ID,
 // store to store sent transfers for the given transfer ID.
 func makeSentTransferPrefix(tid *ftCrypto.TransferID) string {
 	return sentTransferStorePrefix +
-		base64.StdEncoding.EncodeToString(tid.Bytes())
+		base64.URLEncoding.EncodeToString(tid.Bytes())
 }

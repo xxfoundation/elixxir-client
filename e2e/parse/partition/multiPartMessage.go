@@ -51,8 +51,17 @@ type multiPartMessage struct {
 // creates a new one and saves it if one does not exist.
 func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 	kv *versioned.KV) *multiPartMessage {
-	kv = kv.Prefix(versioned.MakePartnerPrefix(sender)).
-		Prefix(makeMultiPartMessagePrefix(messageID))
+	kv, err := kv.Prefix(versioned.MakePartnerPrefix(sender))
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
+			versioned.MakePartnerPrefix(sender), err)
+	}
+
+	kv, err = kv.Prefix(makeMultiPartMessagePrefix(messageID))
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
+			makeMultiPartMessagePrefix(messageID), err)
+	}
 
 	obj, err := kv.Get(messageKey, currentMultiPartMessageVersion)
 	if err != nil {

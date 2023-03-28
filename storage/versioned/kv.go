@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 const PrefixSeparator = "/"
@@ -162,21 +161,23 @@ func (v *KV) HasPrefix(prefix string) bool {
 
 // Prefix returns a new KV with the new prefix appending.
 func (v *KV) Prefix(prefix string) (*KV, error) {
-	// Reject invalid prefixes
-	if strings.Contains(prefix, PrefixSeparator) {
-		return nil, errors.Errorf(PrefixContainingSeparatorErr, prefix, PrefixSeparator)
-	}
+	//// Reject invalid prefixes
+	// fixme: too many prefixes already have the prefix separator
+	//if strings.Contains(prefix, PrefixSeparator) {
+	//	return nil, errors.Errorf(PrefixContainingSeparatorErr)
+	//}
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {
-		return nil, errors.Errorf(DuplicatePrefixErr, prefix)
+		return nil, errors.Errorf(DuplicatePrefixErr)
 	}
 
 	v.offset++
 
 	kvPrefix := KV{
-		r:      v.r,
-		prefix: v.prefix + prefix + PrefixSeparator,
+		r:         v.r,
+		prefix:    v.prefix + prefix + PrefixSeparator,
+		prefixMap: v.prefixMap,
 	}
 
 	v.prefixMap[kvPrefix.prefix] = v.offset

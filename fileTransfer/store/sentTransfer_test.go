@@ -10,6 +10,7 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -32,7 +33,8 @@ func Test_newSentTransfer(t *testing.T) {
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	numFps := uint16(24)
 	parts := [][]byte{[]byte("hello"), []byte("hello"), []byte("hello")}
-	stKv := kv.Prefix(makeSentTransferPrefix(&tid))
+	stKv, err := kv.Prefix(makeSentTransferPrefix(&tid))
+	require.NoError(t, err)
 
 	cypherManager, err := cypher.NewManager(&key, numFps, stKv)
 	if err != nil {
@@ -423,16 +425,16 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 // Consistency test of makeSentTransferPrefix.
 func Test_makeSentTransferPrefix_Consistency(t *testing.T) {
 	expectedPrefixes := []string{
-		"SentFileTransferStore/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"SentFileTransferStore/CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"SentFileTransferStore-CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 	}
 
 	for i, expected := range expectedPrefixes {

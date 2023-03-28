@@ -66,10 +66,16 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 		jww.WARN.Printf(
 			"ReceptionID store not found, creating a new one: %s", err.Error())
 
+		kv, err = kv.Prefix(receptionPrefix)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
+				receptionPrefix, err)
+		}
+
 		s = &Store{
 			active:  []*registration{},
 			present: make(map[idHash]struct{}),
-			kv:      kv.Prefix(receptionPrefix),
+			kv:      kv,
 		}
 
 		// Store the empty list
@@ -82,7 +88,10 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 }
 
 func loadStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(receptionPrefix)
+	kv, err := kv.Prefix(receptionPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the versioned object for the reception list
 	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)

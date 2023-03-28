@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -853,7 +854,8 @@ func TestStateVector_SetNumAvailableTEST_InvalidInterfaceError(t *testing.T) {
 func TestStateVector_SetKvTEST(t *testing.T) {
 	sv := newTestStateVector("SetKvTEST", 1000, t)
 
-	kv := versioned.NewKV(ekv.MakeMemstore()).Prefix("NewKV")
+	kv, err := versioned.NewKV(ekv.MakeMemstore()).Prefix("NewKV")
+	require.NoError(t, err)
 	sv.SetKvTEST(kv, t)
 
 	if sv.kv != kv {

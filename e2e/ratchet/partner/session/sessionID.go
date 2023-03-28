@@ -23,7 +23,7 @@ func (sid SessionID) Marshal() []byte {
 }
 
 func (sid SessionID) String() string {
-	return base64.StdEncoding.EncodeToString(sid[:])
+	return base64.URLEncoding.EncodeToString(sid[:])
 }
 
 func (sid *SessionID) Unmarshal(b []byte) error {
@@ -34,7 +34,7 @@ func (sid *SessionID) Unmarshal(b []byte) error {
 	return nil
 }
 
-//underlying definition of session id
+// underlying definition of session id
 func GetSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 	// no lock is needed because this cannot be edited
 	sid := SessionID{}

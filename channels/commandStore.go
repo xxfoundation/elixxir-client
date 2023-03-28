@@ -36,8 +36,12 @@ type CommandStore struct {
 // NewCommandStore initialises a new message CommandStore object with a prefixed
 // KV.
 func NewCommandStore(kv *versioned.KV) *CommandStore {
+	kv, err := kv.Prefix(commandStorePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("[CH] Failed to add prefix %s to KV: %+v", commandStorePrefix, err)
+	}
 	return &CommandStore{
-		kv: kv.Prefix(commandStorePrefix),
+		kv: kv,
 	}
 }
 
@@ -46,7 +50,7 @@ func (cs *CommandStore) SaveCommand(channelID *id.ID, messageID message.ID,
 	messageType MessageType, nickname string, content, encryptedPayload []byte,
 	pubKey ed25519.PublicKey, codeset uint8, timestamp,
 	originatingTimestamp time.Time, lease time.Duration,
-	originatingRound id.Round,round rounds.Round, status SentStatus, fromAdmin,
+	originatingRound id.Round, round rounds.Round, status SentStatus, fromAdmin,
 	userMuted bool) error {
 
 	m := CommandMessage{

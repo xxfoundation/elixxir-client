@@ -22,7 +22,10 @@ const saltSize = 32
 // If one does not exist in storage, a new one will be generated. The newly
 // generated salt will be stored.
 func NewOrLoadSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
-	kv = kv.Prefix(saltPrefix)
+	kv, err := kv.Prefix(saltPrefix)
+	if err != nil {
+		return nil, err
+	}
 	salt, err := loadSalt(kv)
 	if err != nil {
 		jww.WARN.Printf("Failed to load salt, generating new one...")

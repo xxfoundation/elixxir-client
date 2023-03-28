@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/rateLimiting"
@@ -36,6 +37,11 @@ type BucketParamStore struct {
 func NewBucketParamsStore(capacity, leakedTokens uint32,
 	leakDuration time.Duration, kv *versioned.KV) (*BucketParamStore, error) {
 
+	kv, err := kv.Prefix(bucketParamsPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to prefix KV with %s: %+v", bucketParamsPrefix, err)
+	}
+
 	bps := &BucketParamStore{
 		params: &rateLimiting.MapParams{
 			Capacity:     capacity,
@@ -43,7 +49,7 @@ func NewBucketParamsStore(capacity, leakedTokens uint32,
 			LeakDuration: leakDuration,
 		},
 		mux: sync.RWMutex{},
-		kv:  kv.Prefix(bucketParamsPrefix),
+		kv:  kv,
 	}
 
 	return bps, bps.save()
@@ -78,10 +84,15 @@ func (s *BucketParamStore) UpdateParams(capacity, leakedTokens uint32,
 // LoadBucketParamsStore loads the bucket params data from storage and constructs
 // a BucketParamStore.
 func LoadBucketParamsStore(kv *versioned.KV) (*BucketParamStore, error) {
+
+	kv, err := kv.Prefix(bucketParamsPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to prefix KV with %s: %+v", bucketParamsPrefix, err)
+	}
 	bps := &BucketParamStore{
 		params: &rateLimiting.MapParams{},
 		mux:    sync.RWMutex{},
-		kv:     kv.Prefix(bucketParamsPrefix),
+		kv:     kv,
 	}
 
 	return bps, bps.load()

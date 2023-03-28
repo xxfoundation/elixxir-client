@@ -63,7 +63,10 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
 
 	// Modify the prefix of the KV
-	kv = kv.Prefix(packagePrefix)
+	kv, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		return err
+	}
 
 	r := &Ratchet{
 		managers: make(map[id.ID]partner.Manager),
@@ -78,7 +81,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 		grp: grp,
 	}
 
-	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)
+	err = util.StoreCyclicKey(kv, pubKey, pubKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to store e2e DH public key")

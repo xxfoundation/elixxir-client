@@ -41,7 +41,10 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	// }
 
 	// Set the prefix
-	kv = kv.Prefix(regPrefix(reg.EphId, reg.Source, reg.StartValid))
+	kv, err := kv.Prefix(regPrefix(reg.EphId, reg.Source, reg.StartValid))
+	if err != nil {
+		return nil, err
+	}
 
 	r := &registration{
 		Identity: reg,
@@ -73,7 +76,10 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 	kv *versioned.KV) (*registration, error) {
 
-	kv = kv.Prefix(regPrefix(EphId, Source, startValid))
+	kv, err := kv.Prefix(regPrefix(EphId, Source, startValid))
+	if err != nil {
+		return nil, err
+	}
 
 	reg, err := loadIdentity(kv)
 	if err != nil {

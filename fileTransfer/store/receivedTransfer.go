@@ -24,7 +24,7 @@ import (
 
 // Storage keys and versions.
 const (
-	receivedTransferStorePrefix  = "ReceivedFileTransferStore/"
+	receivedTransferStorePrefix  = "ReceivedFileTransferStore-"
 	receivedTransferStoreKey     = "ReceivedTransfer"
 	receivedTransferStoreVersion = 0
 	receivedTransferStatusKey    = "ReceivedPartStatusVector"
@@ -98,7 +98,10 @@ type ReceivedTransfer struct {
 func newReceivedTransfer(key *ftCrypto.TransferKey, tid *ftCrypto.TransferID,
 	fileName string, transferMAC []byte, fileSize uint32, numParts,
 	numFps uint16, kv *versioned.KV) (*ReceivedTransfer, error) {
-	kv = kv.Prefix(makeReceivedTransferPrefix(tid))
+	kv, err := kv.Prefix(makeReceivedTransferPrefix(tid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Create new cypher manager
 	cypherManager, err := cypher.NewManager(key, numFps, kv)
@@ -245,7 +248,10 @@ func generateReceivedFp(completed bool, received, total uint16, err error) strin
 // from storage.
 func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 	*ReceivedTransfer, error) {
-	kv = kv.Prefix(makeReceivedTransferPrefix(tid))
+	kv, err := kv.Prefix(makeReceivedTransferPrefix(tid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Load cypher manager
 	cypherManager, err := cypher.LoadManager(kv)
@@ -401,7 +407,7 @@ func loadPart(partNum int, kv *versioned.KV) ([]byte, error) {
 // store to store received transfers for the given transfer ID.
 func makeReceivedTransferPrefix(tid *ftCrypto.TransferID) string {
 	return receivedTransferStorePrefix +
-		base64.StdEncoding.EncodeToString(tid.Bytes())
+		base64.URLEncoding.EncodeToString(tid.Bytes())
 }
 
 // makeReceivedPartKey generates a storage key for the given part number.

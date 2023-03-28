@@ -9,6 +9,7 @@ package store
 
 import (
 	"encoding/json"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
@@ -106,7 +107,10 @@ type UnknownRounds struct {
 func NewUnknownRounds(kv *versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
 
-	urs := newUnknownRounds(kv, params)
+	urs, err := newUnknownRounds(kv, params)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create UnknownRoundStore: %+v", err)
+	}
 
 	if err := urs.save(); err != nil {
 		jww.FATAL.Printf("Failed to store new UnknownRounds: %+v", err)
@@ -115,8 +119,11 @@ func NewUnknownRounds(kv *versioned.KV,
 	return urs
 }
 
-func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) *UnknownRounds {
-	kv = kv.Prefix(unknownRoundPrefix)
+func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) (*UnknownRounds, error) {
+	kv, err := kv.Prefix(unknownRoundPrefix)
+	if err != nil {
+		return nil, errors.Errorf("failed to add prefix %s to KV: %+v", unknownRoundPrefix, err)
+	}
 
 	urs := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
@@ -124,16 +131,22 @@ func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) *UnknownRoun
 		kv:     kv,
 	}
 
-	return urs
+	return urs, nil
 }
 
 // LoadUnknownRounds loads the data for a UnknownRounds from disk into an
 // object.
 func LoadUnknownRounds(kv *versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
-	kv = kv.Prefix(unknownRoundPrefix)
+	kv, err := kv.Prefix(unknownRoundPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", unknownRoundPrefix, err)
+	}
 
-	urs := newUnknownRounds(kv, params)
+	urs, err := newUnknownRounds(kv, params)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create UnknownRoundStore: %+v", err)
+	}
 
 	// get the versioned data from the kv
 	obj, err := kv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)

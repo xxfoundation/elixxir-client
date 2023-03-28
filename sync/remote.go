@@ -73,8 +73,13 @@ func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
 	eventCb KeyUpdateCallback,
 	updateCb RemoteStoreCallback) (*RemoteKV, error) {
 
+	kv, err := kv.Prefix(remoteKvPrefix)
+	if err != nil {
+		return nil, err
+	}
+
 	rkv := &RemoteKV{
-		local:          kv.Prefix(remoteKvPrefix),
+		local:          kv,
 		txLog:          transactionLog,
 		KeyUpdate:      eventCb,
 		UnsyncedWrites: make(map[string][]byte, 0),

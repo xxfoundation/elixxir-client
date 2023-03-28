@@ -171,7 +171,11 @@ func loadLegacyDHKeys(kv *versioned.KV) (pub, priv *cyclic.Int) {
 	pubKeyKey := "DhPubKey"
 	privKeyKey := "DhPrivKey"
 
-	kvPrefix := kv.Prefix(packagePrefix)
+	kvPrefix, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		jww.ERROR.Printf("Failed to prefix KV with %s: %v", packagePrefix, err)
+		return nil, nil
+	}
 
 	privKey, err := utility.LoadCyclicKey(kvPrefix, privKeyKey)
 	if err != nil {

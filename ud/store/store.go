@@ -49,7 +49,10 @@ type Store struct {
 
 // newStore creates a new, empty Store object.
 func newStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(prefix)
+	kv, err := kv.Prefix(prefix)
+	if err != nil {
+		return nil, err
+	}
 
 	s := &Store{
 		confirmedFacts:   make(map[fact.Fact]struct{}),
@@ -128,9 +131,12 @@ func (s *Store) saveUnconfirmedFacts() error {
 // NewOrLoadStore loads the Store object from the provided versioned.KV.
 func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
 
-	s := &Store{
-		kv: kv.Prefix(prefix),
+	storeKv, err := kv.Prefix(prefix)
+	if err != nil {
+		return nil, err
 	}
+
+	s := &Store{kv: storeKv}
 	if err := s.load(); err != nil {
 		if !s.kv.Exists(err) {
 			return newStore(kv)
@@ -209,7 +215,7 @@ type unconfirmedFactDisk struct {
 }
 
 // marshalConfirmedFacts is a marshaller which serializes the data
-//// in the confirmedFacts map into a JSON.
+// // in the confirmedFacts map into a JSON.
 func (s *Store) marshalConfirmedFacts() ([]byte, error) {
 	// Flatten confirmed facts to a list
 	fStrings := s.serializeConfirmedFacts()

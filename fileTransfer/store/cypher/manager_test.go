@@ -9,6 +9,7 @@ package cypher
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -22,13 +23,18 @@ import (
 // manager.
 func TestNewManager(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	tmpKv, err := kv.Prefix(cypherManagerPrefix)
+	require.NoError(t, err)
 	numFps := uint16(64)
-	fpv, _ := utility.NewStateVector(kv.Prefix(cypherManagerPrefix),
+	fpv, _ := utility.NewStateVector(tmpKv,
 		cypherManagerFpVectorKey, uint32(numFps))
+
+	newKv, err := kv.Prefix(cypherManagerPrefix)
+	require.NoError(t, err)
 	expected := &Manager{
 		key:      &ftCrypto.TransferKey{1, 2, 3},
 		fpVector: fpv,
-		kv:       kv.Prefix(cypherManagerPrefix),
+		kv:       newKv,
 	}
 
 	manager, err := NewManager(expected.key, numFps, kv)

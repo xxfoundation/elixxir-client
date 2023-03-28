@@ -67,7 +67,10 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) *relationship {
 
-	kv = kv.Prefix(t.Prefix())
+	kv, err := kv.Prefix(t.Prefix())
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", t.Prefix(), err)
+	}
 
 	fingerprint := makeRelationshipFingerprint(t, grp,
 		myOriginPrivateKey, partnerOriginPublicKey, myID,
@@ -119,7 +122,10 @@ func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
 	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*relationship, error) {
 
-	kv = kv.Prefix(t.Prefix())
+	kv, err := kv.Prefix(t.Prefix())
+	if err != nil {
+		return nil, err
+	}
 
 	r := &relationship{
 		t:           t,
@@ -164,7 +170,7 @@ func (r *relationship) save() error {
 	return r.kv.Set(relationshipKey, &obj)
 }
 
-//ekv functions
+// ekv functions
 func (r *relationship) marshal() ([]byte, error) {
 	sessions := make([]session.SessionID, len(r.sessions))
 

@@ -31,7 +31,10 @@ type UncheckedRoundStore struct {
 
 // NewUncheckedStore is a constructor for a UncheckedRoundStore.
 func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
-	kv = kv.Prefix(uncheckedRoundPrefix)
+	kv, err := kv.Prefix(uncheckedRoundPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	urs := &UncheckedRoundStore{
 		list: make(map[roundIdentity]UncheckedRound, 0),
@@ -43,7 +46,10 @@ func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 
 // NewOrLoadUncheckedStore is a constructor for a UncheckedRoundStore.
 func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
-	kv = kv.Prefix(uncheckedRoundPrefix)
+	kv, err := kv.Prefix(uncheckedRoundPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", uncheckedRoundPrefix, err)
+	}
 
 	urs, err := LoadUncheckedStore(kv)
 	if err == nil {
@@ -64,7 +70,10 @@ func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
 
 // LoadUncheckedStore loads a deserializes a UncheckedRoundStore from memory.
 func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
-	kv = kv.Prefix(uncheckedRoundPrefix)
+	kv, err := kv.Prefix(uncheckedRoundPrefix)
+	if err != nil {
+		return nil, err
+	}
 	vo, err := kv.Get(uncheckedRoundKey, uncheckedRoundVersion)
 	if err != nil {
 		return nil, err

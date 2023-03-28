@@ -140,6 +140,11 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		params.GatewayFilter = defaultFilter
 	}
 
+	kv, err := storage.GetKV().Prefix(hostListPrefix)
+	if err != nil {
+		return nil, err
+	}
+
 	// Build the host pool
 	hp := &hostPool{
 		writePool:     p,
@@ -155,7 +160,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		params:        params,
 		manager:       getter,
 		filter:        params.GatewayFilter,
-		kv:            storage.GetKV().Prefix(hostListPrefix),
+		kv:            kv,
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
 		addChan: addChan,

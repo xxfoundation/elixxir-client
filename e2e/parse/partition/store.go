@@ -39,10 +39,14 @@ type Store struct {
 }
 
 func NewOrLoad(kv *versioned.KV) *Store {
+	kv, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", packagePrefix, err)
+	}
 	partitionStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
 		activeParts: make(map[*multiPartMessage]bool),
-		kv:          kv.Prefix(packagePrefix),
+		kv:          kv,
 	}
 
 	partitionStore.loadActivePartitions()

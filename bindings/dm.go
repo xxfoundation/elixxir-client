@@ -222,7 +222,7 @@ func (dmc *DMClient) GetBlockedSenders() []byte {
 //
 // Returns:
 //   - []byte - SON of [ChannelSendReport].
-func (dmc *DMClient) SendText(partnerPubKeyBytes []byte, partnerToken int32,
+func (dmc *DMClient) SendText(partnerPubKeyBytes []byte, partnerToken uint32,
 	message string, leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {
@@ -271,7 +271,7 @@ func (dmc *DMClient) SendText(partnerPubKeyBytes []byte, partnerToken int32,
 //
 // Returns:
 //   - []byte - A JSON marshalled ChannelSendReport
-func (dmc *DMClient) SendReply(partnerPubKeyBytes []byte, partnerToken int32,
+func (dmc *DMClient) SendReply(partnerPubKeyBytes []byte, partnerToken uint32,
 	replyMessage string, replyToBytes []byte, leaseTimeMS int64,
 	cmixParamsJSON []byte) ([]byte, error) {
 
@@ -320,7 +320,7 @@ func (dmc *DMClient) SendReply(partnerPubKeyBytes []byte, partnerToken int32,
 //
 // Returns:
 //   - []byte - A JSON marshalled ChannelSendReport.
-func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, partnerToken int32,
+func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, partnerToken uint32,
 	reaction string, reactToBytes []byte,
 	cmixParamsJSON []byte) ([]byte, error) {
 
@@ -377,7 +377,7 @@ func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, partnerToken int32,
 // Returns:
 //   - []byte - A JSON marshalled ChannelSendReport.
 func (dmc *DMClient) Send(partnerPubKeyBytes []byte,
-	partnerToken int32, messageType int, plaintext []byte, leaseTimeMS int64,
+	partnerToken uint32, messageType int, plaintext []byte, leaseTimeMS int64,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	params, err := parseCMixParams(cmixParamsJSON)

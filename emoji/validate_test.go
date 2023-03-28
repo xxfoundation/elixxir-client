@@ -32,51 +32,77 @@ func TestSupportedEmojisMap(t *testing.T) {
 	}
 }
 
+var tests2 = []struct {
+	Name  string
+	Input []string
+	Errs  map[string]error
+}{
+	{
+		Name: "Single-rune emojis",
+		Input: []string{"😀", "👋", "🍆", "😂", "❤", "🤣", "👍", "😭", "🙏",
+			"😘", "🥰", "😍", "😊", "☺"},
+	}, {
+		Name:  "Multi-rune emojis",
+		Input: []string{"👱‍♂️", "👋🏿", "🧏‍♀️", "❤️"},
+	}, {
+		Name:  "Multiple single-rune emojis",
+		Input: []string{"😀👋", "😀😀", "🍆🍆", "👍👍👍"},
+		Errs: map[string]error{
+			"Test_validateEmoji":   InvalidReaction,
+			"TestValidateReaction": InvalidReaction},
+	}, {
+		Name:  "Multiple character strings",
+		Input: []string{"🧖 hello 🦋 world", "😀 hello 😀 world"},
+		Errs: map[string]error{
+			"Test_validateEmoji":   InvalidReaction,
+			"TestValidateReaction": InvalidReaction},
+	}, {
+		Name:  "Single normal characters",
+		Input: []string{"A", "b", "1"},
+		Errs:  map[string]error{"Test_validateEmoji": InvalidReaction},
+	}, {
+		Name:  "Multiple normal characters",
+		Input: []string{"AA", "badaw"},
+		Errs: map[string]error{
+			"Test_validateEmoji":   InvalidReaction,
+			"TestValidateReaction": InvalidReaction},
+	}, {
+		Name:  "Multiple normal characters and emojis",
+		Input: []string{"🍆A", "👍😘A"},
+		Errs: map[string]error{
+			"Test_validateEmoji":   InvalidReaction,
+			"TestValidateReaction": InvalidReaction},
+	},
+}
+
 // Unit test of ValidateReaction.
 func TestValidateReaction(t *testing.T) {
-	tests := []struct {
-		input string
-		err   error
-	}{
-		{"😀", nil},              // Single-rune emoji (\u1F600)
-		{"👋", nil},              // Single-rune emoji (\u1F44B)
-		{"👱‍♂️", nil},           // Four-rune emoji (\u1F471\u200D\u2642\uFE0F)
-		{"👋🏿", nil},             // Duel-rune emoji with race modification (\u1F44B\u1F3FF)
-		{"😀👋", InvalidReaction}, // Two different single-rune emoji (\u1F600\u1F44B)
-		{"😀😀", InvalidReaction}, // Two of the same single-rune emoji (\u1F600\u1F600)
-		{"🧖 hello 🦋 world", InvalidReaction},
-		{"😀 hello 😀 world", InvalidReaction},
-		{"🍆", nil},
-		{"😂", nil},
-		{"❤", nil},
-		{"🤣", nil},
-		{"👍", nil},
-		{"😭", nil},
-		{"🙏", nil},
-		{"😘", nil},
-		{"🥰", nil},
-		{"😍", nil},
-		{"😊", nil},
-		{"☺", nil},
-		{"A", InvalidReaction},
-		{"b", InvalidReaction},
-		{"AA", InvalidReaction},
-		{"1", InvalidReaction},
-		{"🍆🍆", InvalidReaction},
-		{"🍆A", InvalidReaction},
-		{"👍👍👍", InvalidReaction},
-		{"👍😘A", InvalidReaction},
-		{"🧏‍♀️", nil},
-		{"❤️", nil},
+	for _, tt := range tests2 {
+		t.Run(tt.Name, func(t *testing.T) {
+			for i, r := range tt.Input {
+				err := ValidateReaction(r)
+				if err != tt.Errs["TestValidateReaction"] {
+					t.Errorf("%2d. Incorrect response for reaction %q %X."+
+						"\nexpected: %s\nreceived: %s",
+						i, r, []rune(r), tt.Errs["TestValidateReaction"], err)
+				}
+			}
+		})
 	}
+}
 
-	for i, r := range tests {
-		err := ValidateReaction(r.input)
-
-		if err != r.err {
-			t.Errorf("%2d. Incorrect response for reaction %q %X."+
-				"\nexpected: %s\nreceived: %s",
-				i, r.input, []rune(r.input), r.err, err)
-		}
+// Unit test of validateEmoji.
+func Test_validateEmoji(t *testing.T) {
+	for _, tt := range tests2 {
+		t.Run(tt.Name, func(t *testing.T) {
+			for i, r := range tt.Input {
+				err := validateEmoji(r)
+				if err != tt.Errs["Test_validateEmoji"] {
+					t.Errorf("%2d. Incorrect response for reaction %q %X."+
+						"\nexpected: %s\nreceived: %s",
+						i, r, []rune(r), tt.Errs["Test_validateEmoji"], err)
+				}
+			}
+		})
 	}
 }

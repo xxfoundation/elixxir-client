@@ -5,206 +5,104 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// package main downloads the latest list of emojis from Unicode and parses them
+// into a Go map that can be used to validate emojis.
+
 package main
 
 import (
-	"encoding/json"
-	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/emoji"
+	"fmt"
 	"io"
-	"net/http"
+	"log"
 	"os"
-	"strings"
-	"text/template"
+	"strconv"
+
+	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
-// generate.go generates the list of Emojis from Unicode.
-
-// emojiURL is the URL to the list of the latest emojis published by Unicode for
-// testing in keyboards and when displayed/processed. It is parsed to create a
-// list of all valid emojis.
-const emojiURL = "https://unicode.org/Public/emoji/latest/emoji-test.txt"
-
-type Params struct {
-	downloadURL string
-
-	// GoOutput is the filepath to save the Go file to. If left empty, no Go
-	// file is created.
-	GoOutput string
-
-	// JsonOutput is the filepath to save the JSON file to. If left empty, no
-	// JSON file is created.
-	JsonOutput string
-
-	// CodePointDelim is the separator used between codepoints.
-	CodePointDelim string
-}
-
-func DefaultParams() Params {
-	return Params{
-		downloadURL:    emojiURL,
-		GoOutput:       "./emoji/data.go",
-		JsonOutput:     "",
-		CodePointDelim: " ",
-	}
-}
+// Flag variables.
+var (
+	logLevel int
+	logFile  string
+	p        = DefaultParams()
+)
 
 func main() {
-	err := generate(DefaultParams())
-	if err != nil {
-		jww.FATAL.Panic(err)
+	if err := cmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 
-func generate(p Params) error {
-	body, err := download(emojiURL)
-	if err != nil {
-		return err
-	}
+var cmd = &cobra.Command{
+	Use: "generateEmojiMap",
+	Short: "Downloads the emoji file (from Unicode) and parses them into a " +
+		"map that can be saved as a Go file or JSON file.",
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
 
-	emojis := p.parse(body)
+		// Initialize the logging
+		initLog(jww.Threshold(logLevel), logFile)
 
-	err = p.saveListToJson(emojis)
-	if err != nil {
-		return errors.Wrap(err, "failed to save JSON file")
-	}
-
-	err = p.saveListToGo(emojis)
-	if err != nil {
-		return errors.Wrap(err, "failed to save Go file")
-	}
-
-	return nil
-}
-
-func download(fileURL string) (string, error) {
-	client := http.DefaultClient
-	resp, err := client.Get(fileURL)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode > 299 {
-		return "", errors.Errorf("response failed with status code %d: %s",
-			resp.StatusCode, http.StatusText(resp.StatusCode))
-	}
-
-	defer func(Body io.ReadCloser) {
-		err2 := Body.Close()
-		if err2 != nil {
-			err = errors.Wrapf(err, "failed to close body: %+v", err2)
+		err := generate(p)
+		if err != nil {
+			jww.FATAL.Panic(err)
 		}
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(body), nil
+	},
 }
 
-// parse parses the emoji-test.txt file into a List and GroupedList.
-func (p *Params) parse(s string) emoji.Map {
-	emojis := make(emoji.Map)
-	s = strings.SplitN(s, "\n\n\n", 2)[1]
+// init is the initialization function for Cobra which defines flags.
+func init() {
+	cmd.Flags().StringVarP(&p.DownloadURL, "url", "u", p.DownloadURL,
+		"URL to download emojis from.")
+	cmd.Flags().StringVarP(&p.GoOutput, "output", "o", p.GoOutput,
+		"Output file path for Go file. Set to empty for no output.")
+	cmd.Flags().StringVarP(&p.JsonOutput, "json", "j", p.JsonOutput,
+		"Output file path for JSON file. Set to empty for no output.")
+	cmd.Flags().StringVarP(&p.CodePointDelim, "delim", "d", p.CodePointDelim,
+		"The separator used between codepoints.")
+	cmd.Flags().StringVarP(&logFile, "log", "l", "-",
+		"Log output path. By default, logs are printed to stdout. "+
+			"To disable logging, set this to empty (\"\").")
+	cmd.Flags().IntVarP(&logLevel, "logLevel", "v", 4,
+		"Verbosity level of logging. 0 = TRACE, 1 = DEBUG, 2 = INFO, "+
+			"3 = WARN, 4 = ERROR, 5 = CRITICAL, 6 = FATAL")
+}
 
-	var group, subGroup string
-	for _, line := range strings.Split(s, "\n") {
-		if len(line) == 0 {
-			continue
-		} else if line == "#EOF" {
-			break
+// initLog will enable JWW logging to the given log path with the given
+// threshold. If log path is empty, then logging is not enabled. Panics if the
+// log file cannot be opened or if the threshold is invalid.
+func initLog(threshold jww.Threshold, logPath string) {
+	if logPath == "" {
+		// Do not enable logging if no log file is set
+		return
+	} else if logPath != "-" {
+		// Set the log file if stdout is not selected
+
+		// Disable stdout output
+		jww.SetStdoutOutput(io.Discard)
+
+		// Use log file
+		logOutput, err :=
+			os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			panic(err)
 		}
-
-		fields := strings.Fields(line)
-
-		if fields[0] == "#" {
-			if len(fields) > 2 {
-				switch fields[1] {
-				case "group:":
-					group = strings.TrimSpace(
-						strings.SplitN(line, "# group:", 2)[1])
-				case "subgroup:":
-					subGroup = strings.TrimSpace(
-						strings.SplitN(line, "# subgroup:", 2)[1])
-				}
-			}
-			continue
-		}
-
-		var codePoints []string
-		for j, codepoint := range fields {
-			if codepoint == ";" {
-				codePoints = fields[:j]
-				fields = fields[j:]
-				break
-			}
-		}
-
-		comment := fields[4]
-
-		e := emoji.Emoji{
-			Character: fields[3],
-			Name:      strings.TrimSpace(strings.SplitN(line, comment, 2)[1]),
-			Comment:   comment,
-			CodePoint: strings.Join(codePoints, p.CodePointDelim),
-			Group:     group,
-			Subgroup:  subGroup,
-		}
-
-		emojis[e.Character] = e
+		jww.SetLogOutput(logOutput)
 	}
 
-	return emojis
+	if threshold < jww.LevelTrace || threshold > jww.LevelFatal {
+		panic("Invalid log threshold: " + strconv.Itoa(int(threshold)))
+	}
+
+	// Display microseconds if the threshold is set to TRACE or DEBUG
+	if threshold == jww.LevelTrace || threshold == jww.LevelDebug {
+		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	}
+
+	// Enable logging
+	jww.SetStdoutThreshold(threshold)
+	jww.SetLogThreshold(threshold)
+	jww.INFO.Printf("Log level set to: %s", threshold)
 }
-
-// saveListToJson saves the emoji list to the JSON output file. If no file is
-// set, nothing is saved.
-func (p *Params) saveListToJson(emojis emoji.Map) error {
-	if p.JsonOutput == "" {
-		return nil
-	}
-
-	data, err := json.MarshalIndent(emojis, "", "\t")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(p.JsonOutput, data, 0777)
-}
-
-// saveListToGo generates a static Go file containing the List.
-func (p *Params) saveListToGo(emojis emoji.Map) error {
-	if p.GoOutput == "" {
-		return nil
-	}
-
-	tplFile, err := template.New("EmojisMap").Parse(textTplFileEmojis)
-	if err != nil {
-		return err
-	}
-
-	output, err := os.Create(p.GoOutput)
-	if err != nil {
-		return err
-	}
-
-	return tplFile.Execute(output, emojis)
-}
-
-const textTplFileEmojis = `
-package emoji
-
-var emojiMap = Map{ {{ range $index, $val  := . }}
-	"{{ $index }}": {
-		Character: "{{ $val.Character }}",
-		Name:      "{{ $val.Name }}",
-		Comment:   "{{ $val.Comment }}",
-		CodePoint: "{{ $val.CodePoint }}",
-		Group:     "{{ $val.Group }}",
-		Subgroup:  "{{ $val.Subgroup }}",
-	},{{ end }}
-}
-`

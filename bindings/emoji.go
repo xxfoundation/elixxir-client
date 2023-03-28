@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/v4/emoji"
 )
 
@@ -56,44 +57,44 @@ func SupportedEmojis() ([]byte, error) {
 //
 // Example JSON:
 //
-//  {
-//    "☹️": {
-//      "character": "☹️",
-//      "name": "frowning face",
-//      "comment": "E0.7",
-//      "codePoint": "2639 FE0F",
-//      "group": "Smileys \u0026 Emotion",
-//      "subgroup": "face-concerned"
-//    },
-//    "☺️": {
-//      "character": "☺️",
-//      "name": "smiling face",
-//      "comment": "E0.6",
-//      "codePoint": "263A FE0F",
-//      "group": "Smileys \u0026 Emotion",
-//      "subgroup": "face-affection"
-//    },
-//    "☢️": {
-//      "character": "☢️",
-//      "name": "radioactive",
-//      "comment": "E1.0",
-//      "codePoint": "2622 FE0F",
-//      "group": "Symbols",
-//      "subgroup": "warning"
-//    },
-//  }
+//	{
+//	  "☹️": {
+//	    "character": "☹️",
+//	    "name": "frowning face",
+//	    "comment": "E0.7",
+//	    "codePoint": "2639 FE0F",
+//	    "group": "Smileys \u0026 Emotion",
+//	    "subgroup": "face-concerned"
+//	  },
+//	  "☺️": {
+//	    "character": "☺️",
+//	    "name": "smiling face",
+//	    "comment": "E0.6",
+//	    "codePoint": "263A FE0F",
+//	    "group": "Smileys \u0026 Emotion",
+//	    "subgroup": "face-affection"
+//	  },
+//	  "☢️": {
+//	    "character": "☢️",
+//	    "name": "radioactive",
+//	    "comment": "E1.0",
+//	    "codePoint": "2622 FE0F",
+//	    "group": "Symbols",
+//	    "subgroup": "warning"
+//	  },
+//	}
 func SupportedEmojisMap() ([]byte, error) {
 	return json.Marshal(emoji.SupportedEmojisMap())
 }
 
-// ValidateReaction checks that the reaction only contains a single emoji.
+// ValidateReaction checks that the reaction only contains a single grapheme
+// (one or more codepoints that appear as a single character to the user).
 //
 // Parameters:
-//   - reaction - The reaction emoji to validate.
+//   - reaction - The reaction to validate.
 //
 // Returns:
-//   - Error emoji.InvalidReaction if the reaction is not valid and nil
-//     otherwise.
+//   - Error emoji.InvalidReaction if the reaction is not a single character.
 func ValidateReaction(reaction string) error {
 	return emoji.ValidateReaction(reaction)
 }

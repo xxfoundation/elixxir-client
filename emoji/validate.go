@@ -37,14 +37,22 @@ func SupportedEmojisMap() Map {
 	return emojis
 }
 
-// ValidateReaction checks that the reaction only contains a single emoji.
-// Returns InvalidReaction if the emoji is invalid.
+// ValidateReaction checks that the reaction only contains a single grapheme
+// (one or more codepoints that appear as a single character to the user).
+// Returns InvalidReaction if the reaction is invalid.
 func ValidateReaction(reaction string) error {
-	if len(reaction) < 1 {
-		// No characters found
+	if uniseg.GraphemeClusterCount(reaction) != 1 {
 		return InvalidReaction
-	} else if uniseg.GraphemeClusterCount(reaction) > 1 {
-		// More than one character found
+	}
+
+	return nil
+}
+
+// validateEmoji checks that the reaction only contains a single emoji.
+// Returns InvalidReaction if the emoji is invalid.
+func validateEmoji(reaction string) error {
+	if uniseg.GraphemeClusterCount(reaction) != 1 {
+		// Incorrect number of graphemes
 		return InvalidReaction
 	} else if _, exists := emojiMap[reaction]; !exists {
 		// Character is not an emoji
@@ -66,4 +74,3 @@ type Emoji struct {
 
 // Map lists all emojis keyed on their character string.
 type Map map[string]Emoji
-

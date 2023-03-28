@@ -38,11 +38,6 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
 	require.NoError(t, err)
 
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
-
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
@@ -416,12 +411,6 @@ func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	require.NoError(b, err)
 	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
 	require.NoError(b, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(b, os.RemoveAll(baseDir))
-
-	}()
 
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)

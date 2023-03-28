@@ -72,6 +72,12 @@ var tests2 = []struct {
 		Errs: map[string]error{
 			"Test_validateEmoji":   InvalidReaction,
 			"TestValidateReaction": InvalidReaction},
+	}, {
+		Name:  "No characters",
+		Input: []string{""},
+		Errs: map[string]error{
+			"Test_validateEmoji":   InvalidReaction,
+			"TestValidateReaction": InvalidReaction},
 	},
 }
 

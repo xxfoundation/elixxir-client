@@ -40,7 +40,7 @@ func SupportedEmojisMap() Map {
 // (one or more codepoints that appear as a single character to the user).
 // Returns InvalidReaction if the reaction is invalid.
 func ValidateReaction(reaction string) error {
-	if uniseg.GraphemeClusterCount(reaction) != 1 {
+	if !isSingleGrapheme(reaction) {
 		return InvalidReaction
 	}
 
@@ -49,16 +49,32 @@ func ValidateReaction(reaction string) error {
 
 // validateEmoji checks that the reaction only contains a single emoji.
 // Returns InvalidReaction if the emoji is invalid.
-func validateEmoji(reaction string) error {
-	if uniseg.GraphemeClusterCount(reaction) != 1 {
+func validateEmoji(emoji string) error {
+	if !isSingleGrapheme(emoji) {
 		// Incorrect number of graphemes
 		return InvalidReaction
-	} else if _, exists := emojiMap[reaction]; !exists {
+	} else if _, exists := emojiMap[emoji]; !exists {
 		// Character is not an emoji
 		return InvalidReaction
 	}
 
 	return nil
+}
+
+// isSingleGrapheme returns true if the string is a single grapheme or false if
+// it is zero or more than one.
+func isSingleGrapheme(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	for n, state := 0, -1; len(s) > 0; n++ {
+		_, s, _, state = uniseg.FirstGraphemeClusterInString(s, state)
+		if n > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // Emoji represents comprehensive information of each Unicode emoji character.

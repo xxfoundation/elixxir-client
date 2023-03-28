@@ -13,9 +13,15 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
+	"strings"
 )
 
 const PrefixSeparator = "/"
+
+const (
+	prefixContainingSeparatorErr = "cannot accept prefix %s with the default separator (%s)"
+	duplicatePrefixErr           = "prefix %s has already been added, cannot overwrite"
+)
 
 // MakePartnerPrefix creates a string prefix
 // to denote who a conversation or relationship is with
@@ -33,13 +39,17 @@ type root struct {
 
 // KV stores versioned data and Upgrade functions
 type KV struct {
-	r      *root
-	prefix string
+	r         *root
+	prefix    string
+	prefixMap map[string]int
+	offset    int
 }
 
 // Create a versioned key/value store backed by something implementing KeyValue
 func NewKV(data ekv.KeyValue) *KV {
-	newKV := KV{}
+	newKV := KV{
+		prefixMap: make(map[string]int, 0),
+	}
 	root := root{}
 
 	root.data = data
@@ -68,8 +78,8 @@ type UpgradeTable struct {
 	Table          []Upgrade
 }
 
-// Get gets and upgrades data stored in the key/value store
-// Make sure to inspect the version returned in the versioned object
+// GetAndUpgrade gets and upgrades data stored in the key/value store.
+// Make sure to inspect the version returned in the versioned object.
 func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	version := ut.CurrentVersion
 	baseKey := key
@@ -121,7 +131,7 @@ func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	return result, nil
 }
 
-// delete removes a given key from the data store
+// Delete removes a given key from the data store.
 func (v *KV) Delete(key string, version uint64) error {
 	key = v.makeKey(key, version)
 	jww.TRACE.Printf("delete %p with key %v", v.r.data, key)
@@ -144,13 +154,34 @@ func (v *KV) GetPrefix() string {
 	return v.prefix
 }
 
-//Returns a new KV with the new prefix
-func (v *KV) Prefix(prefix string) *KV {
+// HasPrefix returns whether this prefix exists in the KV.
+func (v *KV) HasPrefix(prefix string) bool {
+	_, exists := v.prefixMap[prefix]
+	return exists
+}
+
+// Prefix returns a new KV with the new prefix appending.
+func (v *KV) Prefix(prefix string) (*KV, error) {
+	// Reject invalid prefixes
+	if strings.Contains(prefix, PrefixSeparator) {
+		return nil, errors.Errorf(prefixContainingSeparatorErr, prefix, PrefixSeparator)
+	}
+
+	// Reject duplicate prefixes
+	if v.HasPrefix(prefix) {
+		return nil, errors.Errorf(duplicatePrefixErr, prefix)
+	}
+
+	v.offset++
+
 	kvPrefix := KV{
 		r:      v.r,
 		prefix: v.prefix + prefix + PrefixSeparator,
 	}
-	return &kvPrefix
+
+	v.prefixMap[kvPrefix.prefix] = v.offset
+
+	return &kvPrefix, nil
 }
 
 func (v *KV) IsMemStore() bool {
@@ -158,7 +189,7 @@ func (v *KV) IsMemStore() bool {
 	return success
 }
 
-//Returns the key with all prefixes appended
+// Returns the key with all prefixes appended
 func (v *KV) GetFullKey(key string, version uint64) string {
 	return v.makeKey(key, version)
 }

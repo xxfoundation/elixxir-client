@@ -319,20 +319,39 @@ func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
 }
 
 // CheckIfSent is used when a message is received to check if the message was
-// sent by this user. If it was, the correct signal is sent to the event model
-// and the function returns true, notifying the caller to not process the
-// message.
+// sent by this user.
 func (st *sendTracker) CheckIfSent(
 	messageID message.ID, round rounds.Round) bool {
 	st.mux.RLock()
-
-	// Skip if already added
+	defer st.mux.RUnlock()
 	_, existsMessage := st.byMessageID[messageID]
-	st.mux.RUnlock()
+	return existsMessage
+}
+
+// Delivered calls the event model update function to tell it that this
+// message was delivered. (after this is called successfully, it is safe to
+// stop tracking this message).
+// returns true if the update sent status func was called.
+func (st *sendTracker) Delivered(messageID message.ID,
+	round rounds.Round) bool {
+	st.mux.RLock()
+	defer st.mux.RUnlock()
+	msgData, existsMessage := st.byMessageID[messageID]
 	if !existsMessage {
 		return false
 	}
 
+	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED],
+		messageID)
+	st.updateStatus(msgData.UUID, messageID, ts,
+		round, Received)
+	return true
+}
+
+// StopTracking deletes this message id/round combination from the
+// send tracking.  returns true if it was removed, false otherwise.
+func (st *sendTracker) StopTracking(messageID message.ID,
+	round rounds.Round) bool {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 	msgData, existsMessage := st.byMessageID[messageID]
@@ -358,11 +377,6 @@ func (st *sendTracker) CheckIfSent(
 			RoundCompleted: roundList.RoundCompleted,
 		}
 	}
-
-	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED],
-		messageID)
-	go st.updateStatus(msgData.UUID, messageID, ts,
-		round, Sent)
 
 	if err := st.storeSent(); err != nil {
 		jww.FATAL.Panicf("failed to store the updated sent list: %+v",

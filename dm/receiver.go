@@ -29,9 +29,9 @@ import (
 
 // receiver struct for message handling
 type receiver struct {
-	c         *dmClient
-	api       EventModel
-	checkSent messageReceiveFunc
+	c           *dmClient
+	api         EventModel
+	sendTracker SendTracker
 }
 
 type dmProcessor struct {
@@ -78,7 +78,9 @@ func (dp *dmProcessor) Process(msg format.Message,
 	msgID := message.DeriveDirectMessageID(myID, directMsg)
 
 	// Check if we sent the message and ignore triggering if we sent
-	if dp.r.checkSent(msgID, round) {
+	// This will happen when DM'ing with oneself, but the receive self
+	// processor will update the status to delivered, so we do nothing here.
+	if dp.r.sendTracker.CheckIfSent(msgID, round) {
 		return
 	}
 
@@ -172,8 +174,22 @@ func (sp *selfProcessor) Process(msg format.Message,
 
 	msgID := message.DeriveDirectMessageID(partnerID, directMsg)
 
-	// Check if we sent the message and ignore triggering if we sent
-	if sp.r.checkSent(msgID, round) {
+	// Check if we sent the message and ignore triggering if we
+	// sent, but mark the message as delivered
+	if sp.r.sendTracker.CheckIfSent(msgID, round) {
+		go func() {
+			ok := sp.r.sendTracker.Delivered(msgID, round)
+			if !ok {
+				jww.WARN.Printf("[DM] Couldn't mark delivered"+
+					": %s %v)",
+					msgID, round)
+			}
+			sp.r.sendTracker.StopTracking(msgID, round)
+			if !ok {
+				jww.WARN.Printf("[DM] Coulnd't StopTracking: "+
+					"%s, %v", msgID, round)
+			}
+		}()
 		return
 	}
 

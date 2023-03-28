@@ -128,13 +128,15 @@ func (i *impl) ReceiveReaction(channelID *id.ID, messageID, reactionTo message.I
 // make no update.
 func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *time.Time,
 	round *rounds.Round, pinned, hidden *bool, status *channels.SentStatus) {
-	parentErr := errors.New("failed to UpdateFromMessageID")
+	parentErr := errors.New("failed to UpdateFromUUID")
 
 	msgToUpdate := &Message{
-		Id:        uuid,
-		MessageId: messageID.Marshal(),
-		Hidden:    hidden,
-		Pinned:    pinned,
+		Id:     uuid,
+		Hidden: hidden,
+		Pinned: pinned,
+	}
+	if messageID != nil {
+		msgToUpdate.MessageId = messageID.Marshal()
 	}
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)

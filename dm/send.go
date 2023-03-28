@@ -54,6 +54,11 @@ const (
 	messageNonceSize = 4
 )
 
+var (
+	emptyPubKeyBytes = make([]byte, ed25519.PublicKeySize)
+	emptyPubKey      = ed25519.PublicKey(emptyPubKeyBytes)
+)
+
 // SendText is used to send a formatted message to another user.
 func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 	partnerToken uint32,
@@ -155,6 +160,21 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType, msg []byte,
 	params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+
+	if partnerToken == 0 {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("invalid dmToken value: %d", partnerToken)
+
+	}
+
+	if partnerEdwardsPubKey == nil ||
+		partnerEdwardsPubKey.Equal(emptyPubKey) {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("invalid public key value: %v",
+				partnerEdwardsPubKey)
+	}
 
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
 

@@ -61,11 +61,8 @@ func TestDeviceOffset(t *testing.T) {
 // makeTransactionLog is a utility function which generates a TransactionLog for
 // testing purposes.
 func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog {
-	// Construct local store
-	fs, err := ekv.NewFilestore(baseDir, password)
-	require.NoError(t, err)
 
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
 	require.NoError(t, err)
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)

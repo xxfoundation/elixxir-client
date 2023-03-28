@@ -76,28 +76,19 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 // Intentionally constructs TransactionLog manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir", "password"
-	fs, err := ekv.NewFilestore(baseDir, password)
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
 	require.NoError(t, err)
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
-	require.NoError(t, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-		require.NoError(t, os.RemoveAll(baseDir+baseDir))
-	}()
-
-	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
 	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {})
 
+	remoteStore := &mockRemote{make(map[string][]byte)}
+
 	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+	txLog, err := NewOrLoadTransactionLog("baseDir", localStore,
+		remoteStore,
 		deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
@@ -114,7 +105,8 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	}
 
 	// Construct a new TransactionLog, which will load from file
-	newTxLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+	newTxLog, err := NewOrLoadTransactionLog("baseDir", localStore,
+		remoteStore,
 		deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
@@ -126,13 +118,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 // to TransactionLog.Append.
 func TestTransactionLog_Append_Callback(t *testing.T) {
 	// Construct transaction log
-	baseDir, password := "testDir/appendCb/", "password"
-	txLog := makeTransactionLog(baseDir, password, t)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
+	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -168,13 +154,7 @@ func TestTransactionLog_Append_Callback(t *testing.T) {
 // remote and local stores when they are set.
 func TestTransactionLog_Save(t *testing.T) {
 	// Construct transaction log
-	baseDir, password := "testDir/", "password"
-	txLog := makeTransactionLog(baseDir, password, t)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
+	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -238,13 +218,7 @@ func TestTransactionLog_Save(t *testing.T) {
 // sorted by timestamp after the insertion.
 func TestTransactionLog_Append_Sorting(t *testing.T) {
 	// Construct transaction log
-	baseDir, password := "testDir/", "password"
-	txLog := makeTransactionLog(baseDir, password, t)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
+	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 6)
@@ -274,13 +248,7 @@ func TestTransactionLog_Append_Sorting(t *testing.T) {
 // internal state. Checks against a hardcoded base64 string.
 func TestTransactionLog_Serialize(t *testing.T) {
 	// Construct transaction log
-	baseDir, password := "testDir/", "password"
-	txLog := makeTransactionLog(baseDir, password, t)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
+	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -312,19 +280,12 @@ func TestTransactionLog_Serialize(t *testing.T) {
 // Intentionally constructs TransactionLog manually for testing purposes.
 func TestTransactionLog_Deserialize(t *testing.T) {
 	// Construct local store
-	baseDir, password := "testDir", "password"
-	fs, err := ekv.NewFilestore(baseDir, password)
+	baseDir := "testDir"
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
 	require.NoError(t, err)
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
-	require.NoError(t, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
+	remoteStore := &mockRemote{make(map[string][]byte)}
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
@@ -371,13 +332,8 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 // TransactionLog's remoteStoreCallback is nil.
 func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 	// Construct transaction log
-	baseDir, password := "testDir/", "password"
+	baseDir := "testDir/"
 	txLog := makeTransactionLog(baseDir, password, t)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(t, os.RemoveAll(baseDir))
-	}()
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -413,16 +369,9 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 // Intentionally constructs TransactionLog manually for testing purposes.
 func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	// Construct local store
-	baseDir, password := "testDir", "password"
-	fs, err := ekv.NewFilestore(baseDir, password)
+	baseDir := "testDir"
+	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
 	require.NoError(b, err)
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
-	require.NoError(b, err)
-
-	// Delete the test file at the end
-	defer func() {
-		require.NoError(b, os.RemoveAll(baseDir))
-	}()
 
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
@@ -438,9 +387,6 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	mockTimestamps := constructTimestamps(b, numRandomTimestamps)
 
 	for i := 0; i < b.N; i++ {
-
-		// Clear files so constructed transaction log does not load state
-		require.NoError(b, os.RemoveAll(baseDir))
 
 		// Construct new transaction log for benchmark iteration
 		txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,

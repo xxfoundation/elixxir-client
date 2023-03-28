@@ -13,10 +13,9 @@ import (
 )
 
 var (
-	// InvalidReaction is returned if the passed reaction string is an invalid
-	// emoji.
+	// InvalidReaction is returned if the passed reaction string is invalid.
 	InvalidReaction = errors.New(
-		"The reaction is not valid, it must be a single emoji")
+		"The reaction is not valid, it must be a single character")
 )
 
 // SupportedEmojis returns a list of emojis that are supported by the backend.

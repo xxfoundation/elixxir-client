@@ -25,7 +25,7 @@ import (
 var (
 	logLevel int
 	logFile  string
-	p        = DefaultParams()
+	params   = DefaultParams()
 )
 
 func main() {
@@ -45,7 +45,7 @@ var cmd = &cobra.Command{
 		// Initialize the logging
 		initLog(jww.Threshold(logLevel), logFile)
 
-		err := generate(p)
+		err := generate(params)
 		if err != nil {
 			jww.FATAL.Panic(err)
 		}
@@ -54,14 +54,14 @@ var cmd = &cobra.Command{
 
 // init is the initialization function for Cobra which defines flags.
 func init() {
-	cmd.Flags().StringVarP(&p.DownloadURL, "url", "u", p.DownloadURL,
+	cmd.Flags().StringVarP(&params.DownloadURL, "url", "u", params.DownloadURL,
 		"URL to download emojis from.")
-	cmd.Flags().StringVarP(&p.GoOutput, "output", "o", p.GoOutput,
+	cmd.Flags().StringVarP(&params.GoOutput, "output", "o", params.GoOutput,
 		"Output file path for Go file. Set to empty for no output.")
-	cmd.Flags().StringVarP(&p.JsonOutput, "json", "j", p.JsonOutput,
+	cmd.Flags().StringVarP(&params.JsonOutput, "json", "j", params.JsonOutput,
 		"Output file path for JSON file. Set to empty for no output.")
-	cmd.Flags().StringVarP(&p.CodePointDelim, "delim", "d", p.CodePointDelim,
-		"The separator used between codepoints.")
+	cmd.Flags().StringVarP(&params.CodePointDelim, "delim", "d",
+		params.CodePointDelim, "The separator used between codepoints.")
 	cmd.Flags().StringVarP(&logFile, "log", "l", "-",
 		"Log output path. By default, logs are printed to stdout. "+
 			"To disable logging, set this to empty (\"\").")

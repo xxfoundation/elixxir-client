@@ -16,9 +16,9 @@ import (
 func TestSupportedEmojis(t *testing.T) {
 	emojis := SupportedEmojis()
 
-	if len(emojis) != len(emojiMap) {
+	if len(emojis) != len(emojiFile.Map) {
 		t.Errorf("Incorrect number of emojis.\nexpected: %d\nreceived: %d",
-			len(emojiMap), len(emojis))
+			len(emojiFile.Map), len(emojis))
 	}
 }
 
@@ -26,16 +26,16 @@ func TestSupportedEmojis(t *testing.T) {
 func TestSupportedEmojisMap(t *testing.T) {
 	emojis := SupportedEmojisMap()
 
-	if !reflect.DeepEqual(emojis, emojiMap) {
+	if !reflect.DeepEqual(emojis, emojiFile.Map) {
 		t.Errorf("Incorrect map.\nexpected: %v\nreceived: %v",
-			emojiMap, emojis)
+			emojiFile.Map, emojis)
 	}
 }
 
 var tests = []struct {
-	Name  string
-	Input []string
-	Errs  map[string]error
+	Name   string
+	Input  []string
+	Output error
 }{
 	{
 		Name: "Single-rune emojis",
@@ -43,45 +43,38 @@ var tests = []struct {
 			"😘", "🥰", "😍", "😊", "☺", "🏴"},
 	}, {
 		Name:  "Multi-rune emojis",
-		Input: []string{"👱‍♂️", "👋🏿", "🧏‍♀️", "❤️", "👩🏽‍❤️‍💋‍👨🏽", "🏴‍☠️"},
+		Input: []string{"👋🏿", "❤️"},
 	}, {
-		Name:  "Long multi-rune emojis",
-		Input: []string{"👨🏻‍👩🏻‍👦🏻‍👦🏻"},
-		Errs:  map[string]error{"Test_validateEmoji": InvalidReaction}, // Note: This shouldn't error. The emoji list does not support arbitrary ordering of modifiers
+		Name:  "ZWJ Sequences",
+		Input: []string{"👱‍♂️", "🧏‍♀️", "👩🏽‍❤️‍💋‍👨🏽", "🏴‍☠️"},
 	}, {
-		Name:  "Multiple single-rune emojis",
-		Input: []string{"😀👋", "😀😀", "🍆🍆", "👍👍👍"},
-		Errs: map[string]error{
-			"TestValidateReaction": InvalidReaction,
-			"Test_validateEmoji":   InvalidReaction},
+		Name:   "Non-RGI ZWJ Sequences",
+		Input:  []string{"👨🏻‍👩🏻‍👦🏻‍👦🏻", "⛑🏻", "👪🏿", "🤼🏻", "🏴󠁵󠁳󠁴󠁸󠁿", "👩🏽‍❤️‍🧑"},
+		Output: InvalidReaction,
 	}, {
-		Name:  "Multiple character strings",
-		Input: []string{"🧖 hello 🦋 world", "😀 hello 😀 world"},
-		Errs: map[string]error{
-			"TestValidateReaction": InvalidReaction,
-			"Test_validateEmoji":   InvalidReaction},
+		Name:   "Multiple Single-Rune Emojis",
+		Input:  []string{"😀👋", "😀😀", "🍆🍆", "👍👍👍"},
+		Output: InvalidReaction,
 	}, {
-		Name:  "Single normal characters",
-		Input: []string{"A", "b", "1"},
-		Errs:  map[string]error{"Test_validateEmoji": InvalidReaction},
+		Name:   "Multiple Character Strings",
+		Input:  []string{"🧖 hello 🦋 world", "😀 hello 😀 world"},
+		Output: InvalidReaction,
 	}, {
-		Name:  "Multiple normal characters",
-		Input: []string{"AA", "badaw"},
-		Errs: map[string]error{
-			"TestValidateReaction": InvalidReaction,
-			"Test_validateEmoji":   InvalidReaction},
+		Name:   "Single normal characters",
+		Input:  []string{"A", "b", "1"},
+		Output: InvalidReaction,
 	}, {
-		Name:  "Multiple normal characters and emojis",
-		Input: []string{"🍆A", "👍😘A"},
-		Errs: map[string]error{
-			"TestValidateReaction": InvalidReaction,
-			"Test_validateEmoji":   InvalidReaction},
+		Name:   "Multiple normal characters",
+		Input:  []string{"AA", "bag"},
+		Output: InvalidReaction,
 	}, {
-		Name:  "No characters",
-		Input: []string{""},
-		Errs: map[string]error{
-			"TestValidateReaction": InvalidReaction,
-			"Test_validateEmoji":   InvalidReaction},
+		Name:   "Multiple normal characters and emojis",
+		Input:  []string{"🍆A", "👍😘A"},
+		Output: InvalidReaction,
+	}, {
+		Name:   "No characters",
+		Input:  []string{""},
+		Output: InvalidReaction,
 	},
 }
 
@@ -91,26 +84,10 @@ func TestValidateReaction(t *testing.T) {
 		t.Run(tt.Name, func(t *testing.T) {
 			for i, r := range tt.Input {
 				err := ValidateReaction(r)
-				if err != tt.Errs["TestValidateReaction"] {
+				if err != tt.Output {
 					t.Errorf("%2d. Incorrect response for reaction %q %X."+
 						"\nexpected: %s\nreceived: %s",
-						i, r, []rune(r), tt.Errs["TestValidateReaction"], err)
-				}
-			}
-		})
-	}
-}
-
-// Unit test of validateEmoji.
-func Test_validateEmoji(t *testing.T) {
-	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			for i, r := range tt.Input {
-				err := validateEmoji(r)
-				if err != tt.Errs["Test_validateEmoji"] {
-					t.Errorf("%2d. Incorrect response for reaction %q %X."+
-						"\nexpected: %s\nreceived: %s",
-						i, r, []rune(r), tt.Errs["Test_validateEmoji"], err)
+						i, r, []rune(r), tt.Output, err)
 				}
 			}
 		})

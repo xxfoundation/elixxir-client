@@ -9,72 +9,55 @@ package emoji
 
 import (
 	"github.com/pkg/errors"
-	"github.com/rivo/uniseg"
 )
 
 var (
 	// InvalidReaction is returned if the passed reaction string is invalid.
 	InvalidReaction = errors.New(
-		"The reaction is not valid, it must be a single character")
+		"The reaction is not valid, it must be a single emoji")
 )
 
 // SupportedEmojis returns a list of emojis that are supported by the backend.
+// The list includes all emojis described in [UTS #51 section A.1: Data Files].
+//
+// [UTS #51 section A.1: Data Files]: https://www.unicode.org/reports/tr51/#Data_Files
 func SupportedEmojis() []Emoji {
-	emojis := make([]Emoji, 0, len(emojiMap))
-	for _, emoji := range emojiMap {
+	emojis := make([]Emoji, 0, len(emojiFile.Map))
+	for _, emoji := range emojiFile.Map {
 		emojis = append(emojis, emoji)
 	}
 	return emojis
 }
 
-// SupportedEmojisMap returns a map of emojis that are supported by the backend.
+// SupportedEmojisMap returns a map of emojis that are supported by the backend
+// as described by [SupportedEmojis].
 func SupportedEmojisMap() Map {
-	emojis := make(Map, len(emojiMap))
-	for c, emoji := range emojiMap {
+	// Make a copy of the map
+	emojis := make(Map, len(emojiFile.Map))
+	for c, emoji := range emojiFile.Map {
 		emojis[c] = emoji
 	}
 	return emojis
 }
 
-// ValidateReaction checks that the reaction only contains a single grapheme
-// (one or more codepoints that appear as a single character to the user).
-// Returns InvalidReaction if the reaction is invalid.
-func ValidateReaction(reaction string) error {
-	if !isSingleGrapheme(reaction) {
-		return InvalidReaction
-	}
-
-	return nil
-}
-
-// validateEmoji checks that the reaction only contains a single emoji.
+// ValidateReaction checks that the reaction only contains a single emoji.
 // Returns InvalidReaction if the emoji is invalid.
-func validateEmoji(emoji string) error {
-	if !isSingleGrapheme(emoji) {
-		// Incorrect number of graphemes
-		return InvalidReaction
-	} else if _, exists := emojiMap[emoji]; !exists {
-		// Character is not an emoji
+func ValidateReaction(reaction string) error {
+	if _, exists := emojiFile.Map[reaction]; !exists {
 		return InvalidReaction
 	}
 
 	return nil
 }
 
-// isSingleGrapheme returns true if the string is a single grapheme or false if
-// it is zero or more than one.
-func isSingleGrapheme(s string) bool {
-	if s == "" {
-		return false
-	}
+// Map lists all emojis keyed on their character string.
+type Map map[string]Emoji
 
-	for n, state := 0, -1; len(s) > 0; n++ {
-		_, s, _, state = uniseg.FirstGraphemeClusterInString(s, state)
-		if n > 0 {
-			return false
-		}
-	}
-	return true
+type File struct {
+	Date         string `json:"date"`
+	DateAccessed string `json:"dateAccessed"`
+	Version      string `json:"version"`
+	Map          Map    `json:"map"`
 }
 
 // Emoji represents comprehensive information of each Unicode emoji character.
@@ -86,6 +69,3 @@ type Emoji struct {
 	Group     string `json:"group"`
 	Subgroup  string `json:"subgroup"`
 }
-
-// Map lists all emojis keyed on their character string.
-type Map map[string]Emoji

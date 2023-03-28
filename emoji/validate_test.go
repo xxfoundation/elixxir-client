@@ -32,7 +32,7 @@ func TestSupportedEmojisMap(t *testing.T) {
 	}
 }
 
-var tests2 = []struct {
+var tests = []struct {
 	Name  string
 	Input []string
 	Errs  map[string]error
@@ -40,22 +40,26 @@ var tests2 = []struct {
 	{
 		Name: "Single-rune emojis",
 		Input: []string{"😀", "👋", "🍆", "😂", "❤", "🤣", "👍", "😭", "🙏",
-			"😘", "🥰", "😍", "😊", "☺"},
+			"😘", "🥰", "😍", "😊", "☺", "🏴"},
 	}, {
 		Name:  "Multi-rune emojis",
-		Input: []string{"👱‍♂️", "👋🏿", "🧏‍♀️", "❤️"},
+		Input: []string{"👱‍♂️", "👋🏿", "🧏‍♀️", "❤️", "👩🏽‍❤️‍💋‍👨🏽", "🏴‍☠️"},
+	}, {
+		Name:  "Long multi-rune emojis",
+		Input: []string{"👨🏻‍👩🏻‍👦🏻‍👦🏻"},
+		Errs:  map[string]error{"Test_validateEmoji": InvalidReaction}, // Note: This shouldn't error. The emoji list does not support arbitrary ordering of modifiers
 	}, {
 		Name:  "Multiple single-rune emojis",
 		Input: []string{"😀👋", "😀😀", "🍆🍆", "👍👍👍"},
 		Errs: map[string]error{
-			"Test_validateEmoji":   InvalidReaction,
-			"TestValidateReaction": InvalidReaction},
+			"TestValidateReaction": InvalidReaction,
+			"Test_validateEmoji":   InvalidReaction},
 	}, {
 		Name:  "Multiple character strings",
 		Input: []string{"🧖 hello 🦋 world", "😀 hello 😀 world"},
 		Errs: map[string]error{
-			"Test_validateEmoji":   InvalidReaction,
-			"TestValidateReaction": InvalidReaction},
+			"TestValidateReaction": InvalidReaction,
+			"Test_validateEmoji":   InvalidReaction},
 	}, {
 		Name:  "Single normal characters",
 		Input: []string{"A", "b", "1"},
@@ -64,26 +68,26 @@ var tests2 = []struct {
 		Name:  "Multiple normal characters",
 		Input: []string{"AA", "badaw"},
 		Errs: map[string]error{
-			"Test_validateEmoji":   InvalidReaction,
-			"TestValidateReaction": InvalidReaction},
+			"TestValidateReaction": InvalidReaction,
+			"Test_validateEmoji":   InvalidReaction},
 	}, {
 		Name:  "Multiple normal characters and emojis",
 		Input: []string{"🍆A", "👍😘A"},
 		Errs: map[string]error{
-			"Test_validateEmoji":   InvalidReaction,
-			"TestValidateReaction": InvalidReaction},
+			"TestValidateReaction": InvalidReaction,
+			"Test_validateEmoji":   InvalidReaction},
 	}, {
 		Name:  "No characters",
 		Input: []string{""},
 		Errs: map[string]error{
-			"Test_validateEmoji":   InvalidReaction,
-			"TestValidateReaction": InvalidReaction},
+			"TestValidateReaction": InvalidReaction,
+			"Test_validateEmoji":   InvalidReaction},
 	},
 }
 
 // Unit test of ValidateReaction.
 func TestValidateReaction(t *testing.T) {
-	for _, tt := range tests2 {
+	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
 			for i, r := range tt.Input {
 				err := ValidateReaction(r)
@@ -99,7 +103,7 @@ func TestValidateReaction(t *testing.T) {
 
 // Unit test of validateEmoji.
 func Test_validateEmoji(t *testing.T) {
-	for _, tt := range tests2 {
+	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
 			for i, r := range tt.Input {
 				err := validateEmoji(r)

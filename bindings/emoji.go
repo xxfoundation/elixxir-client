@@ -19,7 +19,7 @@ import (
 // [UTS #51 section A.1: Data Files]: https://www.unicode.org/reports/tr51/#Data_Files
 //
 // Returns:
-//   - []byte - JSON of an array of emoji.Emoji.
+//   - []byte - JSON of an array of [emoji.Emoji].
 //
 // Example JSON:
 //
@@ -57,7 +57,7 @@ func SupportedEmojis() ([]byte, error) {
 // as described by [SupportedEmojis].
 //
 // Returns:
-//   - []byte - JSON of a map of emoji.Emoji.
+//   - []byte - JSON of a map of [emoji.Emoji].
 //
 // Example JSON:
 //
@@ -98,7 +98,7 @@ func SupportedEmojisMap() ([]byte, error) {
 //   - reaction - The reaction to validate.
 //
 // Returns:
-//   - Error emoji.InvalidReaction if the reaction is not a single emoji.
+//   - Error [emoji.InvalidReaction] if the reaction is not a single emoji.
 func ValidateReaction(reaction string) error {
 	return emoji.ValidateReaction(reaction)
 }

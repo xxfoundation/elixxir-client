@@ -41,7 +41,7 @@ func SupportedEmojisMap() Map {
 }
 
 // ValidateReaction checks that the reaction only contains a single emoji.
-// Returns InvalidReaction if the emoji is invalid.
+// Returns [InvalidReaction] if the emoji is invalid.
 func ValidateReaction(reaction string) error {
 	if _, exists := emojiFile.Map[reaction]; !exists {
 		return InvalidReaction
@@ -53,11 +53,19 @@ func ValidateReaction(reaction string) error {
 // Map lists all emojis keyed on their character string.
 type Map map[string]Emoji
 
+// File represents the contents of an emoji file downloaded from Unicode.
 type File struct {
-	Date         string `json:"date"`
+	// Date is the date on the document
+	Date string `json:"date"`
+
+	// DateAccessed is the timestamp the file was downloaded
 	DateAccessed string `json:"dateAccessed"`
-	Version      string `json:"version"`
-	Map          Map    `json:"map"`
+
+	// Version is the version of Emoji described.
+	Version string `json:"version"`
+
+	// Map of all emoji character.
+	Map Map `json:"map"`
 }
 
 // Emoji represents comprehensive information of each Unicode emoji character.

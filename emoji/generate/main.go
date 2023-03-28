@@ -5,6 +5,9 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: This tool is not available to wasm.
+//go:build !js || !wasm
+
 // package main downloads the latest list of emojis from Unicode and parses them
 // into a Go map that can be used to validate emojis.
 

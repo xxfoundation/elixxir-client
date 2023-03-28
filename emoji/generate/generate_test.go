@@ -5,6 +5,9 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: This tool is not available to wasm.
+//go:build !js || !wasm
+
 package main
 
 import (

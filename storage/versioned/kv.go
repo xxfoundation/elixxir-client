@@ -19,8 +19,8 @@ import (
 const PrefixSeparator = "/"
 
 const (
-	prefixContainingSeparatorErr = "cannot accept prefix %s with the default separator (%s)"
-	duplicatePrefixErr           = "prefix %s has already been added, cannot overwrite"
+	PrefixContainingSeparatorErr = "cannot accept prefix with the default separator"
+	DuplicatePrefixErr           = "prefix has already been added, cannot overwrite"
 )
 
 // MakePartnerPrefix creates a string prefix
@@ -164,12 +164,12 @@ func (v *KV) HasPrefix(prefix string) bool {
 func (v *KV) Prefix(prefix string) (*KV, error) {
 	// Reject invalid prefixes
 	if strings.Contains(prefix, PrefixSeparator) {
-		return nil, errors.Errorf(prefixContainingSeparatorErr, prefix, PrefixSeparator)
+		return nil, errors.Errorf(PrefixContainingSeparatorErr, prefix, PrefixSeparator)
 	}
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {
-		return nil, errors.Errorf(duplicatePrefixErr, prefix)
+		return nil, errors.Errorf(DuplicatePrefixErr, prefix)
 	}
 
 	v.offset++

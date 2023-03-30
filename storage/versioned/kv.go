@@ -13,9 +13,16 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
+	"strings"
 )
 
-const PrefixSeparator = "/"
+// PrefixSeparator is the separator added when prefixing a KV (see [KV.Prefix]).
+// No prefix may contain this character. This value has been defined as
+// `backwards-slash` (\) rather than the typical `forward-slash` (/) for
+// explicit purposes. There are many valid reasons for the consumer to want to
+// define their prefixes with a `/`, such as using the base64 encoding of some
+// value (see base64.StdEncoding].
+const PrefixSeparator = `\`
 
 const (
 	PrefixContainingSeparatorErr = "cannot accept prefix with the default separator"
@@ -162,10 +169,9 @@ func (v *KV) HasPrefix(prefix string) bool {
 // Prefix returns a new KV with the new prefix appending.
 func (v *KV) Prefix(prefix string) (*KV, error) {
 	//// Reject invalid prefixes
-	// fixme: too many prefixes already have the prefix separator
-	//if strings.Contains(prefix, PrefixSeparator) {
-	//	return nil, errors.Errorf(PrefixContainingSeparatorErr)
-	//}
+	if strings.Contains(prefix, PrefixSeparator) {
+		return nil, errors.Errorf(PrefixContainingSeparatorErr)
+	}
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {

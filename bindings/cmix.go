@@ -19,8 +19,8 @@ import (
 
 // init sets the log level to INFO.
 func init() {
-	jww.SetLogThreshold(jww.LevelWarn)
-	jww.SetStdoutThreshold(jww.LevelWarn)
+	jww.SetLogThreshold(jww.LevelInfo)
+	jww.SetStdoutThreshold(jww.LevelInfo)
 }
 
 // cmixTrackerSingleton is used to track Cmix objects so that they can be

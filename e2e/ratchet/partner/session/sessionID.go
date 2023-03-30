@@ -23,7 +23,7 @@ func (sid SessionID) Marshal() []byte {
 }
 
 func (sid SessionID) String() string {
-	return base64.URLEncoding.EncodeToString(sid[:])
+	return base64.StdEncoding.EncodeToString(sid[:])
 }
 
 func (sid *SessionID) Unmarshal(b []byte) error {

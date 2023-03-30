@@ -24,7 +24,7 @@ import (
 
 // Storage keys and versions.
 const (
-	sentTransferStorePrefix  = "SentFileTransferStore-"
+	sentTransferStorePrefix  = "SentFileTransferStore/"
 	sentTransferStoreKey     = "SentTransfer"
 	sentTransferStoreVersion = 0
 	sentTransferStatusKey    = "SentPartStatusVector"
@@ -394,5 +394,5 @@ func unmarshalSentTransfer(data []byte) (fileName string, recipient *id.ID,
 // store to store sent transfers for the given transfer ID.
 func makeSentTransferPrefix(tid *ftCrypto.TransferID) string {
 	return sentTransferStorePrefix +
-		base64.URLEncoding.EncodeToString(tid.Bytes())
+		base64.StdEncoding.EncodeToString(tid.Bytes())
 }

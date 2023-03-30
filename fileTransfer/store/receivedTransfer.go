@@ -24,7 +24,7 @@ import (
 
 // Storage keys and versions.
 const (
-	receivedTransferStorePrefix  = "ReceivedFileTransferStore-"
+	receivedTransferStorePrefix  = "ReceivedFileTransferStore/"
 	receivedTransferStoreKey     = "ReceivedTransfer"
 	receivedTransferStoreVersion = 0
 	receivedTransferStatusKey    = "ReceivedPartStatusVector"
@@ -407,7 +407,7 @@ func loadPart(partNum int, kv *versioned.KV) ([]byte, error) {
 // store to store received transfers for the given transfer ID.
 func makeReceivedTransferPrefix(tid *ftCrypto.TransferID) string {
 	return receivedTransferStorePrefix +
-		base64.URLEncoding.EncodeToString(tid.Bytes())
+		base64.StdEncoding.EncodeToString(tid.Bytes())
 }
 
 // makeReceivedPartKey generates a storage key for the given part number.

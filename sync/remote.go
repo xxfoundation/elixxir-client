@@ -243,11 +243,14 @@ func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
 		}
 	}
 
+	r.lck.Lock()
 	err = r.removeUnsyncedWrite(newTx.Key)
 	if err != nil {
 		jww.WARN.Printf("Failed to remove intent for key %s: %+v",
 			newTx.Key, err)
 	}
+	r.lck.Unlock()
+
 }
 
 // localSet will save the key value pair in the local KV.
@@ -279,6 +282,7 @@ func (r *RemoteKV) removeUnsyncedWrite(key string) error {
 
 // saveUnsyncedWrites is a utility function which writes the UnsyncedWrites map to disk.
 func (r *RemoteKV) saveUnsyncedWrites() error {
+	//fmt.Printf("unsynced: %v\n", r.UnsyncedWrites)
 	data, err := json.Marshal(r.UnsyncedWrites)
 	if err != nil {
 		return err

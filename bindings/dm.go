@@ -145,6 +145,79 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 	return dmClients.add(m), nil
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// DM Share URL                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
+// DmShareURL is returned from [DMClient.GetShareURL]. It includes the
+// user's share URL.
+//
+// JSON example for a user:
+//
+//	{
+//	 "url": "https://internet.speakeasy.tech/?l=32&m=5&p=EfDzQDa4fQ5BoqNIMbECFDY9ckRr_fadd8F1jE49qJc%3D&t=4231817746&v=1",
+//	}
+type DmShareURL struct {
+	URL string `json:"url"`
+}
+
+// DmShareUrlReport is returned from [DecodeDmPublic]. It includes the token
+// and public key of the user who created the URL.
+//
+// JSON example for a user:
+//
+//	{
+//	 "token": 4231817746,
+//	 "publicKey": "EfDzQDa4fQ5BoqNIMbECFDY9ckRr/fadd8F1jE49qJc="
+//	}
+type DmShareUrlReport struct {
+	Token     int    `json:"token"`
+	PublicKey []byte `json:"publicKey"`
+}
+
+// GetShareURL generates a URL that can be used to share a URL to initiate d
+// direct messages with this user.
+//
+// Parameters:
+//   - host - The URL to append the DM info to.
+//
+// Returns:
+//   - JSON of [DmShareURL].
+func (dmc *DMClient) GetShareURL(host string) ([]byte, error) {
+	url, err := dmc.api.ShareURL(host, 0, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	su := DmShareURL{
+		URL: url,
+	}
+
+	return json.Marshal(su)
+}
+
+// DecodeDmPublic decodes the user's URL into a DmShareUrlReport.
+//
+// Parameters:
+//   - url - The user's share URL. Should be received from another user or
+//     generated via [DMClient.GetShareURL].
+//
+// Returns:
+//   - JSON of DmShareUrlReport.
+func DecodeDmPublic(url string) ([]byte, error) {
+	token, pubKey, err := dm.DecodeShareURL(url, "")
+	if err != nil {
+		return nil, err
+	}
+
+	dmShareReport := &DmShareUrlReport{
+		Token:     token,
+		PublicKey: pubKey.Bytes(),
+	}
+
+	return json.Marshal(dmShareReport)
+}
+
 // GetID returns the tracker ID for the DMClient object.
 func (dmc *DMClient) GetID() int {
 	return dmc.id

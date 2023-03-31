@@ -9,6 +9,7 @@ package dm
 
 import (
 	"crypto/ed25519"
+	"io"
 	"time"
 
 	"gitlab.com/xx_network/primitives/id"
@@ -54,6 +55,10 @@ type Client interface {
 	// GetBlockedSenders returns all senders who are blocked by this user.
 	// Blocking is controlled by the receiver/EventModel.
 	GetBlockedSenders() []ed25519.PublicKey
+
+	// ShareURL generates a URL that can be used to share this channel with
+	// others on the given host.
+	ShareURL(url string, maxUses int, csprng io.Reader) (string, error)
 
 	NickNameManager
 }

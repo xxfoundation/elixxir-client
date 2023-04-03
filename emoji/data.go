@@ -11,7 +11,7 @@ package emoji
 
 var emojiFile = File{
 	Date:         "2022-08-12, 20:24:39 GMT",
-	DateAccessed: "2023-03-28, 22:32:00 UTC",
+	DateAccessed: "2023-04-03, 16:36:15 UTC",
 	Version:      "15.0",
 	Map: Map{ 
 		"#⃣": {

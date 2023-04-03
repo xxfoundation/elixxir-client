@@ -10,84 +10,50 @@
 package storage
 
 import (
-	"testing"
-	"time"
-
+	"crypto/ed25519"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/xx_network/primitives/id"
+	"os"
+	"testing"
 )
 
-// Series of interdependent smoke tests of the impl object and its methods.
-func TestImpl(t *testing.T) {
+func dummyReceivedMessageCB(uint64, ed25519.PublicKey, bool, bool) {}
+
+func TestMain(m *testing.M) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
-	testCb := func(uuid uint64, channelID *id.ID, update bool) {}
+	os.Exit(m.Run())
+}
 
-	model, err := newImpl("", nil, testCb, nil, nil)
+// Test happy path toggling between blocked/unblocked in a Conversation.
+func TestWasmModel_BlockSender(t *testing.T) {
+	m, err := newImpl("test", nil, dummyReceivedMessageCB)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
-	// Join a Channel
-	testString := "test"
-	testChannelId := &id.DummyUser
-	testChannel := &cryptoBroadcast.Channel{
-		ReceptionID: testChannelId,
-		Name:        testString,
-		Description: testString,
-	}
-	model.JoinChannel(testChannel)
-
-	// Receive a Message
-	testBytes := []byte(testString)
-	testRoundId := uint64(10)
-	testMsgId := message.DeriveChannelMessageID(testChannelId,
-		testRoundId, testBytes)
-	testRound := rounds.Round{ID: id.Round(testRoundId)}
-	newId := model.ReceiveMessage(testChannelId, testMsgId, testString, testString, testBytes,
-		0, 0, time.Now(), 0, testRound, 0, 0, false)
-	t.Logf("Inserted message with ID: %d", newId)
-
-	// Update the Message
-	testInt := 1
-	testTime := time.Now()
-	testBool := true
-	testStatus := channels.SentStatus(testInt)
-	updatedId := model.UpdateFromMessageID(testMsgId, &testTime, nil,
-		&testBool, &testBool, &testStatus)
-	if updatedId != newId {
-		t.Fatalf("UUIDs differ, Got %d Expected %d", updatedId, newId)
-	}
-
-	// Compare updated Message with the original
-	gotMsg, err := model.GetMessage(testMsgId)
+	// Insert a test convo
+	testPubKey := ed25519.PublicKey{}
+	err = m.createConversation("test", testPubKey, 0, 0, false)
 	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Got Message: %v", gotMsg)
-	if gotMsg.UUID != newId {
-		t.Fatalf("Params differ, Got %d Expected %d", gotMsg.UUID, newId)
-	}
-	if !gotMsg.Timestamp.Equal(testTime) {
-		t.Fatalf("Params differ, Got %T Expected %T", gotMsg.Timestamp, testTime)
-	}
-	if gotMsg.Hidden != testBool {
-		t.Fatalf("Params differ, Got %t Expected %t", gotMsg.Hidden, testBool)
-	}
-	if gotMsg.Pinned != testBool {
-		t.Fatalf("Params differ, Got %t Expected %t", gotMsg.Pinned, testBool)
-	}
-	if gotMsg.Status != testStatus {
-		t.Fatalf("Params differ, Got %d Expected %d", gotMsg.Status, testStatus)
+		t.Fatal(err.Error())
 	}
 
-	// Leave a channel and ensure its Messages are deleted
-	model.LeaveChannel(testChannelId)
-	gotMsg, err = model.GetMessage(testMsgId)
-	if err == nil {
-		t.Fatal("Expected to be unable to get deleted Message")
+	// Default to unblocked
+	result := m.GetConversation(testPubKey)
+	if result.Blocked {
+		t.Fatal("Expected blocked to be false")
+	}
+
+	// Now toggle blocked
+	m.BlockSender(testPubKey)
+	result = m.GetConversation(testPubKey)
+	if !result.Blocked {
+		t.Fatal("Expected blocked to be true")
+	}
+
+	// Now toggle blocked again
+	m.UnblockSender(testPubKey)
+	result = m.GetConversation(testPubKey)
+	if result.Blocked {
+		t.Fatal("Expected blocked to be false")
 	}
 }

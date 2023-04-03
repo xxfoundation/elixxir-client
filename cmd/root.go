@@ -143,7 +143,7 @@ var rootCmd = &cobra.Command{
 		total := 100
 		jww.INFO.Printf("Registering with nodes...")
 
-		for !cmixParams.Network.DisableNodeRegistration && numReg < (total*3)/4 {
+		for !cmixParams.Network.DisableNodeRegistration && numReg < (total*4)/10 {
 			time.Sleep(1 * time.Second)
 			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
@@ -1222,7 +1222,7 @@ func init() {
 		"Use to disable registering with nodes.  This should be used FOR TESTING PURPOSES ONLY.")
 	viper.BindPFlag(disableNodeRegistrationFlag, rootCmd.Flags().Lookup(disableNodeRegistrationFlag))
 
-	rootCmd.Flags().BoolP(enableEphemeralRegistrationFlag, "", false,
+	rootCmd.Flags().BoolP(enableEphemeralRegistrationFlag, "", true,
 		"Toggle to use ephemeral ED keys when attempting to send on a round with nodes you have not registered with")
 	viper.BindPFlag(enableEphemeralRegistrationFlag, rootCmd.Flags().Lookup(enableEphemeralRegistrationFlag))
 

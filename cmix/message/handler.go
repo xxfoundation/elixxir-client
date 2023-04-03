@@ -186,11 +186,11 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 	if proc, exists := h.pop(identity.Source, fingerprint); exists {
 		jww.DEBUG.Printf("handleMessage found fingerprint: %s",
 			ecrMsg.Digest())
-		proc.Process(ecrMsg, nil, identity, round)
+		proc.Process(ecrMsg, nil, nil, identity, round)
 		return true
 	}
 
-	services, tags, exists := h.get(
+	services, tags, metadata, exists := h.get(
 		identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
 	// If the id doesn't exist or there are no services for it, then
 	// we want messages to be reprocessed as garbled.
@@ -198,14 +198,14 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 		for _, t := range services {
 			jww.DEBUG.Printf("handleMessage service found: %s, %s",
 				ecrMsg.Digest(), t)
-			go t.Process(ecrMsg, tags, identity, round)
+			go t.Process(ecrMsg, tags, metadata, identity, round)
 		}
 		return true
 	}
 
 	// handle the fallthrough, if it exists
 	if p, exist := h.getFallthrough(identity.Source); exist {
-		p.Process(ecrMsg, nil, identity, round)
+		p.Process(ecrMsg, nil, nil, identity, round)
 		return true
 	}
 

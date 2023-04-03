@@ -137,7 +137,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 		msg.SetContents(targetedMsg.Payload)
 		msg.SetMac(targetedMsg.Mac)
 		msg.SetKeyFP(targetedMsg.Fingerprint)
-		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg, []string{},
+		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg, []string{}, nil,
 			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
 			rounds.Round{ID: 42})
 	}
@@ -271,7 +271,7 @@ func (m *mockGC) Send(groupID *id.ID, tag string, message []byte) (
 	m.handler.services[tag].Process(groupChat.MessageReceive{
 		GroupID: groupID,
 		Payload: message,
-	}, format.Message{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+	}, format.Message{}, nil, nil, receptionID.EphemeralIdentity{}, rounds.Round{})
 	return rounds.Round{}, time.Time{}, group.MessageID{}, nil
 }
 

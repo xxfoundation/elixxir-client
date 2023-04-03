@@ -8,6 +8,7 @@
 package broadcast
 
 import (
+	"encoding/binary"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -34,12 +35,13 @@ const (
 // size [broadcastClient.MaxPayloadSize] or smaller.
 //
 // The network must be healthy to send.
-func (bc *broadcastClient) Broadcast(payload []byte, tags []string, cMixParams cmix.CMIXParams) (
+func (bc *broadcastClient) Broadcast(payload []byte, tags []string, messageType uint16,
+	cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	assemble := func(rid id.Round) ([]byte, error) {
 		return payload, nil
 	}
-	return bc.BroadcastWithAssembler(assemble, tags, cMixParams)
+	return bc.BroadcastWithAssembler(assemble, tags, messageType, cMixParams)
 }
 
 // BroadcastWithAssembler broadcasts a payload over a symmetric channel with a
@@ -50,7 +52,8 @@ func (bc *broadcastClient) Broadcast(payload []byte, tags []string, cMixParams c
 //
 // The network must be healthy to send.
 func (bc *broadcastClient) BroadcastWithAssembler(
-	assembler Assembler, tags []string, cMixParams cmix.CMIXParams) (
+	assembler Assembler, tags []string, messageType uint16,
+	cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	if !bc.net.IsHealthy() {
 		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
@@ -82,7 +85,7 @@ func (bc *broadcastClient) BroadcastWithAssembler(
 
 		// Create service using symmetric broadcast service tag & channel reception ID
 		// Allows anybody with this info to listen for messages on this channel
-		service = bc.GetSymmetricCompressedService(tags)
+		service = bc.GetSymmetricCompressedService(tags, messageType)
 
 		if cMixParams.DebugTag == cmix.DefaultDebugTag {
 			cMixParams.DebugTag = symmCMixSendTag
@@ -94,9 +97,13 @@ func (bc *broadcastClient) BroadcastWithAssembler(
 		bc.channel.ReceptionID, assemble, cMixParams)
 }
 
-func (bc *broadcastClient) GetSymmetricCompressedService(tags []string) message.CompressedService {
+func (bc *broadcastClient) GetSymmetricCompressedService(tags []string, messageType uint16) message.CompressedService {
+	md := make([]byte, 2)
+	binary.BigEndian.PutUint16(md, messageType)
+
 	return message.CompressedService{
 		Identifier: bc.symIdentifier,
 		Tags:       tags,
+		Metadata:   md,
 	}
 }

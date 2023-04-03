@@ -18,7 +18,7 @@ import (
 type Processor interface {
 	// Process decrypts and hands off the message to its internal down stream
 	// message processing system.
-	Process(decryptedMsg MessageReceive, msg format.Message,
+	Process(decryptedMsg MessageReceive, msg format.Message, _ []string, _ []byte,
 		receptionID receptionID.EphemeralIdentity, round rounds.Round)
 
 	// Stringer interface for debugging.

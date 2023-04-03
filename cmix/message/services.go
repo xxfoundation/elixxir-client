@@ -76,7 +76,7 @@ func NewServices() *ServicesManager {
 // These services are returned to the caller along with a true boolean.
 // If the map has been exhausted with no matches found, it returns nil and false.
 func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
-	ecrMsgContents []byte) ([]Processor, []string, bool) {
+	ecrMsgContents []byte) ([]Processor, []string, []byte, bool) {
 	sm.Lock()
 	defer sm.Unlock()
 	cid := *clientID
@@ -91,23 +91,23 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 					if s.Processor == nil {
 						jww.ERROR.Printf("<nil> processor: %s",
 							s.Tag)
-						return []Processor{}, nil, true
+						return []Processor{}, nil, nil, true
 					}
 					// Return this service directly if not
 					// the default service
-					return []Processor{s}, []string{s.Tag}, true
+					return []Processor{s}, []string{s.Tag}, s.Metadata, true
 
 				} else if s.defaultList != nil {
 					// If it is default and the default
 					// list is not empty, then return the
 					// default list
-					return s.defaultList, []string{sih.Default}, true
+					return s.defaultList, []string{sih.Default}, nil, true
 				}
 
 				// Return false if it is for me, but I have
 				// nothing registered to respond to default
 				// queries
-				return []Processor{}, nil, false
+				return []Processor{}, nil, nil, false
 			}
 			jww.TRACE.Printf("Evaluated service not for me (%s): %s",
 				clientID, s)
@@ -116,13 +116,13 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 
 	if compressed, exists := sm.compressedServices[cid]; exists {
 		for _, c := range compressed {
-			if forMe, tags := c.ForMe(clientID, ecrMsgContents, receivedSIH); forMe {
-				return []Processor{c.Processor}, tags, true
+			if forMe, tags, metadata := c.ForMe(clientID, ecrMsgContents, receivedSIH); forMe {
+				return []Processor{c.Processor}, tags, metadata, true
 			}
 		}
 	}
 
-	return nil, nil, false
+	return nil, nil, nil, false
 }
 
 // AddService adds a service which can call a message handing function or be

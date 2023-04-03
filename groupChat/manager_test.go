@@ -36,7 +36,7 @@ var _ groupE2eHandler = (e2eImport.Handler)(nil)
 
 type mockProcessor struct{ receiveChan chan MessageReceive }
 
-func (m mockProcessor) Process(msg MessageReceive, _ format.Message,
+func (m mockProcessor) Process(msg MessageReceive, _ format.Message, _ []string, _ []byte,
 	_ receptionID.EphemeralIdentity, _ rounds.Round) {
 	m.receiveChan <- msg
 }

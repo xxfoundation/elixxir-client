@@ -61,7 +61,7 @@ func (si Service) String() string {
 type CompressedService struct {
 	Identifier []byte
 	Tags       []string
-	Metadata   []byte // Optional metadata field, only used on reception
+	Metadata   []byte // when hashed, included in CompressedSIH, when evaluated, recovered
 
 	// Private field for lazy evaluation of preimage
 	// A value of nil denotes not yet evaluated
@@ -69,18 +69,19 @@ type CompressedService struct {
 }
 
 func (cs CompressedService) ForMe(pickup *id.ID, contents, hash []byte) (
-	bool, []string) {
-	tags, found, err := sih.EvaluateCompessedSIH(pickup, hash,
+	bool, []string, []byte) {
+	tags, metadata, found, err := sih.EvaluateCompressedSIH(pickup, hash,
 		cs.Identifier, cs.Tags, contents)
 	if err != nil {
 		jww.WARN.Printf("Failed to evaluate compressed SID for %s: %+v", pickup, err)
 	}
-	return found, tags
+	return found, tags, metadata
 }
 
 func (cs CompressedService) Hash(pickup *id.ID, contents []byte) ([]byte, error) {
-	found, err := sih.MakeCompessedSIH(pickup, contents,
-		cs.Identifier, cs.Tags)
+
+	found, err := sih.MakeCompressedSIH(pickup, contents,
+		cs.Identifier, cs.Tags, cs.Metadata)
 
 	return found, err
 }

@@ -42,7 +42,7 @@ type receptionProcessor struct {
 }
 
 // Process incoming group chat messages.
-func (p *receptionProcessor) Process(message format.Message, _ []string,
+func (p *receptionProcessor) Process(message format.Message, _ []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	jww.TRACE.Printf("[GC] Received group message from %d (%s) on round %d.",
 		receptionID.EphId.Int64(), receptionID.Source, round.ID)

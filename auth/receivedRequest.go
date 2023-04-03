@@ -34,7 +34,7 @@ type receivedRequestService struct {
 }
 
 func (rrs *receivedRequestService) Process(message format.Message, _ []string,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	_ []byte, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	authState := rrs.s
 
 	// check if the timestamp is before the id was created and therefore

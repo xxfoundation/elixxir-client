@@ -195,7 +195,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 		msg.SetMac(targetedMsg.Mac)
 		msg.SetKeyFP(targetedMsg.Fingerprint)
 		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg, []string{},
-			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
+			nil, receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
 			rounds.Round{ID: round})
 	}
 	return rounds.Round{ID: round}, []ephemeral.Id{}, nil

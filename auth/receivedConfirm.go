@@ -29,7 +29,7 @@ type receivedConfirmService struct {
 }
 
 func (rcs *receivedConfirmService) Process(msg format.Message, tags []string,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	_ []byte, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	authState := rcs.s
 

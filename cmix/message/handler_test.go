@@ -26,7 +26,8 @@ import (
 type testProcessor struct {
 }
 
-func (t *testProcessor) Process(_ format.Message, _ []string, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+func (t *testProcessor) Process(_ format.Message, _ []string, _ []byte,
+	_ receptionID.EphemeralIdentity, _ rounds.Round) {
 
 }
 

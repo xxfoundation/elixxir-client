@@ -23,7 +23,8 @@ import (
 // ListenerFunc is registered when creating a new broadcasting channel and
 // receives all new broadcast messages for the channel.
 type ListenerFunc func(payload, encryptedPayload []byte, tags []string,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round)
+	messageType uint16, receptionID receptionID.EphemeralIdentity,
+	round rounds.Round)
 
 // Channel is the public-facing interface to interact with broadcast channels.
 type Channel interface {
@@ -42,8 +43,8 @@ type Channel interface {
 	// size Channel.MaxPayloadSize or smaller.
 	//
 	// The network must be healthy to send.
-	Broadcast(payload []byte, tags []string, MixParams cmix.CMIXParams) (
-		rounds.Round, ephemeral.Id, error)
+	Broadcast(payload []byte, tags []string, messageType uint16,
+		MixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	// BroadcastWithAssembler broadcasts a payload over a channel with a payload
 	// assembled after the round is selected, allowing the round info to be
@@ -52,7 +53,8 @@ type Channel interface {
 	// The payload must be of the size Channel.MaxPayloadSize or smaller.
 	//
 	// The network must be healthy to send.
-	BroadcastWithAssembler(assembler Assembler, tags []string, cMixParams cmix.CMIXParams) (
+	BroadcastWithAssembler(assembler Assembler, tags []string, messageType uint16,
+		cMixParams cmix.CMIXParams) (
 		rounds.Round, ephemeral.Id, error)
 
 	// BroadcastRSAtoPublic broadcasts the payload to the channel.
@@ -62,7 +64,8 @@ type Channel interface {
 	//
 	// The network must be healthy to send.
 	BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte, tags []string,
-		cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error)
+		messageType uint16, cMixParams cmix.CMIXParams) (
+		[]byte, rounds.Round, ephemeral.Id, error)
 
 	// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel
 	// with a function that builds the payload based upon the ID of the selected
@@ -73,8 +76,8 @@ type Channel interface {
 	//
 	// The network must be healthy to send.
 	BroadcastRSAToPublicWithAssembler(pk rsa.PrivateKey, assembler Assembler,
-		tags []string, cMixParams cmix.CMIXParams) ([]byte, rounds.Round,
-		ephemeral.Id, error)
+		tags []string, messageType uint16, cMixParams cmix.CMIXParams) (
+		[]byte, rounds.Round, ephemeral.Id, error)
 
 	// RegisterRSAtoPublicListener registers a listener for asymmetric broadcast messages.
 	// Note: only one Asymmetric Listener can be registered at a time.
@@ -99,7 +102,7 @@ type Processor interface {
 
 	// ProcessAdminMessage decrypts an admin message and sends the results on
 	// the callback.
-	ProcessAdminMessage(innerCiphertext []byte, tags []string,
+	ProcessAdminMessage(innerCiphertext []byte, tags []string, messageType uint16,
 		receptionID receptionID.EphemeralIdentity, round rounds.Round)
 }
 

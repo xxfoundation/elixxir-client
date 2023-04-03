@@ -46,7 +46,7 @@ func newMockProcessor() *mockProcessor {
 	return m
 }
 func (p *mockProcessor) Process(message format.Message, _ []string,
-	_ receptionID.EphemeralIdentity, _ rounds.Round) {
+	_ []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	p.messages = append(p.messages, message)
 }
 func (p *mockProcessor) String() string { return "hello" }

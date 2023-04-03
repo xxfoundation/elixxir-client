@@ -207,11 +207,11 @@ func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv cmix.Service,
 
 	if m.handler.processorMap[fp] != nil {
 		m.handler.processorMap[fp].Process(
-			msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+			msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 		return rounds.Round{}, ephemeral.Id{}, nil
 	} else if m.handler.serviceMap[srvc.Tag] != nil {
 		m.handler.serviceMap[srvc.Tag].Process(
-			msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+			msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 		return rounds.Round{}, ephemeral.Id{}, nil
 	}
 

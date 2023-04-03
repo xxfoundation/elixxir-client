@@ -94,7 +94,7 @@ func (mc *mockClient) SendManyWithAssembler(recipients []*id.ID,
 				Source: recipients[i],
 			}
 			clients[i].processors[*recipients[i]].Process(
-				msg, []string{}, recID, rnd)
+				msg, []string{}, []byte{}, recID, rnd)
 		}
 	}
 	return rounds.Round{ID: id.Round(mc.rndID)}, ids, nil

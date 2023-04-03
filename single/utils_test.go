@@ -143,7 +143,7 @@ func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 		if mp, exists := m.handler.fingerprints[*recipient][fp]; exists {
 			sent = true
 			go mp.Process(
-				msg, []string{}, receptionID.EphemeralIdentity{Source: m.myID}, rounds.Round{})
+				msg, []string{}, []byte{}, receptionID.EphemeralIdentity{Source: m.myID}, rounds.Round{})
 		}
 	}
 
@@ -151,7 +151,8 @@ func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 		if mp, exists := m.handler.services[*recipient][serviceKey(ms)]; exists {
 			sent = true
 			go mp.Process(
-				msg, []string{}, receptionID.EphemeralIdentity{Source: m.myID}, rounds.Round{})
+				msg, []string{}, []byte{}, receptionID.EphemeralIdentity{Source: m.myID},
+				rounds.Round{})
 		}
 	}
 
@@ -210,7 +211,8 @@ func (m *mockCmix) CheckInProgressMessages() {
 			if mp, exists := m.handler.fingerprints[*s.recipient][s.msg.GetKeyFP()]; exists {
 				sent = true
 				go mp.Process(
-					s.msg, []string{}, receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
+					s.msg, []string{}, []byte{},
+					receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
 			}
 		}
 
@@ -218,7 +220,8 @@ func (m *mockCmix) CheckInProgressMessages() {
 			if mp, exists := m.handler.services[*s.recipient][serviceKey(s.ms)]; exists {
 				sent = true
 				go mp.Process(
-					s.msg, []string{}, receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
+					s.msg, []string{}, []byte{},
+					receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
 			}
 		}
 

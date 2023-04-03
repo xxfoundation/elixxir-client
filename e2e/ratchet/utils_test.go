@@ -143,7 +143,7 @@ type mockProcessor struct {
 }
 
 func (m *mockProcessor) Process(message format.Message, tags []string,
-	receptionID receptionID.EphemeralIdentity,
+	_ []byte, receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
 
 }

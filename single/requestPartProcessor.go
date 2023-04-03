@@ -29,7 +29,7 @@ type requestPartProcessor struct {
 }
 
 func (rpp *requestPartProcessor) Process(msg format.Message, tags []string,
-	_ receptionID.EphemeralIdentity, round rounds.Round) {
+	_ []byte, _ receptionID.EphemeralIdentity, round rounds.Round) {
 
 	decrypted, err := rpp.cy.decrypt(msg.GetContents(), msg.GetMac())
 	if err != nil {

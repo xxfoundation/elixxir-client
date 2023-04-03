@@ -175,7 +175,7 @@ func (mock *MockMsgProcessor) MarkFingerprintUsed(_ format.Fingerprint) {
 }
 
 func (mock *MockMsgProcessor) Process(
-	format.Message, []string, receptionID.EphemeralIdentity, rounds.Round) {
+	format.Message, []string, []byte, receptionID.EphemeralIdentity, rounds.Round) {
 	return
 }
 

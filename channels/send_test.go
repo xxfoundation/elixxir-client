@@ -695,7 +695,7 @@ func (m *mockBroadcastChannel) MaxPayloadSize() int            { return 1024 }
 func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int { return 512 }
 func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel  { return m.crypto }
 
-func (m *mockBroadcastChannel) Broadcast(payload []byte,
+func (m *mockBroadcastChannel) Broadcast(payload []byte, tags []string,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -704,7 +704,7 @@ func (m *mockBroadcastChannel) Broadcast(payload []byte,
 }
 
 func (m *mockBroadcastChannel) BroadcastWithAssembler(
-	assembler broadcast.Assembler, cMixParams cmix.CMIXParams) (
+	assembler broadcast.Assembler, tags []string, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -714,7 +714,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
-	payload []byte, cMixParams cmix.CMIXParams) (
+	payload []byte, tags []string, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -724,7 +724,7 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
-	pk rsa.PrivateKey, assembler broadcast.Assembler,
+	pk rsa.PrivateKey, assembler broadcast.Assembler, tags []string,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -734,10 +734,16 @@ func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
 	return nil, rounds.Round{ID: returnedRound}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) RegisterListener(
-	broadcast.ListenerFunc, broadcast.Method) (broadcast.Processor, error) {
-	return nil, nil
+func (m *mockBroadcastChannel) RegisterRSAtoPublicListener(listenerCb broadcast.ListenerFunc, tags []string) (broadcast.Processor, error) {
+	//TODO implement me
+	panic("implement me")
 }
+
+func (m *mockBroadcastChannel) RegisterSymmetricListener(listenerCb broadcast.ListenerFunc, tags []string) (broadcast.Processor, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockBroadcastChannel) Stop() {}
 
 // mockNameService adheres to the NameService interface and is used for testing.

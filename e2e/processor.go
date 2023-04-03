@@ -23,7 +23,7 @@ type processor struct {
 	m  *manager
 }
 
-func (p *processor) Process(ecrMsg format.Message, tags []string,
+func (p *processor) Process(ecrMsg format.Message, tags []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
 	jww.TRACE.Printf("[E2E] Process(ecrMsgDigest: %s)", ecrMsg.Digest())

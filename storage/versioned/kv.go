@@ -145,6 +145,11 @@ func (v *KV) GetPrefix() string {
 }
 
 //Returns a new KV with the new prefix
+// make it reject prefixes that contain PrefixSeparator
+// store the prefixes in a map, prefix name - > position map[string]int
+// add a function HasPrefix which looks up the prefix in the map
+// reject duplicate prefixes
+// also keep the concatinated version
 func (v *KV) Prefix(prefix string) *KV {
 	kvPrefix := KV{
 		r:      v.r,

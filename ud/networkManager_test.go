@@ -75,12 +75,12 @@ func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmi
 	if bytes.Equal(tnm.instance.GetFullNdf().
 		Get().UDB.ID,
 		recipient.Bytes()) {
-		tnm.responseProcessor.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.responseProcessor.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 
 	} else {
 		// This should happen when the mock UD service Sends back a response.
 		// Calling process mocks up the requester picking up the response.
-		tnm.requestProcess.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.requestProcess.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return rounds.Round{}, ephemeral.Id{}, nil
@@ -105,12 +105,12 @@ func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerp
 	if bytes.Equal(tnm.instance.GetFullNdf().
 		Get().UDB.ID,
 		recipient.Bytes()) {
-		tnm.responseProcessor.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.responseProcessor.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 
 	} else {
 		// This should happen when the mock UD service Sends back a response.
 		// Calling process mocks up the requester picking up the response.
-		tnm.requestProcess.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.requestProcess.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return rounds.Round{}, ephemeral.Id{}, nil

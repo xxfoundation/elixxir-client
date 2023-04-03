@@ -252,7 +252,7 @@ func convertProcessor(msg format.Message, tags []string,
 // added again during application load. It is a security vulnerability to reuse
 // a fingerprint. It leaks privacy and can lead to compromise of message
 // contents and integrity.
-func (m *messageProcessor) Process(msg format.Message, tags []string,
+func (m *messageProcessor) Process(msg format.Message, tags []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity, roundId rounds.Round) {
 	m.bindingsCbs.Process(convertProcessor(msg, tags, receptionID, roundId))
 }

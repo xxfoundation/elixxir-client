@@ -265,10 +265,10 @@ func (m mockListenCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	defer m.handler.Unlock()
 	svc := service.(cMixMsg.Service)
 	for _, p := range m.handler.serviceMap[*recipient][svc.Tag] {
-		p.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		p.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 	for _, p := range m.handler.fingerprintMap[*recipient][fingerprint] {
-		p.Process(msg, []string{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		p.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return rounds.Round{}, ephemeral.Id{}, nil

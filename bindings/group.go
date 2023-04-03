@@ -415,7 +415,7 @@ func convertGroupChatProcessor(decryptedMsg gc.MessageReceive, msg format.Messag
 
 // Process handles incoming group chat messages.
 func (gcp *groupChatProcessor) Process(decryptedMsg gc.MessageReceive, msg format.Message,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	_ []string, _ []byte, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	gcp.bindingsCb.Process(convertGroupChatProcessor(decryptedMsg, msg, receptionID, round))
 }
 

@@ -23,7 +23,7 @@ type UnsafeProcessor struct {
 }
 
 func (up *UnsafeProcessor) Process(ecrMsg format.Message, tags []string,
-	receptionID receptionID.EphemeralIdentity,
+	_ []byte, receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
 	//check if the message is unencrypted
 	jww.INFO.Printf("Unsafe Processed received: contents: %v, fp: %v, mac: %v, sih: %v",

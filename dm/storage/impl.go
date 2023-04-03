@@ -61,55 +61,176 @@ func buildMessage(messageID, parentID, text []byte, partnerKey,
 func (i *impl) Receive(messageID message.ID, nickname string, text []byte,
 	partnerPubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round, mType dm.MessageType, status dm.Status) uint64 {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "[DM SQL] failed to Receive"
+	jww.TRACE.Printf("[DM SQL] Receive(%s)", messageID)
+
+	uuid, err := i.receiveWrapper(messageID, nil, nickname, string(text),
+		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round, mType, status)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		return 0
+	}
+	return uuid
 }
 
 func (i *impl) ReceiveText(messageID message.ID, nickname, text string,
 	partnerPubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round, status dm.Status) uint64 {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "[DM SQL] failed to ReceiveText"
+	jww.TRACE.Printf("[DM SQL] ReceiveText(%s)", messageID)
+
+	uuid, err := i.receiveWrapper(messageID, nil, nickname, text,
+		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round,
+		dm.TextType, status)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		return 0
+	}
+	return uuid
 }
 
 func (i *impl) ReceiveReply(messageID message.ID, reactionTo message.ID, nickname,
 	text string, partnerPubKey, senderPubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, round rounds.Round, status dm.Status) uint64 {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "[DM SQL] failed to ReceiveReply"
+	jww.TRACE.Printf("[DM SQL] ReceiveReply(%s)", messageID)
+
+	uuid, err := i.receiveWrapper(messageID, &reactionTo, nickname, text,
+		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round,
+		dm.ReplyType, status)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		return 0
+	}
+	return uuid
 }
 
 func (i *impl) ReceiveReaction(messageID message.ID, reactionTo message.ID,
 	nickname, reaction string, partnerPubKey, senderPubKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time, round rounds.Round, status dm.Status) uint64 {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "[DM SQL] failed to ReceiveReaction"
+	jww.TRACE.Printf("[DM SQL] ReceiveReaction(%s)", messageID)
+
+	uuid, err := i.receiveWrapper(messageID, &reactionTo, nickname, reaction,
+		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round,
+		dm.ReactionType, status)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		return 0
+	}
+	return uuid
 }
 
 func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 	timestamp time.Time, round rounds.Round, status dm.Status) {
-	//TODO implement me
-	panic("implement me")
+	parentErr := errors.New("[DM SQL] failed to UpdateSentStatus")
+	jww.TRACE.Printf(
+		"[DM SQL] UpdateSentStatus(%d, %s, ...)", uuid, messageID)
+
+	// Use the uuid to get the existing Message
+	currentMessage := &Message{Id: uuid}
+	ctx, cancel := newContext()
+	err := i.db.WithContext(ctx).Take(currentMessage).Error
+	cancel()
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessagef(parentErr,
+			"Unable to get message: %+v", err))
+		return
+	}
+
+	// Update the fields, if needed
+	currentMessage.Status = uint8(status)
+	if !messageID.Equals(message.ID{}) {
+		currentMessage.MessageId = messageID.Bytes()
+	}
+	if round.ID != 0 {
+		currentMessage.Round = uint64(round.ID)
+	}
+	if !timestamp.Equal(time.Time{}) {
+		currentMessage.Timestamp = timestamp
+	}
+
+	// Store the updated Message
+	_, err = i.upsertMessage(currentMessage)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.Wrap(parentErr, err.Error()))
+		return
+	}
+
+	jww.TRACE.Printf("[DM SQL] Calling ReceiveMessageCB(%v, %v, t, f)",
+		uuid, currentMessage.ConversationPubKey)
+	go i.receivedMessageCB(uuid, currentMessage.ConversationPubKey,
+		true, false)
 }
 
 func (i *impl) BlockSender(senderPubKey ed25519.PublicKey) {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "failed to BlockSender"
+	err := i.setBlocked(senderPubKey, true)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
+	}
 }
 
 func (i *impl) UnblockSender(senderPubKey ed25519.PublicKey) {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "failed to UnblockSender"
+	err := i.setBlocked(senderPubKey, false)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
+	}
+}
+
+// setBlocked is a helper for blocking/unblocking a given Conversation.
+func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error {
+	resultConvo, err := i.getConversation(senderPubKey)
+	if err != nil {
+		return err
+	}
+
+	return i.updateConversation(resultConvo.Nickname, resultConvo.Pubkey,
+		resultConvo.Token, resultConvo.CodesetVersion, isBlocked)
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "failed to GetConversation"
+	resultConvo, err := i.getConversation(senderPubKey)
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
+		return nil
+	}
+
+	return &dm.ModelConversation{
+		Pubkey:         resultConvo.Pubkey,
+		Nickname:       resultConvo.Nickname,
+		Token:          resultConvo.Token,
+		CodesetVersion: resultConvo.CodesetVersion,
+		Blocked:        resultConvo.Blocked,
+	}
 }
 
 func (i *impl) GetConversations() []dm.ModelConversation {
-	//TODO implement me
-	panic("implement me")
+	parentErr := "failed to GetConversations"
+
+	var results []*Conversation
+	ctx, cancel := newContext()
+	err := i.db.WithContext(ctx).Find(&results).Error
+	cancel()
+	if err != nil {
+		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
+		return nil
+	}
+
+	conversations := make([]dm.ModelConversation, len(results))
+	for i := range results {
+		resultConvo := results[i]
+		conversations[i] = dm.ModelConversation{
+			Pubkey:         resultConvo.Pubkey,
+			Nickname:       resultConvo.Nickname,
+			Token:          resultConvo.Token,
+			CodesetVersion: resultConvo.CodesetVersion,
+			Blocked:        resultConvo.Blocked,
+		}
+	}
+	return conversations
 }
 
 // receiveWrapper is a higher-level wrapper of upsertMessage.

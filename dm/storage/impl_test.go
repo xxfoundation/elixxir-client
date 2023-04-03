@@ -25,13 +25,14 @@ func TestMain(m *testing.M) {
 
 // Test happy path toggling between blocked/unblocked in a Conversation.
 func TestWasmModel_BlockSender(t *testing.T) {
-	m, err := newImpl("test", nil, dummyReceivedMessageCB)
+	m, err := newImpl("", nil, dummyReceivedMessageCB)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	// Insert a test convo
-	testPubKey := ed25519.PublicKey{}
+	testBytes := []byte("test")
+	testPubKey := ed25519.PublicKey(testBytes)
 	err = m.createConversation("test", testPubKey, 0, 0, false)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -54,6 +55,6 @@ func TestWasmModel_BlockSender(t *testing.T) {
 	m.UnblockSender(testPubKey)
 	result = m.GetConversation(testPubKey)
 	if result.Blocked {
-		t.Fatal("Expected blocked to be false")
+		t.Fatalf("Expected blocked to be false, got %+v", result)
 	}
 }

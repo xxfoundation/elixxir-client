@@ -36,7 +36,10 @@ type Conversation struct {
 	Nickname       string `gorm:"not null"`
 	Token          uint32 `gorm:"not null"`
 	CodesetVersion uint8  `gorm:"not null"`
-	Blocked        bool   `gorm:"not null"`
 
-	Messages []Message `gorm:"constraint:OnDelete:CASCADE"`
+	// Pointer to enforce zero-value reading in ORM.
+	Blocked *bool `gorm:"not null"`
+
+	// Have to spell out this relationship because irregular PK name
+	Messages []Message `gorm:"foreignKey:ConversationPubKey;references:Pubkey;constraint:OnDelete:CASCADE"`
 }

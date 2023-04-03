@@ -187,7 +187,7 @@ func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error 
 	}
 
 	return i.updateConversation(resultConvo.Nickname, resultConvo.Pubkey,
-		resultConvo.Token, resultConvo.CodesetVersion, isBlocked)
+		resultConvo.Token, resultConvo.CodesetVersion, &isBlocked)
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
@@ -203,7 +203,7 @@ func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversa
 		Nickname:       resultConvo.Nickname,
 		Token:          resultConvo.Token,
 		CodesetVersion: resultConvo.CodesetVersion,
-		Blocked:        resultConvo.Blocked,
+		Blocked:        *resultConvo.Blocked,
 	}
 }
 
@@ -227,7 +227,7 @@ func (i *impl) GetConversations() []dm.ModelConversation {
 			Nickname:       resultConvo.Nickname,
 			Token:          resultConvo.Token,
 			CodesetVersion: resultConvo.CodesetVersion,
-			Blocked:        resultConvo.Blocked,
+			Blocked:        *resultConvo.Blocked,
 		}
 	}
 	return conversations
@@ -342,7 +342,7 @@ func (i *impl) createConversation(nickname string,
 		Nickname:       nickname,
 		Token:          dmToken,
 		CodesetVersion: codeset,
-		Blocked:        blocked,
+		Blocked:        &blocked,
 	}
 
 	ctx, cancel := newContext()
@@ -357,7 +357,7 @@ func (i *impl) createConversation(nickname string,
 
 // updateConversation is used for updating an extant Conversation to the given fields.
 func (i *impl) updateConversation(nickname string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, blocked bool) error {
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, blocked *bool) error {
 	newConvo := Conversation{
 		Pubkey:         pubKey,
 		Nickname:       nickname,
@@ -365,6 +365,7 @@ func (i *impl) updateConversation(nickname string,
 		CodesetVersion: codeset,
 		Blocked:        blocked,
 	}
+	jww.DEBUG.Printf("[DM SQL] Attempting to updateConversation: %+v", newConvo)
 
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Updates(newConvo).Error
@@ -372,6 +373,5 @@ func (i *impl) updateConversation(nickname string,
 	if err != nil {
 		return errors.Errorf("[DM SQL] failed to updateConversation: %+v", err)
 	}
-
 	return nil
 }

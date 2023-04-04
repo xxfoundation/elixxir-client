@@ -27,10 +27,9 @@ func TestDmClient_ShareURL_DecodeShareURL(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(me.Privkey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
-	dm := dmClient{myToken: me.GetDMToken(), publicKey: publicKey}
 
 	// Construct URL
-	url, err := dm.ShareURL(host, 5, rng)
+	url, err := ShareURL(host, 5, int(me.GetDMToken()), publicKey, rng)
 	require.NoError(t, err)
 
 	// Decode URL
@@ -59,12 +58,11 @@ func TestDmClient_ShareURL_ParseError(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(me.Privkey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
-	dm := dmClient{myToken: me.GetDMToken(), publicKey: publicKey}
 
 	// Attempt to share with an invalid host URL
 	host := "invalidHost\x7f"
 	expectedErr := strings.Split(parseHostUrlErr, "%")[0]
-	_, err := dm.ShareURL(host, 10, rng)
+	_, err := ShareURL(host, 10, int(me.GetDMToken()), publicKey, rng)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), expectedErr)
 }

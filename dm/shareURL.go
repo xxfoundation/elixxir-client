@@ -33,10 +33,9 @@ const (
 )
 
 const (
-	versionKey     = "v"
-	myTokenKey     = "t"
-	myPubKeyLenKey = "l"
-	myRsaPubKey    = "p"
+	versionKey = "v"
+	myTokenKey = "t"
+	myEcPubKey = "p"
 
 	// MaxUsesKey is the key used to save max uses in a URL. The value is
 	// expected to be a positive integer.
@@ -45,7 +44,7 @@ const (
 
 // ShareURL generates a URL that can be used to share this channel with others
 // on the given host.
-func (dc *dmClient) ShareURL(url string, maxUses int,
+func ShareURL(url string, maxUses int, token int, key nike.PublicKey,
 	csprng io.Reader) (string, error) {
 	u, err := goUrl.Parse(url)
 	if err != nil {
@@ -56,7 +55,7 @@ func (dc *dmClient) ShareURL(url string, maxUses int,
 	q.Set(versionKey, strconv.Itoa(shareUrlVersion))
 	q.Set(MaxUsesKey, strconv.Itoa(maxUses))
 
-	u.RawQuery = dc.encodePublicShareURL(q).Encode()
+	u.RawQuery = encodePublicShareURL(q, token, key).Encode()
 
 	u.RawQuery = q.Encode()
 
@@ -97,11 +96,9 @@ func DecodeShareURL(url string, password string) (int, nike.PublicKey, error) {
 }
 
 // encodePublicShareURL encodes the channel to a Public share URL.
-func (dc *dmClient) encodePublicShareURL(q goUrl.Values) goUrl.Values {
-	q.Set(myTokenKey, strconv.FormatUint(uint64(dc.myToken), 10))
-	keyLen := int64(len(dc.publicKey.Bytes()))
-	q.Set(myPubKeyLenKey, strconv.FormatInt(keyLen, 10))
-	q.Set(myRsaPubKey, base64.URLEncoding.EncodeToString(dc.publicKey.Bytes()))
+func encodePublicShareURL(q goUrl.Values, token int, key nike.PublicKey) goUrl.Values {
+	q.Set(myTokenKey, strconv.FormatUint(uint64(token), 10))
+	q.Set(myEcPubKey, base64.URLEncoding.EncodeToString(key.Bytes()))
 	return q
 }
 
@@ -115,7 +112,7 @@ func decodePublicShareURL(q goUrl.Values) (int, nike.PublicKey, error) {
 	}
 
 	// Retrieve the key data
-	rsaKeyData, err := base64.URLEncoding.DecodeString(q.Get(myRsaPubKey))
+	rsaKeyData, err := base64.URLEncoding.DecodeString(q.Get(myEcPubKey))
 	if err != nil {
 		return 0, nil, err
 	}

@@ -224,9 +224,11 @@ func NewDmManagerMobile(cmixID int, privateIdentity []byte,
 //
 //	{
 //	 "url": "https://internet.speakeasy.tech/?l=32&m=5&p=EfDzQDa4fQ5BoqNIMbECFDY9ckRr_fadd8F1jE49qJc%3D&t=4231817746&v=1",
+//	 "password": "hunter2",
 //	}
 type DmShareURL struct {
-	URL string `json:"url"`
+	URL      string `json:"url"`
+	Password string `json:"password"`
 }
 
 // DmShareUrlReport is returned from [DecodeDmPublic]. It includes the token
@@ -252,7 +254,8 @@ type DmShareUrlReport struct {
 // Returns:
 //   - JSON of [DmShareURL].
 func (dmc *DMClient) GetShareURL(host string) ([]byte, error) {
-	url, err := dmc.api.ShareURL(host, 0, nil)
+	url, err := dm.ShareURL(
+		host, 0, int(dmc.api.GetToken()), dmc.api.GetPublicKey(), nil)
 	if err != nil {
 		return nil, err
 	}

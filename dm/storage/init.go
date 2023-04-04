@@ -27,7 +27,9 @@ import (
 type MessageReceivedCallback func(
 	uuid uint64, pubKey ed25519.PublicKey, messageUpdate, conversationUpdate bool)
 
-// impl implements the channels.EventModel interface with an underlying DB.
+// impl implements the dm.EventModel interface with an underlying DB.
+// NOTE: This model is NOT thread safe - it is the responsibility of the
+// caller to ensure that its methods are called sequentially.
 type impl struct {
 	db                *gorm.DB // Stored database connection
 	cipher            cryptoChannel.Cipher

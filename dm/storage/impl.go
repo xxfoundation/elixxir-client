@@ -242,7 +242,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 	conversationUpdated := false
 	result, err := i.getConversation(partnerKey)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return 0, err
 		} else {
 			// If there is no extant Conversation, create one.

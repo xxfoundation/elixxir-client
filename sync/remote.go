@@ -10,13 +10,14 @@ package sync
 import (
 	"bytes"
 	"encoding/json"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
-	"sync"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -25,7 +26,6 @@ import (
 
 // RemoteKV kv-related constants.
 const (
-	remoteKvPrefix  = "remoteKvPrefix"
 	remoteKvVersion = 0
 
 	intentsVersion = 0
@@ -45,21 +45,26 @@ const updateFailureDelay = 1 * time.Second
 // RemoteKV implements a remote KV to handle transaction logs.
 type RemoteKV struct {
 	// local is the versioned KV store that will write the transaction.
-	local *versioned.KV
+	local versioned.KV
 
 	// txLog is the transaction log used to write transactions.
 	txLog *TransactionLog
 
-	// KeyUpdate is the callback used to report events when attempting to call Set.
+	// KeyUpdate is the callback used to report events when
+	// attempting to call Set.
 	KeyUpdate KeyUpdateCallback
 
 	// list of tracked keys
 	tracked []string
 
-	// UnsyncedWrites is the pending writes that we are waiting for on remote
-	// storage. Anytime this is not empty, we are not synchronized and this
-	// should be reported.
+	// UnsyncedWrites is the pending writes that we are waiting
+	// for on remote storage. Anytime this is not empty, we are
+	// not synchronized and this should be reported.
 	UnsyncedWrites map[string][]byte
+
+	// synchronizedPrefixes are prefixes that trigger remote
+	// synchronization calls.
+	synchronizedPrefixes []string
 
 	// Connected determines the connectivity of the remote server.
 	connected bool
@@ -69,21 +74,23 @@ type RemoteKV struct {
 
 // NewOrLoadRemoteKV constructs a new RemoteKV. If data exists on disk, it loads
 // that context and handle it appropriately.
-func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv *versioned.KV,
+func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv versioned.KV,
+	synchedPrefixes []string,
 	eventCb KeyUpdateCallback,
 	updateCb RemoteStoreCallback) (*RemoteKV, error) {
 
-	kv, err := kv.Prefix(remoteKvPrefix)
-	if err != nil {
-		return nil, err
+	sPrefixes := synchedPrefixes
+	if sPrefixes == nil {
+		sPrefixes = make([]string, 0)
 	}
 
 	rkv := &RemoteKV{
-		local:          kv,
-		txLog:          transactionLog,
-		KeyUpdate:      eventCb,
-		UnsyncedWrites: make(map[string][]byte, 0),
-		connected:      true,
+		local:                kv,
+		txLog:                transactionLog,
+		KeyUpdate:            eventCb,
+		UnsyncedWrites:       make(map[string][]byte, 0),
+		synchronizedPrefixes: sPrefixes,
+		connected:            true,
 	}
 
 	if err := rkv.loadUnsyncedWrites(); err != nil {

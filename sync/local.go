@@ -9,10 +9,11 @@ package sync
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strings"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 // EkvLocalStore is a structure adhering to LocalStore. This utilizes
 // [versioned.KV] file IO operations.
 type EkvLocalStore struct {
-	data     *versioned.KV
+	data     versioned.KV
 	keyLists KeyList
 }
 
@@ -37,7 +38,7 @@ const (
 )
 
 // NewOrLoadEkvLocalStore is a constructor for EkvLocalStore.
-func NewOrLoadEkvLocalStore(kv *versioned.KV) (*EkvLocalStore, error) {
+func NewOrLoadEkvLocalStore(kv versioned.KV) (*EkvLocalStore, error) {
 	// Initialize key list structure
 	keyLists := make(KeyList, 0)
 

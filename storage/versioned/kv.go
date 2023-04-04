@@ -9,11 +9,12 @@ package versioned
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 // PrefixSeparator is the separator added when prefixing a KV (see [KV.Prefix]).
@@ -29,6 +30,45 @@ const (
 	DuplicatePrefixErr           = "prefix has already been added, cannot overwrite"
 )
 
+type KV interface {
+	// Get returns the object stored at the specified version.
+	Get(key string, version uint64) (*Object, error)
+
+	// GetAndUpgrade gets and upgrades data stored in the key/value store.
+	// Make sure to inspect the version returned in the versioned object.
+	GetAndUpgrade(key string, ut UpgradeTable) (*Object, error)
+
+	// Delete removes a given key from the data store.
+	Delete(key string, version uint64) error
+
+	// Set upserts new data into the storage
+	// When calling this, you are responsible for prefixing the
+	// key with the correct type optionally unique id! Call
+	// MakeKeyWithPrefix() to do so.
+	// The [Object] should contain the versioning if you are
+	// maintaining such a functionality.
+	Set(key string, object *Object) error
+
+	// GetPrefix returns the full Prefix of the KV
+	GetPrefix() string
+
+	// HasPrefix returns whether this prefix exists in the KV
+	HasPrefix(prefix string) bool
+
+	// Prefix returns a new KV with the new prefix appending
+	Prefix(prefix string) (KV, error)
+
+	// IsMemStore returns true if the underlying KV is memory based
+	IsMemStore() bool
+
+	// GetFullKey returns the key with all prefixes appended
+	GetFullKey(key string, version uint64) string
+
+	// Exists returns if the error indicates a KV error showing
+	// the key exists.
+	Exists(err error) bool
+}
+
 // MakePartnerPrefix creates a string prefix
 // to denote who a conversation or relationship is with
 func MakePartnerPrefix(id *id.ID) string {
@@ -39,12 +79,17 @@ func MakePartnerPrefix(id *id.ID) string {
 type Upgrade func(oldObject *Object) (*Object,
 	error)
 
+type UpgradeTable struct {
+	CurrentVersion uint64
+	Table          []Upgrade
+}
+
 type root struct {
 	data ekv.KeyValue
 }
 
-// KV stores versioned data and Upgrade functions
-type KV struct {
+// kv stores versioned data and Upgrade functions
+type kv struct {
 	r         *root
 	prefix    string
 	prefixMap map[string]int
@@ -52,22 +97,22 @@ type KV struct {
 }
 
 // Create a versioned key/value store backed by something implementing KeyValue
-func NewKV(data ekv.KeyValue) *KV {
-	newKV := KV{
+func NewKV(data ekv.KeyValue) KV {
+	newkv := kv{
 		prefixMap: make(map[string]int, 0),
 	}
 	root := root{}
 
 	root.data = data
 
-	newKV.r = &root
+	newkv.r = &root
 
-	return &newKV
+	return &newkv
 }
 
 // Get gets and upgrades data stored in the key/value store
 // Make sure to inspect the version returned in the versioned object
-func (v *KV) Get(key string, version uint64) (*Object, error) {
+func (v *kv) Get(key string, version uint64) (*Object, error) {
 	key = v.makeKey(key, version)
 	jww.TRACE.Printf("get %p with key %v", v.r.data, key)
 	// get raw data
@@ -79,14 +124,9 @@ func (v *KV) Get(key string, version uint64) (*Object, error) {
 	return &result, nil
 }
 
-type UpgradeTable struct {
-	CurrentVersion uint64
-	Table          []Upgrade
-}
-
 // GetAndUpgrade gets and upgrades data stored in the key/value store.
 // Make sure to inspect the version returned in the versioned object.
-func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
+func (v *kv) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	version := ut.CurrentVersion
 	baseKey := key
 	key = v.makeKey(baseKey, version)
@@ -138,7 +178,7 @@ func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 }
 
 // Delete removes a given key from the data store.
-func (v *KV) Delete(key string, version uint64) error {
+func (v *kv) Delete(key string, version uint64) error {
 	key = v.makeKey(key, version)
 	jww.TRACE.Printf("delete %p with key %v", v.r.data, key)
 	return v.r.data.Delete(key)
@@ -149,25 +189,25 @@ func (v *KV) Delete(key string, version uint64) error {
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
 // The [Object] should contain the versioning if you are maintaining such
 // a functionality.
-func (v *KV) Set(key string, object *Object) error {
+func (v *kv) Set(key string, object *Object) error {
 	key = v.makeKey(key, object.Version)
 	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }
 
-// GetPrefix returns the prefix of the KV.
-func (v *KV) GetPrefix() string {
+// GetPrefix returns the prefix of the kv.
+func (v *kv) GetPrefix() string {
 	return v.prefix
 }
 
-// HasPrefix returns whether this prefix exists in the KV.
-func (v *KV) HasPrefix(prefix string) bool {
+// HasPrefix returns whether this prefix exists in the kv.
+func (v *kv) HasPrefix(prefix string) bool {
 	_, exists := v.prefixMap[prefix]
 	return exists
 }
 
-// Prefix returns a new KV with the new prefix appending.
-func (v *KV) Prefix(prefix string) (*KV, error) {
+// Prefix returns a new kv with the new prefix appending.
+func (v *kv) Prefix(prefix string) (KV, error) {
 	//// Reject invalid prefixes
 	if strings.Contains(prefix, PrefixSeparator) {
 		return nil, errors.Errorf(PrefixContainingSeparatorErr)
@@ -180,7 +220,7 @@ func (v *KV) Prefix(prefix string) (*KV, error) {
 
 	v.offset++
 
-	kvPrefix := KV{
+	kvPrefix := kv{
 		r:         v.r,
 		prefix:    v.prefix + prefix + PrefixSeparator,
 		prefixMap: v.prefixMap,
@@ -191,22 +231,22 @@ func (v *KV) Prefix(prefix string) (*KV, error) {
 	return &kvPrefix, nil
 }
 
-func (v *KV) IsMemStore() bool {
+func (v *kv) IsMemStore() bool {
 	_, success := v.r.data.(*ekv.Memstore)
 	return success
 }
 
 // Returns the key with all prefixes appended
-func (v *KV) GetFullKey(key string, version uint64) string {
+func (v *kv) GetFullKey(key string, version uint64) string {
 	return v.makeKey(key, version)
 }
 
-func (v *KV) makeKey(key string, version uint64) string {
+func (v *kv) makeKey(key string, version uint64) string {
 	return fmt.Sprintf("%s%s_%d", v.prefix, key, version)
 }
 
 // Exists returns false if the error indicates the element doesn't
 // exist.
-func (v *KV) Exists(err error) bool {
+func (v *kv) Exists(err error) bool {
 	return ekv.Exists(err)
 }

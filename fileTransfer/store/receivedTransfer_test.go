@@ -10,6 +10,9 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -17,8 +20,6 @@ import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
-	"reflect"
-	"testing"
 )
 
 // Tests that newReceivedTransfer returns a new ReceivedTransfer with the
@@ -333,7 +334,7 @@ func TestReceivedTransfer_save(t *testing.T) {
 // newTestReceivedTransfer creates a new ReceivedTransfer for testing.
 func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 	rt *ReceivedTransfer, file []byte, key *ftCrypto.TransferKey,
-	numFps uint16, kv *versioned.KV) {
+	numFps uint16, kv versioned.KV) {
 	kv = versioned.NewKV(ekv.MakeMemstore())
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())

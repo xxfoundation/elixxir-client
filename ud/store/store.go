@@ -11,11 +11,12 @@ package ud
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 // Storage constants
@@ -43,12 +44,12 @@ type Store struct {
 	// Stores facts that have been added by UDB but unconfirmed facts.
 	// Maps confirmID to fact
 	unconfirmedFacts map[string]fact.Fact
-	kv               *versioned.KV
+	kv               versioned.KV
 	mux              sync.RWMutex
 }
 
 // newStore creates a new, empty Store object.
-func newStore(kv *versioned.KV) (*Store, error) {
+func newStore(kv versioned.KV) (*Store, error) {
 	kv, err := kv.Prefix(prefix)
 	if err != nil {
 		return nil, err
@@ -129,7 +130,7 @@ func (s *Store) saveUnconfirmedFacts() error {
 /////////////////////////////////////////////////////////////////
 
 // NewOrLoadStore loads the Store object from the provided versioned.KV.
-func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
+func NewOrLoadStore(kv versioned.KV) (*Store, error) {
 
 	storeKv, err := kv.Prefix(prefix)
 	if err != nil {

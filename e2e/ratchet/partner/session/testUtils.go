@@ -47,7 +47,7 @@ func getGroup() *cyclic.Group {
 
 }
 
-func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Negotiation, t *testing.T) (*Session, *versioned.KV) {
+func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Negotiation, t *testing.T) (*Session, versioned.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}
@@ -68,7 +68,7 @@ func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Neg
 }
 
 // Make a default test session with some things populated
-func makeTestSession() (*Session, *versioned.KV) {
+func makeTestSession() (*Session, versioned.KV) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,

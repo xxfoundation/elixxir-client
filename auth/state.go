@@ -64,7 +64,7 @@ type state struct {
 //	are treated as ephemeral. To do so in auth, pass in an ephemeral e2e (made
 //	with a memory only versioned.KV) as well as a memory only versioned.KV for
 //	NewState and use GetDefaultTemporaryParams() for the parameters
-func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
+func NewState(kv versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,
 	sessParams session.Params, callbacks Callbacks,
 	backupTrigger func(reason string)) (State, error) {
@@ -80,7 +80,7 @@ func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 // be found. Bases its reception identity and keys off of what is found in e2e.
 // Does not modify the kv prefix for backwards compatibility.
 // Otherwise, acts the same as NewState
-func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
+func NewStateLegacy(kv versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,
 	sessParams session.Params, callbacks Callbacks,
 	backupTrigger func(reason string)) (State, error) {

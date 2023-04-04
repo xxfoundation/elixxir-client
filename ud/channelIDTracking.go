@@ -30,7 +30,7 @@ var ErrChannelLeaseSignature = errors.New("failure to validate lease signature")
 
 // loadRegistrationDisk loads a registrationDisk from the kv
 // and returns the registrationDisk.
-func loadRegistrationDisk(kv *versioned.KV) (registrationDisk, error) {
+func loadRegistrationDisk(kv versioned.KV) (registrationDisk, error) {
 	obj, err := kv.Get(registrationDiskKey, registrationDiskVersion)
 	if err != nil {
 		return registrationDisk{}, err
@@ -40,7 +40,7 @@ func loadRegistrationDisk(kv *versioned.KV) (registrationDisk, error) {
 
 // saveRegistrationDisk saves the given saveRegistrationDisk to
 // the given kv.
-func saveRegistrationDisk(kv *versioned.KV, reg registrationDisk) error {
+func saveRegistrationDisk(kv versioned.KV, reg registrationDisk) error {
 	regBytes, err := reg.Marshall()
 	if err != nil {
 		return err
@@ -150,7 +150,7 @@ func (r registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
 // repetitive scheduling of new lease registrations when the
 // current lease expires.
 type clientIDTracker struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	username string
 
@@ -168,7 +168,7 @@ type clientIDTracker struct {
 var _ channels.NameService = (*clientIDTracker)(nil)
 
 // newclientIDTracker creates a new clientIDTracker.
-func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv *versioned.KV,
+func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv versioned.KV,
 	receptionIdentity xxdk.ReceptionIdentity, udPubKey ed25519.PublicKey, rngSource *fastRNG.StreamGenerator) *clientIDTracker {
 
 	reg, err := loadRegistrationDisk(kv)

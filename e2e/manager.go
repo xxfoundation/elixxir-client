@@ -45,7 +45,7 @@ type manager struct {
 	grp         *cyclic.Group
 	crit        *critical
 	rekeyParams rekey.Params
-	kv          *versioned.KV
+	kv          versioned.KV
 
 	// Generic Callbacks for all E2E operations; by default this is nil and
 	// ignored until set via RegisterCallbacks
@@ -63,7 +63,7 @@ const e2eRekeyParamsVer = 0
 // Init Creates stores. After calling, use load
 // Passes the ID public key which is used for the relationship
 // uses the passed ID to modify the kv prefix for a unique storage path
-func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+func Init(kv versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	jww.INFO.Printf("Initializing new e2e.Handler for %s", myID.String())
 	kv, err := kv.Prefix(makeE2ePrefix(myID))
@@ -74,7 +74,7 @@ func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }
 
-func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+func initE2E(kv versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	rekeyParamsData, err := json.Marshal(rekeyParams)
 	if err != nil {
@@ -96,7 +96,7 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // You can use a memkv for an ephemeral e2e id
 // Can be initialized with a nil cmix.Client, but will crash on start - use when
 // prebuilding e2e identity to be used later
-func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
+func Load(kv versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
 	kv, err := kv.Prefix(makeE2ePrefix(myID))
@@ -114,7 +114,7 @@ func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 // You can use a memkv for an ephemeral e2e id
 // Can be initialized with a nil cmix.Client, but will crash on start - use when
 // prebuilding e2e identity to be used later
-func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
+func LoadLegacy(kv versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter, params rekey.Params) (Handler, error) {
 
@@ -158,7 +158,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 
 }
 
-func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
+func loadE2E(kv versioned.KV, net cmix.Client, myDefaultID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
 

@@ -30,12 +30,12 @@ const (
 // CommandStore stores message information about channel commands in storage.
 // Each message
 type CommandStore struct {
-	kv *versioned.KV
+	kv versioned.KV
 }
 
 // NewCommandStore initialises a new message CommandStore object with a prefixed
 // KV.
-func NewCommandStore(kv *versioned.KV) *CommandStore {
+func NewCommandStore(kv versioned.KV) *CommandStore {
 	kv, err := kv.Prefix(commandStorePrefix)
 	if err != nil {
 		jww.FATAL.Panicf("[CH] Failed to add prefix %s to KV: %+v", commandStorePrefix, err)

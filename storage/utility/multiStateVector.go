@@ -10,11 +10,12 @@ package utility
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
+	"sync"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math"
-	"sync"
 )
 
 // Storage key and version.
@@ -96,14 +97,14 @@ type MultiStateVector struct {
 	stateUseCount []uint16
 
 	key string // Unique string used to save/load object from storage
-	kv  *versioned.KV
+	kv  versioned.KV
 	mux sync.RWMutex
 }
 
 // NewMultiStateVector generates a new MultiStateVector with the specified
 // number of keys and bits pr state per keys. The max number of states in 64.
 func NewMultiStateVector(numKeys uint16, numStates uint8, stateMap [][]bool,
-	key string, kv *versioned.KV) (*MultiStateVector, error) {
+	key string, kv versioned.KV) (*MultiStateVector, error) {
 
 	// Return an error if the number of states is out of range
 	if numStates < minNumStates {
@@ -464,7 +465,7 @@ func shiftBitsIn(bits uint64, keyNum uint16, bitSize uint8) uint64 {
 
 // LoadMultiStateVector loads a MultiStateVector with the specified key from the
 // given versioned storage.
-func LoadMultiStateVector(stateMap [][]bool, key string, kv *versioned.KV) (
+func LoadMultiStateVector(stateMap [][]bool, key string, kv versioned.KV) (
 	*MultiStateVector, error) {
 	msv := &MultiStateVector{
 		stateMap: stateMap,

@@ -32,7 +32,7 @@ const relationshipFpLength = 15
 
 // Implements the partner.Manager interface
 type manager struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	myID    *id.ID
 	partner *id.ID
@@ -52,7 +52,7 @@ type manager struct {
 }
 
 // NewManager creates the relationship and its first Send and Receive sessions.
-func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
+func NewManager(kv versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, sendParams,
 	receiveParams session.Params, cyHandler session.CypherHandler,
@@ -114,7 +114,7 @@ func (c ConnectionFp) String() string {
 }
 
 // LoadManager loads a relationship and all buffers and sessions from disk
-func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
+func LoadManager(kv versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (Manager, error) {
 

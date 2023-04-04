@@ -9,6 +9,11 @@ package nodes
 
 import (
 	"bytes"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
@@ -21,10 +26,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const InputChanLen = 1000
@@ -42,7 +43,7 @@ var delayTable = [5]time.Duration{
 // registrar is an implementation of the Registrar interface.
 type registrar struct {
 	nodes map[id.ID]*key
-	kv    *versioned.KV
+	kv    versioned.KV
 	mux   sync.RWMutex
 
 	session session

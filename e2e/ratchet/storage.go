@@ -29,7 +29,7 @@ const (
 )
 
 // Load loads an extant ratchet from disk
-func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
+func Load(kv versioned.KV, myID *id.ID, grp *cyclic.Group,
 	cyHandler session.CypherHandler, services Services, rng *fastRNG.StreamGenerator) (
 	*Ratchet, error) {
 	kv, err := kv.Prefix(packagePrefix)

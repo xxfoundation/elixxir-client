@@ -26,11 +26,11 @@ import (
 type UncheckedRoundStore struct {
 	list map[roundIdentity]UncheckedRound
 	mux  sync.RWMutex
-	kv   *versioned.KV
+	kv   versioned.KV
 }
 
 // NewUncheckedStore is a constructor for a UncheckedRoundStore.
-func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
+func NewUncheckedStore(kv versioned.KV) (*UncheckedRoundStore, error) {
 	kv, err := kv.Prefix(uncheckedRoundPrefix)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 }
 
 // NewOrLoadUncheckedStore is a constructor for a UncheckedRoundStore.
-func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
+func NewOrLoadUncheckedStore(kv versioned.KV) *UncheckedRoundStore {
 	kv, err := kv.Prefix(uncheckedRoundPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", uncheckedRoundPrefix, err)
@@ -69,7 +69,7 @@ func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
 }
 
 // LoadUncheckedStore loads a deserializes a UncheckedRoundStore from memory.
-func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
+func LoadUncheckedStore(kv versioned.KV) (*UncheckedRoundStore, error) {
 	kv, err := kv.Prefix(uncheckedRoundPrefix)
 	if err != nil {
 		return nil, err

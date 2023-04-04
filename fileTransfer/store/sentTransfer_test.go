@@ -452,7 +452,7 @@ const numPrimeBytes = 512
 
 // newTestSentTransfer creates a new SentTransfer for testing.
 func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
-	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) {
+	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv versioned.KV) {
 	kv = versioned.NewKV(ekv.MakeMemstore())
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())

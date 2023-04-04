@@ -9,6 +9,10 @@ package partition
 
 import (
 	"encoding/json"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
@@ -17,9 +21,6 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"sync"
-	"time"
 )
 
 const (
@@ -43,14 +44,14 @@ type multiPartMessage struct {
 	KeyResidue e2e.KeyResidue
 
 	parts [][]byte
-	kv    *versioned.KV
+	kv    versioned.KV
 	mux   sync.Mutex
 }
 
 // loadOrCreateMultiPartMessage loads an extant multipart message store or
 // creates a new one and saves it if one does not exist.
 func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
-	kv *versioned.KV) *multiPartMessage {
+	kv versioned.KV) *multiPartMessage {
 	kv, err := kv.Prefix(versioned.MakePartnerPrefix(sender))
 	if err != nil {
 		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",

@@ -9,13 +9,14 @@ package store
 
 import (
 	"encoding/json"
+	"sync"
+	"sync/atomic"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"sync/atomic"
 )
 
 const (
@@ -98,13 +99,13 @@ type UnknownRounds struct {
 	params UnknownRoundsParams
 
 	// Key Value store to save data to disk
-	kv *versioned.KV
+	kv versioned.KV
 
 	mux sync.Mutex
 }
 
 // NewUnknownRounds builds and returns a new UnknownRounds object.
-func NewUnknownRounds(kv *versioned.KV,
+func NewUnknownRounds(kv versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
 
 	urs, err := newUnknownRounds(kv, params)
@@ -119,7 +120,7 @@ func NewUnknownRounds(kv *versioned.KV,
 	return urs
 }
 
-func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) (*UnknownRounds, error) {
+func newUnknownRounds(kv versioned.KV, params UnknownRoundsParams) (*UnknownRounds, error) {
 	kv, err := kv.Prefix(unknownRoundPrefix)
 	if err != nil {
 		return nil, errors.Errorf("failed to add prefix %s to KV: %+v", unknownRoundPrefix, err)
@@ -136,7 +137,7 @@ func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) (*UnknownRou
 
 // LoadUnknownRounds loads the data for a UnknownRounds from disk into an
 // object.
-func LoadUnknownRounds(kv *versioned.KV,
+func LoadUnknownRounds(kv versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
 	kv, err := kv.Prefix(unknownRoundPrefix)
 	if err != nil {

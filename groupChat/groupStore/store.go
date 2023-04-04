@@ -9,6 +9,9 @@ package groupStore
 
 import (
 	"bytes"
+	"sync"
+	"testing"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -16,8 +19,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"testing"
 )
 
 // Storage values.
@@ -48,12 +49,12 @@ const MaxGroupChats = 64
 type Store struct {
 	list map[id.ID]Group
 	user group.Member
-	kv   *versioned.KV
+	kv   versioned.KV
 	mux  sync.RWMutex
 }
 
 // NewStore constructs a new Store object for the user and saves it to storage.
-func NewStore(kv *versioned.KV, user group.Member) (*Store, error) {
+func NewStore(kv versioned.KV, user group.Member) (*Store, error) {
 	kv, err := kv.Prefix(groupStoragePrefix)
 	if err != nil {
 		return nil, err
@@ -69,7 +70,7 @@ func NewStore(kv *versioned.KV, user group.Member) (*Store, error) {
 
 // NewOrLoadStore loads the group store from storage or makes a new one if it
 // does not exist.
-func NewOrLoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
+func NewOrLoadStore(kv versioned.KV, user group.Member) (*Store, error) {
 	prefixKv, err := kv.Prefix(groupStoragePrefix)
 	if err != nil {
 		return nil, err
@@ -87,7 +88,7 @@ func NewOrLoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
 
 // LoadStore loads all the Groups from storage into memory and return them in
 // a Store object.
-func LoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
+func LoadStore(kv versioned.KV, user group.Member) (*Store, error) {
 	kv, err := kv.Prefix(groupStoragePrefix)
 	if err != nil {
 		return nil, err
@@ -103,7 +104,7 @@ func LoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
 }
 
 // loadStore builds the list of group IDs and loads the groups from storage.
-func loadStore(data []byte, kv *versioned.KV, user group.Member) (*Store, error) {
+func loadStore(data []byte, kv versioned.KV, user group.Member) (*Store, error) {
 	// Deserialize list of group IDs
 	groupIDs := deserializeGroupIdList(data)
 

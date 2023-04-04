@@ -8,13 +8,14 @@
 package user
 
 import (
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
-	"time"
 )
 
 type User struct {
@@ -29,11 +30,11 @@ type User struct {
 	username    string
 	usernameMux sync.RWMutex
 
-	kv *versioned.KV
+	kv versioned.KV
 }
 
 // builds a new user.
-func NewUser(kv *versioned.KV, transmissionID, receptionID *id.ID, transmissionSalt,
+func NewUser(kv versioned.KV, transmissionID, receptionID *id.ID, transmissionSalt,
 	receptionSalt []byte, transmissionRsa, receptionRsa rsa.PrivateKey, isPrecanned bool,
 	e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int) (*User, error) {
 
@@ -43,7 +44,7 @@ func NewUser(kv *versioned.KV, transmissionID, receptionID *id.ID, transmissionS
 	return &User{CryptographicIdentity: ci, kv: kv}, nil
 }
 
-func LoadUser(kv *versioned.KV) (*User, error) {
+func LoadUser(kv versioned.KV) (*User, error) {
 	ci, err := loadCryptographicIdentity(kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load user "+

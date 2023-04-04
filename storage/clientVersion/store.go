@@ -8,12 +8,13 @@
 package clientVersion
 
 import (
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const (
@@ -25,12 +26,12 @@ const (
 // Store stores the version of the client's storage.
 type Store struct {
 	version version.Version
-	kv      *versioned.KV
+	kv      versioned.KV
 	sync.RWMutex
 }
 
 // NewStore returns a new clientVersion store.
-func NewStore(newVersion version.Version, kv *versioned.KV) (*Store, error) {
+func NewStore(newVersion version.Version, kv versioned.KV) (*Store, error) {
 	kv, err := kv.Prefix(prefix)
 	if err != nil {
 		return nil, err
@@ -44,7 +45,7 @@ func NewStore(newVersion version.Version, kv *versioned.KV) (*Store, error) {
 }
 
 // LoadStore loads the clientVersion storage object.
-func LoadStore(kv *versioned.KV) (*Store, error) {
+func LoadStore(kv versioned.KV) (*Store, error) {
 	kv, err := kv.Prefix(prefix)
 	if err != nil {
 		return nil, err

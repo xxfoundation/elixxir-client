@@ -34,11 +34,11 @@ const activePartitionVersion = 0
 type Store struct {
 	multiParts  map[multiPartID]*multiPartMessage
 	activeParts map[*multiPartMessage]bool
-	kv          *versioned.KV
+	kv          versioned.KV
 	mux         sync.Mutex
 }
 
-func NewOrLoad(kv *versioned.KV) *Store {
+func NewOrLoad(kv versioned.KV) *Store {
 	kv, err := kv.Prefix(packagePrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", packagePrefix, err)

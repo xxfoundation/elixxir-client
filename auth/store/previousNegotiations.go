@@ -180,7 +180,7 @@ func unmarshalPreviousNegotiations(b []byte) (map[id.ID]bool,
 // saveNegotiationFingerprints saves the list of sentByFingerprints for the given
 // partner to storage.
 func saveNegotiationFingerprints(
-	partner *id.ID, kv *versioned.KV, fingerprints ...[]byte) error {
+	partner *id.ID, kv versioned.KV, fingerprints ...[]byte) error {
 
 	obj := &versioned.Object{
 		Version:   currentNegotiationFingerprintsVersion,
@@ -193,7 +193,7 @@ func saveNegotiationFingerprints(
 
 // loadNegotiationFingerprints loads the list of sentByFingerprints for the given
 // partner from storage.
-func loadNegotiationFingerprints(partner *id.ID, kv *versioned.KV) ([][]byte, error) {
+func loadNegotiationFingerprints(partner *id.ID, kv versioned.KV) ([][]byte, error) {
 	fpKey := makeNegotiationFingerprintsKey(partner)
 	obj, err := kv.Get(fpKey, currentNegotiationFingerprintsVersion)
 	if err != nil {
@@ -269,7 +269,7 @@ func unmarshalPreviousNegotiationsV0(buf []byte) map[id.ID]struct{} {
 
 // upgradePreviousNegotiationsV0 upgrades the negotiations Partners key from V0
 // to V1
-func upgradePreviousNegotiationsV0(kv *versioned.KV) error {
+func upgradePreviousNegotiationsV0(kv versioned.KV) error {
 	obj, err := kv.Get(negotiationPartnersKey, 0)
 	if !kv.Exists(err) {
 		return nil

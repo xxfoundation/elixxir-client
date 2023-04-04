@@ -42,13 +42,13 @@ type Received struct {
 	transfers map[ftCrypto.TransferID]*ReceivedTransfer
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  versioned.KV
 }
 
 // NewOrLoadReceived attempts to load a Received from storage. Or if none exist,
 // then a new Received is returned. Also returns a list of all transfers that
 // have unreceived file parts so their fingerprints can be re-added.
-func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error) {
+func NewOrLoadReceived(kv versioned.KV) (*Received, []*ReceivedTransfer, error) {
 	kv, err := kv.Prefix(receivedTransfersStorePrefix)
 	if err != nil {
 		return nil, nil, err

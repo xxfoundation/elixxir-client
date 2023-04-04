@@ -64,7 +64,7 @@ type handler struct {
 	FallthroughManager
 }
 
-func NewHandler(param Params, kv *versioned.KV, events event.Reporter,
+func NewHandler(param Params, kv versioned.KV, events event.Reporter,
 	standardID *id.ID) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)

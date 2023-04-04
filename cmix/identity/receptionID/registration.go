@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	// "gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"time"
@@ -24,10 +25,10 @@ type registration struct {
 	UR *store.UnknownRounds
 	ER *store.EarliestRound
 	CR *store.CheckedRounds
-	kv *versioned.KV
+	kv versioned.KV
 }
 
-func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
+func newRegistration(reg Identity, kv versioned.KV) (*registration, error) {
 	// Round the times to remove the monotonic clocks for future saving
 	reg.StartValid = reg.StartValid.Round(0)
 	reg.EndValid = reg.EndValid.Round(0)
@@ -74,7 +75,7 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 }
 
 func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
-	kv *versioned.KV) (*registration, error) {
+	kv versioned.KV) (*registration, error) {
 
 	kv, err := kv.Prefix(regPrefix(EphId, Source, startValid))
 	if err != nil {

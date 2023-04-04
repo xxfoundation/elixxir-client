@@ -31,7 +31,7 @@ const relationshipFingerprintKey = "relationshipFingerprint"
 type relationship struct {
 	t session.RelationshipType
 
-	kv *versioned.KV
+	kv versioned.KV
 
 	sessions    []*session.Session
 	sessionByID map[session.SessionID]*session.Session
@@ -60,7 +60,7 @@ type ServiceHandler interface {
 // Should be refactored to create an empty relationship, with a second call
 // adding the session
 // todo - doscstring
-func NewRelationship(kv *versioned.KV, t session.RelationshipType,
+func NewRelationship(kv versioned.KV, t session.RelationshipType,
 	myID, partnerID *id.ID, myOriginPrivateKey,
 	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
 	originPartnerSIDHPubKey *sidh.PublicKey, initialParams session.Params,
@@ -118,7 +118,7 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 }
 
 // todo - doscstring
-func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
+func LoadRelationship(kv versioned.KV, t session.RelationshipType, myID,
 	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*relationship, error) {
 

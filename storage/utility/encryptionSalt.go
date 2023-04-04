@@ -1,10 +1,11 @@
 package utility
 
 import (
+	"io"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
 )
 
 // Storage constats
@@ -21,7 +22,7 @@ const saltSize = 32
 // NewOrLoadSalt will attempt to find a stored salt if one exists.
 // If one does not exist in storage, a new one will be generated. The newly
 // generated salt will be stored.
-func NewOrLoadSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
+func NewOrLoadSalt(kv versioned.KV, stream io.Reader) ([]byte, error) {
 	kv, err := kv.Prefix(saltPrefix)
 	if err != nil {
 		return nil, err
@@ -37,7 +38,7 @@ func NewOrLoadSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
 
 // loadSalt is a helper function which attempts to load a stored salt from
 // memory.
-func loadSalt(kv *versioned.KV) ([]byte, error) {
+func loadSalt(kv versioned.KV) ([]byte, error) {
 	obj, err := kv.Get(saltKey, saltVersion)
 	if err != nil {
 		return nil, err
@@ -48,7 +49,7 @@ func loadSalt(kv *versioned.KV) ([]byte, error) {
 
 // newSalt generates a new random salt. This salt is stored and returned
 // to the caller.
-func newSalt(kv *versioned.KV, stream io.Reader) ([]byte, error) {
+func newSalt(kv versioned.KV, stream io.Reader) ([]byte, error) {
 	// Generate a new salt
 	salt := make([]byte, saltSize)
 	_, err := stream.Read(salt)

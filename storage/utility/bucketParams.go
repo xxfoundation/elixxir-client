@@ -10,13 +10,14 @@ package utility
 import (
 	"bytes"
 	"encoding/binary"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/rateLimiting"
-	"sync"
-	"time"
 )
 
 const (
@@ -30,12 +31,12 @@ const (
 type BucketParamStore struct {
 	params *rateLimiting.MapParams
 	mux    sync.RWMutex
-	kv     *versioned.KV
+	kv     versioned.KV
 }
 
 // NewBucketParamsStore is the constructor for a BucketParamStore.
 func NewBucketParamsStore(capacity, leakedTokens uint32,
-	leakDuration time.Duration, kv *versioned.KV) (*BucketParamStore, error) {
+	leakDuration time.Duration, kv versioned.KV) (*BucketParamStore, error) {
 
 	kv, err := kv.Prefix(bucketParamsPrefix)
 	if err != nil {
@@ -83,7 +84,7 @@ func (s *BucketParamStore) UpdateParams(capacity, leakedTokens uint32,
 
 // LoadBucketParamsStore loads the bucket params data from storage and constructs
 // a BucketParamStore.
-func LoadBucketParamsStore(kv *versioned.KV) (*BucketParamStore, error) {
+func LoadBucketParamsStore(kv versioned.KV) (*BucketParamStore, error) {
 
 	kv, err := kv.Prefix(bucketParamsPrefix)
 	if err != nil {

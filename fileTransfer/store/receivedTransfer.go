@@ -11,6 +11,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
@@ -18,8 +21,6 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"sync"
 )
 
 // Storage keys and versions.
@@ -90,14 +91,14 @@ type ReceivedTransfer struct {
 	lastCallbackFingerprint string
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  versioned.KV
 }
 
 // newReceivedTransfer generates a ReceivedTransfer with the specified transfer
 // key, transfer ID, and a number of parts.
 func newReceivedTransfer(key *ftCrypto.TransferKey, tid *ftCrypto.TransferID,
 	fileName string, transferMAC []byte, fileSize uint32, numParts,
-	numFps uint16, kv *versioned.KV) (*ReceivedTransfer, error) {
+	numFps uint16, kv versioned.KV) (*ReceivedTransfer, error) {
 	kv, err := kv.Prefix(makeReceivedTransferPrefix(tid))
 	if err != nil {
 		return nil, err
@@ -246,7 +247,7 @@ func generateReceivedFp(completed bool, received, total uint16, err error) strin
 
 // loadReceivedTransfer loads the ReceivedTransfer with the given transfer ID
 // from storage.
-func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
+func loadReceivedTransfer(tid *ftCrypto.TransferID, kv versioned.KV) (
 	*ReceivedTransfer, error) {
 	kv, err := kv.Prefix(makeReceivedTransferPrefix(tid))
 	if err != nil {
@@ -384,7 +385,7 @@ func unmarshalReceivedTransfer(data []byte) (fileName string,
 }
 
 // savePart saves the given part to storage keying on its part number.
-func savePart(part []byte, partNum int, kv *versioned.KV) error {
+func savePart(part []byte, partNum int, kv versioned.KV) error {
 	obj := &versioned.Object{
 		Version:   receivedPartStoreVersion,
 		Timestamp: netTime.Now(),
@@ -395,7 +396,7 @@ func savePart(part []byte, partNum int, kv *versioned.KV) error {
 }
 
 // loadPart loads the part with the given part number from storage.
-func loadPart(partNum int, kv *versioned.KV) ([]byte, error) {
+func loadPart(partNum int, kv versioned.KV) ([]byte, error) {
 	obj, err := kv.Get(makeReceivedPartKey(partNum), receivedPartStoreVersion)
 	if err != nil {
 		return nil, err

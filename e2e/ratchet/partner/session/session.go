@@ -36,7 +36,7 @@ const sessionKey = "session"
 
 type Session struct {
 	//prefixed kv
-	kv *versioned.KV
+	kv versioned.KV
 	//params
 	e2eParams Params
 
@@ -125,7 +125,7 @@ type SessionDisk struct {
 /*CONSTRUCTORS*/
 
 // NewSession - Generator which creates all keys and structures
-func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
+func NewSession(kv versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 	partnerPubKey, baseKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, trigger SessionID,
 	relationshipFingerprint []byte, negotiationStatus Negotiation,
@@ -189,7 +189,7 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 }
 
 // LoadSession and state vector from kv and populate runtime fields
-func LoadSession(kv *versioned.KV, sessionID SessionID,
+func LoadSession(kv versioned.KV, sessionID SessionID,
 	relationshipFingerprint []byte, cyHandler CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 

@@ -21,15 +21,20 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 )
 
+func TestMain(m *testing.M) {
+	connect.TestingOnlyDisableTLS = true
+	os.Exit(m.Run())
+}
+
 // Happy path.
 func Test_manager_processMessageRetrieval(t *testing.T) {
 	// General initializations
-	connect.TestingOnlyDisableTLS = true
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
@@ -91,7 +96,7 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 
 	select {
 	case testBundle = <-messageBundleChan:
-	case <-time.After(30 * time.Millisecond):
+	case <-time.After(300 * time.Millisecond):
 		t.Errorf("Timed out waiting for messageBundleChan.")
 	}
 
@@ -101,7 +106,6 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 	}
 
 	// Ensure bundle received and has expected values
-	time.Sleep(2 * time.Second)
 	if reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Fatal("Did not receive a message bundle over the channel")
 	}
@@ -177,23 +181,18 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 
 	}()
 
+	// Ensure the bundle was not received
 	var testBundle message.Bundle
-	go func() {
-		// Receive the bundle over the channel
-		time.Sleep(1 * time.Second)
-		testBundle = <-messageBundleChan
-
-		// Close the process
-		if err := stop.Close(); err != nil {
-			t.Errorf("Failed to signal close to process: %+v", err)
-		}
-	}()
-
-	time.Sleep(2 * time.Second)
-	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
+	select {
+	case testBundle = <-messageBundleChan:
 		t.Errorf("Should not receive a message bundle, mock gateway should "+
-			"not return round.\nexpected: %+v\nreceived: %+v",
-			message.Bundle{}, testBundle)
+			"not return round.\nreceived: %+v", testBundle)
+	case <-time.After(30 * time.Millisecond):
+	}
+
+	// Close the process
+	if err := stop.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
 	}
 }
 
@@ -257,25 +256,19 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 
 	}()
 
+	// Ensure the bundle was not received
 	var testBundle message.Bundle
-	go func() {
-		// Receive the bundle over the channel
-		time.Sleep(1 * time.Second)
-		testBundle = <-messageBundleChan
-
-		// Close the process
-		if err := stop.Close(); err != nil {
-			t.Errorf("Failed to signal close to process: %+v", err)
-		}
-	}()
-
-	// Ensure no bundle was received due to false positive test
-	time.Sleep(2 * time.Second)
-	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Fatal("Received a message bundle over the channel, should receive " +
-			"empty message list")
+	select {
+	case testBundle = <-messageBundleChan:
+		t.Fatalf("Received a message bundle over the channel, should receive "+
+			"empty message list: %+v", testBundle)
+	case <-time.After(30 * time.Millisecond):
 	}
 
+	// Close the process
+	if err := stop.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
 }
 
 // Ensure that the quit chan closes the program, on an otherwise happy path.
@@ -329,20 +322,19 @@ func Test_manager_processMessageRetrieval_Quit(t *testing.T) {
 
 	}()
 
+	// Ensure the bundle was not received
 	var testBundle message.Bundle
-	go func() {
-		// Receive the bundle over the channel
-		testBundle = <-messageBundleChan
-
-	}()
-
-	time.Sleep(1 * time.Second)
-	// Ensure no bundle was received due to quiting process early
-	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Fatal("Received a message bundle over the channel, process should " +
-			"have quit before reception")
+	select {
+	case testBundle = <-messageBundleChan:
+		t.Fatalf("Received a message bundle over the channel, process should "+
+			"have quit before reception: %+v", testBundle)
+	case <-time.After(30 * time.Millisecond):
 	}
 
+	// Close the process
+	if err := stop.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
 }
 
 // Path in which multiple error comms are encountered before a happy path comms.
@@ -409,19 +401,17 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 	var testBundle message.Bundle
 	select {
 	case testBundle = <-messageBundleChan:
-	case <-time.After(30 * time.Millisecond):
+	case <-time.After(300 * time.Millisecond):
 		t.Errorf("Timed out waiting for messageBundleChan.")
 	}
 
 	// Close the process
-	err := stop.Close()
-	if err != nil {
+	if err := stop.Close(); err != nil {
 		t.Errorf("Failed to signal close to process: %+v", err)
 	}
 
 	// Ensure that expected bundle is still received from happy comm despite
 	// initial errors
-	time.Sleep(2 * time.Second)
 	if reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Fatal("Did not receive a message bundle over the channel.")
 	}

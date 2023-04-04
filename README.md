@@ -513,3 +513,15 @@ use the correct versions as listed below.
 
        protoc-gen-go-grpc --version
        protoc-gen-go-grpc 1.2.0
+
+## Updating Valid Emoji List
+
+The list of valid emojis should be updated once a year with each new Unicode
+release. For more information, refer to
+[generate/README.md](emoji/generate/README.md).
+
+To run the generator from the repository root, run
+
+```shell
+go run ./emoji/generate/
+```

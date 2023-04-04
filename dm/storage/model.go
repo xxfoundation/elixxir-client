@@ -28,6 +28,11 @@ type Message struct {
 	Round              uint64    `gorm:"not null"`
 }
 
+// TableName overrides the table name used by Message.
+func (Message) TableName() string {
+	return "dm_messages"
+}
+
 // Conversation defines the IndexedDb representation of a single
 // message exchange between two recipients.
 // A Conversation has many Message.
@@ -42,4 +47,9 @@ type Conversation struct {
 
 	// Have to spell out this relationship because irregular PK name
 	Messages []Message `gorm:"foreignKey:ConversationPubKey;references:Pubkey;constraint:OnDelete:CASCADE"`
+}
+
+// TableName overrides the table name used by Message.
+func (Conversation) TableName() string {
+	return "dm_conversations"
 }

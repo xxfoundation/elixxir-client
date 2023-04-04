@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/primitives/notifications"
 )
@@ -46,11 +47,13 @@ type NotificationReports []NotificationReport
 //
 // Example NotificationReport JSON:
 //
-//	{
-//	  "ForMe": true,
-//	  "Type": "e2e",
-//	  "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-//	}
+//		{
+//		  "ForMe": true,
+//	   "Type": [
+//	      "e2e"
+//	   ],
+//		  "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+//		}
 //
 // Given the Type, the Source value will have specific contextual meanings.
 // Below is a table that will define the contextual meaning of the Source field
@@ -72,7 +75,7 @@ type NotificationReport struct {
 	// false, this report may be ignored.
 	ForMe bool
 	// Type is the type of notification. The list can be seen
-	Type string
+	Type []string
 	// Source is the source of the notification.
 	Source []byte
 }
@@ -93,15 +96,7 @@ type NotificationReport struct {
 //     within in this structure may have their NotificationReport.ForMe
 //     set to false. These may be ignored.
 func GetNotificationsReport(notificationCSV string,
-	marshalledServices []byte) ([]byte, error) {
-
-	// If services are retrieved using TrackServicesWithIdentity, this
-	// should return a single list.
-	serviceList := message.ServiceList{}
-	err := json.Unmarshal(marshalledServices, &serviceList)
-	if err != nil {
-		return nil, err
-	}
+	marshalledServices, marshalledCompressedServices []byte) ([]byte, error) {
 
 	// Decode notifications' server data
 	notificationList, err := notifications.DecodeNotificationsCSV(notificationCSV)
@@ -109,34 +104,22 @@ func GetNotificationsReport(notificationCSV string,
 		return nil, err
 	}
 
-	// Construct  a report list
-	reportList := make([]*NotificationReport, len(notificationList))
-
-	// Iterate over data provided by server
-	for _, services := range serviceList {
-		for i := range notificationList {
-			notifData := notificationList[i]
-
-			// Iterate over all services
-			for j := range services {
-				// Pull data from services and from notification data
-				service := services[j]
-				messageHash := notifData.MessageHash
-				hash := service.HashFromMessageHash(notifData.MessageHash)
-
-				// Check if this notification data is recognized by
-				// this service, ie "ForMe"
-				if service.ForMeFromMessageHash(messageHash, hash) {
-					// Fill report list with service data
-					reportList[i] = &NotificationReport{
-						ForMe:  true,
-						Type:   service.Tag,
-						Source: service.Identifier,
-					}
-				}
-			}
-		}
+	// Parse notifications list against all marshalled services
+	servicesReport, err := getServicesReport(
+		marshalledServices, notificationList)
+	if err != nil {
+		return nil, err
 	}
+
+	// Parse notifications list against all marshalled compressed services
+	compressedServicesReport, err := getCompressedServicesReport(
+		marshalledCompressedServices, notificationList)
+	if err != nil {
+		return nil, err
+	}
+
+	// Concatenate these reports
+	reportList := append(servicesReport, compressedServicesReport...)
 
 	return json.Marshal(reportList)
 }
@@ -166,4 +149,102 @@ func UnregisterForNotifications(e2eId int) error {
 	}
 
 	return user.api.UnregisterForNotifications(user.api.GetReceptionIdentity().ID)
+}
+
+// getCompressedServicesReport is a utility function for
+// [GetNotificationsReport].
+//
+// getCompressedServicesReport parses the notifications list against the
+// marshalled compressed services. If a compressed service determines a
+// notification is meant for this user, it appends this data to the list of
+// [NotificationReport]'s.
+func getCompressedServicesReport(marshalledCompressedServices []byte,
+	notificationList []*notifications.Data) ([]*NotificationReport, error) {
+	// Construct  a report list
+	reportList := make([]*NotificationReport, len(notificationList))
+
+	// Process compressed services
+	compressServiceList := message.CompressedServiceList{}
+	err := json.Unmarshal(marshalledCompressedServices, &compressServiceList)
+	if err != nil {
+		return nil, err
+	}
+
+	for id, services := range compressServiceList {
+		// Iterate over potential notifications for us
+		for i := range notificationList {
+			notifData := notificationList[i]
+
+			// Iterate over all services {
+			for j := range services {
+				service := services[j]
+				hash, err := service.Hash(&id, notifData.MessageHash)
+				if err != nil {
+					jww.WARN.Printf("Failed to hash for compressed service %s",
+						service.String())
+					continue
+				}
+
+				found, tags, metadata := service.ForMe(&id, notifData.MessageHash, hash)
+				if !found {
+					continue
+				}
+
+				reportList[i] = &NotificationReport{
+					ForMe:  true,
+					Type:   tags,
+					Source: metadata,
+				}
+
+			}
+		}
+	}
+
+	return reportList, nil
+}
+
+// getServicesReport is a utility function for [GetNotificationsReport].
+//
+// getServicesReport parses the notifications list against the marshalled
+// services. If a compressed service determines a notification is meant for this
+// user, it appends this data to the list of [NotificationReport]'s.
+func getServicesReport(marshalledServices []byte,
+	notificationList []*notifications.Data) ([]*NotificationReport, error) {
+	// Construct  a report list
+	reportList := make([]*NotificationReport, 0)
+
+	// If services are retrieved using TrackServicesWithIdentity, this
+	// should return a single list.
+	serviceList := message.ServiceList{}
+	err := json.Unmarshal(marshalledServices, &serviceList)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate over data provided by server
+	for _, services := range serviceList {
+		for i := range notificationList {
+			notifData := notificationList[i]
+
+			// Iterate over all services
+			for j := range services {
+				// Pull data from services and from notification data
+				service := services[j]
+				hash := service.HashFromMessageHash(notifData.MessageHash)
+
+				// Check if this notification data is recognized by
+				// this service, ie "ForMe"
+				if service.ForMeFromMessageHash(notifData.MessageHash, hash) {
+					// Fill report list with service data
+					reportList[i] = &NotificationReport{
+						ForMe:  true,
+						Type:   []string{service.Tag},
+						Source: service.Identifier,
+					}
+				}
+			}
+		}
+	}
+
+	return reportList, nil
 }

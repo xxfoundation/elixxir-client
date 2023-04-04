@@ -21,10 +21,10 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// Remote KV Implementation
+// KV Implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-// RemoteKV kv-related constants.
+// KV kv-related constants.
 const (
 	remoteKvVersion = 0
 
@@ -42,8 +42,8 @@ const (
 // updateFailureDelay is the backoff period in between retrying to
 const updateFailureDelay = 1 * time.Second
 
-// RemoteKV implements a remote KV to handle transaction logs.
-type RemoteKV struct {
+// KV implements a remote KV to handle transaction logs.
+type KV struct {
 	// local is the versioned KV store that will write the transaction.
 	local versioned.KV
 
@@ -72,19 +72,19 @@ type RemoteKV struct {
 	lck sync.RWMutex
 }
 
-// NewOrLoadRemoteKV constructs a new RemoteKV. If data exists on disk, it loads
+// NewOrLoadKV constructs a new KV. If data exists on disk, it loads
 // that context and handle it appropriately.
-func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv versioned.KV,
+func NewOrLoadKV(transactionLog *TransactionLog, kv versioned.KV,
 	synchedPrefixes []string,
 	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback) (*RemoteKV, error) {
+	updateCb RemoteStoreCallback) (*KV, error) {
 
 	sPrefixes := synchedPrefixes
 	if sPrefixes == nil {
 		sPrefixes = make([]string, 0)
 	}
 
-	rkv := &RemoteKV{
+	rkv := &KV{
 		local:                kv,
 		txLog:                transactionLog,
 		KeyUpdate:            eventCb,
@@ -108,7 +108,7 @@ func NewOrLoadRemoteKV(transactionLog *TransactionLog, kv versioned.KV,
 
 // Get retrieves the data stored in the underlying kv. Will return an error
 // if the data at this key cannot be retrieved.
-func (r *RemoteKV) Get(key string) ([]byte, error) {
+func (r *KV) Get(key string) ([]byte, error) {
 	r.lck.RLock()
 	defer r.lck.RUnlock()
 
@@ -124,7 +124,7 @@ func (r *RemoteKV) Get(key string) ([]byte, error) {
 // UpsertLocal is a LOCAL ONLY operation which will write the Transaction
 // to local store.
 // todo: test this
-func (r *RemoteKV) UpsertLocal(key string, newVal []byte) error {
+func (r *KV) UpsertLocal(key string, newVal []byte) error {
 	// Read from local KV
 	obj, err := r.local.Get(key, remoteKvVersion)
 	if err != nil {
@@ -146,7 +146,7 @@ func (r *RemoteKV) UpsertLocal(key string, newVal []byte) error {
 }
 
 // Set will write a transaction to the remote and local store.
-func (r *RemoteKV) Set(key string, val []byte,
+func (r *KV) Set(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 	r.lck.Lock()
 	defer r.lck.Unlock()
@@ -169,14 +169,14 @@ func (r *RemoteKV) Set(key string, val []byte,
 // RemoteStoreCallback.
 //
 // NO LOCAL STORAGE OPERATION WIL BE PERFORMED.
-func (r *RemoteKV) RemoteSet(key string, val []byte,
+func (r *KV) RemoteSet(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 	return r.remoteSet(key, val, updateCb)
 }
 
 // GetList is a wrapper of [LocalStore.GetList]. This will return a JSON
 // marshalled [KeyValueMap].
-func (r *RemoteKV) GetList(name string) ([]byte, error) {
+func (r *KV) GetList(name string) ([]byte, error) {
 	valList, err := r.txLog.local.GetList(name)
 	if err != nil {
 		return nil, err
@@ -186,8 +186,8 @@ func (r *RemoteKV) GetList(name string) ([]byte, error) {
 }
 
 // remoteSet is a utility function which will write the transaction to
-// the RemoteKV.
-func (r *RemoteKV) remoteSet(key string, val []byte,
+// the KV.
+func (r *KV) remoteSet(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 
 	wrapper := func(newTx Transaction, err error) {
@@ -215,8 +215,8 @@ func (r *RemoteKV) remoteSet(key string, val []byte,
 }
 
 // handleRemoteSet contains the logic for handling a remoteSet attempt. It will
-// handle and modify state within the RemoteKV for failed remote sets.
-func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
+// handle and modify state within the KV for failed remote sets.
+func (r *KV) handleRemoteSet(newTx Transaction, err error,
 	updateCb RemoteStoreCallback) {
 
 	// Pass context to user-defined callback, so they may handle failure for
@@ -261,7 +261,7 @@ func (r *RemoteKV) handleRemoteSet(newTx Transaction, err error,
 }
 
 // localSet will save the key value pair in the local KV.
-func (r *RemoteKV) localSet(key string, val []byte) error {
+func (r *KV) localSet(key string, val []byte) error {
 	// Create versioned object for kv.Set
 	obj := &versioned.Object{
 		Version:   remoteKvVersion,
@@ -275,20 +275,20 @@ func (r *RemoteKV) localSet(key string, val []byte) error {
 
 // addUnsyncedWrite will write the intent to the map. This map will be saved to disk
 // using te kv.
-func (r *RemoteKV) addUnsyncedWrite(key string, val []byte) error {
+func (r *KV) addUnsyncedWrite(key string, val []byte) error {
 	r.UnsyncedWrites[key] = val
 	return r.saveUnsyncedWrites()
 }
 
 // removeUnsyncedWrite will delete the intent from the map. This modified map will be
 // saved to disk using the kv.
-func (r *RemoteKV) removeUnsyncedWrite(key string) error {
+func (r *KV) removeUnsyncedWrite(key string) error {
 	delete(r.UnsyncedWrites, key)
 	return r.saveUnsyncedWrites()
 }
 
 // saveUnsyncedWrites is a utility function which writes the UnsyncedWrites map to disk.
-func (r *RemoteKV) saveUnsyncedWrites() error {
+func (r *KV) saveUnsyncedWrites() error {
 	//fmt.Printf("unsynced: %v\n", r.UnsyncedWrites)
 	data, err := json.Marshal(r.UnsyncedWrites)
 	if err != nil {
@@ -306,7 +306,7 @@ func (r *RemoteKV) saveUnsyncedWrites() error {
 
 // loadUnsyncedWrites will load any intents from kv if present and set it into
 // UnsyncedWrites.
-func (r *RemoteKV) loadUnsyncedWrites() error {
+func (r *KV) loadUnsyncedWrites() error {
 	obj, err := r.local.Get(intentsKey, intentsVersion)
 	if err != nil { // Return if there isn't any intents stored
 		return nil

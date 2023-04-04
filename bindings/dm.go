@@ -413,6 +413,14 @@ func constructDMSendReport(dmMsgID message.ID,
 	return json.Marshal(sendReport)
 }
 
+func GetDMInstance(instanceID int) (*DMClient, error) {
+	instance, ok := dmClients.tracked[instanceID]
+	if !ok {
+		return nil, errors.Errorf("no dm instance id: %d", instanceID)
+	}
+	return instance, nil
+}
+
 // Simple mux'd map list of clients.
 var dmClients = &dmClientTracker{
 	tracked: make(map[int]*DMClient),

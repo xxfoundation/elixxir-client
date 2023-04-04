@@ -9,8 +9,9 @@ package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/sync"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/sync"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -282,7 +283,7 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 
 	// Construct remote KV
 	rkv, err := sync.NewOrLoadRemoteKV(
-		txLog, e2eCl.api.GetStorage().GetKV(),
+		txLog, e2eCl.api.GetStorage().GetKV(), nil,
 		eventCb, updateCb)
 	if err != nil {
 		return nil, err

@@ -24,7 +24,7 @@ import (
 
 const (
 	// Can be provided to SqlLite to create a temporary, in-memory DB.
-	temporaryDbPath = "file::memory:?cache=shared"
+	temporaryDbPath = "file:%s?mode=memory&cache=shared"
 
 	// Determines maximum runtime (in seconds) of DB queries.
 	dbTimeout = 3 * time.Second
@@ -186,8 +186,8 @@ func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error 
 		return err
 	}
 
-	return i.updateConversation(resultConvo.Nickname, resultConvo.Pubkey,
-		resultConvo.Token, resultConvo.CodesetVersion, &isBlocked)
+	return i.upsertConversation(resultConvo.Nickname, resultConvo.Pubkey,
+		resultConvo.Token, resultConvo.CodesetVersion, isBlocked)
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
@@ -238,8 +238,10 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 	data string, partnerKey, senderKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round, mType dm.MessageType, status dm.Status) (uint64, error) {
 
-	// Keep track of whether Conversation was altered
-	conversationUpdated := false
+	// Keep track of whether a Conversation was altered
+	var convoToUpdate *Conversation
+
+	// Determine whether Conversation needs to be created
 	result, err := i.getConversation(partnerKey)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -248,12 +250,14 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 			// If there is no extant Conversation, create one.
 			jww.DEBUG.Printf(
 				"[DM SQL] Joining conversation with %s", nickname)
-			err = i.createConversation(nickname, partnerKey, dmToken,
-				codeset, false)
-			if err != nil {
-				return 0, err
+			isBlocked := false
+			convoToUpdate = &Conversation{
+				Pubkey:         senderKey,
+				Nickname:       nickname,
+				Token:          dmToken,
+				CodesetVersion: codeset,
+				Blocked:        &isBlocked,
 			}
-			conversationUpdated = true
 		}
 	} else {
 		jww.DEBUG.Printf(
@@ -263,15 +267,30 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 		isFromPartner := bytes.Equal(result.Pubkey, senderKey)
 		nicknameChanged := result.Nickname != nickname
 		if isFromPartner && nicknameChanged {
-			jww.DEBUG.Printf(
-				"[DM SQL] Updating from nickname %s to %s",
+			jww.DEBUG.Printf("[DM SQL] Updating from nickname %s to %s",
 				result.Nickname, nickname)
-			err = i.updateConversation(nickname, result.Pubkey, result.Token,
-				result.CodesetVersion, result.Blocked)
-			if err != nil {
-				return 0, err
-			}
-			conversationUpdated = true
+			convoToUpdate = result
+			convoToUpdate.Nickname = nickname
+		}
+
+		// Fix conversation if dmToken is altered
+		dmTokenChanged := result.Token != dmToken
+		if isFromPartner && dmTokenChanged {
+			jww.WARN.Printf(
+				"[DM indexedDB] Updating from dmToken %d to %d",
+				result.Token, dmToken)
+			convoToUpdate = result
+			convoToUpdate.Token = dmToken
+		}
+	}
+
+	// Update the conversation in storage, if needed
+	conversationUpdated := convoToUpdate != nil
+	if conversationUpdated {
+		err = i.upsertConversation(convoToUpdate.Nickname, convoToUpdate.Pubkey,
+			convoToUpdate.Token, convoToUpdate.CodesetVersion, *convoToUpdate.Blocked)
+		if err != nil {
+			return 0, err
 		}
 	}
 
@@ -299,7 +318,8 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 
 	jww.TRACE.Printf("[DM SQL] Calling ReceiveMessageCB(%v, %v, f, %t)",
 		uuid, partnerKey, conversationUpdated)
-	go i.receivedMessageCB(uuid, partnerKey, false, conversationUpdated)
+	go i.receivedMessageCB(uuid, partnerKey,
+		false, conversationUpdated)
 	return uuid, nil
 }
 
@@ -308,11 +328,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 func (i *impl) upsertMessage(msg *Message) (uint64, error) {
 	var err error
 	ctx, cancel := newContext()
-	if msg.Id != 0 {
-		err = i.db.WithContext(ctx).Create(msg).Error
-	} else {
-		err = i.db.WithContext(ctx).Updates(msg).Error
-	}
+	err = i.db.WithContext(ctx).Save(msg).Error
 	cancel()
 	if err != nil {
 		return 0, err
@@ -334,8 +350,8 @@ func (i *impl) getConversation(senderPubKey ed25519.PublicKey) (*Conversation, e
 	return result, nil
 }
 
-// createConversation is used for joining a Conversation.
-func (i *impl) createConversation(nickname string,
+// upsertConversation is used for updating or creating a Conversation with the given fields.
+func (i *impl) upsertConversation(nickname string,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, blocked bool) error {
 	newConvo := Conversation{
 		Pubkey:         pubKey,
@@ -344,34 +360,13 @@ func (i *impl) createConversation(nickname string,
 		CodesetVersion: codeset,
 		Blocked:        &blocked,
 	}
+	jww.DEBUG.Printf("[DM SQL] Attempting to upsertConversation: %+v", newConvo)
 
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Create(newConvo).Error
+	err := i.db.WithContext(ctx).Save(newConvo).Error
 	cancel()
 	if err != nil {
-		return errors.Errorf("[DM SQL] failed to createConversation: %+v", err)
-	}
-
-	return nil
-}
-
-// updateConversation is used for updating an extant Conversation to the given fields.
-func (i *impl) updateConversation(nickname string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, blocked *bool) error {
-	newConvo := Conversation{
-		Pubkey:         pubKey,
-		Nickname:       nickname,
-		Token:          dmToken,
-		CodesetVersion: codeset,
-		Blocked:        blocked,
-	}
-	jww.DEBUG.Printf("[DM SQL] Attempting to updateConversation: %+v", newConvo)
-
-	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Updates(newConvo).Error
-	cancel()
-	if err != nil {
-		return errors.Errorf("[DM SQL] failed to updateConversation: %+v", err)
+		return errors.Errorf("[DM SQL] failed to upsertConversation: %+v", err)
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ package storage
 
 import (
 	"crypto/ed25519"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/dm"
@@ -36,19 +37,20 @@ type impl struct {
 	receivedMessageCB MessageReceivedCallback
 }
 
-// NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
+// NewEventModel initializes the [dm.EventModel] interface with appropriate backend.
 func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
 	msgCb MessageReceivedCallback) (dm.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption, msgCb)
+	useTemporary := len(dbFilePath) == 0
+	model, err := newImpl(dbFilePath, encryption, msgCb, useTemporary)
 	return dm.EventModel(model), err
 }
 
+// If useTemporary is set to true, this will use an in-RAM database.
 func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback) (*impl, error) {
+	msgCb MessageReceivedCallback, useTemporary bool) (*impl, error) {
 
-	// Use a temporary, in-memory database if no path is specified
-	if len(dbFilePath) == 0 {
-		dbFilePath = temporaryDbPath
+	if useTemporary {
+		dbFilePath = fmt.Sprintf(temporaryDbPath, dbFilePath)
 		jww.WARN.Printf("No database file path specified! " +
 			"Using temporary in-memory database")
 	}

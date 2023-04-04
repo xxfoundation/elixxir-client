@@ -4,8 +4,6 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-// Handles the database ORM for gateways
-
 package storage
 
 import (

@@ -109,10 +109,12 @@ func NewOrLoadKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	}
 
 	// Re-trigger all lingering intents
+	rkv.lck.Lock()
 	for key, val := range rkv.UnsyncedWrites {
 		// Call the internal to avoid writing to intent what is already there
 		go rkv.remoteSet(key, val, updateCb)
 	}
+	rkv.lck.Unlock()
 
 	return rkv, nil
 }

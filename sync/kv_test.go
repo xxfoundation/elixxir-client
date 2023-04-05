@@ -66,16 +66,21 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, updateCb)
 	require.NoError(t, err)
 
-	// Wait for loaded to be complete
-	//select {
-	//case <-done:
-	//	break
-	//case <-time.NewTimer(5 * time.Second).C:
-	//	t.Fatalf("Failed to recieve from callback")
-	//}
+	const numTests = 100
+
+	// empty channel as callbacks are received
+	go func() {
+		cnt := 0
+		select {
+		case <-done:
+			cnt += 1
+			if cnt == numTests {
+				return
+			}
+		}
+	}()
 
 	// Add intents to remote KV
-	const numTests = 100
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), "val"+strconv.Itoa(i)
 		require.NoError(t, rkv.addUnsyncedWrite(key, []byte(val)))

@@ -26,6 +26,7 @@ import (
 const PrefixSeparator = `\`
 
 const (
+	EmptyPrefixErr               = "empty prefix"
 	PrefixContainingSeparatorErr = "cannot accept prefix with the default separator"
 	DuplicatePrefixErr           = "prefix has already been added, cannot overwrite"
 )
@@ -208,6 +209,10 @@ func (v *kv) HasPrefix(prefix string) bool {
 
 // Prefix returns a new kv with the new prefix appending.
 func (v *kv) Prefix(prefix string) (KV, error) {
+	if prefix == "" {
+		return nil, errors.Errorf(EmptyPrefixErr)
+	}
+
 	//// Reject invalid prefixes
 	if strings.Contains(prefix, PrefixSeparator) {
 		return nil, errors.Errorf(PrefixContainingSeparatorErr)

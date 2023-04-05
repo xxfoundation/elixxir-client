@@ -39,7 +39,7 @@ func NewVersionedKV(remote *KV) *VersionedKV {
 		remoteKV:             remote,
 		vkv:                  versioned.NewKV(remote),
 	}
-	v.inSynchronizedPrefix = v.hasSynchronizedPrefix()
+	v.updateIfSynchronizedPrefix()
 
 	return v
 }
@@ -97,7 +97,7 @@ func (r *VersionedKV) Prefix(prefix string) (versioned.KV, error) {
 			remoteKV:             r.remoteKV,
 			vkv:                  newKV,
 		}
-		v.inSynchronizedPrefix = v.hasSynchronizedPrefix()
+		v.updateIfSynchronizedPrefix()
 		return v, nil
 	}
 	return nil, err
@@ -134,17 +134,17 @@ func (r *VersionedKV) SyncPrefix(prefix string) {
 		}
 	}
 	r.synchronizedPrefixes = append(r.synchronizedPrefixes, prefix)
-	r.inSynchronizedPrefix = r.hasSynchronizedPrefix()
 }
 
-func (r *VersionedKV) hasSynchronizedPrefix() bool {
+func (r *VersionedKV) updateIfSynchronizedPrefix() bool {
 	r.lck.Lock()
 	defer r.lck.Unlock()
 	for i := range r.synchronizedPrefixes {
 		if r.vkv.HasPrefix(r.synchronizedPrefixes[i]) {
+			r.inSynchronizedPrefix = true
 			return true
 		}
 	}
-
+	r.inSynchronizedPrefix = false
 	return false
 }

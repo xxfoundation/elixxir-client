@@ -9,6 +9,7 @@ package cypher
 
 import (
 	"github.com/pkg/errors"
+
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -30,8 +31,8 @@ const (
 	errSaveKey     = "failed to save transfer key: %+v"
 
 	// LoadManager
-	errLoadKey      = "failed to load transfer key: %+v"
-	errLoadFpVector = "failed to load state vector: %+v"
+	errLoadKey      = "failed to load transfer key"
+	errLoadFpVector = "failed to load state vector"
 
 	// Manager.PopCypher
 	errGetNextFp = "used all %d fingerprints"
@@ -51,31 +52,37 @@ type Manager struct {
 	// (has its own storage backend)
 	fpVector *utility.StateVector
 
-	kv *versioned.KV
+	disableKV bool // Toggles use of KV storage
+	kv        *versioned.KV
 }
 
 // NewManager returns a new cypher Manager initialised with the given number of
 // fingerprints.
-func NewManager(key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) (
-	*Manager, error) {
+func NewManager(key *ftCrypto.TransferKey, numFps uint16, disableKV bool,
+	kv *versioned.KV) (*Manager, error) {
 
-	kv = kv.Prefix(cypherManagerPrefix)
+	if !disableKV {
+		kv = kv.Prefix(cypherManagerPrefix)
+	}
 
 	fpVector, err := utility.NewStateVector(
-		uint32(numFps), false, cypherManagerFpVectorKey, kv)
+		uint32(numFps), disableKV, cypherManagerFpVectorKey, kv)
 	if err != nil {
 		return nil, errors.Errorf(errNewFpVector, err)
 	}
 
-	err = saveKey(key, kv)
-	if err != nil {
-		return nil, errors.Errorf(errSaveKey, err)
+	if !disableKV {
+		err = saveKey(key, kv)
+		if err != nil {
+			return nil, errors.Errorf(errSaveKey, err)
+		}
 	}
 
 	tfp := &Manager{
-		key:      key,
-		fpVector: fpVector,
-		kv:       kv,
+		key:       key,
+		fpVector:  fpVector,
+		disableKV: disableKV,
+		kv:        kv,
 	}
 
 	return tfp, nil
@@ -98,7 +105,7 @@ func (m *Manager) PopCypher() (Cypher, error) {
 	return c, nil
 }
 
-// GetUnusedCyphers returns a list of cyphers with unused fingerprints numbers.
+// GetUnusedCyphers returns a list of cyphers with unused fingerprint numbers.
 func (m *Manager) GetUnusedCyphers() []Cypher {
 	fpNums := m.fpVector.GetUnusedKeyNums()
 	cypherList := make([]Cypher, len(fpNums))
@@ -113,6 +120,11 @@ func (m *Manager) GetUnusedCyphers() []Cypher {
 	return cypherList
 }
 
+// GetKey returns the transfer key used for encrypting/decrypting.
+func (m *Manager) GetKey() *ftCrypto.TransferKey {
+	return m.key
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -122,18 +134,19 @@ func LoadManager(kv *versioned.KV) (*Manager, error) {
 	kv = kv.Prefix(cypherManagerPrefix)
 	key, err := loadKey(kv)
 	if err != nil {
-		return nil, errors.Errorf(errLoadKey, err)
+		return nil, errors.Wrap(err, errLoadKey)
 	}
 
 	fpVector, err := utility.LoadStateVector(kv, cypherManagerFpVectorKey)
 	if err != nil {
-		return nil, errors.Errorf(errLoadFpVector, err)
+		return nil, errors.Wrap(err, errLoadFpVector)
 	}
 
 	tfp := &Manager{
-		key:      key,
-		fpVector: fpVector,
-		kv:       kv,
+		key:       key,
+		fpVector:  fpVector,
+		disableKV: false,
+		kv:        kv,
 	}
 
 	return tfp, nil
@@ -141,14 +154,17 @@ func LoadManager(kv *versioned.KV) (*Manager, error) {
 
 // Delete removes all saved entries from storage.
 func (m *Manager) Delete() error {
-	// Delete transfer key
-	err := m.kv.Delete(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
-	if err != nil {
-		return errors.Errorf(errDeleteKey, err)
+	if !m.disableKV {
+		// Delete transfer key
+		err := m.kv.Delete(
+			cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
+		if err != nil {
+			return errors.Errorf(errDeleteKey, err)
+		}
 	}
 
 	// Delete StateVector
-	err = m.fpVector.Delete()
+	err := m.fpVector.Delete()
 	if err != nil {
 		return errors.Errorf(errDeleteFpVector, err)
 	}

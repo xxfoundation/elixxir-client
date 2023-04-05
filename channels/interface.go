@@ -14,9 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -24,6 +21,8 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 // ValidForever is used as a validUntil lease when sending to denote the message
@@ -122,6 +121,7 @@ type Manager interface {
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
 		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
+
 	// SendMessage is used to send a formatted message over a channel.
 	//
 	// Due to the underlying encoding using compression, it is not possible to
@@ -340,7 +340,7 @@ type EventModelBuilder func(path string) (EventModel, error)
 // message handlers with the event model.
 type ExtensionMessageHandler interface {
 	// GetType registers the message type that this handler is for. All messages
-	// of this type will be passed through this handler
+	// of this type will be passed through this handler.
 	GetType() MessageType
 
 	// GetProperties returns debugging and pre-filtering information.

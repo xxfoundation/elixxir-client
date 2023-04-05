@@ -10,14 +10,20 @@ package store
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
+	"math/rand"
+	"reflect"
+	"testing"
+
+	"github.com/pkg/errors"
+
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+
+	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/csprng"
-	"reflect"
-	"testing"
 )
 
 // Tests that newReceivedTransfer returns a new ReceivedTransfer with the
@@ -25,14 +31,14 @@ import (
 func Test_newReceivedTransfer(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	fid := ftCrypto.NewID([]byte("fileData"))
 	numFps := uint16(24)
 	parts, _ := generateTestParts(16)
 	fileSize := uint32(len(parts) * len(parts[0]))
 	numParts := uint16(len(parts))
-	rtKv := kv.Prefix(makeReceivedTransferPrefix(&tid))
+	rtKv := kv.Prefix(makeReceivedTransferPrefix(fid))
 
-	cypherManager, err := cypher.NewManager(&key, numFps, rtKv)
+	cypherManager, err := cypher.NewManager(&key, numFps, false, rtKv)
 	if err != nil {
 		t.Errorf("Failed to make new cypher manager: %+v", err)
 	}
@@ -43,19 +49,22 @@ func Test_newReceivedTransfer(t *testing.T) {
 	}
 
 	expected := &ReceivedTransfer{
-		cypherManager: cypherManager,
-		tid:           &tid,
-		fileName:      "fileName",
-		transferMAC:   []byte("transferMAC"),
-		fileSize:      fileSize,
-		numParts:      numParts,
-		parts:         make([][]byte, numParts),
-		partStatus:    partStatus,
-		kv:            rtKv,
+		cypherManager:            cypherManager,
+		fid:                      fid,
+		recipient:                id.NewIdFromString("blob", id.User, t),
+		transferMAC:              []byte("transferMAC"),
+		fileSize:                 fileSize,
+		numParts:                 numParts,
+		parts:                    make([][]byte, numParts),
+		partStatus:               partStatus,
+		currentCallbackID:        0,
+		lastCallbackFingerprints: make(map[uint64]string),
+		disableKV:                false,
+		kv:                       rtKv,
 	}
 
-	rt, err := newReceivedTransfer(&key, &tid, expected.fileName,
-		expected.transferMAC, fileSize, numParts, numFps, kv)
+	rt, err := newReceivedTransfer(expected.recipient, &key, fid,
+		expected.transferMAC, fileSize, numParts, numFps, false, kv)
 	if err != nil {
 		t.Errorf("newReceivedTransfer returned an error: %+v", err)
 	}
@@ -129,7 +138,6 @@ func TestReceivedTransfer_GetFile(t *testing.T) {
 		t.Errorf("Received file does not match expected."+
 			"\nexpected: %q\nreceived: %q", combinedParts, file)
 	}
-
 }
 
 // Tests that ReceivedTransfer.GetUnusedCyphers returns the correct number of
@@ -139,81 +147,81 @@ func TestReceivedTransfer_GetUnusedCyphers(t *testing.T) {
 	rt, _, _, numFps, _ := newTestReceivedTransfer(numParts, t)
 
 	// Check that all cyphers are returned after initialisation
-	unsentCyphers := rt.GetUnusedCyphers()
-	if len(unsentCyphers) != int(numFps) {
+	unusedCyphers := rt.GetUnusedCyphers()
+	if len(unusedCyphers) != int(numFps) {
 		t.Errorf("Number of unused cyphers does not match original number of "+
 			"fingerprints when none have been used.\nexpected: %d\nreceived: %d",
-			numFps, len(unsentCyphers))
+			numFps, len(unusedCyphers))
 	}
 
 	// Use every other part
-	for i := range unsentCyphers {
+	for i := range unusedCyphers {
 		if i%2 == 0 {
-			_, _ = unsentCyphers[i].PopCypher()
+			_, _ = unusedCyphers[i].PopCypher()
 		}
 	}
 
 	// Check that only have the number of parts is returned
-	unsentCyphers = rt.GetUnusedCyphers()
-	if len(unsentCyphers) != int(numFps)/2 {
+	unusedCyphers = rt.GetUnusedCyphers()
+	if len(unusedCyphers) != int(numFps)/2 {
 		t.Errorf("Number of unused cyphers is not half original number after "+
 			"half have been marked as received.\nexpected: %d\nreceived: %d",
-			numFps/2, len(unsentCyphers))
+			numFps/2, len(unusedCyphers))
 	}
 
 	// Use the rest of the parts
-	for i := range unsentCyphers {
-		_, _ = unsentCyphers[i].PopCypher()
+	for i := range unusedCyphers {
+		_, _ = unusedCyphers[i].PopCypher()
 	}
 
-	// Check that no sent parts are returned
-	unsentCyphers = rt.GetUnusedCyphers()
-	if len(unsentCyphers) != 0 {
+	// Check that no unused parts are returned
+	unusedCyphers = rt.GetUnusedCyphers()
+	if len(unusedCyphers) != 0 {
 		t.Errorf("Number of unused cyphers is not zero after all have been "+
 			"marked as received.\nexpected: %d\nreceived: %d",
-			0, len(unsentCyphers))
+			0, len(unusedCyphers))
 	}
 }
 
-// Tests that ReceivedTransfer.TransferID returns the correct transfer ID.
-func TestReceivedTransfer_TransferID(t *testing.T) {
+// Tests that ReceivedTransfer.GetFileID returns the correct file ID.
+func TestReceivedTransfer_GetFileID(t *testing.T) {
 	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
-	if rt.TransferID() != rt.tid {
-		t.Errorf("Incorrect transfer ID.\nexpected: %s\nreceived: %s",
-			rt.tid, rt.TransferID())
+	if rt.GetFileID() != rt.fid {
+		t.Errorf("Incorrect file ID.\nexpected: %s\nreceived: %s",
+			rt.fid, rt.GetFileID())
 	}
 }
 
-// Tests that ReceivedTransfer.FileName returns the correct file name.
-func TestReceivedTransfer_FileName(t *testing.T) {
+// Tests that ReceivedTransfer.GetRecipient returns the correct recipient ID.
+func TestReceivedTransfer_GetRecipient(t *testing.T) {
 	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
-	if rt.FileName() != rt.fileName {
-		t.Errorf("Incorrect transfer ID.\nexpected: %s\nreceived: %s",
-			rt.fileName, rt.FileName())
+	if rt.GetRecipient() != rt.recipient {
+		t.Errorf("Incorrect recipient ID.\nexpected: %s\nreceived: %s",
+			rt.recipient, rt.GetRecipient())
 	}
 }
 
-// Tests that ReceivedTransfer.FileSize returns the correct file size.
-func TestReceivedTransfer_FileSize(t *testing.T) {
+// Tests that ReceivedTransfer.GetFileSize returns the correct file size.
+func TestReceivedTransfer_GetFileSize(t *testing.T) {
 	rt, file, _, _, _ := newTestReceivedTransfer(16, t)
 	fileSize := uint32(len(file))
 
-	if rt.FileSize() != fileSize {
+	if rt.GetFileSize() != fileSize {
 		t.Errorf("Incorrect file size.\nexpected: %d\nreceived: %d",
-			fileSize, rt.FileSize())
+			fileSize, rt.GetFileSize())
 	}
 }
 
-// Tests that ReceivedTransfer.NumParts returns the correct number of parts.
-func TestReceivedTransfer_NumParts(t *testing.T) {
+// Tests that ReceivedTransfer.GetNumParts returns the correct number of parts.
+func TestReceivedTransfer_GetNumParts(t *testing.T) {
 	numParts := uint16(16)
 	rt, _, _, _, _ := newTestReceivedTransfer(numParts, t)
 
-	if rt.NumParts() != numParts {
+	if rt.GetNumParts() != numParts {
 		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
-			numParts, rt.NumParts())
+			numParts, rt.GetNumParts())
 	}
 }
 
@@ -265,6 +273,90 @@ func TestReceivedTransfer_CopyPartStatusVector(t *testing.T) {
 	}
 }
 
+// Tests that ReceivedTransfer.GetNewCallbackID returns a new incremented ID on
+// each call.
+func TestReceivedTransfer_GetNewCallbackID(t *testing.T) {
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
+	for i := uint64(0); i < 10; i++ {
+		cbID := rt.GetNewCallbackID()
+		if cbID != i {
+			t.Errorf("Unexpected ID.\nexpected: %d\nreceived: %d", i, cbID)
+		}
+	}
+}
+
+// Tests that ReceivedTransfer.CompareAndSwapCallbackFps correctly swaps the
+// fingerprints only when they differ.
+func TestReceivedTransfer_CompareAndSwapCallbackFps(t *testing.T) {
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
+
+	expected := generateReceivedFp(true, 1, 3, nil)
+	if !rt.CompareAndSwapCallbackFps(5, true, 1, 3, nil) {
+		t.Error("Did not swap when there is a new fingerprint.")
+	} else if expected != rt.lastCallbackFingerprints[5] {
+		t.Errorf("lastCallbackFingerprint not correctly set."+
+			"\nexpected: %s\nreceived: %s",
+			expected, rt.lastCallbackFingerprints[5])
+	}
+
+	if rt.CompareAndSwapCallbackFps(5, true, 1, 3, nil) {
+		t.Error("Compared and swapped fingerprints when there was no change.")
+	}
+
+	expected = generateReceivedFp(false, 4, 15, errors.New("Error"))
+	if !rt.CompareAndSwapCallbackFps(5, false, 4, 15, errors.New("Error")) {
+		t.Error("Did not swap when there is a new fingerprint.")
+	} else if expected != rt.lastCallbackFingerprints[5] {
+		t.Errorf("lastCallbackFingerprint not correctly set."+
+			"\nexpected: %s\nreceived: %s",
+			expected, rt.lastCallbackFingerprints[5])
+	}
+}
+
+// Consistency test of generateReceivedFp.
+func Test_generateReceivedFp(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	type test struct {
+		completed       bool
+		received, total int
+		err             error
+		expected        string
+	}
+	tests := []test{{
+		prng.Intn(2) == 0, prng.Intn(500), prng.Intn(500),
+		nil, "false487168<nil>",
+	}, {
+		prng.Intn(2) == 0, prng.Intn(500), prng.Intn(500),
+		nil, "true423345<nil>",
+	}, {
+		prng.Intn(2) == 0, prng.Intn(500), prng.Intn(500),
+		nil, "false176128<nil>",
+	}, {
+		prng.Intn(2) == 0, prng.Intn(500), prng.Intn(500),
+		nil, "false429467<nil>",
+	}, {
+		prng.Intn(2) == 0, prng.Intn(500), prng.Intn(500),
+		nil, "false328152<nil>",
+	}, {
+		prng.Intn(2) == 0, prng.Intn(500), prng.Intn(500),
+		nil, "false52101<nil>",
+	}, {
+		prng.Intn(2) == 0, prng.Intn(500), prng.Intn(500),
+		errors.New("Bad error"), "false482Bad error",
+	},
+	}
+
+	for i, tt := range tests {
+		fp := generateReceivedFp(tt.completed, uint16(tt.received),
+			uint16(tt.total), tt.err)
+
+		if fp != tt.expected {
+			t.Errorf("Fingerprint %d does not match expected."+
+				"\nexpected: %s\nreceived: %s", i, tt.expected, fp)
+		}
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -277,7 +369,6 @@ func Test_loadReceivedTransfer(t *testing.T) {
 
 	for i, p := range parts {
 		if i%2 == 0 {
-
 			err := rt.AddPart(p, i)
 			if err != nil {
 				t.Errorf("Failed to add part #%d: %+v", i, err)
@@ -285,7 +376,7 @@ func Test_loadReceivedTransfer(t *testing.T) {
 		}
 	}
 
-	loadedRt, err := loadReceivedTransfer(rt.tid, kv)
+	loadedRt, err := loadReceivedTransfer(rt.fid, kv)
 	if err != nil {
 		t.Errorf("Failed to load ReceivedTransfer: %+v", err)
 	}
@@ -306,7 +397,7 @@ func TestReceivedTransfer_Delete(t *testing.T) {
 		t.Errorf("Delete returned an error: %+v", err)
 	}
 
-	_, err = loadSentTransfer(rt.tid, kv)
+	_, err = loadReceivedTransfer(rt.fid, kv)
 	if err == nil {
 		t.Errorf("Loaded received transfer that was deleted.")
 	}
@@ -333,62 +424,48 @@ func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 	rt *ReceivedTransfer, file []byte, key *ftCrypto.TransferKey,
 	numFps uint16, kv *versioned.KV) {
 	kv = versioned.NewKV(ekv.MakeMemstore())
+	recipient := id.NewIdFromString("ftRecipient", id.User, t)
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
-	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	fid := ftCrypto.NewID([]byte("fileData"))
 	transferMAC := []byte("I am a transfer MAC")
 	numFps = 2 * numParts
-	fileName := "helloFile"
 	_, file = generateTestParts(numParts)
 	fileSize := uint32(len(file))
 
-	st, err := newReceivedTransfer(
-		&keyTmp, &tid, fileName, transferMAC, fileSize, numParts, numFps, kv)
+	rt, err := newReceivedTransfer(recipient, &keyTmp, fid, transferMAC,
+		fileSize, numParts, numFps, false, kv)
 	if err != nil {
-		t.Errorf("Failed to make new SentTransfer: %+v", err)
+		t.Errorf("Failed to make new ReceivedTransfer: %+v", err)
 	}
 
-	return st, file, &keyTmp, numFps, kv
+	return rt, file, &keyTmp, numFps, kv
 }
 
 // Tests that a ReceivedTransfer marshalled via ReceivedTransfer.marshal and
 // unmarshalled via unmarshalReceivedTransfer matches the original.
 func TestReceivedTransfer_marshal_unmarshalReceivedTransfer(t *testing.T) {
 	rt := &ReceivedTransfer{
-		fileName:    "transferName",
+		recipient:   id.NewIdFromString("recipient", id.User, t),
 		transferMAC: []byte("I am a transfer MAC"),
 		fileSize:    735,
 		numParts:    153,
 	}
+	expected := receivedTransferDisk{
+		rt.recipient, rt.transferMAC, rt.numParts, rt.fileSize}
 
 	data, err := rt.marshal()
 	if err != nil {
 		t.Errorf("marshal returned an error: %+v", err)
 	}
 
-	fileName, transferMac, numParts, fileSize, err :=
-		unmarshalReceivedTransfer(data)
+	info, err := unmarshalReceivedTransfer(data)
 	if err != nil {
-		t.Errorf("Failed to unmarshal SentTransfer: %+v", err)
+		t.Errorf("Failed to unmarshal ReceivedTransfer: %+v", err)
 	}
 
-	if rt.fileName != fileName {
-		t.Errorf("Incorrect file name.\nexpected: %q\nreceived: %q",
-			rt.fileName, fileName)
-	}
-
-	if !bytes.Equal(rt.transferMAC, transferMac) {
-		t.Errorf("Incorrect transfer MAC.\nexpected: %s\nreceived: %s",
-			rt.transferMAC, transferMac)
-	}
-
-	if rt.numParts != numParts {
-		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
-			rt.numParts, numParts)
-	}
-
-	if rt.fileSize != fileSize {
-		t.Errorf("Incorrect file size.\nexpected: %d\nreceived: %d",
-			rt.fileSize, fileSize)
+	if !reflect.DeepEqual(expected, info) {
+		t.Errorf("Incorrect received file info.\nexpected: %+v\nreceived: %+v",
+			expected, info)
 	}
 }
 
@@ -416,22 +493,25 @@ func Test_savePart_loadPart(t *testing.T) {
 
 // Consistency test of makeReceivedTransferPrefix.
 func Test_makeReceivedTransferPrefix_Consistency(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	fileData := make([]byte, 64)
 	expectedPrefixes := []string{
-		"ReceivedFileTransferStore/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		"ReceivedFileTransferStore/CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"ReceivedFileTransferStore/GmeTCfxGOqRqeIDPGDFroTglaY5zUwwxc9aRbeIf3Co=",
+		"ReceivedFileTransferStore/gbpJjHd3tIe8BKykHzm9/WUu/Fp38P6sPp0A8yORIfQ=",
+		"ReceivedFileTransferStore/2/ZdG+WNzODJBiFWbJzZAsuMEP0HPNuP0Ogq3LUcxJM=",
+		"ReceivedFileTransferStore/TFOBbdqMHgDtzFk9zxIkxbulljnjT4pRXsT5uFCDmLo=",
+		"ReceivedFileTransferStore/23OMC+rBmCk+gsutXRThSUNScqEOefqQEs7pu1p3KrI=",
+		"ReceivedFileTransferStore/qHu5MUVs83oMqy829cLN6ybTaWT8XvLPT+1r1JDA4Hc=",
+		"ReceivedFileTransferStore/kuXqxsezI0kS9Bc5QcSOOCJ7aJzUirqa84LcuNPLZWA=",
+		"ReceivedFileTransferStore/MSscKJ0w5yoWsB1Uoq3opFTk3hNEHd35hidPwouBe6I=",
+		"ReceivedFileTransferStore/VhdbiYnEpLIet2wCD9KkwGMzGu9IPvoOwDnpu/uPwZU=",
+		"ReceivedFileTransferStore/j01ZSSm762TH7mjPimhuASOl7nLxsf1sh0/Yed8MwoE=",
 	}
 
 	for i, expected := range expectedPrefixes {
-		tid := ftCrypto.TransferID{byte(i)}
-		prefix := makeReceivedTransferPrefix(&tid)
+		prng.Read(fileData)
+		fid := ftCrypto.NewID(fileData)
+		prefix := makeReceivedTransferPrefix(fid)
 
 		if expected != prefix {
 			t.Errorf("Prefix #%d does not match expected."+

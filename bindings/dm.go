@@ -472,7 +472,7 @@ func constructDMSendReport(dmMsgID message.ID,
 	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
 	// Construct send report
 	sendReport := ChannelSendReport{
-		MessageId:  dmMsgID.Bytes(),
+		MessageID:  dmMsgID.Bytes(),
 		RoundsList: makeRoundsList(roundId),
 		EphId:      ephId.Int64(),
 	}

@@ -593,7 +593,7 @@ func (m *mockChannelsManager) SendMessage(*id.ID, string, time.Duration, cmix.CM
 func (m *mockChannelsManager) SendReply(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
-func (m *mockChannelsManager) SendReaction(*id.ID, string, cryptoMessage.ID, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+func (m *mockChannelsManager) SendReaction(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 func (m *mockChannelsManager) SendAdminGeneric(*id.ID, channels.MessageType, []byte, time.Duration, bool, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {

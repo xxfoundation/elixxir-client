@@ -172,7 +172,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV implements a remote KV to handle transaction logs. It writes and
 // reads state data from another device to a remote storage interface.
 type RemoteKV struct {
-	rkv *sync.RemoteKV
+	rkv *sync.KV
 }
 
 // RemoteStoreReport represents the report from any call to a method of

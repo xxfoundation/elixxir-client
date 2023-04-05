@@ -218,15 +218,18 @@ func (v *kv) Prefix(prefix string) (KV, error) {
 		return nil, errors.Errorf(DuplicatePrefixErr)
 	}
 
-	v.offset++
+	newPrefixMap := make(map[string]int)
+	for k, v := range v.prefixMap {
+		newPrefixMap[k] = v
+	}
+	newPrefixMap[prefix] = v.offset + 1
 
 	kvPrefix := kv{
 		r:         v.r,
 		prefix:    v.prefix + prefix + PrefixSeparator,
-		prefixMap: v.prefixMap,
+		prefixMap: newPrefixMap,
+		offset:    v.offset + 1,
 	}
-
-	v.prefixMap[kvPrefix.prefix] = v.offset
 
 	return &kvPrefix, nil
 }

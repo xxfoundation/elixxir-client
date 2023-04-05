@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
 )
@@ -42,10 +43,15 @@ const (
 // updateFailureDelay is the backoff period in between retrying to
 const updateFailureDelay = 1 * time.Second
 
+type Serializable interface {
+	ekv.Unmarshaler
+	ekv.Marshaler
+}
+
 // KV implements a remote KV to handle transaction logs.
 type KV struct {
 	// local is the versioned KV store that will write the transaction.
-	local versioned.KV
+	local ekv.KeyValue
 
 	// txLog is the transaction log used to write transactions.
 	txLog *TransactionLog
@@ -66,6 +72,10 @@ type KV struct {
 	// synchronization calls.
 	synchronizedPrefixes []string
 
+	// defaulteUpdateCB is called when the updateCB is not specified for
+	// remote store and set operations
+	defaultUpdateCB RemoteStoreCallback
+
 	// Connected determines the connectivity of the remote server.
 	connected bool
 
@@ -74,7 +84,7 @@ type KV struct {
 
 // NewOrLoadKV constructs a new KV. If data exists on disk, it loads
 // that context and handle it appropriately.
-func NewOrLoadKV(transactionLog *TransactionLog, kv versioned.KV,
+func NewOrLoadKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	synchedPrefixes []string,
 	eventCb KeyUpdateCallback,
 	updateCb RemoteStoreCallback) (*KV, error) {
@@ -90,6 +100,7 @@ func NewOrLoadKV(transactionLog *TransactionLog, kv versioned.KV,
 		KeyUpdate:            eventCb,
 		UnsyncedWrites:       make(map[string][]byte, 0),
 		synchronizedPrefixes: sPrefixes,
+		defaultUpdateCB:      updateCb,
 		connected:            true,
 	}
 
@@ -106,47 +117,96 @@ func NewOrLoadKV(transactionLog *TransactionLog, kv versioned.KV,
 	return rkv, nil
 }
 
-// Get retrieves the data stored in the underlying kv. Will return an error
-// if the data at this key cannot be retrieved.
-func (r *KV) Get(key string) ([]byte, error) {
-	r.lck.RLock()
-	defer r.lck.RUnlock()
+///////////////////////////////////////////////////////////////////////////////
+// Begin KV [ekv.KeyValue] interface implementation functions
+///////////////////////////////////////////////////////////////////////////////
 
-	// Read from local KV
-	obj, err := r.local.Get(key, remoteKvVersion)
+// Set implements [ekv.KeyValue.Set]. This is a LOCAL ONLY
+// operation which will write the Transaction to local store.
+// Use [SetRemote] to set keys synchronized to the cloud.
+func (r *KV) Set(key string, objectToStore ekv.Marshaler) error {
+	return r.SetBytes(key, objectToStore.Marshal())
+}
+
+// Get implements [ekv.KeyValue.Get]
+func (r *KV) Get(key string, loadIntoThisObject ekv.Unmarshaler) error {
+	data, err := r.GetBytes(key)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	return loadIntoThisObject.Unmarshal(data)
+}
+
+// Delete implements [ekv.KeyValue.Delete]. This is a LOCAL ONLY
+// operation which will write the Transaction to local store.
+// Use [SetRemote] to set keys synchronized to the cloud
+func (r *KV) Delete(key string) error {
+	return r.local.Delete(key)
+}
+
+// SetInterface implements [ekv.KeyValue.SetInterface]. This is a LOCAL ONLY
+// operation which will write the Transaction to local store.
+// Use [SetRemote] to set keys synchronized to the cloud.
+func (r *KV) SetInterface(key string, objectToStore interface{}) error {
+	data, err := json.Marshal(objectToStore)
+	if err != nil {
+		return err
+	}
+	return r.SetBytes(key, data)
+}
+
+// GetInterface implements [ekv.KeyValue.GetInterface]
+func (r *KV) GetInterface(key string, objectToLoad interface{}) error {
+	data, err := r.GetBytes(key)
+	if err != nil {
+		return err
 	}
 
-	return obj.Data, nil
+	return json.Unmarshal(data, objectToLoad)
 }
+
+// SetBytes implements [ekv.KeyValue.SetBytes]. This is a LOCAL ONLY
+// operation which will write the Transaction to local store.
+// Use [SetRemote] to set keys synchronized to the cloud.
+func (r *KV) SetBytes(key string, data []byte) error {
+	return r.local.SetBytes(key, data)
+}
+
+// GetBytes implements [ekv.KeyValue.GetBytes]
+func (r *KV) GetBytes(key string) ([]byte, error) {
+	return r.local.GetBytes(key)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// End KV [ekv.KeyValue] interface implementation functions
+///////////////////////////////////////////////////////////////////////////////
 
 // UpsertLocal is a LOCAL ONLY operation which will write the Transaction
 // to local store.
 // todo: test this
 func (r *KV) UpsertLocal(key string, newVal []byte) error {
 	// Read from local KV
-	obj, err := r.local.Get(key, remoteKvVersion)
+	obj, err := r.local.GetBytes(key)
 	if err != nil {
 		// Error means key does not exist, simply write to local
-		return r.localSet(key, newVal)
+		return r.local.SetBytes(key, newVal)
 	}
 
-	curVal := obj.Data
-	if bytes.Equal(curVal, newVal) {
-		jww.TRACE.Printf("Same value for transaction %+v", curVal)
+	if bytes.Equal(obj, newVal) {
+		jww.TRACE.Printf("duplicate transaction value for key %s", key)
 		return nil
 	}
 
 	if r.KeyUpdate != nil {
-		r.KeyUpdate(key, curVal, newVal, true)
+		r.KeyUpdate(key, obj, newVal, true)
 	}
 
-	return r.localSet(key, newVal)
+	return r.local.SetBytes(key, newVal)
 }
 
-// Set will write a transaction to the remote and local store.
-func (r *KV) Set(key string, val []byte,
+// SetRemote will write a transaction to the remote and local store
+// with the specified RemoteCB RemoteStoreCallback
+func (r *KV) SetRemote(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 	r.lck.Lock()
 	defer r.lck.Unlock()
@@ -157,19 +217,19 @@ func (r *KV) Set(key string, val []byte,
 	}
 
 	// Save locally
-	if err := r.localSet(key, val); err != nil {
+	if err := r.SetBytes(key, val); err != nil {
 		return errors.Errorf("failed to write to local kv: %+v", err)
 	}
 
 	return r.remoteSet(key, val, updateCb)
 }
 
-// RemoteSet will place this Transaction onto the remote server. This is an
+// SetRemoteOnly will place this Transaction onto the remote server. This is an
 // asynchronous operation and results will be passed back via the
 // RemoteStoreCallback.
 //
 // NO LOCAL STORAGE OPERATION WIL BE PERFORMED.
-func (r *KV) RemoteSet(key string, val []byte,
+func (r *KV) SetRemoteOnly(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 	return r.remoteSet(key, val, updateCb)
 }
@@ -189,6 +249,10 @@ func (r *KV) GetList(name string) ([]byte, error) {
 // the KV.
 func (r *KV) remoteSet(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
+
+	if updateCb == nil {
+		updateCb = r.defaultUpdateCB
+	}
 
 	wrapper := func(newTx Transaction, err error) {
 		r.handleRemoteSet(newTx, err, updateCb)
@@ -260,19 +324,6 @@ func (r *KV) handleRemoteSet(newTx Transaction, err error,
 
 }
 
-// localSet will save the key value pair in the local KV.
-func (r *KV) localSet(key string, val []byte) error {
-	// Create versioned object for kv.Set
-	obj := &versioned.Object{
-		Version:   remoteKvVersion,
-		Timestamp: netTime.Now(),
-		Data:      val,
-	}
-
-	// Write value to KV
-	return r.local.Set(key, obj)
-}
-
 // addUnsyncedWrite will write the intent to the map. This map will be saved to disk
 // using te kv.
 func (r *KV) addUnsyncedWrite(key string, val []byte) error {
@@ -307,7 +358,12 @@ func (r *KV) saveUnsyncedWrites() error {
 // loadUnsyncedWrites will load any intents from kv if present and set it into
 // UnsyncedWrites.
 func (r *KV) loadUnsyncedWrites() error {
-	obj, err := r.local.Get(intentsKey, intentsVersion)
+	// NOTE: obj is a versioned.Object, but we are not using a
+	// versioned KV because we are implementing the uncoupled,
+	// base KV interface, so you will need to update and check old
+	// keys if we ever change this format.
+	var obj versioned.Object
+	err := r.local.Get(intentsKey, &obj)
 	if err != nil { // Return if there isn't any intents stored
 		return nil
 	}

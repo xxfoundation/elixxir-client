@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
 
@@ -27,7 +26,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	txLog := makeTransactionLog("", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
 	received, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
@@ -35,11 +34,12 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 
 	// Create expected remote kv
 	expected := &KV{
-		local:          kv,
-		txLog:          txLog,
-		KeyUpdate:      nil,
-		UnsyncedWrites: make(map[string][]byte, 0),
-		connected:      true,
+		local:                kv,
+		synchronizedPrefixes: make([]string, 0),
+		txLog:                txLog,
+		KeyUpdate:            nil,
+		UnsyncedWrites:       make(map[string][]byte, 0),
+		connected:            true,
 	}
 
 	// Check equality of created vs expected remote kv
@@ -54,7 +54,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Call NewOrLoad where it should load intents
 	done := make(chan struct{})
@@ -99,7 +99,7 @@ func TestKV_Set(t *testing.T) {
 	txLog := makeTransactionLog("workingDirSet", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
 	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
@@ -120,7 +120,7 @@ func TestKV_Set(t *testing.T) {
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.RemoteSet(key, val, updateCb))
+		require.NoError(t, rkv.SetRemote(key, val, updateCb))
 
 		select {
 		case <-time.After(500 * time.Second):
@@ -139,7 +139,7 @@ func TestKV_Get(t *testing.T) {
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
 	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
@@ -161,7 +161,7 @@ func TestKV_Get(t *testing.T) {
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.Set(key, val, updateCb))
+		require.NoError(t, rkv.SetRemote(key, val, updateCb))
 
 		// Ensure write has completed
 		select {
@@ -170,7 +170,7 @@ func TestKV_Get(t *testing.T) {
 		case <-txChan:
 		}
 
-		received, err := rkv.Get(key)
+		received, err := rkv.GetBytes(key)
 		require.NoError(t, err)
 
 		require.Equal(t, val, received)
@@ -185,7 +185,7 @@ func TestKV_AddRemoveUnsyncedWrite(t *testing.T) {
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
 	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
@@ -215,7 +215,7 @@ func TestKV_SaveLoadUnsyncedWrite(t *testing.T) {
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
 	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
@@ -251,7 +251,7 @@ func TestKV_UpsertLocal(t *testing.T) {
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
 	mockKeyUpdateChan := make(chan mockUpsert, 2*numTests)

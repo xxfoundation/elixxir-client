@@ -247,6 +247,12 @@ func (r *KV) GetList(name string) ([]byte, error) {
 	return json.Marshal(valList)
 }
 
+// WaitForRemote waits until the remote has finished its queued writes or
+// until the specified timeout occurs
+func (r *KV) WaitForRemote(timeout time.Duration) bool {
+	return r.txLog.WaitForRemote(timeout)
+}
+
 // remoteSet is a utility function which will write the transaction to
 // the KV.
 func (r *KV) remoteSet(key string, val []byte,

@@ -51,7 +51,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
 	// Construct transaction log
-	txLog := makeTransactionLog("workingDir", password, t)
+	txLog := makeTransactionLog("kv_Loading_TestDir", password, t)
 
 	// Construct kv
 	kv := ekv.MakeMemstore()

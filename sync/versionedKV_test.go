@@ -48,7 +48,6 @@ func TestVersionedKV(t *testing.T) {
 		lck.Lock()
 		defer lck.Unlock()
 		require.NoError(t, err)
-		t.Logf("KEY: %s", newTx.Key)
 		remoteCallCnt += 1
 		_, ok := txs[newTx.Key]
 		require.False(t, ok, newTx.Key)
@@ -134,14 +133,15 @@ func TestVersionedKV(t *testing.T) {
 		}
 	}
 
+	kv.remoteKV.WaitForRemote(5 * time.Second)
+
 	for k, v := range expTxs {
 		storedV, ok := txs[k]
 		require.True(t, ok, k)
 		require.Equal(t, v, storedV)
 	}
-	// NOTE: need a better way to detect when remote writes are done...
-	require.Equal(t, txCnt, remoteCallCnt)
 
+	require.Equal(t, txCnt, remoteCallCnt)
 }
 
 // TestVersionedKVNewPrefix adds a prefix mid-way and show that the
@@ -255,6 +255,8 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 			expTxs[k] = v
 		}
 	}
+
+	kv.remoteKV.WaitForRemote(5 * time.Second)
 
 	for k, v := range expTxs {
 		storedV, ok := txs[k]

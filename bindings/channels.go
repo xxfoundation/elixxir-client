@@ -1123,13 +1123,20 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 //     to your own. Alternatively, if reacting to another user's message, you
 //     may retrieve it via the ChannelMessageReceptionCallback registered using
 //     RegisterReceiveHandler.
+//   - validUntilMS - The lease of the message. This will be how long the
+//     message is available from the network, in milliseconds. As per the
+//     [channels.Manager] documentation, this has different meanings depending
+//     on the use case. These use cases may be generic enough that they will not
+//     be enumerated here. Use [channels.ValidForever] to last the max message
+//     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
-	messageToReactTo []byte, cmixParamsJSON []byte) ([]byte, error) {
+	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte) (
+	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err := parseChannelsParameters(
@@ -1142,9 +1149,15 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	messageID := cryptoMessage.ID{}
 	copy(messageID[:], messageToReactTo)
 
+	// Calculate lease
+	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
 	// Send reaction
 	messageID, rnd, ephID, err :=
-		cm.api.SendReaction(channelID, reaction, messageID, params.CMIX)
+		cm.api.SendReaction(channelID, reaction, messageID, lease, params.CMIX)
 	if err != nil {
 		return nil, err
 	}

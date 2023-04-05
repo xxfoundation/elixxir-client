@@ -148,15 +148,19 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 			"Failed to generate salt, this should never happen")
 	}
 
-	encMsg, kmacs := mixCrypt.Encrypt(msg, salt, id.Round(bestRound.ID))
-
+	encMsg, kmacs, ephemeralKeys, ephemeralKey := mixCrypt.Encrypt(msg, salt, id.Round(bestRound.ID))
+	if ephemeralKey != nil {
+		jww.INFO.Printf("Sending with ephemeral keys %+v, ephemeral key %+v", ephemeralKeys, ephemeralKey)
+	}
 	// Build the message payload
 	msgPacket := &pb.Slot{
-		SenderID: senderId.Bytes(),
-		PayloadA: encMsg.GetPayloadA(),
-		PayloadB: encMsg.GetPayloadB(),
-		Salt:     salt,
-		KMACs:    kmacs,
+		SenderID:      senderId.Bytes(),
+		PayloadA:      encMsg.GetPayloadA(),
+		PayloadB:      encMsg.GetPayloadB(),
+		Salt:          salt,
+		KMACs:         kmacs,
+		EphemeralKeys: ephemeralKeys,
+		Ed25519:       ephemeralKey,
 	}
 
 	// Create the wrapper to the gateway

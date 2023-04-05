@@ -295,6 +295,10 @@ Flags:
       --verify-sends              Ensure successful message sending by checking for round completion
       --waitTimeout uint          The number of seconds to wait for messages to arrive (default 15)
   -w, --writeContact string       Write contact information, if any, to this file,  defaults to stdout (default "-")
+      --batchMessagePickup              Enables alternate message pickup logic which processes batches
+      --batchPickupDelay int            Sets the delay (in MS) before a batch pickup request is sent, even if the batch is not full (default 50)
+      --batchPickupTimeout int          Sets the timeout duration (in MS) sent to gateways that proxy batch message pickup requests (default 250)
+      --maxPickupBatchSize int          Set the maximum number of requests in a batch pickup message (default 20)
 
 Use "client [command] --help" for more information about a command.
 ```
@@ -509,3 +513,15 @@ use the correct versions as listed below.
 
        protoc-gen-go-grpc --version
        protoc-gen-go-grpc 1.2.0
+
+## Updating Valid Emoji List
+
+The list of valid emojis should be updated once a year with each new Unicode
+release. For more information, refer to
+[generate/README.md](emoji/generate/README.md).
+
+To run the generator from the repository root, run
+
+```shell
+go run ./emoji/generate/
+```

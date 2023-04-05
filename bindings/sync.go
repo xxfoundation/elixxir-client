@@ -11,7 +11,11 @@ import (
 	"encoding/json"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/sync"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -231,24 +235,25 @@ type RemoteKVCallbacks interface {
 // NewOrLoadSyncRemoteKV will construct a [RemoteKV].
 //
 // Parameters:
-//   - e2eID - ID of [E2e] object in tracker.
+//   - storageDir - the path to the ekv
 //   - remoteKvCallbacks - A [RemoteKVCallbacks]. These will be the callbacks
 //     that are called for [RemoteStore] operations.
 //   - remote - A [RemoteStore]. This will be a structure the consumer
 //     implements. This acts as a wrapper around the remote storage API
 //     (e.g., Google Drive's API, DropBox's API, etc.).
-func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
+func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallbacks,
 	remote RemoteStore) (*RemoteKV, error) {
-
-	// Retrieve
-	e2eCl, err := e2eTrackerSingleton.get(e2eID)
-	if err != nil {
-		return nil, err
-	}
 
 	// todo: properly define
 	var deviceSecret = []byte("dummy, replace")
 	// deviceSecret = e2eCl.GetDeviceSecret()
+
+	localKV, err := ekv.NewFilestore(storageDir, string(deviceSecret))
+	if err != nil {
+		return nil, err
+	}
+
+	versionedKV := versioned.NewKV(localKV)
 
 	// Construct the key update CB
 	var eventCb sync.KeyUpdateCallback = func(key string, oldVal, newVal []byte,
@@ -262,16 +267,17 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// Construct local storage
-	local, err := sync.NewOrLoadEkvLocalStore(e2eCl.api.GetStorage().GetKV())
+	local, err := sync.NewOrLoadEkvLocalStore(versionedKV)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct txLog path
-	txLogPath := "txLog/" + e2eCl.api.GetReceptionIdentity().ID.String()
+	txLogPath := "txLog/" + "blahnexticket"
 
 	// Retrieve rng
-	rng := e2eCl.api.GetRng().GetStream()
+	frng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	rng := frng.GetStream()
 
 	// Construct or load a transaction log
 	txLog, err := sync.NewOrLoadTransactionLog(txLogPath, local,
@@ -282,8 +288,8 @@ func NewOrLoadSyncRemoteKV(e2eID int, remoteKvCallbacks RemoteKVCallbacks,
 	}
 
 	// Construct remote KV
-	rkv, err := sync.NewOrLoadRemoteKV(
-		txLog, e2eCl.api.GetStorage().GetKV(), nil,
+	rkv, err := sync.NewOrLoadKV(
+		txLog, localKV, nil,
 		eventCb, updateCb)
 	if err != nil {
 		return nil, err
@@ -305,7 +311,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 	var updateCb = func(newTx sync.Transaction, err error) {
 		remoteStoreCbUtil(cb, newTx, err)
 	}
-	return s.rkv.Set(path, data, updateCb)
+	return s.rkv.SetRemote(path, data, updateCb)
 }
 
 // Read retrieves the data stored in the underlying KV. Returns an error if the
@@ -314,7 +320,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 // Parameters:
 //   - path - The key that this data will be written to (i.e., the device name).
 func (s *RemoteKV) Read(path string) ([]byte, error) {
-	return s.rkv.Get(path)
+	return s.rkv.GetBytes(path)
 }
 
 // GetList returns all entries for a path (or key) that contain the name

@@ -103,6 +103,16 @@ func (r *VersionedKV) Prefix(prefix string) (versioned.KV, error) {
 	return nil, err
 }
 
+func (r *VersionedKV) Root() versioned.KV {
+	v := &VersionedKV{
+		synchronizedPrefixes: r.synchronizedPrefixes,
+		remoteKV:             r.remoteKV,
+		vkv:                  r.vkv.Root(),
+	}
+	v.updateIfSynchronizedPrefix()
+	return v
+}
+
 // IsMemStore implements [storage.versioned.KV.IsMemStore]
 func (r *VersionedKV) IsMemStore() bool {
 	return r.vkv.IsMemStore()

@@ -59,6 +59,9 @@ type KV interface {
 	// Prefix returns a new KV with the new prefix appending
 	Prefix(prefix string) (KV, error)
 
+	// Root returns the KV with no prefixes
+	Root() KV
+
 	// IsMemStore returns true if the underlying KV is memory based
 	IsMemStore() bool
 
@@ -237,6 +240,17 @@ func (v *kv) Prefix(prefix string) (KV, error) {
 	}
 
 	return &kvPrefix, nil
+}
+
+// Root implements [KV.Root]
+func (v *kv) Root() KV {
+	kvPrefix := kv{
+		r:         v.r,
+		prefix:    "",
+		prefixMap: make(map[string]int),
+		offset:    0,
+	}
+	return &kvPrefix
 }
 
 func (v *kv) IsMemStore() bool {

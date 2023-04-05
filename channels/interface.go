@@ -155,8 +155,11 @@ type Manager interface {
 	//
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
-	SendReaction(channelID *id.ID, reaction string,
-		reactTo message.ID, params cmix.CMIXParams) (
+	//
+	// The message will auto delete validUntil after the round it is sent in,
+	// lasting forever if ValidForever is used.
+	SendReaction(channelID *id.ID, reaction string, reactTo message.ID,
+		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////

@@ -45,7 +45,7 @@ type Message struct {
 //
 // A Channel has many Message.
 type Channel struct {
-	Id          []byte `gorm:"primaryKey"`
+	Id          []byte `gorm:"primaryKey;not null;autoIncrement:false"`
 	Name        string `gorm:"not null"`
 	Description string `gorm:"not null"`
 

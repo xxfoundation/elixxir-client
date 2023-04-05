@@ -10,6 +10,7 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/hmac"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -60,10 +61,12 @@ const (
 	// SendAdminReplayTag is the base tag used when generating a debug tag for an
 	// admin replay message.
 	SendAdminReplayTag = "ChAdminReplay"
+
+	// The size of the nonce used in the message ID.
+	messageNonceSize = 4
 )
 
-// The size of the nonce used in the message ID.
-const messageNonceSize = 4
+var emptyChannelID = &id.ID{}
 
 // Prints current time without the monotonic clock (m=) for easier reading
 func dateNow() string { return netTime.Now().Round(0).String() }
@@ -92,6 +95,11 @@ func timeNow() string { return netTime.Now().Format("15:04:05.9999999") }
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
+
+	if hmac.Equal(channelID.Bytes(), emptyChannelID.Bytes()) {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.New("cannot send to channel id with all 0s")
+	}
 
 	// Reject the send if the user is muted in the channel they are sending to
 	if m.events.mutedUsers.isMuted(channelID, m.me.PubKey) {
@@ -315,8 +323,11 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 // rejected otherwise.
 //
 // Clients will drop the reaction if they do not recognize the reactTo message.
+//
+// The message will auto delete validUntil after the round it is sent in,
+// lasting forever if ValidForever is used.
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
-	reactTo message.ID, params cmix.CMIXParams) (
+	reactTo message.ID, validUntil time.Duration, params cmix.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
@@ -341,7 +352,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	}
 
 	return m.SendGeneric(
-		channelID, Reaction, reactMarshaled, ValidForever, true, params)
+		channelID, Reaction, reactMarshaled, validUntil, true, params)
 }
 
 // replayAdminMessage is used to rebroadcast an admin message asa a norma user.
@@ -382,6 +393,11 @@ func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
 func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
+
+	if hmac.Equal(channelID.Bytes(), emptyChannelID.Bytes()) {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.New("cannot send to channel id with all 0s")
+	}
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.

@@ -9,10 +9,11 @@ package cmix
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/cmix/attempts"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"strings"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/attempts"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -72,11 +73,6 @@ type TargetedCmixMessage struct {
 // WARNING: Do not roll your own crypto
 func (c *client) SendMany(messages []TargetedCmixMessage,
 	params CMIXParams) (rounds.Round, []ephemeral.Id, error) {
-	if !c.Monitor.IsHealthy() {
-		return rounds.Round{}, []ephemeral.Id{}, errors.New(
-			"Cannot send cMix message when the network is not healthy")
-	}
-
 	recipients := recipientsFromTargetedMessage(messages)
 	assembler := func(rid id.Round) ([]TargetedCmixMessage, error) {
 		return messages, nil
@@ -112,6 +108,12 @@ func (c *client) SendManyWithAssembler(recipients []*id.ID,
 func (c *client) sendManyWithAssembler(recipients []*id.ID,
 	assembler ManyMessageAssembler, params CMIXParams) (rounds.Round,
 	[]ephemeral.Id, error) {
+
+	if !c.Monitor.IsHealthy() {
+		return rounds.Round{}, []ephemeral.Id{},
+			errors.New("Cannot send cMix message when the" +
+				" network is not healthy")
+	}
 
 	assemblerFunc := func(rid id.Round) ([]assembledCmixMessage, error) {
 		messages, err := assembler(rid)
@@ -164,6 +166,12 @@ func sendManyCmixHelper(sender gateway.Sender, assembler manyMessageAssembler,
 	events event.Reporter, senderId *id.ID, comms SendCmixCommsInterface,
 	attemptTracker attempts.SendAttemptTracker) (
 	rounds.Round, []ephemeral.Id, error) {
+
+	if param.RoundTries == 0 {
+		return rounds.Round{}, []ephemeral.Id{},
+			errors.Errorf("invalid parameter set, "+
+				"RoundTries cannot be 0: %+v", param)
+	}
 
 	timeStart := netTime.Now()
 	var attempted excludedRounds.ExcludedRounds
@@ -279,21 +287,17 @@ func sendManyCmixHelper(sender gateway.Sender, assembler manyMessageAssembler,
 		slots := make([]*pb.GatewaySlot, len(msgs))
 		encMsgs := make([]format.Message, len(msgs))
 		ephemeralIDs := make([]ephemeral.Id, len(msgs))
-		stream = rng.GetStream()
 		for i, msg := range msgs {
 			slots[i], encMsgs[i], ephemeralIDs[i], err = buildSlotMessage(
 				msg.Message, msg.Recipient, firstGateway, stream, senderId,
 				bestRound, roundKeys)
 			if err != nil {
-				stream.Close()
 				jww.INFO.Printf("[SendMany-%s] Error building slot "+
 					"received: %v", param.DebugTag, err)
 				return rounds.Round{}, []ephemeral.Id{}, errors.Errorf("failed to build "+
 					"slot message for %s: %+v", msg.Recipient, err)
 			}
 		}
-
-		stream.Close()
 
 		// Serialize lists into a printable format
 		ephemeralIDsString := ephemeralIdListToString(ephemeralIDs)

@@ -77,8 +77,8 @@ func (mrnc *mockRegisterNodeComms) SendRequestClientKeyMessage(host *connect.Hos
 type mockMixCypher struct{}
 
 func (mmc *mockMixCypher) Encrypt(msg format.Message, salt []byte, roundID id.Round) (
-	format.Message, [][]byte) {
-	return format.Message{}, nil
+	format.Message, [][]byte, []bool, []byte) {
+	return format.Message{}, nil, nil, nil
 }
 func (mmc *mockMixCypher) MakeClientGatewayAuthMAC(salt, digest []byte) []byte {
 	return nil

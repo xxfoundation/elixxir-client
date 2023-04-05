@@ -134,10 +134,12 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	parentErr := "failed to UpdateFromUUID"
 
 	msgToUpdate := &Message{
-		Id:        uuid,
-		MessageId: messageID.Marshal(),
-		Hidden:    hidden,
-		Pinned:    pinned,
+		Id:     uuid,
+		Hidden: hidden,
+		Pinned: pinned,
+	}
+	if messageID != nil {
+		msgToUpdate.MessageId = messageID.Marshal()
 	}
 	if round != nil {
 		msgToUpdate.Round = uint64(round.ID)
@@ -243,10 +245,9 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 	parentErr := "failed to GetMessage"
 
-	result := &Message{}
+	result := &Message{MessageId: messageID.Bytes()}
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Take(result, "message_id = ?",
-		messageID.Bytes()).Error
+	err := i.db.WithContext(ctx).Take(result).Error
 	cancel()
 	if err != nil {
 		if errors.Is(gorm.ErrRecordNotFound, err) {

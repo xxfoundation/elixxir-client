@@ -65,7 +65,9 @@ func Test_manager_SendGeneric(t *testing.T) {
 		}, crng),
 	}
 
-	channelID := new(id.ID)
+	rng := crng.GetStream()
+	defer rng.Close()
+	channelID, _ := id.NewRandomID(rng, id.User)
 	messageType := Text
 	msg := []byte("hello world")
 	validUntil := time.Hour
@@ -218,7 +220,9 @@ func Test_manager_SendMessage(t *testing.T) {
 		}, crng),
 	}
 
-	channelID := new(id.ID)
+	rng := crng.GetStream()
+	defer rng.Close()
+	channelID, _ := id.NewRandomID(rng, id.User)
 	messageType := Text
 	msg := "hello world"
 	validUntil := time.Hour
@@ -304,7 +308,9 @@ func Test_manager_SendReply(t *testing.T) {
 		}, crng),
 	}
 
-	channelID := new(id.ID)
+	rng := crng.GetStream()
+	defer rng.Close()
+	channelID, _ := id.NewRandomID(rng, id.User)
 	messageType := Text
 	msg := "hello world"
 	validUntil := time.Hour
@@ -392,7 +398,9 @@ func Test_manager_SendReaction(t *testing.T) {
 		}, crng),
 	}
 
-	channelID := new(id.ID)
+	rng := crng.GetStream()
+	defer rng.Close()
+	channelID, _ := id.NewRandomID(rng, id.User)
 	messageType := Reaction
 	msg := "🍆"
 	params := new(cmix.CMIXParams)
@@ -400,7 +408,8 @@ func Test_manager_SendReaction(t *testing.T) {
 	mbc := &mockBroadcastChannel{}
 	m.channels[*channelID] = &joinedChannel{broadcast: mbc}
 
-	messageID, _, _, err := m.SendReaction(channelID, msg, replyMsgID, *params)
+	messageID, _, _, err := m.SendReaction(
+		channelID, msg, replyMsgID, ValidForever, *params)
 	if err != nil {
 		t.Fatalf("SendReaction error: %+v", err)
 	}

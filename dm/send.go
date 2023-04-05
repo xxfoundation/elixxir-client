@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
 	"gitlab.com/elixxir/crypto/dm"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
@@ -51,6 +52,11 @@ const (
 	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
 	messageNonceSize = 4
+)
+
+var (
+	emptyPubKeyBytes = make([]byte, ed25519.PublicKeySize)
+	emptyPubKey      = ed25519.PublicKey(emptyPubKeyBytes)
 )
 
 // SendText is used to send a formatted message to another user.
@@ -155,6 +161,30 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
+	if partnerToken == 0 {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("invalid dmToken value: %d", partnerToken)
+
+	}
+
+	if partnerEdwardsPubKey == nil ||
+		partnerEdwardsPubKey.Equal(emptyPubKey) {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("invalid public key value: %v",
+				partnerEdwardsPubKey)
+	}
+
+	if dc.myToken == partnerToken &&
+		!dc.me.PubKey.Equal(partnerEdwardsPubKey) {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("can only use myToken on self send: "+
+				"myToken: %d, partnerKey: %v, partnerToken: %d",
+				dc.myToken, partnerEdwardsPubKey, partnerToken)
+	}
+
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
@@ -221,7 +251,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	rndID, ephIDs, err := send(dc.net, dc.selfReceptionID,
 		partnerID, partnerPubKey, dc.privateKey, partnerToken,
-		directMessage, params, rng)
+		directMessage, params, dc.rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on send: %+v", err)
 		errDenote := dc.st.FailedSend(uuid)
@@ -277,13 +307,18 @@ func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 	return receptionID
 }
 
-func send(net cMixClient, myID *id.ID, partnerID *id.ID, partnerPubKey nike.PublicKey,
+func send(net cMixClient, myID *id.ID, partnerID *id.ID,
+	partnerPubKey nike.PublicKey,
 	myPrivateKey nike.PrivateKey, partnerToken uint32,
-	msg *DirectMessage, params cmix.CMIXParams, rng io.Reader) (rounds.Round,
+	msg *DirectMessage, params cmix.CMIXParams,
+	rngGenerator *fastRNG.StreamGenerator) (rounds.Round,
 	[]ephemeral.Id, error) {
 
 	// Send to Partner
 	assemble := func(rid id.Round) ([]cmix.TargetedCmixMessage, error) {
+		rng := rngGenerator.GetStream()
+		defer rng.Close()
+
 		// SEND
 		msg.RoundID = uint64(rid)
 

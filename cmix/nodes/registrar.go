@@ -8,6 +8,7 @@
 package nodes
 
 import (
+	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
@@ -15,6 +16,8 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -62,6 +65,9 @@ type registrar struct {
 	numnodesGetter func() int
 
 	c chan network.NodeGateway
+
+	enableEphemeralRegistration bool
+	disableNodeRegistration     bool
 }
 
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
@@ -146,6 +152,14 @@ func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 	return nil
 }
 
+func (r *registrar) SetNodeRegistrationDisabled(disabled bool) {
+	r.disableNodeRegistration = disabled
+}
+
+func (r *registrar) SetEphemeralRegistrationEnabled(enabled bool) {
+	r.enableEphemeralRegistration = enabled
+}
+
 // ChangeNumberOfNodeRegistrations changes the number of parallel node
 // registrations up to the initialized maximum
 func (r *registrar) ChangeNumberOfNodeRegistrations(toRun int,
@@ -189,7 +203,12 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
-	keys := make([]*key, topology.Len())
+	rk := &mixCypher{
+		keys:          make([]*key, topology.Len()),
+		g:             r.session.GetCmixGroup(),
+		ephemeralKeys: make([]bool, topology.Len()),
+	}
+	missingNodes := 0
 
 	// Get keys for every node. If it cannot be found, then add it to the
 	// missing nodes list so that it can be.
@@ -197,6 +216,10 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 		nid := topology.GetNodeAtIndex(i)
 		k, ok := r.nodes[*nid]
 		if !ok {
+			if r.session.IsPrecanned() {
+				rk.keys[i] = &key{nil, getPrecannedTransmissionKey(r.session, r), nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""}
+				continue
+			}
 			gwID := nid.DeepCopy()
 			gwID.SetType(id.Gateway)
 			r.c <- network.NodeGateway{
@@ -208,20 +231,102 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 					ID: gwID.Marshal(),
 				},
 			}
+			// Use ephemeral key for this node if enabled
+			if r.enableEphemeralRegistration {
+				// Cannot use ephemeral key for first node in round
+				// (unless node registration is disabled).
+				if i == 0 && !r.disableNodeRegistration {
+					return nil, errors.Errorf(
+						"Cannot use ephemeral registration for first "+
+							"node in round %s, triggered registration", nid)
+				}
 
-			return nil, errors.Errorf(
-				"cannot get key for %s, triggered registration", nid)
+				// Ensure all nodes in team support ephemeral registration
+				if i > 0 && missingNodes == 0 {
+					for j := 0; j < i; j++ {
+						passedNid := topology.GetNodeAtIndex(j)
+						currentNdf := r.session.GetNDF()
+						found := false
+						for _, n := range currentNdf.Nodes {
+							if bytes.Compare(n.ID, passedNid[:]) == 0 && n.Ed25519 != nil {
+								found = true
+								break
+							}
+						}
+						if !found {
+							return nil, errors.Errorf("All nodes in team must support ephemeral registration")
+						}
+					}
+				}
+
+				jww.WARN.Println(errors.Errorf(
+					"cannot get key for %s, triggered registration & continuing w/ ephemeral ED key", nid))
+				missingNodes += 1
+				rk.ephemeralKeys[i] = true
+				var err error
+				rk.keys[i], err = r.handleMissingNode(rk, *nid)
+				if err != nil {
+					return nil, errors.WithMessage(err, "Failed to handle missing node")
+				}
+			} else {
+				return nil, errors.Errorf(
+					"cannot get key for %s, triggered registration", nid)
+			}
+
 		} else {
-			keys[i] = k
+			// Ensure all nodes in team support no registration
+			if missingNodes > 0 {
+				currentNdf := r.session.GetNDF()
+				found := false
+				for _, n := range currentNdf.Nodes {
+					if bytes.Compare(n.ID, nid[:]) == 0 && n.Ed25519 != nil {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return nil, errors.Errorf("All nodes in team must support ephemeral registration")
+				}
+			}
+			rk.keys[i] = k
 		}
 	}
 
-	rk := &mixCypher{
-		keys: keys,
-		g:    r.session.GetCmixGroup(),
+	// Cannot attempt to send without at least one registered node (unless node registration is disabled)
+	if !r.disableNodeRegistration && missingNodes == topology.Len() {
+		return nil, errors.New("Must have at least one registered node to create mixCypher")
 	}
 
 	return rk, nil
+}
+
+// handleMissingNode is called when the client encounters a node with which it
+// has not yet registered.  If
+func (r *registrar) handleMissingNode(rk *mixCypher, missingNodeID id.ID) (*key, error) {
+	if rk.ephemeralEdPrivKey == nil {
+		// Generate temp ed25519 for this send
+		rk.ephemeralEdPrivKey, rk.ephemeralEdPubKey = ecdh.ECDHNIKE.NewKeypair(r.rng.GetStream())
+		jww.INFO.Printf("Generated ephemeral keypair for sending to unregistered nodes")
+	}
+
+	currentNdf := r.session.GetNDF()
+	for _, n := range currentNdf.Nodes {
+		if bytes.Compare(n.ID, missingNodeID[:]) == 0 {
+			nodePubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(n.Ed25519)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "Failed to unmarshal binary pubkey %+v", n.Ed25519)
+			}
+			ephemeralSecret := rk.ephemeralEdPrivKey.DeriveSecret(nodePubKey)
+			ephemeralSecretHash := hash.CMixHash.New()
+			ephemeralSecretHash.Reset()
+			ephemeralSecretHash.Write(r.session.GetTransmissionID().Bytes())
+			ephemeralSecretHash.Write(ephemeralSecret)
+			hashBytes := ephemeralSecretHash.Sum(nil)
+			k := r.session.GetCmixGroup().NewIntFromBytes(hashBytes)
+			return &key{nil, k, nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""}, nil
+		}
+	}
+	return nil, errors.Errorf("Could not find missing node %s in NDF", missingNodeID.String())
 }
 
 // HasNode returns true if the registrar has the node.

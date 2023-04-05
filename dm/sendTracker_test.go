@@ -84,6 +84,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	require.NoError(t, err)
 
 	process = st.CheckIfSent(mid, r)
+	st.Delivered(mid, r)
+	st.StopTracking(mid, r)
 	require.True(t, process)
 
 	directMessage2 := &DirectMessage{
@@ -102,6 +104,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	require.NoError(t, err)
 	process = st.CheckIfSent(mid, r)
 	require.True(t, process)
+	st.Delivered(mid, r)
+	st.StopTracking(mid, r)
 }
 
 // Test failedSend function, confirming that data is stored appropriately and

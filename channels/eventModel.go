@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,9 +19,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
-
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
@@ -30,45 +26,13 @@ import (
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // AdminUsername defines the displayed username of admin messages, which are
 // unique users for every channel defined by the channel's private key.
 const AdminUsername = "Admin"
-
-// SentStatus represents the current status of a channel message.
-type SentStatus uint8
-
-const (
-	// Unsent is the status of a message when it is pending to be sent.
-	Unsent SentStatus = iota
-
-	// Sent is the status of a message once the round it is sent on completed.
-	Sent
-
-	// Delivered is the status of a message once is has been received.
-	Delivered
-
-	// Failed is the status of a message if it failed to send.
-	Failed
-)
-
-// String returns a human-readable version of [SentStatus], used for debugging
-// and logging. This function adheres to the [fmt.Stringer] interface.
-func (ss SentStatus) String() string {
-	switch ss {
-	case Unsent:
-		return "unsent"
-	case Sent:
-		return "sent"
-	case Delivered:
-		return "delivered"
-	case Failed:
-		return "failed"
-	default:
-		return "Invalid SentStatus: " + strconv.Itoa(int(ss))
-	}
-}
 
 // AdminFakePubKey is the placeholder for the Ed25519 public key used when the
 // admin trigger calls a message handler.

@@ -9,13 +9,16 @@ package cypher
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+	"testing"
+
+	"gitlab.com/xx_network/crypto/csprng"
+
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/csprng"
-	"reflect"
-	"testing"
 )
 
 // Tests that NewManager returns a new Manager that matches the expected
@@ -31,7 +34,7 @@ func TestNewManager(t *testing.T) {
 		kv:       kv.Prefix(cypherManagerPrefix),
 	}
 
-	manager, err := NewManager(expected.key, numFps, kv)
+	manager, err := NewManager(expected.key, numFps, false, kv)
 	if err != nil {
 		t.Errorf("NewManager returned an error: %+v", err)
 	}
@@ -93,6 +96,23 @@ func TestManager_GetUnusedCyphers(t *testing.T) {
 	}
 }
 
+// Tests Manager.GetKey
+func TestManager_GetKey(t *testing.T) {
+	key, err := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	if err != nil {
+		t.Errorf("Failed to generate transfer key: %+v", err)
+	}
+
+	m, err := NewManager(&key, 0, true, nil)
+	if err != nil {
+		t.Errorf("Failed to make new Manager: %+v", err)
+	}
+
+	if *m.GetKey() != key {
+		t.Errorf("Incorrect key.\nexpected: %s\nreceived: %s", m.GetKey(), key)
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,6 +134,34 @@ func TestLoadManager(t *testing.T) {
 	if !reflect.DeepEqual(m, newManager) {
 		t.Errorf("Loaded manager does not match original."+
 			"\nexpected: %+v\nreceived: %+v", m, newManager)
+	}
+}
+
+// Tests that LoadManager returns the expected error when the key cannot be
+// loaded from storage
+func TestLoadManager_LoadKeyError(t *testing.T) {
+	m, kv := newTestManager(64, t)
+	_ = m.kv.Delete(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
+
+	expectedErr := errLoadKey
+	_, err := LoadManager(kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Unexpected error.\nexpected: %s\nreceived: %+v",
+			expectedErr, err)
+	}
+}
+
+// Tests that LoadManager returns the expected error when the state vector
+// cannot be loaded from storage
+func TestLoadManager_LoadStateVectorError(t *testing.T) {
+	m, kv := newTestManager(64, t)
+	_ = m.fpVector.Delete()
+
+	expectedErr := errLoadFpVector
+	_, err := LoadManager(kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Unexpected error.\nexpected: %s\nreceived: %+v",
+			expectedErr, err)
 	}
 }
 
@@ -161,7 +209,7 @@ func newTestManager(numFps uint16, t *testing.T) (*Manager, *versioned.KV) {
 	}
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	m, err := NewManager(&key, numFps, kv)
+	m, err := NewManager(&key, numFps, false, kv)
 	if err != nil {
 		t.Errorf("Failed to make new Manager: %+v", err)
 	}

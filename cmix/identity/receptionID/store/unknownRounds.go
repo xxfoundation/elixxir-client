@@ -139,7 +139,7 @@ func newUnknownRounds(kv versioned.KV, params UnknownRoundsParams) (*UnknownRoun
 // object.
 func LoadUnknownRounds(kv versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
-	kv, err := kv.Prefix(unknownRoundPrefix)
+	localkv, err := kv.Prefix(unknownRoundPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", unknownRoundPrefix, err)
 	}
@@ -150,7 +150,7 @@ func LoadUnknownRounds(kv versioned.KV,
 	}
 
 	// get the versioned data from the kv
-	obj, err := kv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)
+	obj, err := localkv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load UnknownRounds: %+v", err)
 	}

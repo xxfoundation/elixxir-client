@@ -93,6 +93,8 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	loaded, err := NewOrLoadKV(txLog, kv, nil, nil, updateCb)
 	require.NoError(t, err)
 
+	loaded.WaitForRemote(2 * time.Second)
+
 	require.Len(t, loaded.UnsyncedWrites, numTests)
 }
 

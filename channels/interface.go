@@ -76,6 +76,10 @@ type Manager interface {
 	// given channel.
 	DisableDirectMessages(chId *id.ID) error
 
+	// AreDMsEnabled returns the status of DMs for a given channel;
+	// returns true if DMs are enabled.
+	AreDMsEnabled(chId *id.ID) bool
+
 	// ReplayChannel replays all messages from the channel within the network's
 	// memory (~3 weeks) over the event model. It does this by wiping the
 	// underlying state tracking for message pickup for the channel, causing all
@@ -151,8 +155,11 @@ type Manager interface {
 	//
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
-	SendReaction(channelID *id.ID, reaction string,
-		reactTo message.ID, params cmix.CMIXParams) (
+	//
+	// The message will auto delete validUntil after the round it is sent in,
+	// lasting forever if ValidForever is used.
+	SendReaction(channelID *id.ID, reaction string, reactTo message.ID,
+		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////
@@ -393,15 +400,15 @@ type ExtensionMessageHandler interface {
 // ExtensionBuilder builds an extension off of an event model. It must cast the
 // event model to its event model type and return an error if the cast fails. It
 // returns a slice of [ExtensionMessageHandler] that contains the handlers for
-// every custom message type the extension will handle.
+// every custom message type that the extension will handle.
 //
 // Note: The first thing the function should do is extract the extension's event
 // model using the call:
 //  eventModel, success := e.(ExtensionEventModel)
 //
 // It should return an error if the casting is a failure.
-type ExtensionBuilder func(
-	e EventModel, m Manager) ([]ExtensionMessageHandler, error)
+type ExtensionBuilder func(e EventModel, m Manager,
+	me cryptoChannel.PrivateIdentity) ([]ExtensionMessageHandler, error)
 
 // AddServiceFn adds a service to be controlled by the client thread control.
 // These will be started and stopped with the network follower.

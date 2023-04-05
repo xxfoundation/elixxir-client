@@ -107,6 +107,12 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
 
+	// Make a copy of the public key to prevent outside edits
+	// TODO: Convert this to DeepCopy() method
+	pubKey := make([]byte, len(identity.PubKey))
+	copy(pubKey, identity.PubKey)
+	identity.PubKey = pubKey
+
 	// Prefix the kv with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
@@ -184,7 +190,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
 	for i := range extensionBuilders {
-		ext, err := extensionBuilders[i](model, m)
+		ext, err := extensionBuilders[i](model, m, m.me)
 		if err != nil {
 			jww.FATAL.Panicf("[CH] Failed to initialize extension %d of %d: %+v",
 				i, len(extensionBuilders), err)
@@ -261,7 +267,8 @@ func (m *manager) generateChannel(name, description string,
 }
 
 // JoinChannel joins the given channel. It will return the error
-// ChannelAlreadyExistsErr if the channel has already been joined.
+// ChannelAlreadyExistsErr if the channel has already been joined. This function
+// will block until the event model returns from joining the channel.
 func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 	jww.INFO.Printf(
 		"[CH] JoinChannel %q with ID %s", channel.Name, channel.ReceptionID)
@@ -270,14 +277,20 @@ func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 		return err
 	}
 
+	err = m.EnableDirectMessages(channel.ReceptionID)
+	if err != nil {
+		return err
+	}
+
 	// Report joined channel to the event model
-	go m.events.model.JoinChannel(channel)
+	m.events.model.JoinChannel(channel)
 
 	return nil
 }
 
 // LeaveChannel leaves the given channel. It will return the error
-// ChannelDoesNotExistsErr if the channel was not previously joined.
+// ChannelDoesNotExistsErr if the channel was not previously joined. This
+// function will block until the event model returns from leaving the channel.
 func (m *manager) LeaveChannel(channelID *id.ID) error {
 	jww.INFO.Printf("[CH] LeaveChannel %s", channelID)
 	err := m.removeChannel(channelID)
@@ -285,7 +298,7 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 		return err
 	}
 
-	go m.events.model.LeaveChannel(channelID)
+	m.events.model.LeaveChannel(channelID)
 
 	return nil
 }
@@ -304,6 +317,14 @@ func (m *manager) DisableDirectMessages(chId *id.ID) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.disableDirectMessageToken(chId)
+}
+
+// AreDMsEnabled returns status of DMs for a given channel ID (true if enabled)
+func (m *manager) AreDMsEnabled(chId *id.ID) bool {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+	_, ok := m.dmTokens[*chId]
+	return ok
 }
 
 // ReplayChannel replays all messages from the channel within the network's

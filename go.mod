@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/cloudflare/circl v1.2.0
-	github.com/forPelevin/gomoji v1.1.8
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
@@ -13,15 +12,15 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.8.1
-	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20230214180204-3aba2e6795af
-	gitlab.com/elixxir/crypto v0.0.7-0.20230214210301-f70d091165bc
+	github.com/stretchr/testify v1.8.2
+	gitlab.com/elixxir/bloomfilter v0.0.0-20230315224936-a4459418f300
+	gitlab.com/elixxir/comms v0.0.4-0.20230310205528-f06faa0d2f0b
+	gitlab.com/elixxir/crypto v0.0.7-0.20230405173828-f811be53be9a
 	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20230214180039-9a25e2d3969c
 	gitlab.com/xx_network/comms v0.0.4-0.20230214180029-5387fb85736d
 	gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd
-	gitlab.com/xx_network/primitives v0.0.4-0.20230203173415-81c2cb07da44
+	gitlab.com/xx_network/primitives v0.0.4-0.20230310205521-c440e68e34c4
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.5.0
 	golang.org/x/net v0.5.0
@@ -58,7 +57,6 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rs/cors v1.8.2 // indirect
 	github.com/sethvargo/go-diceware v0.3.0 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect

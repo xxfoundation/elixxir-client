@@ -10,12 +10,11 @@ package storage
 
 import (
 	"crypto/ed25519"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/elixxir/client/v4/dm"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,39 +23,34 @@ import (
 
 // MessageReceivedCallback is called any time a message is received or updated.
 //
-// update is true if the row is old and was edited.
-type MessageReceivedCallback func(uuid uint64, channelID *id.ID, update bool)
+// messageUpdate is true if the Message already exists and was edited.
+// conversationUpdate is true if the Conversation was created or modified.
+type MessageReceivedCallback func(
+	uuid uint64, pubKey ed25519.PublicKey, messageUpdate, conversationUpdate bool)
 
-// MuteCallback is a callback provided for the MuteUser method of the impl.
-type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
-
-// DeletedMessageCallback is called any time a message is deleted.
-type DeletedMessageCallback func(messageID message.ID)
-
-// impl implements the channels.EventModel interface with an underlying DB.
+// impl implements the dm.EventModel interface with an underlying DB.
+// NOTE: This model is NOT thread safe - it is the responsibility of the
+// caller to ensure that its methods are called sequentially.
 type impl struct {
-	db       *gorm.DB // Stored database connection
-	cipher   cryptoChannel.Cipher
-	msgCb    MessageReceivedCallback
-	deleteCb DeletedMessageCallback
-	muteCb   MuteCallback
+	db                *gorm.DB // Stored database connection
+	cipher            cryptoChannel.Cipher
+	receivedMessageCB MessageReceivedCallback
 }
 
-// NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
+// NewEventModel initializes the [dm.EventModel] interface with appropriate backend.
 func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption, msgCb, deleteCb, muteCb)
-	return channels.EventModel(model), err
+	msgCb MessageReceivedCallback) (dm.EventModel, error) {
+	useTemporary := len(dbFilePath) == 0
+	model, err := newImpl(dbFilePath, encryption, msgCb, useTemporary)
+	return dm.EventModel(model), err
 }
 
+// If useTemporary is set to true, this will use an in-RAM database.
 func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (*impl, error) {
+	msgCb MessageReceivedCallback, useTemporary bool) (*impl, error) {
 
-	// Use a temporary, in-memory database if no path is specified
-	if len(dbFilePath) == 0 {
-		dbFilePath = temporaryDbPath
+	if useTemporary {
+		dbFilePath = fmt.Sprintf(temporaryDbPath, dbFilePath)
 		jww.WARN.Printf("No database file path specified! " +
 			"Using temporary in-memory database")
 	}
@@ -98,18 +92,16 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 
 	// Initialize the database schema
 	// WARNING: Order is important. Do not change without database testing
-	err = db.AutoMigrate(&Channel{}, &Message{}, &File{})
+	err = db.AutoMigrate(&Conversation{}, &Message{})
 	if err != nil {
 		return nil, err
 	}
 
 	// Build the interface
 	di := &impl{
-		db:       db,
-		cipher:   encryption,
-		msgCb:    msgCb,
-		deleteCb: deleteCb,
-		muteCb:   muteCb,
+		db:                db,
+		cipher:            encryption,
+		receivedMessageCB: msgCb,
 	}
 
 	jww.INFO.Println("Database backend initialized successfully!")

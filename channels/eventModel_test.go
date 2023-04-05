@@ -9,7 +9,9 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"github.com/pkg/errors"
 	"math/rand"
+	"os"
 	"reflect"
 	"runtime"
 	"testing"
@@ -37,6 +39,44 @@ const (
 	tenMsInNs     = 10000019
 	halfTenMsInNs = tenMsInNs / 2
 )
+
+// Tests that CheckNoMessageErr can properly detect NoMessageErr when it is
+// formatted in different ways.
+func TestCheckNoMessageErr(t *testing.T) {
+	errorsToCheck := []error{
+		NoMessageErr,
+		errors.WithStack(NoMessageErr),
+		errors.New(NoMessageErr.Error()),
+		errors.Errorf("New error: %+v", NoMessageErr),
+		errors.Wrap(NoMessageErr, "New error"),
+		errors.Wrapf(errors.New("new"), "New error: %+v", NoMessageErr),
+		errors.WithMessage(NoMessageErr, "New error message"),
+		errors.WithMessagef(errors.New("new"), "New error: %+v", NoMessageErr),
+	}
+
+	for i, err := range errorsToCheck {
+		if !CheckNoMessageErr(err) {
+			t.Errorf("Error %d was not recognized: %v", i, err)
+		}
+	}
+}
+
+// Tests that CheckNoMessageErr returns false for errors that do not contain
+// NoMessageErr.
+func TestCheckNoMessageErr_NoError(t *testing.T) {
+	errorsToCheck := []error{
+		errors.New(NoMessageErr.Error()[1:]),
+		errors.Errorf("New error: %+v", "[EV]"),
+		errors.New("some error"),
+		os.ErrNotExist,
+	}
+
+	for i, err := range errorsToCheck {
+		if CheckNoMessageErr(err) {
+			t.Errorf("Error %d was recognized: %v", i, err)
+		}
+	}
+}
 
 func Test_initEvents(t *testing.T) {
 	me := &MockEvent{}

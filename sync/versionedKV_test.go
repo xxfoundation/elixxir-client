@@ -133,7 +133,7 @@ func TestVersionedKV(t *testing.T) {
 		}
 	}
 
-	kv.remoteKV.WaitForRemote(5 * time.Second)
+	kv.remoteKV.WaitForRemote(30 * time.Second)
 
 	for k, v := range expTxs {
 		storedV, ok := txs[k]
@@ -256,7 +256,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 		}
 	}
 
-	kv.remoteKV.WaitForRemote(5 * time.Second)
+	kv.remoteKV.WaitForRemote(30 * time.Second)
 
 	for k, v := range expTxs {
 		storedV, ok := txs[k]

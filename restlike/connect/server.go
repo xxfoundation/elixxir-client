@@ -8,6 +8,7 @@
 package connect
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/connect"
 	"gitlab.com/elixxir/client/v4/restlike"
@@ -34,7 +35,13 @@ func NewServer(identity xxdk.ReceptionIdentity, net *xxdk.Cmix,
 
 	// Callback for connection requests
 	cb := func(conn connect.Connection) {
-		handler := receiver{endpoints: newServer.endpoints, conn: conn}
+		if conn == nil {
+			jww.INFO.Printf("nil conn")
+		}
+		if newServer == nil {
+			jww.INFO.print("nil server")
+		}
+		handler := &receiver{endpoints: newServer.endpoints, conn: conn}
 		conn.RegisterListener(catalog.XxMessage, handler)
 	}
 

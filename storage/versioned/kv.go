@@ -31,6 +31,8 @@ const (
 	DuplicatePrefixErr           = "prefix has already been added, cannot overwrite"
 )
 
+// KV is a key value store interface that supports versioned and
+// upgradable entries.
 type KV interface {
 	// Get returns the object stored at the specified version.
 	Get(key string, version uint64) (*Object, error)
@@ -83,6 +85,8 @@ func MakePartnerPrefix(id *id.ID) string {
 type Upgrade func(oldObject *Object) (*Object,
 	error)
 
+// UpgradeTable contains a table of upgrade functions for a
+// versioned KV.
 type UpgradeTable struct {
 	CurrentVersion uint64
 	Table          []Upgrade
@@ -210,7 +214,8 @@ func (v *kv) HasPrefix(prefix string) bool {
 	return exists
 }
 
-// Prefix returns a new kv with the new prefix appending.
+// Prefix returns a new kv with the new prefix appending, implements
+// [KV.Prefix].
 func (v *kv) Prefix(prefix string) (KV, error) {
 	if prefix == "" {
 		return nil, errors.Errorf(EmptyPrefixErr)
@@ -232,6 +237,7 @@ func (v *kv) Prefix(prefix string) (KV, error) {
 	}
 	newPrefixMap[prefix] = v.offset + 1
 
+	// Intialize a new KV with the prefix appending
 	kvPrefix := kv{
 		r:         v.r,
 		prefix:    v.prefix + prefix + PrefixSeparator,

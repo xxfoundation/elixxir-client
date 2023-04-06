@@ -43,14 +43,9 @@ const (
 // updateFailureDelay is the backoff period in between retrying to
 const updateFailureDelay = 1 * time.Second
 
-type Serializable interface {
-	ekv.Unmarshaler
-	ekv.Marshaler
-}
-
 // KV implements a remote KV to handle transaction logs.
 type KV struct {
-	// local is the versioned KV store that will write the transaction.
+	// local is the local EKV store that will write the transaction.
 	local ekv.KeyValue
 
 	// txLog is the transaction log used to write transactions.
@@ -183,8 +178,9 @@ func (r *KV) GetBytes(key string) ([]byte, error) {
 // End KV [ekv.KeyValue] interface implementation functions
 ///////////////////////////////////////////////////////////////////////////////
 
-// UpsertLocal is a LOCAL ONLY operation which will write the Transaction
-// to local store.
+// UpsertLocal performs an upsert operation and sets the resultant
+// value to the local EKV. It is a LOCAL ONLY operation which will
+// write the Transaction to local store.
 // todo: test this
 func (r *KV) UpsertLocal(key string, newVal []byte) error {
 	// Read from local KV
@@ -248,7 +244,7 @@ func (r *KV) GetList(name string) ([]byte, error) {
 }
 
 // WaitForRemote waits until the remote has finished its queued writes or
-// until the specified timeout occurs
+// until the specified timeout occurs.
 func (r *KV) WaitForRemote(timeout time.Duration) bool {
 	return r.txLog.WaitForRemote(timeout)
 }

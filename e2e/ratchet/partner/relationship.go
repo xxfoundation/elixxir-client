@@ -31,7 +31,7 @@ const relationshipFingerprintKey = "relationshipFingerprint"
 type relationship struct {
 	t session.RelationshipType
 
-	kv *versioned.KV
+	kv versioned.KV
 
 	sessions    []*session.Session
 	sessionByID map[session.SessionID]*session.Session
@@ -60,14 +60,17 @@ type ServiceHandler interface {
 // Should be refactored to create an empty relationship, with a second call
 // adding the session
 // todo - doscstring
-func NewRelationship(kv *versioned.KV, t session.RelationshipType,
+func NewRelationship(kv versioned.KV, t session.RelationshipType,
 	myID, partnerID *id.ID, myOriginPrivateKey,
 	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
 	originPartnerSIDHPubKey *sidh.PublicKey, initialParams session.Params,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) *relationship {
 
-	kv = kv.Prefix(t.Prefix())
+	kv, err := kv.Prefix(t.Prefix())
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", t.Prefix(), err)
+	}
 
 	fingerprint := makeRelationshipFingerprint(t, grp,
 		myOriginPrivateKey, partnerOriginPublicKey, myID,
@@ -115,11 +118,14 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 }
 
 // todo - doscstring
-func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
+func LoadRelationship(kv versioned.KV, t session.RelationshipType, myID,
 	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*relationship, error) {
 
-	kv = kv.Prefix(t.Prefix())
+	kv, err := kv.Prefix(t.Prefix())
+	if err != nil {
+		return nil, err
+	}
 
 	r := &relationship{
 		t:           t,
@@ -164,7 +170,7 @@ func (r *relationship) save() error {
 	return r.kv.Set(relationshipKey, &obj)
 }
 
-//ekv functions
+// ekv functions
 func (r *relationship) marshal() ([]byte, error) {
 	sessions := make([]session.SessionID, len(r.sessions))
 

@@ -46,7 +46,7 @@ type Session interface {
 	Get(key string) (*versioned.Object, error)
 	Set(key string, object *versioned.Object) error
 	Delete(key string) error
-	GetKV() *versioned.KV
+	GetKV() versioned.KV
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	ForwardRegistrationStatus(regStatus RegistrationStatus) error
@@ -74,7 +74,7 @@ type Session interface {
 }
 
 type session struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	// memoized data
 	mux       sync.RWMutex
@@ -207,7 +207,7 @@ func (s *session) Delete(key string) error {
 }
 
 // GetKV returns the Session versioned.KV.
-func (s *session) GetKV() *versioned.KV {
+func (s *session) GetKV() versioned.KV {
 	return s.kv
 }
 

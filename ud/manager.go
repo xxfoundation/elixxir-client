@@ -177,7 +177,7 @@ func NewManagerFromBackup(user udE2e, comms Comms,
 }
 
 // InitStoreFromBackup initializes the UD storage from the backup subsystem.
-func InitStoreFromBackup(kv *versioned.KV,
+func InitStoreFromBackup(kv versioned.KV,
 	username, email, phone fact.Fact) error {
 	// Initialize our store
 	udStore, err := store.NewOrLoadStore(kv)
@@ -232,7 +232,7 @@ func (m *Manager) getCmix() udCmix {
 // getKv returns a versioned.KV used for IsRegistered and setRegistered.
 // This is separated from store operations as store's kv
 // has a different prefix which breaks backwards compatibility.
-func (m *Manager) getKv() *versioned.KV {
+func (m *Manager) getKv() versioned.KV {
 	return m.user.GetStorage().GetKV()
 }
 

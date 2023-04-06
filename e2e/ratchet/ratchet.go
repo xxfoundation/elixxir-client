@@ -49,21 +49,24 @@ type Ratchet struct {
 	sInterface  Services
 	servicesMux sync.RWMutex
 
-	kv *versioned.KV
+	kv versioned.KV
 }
 
 // New creates a new store for the passed user ID and private key.
 // The store can then be accessed by calling LoadStore.
 // Does not create at a unique prefix, if multiple Ratchets are needed, make
 // sure to add an uint prefix to the KV before instantiation.
-func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+func New(kv versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group) error {
 
 	// Generate public key
 	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
 
 	// Modify the prefix of the KV
-	kv = kv.Prefix(packagePrefix)
+	kv, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		return err
+	}
 
 	r := &Ratchet{
 		managers: make(map[id.ID]partner.Manager),
@@ -78,7 +81,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 		grp: grp,
 	}
 
-	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)
+	err = util.StoreCyclicKey(kv, pubKey, pubKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to store e2e DH public key")

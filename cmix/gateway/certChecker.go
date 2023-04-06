@@ -12,6 +12,8 @@ import (
 	"crypto"
 	"crypto/sha256"
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -20,7 +22,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 const (
@@ -37,14 +38,18 @@ type CertCheckerCommInterface interface {
 
 // certChecker stores verified certificates and handles verification checking
 type certChecker struct {
-	kv    *versioned.KV
+	kv    versioned.KV
 	comms CertCheckerCommInterface
 }
 
 // newCertChecker initializes a certChecker object
-func newCertChecker(comms CertCheckerCommInterface, kv *versioned.KV) *certChecker {
+func newCertChecker(comms CertCheckerCommInterface, kv versioned.KV) *certChecker {
+	checkerKv, err := kv.Prefix(certCheckerPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", certCheckerPrefix, err)
+	}
 	return &certChecker{
-		kv:    kv.Prefix(certCheckerPrefix),
+		kv:    checkerKv,
 		comms: comms,
 	}
 }

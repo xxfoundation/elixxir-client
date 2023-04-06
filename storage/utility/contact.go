@@ -22,11 +22,12 @@ const currentContactVersion = 0
 // contact ID as the key.
 //
 // Parameters:
-//   * kv - the key value store to write the contact.
-//   * c - the contact object to store.
+//   - kv - the key value store to write the contact.
+//   - c - the contact object to store.
+//
 // Returns:
-//   * error if the write fails to succeed for any reason.
-func StoreContact(kv *versioned.KV, c contact.Contact) error {
+//   - error if the write fails to succeed for any reason.
+func StoreContact(kv versioned.KV, c contact.Contact) error {
 	now := netTime.Now()
 
 	obj := versioned.Object{
@@ -41,13 +42,14 @@ func StoreContact(kv *versioned.KV, c contact.Contact) error {
 // LoadContact reads a contact from a versioned.KV vie their contact ID.
 //
 // Parameters:
-//   * kv - the key value store to read the contact
-//   * cid - the contacts unique *id.ID to load
+//   - kv - the key value store to read the contact
+//   - cid - the contacts unique *id.ID to load
+//
 // Returns:
-//   * contact.Contact object populated with the user info, or empty on error.
-//   * version number of the contact loaded.
-//   * error if an error occurs, or nil otherwise
-func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, error) {
+//   - contact.Contact object populated with the user info, or empty on error.
+//   - version number of the contact loaded.
+//   - error if an error occurs, or nil otherwise
+func LoadContact(kv versioned.KV, cid *id.ID) (contact.Contact, error) {
 	vo, err := kv.Get(makeContactKey(cid), currentContactVersion)
 	if err != nil {
 		return contact.Contact{}, err
@@ -61,9 +63,10 @@ func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, error) {
 // Parameters:
 //   - kv - the key value store to delete from
 //   - cid - the contacts unique *id.ID to delete
+//
 // Returns:
 //   - error if an error occurs or nil otherwise
-func DeleteContact(kv *versioned.KV, cid *id.ID) error {
+func DeleteContact(kv versioned.KV, cid *id.ID) error {
 	return kv.Delete(makeContactKey(cid), currentContactVersion)
 }
 

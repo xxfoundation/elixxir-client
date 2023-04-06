@@ -108,7 +108,7 @@ func (dc *dmClient) register(apiReceiver EventModel,
 	return nil
 }
 
-func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
+func NewNicknameManager(id *id.ID, ekv versioned.KV) NickNameManager {
 	return &nickMgr{
 		ekv:      ekv,
 		storeKey: fmt.Sprintf(nickStoreKey, id.String()),
@@ -118,7 +118,7 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 
 type nickMgr struct {
 	storeKey string
-	ekv      *versioned.KV
+	ekv      versioned.KV
 	nick     string
 	sync.Mutex
 }

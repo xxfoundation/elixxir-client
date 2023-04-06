@@ -9,22 +9,23 @@ package sync
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strings"
 )
 
 const (
 	ekvLocalStoreVersion = 0
-	ekvLocalStorePrefix  = "sync/LocalKV"
+	ekvLocalStorePrefix  = "sync-LocalKV"
 	ekvLocalKeyListKey   = "reserveredKeyList"
 )
 
 // EkvLocalStore is a structure adhering to LocalStore. This utilizes
 // [versioned.KV] file IO operations.
 type EkvLocalStore struct {
-	data     *versioned.KV
+	data     versioned.KV
 	keyLists KeyList
 }
 
@@ -37,14 +38,18 @@ const (
 )
 
 // NewOrLoadEkvLocalStore is a constructor for EkvLocalStore.
-func NewOrLoadEkvLocalStore(kv *versioned.KV) (*EkvLocalStore, error) {
+func NewOrLoadEkvLocalStore(kv versioned.KV) (*EkvLocalStore, error) {
 	// Initialize key list structure
 	keyLists := make(KeyList, 0)
 
+	kv, err := kv.Prefix(ekvLocalStorePrefix)
+	if err != nil {
+		return nil, err
+	}
 	// Initialize the non list map
 	keyLists[notPartOfAListSymbol] = make(DelimitedList, 0)
 	ekvLs := &EkvLocalStore{
-		data:     kv.Prefix(ekvLocalStorePrefix),
+		data:     kv,
 		keyLists: keyLists,
 	}
 

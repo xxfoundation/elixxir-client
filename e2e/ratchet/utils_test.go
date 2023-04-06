@@ -31,7 +31,7 @@ import (
 )
 
 // Constructor for a mock ratchet
-func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
+func makeTestRatchet() (*Ratchet, versioned.KV, error) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(ekv.MakeMemstore())

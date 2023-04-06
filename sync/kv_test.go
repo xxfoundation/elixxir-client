@@ -8,53 +8,53 @@
 package sync
 
 import (
-	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/ekv"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// Remote KV Testing
+// KV Testing
 ///////////////////////////////////////////////////////////////////////////////
 
-// Smoke test of NewOrLoadRemoteKV.
+// Smoke test of NewOrLoadKV.
 func TestNewOrLoadRemoteKv(t *testing.T) {
 	// Construct transaction log
 	txLog := makeTransactionLog("", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	received, err := NewOrLoadRemoteKV(txLog, kv, nil, nil)
+	received, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Create expected remote kv
-
-	expected := &RemoteKV{
-		local:          kv.Prefix(remoteKvPrefix),
-		txLog:          txLog,
-		KeyUpdate:      nil,
-		UnsyncedWrites: make(map[string][]byte, 0),
-		connected:      true,
+	expected := &KV{
+		local:                kv,
+		synchronizedPrefixes: make([]string, 0),
+		txLog:                txLog,
+		KeyUpdate:            nil,
+		UnsyncedWrites:       make(map[string][]byte, 0),
+		connected:            true,
 	}
 
 	// Check equality of created vs expected remote kv
 	require.Equal(t, expected, received)
 }
 
-// Unit test for NewOrLoadRemoteKV. Ensures that it will load if there is data
+// Unit test for NewOrLoadKV. Ensures that it will load if there is data
 // on disk.
 func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
 	// Construct transaction log
-	txLog := makeTransactionLog("workingDir", password, t)
+	txLog := makeTransactionLog("kv_Loading_TestDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Call NewOrLoad where it should load intents
 	done := make(chan struct{})
@@ -63,19 +63,24 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	}
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, updateCb)
+	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, updateCb)
 	require.NoError(t, err)
 
-	// Wait for loaded to be complete
-	//select {
-	//case <-done:
-	//	break
-	//case <-time.NewTimer(5 * time.Second).C:
-	//	t.Fatalf("Failed to recieve from callback")
-	//}
+	const numTests = 100
+
+	// empty channel as callbacks are received
+	go func() {
+		cnt := 0
+		select {
+		case <-done:
+			cnt += 1
+			if cnt == numTests {
+				return
+			}
+		}
+	}()
 
 	// Add intents to remote KV
-	const numTests = 100
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), "val"+strconv.Itoa(i)
 		require.NoError(t, rkv.addUnsyncedWrite(key, []byte(val)))
@@ -85,24 +90,24 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	require.NotEmpty(t, rkv.UnsyncedWrites)
 
 	// Call NewOrLoad where it should load intents
-	loaded, err := NewOrLoadRemoteKV(txLog, kv, nil, updateCb)
+	loaded, err := NewOrLoadKV(txLog, kv, nil, nil, updateCb)
 	require.NoError(t, err)
 
 	require.Len(t, loaded.UnsyncedWrites, numTests)
 }
 
-// Unit test of RemoteKV.Set.
-func TestRemoteKV_Set(t *testing.T) {
+// Unit test of KV.Set.
+func TestKV_Set(t *testing.T) {
 	const numTests = 100
 
 	// Construct transaction log
 	txLog := makeTransactionLog("workingDirSet", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil)
+	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	rkv.txLog.remote = &mockRemote{
@@ -120,7 +125,7 @@ func TestRemoteKV_Set(t *testing.T) {
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.RemoteSet(key, val, updateCb))
+		require.NoError(t, rkv.SetRemote(key, val, updateCb))
 
 		select {
 		case <-time.After(500 * time.Second):
@@ -131,18 +136,18 @@ func TestRemoteKV_Set(t *testing.T) {
 	}
 }
 
-// Unit test of RemoteKV.Get.
-func TestRemoteKV_Get(t *testing.T) {
+// Unit test of KV.Get.
+func TestKV_Get(t *testing.T) {
 	const numTests = 100
 
 	// Construct transaction log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil)
+	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Overwrite remote w/ non file IO option
@@ -161,7 +166,7 @@ func TestRemoteKV_Get(t *testing.T) {
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.Set(key, val, updateCb))
+		require.NoError(t, rkv.SetRemote(key, val, updateCb))
 
 		// Ensure write has completed
 		select {
@@ -170,25 +175,25 @@ func TestRemoteKV_Get(t *testing.T) {
 		case <-txChan:
 		}
 
-		received, err := rkv.Get(key)
+		received, err := rkv.GetBytes(key)
 		require.NoError(t, err)
 
 		require.Equal(t, val, received)
 	}
 }
 
-// Unit test of RemoteKV.addUnsyncedWrite and RemoteKV.removeUnsyncedWrite.
-func TestRemoteKV_AddRemoveUnsyncedWrite(t *testing.T) {
+// Unit test of KV.addUnsyncedWrite and KV.removeUnsyncedWrite.
+func TestKV_AddRemoveUnsyncedWrite(t *testing.T) {
 	const numTests = 100
 
 	// Construct transaction log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil)
+	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Ensure the map's length is incremented every time
@@ -207,18 +212,18 @@ func TestRemoteKV_AddRemoveUnsyncedWrite(t *testing.T) {
 
 }
 
-// Unit test of RemoteKV.saveUnsyncedWrites and RemoteKV.loadUnsyncedWrites.
-func TestRemoteKV_SaveLoadUnsyncedWrite(t *testing.T) {
+// Unit test of KV.saveUnsyncedWrites and KV.loadUnsyncedWrites.
+func TestKV_SaveLoadUnsyncedWrite(t *testing.T) {
 	const numTests = 100
 
 	// Construct transaction log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil)
+	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Add unsynced writes to rkv
@@ -239,19 +244,19 @@ func TestRemoteKV_SaveLoadUnsyncedWrite(t *testing.T) {
 	// Load map from store into object
 	require.NoError(t, rkv.loadUnsyncedWrites())
 
-	// Ensure RemoteKV's map matches previous state
+	// Ensure KV's map matches previous state
 	require.Equal(t, expected, rkv.UnsyncedWrites)
 }
 
-// Unit test for RemoteKV.UpsertLocal
-func TestRemoteKV_UpsertLocal(t *testing.T) {
+// Unit test for KV.UpsertLocal
+func TestKV_UpsertLocal(t *testing.T) {
 	const numTests = 100
 
 	// Construct transaction log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
 	mockKeyUpdateChan := make(chan mockUpsert, 2*numTests)
@@ -264,7 +269,7 @@ func TestRemoteKV_UpsertLocal(t *testing.T) {
 		}
 	}
 
-	rkv, err := NewOrLoadRemoteKV(txLog, kv, mockCb, nil)
+	rkv, err := NewOrLoadKV(txLog, kv, nil, mockCb, nil)
 	require.NoError(t, err)
 
 	// Populate w/ initial values
@@ -297,68 +302,3 @@ func TestRemoteKV_UpsertLocal(t *testing.T) {
 	}
 
 }
-
-///////////////////////////////////////////////////////////////////////////////
-// Remote File System Testing
-///////////////////////////////////////////////////////////////////////////////
-
-// Smoke test for FileSystemRemoteStorage that executes every method of
-// RemoteStore.
-//
-// As of writing, FileSystemRemoteStorage heavily utilizes the xx network's
-// primitives/utils package. As such, testing is light touch as heavier testing
-// exists within the dependency.
-//func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
-//	data := []byte("Test string.")
-//
-//	fsRemote := NewFileSystemRemoteStorage("workingDir")
-//
-//	// Write to file
-//	writeTimestamp := time.Now()
-//	require.NoError(t, fsRemote.Write("workingDir", data))
-//
-//	// Read file
-//	read, err := fsRemote.Read("workingDir")
-//	require.NoError(t, err)
-//
-//	// Ensure read data matches originally written data
-//	require.Equal(t, data, read)
-//
-//	// Retrieve the last modification of the file
-//	lastModified, err := fsRemote.GetLastModified("workingDir")
-//	require.NoError(t, err)
-//
-//	//time.Sleep(50 * time.Millisecond)
-//
-//	// The last modified timestamp should not differ by more than a few
-//	// milliseconds from the timestamp taken before the write operation took
-//	// place.
-//	require.True(t, lastModified.Sub(writeTimestamp) < 2*time.Millisecond ||
-//		lastModified.Sub(writeTimestamp) > 2*time.Millisecond)
-//
-//	// Sleep here to ensure the new write timestamp significantly differs
-//	// from the old write timestamp
-//
-//	// Ensure last write matches last modified when checking the filepath
-//	// of the file that was las written to
-//	lastWrite, err := fsRemote.GetLastWrite()
-//	require.NoError(t, err)
-//
-//	require.Equal(t, lastWrite, lastModified)
-//
-//	// Write a new file to remote
-//	newPath := "new.txt"
-//	newWriteTimestamp := time.Now()
-//	require.NoError(t, fsRemote.Write("workingDir"+newPath, data))
-//
-//	// Retrieve the last write
-//	newLastWrite, err := fsRemote.GetLastWrite()
-//	require.NoError(t, err)
-//
-//	// The last write timestamp should not differ by more than a few
-//	// milliseconds from the timestamp taken before the write operation took
-//	// place.
-//	require.True(t, newWriteTimestamp.Sub(newLastWrite) < 2*time.Millisecond ||
-//		newWriteTimestamp.Sub(newLastWrite) > 2*time.Millisecond)
-//
-//}

@@ -10,6 +10,7 @@ package groupStore
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
@@ -25,12 +26,14 @@ import (
 func TestNewStore(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := kv.Prefix(groupStoragePrefix)
+	require.NoError(t, err)
 	user := randMember(prng)
 
 	expectedStore := &Store{
 		list: make(map[id.ID]Group),
 		user: user,
-		kv:   kv.Prefix(groupStoragePrefix),
+		kv:   expectedKv,
 	}
 
 	store, err := NewStore(kv, user)

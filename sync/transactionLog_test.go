@@ -10,14 +10,15 @@ package sync
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
 	"os"
 	"sort"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 )
 
 const (
@@ -79,7 +80,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 
 	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {})
 
-	remoteStore := &mockRemote{make(map[string][]byte)}
+	remoteStore := &mockRemote{data: make(map[string][]byte)}
 
 	// Construct transaction log
 	txLog, err := NewOrLoadTransactionLog("baseDir", localStore,
@@ -280,7 +281,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct remote store
-	remoteStore := &mockRemote{make(map[string][]byte)}
+	remoteStore := &mockRemote{data: make(map[string][]byte)}
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")

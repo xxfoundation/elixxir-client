@@ -8,11 +8,12 @@
 package sync
 
 import (
+	"strconv"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
-	"strconv"
-	"testing"
 )
 
 // Smoke test for EkvLocalStore that executes Read/Write methods of LocalStore.

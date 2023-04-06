@@ -54,7 +54,7 @@ func getGroup() *cyclic.Group {
 }
 
 // newTestManager returns a new relationship for testing.
-func newTestManager(t *testing.T) (manager, *versioned.KV) {
+func newTestManager(t *testing.T) (manager, versioned.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}

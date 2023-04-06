@@ -2,14 +2,16 @@ package sync
 
 import (
 	"encoding/base64"
+	"math/rand"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"strconv"
-	"testing"
-	"time"
 )
 
 const (
@@ -20,14 +22,19 @@ const (
 const dvcOffsetSerialEnc = "WFhES1RYTE9HRFZDT0ZGU1RleUl3SWpvd0xDSXhJam94TENJeE1DSTZNVEFzSWpFeElqb3hNU3dpTVRJaU9qRXlMQ0l4TXlJNk1UTXNJakUwSWpveE5Dd2lNVFVpT2pFMUxDSXhOaUk2TVRZc0lqRTNJam94Tnl3aU1UZ2lPakU0TENJeE9TSTZNVGtzSWpJaU9qSXNJakl3SWpveU1Dd2lNakVpT2pJeExDSXlNaUk2TWpJc0lqSXpJam95TXl3aU1qUWlPakkwTENJeU5TSTZNalVzSWpJMklqb3lOaXdpTWpjaU9qSTNMQ0l5T0NJNk1qZ3NJakk1SWpveU9Td2lNeUk2TXl3aU16QWlPak13TENJek1TSTZNekVzSWpNeUlqb3pNaXdpTXpNaU9qTXpMQ0l6TkNJNk16UXNJak0xSWpvek5Td2lNellpT2pNMkxDSXpOeUk2TXpjc0lqTTRJam96T0N3aU16a2lPak01TENJMElqbzBMQ0kwTUNJNk5EQXNJalF4SWpvME1Td2lORElpT2pReUxDSTBNeUk2TkRNc0lqUTBJam8wTkN3aU5EVWlPalExTENJME5pSTZORFlzSWpRM0lqbzBOeXdpTkRnaU9qUTRMQ0kwT1NJNk5Ea3NJalVpT2pVc0lqVXdJam8xTUN3aU5URWlPalV4TENJMU1pSTZOVElzSWpVeklqbzFNeXdpTlRRaU9qVTBMQ0kxTlNJNk5UVXNJalUySWpvMU5pd2lOVGNpT2pVM0xDSTFPQ0k2TlRnc0lqVTVJam8xT1N3aU5pSTZOaXdpTmpBaU9qWXdMQ0kyTVNJNk5qRXNJall5SWpvMk1pd2lOak1pT2pZekxDSTJOQ0k2TmpRc0lqWTFJam8yTlN3aU5qWWlPalkyTENJMk55STZOamNzSWpZNElqbzJPQ3dpTmpraU9qWTVMQ0kzSWpvM0xDSTNNQ0k2TnpBc0lqY3hJam8zTVN3aU56SWlPamN5TENJM015STZOek1zSWpjMElqbzNOQ3dpTnpVaU9qYzFMQ0kzTmlJNk56WXNJamMzSWpvM055d2lOemdpT2pjNExDSTNPU0k2Tnprc0lqZ2lPamdzSWpnd0lqbzRNQ3dpT0RFaU9qZ3hMQ0k0TWlJNk9ESXNJamd6SWpvNE15d2lPRFFpT2pnMExDSTROU0k2T0RVc0lqZzJJam80Tml3aU9EY2lPamczTENJNE9DSTZPRGdzSWpnNUlqbzRPU3dpT1NJNk9Td2lPVEFpT2prd0xDSTVNU0k2T1RFc0lqa3lJam81TWl3aU9UTWlPamt6TENJNU5DSTZPVFFzSWprMUlqbzVOU3dpT1RZaU9qazJMQ0k1TnlJNk9UY3NJams0SWpvNU9Dd2lPVGtpT2prNWZRPT0="
 
 type mockRemote struct {
+	lck  sync.Mutex
 	data map[string][]byte
 }
 
 func (m *mockRemote) Read(path string) ([]byte, error) {
+	m.lck.Lock()
+	defer m.lck.Unlock()
 	return m.data[path], nil
 }
 
 func (m *mockRemote) Write(path string, data []byte) error {
+	m.lck.Lock()
+	defer m.lck.Unlock()
 	m.data[path] = append(m.data[path], data...)
 	return nil
 }
@@ -76,7 +83,7 @@ func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog 
 	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
 	require.NoError(t, err)
 	// Construct remote store
-	remoteStore := &mockRemote{make(map[string][]byte)}
+	remoteStore := &mockRemote{data: make(map[string][]byte)}
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")

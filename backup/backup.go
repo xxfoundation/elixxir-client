@@ -49,7 +49,7 @@ type Backup struct {
 	e2e     E2e
 	session Session
 	ud      UserDiscovery
-	kv      *versioned.KV
+	kv      versioned.KV
 	rng     *fastRNG.StreamGenerator
 
 	mux sync.RWMutex
@@ -92,7 +92,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 // password.
 func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
-	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
+	kv versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
 
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
@@ -137,7 +137,7 @@ func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 // a new callback. Call this to resume backups that have already been
 // initialized. Returns an error if backups have not already been initialized.
 func ResumeBackup(updateBackupCb UpdateBackupFn, container *xxdk.Container,
-	e2e E2e, session Session, ud UserDiscovery, kv *versioned.KV,
+	e2e E2e, session Session, ud UserDiscovery, kv versioned.KV,
 	rng *fastRNG.StreamGenerator) (*Backup, error) {
 	_, _, _, err := loadBackup(kv)
 	if err != nil {

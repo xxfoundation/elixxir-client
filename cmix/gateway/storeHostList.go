@@ -9,6 +9,7 @@ package gateway
 
 import (
 	"bytes"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
@@ -29,7 +30,7 @@ const (
 	unmarshallLenErr = "malformed data: length of data %d incorrect"
 )
 
-func saveHostList(kv *versioned.KV, list []*id.ID) error {
+func saveHostList(kv versioned.KV, list []*id.ID) error {
 	obj := &versioned.Object{
 		Version:   hostListVersion,
 		Data:      marshalHostList(list),
@@ -40,7 +41,7 @@ func saveHostList(kv *versioned.KV, list []*id.ID) error {
 }
 
 // getHostList returns the host list from storage.
-func getHostList(kv *versioned.KV) ([]*id.ID, error) {
+func getHostList(kv versioned.KV) ([]*id.ID, error) {
 	obj, err := kv.Get(hostListKey, hostListVersion)
 	if err != nil {
 		return nil, errors.Errorf(getStorageErr, err)

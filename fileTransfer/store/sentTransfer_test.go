@@ -10,6 +10,7 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -32,7 +33,8 @@ func Test_newSentTransfer(t *testing.T) {
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	numFps := uint16(24)
 	parts := [][]byte{[]byte("hello"), []byte("hello"), []byte("hello")}
-	stKv := kv.Prefix(makeSentTransferPrefix(&tid))
+	stKv, err := kv.Prefix(makeSentTransferPrefix(&tid))
+	require.NoError(t, err)
 
 	cypherManager, err := cypher.NewManager(&key, numFps, stKv)
 	if err != nil {
@@ -450,7 +452,7 @@ const numPrimeBytes = 512
 
 // newTestSentTransfer creates a new SentTransfer for testing.
 func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
-	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) {
+	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv versioned.KV) {
 	kv = versioned.NewKV(ekv.MakeMemstore())
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())

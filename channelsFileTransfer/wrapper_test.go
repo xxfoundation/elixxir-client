@@ -152,9 +152,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	select {
 	case f := <-evFileCh1:
 		expected := ModelFile{
-			FileID:    fid,
-			FileLink:  nil,
-			FileData:  fileData,
+			ID:        fid,
+			Link:      nil,
+			Data:      fileData,
 			Timestamp: f.Timestamp,
 			Status:    Uploading,
 		}
@@ -175,12 +175,12 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		if f.Status != Complete {
 			t.Errorf("Uploaded file not marked as complete."+
 				"\nexpected: %s\nreceived: %s", Complete, f.Status)
-		} else if f.FileLink == nil {
-			t.Errorf("File link not set: %v", f.FileLink)
-		} else if st, exists := w1.m.sent.GetTransfer(f.FileID); exists {
+		} else if f.Link == nil {
+			t.Errorf("File link not set: %v", f.Link)
+		} else if st, exists := w1.m.sent.GetTransfer(f.ID); exists {
 			t.Errorf("Transfer not removed from sent transfers: %+v", st)
 		}
-		fileLink = f.FileLink
+		fileLink = f.Link
 	case <-time.After(timeout):
 		t.Fatalf("Timed out after %s waiting for file to upload.", timeout)
 	}
@@ -249,9 +249,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	select {
 	case f := <-evFileCh2:
 		expected := ModelFile{
-			FileID:    fid,
-			FileLink:  fileLink,
-			FileData:  fileData,
+			ID:        fid,
+			Link:      fileLink,
+			Data:      fileData,
 			Timestamp: f.Timestamp,
 			Status:    Complete,
 		}
@@ -259,7 +259,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			t.Errorf("Unexpected data stored in event model."+
 				"\nexpected: %+v\nreceived: %+v", expected, f)
 		}
-		if rt, exists := w2.m.received.GetTransfer(f.FileID); exists {
+		if rt, exists := w2.m.received.GetTransfer(f.ID); exists {
 			t.Errorf("Transfer not removed from received transfers: %+v", rt)
 		}
 
@@ -359,8 +359,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	for uploadedFileData2 == nil {
 		select {
 		case f := <-evFileCh1:
-			if f.FileID == fid && f.Status == Complete {
-				uploadedFileData2 = f.FileData
+			if f.ID == fid && f.Status == Complete {
+				uploadedFileData2 = f.Data
 			}
 		case <-time.After(15 * time.Millisecond):
 			t.Fatalf("Timed out waiting to receive uplaoded file data.")
@@ -401,7 +401,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Resume partially downloaded file                                       //
 	////////////////////////////////////////////////////////////////////////////
 
-	fileLink2 := ev1.files[fid].FileLink
+	fileLink2 := ev1.files[fid].Link
 	msgID, _, _, err = w1.Send(channelID, fileLink2, fileName2, fileType2,
 		preview2, 0, xxdk.GetDefaultCMixParams())
 	if err != nil {
@@ -653,9 +653,9 @@ func Test_FileTransfer_Resend_Smoke(t *testing.T) {
 	select {
 	case f := <-evFileCh1:
 		expected := ModelFile{
-			FileID:    fid,
-			FileLink:  nil,
-			FileData:  fileData,
+			ID:        fid,
+			Link:      nil,
+			Data:      fileData,
 			Timestamp: f.Timestamp,
 			Status:    Uploading,
 		}
@@ -676,12 +676,12 @@ func Test_FileTransfer_Resend_Smoke(t *testing.T) {
 		if f.Status != Complete {
 			t.Errorf("Uploaded file not marked as complete."+
 				"\nexpected: %s\nreceived: %s", Complete, f.Status)
-		} else if f.FileLink == nil {
-			t.Errorf("File link not set: %v", f.FileLink)
-		} else if st, exists := w1.m.sent.GetTransfer(f.FileID); exists {
+		} else if f.Link == nil {
+			t.Errorf("File link not set: %v", f.Link)
+		} else if st, exists := w1.m.sent.GetTransfer(f.ID); exists {
 			t.Errorf("Transfer not removed from sent transfers: %+v", st)
 		}
-		fileLink = f.FileLink
+		fileLink = f.Link
 	case <-time.After(timeout):
 		t.Fatalf("Timed out after %s waiting for file to upload.", timeout)
 	}
@@ -750,9 +750,9 @@ func Test_FileTransfer_Resend_Smoke(t *testing.T) {
 	select {
 	case f := <-evFileCh2:
 		expected := ModelFile{
-			FileID:    fid,
-			FileLink:  fileLink,
-			FileData:  fileData,
+			ID:        fid,
+			Link:      fileLink,
+			Data:      fileData,
 			Timestamp: f.Timestamp,
 			Status:    Complete,
 		}
@@ -760,7 +760,7 @@ func Test_FileTransfer_Resend_Smoke(t *testing.T) {
 			t.Errorf("Unexpected data stored in event model."+
 				"\nexpected: %+v\nreceived: %+v", expected, f)
 		}
-		if rt, exists := w2.m.received.GetTransfer(f.FileID); exists {
+		if rt, exists := w2.m.received.GetTransfer(f.ID); exists {
 			t.Errorf("Transfer not removed from received transfers: %+v", rt)
 		}
 

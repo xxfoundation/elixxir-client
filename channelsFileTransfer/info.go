@@ -20,11 +20,11 @@ import (
 // information sent in the initial file transfer so the recipient can prepare
 // for the incoming file transfer parts.
 type FileInfo struct {
-	// FileName is the name of the file.
-	FileName string `json:"fileName"`
+	// Name is the name of the file.
+	Name string `json:"name"`
 
-	// FileType indicates what type of file is being transferred.
-	FileType string `json:"fileType"`
+	// Type indicates what type of file is being transferred.
+	Type string `json:"type"`
 
 	// Preview contains a preview of the file.
 	Preview []byte `json:"preview"`

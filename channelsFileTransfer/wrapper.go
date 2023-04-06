@@ -225,7 +225,7 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 			// If the file exists and is new enough to be downloaded, call the
 			// progress callback to indicate it is complete
 			var fl FileLink
-			if err = json.Unmarshal(file.FileLink, &fl); err != nil {
+			if err = json.Unmarshal(file.Link, &fl); err != nil {
 				return ftCrypto.ID{}, err
 			}
 
@@ -329,8 +329,8 @@ func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 	}
 
 	fi := FileInfo{
-		FileName: fileName,
-		FileType: fileType,
+		Name:     fileName,
+		Type:     fileType,
 		Preview:  preview,
 		FileLink: fl,
 	}
@@ -364,7 +364,7 @@ func (w *Wrapper) RegisterSentProgressCallback(fileID ftCrypto.ID,
 	}
 
 	var fl FileLink
-	if err = json.Unmarshal(file.FileLink, &fl); err != nil {
+	if err = json.Unmarshal(file.Link, &fl); err != nil {
 		return err
 	}
 
@@ -397,11 +397,11 @@ func (w *Wrapper) RetryUpload(fileID ftCrypto.ID,
 	}
 
 	var fl FileLink
-	if err = json.Unmarshal(file.FileLink, &fl); err != nil {
+	if err = json.Unmarshal(file.Link, &fl); err != nil {
 		return err
 	}
 
-	_, err = w.Upload(file.FileData, fl.Retry, progressCB, period)
+	_, err = w.Upload(file.Data, fl.Retry, progressCB, period)
 	return err
 }
 
@@ -488,7 +488,7 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 
 			// Check if the file link is newer than the stored one
 			var loadedFL FileLink
-			if err = json.Unmarshal(file.FileLink, &loadedFL); err != nil {
+			if err = json.Unmarshal(file.Link, &loadedFL); err != nil {
 				return ftCrypto.ID{}, err
 			}
 
@@ -579,7 +579,7 @@ func (w *Wrapper) RegisterReceivedProgressCallback(fileID ftCrypto.ID,
 	}
 
 	var fl FileLink
-	if err = json.Unmarshal(file.FileLink, &fl); err != nil {
+	if err = json.Unmarshal(file.Link, &fl); err != nil {
 		return err
 	}
 

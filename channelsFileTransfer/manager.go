@@ -254,7 +254,7 @@ func (m *manager) loadInProgressUploads(uploads map[ftCrypto.ID]ModelFile,
 		i++
 
 		// Load transfer from storage into sent transfer list
-		parts := partitionFile(file.FileData, partSize)
+		parts := partitionFile(file.Data, partSize)
 		st, err := m.sent.LoadTransfer(fid, parts)
 		if err != nil {
 			jww.ERROR.Printf("[FT] Failed to load file %s from uploads "+
@@ -317,7 +317,7 @@ func (m *manager) loadInProgressDownloads(downloads map[ftCrypto.ID]ModelFile,
 
 		// Unmarshal file link first; if this fails, skip the entire file
 		var fl FileLink
-		if err := json.Unmarshal(file.FileLink, &fl); err != nil {
+		if err := json.Unmarshal(file.Link, &fl); err != nil {
 			jww.ERROR.Printf("[FT] Failed to JSON unmarshal %T for file "+
 				"download %s (%d/%d): %+v", fl, fid, i, len(downloads), err)
 			continue

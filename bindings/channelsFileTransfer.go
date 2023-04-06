@@ -147,8 +147,8 @@ func (ft *ChannelsFileTransfer) Upload(fileData []byte, retry float32,
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID] to send the
 //     file to.
-//   - fileLinkJSON - JSON of [channelsFileTransfer.FileLink] stored in the
-//     event model.
+//   - fileLinkJSON - JSON of [channelsFileTransfer.Link] stored in the event
+//     model.
 //   - fileName - Human-readable file name. Max length defined by
 //     [MaxFileNameLen].
 //   - fileType - Shorthand that identifies the type of file. Max length defined

@@ -33,9 +33,9 @@ func TestFileInfo_Size(t *testing.T) {
 	}
 
 	fi := FileInfo{
-		FileName: randStringBytes(fileNameMaxLen, prng),
-		FileType: randStringBytes(fileTypeMaxLen, prng),
-		Preview:  []byte{},
+		Name:    randStringBytes(fileNameMaxLen, prng),
+		Type:    randStringBytes(fileTypeMaxLen, prng),
+		Preview: []byte{},
 		FileLink: FileLink{
 			FileID:        ftCrypto.NewID([]byte("fileData")),
 			RecipientID:   id.NewIdFromString("recipient", id.User, t),
@@ -68,9 +68,9 @@ func TestFileInfo_Size(t *testing.T) {
 func TestFileInfo_JSON_Marshal_Unmarshal(t *testing.T) {
 	prng := rand.New(rand.NewSource(6415))
 	fi := &FileInfo{
-		FileName: randStringBytes(fileNameMaxLen, prng),
-		FileType: randStringBytes(fileTypeMaxLen, prng),
-		Preview:  []byte("I am a preview"),
+		Name:    randStringBytes(fileNameMaxLen, prng),
+		Type:    randStringBytes(fileTypeMaxLen, prng),
+		Preview: []byte("I am a preview"),
 		FileLink: FileLink{
 			FileID:        ftCrypto.NewID([]byte("fileData")),
 			RecipientID:   id.NewIdFromString("recipient", id.User, t),

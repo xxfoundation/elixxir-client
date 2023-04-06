@@ -29,7 +29,7 @@ type EventModel interface {
 	//
 	// Returns any fatal errors.
 	ReceiveFile(fileID ftCrypto.ID, fileLink, fileData []byte,
-		timestamp time.Time, status FileStatus) error
+		timestamp time.Time, status Status) error
 
 	// UpdateFile is called when a file upload or download completes or changes.
 	//
@@ -40,7 +40,7 @@ type EventModel interface {
 	// Returns an error if the file cannot be updated. It must return
 	// channels.NoMessageErr if the file does not exist.
 	UpdateFile(fileID ftCrypto.ID, fileLink, fileData *[]byte,
-		timestamp *time.Time, status *FileStatus) error
+		timestamp *time.Time, status *Status) error
 
 	// GetFile returns the ModelFile containing the file data and download link
 	// for the given file ID.
@@ -60,51 +60,51 @@ type EventModel interface {
 
 // ModelFile contains a file and all of its information.
 type ModelFile struct {
-	// FileID is the unique ID of this file.
-	FileID ftCrypto.ID `json:"fileID"`
+	// ID is the unique identifier of this file.
+	ID ftCrypto.ID `json:"id"`
 
-	// FileLink contains all the information needed to download the file data.
+	// Link contains all the information needed to download the file data.
 	// It is the JSON of [FileLink].
-	FileLink []byte `json:"fileLink"`
+	Link []byte `json:"link"`
 
-	// FileData is the contents of the file.
-	FileData []byte `json:"fileData"`
+	// Data is the contents of the file.
+	Data []byte `json:"fileData"`
 
 	// Timestamp is the last time the file data, link, or status was modified.
 	Timestamp time.Time `json:"timestamp"`
 
 	// The current status of the file in the event model.
-	Status FileStatus `json:"status"`
+	Status Status `json:"status"`
 }
 
-// FileStatus is the current status of a file stored in the event model.
-type FileStatus uint8
+// Status is the current status of a file stored in the event model.
+type Status uint8
 
 const (
 	// NotStarted indicates that the file has been added to the file transfer
 	// manager, but it has yet to start uploading or downloading.
-	// NotStarted FileStatus = 0
+	// NotStarted Status = 0
 
 	// Uploading indicates that the file is currently being uploaded. In this
 	// state, the file data is accessible but the file link is not.
-	Uploading FileStatus = 10
+	Uploading Status = 10
 
 	// Downloading indicates that the file is currently being downloaded. In
 	// this state, the file link is accessible but the file data is not.
-	Downloading FileStatus = 20
+	Downloading Status = 20
 
 	// Complete indicates that the file has successfully finished uploading or
 	// downloading and the file is available to send/receive. In this state,
 	// both the file data and file link are accessible.
-	Complete FileStatus = 30
+	Complete Status = 30
 
 	// Error indicates a fatal error occurred during upload or download.
-	Error FileStatus = 40
+	Error Status = 40
 )
 
-// String returns the human-readable form of the [FileStatus] for logging and
+// String returns the human-readable form of the [Status] for logging and
 // debugging. This function adheres to the [fmt.Stringer] interface.
-func (ft FileStatus) String() string {
+func (ft Status) String() string {
 	switch ft {
 	// case NotStarted:
 	// 	return "not started"

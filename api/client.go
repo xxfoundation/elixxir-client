@@ -168,7 +168,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 // The backup is decrypted using the backupPassphrase. On success a
 // successful client creation, the function will return a JSON encoded
 // list of the E2E partners contained in the backup and a json-encoded
-//string containing parameters stored in the backup.
+// string containing parameters stored in the backup.
 func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID, string, error) {
 
@@ -427,7 +427,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 // LoginWithProtoClient creates a client object with a protoclient JSON containing the
 // cryptographic primitives. This is designed for some specific deployment
-//// procedures and is generally unsafe.
+// // procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []byte,
 	newBaseNdf string, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
@@ -586,27 +586,27 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 // they are stopped if there is no internet access
 // Threads Started:
 //   - Network Follower (/network/follow.go)
-//   	tracks the network events and hands them off to workers for handling
+//     tracks the network events and hands them off to workers for handling
 //   - Historical Round Retrieval (/network/rounds/historical.go)
-//		Retrieves data about rounds which are too old to be stored by the client
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//		Requests all messages in a given round from the gateway of the last node
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//		Decrypts and partitions messages when signals via the Switchboard
-//	 - Health Tracker (/network/health)
-//		Via the network instance tracks the state of the network
-//	 - Garbled Messages (/network/message/garbled.go)
-//		Can be signaled to check all recent messages which could be be decoded
-//		Uses a message store on disk for persistence
-//	 - Critical Messages (/network/message/critical.go)
-//		Ensures all protocol layer mandatory messages are sent
-//		Uses a message store on disk for persistence
-//	 - KeyExchange Trigger (/keyExchange/trigger.go)
-//		Responds to sent rekeys and executes them
+//     Retrieves data about rounds which are too old to be stored by the client
+//   - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//     Requests all messages in a given round from the gateway of the last node
+//   - Message Handling Worker Group (/network/message/handle.go)
+//     Decrypts and partitions messages when signals via the Switchboard
+//   - Health Tracker (/network/health)
+//     Via the network instance tracks the state of the network
+//   - Garbled Messages (/network/message/garbled.go)
+//     Can be signaled to check all recent messages which could be be decoded
+//     Uses a message store on disk for persistence
+//   - Critical Messages (/network/message/critical.go)
+//     Ensures all protocol layer mandatory messages are sent
+//     Uses a message store on disk for persistence
+//   - KeyExchange Trigger (/keyExchange/trigger.go)
+//     Responds to sent rekeys and executes them
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
-//		Responds to confirmations of successful rekey operations
+//     Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
-//      Handles both auth confirm and requests
+//     Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmissionID: %s "+

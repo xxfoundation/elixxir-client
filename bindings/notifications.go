@@ -51,16 +51,17 @@ func (mnfmr *ManyNotificationForMeReport) Len() int {
 // NotificationsForMe Check if a notification received is for me
 // It returns a NotificationForMeReport which contains a ForMe bool stating if it is for the caller,
 // a Type, and a source. These are as follows:
-//	TYPE       	SOURCE				DESCRIPTION
-// 	"default"	recipient user ID	A message with no association
-//	"request"	sender user ID		A channel request has been received
-//	"reset"	    sender user ID		A channel reset has been received
-//	"confirm"	sender user ID		A channel request has been accepted
-//	"silent"	sender user ID		A message which should not be notified on
-//	"e2e"		sender user ID		reception of an E2E message
-//	"group"		group ID			reception of a group chat message
-//  "endFT"     sender user ID		Last message sent confirming end of file transfer
-//  "groupRQ"   sender user ID		Request from sender to join a group chat
+//
+//		TYPE       	SOURCE				DESCRIPTION
+//		"default"	recipient user ID	A message with no association
+//		"request"	sender user ID		A channel request has been received
+//		"reset"	    sender user ID		A channel reset has been received
+//		"confirm"	sender user ID		A channel request has been accepted
+//		"silent"	sender user ID		A message which should not be notified on
+//		"e2e"		sender user ID		reception of an E2E message
+//		"group"		group ID			reception of a group chat message
+//	 "endFT"     sender user ID		Last message sent confirming end of file transfer
+//	 "groupRQ"   sender user ID		Request from sender to join a group chat
 func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeReport, error) {
 	//handle deserialization of preimages
 	var preimageList []edge.Preimage
@@ -108,4 +109,8 @@ func (c *Client) RegisterForNotifications(token string) error {
 // UnregisterForNotifications unregister user for notifications
 func (c *Client) UnregisterForNotifications() error {
 	return c.api.UnregisterForNotifications()
+}
+
+func (c *Client) SetAlternativeNotificationsHost(address string, cert []byte) {
+	c.api.SetAlternativeNotificationsHost(address, cert)
 }

@@ -12,9 +12,12 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"math"
+	"time"
 )
 
 // RegisterForNotifications allows a client to register for push
@@ -102,4 +105,18 @@ func (c *Client) getIidAndSig() ([]byte, []byte, error) {
 	}
 	stream.Close()
 	return intermediaryReceptionID, sig, nil
+}
+
+func (c *Client) SetAlternativeNotificationsHost(address string, tlsCertificate []byte) {
+	c.comms.RemoveHost(&id.NotificationBot)
+	hp := connect.GetDefaultHostParams()
+	// Client will not send KeepAlive packets
+	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
+	hp.AuthEnabled = false
+	hp.MaxRetries = 5
+	_, err := c.comms.AddHost(&id.NotificationBot, address,
+		tlsCertificate, hp)
+	if err != nil {
+		jww.WARN.Printf("Failed adding host for notifications: %+v", err)
+	}
 }

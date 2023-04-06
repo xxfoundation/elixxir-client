@@ -39,7 +39,7 @@ func NewServer(identity xxdk.ReceptionIdentity, net *xxdk.Cmix,
 			jww.INFO.Printf("nil conn")
 		}
 		if newServer == nil {
-			jww.INFO.print("nil server")
+			jww.INFO.Printf("nil server")
 		}
 		handler := &receiver{endpoints: newServer.endpoints, conn: conn}
 		conn.RegisterListener(catalog.XxMessage, handler)

@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
 
@@ -26,7 +28,7 @@ func TestInstanceID(t *testing.T) {
 
 	gStr := generated.String()
 
-	kv := ekv.MakeMemstore()
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	err = StoreInstanceID(generated, kv)
 	require.NoError(t, err)
 
@@ -37,7 +39,12 @@ func TestInstanceID(t *testing.T) {
 	loadedStr := fmt.Sprintf("%s", loaded)
 	require.Equal(t, gStr, loadedStr)
 
-	kv.SetBytes(instanceIDKey, []byte("invalid"))
+	obj := versioned.Object{
+		Data:      []byte("invalid"),
+		Version:   0,
+		Timestamp: time.Now(),
+	}
+	kv.Set(instanceIDKey, &obj)
 	invalid, err := LoadInstanceID(kv)
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid)
@@ -47,7 +54,8 @@ func TestInstanceID(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid2)
 
-	kv.SetBytes(instanceIDKey, []byte(""))
+	obj.Data = []byte("")
+	kv.Set(instanceIDKey, &obj)
 	invalid3, err := LoadInstanceID(kv)
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid3)

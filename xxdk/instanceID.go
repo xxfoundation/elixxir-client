@@ -10,17 +10,19 @@ package xxdk
 import (
 	"encoding/base64"
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 )
 
 const (
-	instanceIDLength = 8
-	instanceIDKey    = "ThisInstanceID"
-	emptyInstanceErr = "empty instance ID"
-	shortReadErr     = "short read generating instance ID"
-	incorrectSizeErr = "incorrect instance ID size: %d != %d"
+	instanceIDLength  = 8
+	instanceIDVersion = 0
+	instanceIDKey     = "ThisInstanceID"
+	emptyInstanceErr  = "empty instance ID"
+	shortReadErr      = "short read generating instance ID"
+	incorrectSizeErr  = "incorrect instance ID size: %d != %d"
 )
 
 // InstanceID is a random, URL Safe, base64 string generated when an
@@ -35,9 +37,10 @@ func (i InstanceID) String() string {
 }
 
 // LoadInstanceID loads an InstanceID from storage.
-func LoadInstanceID(kv ekv.KeyValue) (InstanceID, error) {
+func LoadInstanceID(kv versioned.KV) (InstanceID, error) {
 	instanceID := InstanceID{}
-	idBytes, err := kv.GetBytes(instanceIDKey)
+	obj, err := kv.Get(instanceIDKey, instanceIDVersion)
+	idBytes := obj.Data
 	if err == nil && len(idBytes) == 0 {
 		return instanceID, errors.New(emptyInstanceErr)
 	} else if len(idBytes) != instanceIDLength {
@@ -50,8 +53,13 @@ func LoadInstanceID(kv ekv.KeyValue) (InstanceID, error) {
 }
 
 // StoreInstanceID saves an instance ID to kv storage.
-func StoreInstanceID(id InstanceID, kv ekv.KeyValue) error {
-	return kv.SetBytes(instanceIDKey, id[:])
+func StoreInstanceID(id InstanceID, kv versioned.KV) error {
+	obj := versioned.Object{
+		Data:      id[:],
+		Timestamp: time.Now(),
+		Version:   instanceIDVersion,
+	}
+	return kv.Set(instanceIDKey, &obj)
 }
 
 func generateInstanceID(csprng io.Reader) (InstanceID, error) {

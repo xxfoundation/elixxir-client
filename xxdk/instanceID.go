@@ -39,8 +39,11 @@ func (i InstanceID) String() string {
 // LoadInstanceID loads an InstanceID from storage.
 func LoadInstanceID(kv versioned.KV) (InstanceID, error) {
 	instanceID := InstanceID{}
+	var idBytes []byte
 	obj, err := kv.Get(instanceIDKey, instanceIDVersion)
-	idBytes := obj.Data
+	if obj != nil {
+		idBytes = obj.Data
+	}
 	if err == nil && len(idBytes) == 0 {
 		return instanceID, errors.New(emptyInstanceErr)
 	} else if len(idBytes) != instanceIDLength {

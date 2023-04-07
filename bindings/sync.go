@@ -134,6 +134,10 @@ func (r *remoteStoreFileSystemWrapper) Write(path string, data []byte) error {
 	return r.bindingsAPI.Write(path, data)
 }
 
+func (r *remoteStoreFileSystemWrapper) ReadDir(path string) ([]string, error) {
+	panic("unimplmented")
+}
+
 // GetLastModified returns when the file at the given file path was last
 // modified. If the implementation that adheres to this interface does not
 // support this, [Write] or [Read] should be implemented to either write a

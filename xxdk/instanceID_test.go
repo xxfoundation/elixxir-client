@@ -49,7 +49,7 @@ func TestInstanceID(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid)
 
-	kv.Delete(instanceIDKey)
+	kv.Delete(instanceIDKey, 0)
 	invalid2, err := LoadInstanceID(kv)
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid2)

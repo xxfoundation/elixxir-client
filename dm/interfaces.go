@@ -101,7 +101,7 @@ type Sender interface {
 		rounds.Round, ephemeral.Id, error)
 }
 
-// DMReceiverBuilder initialises the event model using the given path.
+// ReceiverBuilder initialises the event model using the given path.
 type ReceiverBuilder func(path string) (EventModel, error)
 
 // EventModel is all of the reception functions an API user must implement.
@@ -131,7 +131,7 @@ type EventModel interface {
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status Status) uint64
 
-	// Receive is called whenever a direct message is
+	// ReceiveText is called whenever a direct message is
 	// received. It may be called multiple times on the same
 	// message. It is incumbent on the user of the API to filter
 	// such called by message ID.

@@ -44,7 +44,7 @@ const (
 
 // ShareURL generates a URL that can be used to share this channel with others
 // on the given host.
-func ShareURL(url string, maxUses int, token int, key nike.PublicKey,
+func ShareURL(url string, maxUses int, token int32, key nike.PublicKey,
 	csprng io.Reader) (string, error) {
 	u, err := goUrl.Parse(url)
 	if err != nil {
@@ -96,7 +96,7 @@ func DecodeShareURL(url string, password string) (int, nike.PublicKey, error) {
 }
 
 // encodePublicShareURL encodes the channel to a Public share URL.
-func encodePublicShareURL(q goUrl.Values, token int, key nike.PublicKey) goUrl.Values {
+func encodePublicShareURL(q goUrl.Values, token int32, key nike.PublicKey) goUrl.Values {
 	q.Set(myTokenKey, strconv.FormatUint(uint64(token), 10))
 	q.Set(myEcPubKey, base64.URLEncoding.EncodeToString(key.Bytes()))
 	return q
@@ -112,14 +112,14 @@ func decodePublicShareURL(q goUrl.Values) (int, nike.PublicKey, error) {
 	}
 
 	// Retrieve the key data
-	rsaKeyData, err := base64.URLEncoding.DecodeString(q.Get(myEcPubKey))
+	ecKeyData, err := base64.URLEncoding.DecodeString(q.Get(myEcPubKey))
 	if err != nil {
 		return 0, nil, err
 	}
 
 	// Unmarshal the public key
 	pubKey := ecdh.ECDHNIKE.NewEmptyPublicKey()
-	err = pubKey.FromBytes(rsaKeyData)
+	err = pubKey.FromBytes(ecKeyData)
 	if err != nil {
 		return 0, nil, err
 	}

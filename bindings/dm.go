@@ -217,7 +217,7 @@ func NewDmManagerMobile(cmixID int, privateIdentity []byte,
 // DM Share URL                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// DmShareURL is returned from [DMClient.GetShareURL]. It includes the
+// DMShareURL is returned from [DMClient.GetShareURL]. It includes the
 // user's share URL.
 //
 // JSON example for a user:
@@ -226,12 +226,12 @@ func NewDmManagerMobile(cmixID int, privateIdentity []byte,
 //	 "url": "https://internet.speakeasy.tech/?l=32&m=5&p=EfDzQDa4fQ5BoqNIMbECFDY9ckRr_fadd8F1jE49qJc%3D&t=4231817746&v=1",
 //	 "password": "hunter2",
 //	}
-type DmShareURL struct {
+type DMShareURL struct {
 	URL      string `json:"url"`
 	Password string `json:"password"`
 }
 
-// DmShareUrlReport is returned from [DecodeDmPublic]. It includes the token
+// DMUser is returned from [DecodeDMShareURL]. It includes the token
 // and public key of the user who created the URL.
 //
 // JSON example for a user:
@@ -240,7 +240,7 @@ type DmShareURL struct {
 //	 "token": 4231817746,
 //	 "publicKey": "EfDzQDa4fQ5BoqNIMbECFDY9ckRr/fadd8F1jE49qJc="
 //	}
-type DmShareUrlReport struct {
+type DMUser struct {
 	Token     int    `json:"token"`
 	PublicKey []byte `json:"publicKey"`
 }
@@ -252,36 +252,36 @@ type DmShareUrlReport struct {
 //   - host - The URL to append the DM info to.
 //
 // Returns:
-//   - JSON of [DmShareURL].
+//   - JSON of [DMShareURL].
 func (dmc *DMClient) GetShareURL(host string) ([]byte, error) {
 	url, err := dm.ShareURL(
-		host, 0, int(dmc.api.GetToken()), dmc.api.GetPublicKey(), nil)
+		host, 0, int32(dmc.api.GetToken()), dmc.api.GetPublicKey(), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	su := DmShareURL{
+	su := DMShareURL{
 		URL: url,
 	}
 
 	return json.Marshal(su)
 }
 
-// DecodeDmPublic decodes the user's URL into a DmShareUrlReport.
+// DecodeDMShareURL decodes the user's URL into a DMUser.
 //
 // Parameters:
 //   - url - The user's share URL. Should be received from another user or
 //     generated via [DMClient.GetShareURL].
 //
 // Returns:
-//   - JSON of DmShareUrlReport.
-func DecodeDmPublic(url string) ([]byte, error) {
+//   - JSON of DMUser.
+func DecodeDMShareURL(url string) ([]byte, error) {
 	token, pubKey, err := dm.DecodeShareURL(url, "")
 	if err != nil {
 		return nil, err
 	}
 
-	dmShareReport := &DmShareUrlReport{
+	dmShareReport := &DMUser{
 		Token:     token,
 		PublicKey: pubKey.Bytes(),
 	}

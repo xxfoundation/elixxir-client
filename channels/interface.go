@@ -72,6 +72,10 @@ type Manager interface {
 	// given channel.
 	DisableDirectMessages(chId *id.ID) error
 
+	// AreDMsEnabled returns the status of DMs for a given channel;
+	// returns true if DMs are enabled.
+	AreDMsEnabled(chId *id.ID) bool
+
 	// ReplayChannel replays all messages from the channel within the network's
 	// memory (~3 weeks) over the event model. It does this by wiping the
 	// underlying state tracking for message pickup for the channel, causing all
@@ -147,8 +151,11 @@ type Manager interface {
 	//
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
-	SendReaction(channelID *id.ID, reaction string,
-		reactTo message.ID, params cmix.CMIXParams) (
+	//
+	// The message will auto delete validUntil after the round it is sent in,
+	// lasting forever if ValidForever is used.
+	SendReaction(channelID *id.ID, reaction string, reactTo message.ID,
+		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////

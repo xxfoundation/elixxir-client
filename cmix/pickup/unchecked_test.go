@@ -17,7 +17,6 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -27,7 +26,6 @@ import (
 // Happy path.
 func TestUncheckedRoundScheduler(t *testing.T) {
 	// General initializations
-	connect.TestingOnlyDisableTLS = true
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}

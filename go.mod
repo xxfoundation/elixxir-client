@@ -4,24 +4,24 @@ go 1.19
 
 require (
 	github.com/cloudflare/circl v1.2.0
-	github.com/forPelevin/gomoji v1.1.8
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.6.0
+	github.com/rivo/uniseg v0.4.3
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.8.1
-	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20230116232020-39f76a2aeccc
-	gitlab.com/elixxir/crypto v0.0.7-0.20230124220743-2a897bc01c59
+	github.com/stretchr/testify v1.8.2
+	gitlab.com/elixxir/bloomfilter v0.0.0-20230315224936-a4459418f300
+	gitlab.com/elixxir/comms v0.0.4-0.20230310205528-f06faa0d2f0b
+	gitlab.com/elixxir/crypto v0.0.7-0.20230322175717-4a3b5a24bdf4
 	gitlab.com/elixxir/ekv v0.2.1
-	gitlab.com/elixxir/primitives v0.0.3-0.20230109222259-f62b2a90b62c
-	gitlab.com/xx_network/comms v0.0.4-0.20230113193654-a3a18c6bbb90
-	gitlab.com/xx_network/crypto v0.0.5-0.20230124215920-951bed503c49
-	gitlab.com/xx_network/primitives v0.0.4-0.20221219230308-4b5550a9247d
+	gitlab.com/elixxir/primitives v0.0.3-0.20230214180039-9a25e2d3969c
+	gitlab.com/xx_network/comms v0.0.4-0.20230214180029-5387fb85736d
+	gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd
+	gitlab.com/xx_network/primitives v0.0.4-0.20230310205521-c440e68e34c4
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.5.0
 	golang.org/x/net v0.5.0
@@ -33,7 +33,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0 // indirect
-	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20221221204132-2ed1fec765f1 // indirect
+	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20230214175953-5b5a8c33d28a // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -58,7 +58,6 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rs/cors v1.8.2 // indirect
 	github.com/sethvargo/go-diceware v0.3.0 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect

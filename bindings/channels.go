@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -203,10 +204,19 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 // MessageReceivedCallback is called any time a message is received or updated.
 //
 // update is true if the row is old and was edited.
-type MessageReceivedCallback func(uuid uint64, channelID []byte, update bool)
+type MessageReceivedCallback interface {
+	Callback(uuid int64, channelID []byte, update bool)
+}
 
 // MuteCallback is a callback provided for the MuteUser method of the impl.
-type MuteCallback func(channelID []byte, pubKey []byte, unmute bool)
+type MuteCallback interface {
+	Callback(channelID []byte, pubKey []byte, unmute bool)
+}
+
+// DeletedMessageCallback is called any time a message is deleted.
+type DeletedMessageCallback interface {
+	Callback(messageId []byte)
+}
 
 // NewChannelsManagerMobile creates a new [ChannelsManager] from a new private
 // identity [cryptoChannel.PrivateIdentity] backed with SqlLite for mobile use.
@@ -224,10 +234,11 @@ type MuteCallback func(channelID []byte, pubKey []byte, unmute bool)
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
 //   - msgCb - Callback that is invoked whenever channels message is received/updated.
+//   - deleteCb - Callback that is invoked whenever a message is deleted.
 //   - muteCb - Callback that is invoked whenever a sender is muted/unmuted.
 func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	dbFilePath string, cipherID int, msgCb MessageReceivedCallback,
-	muteCb MuteCallback) (*ChannelsManager, error) {
+	deleteCb DeletedMessageCallback, muteCb MuteCallback) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -244,13 +255,17 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	}
 
 	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb(uuid, channelID.Marshal(), update)
+		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
+	}
+	newDeleteCb := func(messageID message.ID) {
+		deleteCb.Callback(messageID.Marshal())
 	}
 	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-		muteCb(channelID.Marshal(), pubKey, unmute)
+		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
 	}
 
-	model, err := storage.NewEventModel(dbFilePath, cipher, newMsgCb, newMuteCb)
+	model, err := storage.NewEventModel(dbFilePath, cipher,
+		newMsgCb, newDeleteCb, newMuteCb)
 	if err != nil {
 		return nil, err
 	}
@@ -282,10 +297,11 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
 //   - msgCb - Callback that is invoked whenever channels message is received/updated.
+//   - deleteCb - Callback that is invoked whenever a message is deleted.
 //   - muteCb - Callback that is invoked whenever a sender is muted/unmuted.
 func LoadChannelsManagerMobile(cmixID int, storageTag string,
 	dbFilePath string, cipherID int, msgCb MessageReceivedCallback,
-	muteCb MuteCallback) (*ChannelsManager, error) {
+	deleteCb DeletedMessageCallback, muteCb MuteCallback) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -298,13 +314,17 @@ func LoadChannelsManagerMobile(cmixID int, storageTag string,
 	}
 
 	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb(uuid, channelID.Marshal(), update)
+		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
+	}
+	newDeleteCb := func(messageID message.ID) {
+		deleteCb.Callback(messageID.Marshal())
 	}
 	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-		muteCb(channelID.Marshal(), pubKey, unmute)
+		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
 	}
 
-	model, err := storage.NewEventModel(dbFilePath, cipher, newMsgCb, newMuteCb)
+	model, err := storage.NewEventModel(dbFilePath, cipher,
+		newMsgCb, newDeleteCb, newMuteCb)
 	if err != nil {
 		return nil, err
 	}
@@ -717,6 +737,49 @@ func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 	return json.Marshal(channelIds)
 }
 
+// EnableDirectMessages enables the token for direct messaging for this
+// channel.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) EnableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.EnableDirectMessages(channelID)
+}
+
+// DisableDirectMessages removes the token for direct messaging for a
+// given channel.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+func (cm *ChannelsManager) DisableDirectMessages(channelIdBytes []byte) error {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.DisableDirectMessages(channelID)
+}
+
+// AreDMsEnabled returns the status of DMs for a given channel
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - DM status (bool) - true if DMs are enabled for passed in channel
+func (cm *ChannelsManager) AreDMsEnabled(channelIdBytes []byte) (bool, error) {
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return false, err
+	}
+	return cm.api.AreDMsEnabled(channelID), nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Channel Share URL                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -1053,13 +1116,20 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 //     to your own. Alternatively, if reacting to another user's message, you
 //     may retrieve it via the ChannelMessageReceptionCallback registered using
 //     RegisterReceiveHandler.
+//   - validUntilMS - The lease of the message. This will be how long the
+//     message is available from the network, in milliseconds. As per the
+//     [channels.Manager] documentation, this has different meanings depending
+//     on the use case. These use cases may be generic enough that they will not
+//     be enumerated here. Use [channels.ValidForever] to last the max message
+//     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
-	messageToReactTo []byte, cmixParamsJSON []byte) ([]byte, error) {
+	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte) (
+	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err := parseChannelsParameters(
@@ -1072,9 +1142,15 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	messageID := cryptoMessage.ID{}
 	copy(messageID[:], messageToReactTo)
 
+	// Calculate lease
+	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
 	// Send reaction
 	messageID, rnd, ephID, err :=
-		cm.api.SendReaction(channelID, reaction, messageID, params.CMIX)
+		cm.api.SendReaction(channelID, reaction, messageID, lease, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
@@ -1396,8 +1472,7 @@ func (cm *ChannelsManager) DeleteNickname(channelIDBytes []byte) error {
 	return cm.api.DeleteNickname(channelID)
 }
 
-// GetNickname returns the nickname set for a given channel. Returns an error if
-// there is no nickname set.
+// GetNickname returns the nickname set for a given channel.
 //
 // Parameters:
 //   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
@@ -1409,11 +1484,7 @@ func (cm *ChannelsManager) GetNickname(channelIDBytes []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	nickname, exists := cm.api.GetNickname(channelID)
-	if !exists {
-		return "", errors.New("no nickname found for the given channel")
-	}
-
+	nickname, _ := cm.api.GetNickname(channelID)
 	return nickname, nil
 }
 

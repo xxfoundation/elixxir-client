@@ -66,6 +66,14 @@ type Params struct {
 	// ignored and local time is used
 	ClockSkewClamp time.Duration
 
+	// EnableEphemeralRegistration tells the registrar to allow use of ephemeral
+	// ED keys to send to nodes before registration has completed.
+	EnableEphemeralRegistration bool
+
+	// DisableNodeRegistration tells the registrar to disable the registration
+	// subsystem. THIS SHOULD ONLY BE USED IN TESTING.
+	DisableNodeRegistration bool
+
 	// WhitelistedGateways is a list of gateway IDs which, if set, will be used
 	// to create a GatewayFilter for the hostpool, ensuring we only connect to
 	// gateways in this list.

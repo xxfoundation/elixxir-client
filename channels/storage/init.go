@@ -14,6 +14,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/channels"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -29,23 +30,29 @@ type MessageReceivedCallback func(uuid uint64, channelID *id.ID, update bool)
 // MuteCallback is a callback provided for the MuteUser method of the impl.
 type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 
+// DeletedMessageCallback is called any time a message is deleted.
+type DeletedMessageCallback func(messageID message.ID)
+
 // impl implements the channels.EventModel interface with an underlying DB.
 type impl struct {
-	db     *gorm.DB // Stored database connection
-	cipher cryptoChannel.Cipher
-	msgCb  MessageReceivedCallback
-	muteCb MuteCallback
+	db       *gorm.DB // Stored database connection
+	cipher   cryptoChannel.Cipher
+	msgCb    MessageReceivedCallback
+	deleteCb DeletedMessageCallback
+	muteCb   MuteCallback
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
 func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, muteCb MuteCallback) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption, msgCb, muteCb)
+	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
+	muteCb MuteCallback) (channels.EventModel, error) {
+	model, err := newImpl(dbFilePath, encryption, msgCb, deleteCb, muteCb)
 	return channels.EventModel(model), err
 }
 
 func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, muteCb MuteCallback) (*impl, error) {
+	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
+	muteCb MuteCallback) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -62,8 +69,13 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 		return nil, errors.Errorf("Unable to initialize database backend: %+v", err)
 	}
 
-	// Force-enable foreign keys as an oddity of SQLite
+	// Enable foreign keys because they are disabled in SQLite by default
 	if err = db.Exec("PRAGMA foreign_keys = ON", nil).Error; err != nil {
+		return nil, err
+	}
+
+	// Enable Write Ahead Logging to enable multiple DB connections
+	if err = db.Exec("PRAGMA journal_mode = WAL;", nil).Error; err != nil {
 		return nil, err
 	}
 
@@ -93,10 +105,11 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 
 	// Build the interface
 	di := &impl{
-		db:     db,
-		cipher: encryption,
-		msgCb:  msgCb,
-		muteCb: muteCb,
+		db:       db,
+		cipher:   encryption,
+		msgCb:    msgCb,
+		deleteCb: deleteCb,
+		muteCb:   muteCb,
 	}
 
 	jww.INFO.Println("Database backend initialized successfully!")

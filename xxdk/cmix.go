@@ -632,6 +632,16 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	// Store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
 
+	// Create and store an instance ID
+	instanceID, err := generateInstanceID(rng)
+	if err != nil {
+		return nil, err
+	}
+	err = StoreInstanceID(instanceID, storageSess.GetKV())
+	if err != nil {
+		return nil, err
+	}
+
 	// Move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 

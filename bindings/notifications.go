@@ -9,7 +9,6 @@ package bindings
 
 import (
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/primitives/notifications"
 )
@@ -178,14 +177,8 @@ func getCompressedServicesReport(marshalledCompressedServices []byte,
 			// Iterate over all services {
 			for j := range services {
 				service := services[j]
-				hash, err := service.Hash(&id, notifData.MessageHash)
-				if err != nil {
-					jww.WARN.Printf("Failed to hash for compressed service %s",
-						service.String())
-					continue
-				}
-
-				found, tags, metadata := service.ForMe(&id, notifData.MessageHash, hash)
+				found, tags, metadata := service.ForMe(&id,
+					notifData.MessageHash, service.Metadata)
 				if !found {
 					continue
 				}

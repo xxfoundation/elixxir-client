@@ -134,12 +134,6 @@ func (r *remoteStoreFileSystemWrapper) Write(path string, data []byte) error {
 	return r.bindingsAPI.Write(path, data)
 }
 
-// Write writes to the file path the provided data. An error is returned if it
-// fails to write to file.
-func (r *remoteStoreFileSystemWrapper) ReadDir(path string) ([]string, error) {
-	return r.bindingsAPI.ReadDir(path)
-}
-
 // GetLastModified returns when the file at the given file path was last
 // modified. If the implementation that adheres to this interface does not
 // support this, [Write] or [Read] should be implemented to either write a

@@ -39,12 +39,6 @@ func (m *mockRemote) Write(path string, data []byte) error {
 	return nil
 }
 
-func (m *mockRemote) ReadDir(path string) ([]string, error) {
-	m.lck.Lock()
-	defer m.lck.Unlock()
-	panic("unimplemented")
-}
-
 func (m mockRemote) GetLastModified(path string) (time.Time, error) {
 	return netTime.Now(), nil
 }

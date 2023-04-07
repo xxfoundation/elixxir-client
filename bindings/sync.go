@@ -8,11 +8,15 @@
 package bindings
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/sync"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -232,7 +236,7 @@ type RemoteKVCallbacks interface {
 	RemoteStoreResult(remoteStoreReport []byte)
 }
 
-// NewOrLoadSyncRemoteKV will construct a [RemoteKV].
+// NewOrLoadSyncRemoteKV will construct a remote [KV].
 //
 // Parameters:
 //   - storageDir - the path to the ekv
@@ -273,7 +277,22 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	}
 
 	// Construct txLog path
-	txLogPath := "txLog/" + "blahnexticket"
+	// NOTE: the following assumes this is called after KV
+	//       initialization from calling NewCmix, so this needs to
+	//       be linked up to that somehow. That all likely needs to
+	//       be refactored.
+	instanceID, err := xxdk.LoadInstanceID(versionedKV)
+	if err != nil {
+		return nil, err
+	}
+	// Is the transmission key the right thing to load? Not sure..
+	uid, err := user.LoadUser(versionedKV)
+	if err != nil {
+		return nil, err
+	}
+	txKey := base64.RawURLEncoding.EncodeToString(
+		uid.GetTransmissionID().Bytes())
+	txLogPath := fmt.Sprintf("%s/%s", txKey, instanceID)
 
 	// Retrieve rng
 	frng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)

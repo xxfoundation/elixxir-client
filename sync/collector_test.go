@@ -9,15 +9,17 @@ package sync
 
 import (
 	"encoding/base64"
-	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
 	"os"
 	"sort"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/ekv"
 )
+
+const baseDir = "collector_tests/"
 
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
@@ -25,10 +27,10 @@ func TestNewCollector(t *testing.T) {
 	txLog := makeTransactionLog(syncPath, password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	myId := "testingMyId"
@@ -72,10 +74,10 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	txLog := makeTransactionLog(syncPath, password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"
@@ -124,10 +126,10 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	txLog := makeTransactionLog(syncPath, password, t)
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewOrLoadRemoteKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"

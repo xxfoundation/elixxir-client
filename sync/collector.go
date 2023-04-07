@@ -9,11 +9,12 @@
 package sync
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 // Stoppable constants.
@@ -66,14 +67,14 @@ type Collector struct {
 	remote RemoteStore
 
 	// The remote storage EKV wrapper
-	kv *RemoteKV
+	kv *KV
 
 	deviceTxTracker *deviceTransactionTracker
 }
 
 // NewCollector constructs a collector object.
 func NewCollector(syncPath string, myId string, txLog *TransactionLog,
-	remote RemoteStore, kv *RemoteKV) *Collector {
+	remote RemoteStore, kv *KV) *Collector {
 	return &Collector{
 		syncPath:             syncPath,
 		myID:                 DeviceID(myId),
@@ -241,8 +242,8 @@ func (c *Collector) applyChanges() error {
 	// Now apply all collected changes
 	ordered := c.deviceTxTracker.Sort()
 	for _, tx := range ordered {
-
-		localVal, lastWrite, err := c.remote.ReadAndGetLastWrite(tx.Key)
+		lastWrite, _ := c.remote.GetLastWrite()
+		localVal, err := c.remote.Read(tx.Key)
 		if err != nil {
 			jww.WARN.Printf(serializeDeviceTxErr, collectorLogHeader, tx.Key, err)
 			continue
@@ -260,7 +261,7 @@ func (c *Collector) applyChanges() error {
 
 		} else {
 
-			if err = c.kv.localSet(tx.Key, tx.Value); err != nil {
+			if err = c.kv.SetBytes(tx.Key, tx.Value); err != nil {
 				jww.WARN.Printf(localSetErr, collectorLogHeader, tx.Key, err)
 
 			}
@@ -305,7 +306,7 @@ func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, deviceId str
 // from storage. If it cannot retrieve the offset from local, it will assume
 // zero value.
 func (c *Collector) getTxLogOffset(deviceId string) int {
-	offsetData, err := c.kv.Get(deviceOffsetKey(deviceId))
+	offsetData, err := c.kv.GetBytes(deviceOffsetKey(deviceId))
 	if err != nil {
 		jww.WARN.Printf(retrieveDeviceOffsetErr, collectorLogHeader, deviceId)
 	}
@@ -321,7 +322,7 @@ func (c *Collector) getTxLogOffset(deviceId string) int {
 // the given device to local storage.
 func (c *Collector) setTxLogOffset(deviceId string, offset int) error {
 	data := serializeInt(offset)
-	return c.kv.localSet(deviceOffsetKey(deviceId), data)
+	return c.kv.SetBytes(deviceOffsetKey(deviceId), data)
 }
 
 // deviceOffsetKey is a helper function which creates the key for

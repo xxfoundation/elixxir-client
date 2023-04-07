@@ -420,6 +420,10 @@ func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
 
 }
 
+func (f *FileSystemRemoteStorage) ReadDir(path string) ([]string, error) {
+	panic("unimplemented")
+}
+
 // GetLastModified will return the last modified timestamp of the file at path.
 // It will return an error if it cannot retrieve any os.FileInfo from the file
 // path.

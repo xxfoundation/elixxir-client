@@ -8,6 +8,7 @@
 package xxdk
 
 import (
+	"io"
 	"math"
 	"time"
 
@@ -81,8 +82,11 @@ func NewCmix(
 	jww.DEBUG.Printf(
 		"PortableUserInfo generation took: %s", netTime.Now().Sub(start))
 
+	rng := rngStreamGen.GetStream()
+	defer rng.Close()
+
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, registrationCode)
+		userInfo, cmixGrp, e2eGrp, registrationCode, rng)
 	return err
 }
 
@@ -97,6 +101,7 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
+	defer rngStream.Close()
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
@@ -107,7 +112,7 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	userInfo := createNewVanityUser(rngStream, e2eGrp, userIdPrefix)
 
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, registrationCode)
+		userInfo, cmixGrp, e2eGrp, registrationCode, rngStream)
 	if err != nil {
 		return err
 	}
@@ -167,9 +172,15 @@ func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 		return err
 	}
 
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
+		csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
+	defer rngStream.Close()
+
 	cmixGrp, e2eGrp := DecodeGroups(def)
 	storageSess, err := CheckVersionAndSetupStorage(
-		def, storageDir, password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
+		def, storageDir, password, usr, cmixGrp, e2eGrp,
+		protoUser.RegCode, rngStream)
 	if err != nil {
 		return err
 	}
@@ -597,10 +608,10 @@ func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 
 // CheckVersionAndSetupStorage checks the client version and creates a new
 // storage for user data. This function is common code shared by NewCmix,
-// // NewPrecannedCmix and NewVanityCmix.
+// NewPrecannedCmix and NewVanityCmix.
 func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	password []byte, userInfo user.Info, cmixGrp, e2eGrp *cyclic.Group,
-	registrationCode string) (storage.Session, error) {
+	registrationCode string, rng io.Reader) (storage.Session, error) {
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {

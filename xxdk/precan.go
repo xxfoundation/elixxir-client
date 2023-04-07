@@ -33,6 +33,7 @@ func NewPrecannedCmix(precannedID uint, defJSON, storageDir string,
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
+	defer rngStream.Close()
 
 	def, err := ParseNDF(defJSON)
 	if err != nil {
@@ -42,7 +43,7 @@ func NewPrecannedCmix(precannedID uint, defJSON, storageDir string,
 
 	userInfo := createPrecannedUser(precannedID, rngStream, e2eGrp)
 	store, err := CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, "")
+		userInfo, cmixGrp, e2eGrp, "", rngStream)
 	if err != nil {
 		return err
 	}

@@ -20,9 +20,8 @@ import (
 type EventModel interface {
 	// ReceiveFile is called when a file upload or download beings.
 	//
-	// fileLink, fileData, and timestamp are nillable and may be updated based
-	// upon the UUID or file ID later. A time of time.Time{} will be passed for
-	// a nilled timestamp.
+	// fileLink and fileData are nillable and may be updated based upon the UUID
+	// or file ID later.
 	//
 	// fileID is always unique to the fileData. fileLink is the JSON of
 	// FileLink.

@@ -146,6 +146,73 @@ func (r *VersionedKV) SyncPrefix(prefix string) {
 	r.synchronizedPrefixes = append(r.synchronizedPrefixes, prefix)
 }
 
+// StoreMapElement stores a versioned map element into the KV. This relies
+// on the underlying remote [KV.StoreMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+// All Map storage functions update the remote.
+func (r *VersionedKV) StoreMapElement(mapName, elementKey string,
+	value *versioned.Object, version uint64) error {
+	// Generate the full key mapping (Prefixes + mapName + objectVersion)
+	mapFullKey := r.GetFullKey(mapName, version)
+	return r.remoteKV.StoreMapElement(mapFullKey, elementKey,
+		value.Marshal())
+}
+
+// StoreMap saves a versioned map element into the KV. This relies
+// on the underlying remote [KV.StoreMap] function to lock and control
+// updates, but it uses [versioned.Object] values.
+// All Map storage functions update the remote.
+func (r *VersionedKV) StoreMap(mapName string,
+	value map[string]*versioned.Object, version uint64) error {
+	mapFullKey := r.GetFullKey(mapName, version)
+	newMap := make(map[string][]byte, len(value))
+	for k, v := range value {
+		// we don't have to prepend the fullkey because the mapName
+		// will be prepended
+		newMap[k] = v.Marshal()
+	}
+	return r.remoteKV.StoreMap(mapFullKey, newMap)
+}
+
+// GetMap loads a versioned map from the KV. This relies
+// on the underlying remote [KV.GetMap] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *VersionedKV) GetMap(mapName string, version uint64) (
+	map[string]*versioned.Object, error) {
+	mapFullKey := r.GetFullKey(mapName, version)
+	mapData, err := r.remoteKV.GetMap(mapFullKey)
+	if err != nil {
+		return nil, err
+	}
+
+	newMap := make(map[string]*versioned.Object, len(mapData))
+	for k, v := range mapData {
+		obj := versioned.Object{}
+		err = obj.Unmarshal(v)
+		if err != nil {
+			return nil, err
+		}
+		newMap[k] = &obj
+	}
+	return newMap, nil
+}
+
+// GetMapElement loads a versioned map element from the KV. This relies
+// on the underlying remote [KV.GetMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *VersionedKV) GetMapElement(mapName, element string, version uint64) (
+	*versioned.Object, error) {
+	mapFullKey := r.GetFullKey(mapName, version)
+	data, err := r.remoteKV.GetMapElement(mapFullKey, element)
+	if err != nil {
+		return nil, err
+	}
+
+	obj := versioned.Object{}
+	err = obj.Unmarshal(data)
+	return &obj, err
+}
+
 func (r *VersionedKV) updateIfSynchronizedPrefix() bool {
 	r.lck.Lock()
 	defer r.lck.Unlock()

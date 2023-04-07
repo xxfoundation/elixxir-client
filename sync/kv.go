@@ -10,6 +10,7 @@ package sync
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -31,10 +32,12 @@ const (
 
 	intentsVersion = 0
 	intentsKey     = "intentsVersion"
-)
 
-// KeyUpdateCallback statuses.
-const (
+	// map handler constants
+	mapKeysListFmt   = "%s_Keys"
+	mapElementKeyFmt = "%s_element_%s"
+
+	// KeyUpdateCallback statuses.
 	Disconnected = "Disconnected"
 	Connected    = "Connected"
 	Successful   = "UpdatedKey"
@@ -74,7 +77,12 @@ type KV struct {
 	// Connected determines the connectivity of the remote server.
 	connected bool
 
+	// lck is used to lck access to Remote, if no remote needed,
+	// then the underlying kv lock is all that is needed.
 	lck sync.RWMutex
+
+	// mapLck prevents asynchronous map operations
+	mapLck sync.Mutex
 }
 
 // NewOrLoadKV constructs a new KV. If data exists on disk, it loads
@@ -241,6 +249,141 @@ func (r *KV) GetList(name string) ([]byte, error) {
 	}
 
 	return json.Marshal(valList)
+}
+
+// StoreMapElement saves a given map element and updates
+// the map keys list if it is a new key.
+// All Map storage functions update the remote.
+func (r *KV) StoreMapElement(mapName, elementKey string, value []byte) error {
+	r.mapLck.Lock()
+	defer r.mapLck.Unlock()
+	return r.storeMapElement(mapName, elementKey, value)
+}
+
+// keep this private method here because it is the logic of StoreMapElement
+// without the lock.
+func (r *KV) storeMapElement(mapName, elementKey string, value []byte) error {
+	// Store the element
+	key := fmt.Sprintf(mapElementKeyFmt, mapName, elementKey)
+	err := r.SetRemote(key, value, nil)
+	if err != nil {
+		return err
+	}
+
+	// Detect if this key is new, and update mapkeys if so
+	existingKeys, err := r.getMapKeys(mapName)
+	if err != nil {
+		return err
+	}
+	_, ok := existingKeys[elementKey]
+	if !ok {
+		existingKeys[elementKey] = struct{}{}
+		r.storeMapKeys(mapName, existingKeys)
+	}
+
+	return nil
+}
+
+// StoreMap saves each element of the map, then updates the map structure
+// and deletes no longer used keys in the map.
+// All Map storage functions update the remote.
+func (r *KV) StoreMap(mapName string, value map[string][]byte) error {
+	r.mapLck.Lock()
+	defer r.mapLck.Unlock()
+
+	oldKeys, err := r.getMapKeys(mapName)
+	if err != nil {
+		return err
+	}
+
+	// Store each element, then the keys for the map
+	newKeys := make(map[string]struct{})
+	for k, v := range value {
+		newKeys[k] = struct{}{}
+		err := r.storeMapElement(mapName, k, v)
+		if err != nil {
+			return err
+		}
+	}
+	err = r.storeMapKeys(mapName, newKeys)
+	if err != nil {
+		return err
+	}
+
+	// Check if any elements need to be deleted
+	for k := range oldKeys {
+		_, ok := newKeys[k]
+		if ok {
+			continue
+		}
+		// Delete this element
+		key := fmt.Sprintf(mapElementKeyFmt, mapName, k)
+		err := r.Delete(key)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// GetMapElement looks up the element for the given map
+func (r *KV) GetMapElement(mapName, elementKey string) ([]byte, error) {
+	r.mapLck.Lock()
+	defer r.mapLck.Unlock()
+	key := fmt.Sprintf(mapElementKeyFmt, mapName, elementKey)
+	return r.GetBytes(key)
+}
+
+// GetMap returns all values inside a map
+func (r *KV) GetMap(mapName string) (map[string][]byte, error) {
+	r.mapLck.Lock()
+	defer r.mapLck.Unlock()
+
+	// Get the current list of keys
+	keys, err := r.getMapKeys(mapName)
+	if err != nil {
+		// Exists(err) is already checked in getMapKeys
+		return nil, err
+	}
+
+	// Load each key into a new map to return
+	ret := make(map[string][]byte, len(keys))
+	for k := range keys {
+		key := fmt.Sprintf(mapElementKeyFmt, mapName, k)
+		ret[k], err = r.GetBytes(key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ret, nil
+}
+
+func (r *KV) storeMapKeys(mapName string, keys map[string]struct{}) error {
+	data, err := json.Marshal(keys)
+	if err != nil {
+		return err
+	}
+	key := fmt.Sprintf(mapKeysListFmt, mapName)
+	return r.SetRemote(key, data, nil)
+}
+
+func (r *KV) getMapKeys(mapName string) (map[string]struct{}, error) {
+	keys := make(map[string]struct{})
+
+	key := fmt.Sprintf(mapKeysListFmt, mapName)
+	data, err := r.GetBytes(key)
+	if err != nil {
+		// If the key doesn't exist then this is not an error
+		// return empty object
+		if !ekv.Exists(err) {
+			return keys, nil
+		}
+		return nil, err
+	}
+
+	err = json.Unmarshal(data, &keys)
+	return keys, err
 }
 
 // WaitForRemote waits until the remote has finished its queued writes or

@@ -8,6 +8,7 @@
 package sync
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -267,6 +268,83 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 	// NOTE: need a better way to detect when remote writes are done...
 	require.Equal(t, txCnt, remoteCallCnt)
 
+}
+
+// TestVersionedKVMapFuncs tests getting and setting a map of versioned.Objects
+func TestVersionedKVMapFuncs(t *testing.T) {
+	// generate a map of bytes 1->100
+	first := make(map[string]*versioned.Object)
+	for i := 0; i < 100; i++ {
+		k := fmt.Sprintf("%d", i)
+		v := versioned.Object{
+			Timestamp: time.Now(),
+			Version:   0,
+			Data:      []byte{byte(i)},
+		}
+		first[k] = &v
+	}
+
+	// This has half the elements, every other one above
+	second := make(map[string]*versioned.Object)
+	for i := 0; i < 100; i += 2 {
+		k := fmt.Sprintf("%d", i)
+		second[k] = first[k]
+	}
+
+	// Create KV
+	// Construct mock update callback
+	remoteCallCnt := 0
+	var lck sync.Mutex
+	updateCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+		lck.Lock()
+		defer lck.Unlock()
+		require.NoError(t, err)
+		t.Logf("KEY: %s", newTx.Key)
+		remoteCallCnt += 1
+	})
+	txLog := makeTransactionLog("versionedKV_TestMaps", password, t)
+	ekv := ekv.MakeMemstore()
+	rkv, err := NewOrLoadKV(txLog, ekv, nil, nil, updateCb)
+	require.NoError(t, err)
+	// Overwrite remote w/ non file IO option
+	rkv.txLog.remote = &mockRemote{
+		data: make(map[string][]byte, 0),
+	}
+
+	mapKey := "mapkey"
+
+	// An empty map shouldn't return an error
+	kv := NewVersionedKV(rkv)
+	_, err = kv.GetMap(mapKey, 0)
+	require.NoError(t, err)
+
+	// A nonexistent map element should
+	_, err = kv.GetMapElement(mapKey, "blah", 0)
+	require.Error(t, err)
+
+	// Set & Get first, 1 element at a time
+	for k, v := range first {
+		err = kv.StoreMapElement(mapKey, k, v, 0)
+		require.NoError(t, err)
+		e, err := kv.GetMapElement(mapKey, k, 0)
+		require.NoError(t, err)
+		require.Equal(t, v, e)
+	}
+	newFirst, err := kv.GetMap(mapKey, 0)
+	require.NoError(t, err)
+	require.Equal(t, first, newFirst)
+
+	// Overwrite with second
+	err = kv.StoreMap(mapKey, second, 0)
+	require.NoError(t, err)
+	for k, v := range second {
+		newV, err := kv.GetMapElement(mapKey, k, 0)
+		require.NoError(t, err)
+		require.Equal(t, v, newV)
+	}
+	newSecond, err := kv.GetMap(mapKey, 0)
+	require.NoError(t, err)
+	require.Equal(t, second, newSecond)
 }
 
 func genTestCases(syncPrefixes, nonSyncPrefixes []string, t *testing.T) (sync,

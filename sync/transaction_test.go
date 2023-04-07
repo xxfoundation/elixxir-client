@@ -146,7 +146,7 @@ func TestTransaction_Serialize(t *testing.T) {
 		base64.StdEncoding.EncodeToString(txSerial))
 }
 
-// Unit test of deserializeTransaction. Ensures that deserialize will construct
+// Unit test of DeserializeTransaction. Ensures that deserialize will construct
 // the same Transaction that was serialized using Transaction.serialize.
 func TestTransaction_Deserialize(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)

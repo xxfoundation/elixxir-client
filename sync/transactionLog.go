@@ -10,12 +10,15 @@ package sync
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"sort"
 	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // TransactionLog constants.
@@ -76,7 +79,8 @@ type TransactionLog struct {
 	// secure random number generator (fastRNG.Stream is recommended).
 	rng io.Reader
 
-	lck sync.RWMutex
+	lck        sync.RWMutex
+	openWrites int32
 }
 
 // NewOrLoadTransactionLog constructs a new TransactionLog. If the LocalStore
@@ -130,6 +134,8 @@ func NewOrLoadTransactionLog(path string, local LocalStore, remote RemoteStore,
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
 func (tl *TransactionLog) Append(newTx Transaction,
 	remoteCb RemoteStoreCallback) error {
+	atomic.AddInt32(&tl.openWrites, 1)
+	defer atomic.AddInt32(&tl.openWrites, -1)
 	tl.lck.Lock()
 	defer tl.lck.Unlock()
 	// Insert new transaction into list
@@ -147,6 +153,23 @@ func (tl *TransactionLog) Append(newTx Transaction,
 		return err
 	}
 	return tl.save(newTx, dataToSave, remoteCb)
+}
+
+// WaitForRemote blocks until writes complete or the timeout
+// occurs. It returns true if writes completed or false if not.
+func (tl *TransactionLog) WaitForRemote(timeout time.Duration) bool {
+	t := time.NewTimer(timeout)
+	for {
+		select {
+		case <-time.After(time.Millisecond * 100):
+			x := atomic.LoadInt32(&tl.openWrites)
+			if x == 0 {
+				return true
+			}
+		case <-t.C:
+			return false
+		}
+	}
 }
 
 // appendUsingInsertion will write the new Transaction to txs. txs must be
@@ -189,7 +212,6 @@ func insertionSort(curTxs []Transaction, newTransaction Transaction) []Transacti
 		}
 		return curTxs
 	}
-
 	return curTxs
 }
 
@@ -341,8 +363,8 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 
 // save writes the data passed int to file, both remotely and locally. The data
 // created from serialize.
-func (tl *TransactionLog) save(newTx Transaction, dataToSave []byte,
-	remoteCb RemoteStoreCallback) error {
+func (tl *TransactionLog) save(newTx Transaction,
+	dataToSave []byte, remoteCb RemoteStoreCallback) error {
 	// Save to local storage (if set)
 	if tl.local == nil {
 		jww.FATAL.Panicf("[%s] Cannot write to a nil local store", logHeader)

@@ -46,18 +46,18 @@ test:
       - vendor/
       - testdata/
 
-#wasm-test:
-#  stage: test
-#  image: $DOCKER_IMAGE
-#  except:
-#    - tags
-#  script:
-#    - export PATH=/root/go/bin:$PATH
-#    - go mod vendor
-#    # Remove some environment vars to deal with: https://github.com/agnivade/wasmbrowsertest/issues/40
-#    - unset SSH_PRIVATE_KEY
-#    - unset $(env | grep '=' | awk -F= '{print $1}' | grep -v PATH | grep -v GO | grep -v HOME)
-#    - GOOS=js GOARCH=wasm go test ./... -v
+wasm-test:
+  stage: test
+  image: $DOCKER_IMAGE
+  except:
+    - tags
+  script:
+    - export PATH=/root/go/bin:$PATH
+    - go mod vendor
+    # Remove some environment vars to deal with: https://github.com/agnivade/wasmbrowsertest/issues/40
+    - unset SSH_PRIVATE_KEY
+    - unset $(env | grep '=' | awk -F= '{print $1}' | grep -v PATH | grep -v GO | grep -v HOME)
+    - GOOS=js GOARCH=wasm go test ./... -v
 
 build:
   stage: build
@@ -114,6 +114,11 @@ bindings-ios:
     - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - ls
     - zip -r -y iOS.zip Bindings.xcframework
+    - cp iOS.zip iOS-$CI_COMMIT_SHA.zip
+    - mc alias set elixxir-s3 $ARTIFACT_S3_ENDPOINT $ARTIFACT_S3_KEY $ARTIFACT_S3_SECRET
+    - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip
+    - shasum -a 256 iOS-$CI_COMMIT_SHA.zip > iOS-$CI_COMMIT_SHA.zip.checksum && cat iOS-$CI_COMMIT_SHA.zip.checksum
+    - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum
   artifacts:
     paths:
       - iOS.zip

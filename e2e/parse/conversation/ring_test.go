@@ -8,6 +8,7 @@
 package conversation
 
 import (
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"reflect"
@@ -33,7 +34,9 @@ func TestNewBuff(t *testing.T) {
 	}
 
 	// Check that buffer exists in KV
-	_, err = kv.Prefix(ringBuffPrefix).Get(ringBuffKey, ringBuffVersion)
+	kv, err = kv.Prefix(ringBuffPrefix)
+	require.NoError(t, err)
+	_, err = kv.Get(ringBuffKey, ringBuffVersion)
 	if err != nil {
 		t.Errorf("Failed to load Buff from KV: %+v", err)
 	}

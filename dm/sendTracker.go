@@ -47,7 +47,7 @@ const (
 
 type triggerEventFunc func(msgID message.ID, messageType MessageType,
 	nick string, plaintext []byte, dmToken uint32,
-	partnerPubKey ed25519.PublicKey, ts time.Time,
+	partnerPubKey, senderPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error)
 
@@ -57,6 +57,7 @@ type updateStatusFunc func(uuid uint64, messageID message.ID,
 type tracked struct {
 	MsgID      message.ID
 	partnerKey ed25519.PublicKey
+	senderKey  ed25519.PublicKey
 	RoundID    id.Round
 	UUID       uint64
 }
@@ -84,14 +85,14 @@ type sendTracker struct {
 
 	net cMixClient
 
-	kv *versioned.KV
+	kv versioned.KV
 
 	rngSrc *fastRNG.StreamGenerator
 }
 
 // NewSendTracker returns an uninitialized SendTracker object. The DM
 // Client will call Init to initialize it.
-func NewSendTracker(kv *versioned.KV) SendTracker {
+func NewSendTracker(kv versioned.KV) SendTracker {
 	return &sendTracker{kv: kv}
 }
 
@@ -151,7 +152,7 @@ func (st *sendTracker) Init(net cMixClient, trigger triggerEventFunc,
 
 // DenotePendingSend is called before the pending send. It tracks the send
 // internally and notifies the UI of the send.
-func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
+func (st *sendTracker) DenotePendingSend(partnerPubKey, senderPubKey ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType,
 	dm *DirectMessage) (uint64, error) {
 	// For the message timestamp, use 1 second from now to
@@ -175,7 +176,7 @@ func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
 
 	// Submit the message to the UI
 	uuid, err := st.trigger(messageID, messageType, dm.Nickname, dm.Payload,
-		partnerToken, partnerEdwardsPubKey, ts,
+		partnerToken, partnerPubKey, senderPubKey, ts,
 		receptionID.EphemeralIdentity{},
 		rounds.Round{}, Unsent)
 	if err != nil {
@@ -183,7 +184,7 @@ func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
 	}
 
 	// Track the message on disk
-	st.handleDenoteSend(uuid, partnerEdwardsPubKey, messageID,
+	st.handleDenoteSend(uuid, partnerPubKey, senderPubKey, messageID,
 		rounds.Round{})
 
 	return uuid, nil
@@ -191,7 +192,7 @@ func (st *sendTracker) DenotePendingSend(partnerEdwardsPubKey ed25519.PublicKey,
 
 // handleDenoteSend does the nitty-gritty of editing internal structures.
 func (st *sendTracker) handleDenoteSend(uuid uint64,
-	partnerKey ed25519.PublicKey,
+	partnerKey, senderKey ed25519.PublicKey,
 	messageID message.ID, round rounds.Round) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
@@ -202,7 +203,8 @@ func (st *sendTracker) handleDenoteSend(uuid uint64,
 		return
 	}
 
-	st.unsent[uuid] = &tracked{messageID, partnerKey, round.ID, uuid}
+	st.unsent[uuid] = &tracked{messageID, partnerKey, senderKey,
+		round.ID, uuid}
 
 	err := st.storeUnsent()
 	if err != nil {
@@ -317,20 +319,39 @@ func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
 }
 
 // CheckIfSent is used when a message is received to check if the message was
-// sent by this user. If it was, the correct signal is sent to the event model
-// and the function returns true, notifying the caller to not process the
-// message.
+// sent by this user.
 func (st *sendTracker) CheckIfSent(
 	messageID message.ID, round rounds.Round) bool {
 	st.mux.RLock()
-
-	// Skip if already added
+	defer st.mux.RUnlock()
 	_, existsMessage := st.byMessageID[messageID]
-	st.mux.RUnlock()
+	return existsMessage
+}
+
+// Delivered calls the event model update function to tell it that this
+// message was delivered. (after this is called successfully, it is safe to
+// stop tracking this message).
+// returns true if the update sent status func was called.
+func (st *sendTracker) Delivered(messageID message.ID,
+	round rounds.Round) bool {
+	st.mux.RLock()
+	defer st.mux.RUnlock()
+	msgData, existsMessage := st.byMessageID[messageID]
 	if !existsMessage {
 		return false
 	}
 
+	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED],
+		messageID)
+	st.updateStatus(msgData.UUID, messageID, ts,
+		round, Received)
+	return true
+}
+
+// StopTracking deletes this message id/round combination from the
+// send tracking.  returns true if it was removed, false otherwise.
+func (st *sendTracker) StopTracking(messageID message.ID,
+	round rounds.Round) bool {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 	msgData, existsMessage := st.byMessageID[messageID]
@@ -356,11 +377,6 @@ func (st *sendTracker) CheckIfSent(
 			RoundCompleted: roundList.RoundCompleted,
 		}
 	}
-
-	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED],
-		messageID)
-	go st.updateStatus(msgData.UUID, messageID, ts,
-		round, Sent)
 
 	if err := st.storeSent(); err != nil {
 		jww.FATAL.Panicf("failed to store the updated sent list: %+v",

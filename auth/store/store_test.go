@@ -868,7 +868,7 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 
 }
 
-func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
+func makeTestStore(t *testing.T) (*Store, versioned.KV) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 

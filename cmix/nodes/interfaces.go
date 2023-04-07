@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"time"
 )
 
@@ -55,6 +56,9 @@ type Registrar interface {
 	// TriggerNodeRegistration initiates a registration with the given
 	// cMix node by sending on the registrar's registration channel.
 	TriggerNodeRegistration(nid *id.ID)
+
+	SetNodeRegistrationDisabled(disabled bool)
+	SetEphemeralRegistrationEnabled(enabled bool)
 }
 
 // MixCypher is an interface for the cryptographic operations done in order
@@ -63,7 +67,7 @@ type MixCypher interface {
 	// Encrypt encrypts the given message for cMix. Panics if the passed
 	// message is not sized correctly for the group.
 	Encrypt(msg format.Message, salt []byte, roundID id.Round) (
-		format.Message, [][]byte)
+		format.Message, [][]byte, []bool, []byte)
 
 	// MakeClientGatewayAuthMAC generates the MAC the gateway will
 	// check when receiving a cMix message.
@@ -83,9 +87,10 @@ type session interface {
 	GetTransmissionID() *id.ID
 	IsPrecanned() bool
 	GetCmixGroup() *cyclic.Group
-	GetKV() *versioned.KV
+	GetKV() versioned.KV
 	GetTransmissionRSA() rsa.PrivateKey
 	GetRegistrationTimestamp() time.Time
 	GetTransmissionSalt() []byte
 	GetTransmissionRegistrationValidationSignature() []byte
+	GetNDF() *ndf.NetworkDefinition
 }

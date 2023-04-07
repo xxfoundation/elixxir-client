@@ -8,7 +8,9 @@
 package dm
 
 import (
+	"crypto/ed25519"
 	"fmt"
+	"strings"
 	sync "sync"
 	"time"
 
@@ -34,6 +36,7 @@ type dmClient struct {
 	privateKey      nike.PrivateKey
 	publicKey       nike.PublicKey
 	myToken         uint32
+	receiver        EventModel
 
 	st  SendTracker
 	nm  NickNameManager
@@ -74,22 +77,23 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 		nm:              nickManager,
 		net:             net,
 		rng:             rng,
+		receiver:        receiver,
 	}
 
 	// Register the listener
-	dmc.register(receiver, dmc.st.CheckIfSent)
+	dmc.register(receiver, dmc.st)
 
 	return dmc
 }
 
 // Register registers a listener for direct messages.
 func (dc *dmClient) register(apiReceiver EventModel,
-	checkSent messageReceiveFunc) error {
+	tracker SendTracker) error {
 	beginningOfTime := time.Time{}
 	r := &receiver{
-		c:         dc,
-		api:       apiReceiver,
-		checkSent: checkSent,
+		c:           dc,
+		api:         apiReceiver,
+		sendTracker: tracker,
 	}
 
 	// Initialize Send Tracking
@@ -104,17 +108,18 @@ func (dc *dmClient) register(apiReceiver EventModel,
 	return nil
 }
 
-func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
+func NewNicknameManager(id *id.ID, ekv versioned.KV) NickNameManager {
 	return &nickMgr{
 		ekv:      ekv,
 		storeKey: fmt.Sprintf(nickStoreKey, id.String()),
+		nick:     "",
 	}
 }
 
 type nickMgr struct {
 	storeKey string
-	ekv      *versioned.KV
-	nick     *string
+	ekv      versioned.KV
+	nick     string
 	sync.Mutex
 }
 
@@ -132,13 +137,38 @@ func (dc *dmClient) GetIdentity() codename.Identity {
 }
 
 // GetNickname returns the stored nickname if there is one
-func (dc *dmClient) GetNickname(id *id.ID) (string, bool) {
-	return dc.nm.GetNickname(id)
+func (dc *dmClient) GetNickname() (string, bool) {
+	return dc.nm.GetNickname()
 }
 
 // SetNickname saves the nickname
 func (dc *dmClient) SetNickname(nick string) {
 	dc.nm.SetNickname(nick)
+}
+
+// IsBlocked returns if the given sender is blocked
+// Blocking is controlled by the Receiver / EventModel
+func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
+	conversation := dc.receiver.GetConversation(senderPubKey)
+	if conversation != nil {
+		return conversation.Blocked
+	}
+	return false
+}
+
+// GetBlockedSenders returns all senders who are blocked by this user.
+// Blocking is controlled by the Receiver / EventModel
+func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
+	allConversations := dc.receiver.GetConversations()
+	blocked := make([]ed25519.PublicKey, 0)
+	for i := range allConversations {
+		convo := allConversations[i]
+		if convo.Blocked {
+			pub := convo.Pubkey
+			blocked = append(blocked, ed25519.PublicKey(pub))
+		}
+	}
+	return blocked
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
@@ -151,25 +181,25 @@ func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
 }
 
 // GetNickname returns the stored nickname if there is one
-func (nm *nickMgr) GetNickname(id *id.ID) (string, bool) {
+func (nm *nickMgr) GetNickname() (string, bool) {
 	nm.Lock()
 	defer nm.Unlock()
-	if nm.nick != nil {
-		return *nm.nick, true
+	if nm.nick != "" {
+		return nm.nick, true
 	}
 	nickObj, err := nm.ekv.Get(nm.storeKey, 0)
 	if err != nil {
 		return "", false
 	}
-	*nm.nick = string(nickObj.Data)
-	return *nm.nick, true
+	nm.nick = string(nickObj.Data)
+	return nm.nick, true
 }
 
 // SetNickname saves the nickname
 func (nm *nickMgr) SetNickname(nick string) {
 	nm.Lock()
 	defer nm.Unlock()
-	nm.nick = &nick
+	nm.nick = strings.Clone(nick)
 	nickObj := &versioned.Object{
 		Version:   0,
 		Timestamp: time.Now(),

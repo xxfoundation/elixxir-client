@@ -21,7 +21,7 @@ import (
 )
 
 type ReceivedRequest struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	// contact of partner
 	partner contact.Contact
@@ -36,7 +36,7 @@ type ReceivedRequest struct {
 	mux sync.Mutex
 }
 
-func newReceivedRequest(kv *versioned.KV, c contact.Contact,
+func newReceivedRequest(kv versioned.KV, c contact.Contact,
 	key *sidh.PublicKey, round rounds.Round) *ReceivedRequest {
 
 	if err := util.StoreContact(kv, c); err != nil {
@@ -63,7 +63,7 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 	}
 }
 
-func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
+func loadReceivedRequest(kv versioned.KV, partner *id.ID) (
 	*ReceivedRequest, error) {
 
 	c, err := util.LoadContact(kv, partner)

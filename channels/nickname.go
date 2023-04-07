@@ -19,12 +19,12 @@ const (
 type nicknameManager struct {
 	byChannel map[id.ID]string
 	mux       sync.RWMutex
-	kv        *versioned.KV
+	kv        versioned.KV
 }
 
 // LoadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
-func LoadOrNewNicknameManager(kv *versioned.KV) *nicknameManager {
+func LoadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
 	nm := &nicknameManager{
 		byChannel: make(map[id.ID]string),
 		kv:        kv,

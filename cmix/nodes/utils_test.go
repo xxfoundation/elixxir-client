@@ -89,6 +89,7 @@ func makeTestRegistrar(mockComms *MockClientComms, t *testing.T) *registrar {
 	connect.TestingOnlyDisableTLS = true
 
 	session := storage.InitTestingSession(t)
+	session.SetNDF(getNDF())
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
@@ -163,11 +164,15 @@ type mockSession struct {
 	transmissionSig []byte
 }
 
+func (m mockSession) GetNDF() *ndf.NetworkDefinition {
+	return nil
+}
+
 func (m mockSession) GetCmixGroup() *cyclic.Group {
 	return nil
 }
 
-func (m mockSession) GetKV() *versioned.KV {
+func (m mockSession) GetKV() versioned.KV {
 	return nil
 }
 

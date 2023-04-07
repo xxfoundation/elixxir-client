@@ -209,6 +209,13 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 		return err
 	}
 
+	if c.param.EnableEphemeralRegistration {
+		c.Registrar.SetEphemeralRegistrationEnabled(c.param.EnableEphemeralRegistration)
+	}
+	if c.param.DisableNodeRegistration {
+		c.Registrar.SetNodeRegistrationDisabled(c.param.DisableNodeRegistration)
+	}
+
 	// Set up the historical rounds handler
 	c.Retriever = rounds.NewRetriever(
 		c.param.Historical, c.comms, c.Sender, c.events)

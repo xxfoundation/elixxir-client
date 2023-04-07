@@ -71,6 +71,10 @@ const (
 	forceHistoricalRoundsFlag   = "forceHistoricalRounds"
 	slowPollingFlag             = "slowPolling"
 	forceMessagePickupRetryFlag = "forceMessagePickupRetry"
+	batchMessagePickupFlag      = "batchMessagePickup"
+	maxPickupBatchSizeFlag      = "maxPickupBatchSize"
+	batchPickupDelayFlag        = "batchPickupDelay"
+	batchPickupTimeoutFlag      = "batchPickupTimeout"
 
 	// E2E Params
 	e2eMinKeysFlag        = "e2eMinKeys"
@@ -79,12 +83,14 @@ const (
 	e2eRekeyThresholdFlag = "e2eRekeyThreshold"
 
 	// Misc
-	sendIdFlag           = "sendid"
-	profileCpuFlag       = "profile-cpu"
-	profileMemFlag       = "profile-mem"
-	userIdPrefixFlag     = "userid-prefix"
-	legacyFlag           = "legacy"
-	gatewayWhitelistFlag = "gateway-whitelist"
+	sendIdFlag                      = "sendid"
+	profileCpuFlag                  = "profile-cpu"
+	profileMemFlag                  = "profile-mem"
+	userIdPrefixFlag                = "userid-prefix"
+	legacyFlag                      = "legacy"
+	gatewayWhitelistFlag            = "gateway-whitelist"
+	disableNodeRegistrationFlag     = "disableNodeRegistration"
+	enableEphemeralRegistrationFlag = "enableEphemeralRegistration"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "channelName"

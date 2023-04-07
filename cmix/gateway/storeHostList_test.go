@@ -9,6 +9,7 @@ package gateway
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -29,10 +30,11 @@ func Test_saveHostList_getHostList(t *testing.T) {
 
 	// Init storage
 	testStorage := storage.InitTestingSession(t)
-	storeKv := testStorage.GetKV().Prefix(hostListPrefix)
+	storeKv, err := testStorage.GetKV().Prefix(hostListPrefix)
+	require.NoError(t, err)
 
 	// Save into storage
-	err := saveHostList(storeKv, list)
+	err = saveHostList(storeKv, list)
 	if err != nil {
 		t.Errorf("Store returned an error: %+v", err)
 	}
@@ -57,13 +59,14 @@ func Test_getHostList_StorageError(t *testing.T) {
 
 	// Init storage
 	testStorage := storage.InitTestingSession(t)
-	storeKv := testStorage.GetKV().Prefix(hostListPrefix)
+	storeKv, err := testStorage.GetKV().Prefix(hostListPrefix)
+	require.NoError(t, err)
 
 	// Construct expected error
 	expectedErr := strings.SplitN(getStorageErr, "%", 2)[0]
 
 	// Attempt to pull from an empty store
-	_, err := getHostList(storeKv)
+	_, err = getHostList(storeKv)
 
 	// Check that the expected error is received
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {

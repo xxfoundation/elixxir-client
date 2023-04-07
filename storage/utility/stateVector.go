@@ -10,12 +10,13 @@ package utility
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"testing"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"testing"
 )
 
 // Storage key and version.
@@ -48,12 +49,12 @@ type StateVector struct {
 	numAvailable   uint32 // Number of unused keys
 
 	key string // Unique string used to save/load object from storage
-	kv  *versioned.KV
+	kv  versioned.KV
 	mux sync.RWMutex
 }
 
 // NewStateVector generates a new StateVector with the specified number of keys.
-func NewStateVector(kv *versioned.KV, key string, numKeys uint32) (
+func NewStateVector(kv versioned.KV, key string, numKeys uint32) (
 	*StateVector, error) {
 
 	// Calculate the number of 64-bit blocks needed to store numKeys
@@ -352,7 +353,7 @@ type stateVectorDisk struct {
 
 // LoadStateVector loads a StateVector with the specified key from the given
 // versioned storage.
-func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
+func LoadStateVector(kv versioned.KV, key string) (*StateVector, error) {
 	sv := &StateVector{
 		key: makeStateVectorKey(key),
 		kv:  kv,
@@ -498,7 +499,7 @@ func (sv *StateVector) SetNumAvailableTEST(numAvailable uint32, x interface{}) {
 }
 
 // SetKvTEST sets the kv. This should only be used for testing.
-func (sv *StateVector) SetKvTEST(kv *versioned.KV, x interface{}) {
+func (sv *StateVector) SetKvTEST(kv versioned.KV, x interface{}) {
 	switch x.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break

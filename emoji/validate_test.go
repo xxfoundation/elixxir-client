@@ -8,6 +8,7 @@
 package emoji
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -15,55 +16,80 @@ import (
 func TestSupportedEmojis(t *testing.T) {
 	emojis := SupportedEmojis()
 
-	if len(emojis) < 1 {
-		t.Errorf("No emojis in the list of supported emojis: %v", emojis)
+	if len(emojis) != len(emojiFile.Map) {
+		t.Errorf("Incorrect number of emojis.\nexpected: %d\nreceived: %d",
+			len(emojiFile.Map), len(emojis))
 	}
+}
+
+// Unit test of SupportedEmojisMap.
+func TestSupportedEmojisMap(t *testing.T) {
+	emojis := SupportedEmojisMap()
+
+	if !reflect.DeepEqual(emojis, emojiFile.Map) {
+		t.Errorf("Incorrect map.\nexpected: %v\nreceived: %v",
+			emojiFile.Map, emojis)
+	}
+}
+
+var tests = []struct {
+	Name   string
+	Input  []string
+	Output error
+}{
+	{
+		Name: "Single-rune emojis",
+		Input: []string{"😀", "👋", "🍆", "😂", "❤", "🤣", "👍", "😭", "🙏",
+			"😘", "🥰", "😍", "😊", "☺", "🏴"},
+	}, {
+		Name:  "Multi-rune emojis",
+		Input: []string{"👋🏿", "❤️"},
+	}, {
+		Name:  "ZWJ Sequences",
+		Input: []string{"👱‍♂️", "🧏‍♀️", "👩🏽‍❤️‍💋‍👨🏽", "🏴‍☠️"},
+	}, {
+		Name:   "Non-RGI ZWJ Sequences",
+		Input:  []string{"👨🏻‍👩🏻‍👦🏻‍👦🏻", "⛑🏻", "👪🏿", "🤼🏻", "🏴󠁵󠁳󠁴󠁸󠁿", "👩🏽‍❤️‍🧑"},
+		Output: InvalidReaction,
+	}, {
+		Name:   "Multiple Single-Rune Emojis",
+		Input:  []string{"😀👋", "😀😀", "🍆🍆", "👍👍👍"},
+		Output: InvalidReaction,
+	}, {
+		Name:   "Multiple Character Strings",
+		Input:  []string{"🧖 hello 🦋 world", "😀 hello 😀 world"},
+		Output: InvalidReaction,
+	}, {
+		Name:   "Single normal characters",
+		Input:  []string{"A", "b", "1"},
+		Output: InvalidReaction,
+	}, {
+		Name:   "Multiple normal characters",
+		Input:  []string{"AA", "bag"},
+		Output: InvalidReaction,
+	}, {
+		Name:   "Multiple normal characters and emojis",
+		Input:  []string{"🍆A", "👍😘A"},
+		Output: InvalidReaction,
+	}, {
+		Name:   "No characters",
+		Input:  []string{""},
+		Output: InvalidReaction,
+	},
 }
 
 // Unit test of ValidateReaction.
 func TestValidateReaction(t *testing.T) {
-	tests := []struct {
-		input string
-		err   error
-	}{
-		{"😀", nil},              // Single-rune emoji (\u1F600)
-		{"👋", nil},              // Single-rune emoji (\u1F44B)
-		{"👱‍♂️", nil},           // Four-rune emoji (\u1F471\u200D\u2642\uFE0F)
-		{"👋🏿", nil},             // Duel-rune emoji with race modification (\u1F44B\u1F3FF)
-		{"😀👋", InvalidReaction}, // Two different single-rune emoji (\u1F600\u1F44B)
-		{"😀😀", InvalidReaction}, // Two of the same single-rune emoji (\u1F600\u1F600)
-		{"🧖 hello 🦋 world", InvalidReaction},
-		{"😀 hello 😀 world", InvalidReaction},
-		{"🍆", nil},
-		{"😂", nil},
-		{"❤", nil},
-		{"🤣", nil},
-		{"👍", nil},
-		{"😭", nil},
-		{"🙏", nil},
-		{"😘", nil},
-		{"🥰", nil},
-		{"😍", nil},
-		{"😊", nil},
-		{"☺", nil},
-		{"A", InvalidReaction},
-		{"b", InvalidReaction},
-		{"AA", InvalidReaction},
-		{"1", InvalidReaction},
-		{"🍆🍆", InvalidReaction},
-		{"🍆A", InvalidReaction},
-		{"👍👍👍", InvalidReaction},
-		{"👍😘A", InvalidReaction},
-		{"🧏‍♀️", nil},
-	}
-
-	for i, r := range tests {
-		err := ValidateReaction(r.input)
-
-		if err != r.err {
-			t.Errorf("%2d. Incorrect response for reaction %q %X."+
-				"\nexpected: %s\nreceived: %s",
-				i, r.input, []rune(r.input), r.err, err)
-		}
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			for i, r := range tt.Input {
+				err := ValidateReaction(r)
+				if err != tt.Output {
+					t.Errorf("%2d. Incorrect response for reaction %q %X."+
+						"\nexpected: %s\nreceived: %s",
+						i, r, []rune(r), tt.Output, err)
+				}
+			}
+		})
 	}
 }

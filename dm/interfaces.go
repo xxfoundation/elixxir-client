@@ -34,23 +34,31 @@ type Client interface {
 	// UnblockDMs enables DMs from a specific user.
 	// UnblockDMs(conversationID *id.ID) error
 
-	// GetPublicKey returns the public key of this client
+	// GetPublicKey returns the public key of this client.
 	GetPublicKey() nike.PublicKey
 
-	// GetToken returns the DM Token of this client
+	// GetToken returns the DM token of this client.
 	GetToken() uint32
 
-	// GetIdentity returns the public identity associated with this DMClient
+	// GetIdentity returns the public identity associated with this client.
 	GetIdentity() codename.Identity
 
 	// ExportPrivateIdentity encrypts and exports the private identity to a
 	// portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
+	// IsBlocked indicates if the given sender is blocked.
+	// Blocking is controlled by the receiver/EventModel.
+	IsBlocked(senderPubKey ed25519.PublicKey) bool
+
+	// GetBlockedSenders returns all senders who are blocked by this user.
+	// Blocking is controlled by the receiver/EventModel.
+	GetBlockedSenders() []ed25519.PublicKey
+
 	NickNameManager
 }
 
-// Sender implemntors allow the API user to send to a given partner over
+// Sender implementers allow the API user to send to a given partner over
 // cMix.
 type Sender interface {
 	// SendText is used to send a formatted message to another user.
@@ -117,7 +125,8 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
 	Receive(messageID cryptoMessage.ID,
-		nickname string, text []byte, pubKey ed25519.PublicKey,
+		nickname string, text []byte,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
 		dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status Status) uint64
@@ -137,7 +146,9 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to
 	// display the codename.
 	ReceiveText(messageID cryptoMessage.ID,
-		nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
+		nickname, text string,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, status Status) uint64
 
@@ -161,7 +172,8 @@ type EventModel interface {
 	// display the codename.
 	ReceiveReply(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, text string,
-		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -185,7 +197,8 @@ type EventModel interface {
 	// display the codename.
 	ReceiveReaction(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, reaction string,
-		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+		partnerPubKey, senderPubKey ed25519.PublicKey,
+		dmToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -198,6 +211,20 @@ type EventModel interface {
 	// value is passed, make no update.
 	UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status Status)
+
+	// BlockSender silences messages sent by the indicated sender
+	// public key.
+	BlockSender(senderPubKey ed25519.PublicKey)
+	// UnblockSender allows messages sent by the indicated sender
+	// public key.
+	UnblockSender(senderPubKey ed25519.PublicKey)
+
+	// GetConversation returns any conversations held by the
+	// model (receiver)
+	GetConversation(senderPubKey ed25519.PublicKey) *ModelConversation
+	// GetConversations returns any conversations held by the
+	// model (receiver)
+	GetConversations() []ModelConversation
 }
 
 // cmixClient are the required cmix functions we need for direct messages
@@ -223,10 +250,9 @@ type cMixClient interface {
 // NickNameManager interface is an object that handles the mapping of nicknames
 // to cMix reception IDs.
 type NickNameManager interface {
-	// GetNickname gets a nickname associated with this DM partner
-	// (reception) ID.
-	GetNickname(id *id.ID) (string, bool)
-	// SetNickname sets the nickname to use
+	// GetNickname gets the nickname associated with this DM user.
+	GetNickname() (string, bool)
+	// SetNickname sets the nickname to use for this user.
 	SetNickname(nick string)
 }
 
@@ -238,7 +264,7 @@ type SendTracker interface {
 		updateStatus updateStatusFunc, rng *fastRNG.StreamGenerator)
 
 	// DenotePendingSend registers a new message to be tracked for sending
-	DenotePendingSend(partnerPublicKey ed25519.PublicKey,
+	DenotePendingSend(partnerPublicKey, senderPubKey ed25519.PublicKey,
 		partnerToken uint32,
 		messageType MessageType,
 		msg *DirectMessage) (uuid uint64, err error)
@@ -251,4 +277,10 @@ type SendTracker interface {
 
 	//CheckIfSent checks if the given message was a sent message
 	CheckIfSent(messageID cryptoMessage.ID, r rounds.Round) bool
+
+	//Delivered marks a message delivered
+	Delivered(msgID cryptoMessage.ID, round rounds.Round) bool
+
+	//StopTracking stops tracking a message
+	StopTracking(msgID cryptoMessage.ID, round rounds.Round) bool
 }

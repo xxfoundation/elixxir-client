@@ -9,6 +9,7 @@ package partition
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -22,10 +23,12 @@ import (
 // Tests happy path of NewOrLoad.
 func TestNewOrLoad(t *testing.T) {
 	rootKv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := rootKv.Prefix(packagePrefix)
+	require.NoError(t, err)
 	expectedStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
 		activeParts: make(map[*multiPartMessage]bool),
-		kv:          rootKv.Prefix(packagePrefix),
+		kv:          expectedKv,
 	}
 
 	store := NewOrLoad(rootKv)

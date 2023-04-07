@@ -36,7 +36,7 @@ const sessionKey = "session"
 
 type Session struct {
 	//prefixed kv
-	kv *versioned.KV
+	kv versioned.KV
 	//params
 	e2eParams Params
 
@@ -124,8 +124,8 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 
-//NewSession - Generator which creates all keys and structures
-func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
+// NewSession - Generator which creates all keys and structures
+func NewSession(kv versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 	partnerPubKey, baseKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, trigger SessionID,
 	relationshipFingerprint []byte, negotiationStatus Negotiation,
@@ -154,8 +154,13 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 		rng:                     rng,
 	}
 
+	var err error
 	session.finalizeKeyNegotiation()
-	session.kv = kv.Prefix(MakeSessionPrefix(session.sID))
+	session.kv, err = kv.Prefix(MakeSessionPrefix(session.sID))
+	if err != nil {
+		jww.FATAL.Printf("Failed to add prefix %s to KV: %+v",
+			MakeSessionPrefix(session.sID), err)
+	}
 	session.buildChildKeys()
 
 	myPubKey := dh.GeneratePublicKey(session.myPrivKey, grp)
@@ -174,7 +179,7 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 		utility.StringSIDHPrivKey(session.mySIDHPrivKey),
 		utility.StringSIDHPubKey(session.partnerSIDHPubKey))
 
-	err := session.Save()
+	err = session.Save()
 	if err != nil {
 		jww.FATAL.Printf("Failed to make new session for Partner %s: %s",
 			partner, err)
@@ -184,12 +189,17 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 }
 
 // LoadSession and state vector from kv and populate runtime fields
-func LoadSession(kv *versioned.KV, sessionID SessionID,
+func LoadSession(kv versioned.KV, sessionID SessionID,
 	relationshipFingerprint []byte, cyHandler CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
+	kv, err := kv.Prefix(MakeSessionPrefix(sessionID))
+	if err != nil {
+		return nil, err
+	}
+
 	session := Session{
-		kv:        kv.Prefix(MakeSessionPrefix(sessionID)),
+		kv:        kv,
 		sID:       sessionID,
 		cyHandler: cyHandler,
 		grp:       grp,
@@ -298,7 +308,7 @@ func (s *Session) GetSource() SessionID {
 	return s.partnerSource
 }
 
-//underlying definition of session id
+// underlying definition of session id
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
@@ -600,7 +610,7 @@ func (s *Session) buildChildKeys() {
 	}
 }
 
-//returns key objects for all unused keys
+// returns key objects for all unused keys
 func (s *Session) getUnusedKeys() []Cypher {
 	keyNums := s.keyState.GetUnusedKeyNums()
 
@@ -612,7 +622,7 @@ func (s *Session) getUnusedKeys() []Cypher {
 	return keys
 }
 
-//ekv functions
+// ekv functions
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 

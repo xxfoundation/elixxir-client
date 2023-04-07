@@ -335,7 +335,7 @@ func (rmh *ReceiveMessageHandler) CheckSpace(user, admin, muted bool) error {
 
 // initEvents initializes the event model and registers default message type
 // handlers.
-func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
+func initEvents(model EventModel, maxMessageLength int, kv versioned.KV,
 	rng *fastRNG.StreamGenerator) *events {
 	e := &events{
 		model:            model,

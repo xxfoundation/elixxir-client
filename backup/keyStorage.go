@@ -30,7 +30,7 @@ const (
 )
 
 // saveBackup saves the key, salt, and params to storage.
-func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error {
+func saveBackup(key, salt []byte, params backup.Params, kv versioned.KV) error {
 
 	obj := &versioned.Object{
 		Version:   cryptoStorageVersion,
@@ -42,7 +42,7 @@ func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error 
 }
 
 // loadBackup loads the key, salt, and params from storage.
-func loadBackup(kv *versioned.KV) (key, salt []byte, params backup.Params, err error) {
+func loadBackup(kv versioned.KV) (key, salt []byte, params backup.Params, err error) {
 	obj, err := kv.Get(cryptoStorageKey, cryptoStorageVersion)
 	if err != nil {
 		return
@@ -52,7 +52,7 @@ func loadBackup(kv *versioned.KV) (key, salt []byte, params backup.Params, err e
 }
 
 // deleteBackup deletes the key, salt, and params from storage.
-func deleteBackup(kv *versioned.KV) error {
+func deleteBackup(kv versioned.KV) error {
 	return kv.Delete(cryptoStorageKey, cryptoStorageVersion)
 }
 

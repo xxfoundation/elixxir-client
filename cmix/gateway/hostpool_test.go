@@ -82,7 +82,10 @@ func Test_newHostPool_HostListStore(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
+
+	expectedKv, err := testStorage.GetKV().Prefix(hostListPrefix)
+	require.NoError(t, err)
+	err = saveHostList(expectedKv, addedIDs)
 	if err != nil {
 		t.Fatalf("Failed to store host list: %+v", err)
 	}
@@ -215,7 +218,9 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
+	expectedKv, err := testStorage.GetKV().Prefix(hostListPrefix)
+	require.NoError(t, err)
+	err = saveHostList(expectedKv, addedIDs)
 	if err != nil {
 		t.Fatalf("Failed to store host list: %+v", err)
 	}
@@ -288,7 +293,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
+	expectedKv, err := testStorage.GetKV().Prefix(hostListPrefix)
+	require.NoError(t, err)
+	err = saveHostList(expectedKv, addedIDs)
 	if err != nil {
 		t.Fatalf("Failed to store host list: %+v", err)
 	}
@@ -371,12 +378,12 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		select {
 		case <-testPool.testNodes:
 			testCount++
-		case <-time.After(250*time.Millisecond):
+		case <-time.After(2 * time.Second):
 			done = true
 		}
 	}
 	if testCount != 1 {
-		t.Fatalf("Did not receive expected test count." +
+		t.Fatalf("Did not receive expected test count."+
 			"\nexpected: %d\nreceived: %d", 1, testCount)
 	}
 }

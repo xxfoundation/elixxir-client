@@ -120,7 +120,7 @@ func GetDefaultParams() Params {
 		ReplayRequests:              true,
 		MaxParallelIdentityTracks:   5,
 		ClockSkewClamp:              50 * time.Millisecond,
-		EnableEphemeralRegistration: true,
+		EnableEphemeralRegistration: false,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()

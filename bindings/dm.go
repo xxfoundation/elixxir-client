@@ -254,6 +254,10 @@ type DMUser struct {
 // Returns:
 //   - JSON of [DMShareURL].
 func (dmc *DMClient) GetShareURL(host string) ([]byte, error) {
+	// todo: in a later ticket, RNG will be utilized for password protected DMs
+	//  This note is for this ticketholder: RNG is part of the DMClient, but
+	//  there is no accessor. Simply add the accessor to the interface and call
+	//   dmc.GetRNG().GetStream.
 	url, err := dm.ShareURL(
 		host, 0, int32(dmc.api.GetToken()), dmc.api.GetPublicKey(), nil)
 	if err != nil {

@@ -24,8 +24,8 @@ type KeyUpdateCallback func(key string, oldVal, newVal []byte, updated bool)
 // new transaction to remote storage.
 type RemoteStoreCallback func(newTx Transaction, err error)
 
-// DeviceId is the identified of a certain device that holds account state.
-type DeviceId string
+// DeviceID is the identified of a certain device that holds account state.
+type DeviceID string
 
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
@@ -42,6 +42,10 @@ type RemoteStore interface {
 	// GetLastWrite retrieves the most recent successful write operation that
 	// was received by RemoteStore.
 	GetLastWrite() (time.Time, error)
+
+	// ReadDir reads the named directory, returning all its directory entries
+	// sorted by filename.
+	ReadDir(path string) ([]string, error)
 }
 
 // LocalStore is the mechanism that all local storage implementations should
@@ -74,8 +78,12 @@ type FileIO interface {
 	Write(path string, data []byte) error
 }
 
-// EkvLocalStore type definitions.
+// Miscellaneous and private types.
 type (
+	// changeLogger maps the device ID to the last time the device had updates
+	// read from remote.
+	changeLogger map[DeviceID]time.Time
+
 	// KeyList is the type for the all keys added to LocalStore. If there is a
 	// defined delimiter in the key, an entry will be added to the
 	// DelimitedList. For example, assuming a delimiter of "-", the keys

@@ -39,6 +39,10 @@ func (m *mockRemote) Write(path string, data []byte) error {
 	return nil
 }
 
+func (m *mockRemote) ReadDir(path string) ([]string, error) {
+	panic("unimplemented")
+}
+
 func (m mockRemote) GetLastModified(path string) (time.Time, error) {
 	return netTime.Now(), nil
 }
@@ -55,7 +59,7 @@ func TestDeviceOffset(t *testing.T) {
 	// Populate offset structure with data
 	const numTests = 100
 	for i := 0; i < numTests; i++ {
-		dvcId := DeviceId(strconv.Itoa(i))
+		dvcId := DeviceID(strconv.Itoa(i))
 		dvcOffset[dvcId] = i
 	}
 

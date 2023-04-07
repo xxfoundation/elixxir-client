@@ -5,7 +5,6 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Package sync covers logic regarding account synchronization.
 package sync
 
 import (

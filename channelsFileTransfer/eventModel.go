@@ -38,7 +38,7 @@ type EventModel interface {
 	//
 	// Returns an error if the file cannot be updated. It must return
 	// channels.NoMessageErr if the file does not exist.
-	UpdateFile(fileID ftCrypto.ID, fileLink, fileData *[]byte,
+	UpdateFile(fileID ftCrypto.ID, fileLink, fileData []byte,
 		timestamp *time.Time, status *Status) error
 
 	// GetFile returns the ModelFile containing the file data and download link

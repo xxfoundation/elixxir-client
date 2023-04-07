@@ -425,7 +425,7 @@ func (m *mockEventModel) ReceiveFile(fileID ftCrypto.ID, fileLink,
 }
 
 func (m *mockEventModel) UpdateFile(fileID ftCrypto.ID, fileLink,
-	fileData *[]byte, timestamp *time.Time, status *Status) error {
+	fileData []byte, timestamp *time.Time, status *Status) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -435,10 +435,10 @@ func (m *mockEventModel) UpdateFile(fileID ftCrypto.ID, fileLink,
 	}
 
 	if fileLink != nil {
-		f.Link = *fileLink
+		f.Link = fileLink
 	}
 	if fileData != nil {
-		f.Data = *fileData
+		f.Data = fileData
 	}
 	if timestamp != nil {
 		f.Timestamp = *timestamp

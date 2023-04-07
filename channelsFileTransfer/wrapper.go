@@ -301,7 +301,7 @@ func (w *Wrapper) uploadCompleteCB(fl FileLink) {
 
 	timeNow := netTime.Now()
 	status := Complete
-	err = w.ev.UpdateFile(fl.FileID, &fileLink, nil, &timeNow, &status)
+	err = w.ev.UpdateFile(fl.FileID, fileLink, nil, &timeNow, &status)
 	if err != nil {
 		jww.ERROR.Printf("[FT] Failed to update file %s: %+v", fl.FileID, err)
 		return
@@ -502,7 +502,7 @@ func (w *Wrapper) Download(fileInfo []byte, progressCB ReceivedProgressCallback,
 			// an invalid state. In either case, clear the status and start the
 			// download.
 			now, status := netTime.Now(), Downloading
-			err = w.ev.UpdateFile(fi.FileID, &fileLink, nil, &now, &status)
+			err = w.ev.UpdateFile(fi.FileID, fileLink, nil, &now, &status)
 			if err != nil {
 				return ftCrypto.ID{}, errors.Errorf("failed to set existing "+
 					"file %s from %s to %s", fi.FileID, file.Status, Downloading)
@@ -552,7 +552,7 @@ func (w *Wrapper) downloadCompleteCB(completed bool, _, _ uint16,
 		// Store completed file in event model
 		now := netTime.Now()
 		status := Complete
-		err = w.ev.UpdateFile(rt.GetFileID(), nil, &fileData, &now, &status)
+		err = w.ev.UpdateFile(rt.GetFileID(), nil, fileData, &now, &status)
 		if err != nil {
 			jww.ERROR.Printf("[FT] Failed to update downloaded file %s in "+
 				"event model: %+v", rt.GetFileID(), err)

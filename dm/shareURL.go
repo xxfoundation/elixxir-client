@@ -64,7 +64,7 @@ func ShareURL(url string, maxUses int, token int32, key nike.PublicKey,
 }
 
 // DecodeShareURL decodes the given URL for information to DM another user.
-func DecodeShareURL(url string, password string) (int, nike.PublicKey, error) {
+func DecodeShareURL(url string, password string) (int32, nike.PublicKey, error) {
 	u, err := goUrl.Parse(url)
 	if err != nil {
 		return 0, nil, errors.Errorf(parseShareUrlErr, err)
@@ -97,18 +97,18 @@ func DecodeShareURL(url string, password string) (int, nike.PublicKey, error) {
 
 // encodePublicShareURL encodes the channel to a Public share URL.
 func encodePublicShareURL(q goUrl.Values, token int32, key nike.PublicKey) goUrl.Values {
-	q.Set(myTokenKey, strconv.FormatUint(uint64(token), 10))
+	q.Set(myTokenKey, strconv.FormatInt(int64(token), 10))
 	q.Set(myEcPubKey, base64.URLEncoding.EncodeToString(key.Bytes()))
 	return q
 }
 
 // decodePublicShareURL decodes the values in the url.Values from a public DM
 // URL to the data encoded within (including the DM token and [nike.PublicKey]).
-func decodePublicShareURL(q goUrl.Values) (int, nike.PublicKey, error) {
+func decodePublicShareURL(q goUrl.Values) (int32, nike.PublicKey, error) {
 	// Retrieve the token
-	dmToken, err := strconv.Atoi(q.Get(myTokenKey))
+	dmToken, err := strconv.ParseInt(q.Get(myTokenKey), 10, 64)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errors.Errorf("could not parse token: %+v", err)
 	}
 
 	// Retrieve the key data
@@ -124,5 +124,5 @@ func decodePublicShareURL(q goUrl.Values) (int, nike.PublicKey, error) {
 		return 0, nil, err
 	}
 
-	return dmToken, pubKey, nil
+	return int32(dmToken), pubKey, nil
 }

@@ -241,7 +241,7 @@ type DMShareURL struct {
 //	 "publicKey": "EfDzQDa4fQ5BoqNIMbECFDY9ckRr/fadd8F1jE49qJc="
 //	}
 type DMUser struct {
-	Token     int    `json:"token"`
+	Token     int32  `json:"token"`
 	PublicKey []byte `json:"publicKey"`
 }
 

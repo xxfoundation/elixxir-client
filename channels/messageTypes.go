@@ -13,7 +13,7 @@ import (
 )
 
 // MessageType is the type of message being sent to a channel.
-type MessageType uint32
+type MessageType uint16
 
 const (
 	////////////////////////////////////////////////////////////////////////////

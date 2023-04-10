@@ -13,7 +13,10 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"math"
 )
+
+const dummyMessagetype uint16 = math.MaxUint16
 
 // broadcastClient implements the broadcast.Channel interface for sending/
 // receiving asymmetric or symmetric broadcast messages.
@@ -72,7 +75,8 @@ func (bc *broadcastClient) RegisterRSAtoPublicListener(
 		method: RSAToPublic,
 	}
 
-	service := bc.GetRSAToPublicCompressedService(tags)
+	//metadata is ignored on a registered service, put a dummy
+	service := bc.GetRSAToPublicCompressedService(tags, dummyMessagetype)
 
 	bc.net.UpsertCompressedService(bc.channel.ReceptionID, service, p)
 	return p, nil
@@ -90,7 +94,8 @@ func (bc *broadcastClient) RegisterSymmetricListener(
 		method: Symmetric,
 	}
 
-	service := bc.GetSymmetricCompressedService(tags)
+	//metadata is ignored on a registered service, put a dummy
+	service := bc.GetSymmetricCompressedService(tags, dummyMessagetype)
 	bc.net.UpsertCompressedService(bc.channel.ReceptionID, service, p)
 	return p, nil
 }

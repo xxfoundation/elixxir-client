@@ -250,8 +250,8 @@ func (em *ftEventModel) createOrJoinChannel(chanPath string, newChannel,
 
 // uploadChannelFile uploads the file.
 func (em *ftEventModel) uploadChannelFile(
-	filePath string, retry float32) chan struct{} {
-	done := make(chan struct{})
+	filePath string, retry float32) chan ftCrypto.ID {
+	done := make(chan ftCrypto.ID)
 
 	// Get file from path
 	fileData, err := utils.ReadFile(filePath)
@@ -283,12 +283,12 @@ func (em *ftEventModel) uploadChannelFile(
 				"(%.2f kb @ %.2f kb/s).",
 				st.GetFileID(), sendTime, fileSizeKb, speed)
 			fmt.Printf("Completed sending file.\n")
-			done <- struct{}{}
+			done <- st.GetFileID()
 		} else if err != nil {
 			jww.ERROR.Printf("[FT] Failed sending file %q in %s: %+v",
 				st.GetFileID(), netTime.Since(uploadStart), err)
 			fmt.Printf("Failed sending file: %+v\n", err)
-			done <- struct{}{}
+			done <- st.GetFileID()
 		}
 	}
 

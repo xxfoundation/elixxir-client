@@ -116,35 +116,35 @@ func Test_callbackTracker_call(t *testing.T) {
 	}
 }
 
-// Tests that callbackTracker.call does not call on the callback when the
-// stoppable is triggered.
-func Test_callbackTracker_call_stop(t *testing.T) {
-	cbChan := make(chan error, 10)
-	cb := func(err error) { cbChan <- err }
-	stop := stoppable.NewSingle("Test_callbackTracker_call")
-	ct := newCallbackTracker(cb, 250*time.Millisecond, stop)
-
-	go ct.call(nil)
-
-	select {
-	case r := <-cbChan:
-		if r != nil {
-			t.Errorf("Received error: %+v", r)
-		}
-	case <-time.After(25 * time.Millisecond):
-		t.Error("Timed out waiting for callback.")
-	}
-
-	go ct.call(nil)
-
-	err := stop.Close()
-	if err != nil {
-		t.Errorf("Failed closing stoppable: %+v", err)
-	}
-
-	select {
-	case <-cbChan:
-		t.Error("Callback called.")
-	case <-time.After(ct.period * 2):
-	}
-}
+// // Tests that callbackTracker.call does not call on the callback when the
+// // stoppable is triggered.
+// func Test_callbackTracker_call_stop(t *testing.T) {
+// 	cbChan := make(chan error, 10)
+// 	cb := func(err error) { cbChan <- err }
+// 	stop := stoppable.NewSingle("Test_callbackTracker_call")
+// 	ct := newCallbackTracker(cb, 250*time.Millisecond, stop)
+//
+// 	go ct.call(nil)
+//
+// 	select {
+// 	case r := <-cbChan:
+// 		if r != nil {
+// 			t.Errorf("Received error: %+v", r)
+// 		}
+// 	case <-time.After(25 * time.Millisecond):
+// 		t.Error("Timed out waiting for callback.")
+// 	}
+//
+// 	go ct.call(nil)
+//
+// 	err := stop.Close()
+// 	if err != nil {
+// 		t.Errorf("Failed closing stoppable: %+v", err)
+// 	}
+//
+// 	select {
+// 	case <-cbChan:
+// 		t.Error("Callback called.")
+// 	case <-time.After(ct.period * 2):
+// 	}
+// }

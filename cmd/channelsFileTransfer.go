@@ -511,9 +511,9 @@ func init() {
 		"8-byte file type.")
 	bindFlagHelper(fileTypeFlag, channelsFileTransferCmd)
 
-	ftCmd.Flags().String(filePreviewStringFlag, "",
+	channelsFileTransferCmd.Flags().String(filePreviewStringFlag, "",
 		"File preview data.")
-	bindFlagHelper(filePreviewStringFlag, ftCmd)
+	bindFlagHelper(filePreviewStringFlag, channelsFileTransferCmd)
 
 	channelsFileTransferCmd.Flags().String(channelsKeyPathFlag, "",
 		"The file path for the channel identity's key to be written to.")
@@ -536,12 +536,12 @@ func init() {
 		"The path to the file to send. Also used as the file name.")
 	bindFlagHelper(filePathFlag, channelsFileTransferCmd)
 
-	ftCmd.Flags().Int(fileMaxThroughputFlag, 1000,
+	channelsFileTransferCmd.Flags().Int(fileMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	bindFlagHelper(fileMaxThroughputFlag, ftCmd)
+	bindFlagHelper(fileMaxThroughputFlag, channelsFileTransferCmd)
 
-	ftCmd.Flags().Float64(fileRetry, 0.5, "Retry rate.")
-	bindFlagHelper(fileRetry, ftCmd)
+	channelsFileTransferCmd.Flags().Float64(fileRetry, 0.5, "Retry rate.")
+	bindFlagHelper(fileRetry, channelsFileTransferCmd)
 
 	rootCmd.AddCommand(channelsFileTransferCmd)
 }

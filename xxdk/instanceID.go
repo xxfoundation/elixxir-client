@@ -47,12 +47,17 @@ func LoadInstanceID(kv versioned.KV) (InstanceID, error) {
 	if obj != nil {
 		idBytes = obj.Data
 	}
-	if err == nil && len(idBytes) == 0 {
-		return instanceID, ErrEmptyInstance
-	} else if len(idBytes) != instanceIDLength {
-		return instanceID, errors.Wrapf(ErrIncorrectSize, "%d != %d",
-			instanceIDLength, len(idBytes))
-	} else {
+	// If there's an error, just return the empty object and the error
+	// Otherwise copy the bytes into the object.
+	if err == nil {
+		if len(idBytes) == 0 {
+			// Error if we got an empty instance id entry
+			return instanceID, ErrEmptyInstance
+		} else if len(idBytes) != instanceIDLength {
+			// Error if it is the wrong size
+			return instanceID, errors.Wrapf(ErrIncorrectSize,
+				"%d != %d", instanceIDLength, len(idBytes))
+		}
 		copy(instanceID[:], idBytes)
 	}
 	return instanceID, err

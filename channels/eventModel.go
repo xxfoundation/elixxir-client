@@ -173,6 +173,10 @@ var NoMessageErr = errors.New("message does not exist [EV]")
 // indicates that the message or item does not exist. It returns true if the
 // error contains NoMessageErr.
 func CheckNoMessageErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	return errors.Is(err, NoMessageErr) ||
 		strings.Contains(err.Error(), NoMessageErr.Error())
 }

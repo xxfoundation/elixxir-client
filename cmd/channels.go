@@ -169,7 +169,8 @@ var channelsCmd = &cobra.Command{
 			chanManager, receiveMessage)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create reception handler for "+
-				"message type %s: %+v", channelsPrintHeader, channels.Text, err)
+				"message type %s: %+v",
+				channelsPrintHeader, integrationChannelMessage, err)
 		}
 
 		// Send message
@@ -256,7 +257,13 @@ var channelsCmd = &cobra.Command{
 	},
 }
 
-// createNewChannel is a helper function which creates a new channel.
+// createNewChannel creates a new channel with the name and description set by
+// the channelsNameFlag and channelsDescriptionFlag flags. If a key path is
+// defined by the channelsKeyPathFlag, then the private key is saved to that
+// path in PEM format; otherwise, it is only printed to the log. The marshalled
+// channel is written to the chanPath.
+//
+// This function prints to stdout when a new channel is successfully generated.
 func createNewChannel(chanPath string, user *xxdk.E2e) (
 	*cryptoBroadcast.Channel, error) {
 
@@ -264,15 +271,15 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 	name := viper.GetString(channelsNameFlag)
 	desc := viper.GetString(channelsDescriptionFlag)
 	if name == "" {
-		jww.FATAL.Panicf("[%s] Name cannot be empty", channelsPrintHeader)
+		return nil, errors.New("name cannot be empty")
 	} else if desc == "" {
-		jww.FATAL.Panicf("[%s] Description cannot be empty", channelsPrintHeader)
+		return nil, errors.New("description cannot be empty")
 	}
 
 	// Create a new  channel
-	channel, pk, err := cryptoBroadcast.NewChannel(name, desc,
-		cryptoBroadcast.Public,
-		user.GetCmix().GetMaxMessageLength(), user.GetRng().GetStream())
+	channel, pk, err := cryptoBroadcast.NewChannel(
+		name, desc, cryptoBroadcast.Public, user.GetCmix().GetMaxMessageLength(),
+		user.GetRng().GetStream())
 	if err != nil {
 		return nil, errors.Errorf("failed to create new channel: %+v", err)
 	}
@@ -280,10 +287,12 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 	if keyPath != "" {
 		err = utils.WriteFile(keyPath, pk.MarshalPem(), os.ModePerm, os.ModeDir)
 		if err != nil {
-			jww.ERROR.Printf("Failed to write private key to path %s: %+v", keyPath, err)
+			jww.ERROR.Printf("[%s] Failed to write private key to path %s: %+v",
+				channelsPrintHeader, keyPath, err)
 		}
 	} else {
-		jww.INFO.Printf("Private key generated for channel: %+v\n", pk.MarshalPem())
+		jww.INFO.Printf(
+			"Private key generated for channel: %+v\n", pk.MarshalPem())
 	}
 	fmt.Printf("New channel generated\n")
 
@@ -295,12 +304,10 @@ func createNewChannel(chanPath string, user *xxdk.E2e) (
 
 	err = utils.WriteFileDef(chanPath, marshalledChan)
 	if err != nil {
-		return nil, errors.Errorf("failed to write channel to file: %+v",
-			err)
+		return nil, errors.Errorf("failed to write channel to file: %+v", err)
 	}
 
 	return channel, nil
-
 }
 
 // sendMessageToChannel is a helper function which will send a message to a

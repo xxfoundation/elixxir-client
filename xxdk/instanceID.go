@@ -20,9 +20,12 @@ const (
 	instanceIDLength  = 8
 	instanceIDVersion = 0
 	instanceIDKey     = "ThisInstanceID"
-	emptyInstanceErr  = "empty instance ID"
-	shortReadErr      = "short read generating instance ID"
-	incorrectSizeErr  = "incorrect instance ID size: %d != %d"
+)
+
+var (
+	ErrEmptyInstance = errors.New("empty instance ID")
+	ErrShortRead     = errors.New("short read generating instance ID")
+	ErrIncorrectSize = errors.New("incorrect instance ID size")
 )
 
 // InstanceID is a random, URL Safe, base64 string generated when an
@@ -45,9 +48,9 @@ func LoadInstanceID(kv versioned.KV) (InstanceID, error) {
 		idBytes = obj.Data
 	}
 	if err == nil && len(idBytes) == 0 {
-		return instanceID, errors.New(emptyInstanceErr)
+		return instanceID, ErrEmptyInstance
 	} else if len(idBytes) != instanceIDLength {
-		return instanceID, errors.Errorf(incorrectSizeErr,
+		return instanceID, errors.Wrapf(ErrIncorrectSize, "%d != %d",
 			instanceIDLength, len(idBytes))
 	} else {
 		copy(instanceID[:], idBytes)
@@ -70,7 +73,7 @@ func generateInstanceID(csprng io.Reader) (InstanceID, error) {
 	instanceIDBytes := make([]byte, instanceIDLength)
 	n, err := csprng.Read(instanceIDBytes)
 	if n != instanceIDLength {
-		return id, errors.New(shortReadErr)
+		return id, ErrShortRead
 	}
 	if err == nil {
 		copy(id[:], instanceIDBytes)

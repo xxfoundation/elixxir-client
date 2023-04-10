@@ -115,6 +115,13 @@ const (
 	channelsNewFlag              = "newChannel"
 	channelsSendFlag             = "sendToChannel"
 
+	///////////////// File Transfer subcommand flags //////////////////////////
+	channelsFtFilePath          = "file"
+	channelsFtTypeFlag          = "ftFileType"
+	channelsFtPreviewStringFlag = "ftFilePreviewString"
+	channelsFtMaxThroughputFlag = "ftMaxThroughput"
+	channelsFtRetry             = "ftRetry"
+
 	///////////////// Connection subcommand flags /////////////////////////////
 	connectionFlag              = "connect"
 	connectionStartServerFlag   = "startServer"

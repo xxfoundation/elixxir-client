@@ -88,8 +88,8 @@ var channelsFileTransferCmd = &cobra.Command{
 
 		// Construct file transfer wrapper
 		p := channelsFT.DefaultParams()
-		if viper.IsSet(fileMaxThroughputFlag) {
-			p.MaxThroughput = viper.GetInt(fileMaxThroughputFlag)
+		if viper.IsSet(channelsFtMaxThroughputFlag) {
+			p.MaxThroughput = viper.GetInt(channelsFtMaxThroughputFlag)
 		}
 		var extensions = make([]channels.ExtensionBuilder, 1)
 		em.FileTransfer, extensions[0], err = channelsFT.NewWrapper(user, p)
@@ -129,29 +129,28 @@ var channelsFileTransferCmd = &cobra.Command{
 		if viper.GetBool(channelsSendFlag) {
 
 			// Upload file and wait for it to complete
-			filePath := viper.GetString(filePathFlag)
-			retry := float32(viper.GetFloat64(fileRetry))
-			timeout := 250 * time.Millisecond
+			filePath := viper.GetString(channelsFtFilePath)
+			retry := float32(viper.GetFloat64(channelsFtRetry))
+			start := netTime.Now()
 			var fid ftCrypto.ID
 			select {
 			case fid = <-em.uploadChannelFile(filePath, retry):
 				jww.INFO.Printf("[FT] Finished uploading file %s.", fid)
-			case <-time.After(timeout):
-				jww.INFO.Printf("[FT] Timed out after %s waiting for file to "+
-					"upload.", timeout)
+				jww.INFO.Printf("[FT] Upload took %s", netTime.Since(start))
 			}
 
 			// Get file from event model
-			f, err := em.GetFile(fid)
-			if err != nil {
-				jww.FATAL.Panicf("[FT] Failed to get file %s from event "+
-					"model: %+v", fid, err)
+			var f channelsFT.ModelFile
+			for f.Link == nil {
+				select {
+				case f = <-em.fileUpdate:
+				}
 			}
 
 			// Send file to channel
 			msgID, rounds, _, err := em.Send(channel.ReceptionID, f.Link,
-				filePath, viper.GetString(fileTypeFlag),
-				[]byte(viper.GetString(filePreviewStringFlag)),
+				filePath, viper.GetString(channelsFtTypeFlag),
+				[]byte(viper.GetString(channelsFtPreviewStringFlag)),
 				channels.ValidForever, xxdk.GetDefaultCMixParams())
 			if err != nil {
 				jww.FATAL.Panicf("[FT] Failed to send file %s to channel %s: %+v",
@@ -272,9 +271,9 @@ func (em *ftEventModel) uploadChannelFile(
 		jww.INFO.Printf("[FT] Upload progress for %q {completed: %t, "+
 			"sent: %d, received: %d, total: %d, err: %v}",
 			st.GetFileID(), completed, sent, received, total, err)
-		if sent == 0 || (received == total) || completed || err != nil {
-			fmt.Printf("Sent progress callback for %q {completed: %t, "+
-				"sent: %d, received: %d, total: %d, err: %v}\n",
+		if (sent == 0 && received == 0) || completed || err != nil {
+			fmt.Printf("Upload progress for %q {completed: %t, sent: %d, "+
+				"received: %d, total: %d, err: %v}\n",
 				st.GetFileID(), completed, sent, received, total, err)
 		}
 
@@ -338,21 +337,29 @@ func (em *ftEventModel) receiveFileLink(done chan struct{}) {
 					"{completed: %t, received: %d, total: %d, err: %v}",
 					rt.GetFileID(), completed, received, total, err)
 
-				if received == total || completed || err != nil {
+				if received == 0 || completed || err != nil {
 					fmt.Printf("Download progress for %s "+
 						"{completed: %t, received: %d, total: %d, err: %v}\n",
 						rt.GetFileID(), completed, received, total, err)
 				}
 
 				if completed {
-					receivedFile, err2 := em.GetFile(rt.GetFileID())
-					if err2 != nil {
+					// Get file from event model
+					f, err2 := em.GetFile(rt.GetFileID())
+					if err2 != nil && !channels.CheckNoMessageErr(err) {
 						jww.FATAL.Panicf("[FT] Failed to get file %s: %+v",
 							rt.GetFileID(), err2)
+					} else if channels.CheckNoMessageErr(err) || f.Data == nil {
+						for f.Data == nil {
+							select {
+							case f = <-em.fileUpdate:
+							}
+						}
 					}
+
 					jww.INFO.Printf("[FT] Download complete for file %s in %s.",
-						rt.GetFileID(), netTime.Since(receiveStart))
-					fmt.Printf("Completed receiving file:\n%s\n", receivedFile)
+						f.ID, netTime.Since(receiveStart))
+					fmt.Printf("Completed receiving file:\n%s\n", f.Data)
 					done <- struct{}{}
 				} else if err != nil {
 					jww.INFO.Printf("[FT] Failed receiving file %s in %s.",
@@ -396,6 +403,7 @@ type ftEventModel struct {
 	eventModel
 
 	files      map[ftCrypto.ID]channelsFT.ModelFile
+	fileUpdate chan channelsFT.ModelFile
 	newMessage chan channels.ModelMessage
 	mux        sync.Mutex
 }
@@ -403,6 +411,7 @@ type ftEventModel struct {
 func newFtEventModel() *ftEventModel {
 	return &ftEventModel{
 		files:      make(map[ftCrypto.ID]channelsFT.ModelFile),
+		fileUpdate: make(chan channelsFT.ModelFile, 100),
 		newMessage: make(chan channels.ModelMessage, 100),
 	}
 }
@@ -430,7 +439,6 @@ func (em *ftEventModel) UpdateFile(fileID ftCrypto.ID, fileLink, fileData []byte
 		"\nlink: %q\ndata: %q", fileID, timestamp, status, fileLink, fileData)
 
 	em.mux.Lock()
-	defer em.mux.Unlock()
 	f, exists := em.files[fileID]
 	if !exists {
 		return channels.NoMessageErr
@@ -449,6 +457,9 @@ func (em *ftEventModel) UpdateFile(fileID ftCrypto.ID, fileLink, fileData []byte
 		f.Status = *status
 	}
 	em.files[fileID] = f
+	em.mux.Unlock()
+
+	em.fileUpdate <- f
 
 	return nil
 }
@@ -474,17 +485,26 @@ func (em *ftEventModel) DeleteFile(fileID ftCrypto.ID) error {
 	return nil
 }
 
-func (em *ftEventModel) ReceiveMessage(channelID *id.ID, msgID message.ID, _,
-	text string, pubKey ed25519.PublicKey, _ uint32, _ uint8, _ time.Time,
-	_ time.Duration, _ rounds.Round, t channels.MessageType,
-	_ channels.SentStatus, _ bool) uint64 {
-	jww.INFO.Printf("[FT] Received message %s on channel %s", msgID, channelID)
+func (em *ftEventModel) ReceiveMessage(channelID *id.ID, messageID message.ID,
+	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
+	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
+	messageType channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
+	jww.INFO.Printf(
+		"[FT] Received message %s on channel %s", messageID, channelID)
 	em.newMessage <- channels.ModelMessage{
-		MessageID: msgID,
-		ChannelID: channelID,
-		Content:   []byte(text),
-		Type:      t,
-		PubKey:    pubKey,
+		Nickname:       nickname,
+		MessageID:      messageID,
+		ChannelID:      channelID,
+		Timestamp:      timestamp,
+		Lease:          lease,
+		Status:         status,
+		Hidden:         hidden,
+		Content:        []byte(text),
+		Type:           messageType,
+		Round:          round.ID,
+		PubKey:         pubKey,
+		CodesetVersion: codeset,
+		DmToken:        dmToken,
 	}
 	return 0
 }
@@ -507,13 +527,13 @@ func init() {
 		"The description for the channel which will be created.")
 	bindFlagHelper(channelsDescriptionFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().String(fileTypeFlag, "txt",
+	channelsFileTransferCmd.Flags().String(channelsFtTypeFlag, "txt",
 		"8-byte file type.")
-	bindFlagHelper(fileTypeFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtTypeFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().String(filePreviewStringFlag, "",
+	channelsFileTransferCmd.Flags().String(channelsFtPreviewStringFlag, "",
 		"File preview data.")
-	bindFlagHelper(filePreviewStringFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtPreviewStringFlag, channelsFileTransferCmd)
 
 	channelsFileTransferCmd.Flags().String(channelsKeyPathFlag, "",
 		"The file path for the channel identity's key to be written to.")
@@ -532,16 +552,16 @@ func init() {
 		"Determines if a message will be sent to the channel.")
 	bindFlagHelper(channelsSendFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().String(filePathFlag, "",
+	channelsFileTransferCmd.Flags().String(channelsFtFilePath, "",
 		"The path to the file to send. Also used as the file name.")
-	bindFlagHelper(filePathFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtFilePath, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().Int(fileMaxThroughputFlag, 1000,
+	channelsFileTransferCmd.Flags().Int(channelsFtMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	bindFlagHelper(fileMaxThroughputFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtMaxThroughputFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().Float64(fileRetry, 0.5, "Retry rate.")
-	bindFlagHelper(fileRetry, channelsFileTransferCmd)
+	channelsFileTransferCmd.Flags().Float64(channelsFtRetry, 0.5, "Retry rate.")
+	bindFlagHelper(channelsFtRetry, channelsFileTransferCmd)
 
 	rootCmd.AddCommand(channelsFileTransferCmd)
 }

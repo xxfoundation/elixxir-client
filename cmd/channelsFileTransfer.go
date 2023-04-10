@@ -87,9 +87,12 @@ var channelsFileTransferCmd = &cobra.Command{
 		em := newFtEventModel()
 
 		// Construct file transfer wrapper
+		p := channelsFT.DefaultParams()
+		if viper.IsSet(fileMaxThroughputFlag) {
+			p.MaxThroughput = viper.GetInt(fileMaxThroughputFlag)
+		}
 		var extensions = make([]channels.ExtensionBuilder, 1)
-		em.FileTransfer, extensions[0], err =
-			channelsFT.NewWrapper(user, channelsFT.DefaultParams())
+		em.FileTransfer, extensions[0], err = channelsFT.NewWrapper(user, p)
 		if err != nil {
 			jww.FATAL.Panicf(
 				"[FT] Failed to create new file transfer manager: %+v", err)
@@ -127,10 +130,11 @@ var channelsFileTransferCmd = &cobra.Command{
 
 			// Upload file and wait for it to complete
 			filePath := viper.GetString(filePathFlag)
+			retry := float32(viper.GetFloat64(fileRetry))
 			timeout := 250 * time.Millisecond
 			var fid ftCrypto.ID
 			select {
-			case fid = <-em.uploadChannelFile(filePath, 1.0):
+			case fid = <-em.uploadChannelFile(filePath, retry):
 				jww.INFO.Printf("[FT] Finished uploading file %s.", fid)
 			case <-time.After(timeout):
 				jww.INFO.Printf("[FT] Timed out after %s waiting for file to "+
@@ -507,10 +511,9 @@ func init() {
 		"8-byte file type.")
 	bindFlagHelper(fileTypeFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().String(filePreviewPathFlag, "",
-		"The path to the file preview to send. Set either this flag or "+
-			"filePreviewString.")
-	bindFlagHelper(filePreviewPathFlag, channelsFileTransferCmd)
+	ftCmd.Flags().String(filePreviewStringFlag, "",
+		"File preview data.")
+	bindFlagHelper(filePreviewStringFlag, ftCmd)
 
 	channelsFileTransferCmd.Flags().String(channelsKeyPathFlag, "",
 		"The file path for the channel identity's key to be written to.")
@@ -532,6 +535,13 @@ func init() {
 	channelsFileTransferCmd.Flags().String(filePathFlag, "",
 		"The path to the file to send. Also used as the file name.")
 	bindFlagHelper(filePathFlag, channelsFileTransferCmd)
+
+	ftCmd.Flags().Int(fileMaxThroughputFlag, 1000,
+		"Maximum data transfer speed to send file parts (in bytes per second)")
+	bindFlagHelper(fileMaxThroughputFlag, ftCmd)
+
+	ftCmd.Flags().Float64(fileRetry, 0.5, "Retry rate.")
+	bindFlagHelper(fileRetry, ftCmd)
 
 	rootCmd.AddCommand(channelsFileTransferCmd)
 }

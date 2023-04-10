@@ -150,7 +150,7 @@ var channelsFileTransferCmd = &cobra.Command{
 				[]byte(viper.GetString(filePreviewStringFlag)),
 				channels.ValidForever, xxdk.GetDefaultCMixParams())
 			if err != nil {
-				jww.FATAL.Panicf("[FT] Failed to send file %s to channel: %+v",
+				jww.FATAL.Panicf("[FT] Failed to send file %s to channel %s: %+v",
 					fid, channel.ReceptionID, err)
 			} else {
 
@@ -297,7 +297,7 @@ func (em *ftEventModel) uploadChannelFile(
 		jww.FATAL.Panicf("[FT] Failed to upload file: %+v", err)
 	}
 
-	jww.INFO.Printf("[FT] Uploading new file %s {name: %s, size: %d, retry: %f}",
+	jww.INFO.Printf("[FT] Uploading new file %s {size: %d, retry: %f}",
 		fid, len(fileData), retry)
 
 	return done

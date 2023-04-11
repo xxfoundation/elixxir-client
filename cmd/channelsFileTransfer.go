@@ -363,7 +363,6 @@ func (em *ftEventModel) receiveFileLink(outputPath string, done chan struct{}) {
 					jww.INFO.Printf("[FT] Completed downloading file %s in %s "+
 						"(%.2f kb @ %.2f kb/s).",
 						f.ID, dur, fileSizeKb, speed)
-					fmt.Printf("writing file to %s\n", outputPath)
 					if err = utils.WriteFileDef(outputPath, f.Data); err != nil {
 						jww.FATAL.Panicf(
 							"[FT] Failed to save downloaded file: %+v", err)

@@ -27,18 +27,25 @@ const (
 // KVFilesystem implements filesystem ([FileIO]) operations inside the provided
 // EKV instance.
 type KVFilesystem struct {
-	store ekv.KeyValue
-	files map[string]struct{}
-	lck   sync.Mutex
+	prefix string
+	store  ekv.KeyValue
+	files  map[string]struct{}
+	lck    sync.Mutex
 }
 
 // NewKVFilesystem initializes a KVFilesystem object and returns it.
 // If the KVFilesystem exists inside the ekv, it loads the file listing
 // from it. If an error occurs loading the files on start it can panic.
 func NewKVFilesystem(kv ekv.KeyValue) FileIO {
+	return NewKVFilesystemWithPrefix(ekvFilesystemPrefix, kv)
+}
+
+// NewKVFilesystemWithPrefix creats a KVFilesystem using a custom prefix.
+func NewKVFilesystemWithPrefix(prefix string, kv ekv.KeyValue) FileIO {
 	fs := &KVFilesystem{
-		store: kv,
-		files: make(map[string]struct{}),
+		prefix: prefix,
+		store:  kv,
+		files:  make(map[string]struct{}),
 	}
 	err := fs.loadFiles()
 	if err != nil {

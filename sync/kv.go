@@ -19,7 +19,6 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,8 +121,9 @@ func NewOrLoadKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	return rkv, nil
 }
 
-// LocalKV Creates a New synchronized KV that uses a local-only
-// transaction log.
+// LocalKV Loads or Creates a synchronized KV that uses a local-only
+// transaction log. It panics if the underlying KV has ever been used
+// for remote operations in the past.
 // func LocalKV(
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -509,68 +509,4 @@ func (r *KV) loadUnsyncedWrites() error {
 	}
 
 	return json.Unmarshal(obj.Data, &r.UnsyncedWrites)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Remote File System Implementation
-///////////////////////////////////////////////////////////////////////////////
-
-// FileSystemRemoteStorage is a structure adhering to [RemoteStore]. This
-// utilizes the [os.File] IO operations. Implemented for testing purposes for
-// transaction logs.
-type FileSystemRemoteStorage struct {
-	baseDir string
-}
-
-// NewFileSystemRemoteStorage is a constructor for FileSystemRemoteStorage.
-//
-// Arguments:
-//   - baseDir - string. Represents the base directory for which all file
-//     operations will be performed. Must contain a file delimiter (i.e. `/`).
-func NewFileSystemRemoteStorage(baseDir string) *FileSystemRemoteStorage {
-	return &FileSystemRemoteStorage{
-		baseDir: baseDir,
-	}
-}
-
-// Read reads data from path. This will return an error if it fails to read
-// from the file path.
-//
-// This utilizes utils.ReadFile under the hood.
-func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
-	if utils.DirExists(path) {
-		return utils.ReadFile(f.baseDir + path)
-	}
-	return utils.ReadFile(path)
-}
-
-// Write will write data to path. This will return an error if it fails to
-// write.
-//
-// This utilizes utils.WriteFileDef under the hood.
-func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
-	if utils.DirExists(path) {
-		return utils.WriteFileDef(f.baseDir+path, data)
-	}
-	return utils.WriteFileDef(path, data)
-
-}
-
-// GetLastModified will return the last modified timestamp of the file at path.
-// It will return an error if it cannot retrieve any os.FileInfo from the file
-// path.
-//
-// This utilizes utils.GetLastModified under the hood.
-func (f *FileSystemRemoteStorage) GetLastModified(path string) (
-	time.Time, error) {
-	if utils.DirExists(path) {
-		return utils.GetLastModified(f.baseDir + path)
-	}
-	return utils.GetLastModified(path)
-}
-
-// GetLastWrite will retrieve the most recent successful write operation
-// that was received by RemoteStore.
-func (f *FileSystemRemoteStorage) GetLastWrite() (time.Time, error) {
-	return utils.GetLastModified(f.baseDir)
 }

@@ -44,7 +44,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 		deviceSecret, rand.Reader)
 	require.NoError(t, err)
 
@@ -80,7 +80,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	remoteStore := &mockRemote{data: make(map[string][]byte)}
 
 	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog("baseDir", localStore,
+	txLog, err := NewTransactionLog("baseDir", localStore,
 		remoteStore,
 		deviceSecret, rand.Reader)
 	require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	}
 
 	// Construct a new TransactionLog, which will load from file
-	newTxLog, err := NewOrLoadTransactionLog("baseDir", localStore,
+	newTxLog, err := NewTransactionLog("baseDir", localStore,
 		remoteStore,
 		deviceSecret, rand.Reader)
 	require.NoError(t, err)
@@ -283,7 +283,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 		deviceSecret, &CountingReader{count: 0})
 	require.NoError(t, err)
 
@@ -380,7 +380,7 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 
 		// Construct new transaction log for benchmark iteration
-		txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+		txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 			deviceSecret, rand.Reader)
 		require.NoError(b, err)
 
@@ -426,7 +426,7 @@ func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 		require.NoError(b, os.RemoveAll(baseDir))
 
 		// Construct new transaction log for benchmark iteration
-		txLog, err := NewOrLoadTransactionLog(baseDir, localStore, remoteStore,
+		txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 			deviceSecret, rand.Reader)
 		require.NoError(b, err)
 

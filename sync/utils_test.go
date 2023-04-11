@@ -87,7 +87,7 @@ func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog 
 	deviceSecret := []byte("deviceSecret")
 
 	// Construct transaction log
-	txLog, err := NewOrLoadTransactionLog(baseDir+"test.txt", localStore,
+	txLog, err := NewTransactionLog(baseDir+"test.txt", localStore,
 		remoteStore, deviceSecret, &CountingReader{count: 0})
 	require.NoError(t, err)
 

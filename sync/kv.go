@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -121,10 +122,23 @@ func NewOrLoadKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	return rkv, nil
 }
 
-// LocalKV Loads or Creates a synchronized KV that uses a local-only
+// LocalKV Loads or Creates a synchronized remote KV that uses a local-only
 // transaction log. It panics if the underlying KV has ever been used
 // for remote operations in the past.
-// func LocalKV(
+func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValue,
+	synchedPrefixes []string,
+	eventCb KeyUpdateCallback,
+	updateCb RemoteStoreCallback, rng io.Reader) (*KV, error) {
+	if isRemote(kv) {
+		jww.FATAL.Panicf("cannot open remote kv as local")
+	}
+	txLog, err := NewLocalTransactionLog(path, filesystem, deviceSecret,
+		rng)
+	if err != nil {
+		return nil, err
+	}
+	return NewOrLoadKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Begin KV [ekv.KeyValue] interface implementation functions
@@ -509,4 +523,9 @@ func (r *KV) loadUnsyncedWrites() error {
 	}
 
 	return json.Unmarshal(obj.Data, &r.UnsyncedWrites)
+}
+
+// todo figure out details in next ticket
+func isRemote(kv ekv.KeyValue) bool {
+	return false
 }

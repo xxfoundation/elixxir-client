@@ -116,6 +116,7 @@ func Test_callbackTracker_call(t *testing.T) {
 	}
 }
 
+// TODO: fix test. It was disabled since stop() now calls all remaining callbacks before closing.
 // // Tests that callbackTracker.call does not call on the callback when the
 // // stoppable is triggered.
 // func Test_callbackTracker_call_stop(t *testing.T) {

@@ -121,6 +121,7 @@ const (
 	channelsFtPreviewStringFlag = "ftFilePreviewString"
 	channelsFtMaxThroughputFlag = "ftMaxThroughput"
 	channelsFtRetry             = "ftRetry"
+	channelsFtOutputPath        = "ftOutput"
 
 	///////////////// Connection subcommand flags /////////////////////////////
 	connectionFlag              = "connect"

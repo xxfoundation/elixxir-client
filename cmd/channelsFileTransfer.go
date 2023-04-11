@@ -123,7 +123,8 @@ var channelsFileTransferCmd = &cobra.Command{
 
 		// Start thread that receives new file downloads and prints them to log
 		receiveDone := make(chan struct{})
-		go em.receiveFileLink(receiveDone)
+		outputPath := viper.GetString(channelsFtOutputPath)
+		go em.receiveFileLink(outputPath, receiveDone)
 
 		// Send message
 		if viper.GetBool(channelsSendFlag) {
@@ -278,11 +279,10 @@ func (em *ftEventModel) uploadChannelFile(
 		}
 
 		if completed {
-			fileSize := len(fileData)
 			sendTime := netTime.Since(uploadStart)
-			fileSizeKb := float32(fileSize) * .001
+			fileSizeKb := float32(len(fileData)) * .001
 			speed := fileSizeKb * float32(time.Second) / (float32(sendTime))
-			jww.INFO.Printf("[FT] Completed sending file %q in %s "+
+			jww.INFO.Printf("[FT] Completed sending file %s in %s "+
 				"(%.2f kb @ %.2f kb/s).",
 				st.GetFileID(), sendTime, fileSizeKb, speed)
 			fmt.Printf("Completed sending file.\n")
@@ -309,7 +309,7 @@ func (em *ftEventModel) uploadChannelFile(
 // receiveFileLink waits on the channel from the event model for a new message
 // containing a file link. The file is downloaded and the done channel is
 // triggered on completion.
-func (em *ftEventModel) receiveFileLink(done chan struct{}) {
+func (em *ftEventModel) receiveFileLink(outputPath string, done chan struct{}) {
 	jww.INFO.Print(
 		"[FT] Starting thread waiting to receive file links to download.")
 	for {
@@ -329,7 +329,7 @@ func (em *ftEventModel) receiveFileLink(done chan struct{}) {
 				"bytes with preview: %q\n",
 				fi.Name, fi.FileID, fi.Size, fi.Preview)
 
-			var receiveStart time.Time
+			var downloadStart time.Time
 			progressCB := func(completed bool, received, total uint16,
 				rt channelsFT.ReceivedTransfer, _ channelsFT.FilePartTracker,
 				err error) {
@@ -357,19 +357,28 @@ func (em *ftEventModel) receiveFileLink(done chan struct{}) {
 						}
 					}
 
-					jww.INFO.Printf("[FT] Download complete for file %s in %s.",
-						f.ID, netTime.Since(receiveStart))
-					fmt.Printf("Completed receiving file:\n%s\n", f.Data)
+					dur := netTime.Since(downloadStart)
+					fileSizeKb := float32(len(f.Data)) * .001
+					speed := fileSizeKb * float32(time.Second) / (float32(dur))
+					jww.INFO.Printf("[FT] Completed downloading file %s in %s "+
+						"(%.2f kb @ %.2f kb/s).",
+						f.ID, dur, fileSizeKb, speed)
+					fmt.Printf("writing file to %s\n", outputPath)
+					if err = utils.WriteFileDef(outputPath, f.Data); err != nil {
+						jww.FATAL.Panicf(
+							"[FT] Failed to save downloaded file: %+v", err)
+					}
+					fmt.Printf("Completed receiving file. Saved to output path.\n")
 					done <- struct{}{}
 				} else if err != nil {
 					jww.INFO.Printf("[FT] Failed receiving file %s in %s.",
-						rt.GetFileID(), netTime.Since(receiveStart))
+						rt.GetFileID(), netTime.Since(downloadStart))
 					fmt.Printf("Failed sending file: %+v\n", err)
 					done <- struct{}{}
 				}
 			}
 
-			receiveStart = netTime.Now()
+			downloadStart = netTime.Now()
 			_, err = em.FileTransfer.Download(mm.Content, progressCB, callbackPeriod)
 			if err != nil {
 				jww.FATAL.Panicf("[FT] Failed to initiate download: %+v", err)
@@ -562,6 +571,10 @@ func init() {
 
 	channelsFileTransferCmd.Flags().Float64(channelsFtRetry, 0.5, "Retry rate.")
 	bindFlagHelper(channelsFtRetry, channelsFileTransferCmd)
+
+	channelsFileTransferCmd.Flags().String(channelsFtOutputPath, "",
+		"The path to save the received file")
+	bindFlagHelper(channelsFtOutputPath, channelsFileTransferCmd)
 
 	rootCmd.AddCommand(channelsFileTransferCmd)
 }

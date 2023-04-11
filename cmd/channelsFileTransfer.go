@@ -223,8 +223,11 @@ func (em *ftEventModel) createOrJoinChannel(chanPath string, newChannel,
 
 	if newChannel {
 		// Create new channel
+		keyPath := viper.GetString(channelsFtKeyPathFlag)
 		name := viper.GetString(channelsFtNameFlag)
-		if channel, err = createNewChannel(chanPath, "", name, "", user); err != nil {
+		desc := viper.GetString(channelsFtDescriptionFlag)
+		channel, err = createNewChannel(chanPath, keyPath, name, desc, user)
+		if err != nil {
 			return nil, errors.Errorf("failed to create new channel: %+v", err)
 		}
 	} else {
@@ -532,6 +535,11 @@ func init() {
 		"The name of the new channel to create.")
 	bindFlagHelper(channelsFtNameFlag, channelsFileTransferCmd)
 
+	channelsFileTransferCmd.Flags().String(channelsFtDescriptionFlag,
+		"Channel Description",
+		"The description for the channel which will be created.")
+	bindFlagHelper(channelsFtDescriptionFlag, channelsFileTransferCmd)
+
 	channelsFileTransferCmd.Flags().String(channelsFtTypeFlag, "txt",
 		"8-byte file type.")
 	bindFlagHelper(channelsFtTypeFlag, channelsFileTransferCmd)
@@ -539,6 +547,10 @@ func init() {
 	channelsFileTransferCmd.Flags().String(channelsFtPreviewStringFlag, "",
 		"File preview data.")
 	bindFlagHelper(channelsFtPreviewStringFlag, channelsFileTransferCmd)
+
+	channelsFileTransferCmd.Flags().String(channelsFtKeyPathFlag, "",
+		"The file path for the channel identity's key to be written to.")
+	bindFlagHelper(channelsFtKeyPathFlag, channelsFileTransferCmd)
 
 	channelsFileTransferCmd.Flags().Bool(channelsFtJoinFlag, false,
 		"Determines if the channel created from the 'newChannel' or loaded "+

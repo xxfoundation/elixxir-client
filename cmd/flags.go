@@ -128,6 +128,8 @@ const (
 	channelsFtNewFlag           = "ftNewChannel"
 	channelsFtSendFlag          = "ftSendToChannel"
 	channelsFtNameFlag          = "ftChannelName"
+	channelsFtDescriptionFlag   = "ftChannelDescription"
+	channelsFtKeyPathFlag       = "ftChannelKeyPath"
 
 	///////////////// Connection subcommand flags /////////////////////////////
 	connectionFlag              = "connect"

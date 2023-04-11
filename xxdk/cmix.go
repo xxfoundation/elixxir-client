@@ -10,6 +10,7 @@ package xxdk
 import (
 	"io"
 	"math"
+	"path/filepath"
 	"time"
 
 	"gitlab.com/xx_network/primitives/netTime"
@@ -23,9 +24,11 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -35,7 +38,10 @@ import (
 	"gitlab.com/xx_network/primitives/region"
 )
 
-const followerStoppableName = "client"
+const (
+	followerStoppableName = "client"
+	localTxLogPath        = "txLog"
+)
 
 type Cmix struct {
 	// Generic RNG for client
@@ -134,8 +140,23 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 		return nil, errors.WithMessage(err, "Could not parse version string.")
 	}
 
+	// OpenCmix never connects to a remote.
 	passwordStr := string(password)
-	storageSess, err := storage.Load(storageDir, passwordStr, currentVersion)
+	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"failed to create storage session")
+	}
+	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+		localTxLogPath))
+	storageKV, err := sync.LocalKV(storageDir, password,
+		localFS, localKV, nil, nil, nil, rngStreamGen.GetStream())
+	if err != nil {
+		return nil, err
+	}
+	versioned := sync.NewVersionedKV(storageKV)
+
+	storageSess, err := storage.Load(versioned, currentVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -620,7 +641,20 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 
 	// Create storage
 	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr, userInfo,
+	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"failed to create storage session")
+	}
+	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+		localTxLogPath))
+	storageKV, err := sync.LocalKV(storageDir, password,
+		localFS, localKV, nil, nil, nil, rng)
+	if err != nil {
+		return nil, err
+	}
+	versioned := sync.NewVersionedKV(storageKV)
+	storageSess, err := storage.New(versioned, userInfo,
 		currentVersion, cmixGrp, e2eGrp)
 	if err != nil {
 		return nil, err

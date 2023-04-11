@@ -271,10 +271,7 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	}
 
 	// Construct local storage
-	local, err := sync.NewOrLoadEkvLocalStore(versionedKV)
-	if err != nil {
-		return nil, err
-	}
+	local := sync.NewKVFilesystem(localKV)
 
 	// Construct txLog path
 	// NOTE: the following assumes this is called after KV

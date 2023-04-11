@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 )
 
 // VersionedKV wraps a [sync.KV] inside of a [storage.versioned.KV] interface.
@@ -24,7 +25,7 @@ type VersionedKV struct {
 
 	// remoteKV is the remote synching KV instance. This is used
 	// when we intercept Set calls because we are synchronizing this prefix.
-	remoteKV *KV
+	remoteKV *internalKV
 	// vkv is a versioned KV instance that wraps the remoteKV, used
 	// for all local operations.
 	vkv versioned.KV
@@ -33,15 +34,29 @@ type VersionedKV struct {
 }
 
 // NewVersionedKV returns a versioned KV instance wrapping a remote KV
-func NewVersionedKV(remote *KV) *VersionedKV {
+func NewVersionedKV(transactionLog *TransactionLog, kv ekv.KeyValue,
+	synchedPrefixes []string,
+	eventCb KeyUpdateCallback,
+	updateCb RemoteStoreCallback) (*VersionedKV, error) {
+
+	sPrefixes := synchedPrefixes
+	if sPrefixes == nil {
+		sPrefixes = make([]string, 0)
+	}
+
+	remote, err := newKV(transactionLog, kv, eventCb, updateCb)
+	if err != nil {
+		return nil, err
+	}
+
 	v := &VersionedKV{
-		synchronizedPrefixes: remote.synchronizedPrefixes,
+		synchronizedPrefixes: sPrefixes,
 		remoteKV:             remote,
 		vkv:                  versioned.NewKV(remote),
 	}
 	v.updateIfSynchronizedPrefix()
 
-	return v
+	return v, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -155,7 +170,7 @@ func (r *VersionedKV) StoreMapElement(mapName, elementKey string,
 	// Generate the full key mapping (Prefixes + mapName + objectVersion)
 	mapFullKey := r.GetFullKey(mapName, version)
 	return r.remoteKV.StoreMapElement(mapFullKey, elementKey,
-		value.Marshal())
+		value.Marshal(), r.inSynchronizedPrefix)
 }
 
 // StoreMap saves a versioned map element into the KV. This relies
@@ -171,7 +186,7 @@ func (r *VersionedKV) StoreMap(mapName string,
 		// will be prepended
 		newMap[k] = v.Marshal()
 	}
-	return r.remoteKV.StoreMap(mapFullKey, newMap)
+	return r.remoteKV.StoreMap(mapFullKey, newMap, r.inSynchronizedPrefix)
 }
 
 // GetMap loads a versioned map from the KV. This relies
@@ -211,6 +226,10 @@ func (r *VersionedKV) GetMapElement(mapName, element string, version uint64) (
 	obj := versioned.Object{}
 	err = obj.Unmarshal(data)
 	return &obj, err
+}
+
+func (r *VersionedKV) Remote() RemoteKV {
+	return r.remoteKV
 }
 
 func (r *VersionedKV) updateIfSynchronizedPrefix() bool {

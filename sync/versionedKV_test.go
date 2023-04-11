@@ -56,14 +56,12 @@ func TestVersionedKV(t *testing.T) {
 	})
 	txLog := makeTransactionLog("versionedKV_TestWorkDir", password, t)
 	ekv := ekv.MakeMemstore()
-	rkv, err := NewOrLoadKV(txLog, ekv, syncPrefixes, nil, updateCb)
+	rkv, err := NewVersionedKV(txLog, ekv, syncPrefixes, nil, updateCb)
 	require.NoError(t, err)
 	// Overwrite remote w/ non file IO option
-	rkv.txLog.remote = &mockRemote{
+	rkv.remoteKV.txLog.remote = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
-
-	kv := NewVersionedKV(rkv)
 
 	// There should be 0 activity when working with non tracked prefixes
 	for i := range testNoSyncPrefixes {
@@ -71,7 +69,7 @@ func TestVersionedKV(t *testing.T) {
 		for j := range testNoSyncPrefixes[i] {
 			curP := testNoSyncPrefixes[i][j]
 			if tkv == nil {
-				tkv, err = kv.Prefix(curP)
+				tkv, err = rkv.Prefix(curP)
 			} else {
 				tkv, err = tkv.Prefix(curP)
 			}
@@ -89,14 +87,14 @@ func TestVersionedKV(t *testing.T) {
 			}
 			tkv.Set(testKeys[j], obj)
 
-			data, err := rkv.GetBytes(tkv.GetFullKey(testKeys[j],
+			data, err := rkv.remoteKV.GetBytes(tkv.GetFullKey(testKeys[j],
 				obj.Version))
 			require.NoError(t, err)
 			require.Equal(t, obj.Marshal(), data)
 		}
 	}
 	require.Equal(t, 0, remoteCallCnt)
-	require.Equal(t, 0, len(rkv.txLog.txs))
+	require.Equal(t, 0, len(rkv.remoteKV.txLog.txs))
 
 	// There should be 1 tx per synchronized key
 	txCnt := 0
@@ -106,7 +104,7 @@ func TestVersionedKV(t *testing.T) {
 		for j := range testSyncPrefixes[i] {
 			curP := testSyncPrefixes[i][j]
 			if tkv == nil {
-				tkv, err = kv.Prefix(curP)
+				tkv, err = rkv.Prefix(curP)
 			} else {
 				tkv, err = tkv.Prefix(curP)
 			}
@@ -126,7 +124,7 @@ func TestVersionedKV(t *testing.T) {
 
 			k := tkv.GetFullKey(testKeys[j], obj.Version)
 			v := obj.Marshal()
-			data, err := rkv.GetBytes(k)
+			data, err := rkv.remoteKV.GetBytes(k)
 			require.NoError(t, err)
 			require.Equal(t, v, data)
 
@@ -134,7 +132,7 @@ func TestVersionedKV(t *testing.T) {
 		}
 	}
 
-	kv.remoteKV.WaitForRemote(30 * time.Second)
+	rkv.remoteKV.WaitForRemote(30 * time.Second)
 
 	for k, v := range expTxs {
 		storedV, ok := txs[k]
@@ -174,22 +172,21 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 	})
 	txLog := makeTransactionLog("versionedKV_TestNewPrefix", password, t)
 	ekv := ekv.MakeMemstore()
-	rkv, err := NewOrLoadKV(txLog, ekv, nil, nil, updateCb)
+	rkv, err := NewVersionedKV(txLog, ekv, nil, nil, updateCb)
 	require.NoError(t, err)
 	// Overwrite remote w/ non file IO option
-	rkv.txLog.remote = &mockRemote{
+	rkv.remoteKV.txLog.remote = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 
 	// Even these are all "sync prefixes" there should be 0 of
 	// them because they aren't tracked.
-	kv := NewVersionedKV(rkv)
 	for i := range testSyncPrefixes {
 		var tkv versioned.KV
 		for j := range testSyncPrefixes[i] {
 			curP := testSyncPrefixes[i][j]
 			if tkv == nil {
-				tkv, err = kv.Prefix(curP)
+				tkv, err = rkv.Prefix(curP)
 			} else {
 				tkv, err = tkv.Prefix(curP)
 			}
@@ -206,20 +203,20 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 			}
 			tkv.Set(testKeys[j], obj)
 
-			data, err := rkv.GetBytes(tkv.GetFullKey(testKeys[j],
-				obj.Version))
+			data, err := rkv.remoteKV.GetBytes(
+				tkv.GetFullKey(testKeys[j], obj.Version))
 			require.NoError(t, err)
 			require.Equal(t, obj.Marshal(), data)
 		}
 	}
 	require.Equal(t, 0, remoteCallCnt)
-	require.Equal(t, 0, len(rkv.txLog.txs))
+	require.Equal(t, 0, len(rkv.remoteKV.txLog.txs))
 
 	// Add the sync prefixes
 	for i := range syncPrefixes {
-		kv.SyncPrefix(syncPrefixes[i])
+		rkv.SyncPrefix(syncPrefixes[i])
 	}
-	require.Equal(t, syncPrefixes, kv.synchronizedPrefixes)
+	require.Equal(t, syncPrefixes, rkv.synchronizedPrefixes)
 
 	// Now there should be 1 tx per synchronized key
 	txCnt := 0
@@ -229,7 +226,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 		for j := range testSyncPrefixes[i] {
 			curP := testSyncPrefixes[i][j]
 			if tkv == nil {
-				tkv, err = kv.Prefix(curP)
+				tkv, err = rkv.Prefix(curP)
 			} else {
 				tkv, err = tkv.Prefix(curP)
 			}
@@ -249,7 +246,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 
 			k := tkv.GetFullKey(testKeys[j], obj.Version)
 			v := obj.Marshal()
-			data, err := rkv.GetBytes(k)
+			data, err := rkv.remoteKV.GetBytes(k)
 			require.NoError(t, err)
 			require.Equal(t, v, data)
 
@@ -257,7 +254,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 		}
 	}
 
-	kv.remoteKV.WaitForRemote(30 * time.Second)
+	rkv.remoteKV.WaitForRemote(30 * time.Second)
 
 	for k, v := range expTxs {
 		storedV, ok := txs[k]
@@ -304,45 +301,44 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 	})
 	txLog := makeTransactionLog("versionedKV_TestMaps", password, t)
 	ekv := ekv.MakeMemstore()
-	rkv, err := NewOrLoadKV(txLog, ekv, nil, nil, updateCb)
+	rkv, err := NewVersionedKV(txLog, ekv, nil, nil, updateCb)
 	require.NoError(t, err)
 	// Overwrite remote w/ non file IO option
-	rkv.txLog.remote = &mockRemote{
+	rkv.remoteKV.txLog.remote = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 
 	mapKey := "mapkey"
 
 	// An empty map shouldn't return an error
-	kv := NewVersionedKV(rkv)
-	_, err = kv.GetMap(mapKey, 0)
+	_, err = rkv.GetMap(mapKey, 0)
 	require.NoError(t, err)
 
 	// A nonexistent map element should
-	_, err = kv.GetMapElement(mapKey, "blah", 0)
+	_, err = rkv.GetMapElement(mapKey, "blah", 0)
 	require.Error(t, err)
 
 	// Set & Get first, 1 element at a time
 	for k, v := range first {
-		err = kv.StoreMapElement(mapKey, k, v, 0)
+		err = rkv.StoreMapElement(mapKey, k, v, 0)
 		require.NoError(t, err)
-		e, err := kv.GetMapElement(mapKey, k, 0)
+		e, err := rkv.GetMapElement(mapKey, k, 0)
 		require.NoError(t, err)
 		require.Equal(t, v, e)
 	}
-	newFirst, err := kv.GetMap(mapKey, 0)
+	newFirst, err := rkv.GetMap(mapKey, 0)
 	require.NoError(t, err)
 	require.Equal(t, first, newFirst)
 
 	// Overwrite with second
-	err = kv.StoreMap(mapKey, second, 0)
+	err = rkv.StoreMap(mapKey, second, 0)
 	require.NoError(t, err)
 	for k, v := range second {
-		newV, err := kv.GetMapElement(mapKey, k, 0)
+		newV, err := rkv.GetMapElement(mapKey, k, 0)
 		require.NoError(t, err)
 		require.Equal(t, v, newV)
 	}
-	newSecond, err := kv.GetMap(mapKey, 0)
+	newSecond, err := rkv.GetMap(mapKey, 0)
 	require.NoError(t, err)
 	require.Equal(t, second, newSecond)
 }

@@ -180,7 +180,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV implements a remote KV to handle transaction logs. It writes and
 // reads state data from another device to a remote storage interface.
 type RemoteKV struct {
-	rkv *sync.KV
+	rkv *sync.VersionedKV
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -307,7 +307,7 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	}
 
 	// Construct remote KV
-	rkv, err := sync.NewOrLoadKV(
+	rkv, err := sync.NewVersionedKV(
 		txLog, localKV, nil,
 		eventCb, updateCb)
 	if err != nil {
@@ -330,7 +330,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 	var updateCb = func(newTx sync.Transaction, err error) {
 		remoteStoreCbUtil(cb, newTx, err)
 	}
-	return s.rkv.SetRemote(path, data, updateCb)
+	return s.rkv.Remote().SetRemote(path, data, updateCb)
 }
 
 // Read retrieves the data stored in the underlying KV. Returns an error if the
@@ -339,7 +339,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 // Parameters:
 //   - path - The key that this data will be written to (i.e., the device name).
 func (s *RemoteKV) Read(path string) ([]byte, error) {
-	return s.rkv.GetBytes(path)
+	return s.rkv.Remote().GetBytes(path)
 }
 
 // GetList returns all entries for a path (or key) that contain the name
@@ -357,7 +357,7 @@ func (s *RemoteKV) Read(path string) ([]byte, error) {
 // Returns:
 //   - []byte - JSON of [sync.KeyValueMap].
 func (s *RemoteKV) GetList(name string) ([]byte, error) {
-	return s.rkv.GetList(name)
+	return s.rkv.Remote().GetList(name)
 }
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.

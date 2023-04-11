@@ -427,7 +427,7 @@ func newFtEventModel() *ftEventModel {
 func (em *ftEventModel) ReceiveFile(fileID ftCrypto.ID, fileLink, fileData []byte,
 	timestamp time.Time, status channelsFT.Status) error {
 	jww.INFO.Printf("[FT] Received file %s at %s with status %s."+
-		"\nlink: %q\ndata: %q", fileID, timestamp, status, fileLink, fileData)
+		"\nlink: %q", fileID, timestamp, status, fileLink)
 	fmt.Printf("Received file %s with status %s\n", fileID, status)
 
 	em.mux.Lock()
@@ -444,7 +444,7 @@ func (em *ftEventModel) ReceiveFile(fileID ftCrypto.ID, fileLink, fileData []byt
 func (em *ftEventModel) UpdateFile(fileID ftCrypto.ID, fileLink, fileData []byte,
 	timestamp *time.Time, status *channelsFT.Status) error {
 	jww.INFO.Printf("[FT] Updating file %s at %s with status %s."+
-		"\nlink: %q\ndata: %q", fileID, timestamp, status, fileLink, fileData)
+		"\nlink: %q", fileID, timestamp, status, fileLink)
 
 	em.mux.Lock()
 	f, exists := em.files[fileID]

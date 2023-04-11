@@ -51,7 +51,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 				rl.Identity.Source, rl.Identity.EphId)
 			if err != nil {
 				jww.FATAL.Panicf(
-					"Failed to denote Unchecked Round for round %d",
+					"[processBatchMessageRetrieval] Failed to denote Unchecked Round for round %d",
 					id.Round(ri.ID))
 			}
 
@@ -118,30 +118,68 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			index++
 		}
 
-		// Send batch pickup request to any gateway
-		resp, err := m.sender.SendToAny(func(host *connect.Host) (interface{}, error) {
-			return comms.RequestBatchMessages(host, msg)
-		}, stop)
-		if err != nil {
-			jww.ERROR.Printf("Failed to request batch of messages: %+v", err)
-			continue
-		}
+		go func() {
+			// Send batch pickup request to any gateway
+			resp, err := m.sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+				return comms.RequestBatchMessages(host, msg)
+			}, stop)
+			if err != nil {
+				jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to request batch of messages: %+v", err)
+				for i := range orderedBatch {
+					select {
+					case m.gatewayMessageRequests <- orderedBatch[i]:
+					default:
+						jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to return pickup request %+v to queue after failure to contact proxy gateway", orderedBatch[i])
+					}
 
-		// Process responses
-		batchResponse := resp.(*pb.GetMessagesResponseBatch)
-		for i, result := range batchResponse.GetResults() {
-			proxiedRequest := orderedBatch[i]
+				}
+			}
+
+			// Process responses
+			batchResponse := resp.(*pb.GetMessagesResponseBatch)
+			batchErrs := batchResponse.GetErrors()
+			for i, result := range batchResponse.GetResults() {
+				proxiedRequest := orderedBatch[i]
+				m.receivedResponses <- &responsePart{
+					req: proxiedRequest,
+					res: result,
+					err: batchErrs[i],
+				}
+
+			}
+		}()
+
+		// Empty batch before restarting loop
+		batch = make(map[id.Round]*pickupRequest)
+	}
+}
+
+type responsePart struct {
+	req *pickupRequest
+	res *pb.GetMessagesResponse
+	err string
+}
+
+func (m *pickup) processBatchMessageResponse(stop *stoppable.Single) {
+	for {
+		select {
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
+		case rp := <-m.receivedResponses:
+			result := rp.res
+			proxiedRequest := rp.req
+			respErr := rp.err
 			// Handler gw did not receive response in time/did not have contact with proxiedRequest
 			if result == nil {
-				jww.DEBUG.Printf("[processBatchMessageRetrieval] Handler gateway did not receive anything from target %s", proxiedRequest.target)
+				jww.DEBUG.Printf("[processBatchMessageResponse] Handler gateway did not receive anything from target %s", proxiedRequest.target)
 				go m.tryNextGateway(proxiedRequest)
 				continue
 			}
 
 			// Handler gw encountered error getting messages from proxiedRequest
-			respErr := batchResponse.GetErrors()[i]
 			if respErr != "" {
-				jww.ERROR.Printf("[processBatchMessageRetrieval] Handler gateway encountered error attempting to pick up messages from target %s: %s", proxiedRequest.target, respErr)
+				jww.ERROR.Printf("[processBatchMessageResponse] Handler gateway encountered error attempting to pick up messages from target %s: %s", proxiedRequest.target, respErr)
 				go m.tryNextGateway(proxiedRequest)
 				continue
 			}
@@ -149,7 +187,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			// Process response from proxiedRequest gateway
 			bundle, err := m.buildMessageBundle(result, proxiedRequest.id, proxiedRequest.round.ID)
 			if err != nil {
-				jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to process pickup response from proxiedRequest gateway %s: %+v", proxiedRequest.target, err)
+				jww.ERROR.Printf("[processBatchMessageResponse] Failed to process pickup response from proxiedRequest gateway %s: %+v", proxiedRequest.target, err)
 				go m.tryNextGateway(proxiedRequest)
 				continue
 			}
@@ -157,9 +195,6 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			// Handle received bundle
 			m.processBundle(bundle, proxiedRequest.id, proxiedRequest.round)
 		}
-
-		// Empty batch before restarting loop
-		batch = make(map[id.Round]*pickupRequest)
 	}
 }
 
@@ -168,7 +203,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 func (m *pickup) tryNextGateway(req *pickupRequest) {
 	// If there are no more unchecked gateways, log an error & return
 	if len(req.uncheckedGateways) == 0 {
-		jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to get pickup round %d "+
+		jww.ERROR.Printf("[tryNextGateway] Failed to get pickup round %d "+
 			"from all gateways (%v)", req.round.ID, append(req.checkedGateways, req.target))
 		return
 	}

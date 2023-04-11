@@ -23,9 +23,11 @@ import (
 func Test_manager_processBatchMessageRetrieval(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
+	testManager.receivedResponses = make(chan *responsePart, 3)
+
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
-	stop := stoppable.NewSingle("singleStoppable")
+	stop := stoppable.NewMulti("multiStoppable")
 	testNdf := getNDF()
 	nodeId := id.NewIdFromString(ReturningGateway, id.Node, &testing.T{})
 	gwId := nodeId.DeepCopy()
@@ -49,7 +51,12 @@ func Test_manager_processBatchMessageRetrieval(t *testing.T) {
 	testManager.messageBundles = messageBundleChan
 
 	// Initialize the message retrieval
-	go testManager.processBatchMessageRetrieval(mockComms, stop)
+	retStop := stoppable.NewSingle("singleStoppableRet")
+	go testManager.processBatchMessageRetrieval(mockComms, retStop)
+	stop.Add(retStop)
+	respStop := stoppable.NewSingle("singleStoppableResp")
+	go testManager.processBatchMessageResponse(respStop)
+	stop.Add(respStop)
 
 	// Construct expected values for checking
 	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}

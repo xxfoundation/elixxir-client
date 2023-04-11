@@ -97,13 +97,12 @@ func (s *Store) DeleteReceivedRequest(partner *id.ID) error {
 	rr.mux.Lock()
 	s.mux.Lock()
 	rr, exist = s.receivedByID[*partner]
-	delete(s.receivedByID, *partner)
-	rr.mux.Unlock()
-	s.mux.Unlock()
-
 	if !exist {
 		return errors.New(NoRequestFound)
 	}
+	delete(s.receivedByID, *partner)
+	rr.mux.Unlock()
+	s.mux.Unlock()
 
 	return nil
 }

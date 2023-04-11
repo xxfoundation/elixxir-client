@@ -42,6 +42,7 @@ type pickup struct {
 	lookupRoundMessages    chan roundLookup
 	messageBundles         chan<- message.Bundle
 	gatewayMessageRequests chan *pickupRequest
+	receivedResponses      chan *responsePart
 
 	unchecked *store.UncheckedRoundStore
 }
@@ -65,6 +66,7 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 		session:                session,
 		comms:                  comms,
 		gatewayMessageRequests: make(chan *pickupRequest, params.LookupRoundsBufferLen),
+		receivedResponses:      make(chan *responsePart, params.LookupRoundsBufferLen),
 	}
 
 	return m
@@ -79,6 +81,12 @@ func (m *pickup) StartProcessors() stoppable.Stoppable {
 		stopper := stoppable.NewSingle("Batch Message Retriever")
 		go m.processBatchMessageRetrieval(m.comms, stopper)
 		multi.Add(stopper)
+		for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
+			retStopper := stoppable.NewSingle(
+				"Message Part Processor " + strconv.Itoa(int(i)))
+			go m.processBatchMessageResponse(retStopper)
+			multi.Add(retStopper)
+		}
 	} else {
 		for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
 			stopper := stoppable.NewSingle(

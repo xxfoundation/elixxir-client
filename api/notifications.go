@@ -107,6 +107,8 @@ func (c *Client) getIidAndSig() ([]byte, []byte, error) {
 	return intermediaryReceptionID, sig, nil
 }
 
+// SetAlternativeNotificationsHost accepts an address and tls certificate,
+// using them to replace the notifications bot contact info from the ndf
 func (c *Client) SetAlternativeNotificationsHost(address string, tlsCertificate []byte) {
 	c.comms.RemoveHost(&id.NotificationBot)
 	hp := connect.GetDefaultHostParams()

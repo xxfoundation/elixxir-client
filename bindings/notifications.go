@@ -111,6 +111,9 @@ func (c *Client) UnregisterForNotifications() error {
 	return c.api.UnregisterForNotifications()
 }
 
+// SetAlternativeNotificationsHost accepts an address and tls certificate,
+// using them to replace the notifications bot contact info from the ndf.
+// Any notifications calls after this is used will go through the specified host
 func (c *Client) SetAlternativeNotificationsHost(address string, cert []byte) {
 	c.api.SetAlternativeNotificationsHost(address, cert)
 }

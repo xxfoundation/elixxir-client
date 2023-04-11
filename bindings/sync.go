@@ -51,7 +51,7 @@ type RemoteStore interface {
 // the [os.File] IO operations. Implemented for testing purposes for transaction
 // logs.
 type RemoteStoreFileSystem struct {
-	api *sync.FileSystemRemoteStorage
+	api *sync.FileSystemStorage
 }
 
 // NewFileSystemRemoteStorage is a constructor for [RemoteStoreFileSystem].
@@ -299,7 +299,7 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	rng := frng.GetStream()
 
 	// Construct or load a transaction log
-	txLog, err := sync.NewOrLoadTransactionLog(txLogPath, local,
+	txLog, err := sync.NewTransactionLog(txLogPath, local,
 		newRemoteStoreFileSystemWrapper(remote),
 		deviceSecret, rng)
 	if err != nil {
@@ -340,24 +340,6 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 //   - path - The key that this data will be written to (i.e., the device name).
 func (s *RemoteKV) Read(path string) ([]byte, error) {
 	return s.rkv.GetBytes(path)
-}
-
-// GetList returns all entries for a path (or key) that contain the name
-// parameter from the local store.
-//
-// For example, assuming the usage of the [sync.LocalStoreKeyDelimiter], if both
-// "channels-123" and "channels-abc" are written to [RemoteKV], then
-// GetList("channels") will retrieve the data for both channels. All data that
-// contains no [sync.LocalStoreKeyDelimiter] can be retrieved using GetList("").
-//
-// Parameters:
-//   - name - Some prefix to a Write operation. If no prefix applies, simply
-//     use the empty string.
-//
-// Returns:
-//   - []byte - JSON of [sync.KeyValueMap].
-func (s *RemoteKV) GetList(name string) ([]byte, error) {
-	return s.rkv.GetList(name)
 }
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.

@@ -132,7 +132,10 @@ var channelsCmd = &cobra.Command{
 		chanPath := viper.GetString(channelsChanPathFlag)
 		// Create new channel
 		if viper.GetBool(channelsNewFlag) {
-			channel, err = createNewChannel(chanPath, user)
+			keyPath := viper.GetString(channelsKeyPathFlag)
+			name := viper.GetString(channelsNameFlag)
+			desc := viper.GetString(channelsDescriptionFlag)
+			channel, err = createNewChannel(chanPath, keyPath, name, desc, user)
 			if err != nil {
 				jww.FATAL.Panicf("[%s] Failed to create new channel: %+v",
 					channelsPrintHeader, err)
@@ -257,19 +260,14 @@ var channelsCmd = &cobra.Command{
 	},
 }
 
-// createNewChannel creates a new channel with the name and description set by
-// the channelsNameFlag and channelsDescriptionFlag flags. If a key path is
-// defined by the channelsKeyPathFlag, then the private key is saved to that
-// path in PEM format; otherwise, it is only printed to the log. The marshalled
-// channel is written to the chanPath.
+// createNewChannel creates a new channel with the name and description. If a
+// key path is set, then the private key is saved to that path in PEM format;
+// otherwise, it is only printed to the log. The marshalled channel is written
+// to the chanPath.
 //
 // This function prints to stdout when a new channel is successfully generated.
-func createNewChannel(chanPath string, user *xxdk.E2e) (
+func createNewChannel(chanPath, keyPath, name, desc string, user *xxdk.E2e) (
 	*cryptoBroadcast.Channel, error) {
-
-	keyPath := viper.GetString(channelsKeyPathFlag)
-	name := viper.GetString(channelsNameFlag)
-	desc := viper.GetString(channelsDescriptionFlag)
 	if name == "" {
 		return nil, errors.New("name cannot be empty")
 	} else if desc == "" {

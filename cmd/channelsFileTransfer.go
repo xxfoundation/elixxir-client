@@ -73,7 +73,7 @@ var channelsFileTransferCmd = &cobra.Command{
 		}
 
 		// Load or make channel private identity
-		channelsChanIdentityPath := viper.GetString(channelsChanIdentityPathFlag)
+		channelsChanIdentityPath := viper.GetString(channelsFtChanIdPathFlag)
 		rng := user.GetRng().GetStream()
 		chanID, err := getOrMakeChannelIdentity(channelsChanIdentityPath, rng)
 		rng.Close()
@@ -113,9 +113,9 @@ var channelsFileTransferCmd = &cobra.Command{
 		}
 
 		// Create or join channel
-		chanPath := viper.GetString(channelsChanPathFlag)
+		chanPath := viper.GetString(channelsFtChanPathFlag)
 		channel, err := em.createOrJoinChannel(chanPath,
-			viper.GetBool(channelsNewFlag), viper.GetBool(channelsJoinFlag),
+			viper.GetBool(channelsFtNewFlag), viper.GetBool(channelsFtJoinFlag),
 			user)
 		if err != nil {
 			jww.FATAL.Panicf("[FT] Failed create or join channel: %+v", err)
@@ -127,7 +127,7 @@ var channelsFileTransferCmd = &cobra.Command{
 		go em.receiveFileLink(outputPath, receiveDone)
 
 		// Send message
-		if viper.GetBool(channelsSendFlag) {
+		if viper.GetBool(channelsFtSendFlag) {
 
 			// Upload file and wait for it to complete
 			filePath := viper.GetString(channelsFtFilePath)
@@ -223,7 +223,8 @@ func (em *ftEventModel) createOrJoinChannel(chanPath string, newChannel,
 
 	if newChannel {
 		// Create new channel
-		if channel, err = createNewChannel(chanPath, user); err != nil {
+		name := viper.GetString(channelsFtNameFlag)
+		if channel, err = createNewChannel(chanPath, "", name, "", user); err != nil {
 			return nil, errors.Errorf("failed to create new channel: %+v", err)
 		}
 	} else {
@@ -519,21 +520,17 @@ func (em *ftEventModel) ReceiveMessage(channelID *id.ID, messageID message.ID,
 
 func init() {
 
-	channelsFileTransferCmd.Flags().String(channelsChanIdentityPathFlag, "",
+	channelsFileTransferCmd.Flags().String(channelsFtChanIdPathFlag, "",
 		"The file path for the channel identity to be written to.")
-	bindFlagHelper(channelsChanIdentityPathFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtChanIdPathFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().String(channelsChanPathFlag, "",
+	channelsFileTransferCmd.Flags().String(channelsFtChanPathFlag, "",
 		"The file path for the channel information to be written to.")
-	bindFlagHelper(channelsChanPathFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtChanPathFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().String(channelsNameFlag, "ChannelName",
+	channelsFileTransferCmd.Flags().String(channelsFtNameFlag, "ChannelName",
 		"The name of the new channel to create.")
-	bindFlagHelper(channelsNameFlag, channelsFileTransferCmd)
-
-	channelsFileTransferCmd.Flags().String(channelsDescriptionFlag, "Channel Description",
-		"The description for the channel which will be created.")
-	bindFlagHelper(channelsDescriptionFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtNameFlag, channelsFileTransferCmd)
 
 	channelsFileTransferCmd.Flags().String(channelsFtTypeFlag, "txt",
 		"8-byte file type.")
@@ -543,22 +540,18 @@ func init() {
 		"File preview data.")
 	bindFlagHelper(channelsFtPreviewStringFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().String(channelsKeyPathFlag, "",
-		"The file path for the channel identity's key to be written to.")
-	bindFlagHelper(channelsKeyPathFlag, channelsFileTransferCmd)
-
-	channelsFileTransferCmd.Flags().Bool(channelsJoinFlag, false,
+	channelsFileTransferCmd.Flags().Bool(channelsFtJoinFlag, false,
 		"Determines if the channel created from the 'newChannel' or loaded "+
 			"from 'channelPath' flag will be joined.")
-	bindFlagHelper(channelsJoinFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtJoinFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().Bool(channelsNewFlag, false,
+	channelsFileTransferCmd.Flags().Bool(channelsFtNewFlag, false,
 		"Determines if a new channel will be constructed.")
-	bindFlagHelper(channelsNewFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtNewFlag, channelsFileTransferCmd)
 
-	channelsFileTransferCmd.Flags().Bool(channelsSendFlag, false,
+	channelsFileTransferCmd.Flags().Bool(channelsFtSendFlag, false,
 		"Determines if a message will be sent to the channel.")
-	bindFlagHelper(channelsSendFlag, channelsFileTransferCmd)
+	bindFlagHelper(channelsFtSendFlag, channelsFileTransferCmd)
 
 	channelsFileTransferCmd.Flags().String(channelsFtFilePath, "",
 		"The path to the file to send. Also used as the file name.")

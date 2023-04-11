@@ -50,10 +50,9 @@ type TransactionLog struct {
 	// and local storage.
 	path string
 
-	// local is the store for writing/reading to a local store.
-	//
-	// EkvLocalStore is provided as an example.
-	local LocalStore
+	// local is the local file system (or anything implementing
+	// the FileIO interface).
+	local FileIO
 
 	// remote is the store for writing/reading to a remote store. All writes
 	// should be asynchronous.
@@ -90,8 +89,8 @@ type TransactionLog struct {
 // Parameters:
 //   - path - the file path that will be used to write transactions, both locally
 //     and remotely.
-//   - local - the LocalStore adhering object which will be used to write the
-//     transaction log to file.
+//   - localFS - a filesystem [FileIO] adhering object which will be
+//     used to write the transaction log to file.
 //   - remote - the RemoteStore adhering object which will be used to write the
 //     transaction log to file.
 //   - appendCallback - the callback used to report the status of writing to
@@ -99,14 +98,14 @@ type TransactionLog struct {
 //   - deviceSecret - the randomly generated secret for this individual device.
 //     This should be unique for every device.
 //   - rng - An io.Reader used for random generation when encrypting data.
-func NewOrLoadTransactionLog(path string, local LocalStore, remote RemoteStore,
+func NewOrLoadTransactionLog(path string, localFS FileIO, remote RemoteStore,
 	deviceSecret []byte, rng io.Reader) (*TransactionLog, error) {
 
 	// Construct a new transaction log
 	tx := &TransactionLog{
 		Header:       NewHeader(),
 		path:         path,
-		local:        local,
+		local:        localFS,
 		remote:       remote,
 		txs:          make([]Transaction, 0),
 		deviceSecret: deviceSecret,
@@ -118,14 +117,16 @@ func NewOrLoadTransactionLog(path string, local LocalStore, remote RemoteStore,
 	if err == nil {
 		// If data has been read, attempt to deserialize
 		if err = tx.deserialize(data); err != nil {
-			return nil, errors.Errorf(loadFromLocalStoreErr, path, err)
+			return nil, errors.Errorf(loadFromLocalStoreErr, path,
+				err)
 		}
 	}
 
 	// If failed to read, then there is no state, which may or may not be
 	// expected. For example, calling this the first time on a device, there
 	// will naturally be no state to read.
-	jww.DEBUG.Printf("[%s] Failed to read from local when loading: %+v", local, err)
+	jww.DEBUG.Printf("[%s] Failed to read from local when loading: %+v",
+		localFS, err)
 	return tx, nil
 }
 

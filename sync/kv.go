@@ -122,6 +122,10 @@ func NewOrLoadKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	return rkv, nil
 }
 
+// LocalKV Creates a New synchronized KV that uses a local-only
+// transaction log.
+// func LocalKV(
+
 ///////////////////////////////////////////////////////////////////////////////
 // Begin KV [ekv.KeyValue] interface implementation functions
 ///////////////////////////////////////////////////////////////////////////////
@@ -238,17 +242,6 @@ func (r *KV) SetRemote(key string, val []byte,
 func (r *KV) SetRemoteOnly(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 	return r.remoteSet(key, val, updateCb)
-}
-
-// GetList is a wrapper of [LocalStore.GetList]. This will return a JSON
-// marshalled [KeyValueMap].
-func (r *KV) GetList(name string) ([]byte, error) {
-	valList, err := r.txLog.local.GetList(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(valList)
 }
 
 // StoreMapElement saves a given map element and updates

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -80,8 +79,7 @@ func TestDeviceOffset(t *testing.T) {
 // testing purposes.
 func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog {
 
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(ekv.MakeMemstore())
 	// Construct remote store
 	remoteStore := &mockRemote{data: make(map[string][]byte)}
 

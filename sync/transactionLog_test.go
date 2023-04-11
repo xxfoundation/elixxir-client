@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
 
@@ -36,8 +35,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	baseDir, password := "testDir", "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(fs)
 
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
@@ -72,8 +70,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 // Intentionally constructs TransactionLog manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct local store
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(ekv.MakeMemstore())
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
@@ -277,8 +274,7 @@ func TestTransactionLog_Serialize(t *testing.T) {
 func TestTransactionLog_Deserialize(t *testing.T) {
 	// Construct local store
 	baseDir := "testDir"
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(ekv.MakeMemstore())
 
 	// Construct remote store
 	remoteStore := &mockRemote{data: make(map[string][]byte)}
@@ -366,8 +362,7 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	// Construct local store
 	baseDir := "testDir"
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(ekv.MakeMemstore()))
-	require.NoError(b, err)
+	localStore := NewKVFilesystem(ekv.MakeMemstore())
 
 	// Construct remote store
 	remoteStore := NewFileSystemRemoteStorage(baseDir)
@@ -410,7 +405,7 @@ func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	baseDir, password := "testDir", "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(b, err)
-	localStore, err := NewOrLoadEkvLocalStore(versioned.NewKV(fs))
+	localStore := NewKVFilesystem(fs)
 	require.NoError(b, err)
 
 	// Construct remote store

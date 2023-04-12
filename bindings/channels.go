@@ -290,7 +290,7 @@ type DeletedMessageCallback interface {
 //   - extensionBuilderIDsJSON - JSON of an array of integers of
 //     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
 //     with an extension builder (e.g.,
-//     [ChannelsFileTransfer.GetExtensionBuilderID]) Leave empty if not using
+//     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
@@ -428,7 +428,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //   - extensionBuilderIDsJSON - JSON of an array of integers of
 //     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
 //     with an extension builder (e.g.,
-//     [ChannelsFileTransfer.GetExtensionBuilderID]) Leave empty if not using
+//     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
 //   - eventBuilder - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
@@ -526,7 +526,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //   - extensionBuilderIDsJSON - JSON of an array of integers of
 //     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
 //     with an extension builder (e.g.,
-//     [ChannelsFileTransfer.GetExtensionBuilderID]) Leave empty if not using
+//     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
 //   - goEventBuilder - A function that initialises and returns the event model
 //     that is not compatible with GoMobile bindings.

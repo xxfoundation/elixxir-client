@@ -203,3 +203,47 @@ func Test_partitionPayload(t *testing.T) {
 			expectedParts, parts)
 	}
 }
+
+func testPartitionCase(
+	t *testing.T,
+	payload []byte,
+	firstPartSize, partSize int,
+	expectedFirstPart []byte,
+	expectedParts [][]byte,
+) {
+	firstPart, parts := partitionPayload(firstPartSize, partSize, payload)
+	if !bytes.Equal(expectedFirstPart, firstPart) {
+		t.Errorf("Received unexpected first part.\nexpected: %q\nreceived: %q",
+			expectedFirstPart, firstPart)
+	}
+
+	if !reflect.DeepEqual(expectedParts, parts) {
+		t.Errorf("Received unexpected parts.\nexpected: %q\nreceived: %q",
+			expectedParts, parts)
+	}
+}
+
+// Test payload partition cases
+func Test_partitionPayloadCases(t *testing.T) {
+	// 1. Test payload that fits in first part
+	const firstPartSize = 8
+	const partSize = 10
+	expectedFirstPart := []byte("123456")
+	payload := expectedFirstPart
+	var expectedParts [][]byte = nil
+	testPartitionCase(t, payload, firstPartSize, partSize, expectedFirstPart, expectedParts)
+
+	// 2. Test payload with size equal to firstPart + one part
+	expectedFirstPart = []byte("12345678")
+	expectedParts = make([][]byte, 1)
+	expectedParts[0] = []byte("0123456789")
+	payload = append(expectedFirstPart, expectedParts[0]...)
+	testPartitionCase(t, payload, firstPartSize, partSize, expectedFirstPart, expectedParts)
+
+	// 3. Test payload with size smaller than firstPart + one part
+	expectedFirstPart = []byte("12345678")
+	expectedParts = make([][]byte, 1)
+	expectedParts[0] = []byte("12345678")
+	payload = append(expectedFirstPart, expectedParts[0]...)
+	testPartitionCase(t, payload, firstPartSize, partSize, expectedFirstPart, expectedParts)
+}

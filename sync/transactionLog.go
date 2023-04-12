@@ -134,8 +134,6 @@ func NewOrLoadTransactionLog(path string, local LocalStore, remote RemoteStore,
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
 func (tl *TransactionLog) Append(newTx Transaction,
 	remoteCb RemoteStoreCallback) error {
-	atomic.AddInt32(&tl.openWrites, 1)
-	defer atomic.AddInt32(&tl.openWrites, -1)
 	tl.lck.Lock()
 	defer tl.lck.Unlock()
 	// Insert new transaction into list
@@ -356,7 +354,7 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 	return nil
 }
 
-// save writes the data passed int to file, both remotely and locally. The data
+// save writes the data passed in to file, both remotely and locally. The data
 // created from serialize.
 func (tl *TransactionLog) save(newTx Transaction,
 	dataToSave []byte, remoteCb RemoteStoreCallback) error {
@@ -371,7 +369,11 @@ func (tl *TransactionLog) save(newTx Transaction,
 	}
 
 	// Do not let remote writing block operations
-	go tl.saveToRemote(newTx, dataToSave, remoteCb)
+	atomic.AddInt32(&tl.openWrites, 1)
+	go func() {
+		tl.saveToRemote(newTx, dataToSave, remoteCb)
+		atomic.AddInt32(&tl.openWrites, -1)
+	}()
 	return nil
 }
 

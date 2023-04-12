@@ -21,7 +21,8 @@ import (
 // ChannelsFileTransfer manages the sending and receiving of file via channels.
 // Refer to [channelsFileTransfer.FileTransfer] for additional documentation.
 type ChannelsFileTransfer struct {
-	api channelsFT.FileTransfer
+	api  channelsFT.FileTransfer
+	ebID int
 }
 
 // InitChannelsFileTransfer creates a file transfer manager for channels.
@@ -48,7 +49,7 @@ func InitChannelsFileTransfer(
 	}
 
 	// Create file transfer manager
-	w, _, err := channelsFT.NewWrapper(user.api, params)
+	w, eb, err := channelsFT.NewWrapper(user.api, params)
 	if err != nil {
 		return nil, errors.Errorf(
 			"could not create new file transfer manager: %+v", err)
@@ -60,8 +61,17 @@ func InitChannelsFileTransfer(
 		return nil, errors.Wrap(err, "could not start file transfer service")
 	}
 
+	ebID := channelExtensionBuilderTrackerSingleton.add(eb)
+
 	// Return wrapped manager
-	return &ChannelsFileTransfer{w}, nil
+	return &ChannelsFileTransfer{w, ebID}, nil
+}
+
+// GetExtensionBuilderID returns the ID of the extension builder in the tracker.
+// Pass this ID into the channel manager creator to use file transfer manager in
+// conjunction with channels.
+func (ft *ChannelsFileTransfer) GetExtensionBuilderID() int {
+	return ft.ebID
 }
 
 // MaxFileNameLen returns the max number of bytes allowed for a file name.

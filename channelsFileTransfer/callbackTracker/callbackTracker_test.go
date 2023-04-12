@@ -116,13 +116,13 @@ func Test_callbackTracker_call(t *testing.T) {
 	}
 }
 
-// Tests that callbackTracker.call does not call on the callback when the
-// stoppable is triggered.
+// Tests that callbackTracker.call calls the callback when the stoppable is
+// triggered.
 func Test_callbackTracker_call_stop(t *testing.T) {
 	cbChan := make(chan error, 10)
 	cb := func(err error) { cbChan <- err }
 	stop := stoppable.NewSingle("Test_callbackTracker_call")
-	ct := newCallbackTracker(cb, 250*time.Millisecond, stop)
+	ct := newCallbackTracker(cb, time.Hour, stop)
 
 	go ct.call(nil)
 
@@ -144,7 +144,7 @@ func Test_callbackTracker_call_stop(t *testing.T) {
 
 	select {
 	case <-cbChan:
-		t.Error("Callback called.")
 	case <-time.After(ct.period * 2):
+		t.Error("Callback not called.")
 	}
 }

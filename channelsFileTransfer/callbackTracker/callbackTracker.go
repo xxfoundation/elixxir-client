@@ -82,18 +82,25 @@ func (ct *callbackTracker) call(err error) {
 		// start of the next period
 		ct.scheduled = true
 		go func() {
-			timer := time.NewTimer(ct.period - timeSinceLastCall)
-			select {
-			case <-ct.stop.Quit():
-				timer.Stop()
-				ct.stop.ToStopped()
-				return
-			case <-timer.C:
+			callCallback := func() {
 				ct.mux.Lock()
 				ct.cb(err)
 				ct.lastCall = netTime.Now()
 				ct.scheduled = false
 				ct.mux.Unlock()
+			}
+			
+			timer := time.NewTimer(ct.period - timeSinceLastCall)
+			select {
+			case <-ct.stop.Quit():
+				// Trigger the callback before deleting it
+				callCallback()
+
+				timer.Stop()
+				ct.stop.ToStopped()
+				return
+			case <-timer.C:
+				callCallback()
 			}
 		}()
 	}

@@ -319,7 +319,8 @@ func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 
 	var fl FileLink
 	if err := json.Unmarshal(fileLink, &fl); err != nil {
-		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Wrap(err, "error JSON unmarshalling file link")
 	}
 
 	if fl.Expired() {
@@ -337,7 +338,8 @@ func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 
 	fileInfo, err := json.Marshal(fi)
 	if err != nil {
-		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Wrap(err, "error JSON marshalling file info")
 	}
 
 	return w.ch.SendGeneric(channelID, channels.FileTransfer,

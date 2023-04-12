@@ -29,17 +29,16 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	received, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	received, err := newKV(txLog, kv, nil, nil)
 	require.NoError(t, err)
 
 	// Create expected remote kv
-	expected := &KV{
-		local:                kv,
-		synchronizedPrefixes: make([]string, 0),
-		txLog:                txLog,
-		KeyUpdate:            nil,
-		UnsyncedWrites:       make(map[string][]byte, 0),
-		connected:            true,
+	expected := &internalKV{
+		local:          kv,
+		txLog:          txLog,
+		KeyUpdate:      nil,
+		UnsyncedWrites: make(map[string][]byte, 0),
+		connected:      true,
 	}
 
 	// Check equality of created vs expected remote kv
@@ -63,7 +62,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	}
 
 	// Create remote kv
-	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, updateCb)
+	rkv, err := newKV(txLog, kv, nil, updateCb)
 	require.NoError(t, err)
 
 	const numTests = 100
@@ -90,7 +89,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	require.NotEmpty(t, rkv.UnsyncedWrites)
 
 	// Call NewOrLoad where it should load intents
-	loaded, err := NewOrLoadKV(txLog, kv, nil, nil, updateCb)
+	loaded, err := newKV(txLog, kv, nil, updateCb)
 	require.NoError(t, err)
 
 	require.Len(t, loaded.UnsyncedWrites, numTests)
@@ -107,7 +106,7 @@ func TestKV_Set(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	rkv, err := newKV(txLog, kv, nil, nil)
 	require.NoError(t, err)
 
 	rkv.txLog.remote = &mockRemote{
@@ -147,7 +146,7 @@ func TestKV_Get(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	rkv, err := newKV(txLog, kv, nil, nil)
 	require.NoError(t, err)
 
 	// Overwrite remote w/ non file IO option
@@ -193,7 +192,7 @@ func TestKV_AddRemoveUnsyncedWrite(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	rkv, err := newKV(txLog, kv, nil, nil)
 	require.NoError(t, err)
 
 	// Ensure the map's length is incremented every time
@@ -223,7 +222,7 @@ func TestKV_SaveLoadUnsyncedWrite(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	rkv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	rkv, err := newKV(txLog, kv, nil, nil)
 	require.NoError(t, err)
 
 	// Add unsynced writes to rkv
@@ -269,7 +268,7 @@ func TestKV_UpsertLocal(t *testing.T) {
 		}
 	}
 
-	rkv, err := NewOrLoadKV(txLog, kv, nil, mockCb, nil)
+	rkv, err := newKV(txLog, kv, mockCb, nil)
 	require.NoError(t, err)
 
 	// Populate w/ initial values

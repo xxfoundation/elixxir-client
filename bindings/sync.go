@@ -8,11 +8,15 @@
 package bindings
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/sync"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -180,7 +184,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV implements a remote KV to handle transaction logs. It writes and
 // reads state data from another device to a remote storage interface.
 type RemoteKV struct {
-	rkv *sync.KV
+	rkv *sync.VersionedKV
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -236,7 +240,7 @@ type RemoteKVCallbacks interface {
 	RemoteStoreResult(remoteStoreReport []byte)
 }
 
-// NewOrLoadSyncRemoteKV will construct a [RemoteKV].
+// NewOrLoadSyncRemoteKV will construct a remote [KV].
 //
 // Parameters:
 //   - storageDir - the path to the ekv
@@ -277,7 +281,22 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	}
 
 	// Construct txLog path
-	txLogPath := "txLog/" + "blahnexticket"
+	// NOTE: the following assumes this is called after KV
+	//       initialization from calling NewCmix, so this needs to
+	//       be linked up to that somehow. That all likely needs to
+	//       be refactored.
+	instanceID, err := xxdk.LoadInstanceID(versionedKV)
+	if err != nil {
+		return nil, err
+	}
+	// Is the transmission key the right thing to load? Not sure..
+	uid, err := user.LoadUser(versionedKV)
+	if err != nil {
+		return nil, err
+	}
+	txKey := base64.RawURLEncoding.EncodeToString(
+		uid.GetTransmissionID().Bytes())
+	txLogPath := fmt.Sprintf("%s/%s", txKey, instanceID)
 
 	// Retrieve rng
 	frng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
@@ -292,7 +311,7 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	}
 
 	// Construct remote KV
-	rkv, err := sync.NewOrLoadKV(
+	rkv, err := sync.NewVersionedKV(
 		txLog, localKV, nil,
 		eventCb, updateCb)
 	if err != nil {
@@ -315,7 +334,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 	var updateCb = func(newTx sync.Transaction, err error) {
 		remoteStoreCbUtil(cb, newTx, err)
 	}
-	return s.rkv.SetRemote(path, data, updateCb)
+	return s.rkv.Remote().SetRemote(path, data, updateCb)
 }
 
 // Read retrieves the data stored in the underlying KV. Returns an error if the
@@ -324,7 +343,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 // Parameters:
 //   - path - The key that this data will be written to (i.e., the device name).
 func (s *RemoteKV) Read(path string) ([]byte, error) {
-	return s.rkv.GetBytes(path)
+	return s.rkv.Remote().GetBytes(path)
 }
 
 // GetList returns all entries for a path (or key) that contain the name
@@ -342,7 +361,7 @@ func (s *RemoteKV) Read(path string) ([]byte, error) {
 // Returns:
 //   - []byte - JSON of [sync.KeyValueMap].
 func (s *RemoteKV) GetList(name string) ([]byte, error) {
-	return s.rkv.GetList(name)
+	return s.rkv.Remote().GetList(name)
 }
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.

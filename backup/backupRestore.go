@@ -17,7 +17,9 @@ import (
 	"gitlab.com/elixxir/client/v4/ud"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBackup "gitlab.com/elixxir/crypto/backup"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -29,6 +31,11 @@ import (
 func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 	sessionPassword []byte, backupFileContents []byte) ([]*id.ID,
 	string, error) {
+
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
+		csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
+	defer rngStream.Close()
 
 	backUp := &cryptoBackup.Backup{}
 	err := backUp.Decrypt(backupPassphrase, backupFileContents)
@@ -52,7 +59,7 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 	// Note we do not need registration here
 	storageSess, err := xxdk.CheckVersionAndSetupStorage(def, storageDir,
 		sessionPassword, userInfo, cmixGrp, e2eGrp,
-		backUp.RegistrationCode)
+		backUp.RegistrationCode, rngStream)
 	if err != nil {
 		return nil, "", err
 	}

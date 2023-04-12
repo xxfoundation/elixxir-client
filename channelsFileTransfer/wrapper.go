@@ -197,8 +197,8 @@ func (w *Wrapper) Upload(fileData []byte, retry float32,
 	if _, exists := w.m.received.GetTransfer(fid); exists {
 		jww.DEBUG.Printf("[FT] File %s already downloading", fid)
 		// TODO: Handle an upload that is currently downloading by adding the
-		//  file data to the event model and marking the receive file transfer
-		//  as complete; need to figure out how to handle file link
+		//  file data to the event model and marking the upload as complete;
+		//  need to figure out how to handle file link.
 		return ftCrypto.ID{}, errors.Errorf("file currently downloading; " +
 			"wait for process to finish to continue")
 	}

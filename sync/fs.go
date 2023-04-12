@@ -77,3 +77,8 @@ func (f *FileSystemStorage) GetLastModified(path string) (
 func (f *FileSystemStorage) GetLastWrite() (time.Time, error) {
 	return utils.GetLastModified(f.baseDir)
 }
+
+// ReadDir implements [RemoteStore.ReadDir] and gets a file listing.
+func (f *FileSystemStorage) ReadDir(path string) ([]string, error) {
+	return utils.ReadDir(path)
+}

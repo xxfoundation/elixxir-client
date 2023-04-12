@@ -56,9 +56,6 @@ type RemoteKV interface {
 	// SetRemote will write a transaction to the remote and local store
 	// with the specified RemoteCB RemoteStoreCallback
 	SetRemote(key string, val []byte, updateCb RemoteStoreCallback) error
-	// GetList is a wrapper of [LocalStore.GetList]. This will return a JSON
-	// marshalled [KeyValueMap].
-	GetList(name string) ([]byte, error)
 
 	// UpsertLocal performs an upsert operation and sets the resultant
 	// value to the local EKV. It is a LOCAL ONLY operation which will
@@ -138,7 +135,7 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValue,
 	synchedPrefixes []string,
 	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback, rng io.Reader) (*KV, error) {
+	updateCb RemoteStoreCallback, rng io.Reader) (*VersionedKV, error) {
 	if isRemote(kv) {
 		jww.FATAL.Panicf("cannot open remote kv as local")
 	}
@@ -147,7 +144,7 @@ func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValu
 	if err != nil {
 		return nil, err
 	}
-	return NewOrLoadKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
+	return NewVersionedKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

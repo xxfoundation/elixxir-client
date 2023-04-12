@@ -141,6 +141,7 @@ func newTransactionLog(path string, localFS FileIO, remote RemoteStore,
 		txs:          make([]Transaction, 0),
 		deviceSecret: deviceSecret,
 		rng:          rng,
+		offsets:      make(deviceOffset, 0),
 	}
 
 	// Attempt to read stored transaction log

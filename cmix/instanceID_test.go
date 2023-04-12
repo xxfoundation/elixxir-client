@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package xxdk
+package cmix
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 // TestInstanceID performs basic smoke testing of the type
 func TestInstanceID(t *testing.T) {
 	rng := rand.New(rand.NewSource(8675309))
-	generated, err := generateInstanceID(rng)
+	generated, err := GenerateInstanceID(rng)
 
 	require.NoError(t, err)
 	require.Equal(t, instanceIDLength, len(generated[:]))

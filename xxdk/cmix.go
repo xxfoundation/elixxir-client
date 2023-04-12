@@ -154,9 +154,8 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	if err != nil {
 		return nil, err
 	}
-	versioned := sync.NewVersionedKV(storageKV)
 
-	storageSess, err := storage.Load(versioned, currentVersion)
+	storageSess, err := storage.Load(storageKV, currentVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -653,8 +652,7 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	if err != nil {
 		return nil, err
 	}
-	versioned := sync.NewVersionedKV(storageKV)
-	storageSess, err := storage.New(versioned, userInfo,
+	storageSess, err := storage.New(storageKV, userInfo,
 		currentVersion, cmixGrp, e2eGrp)
 	if err != nil {
 		return nil, err
@@ -667,11 +665,11 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	storageSess.SetRegCode(registrationCode)
 
 	// Create and store an instance ID
-	instanceID, err := generateInstanceID(rng)
+	instanceID, err := cmix.GenerateInstanceID(rng)
 	if err != nil {
 		return nil, err
 	}
-	err = StoreInstanceID(instanceID, storageSess.GetKV())
+	err = cmix.StoreInstanceID(instanceID, storageSess.GetKV())
 	if err != nil {
 		return nil, err
 	}

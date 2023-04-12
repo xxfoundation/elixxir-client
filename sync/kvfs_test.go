@@ -16,7 +16,7 @@ import (
 )
 
 // Ensure EkvLocalStore adheres to LocalStore.
-var _ LocalStore = &EkvLocalStore{}
+var _ FileIO = &KVFilesystem{}
 
 // Smoke test for EkvLocalStore that executes every method of LocalStore.
 //

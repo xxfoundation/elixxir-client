@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/sync"
-	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -282,7 +282,7 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	//       initialization from calling NewCmix, so this needs to
 	//       be linked up to that somehow. That all likely needs to
 	//       be refactored.
-	instanceID, err := xxdk.LoadInstanceID(versionedKV)
+	instanceID, err := cmix.LoadInstanceID(versionedKV)
 	if err != nil {
 		return nil, err
 	}

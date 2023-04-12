@@ -11,6 +11,7 @@ package sync
 
 import (
 	"encoding/base64"
+	"math/rand"
 	"os"
 	"sort"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/ekv"
 )
 
@@ -25,6 +27,7 @@ const baseDir = "collector_tests/"
 
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
 	syncPath := baseDir + "collector/"
 	txLog := makeTransactionLog(syncPath, password, t)
 
@@ -35,7 +38,9 @@ func TestNewCollector(t *testing.T) {
 	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
-	myId := "testingMyId"
+	myId, err := cmix.GenerateInstanceID(rng)
+	require.NoError(t, err)
+	cmix.StoreInstanceID(myId, remoteKv)
 
 	workingDir := baseDir + "remoteFsSmoke/"
 	// Delete the test file at the end
@@ -43,12 +48,12 @@ func TestNewCollector(t *testing.T) {
 
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 
-	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
+	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 
 	expected := &Collector{
 		syncPath:             syncPath,
-		myID:                 DeviceID(myId),
-		lastUpdates:          make(changeLogger, 0),
+		myID:                 myId,
+		lastUpdates:          make(map[cmix.InstanceID]time.Time, 0),
 		SynchronizationEpoch: synchronizationEpoch,
 		deviceTxTracker:      newDeviceTransactionTracker(),
 		txLog:                txLog,
@@ -89,24 +94,29 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	// Write mock data to file (collectChanges will read from file)
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]string, 0)
-	for i, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockDeviceId := strconv.Itoa(i)
+	rng := rand.New(rand.NewSource(42))
+	for _, remoteTxLogEnc := range remoteTxLogsEnc {
+		mockDeviceId, err := cmix.GenerateInstanceID(rng)
+		require.NoError(t, err)
 		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
 		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockDeviceId, mockTxLog))
-		devices = append(devices, mockDeviceId)
+		require.NoError(t, fsRemote.Write(mockDeviceId.String(), mockTxLog))
+		devices = append(devices, mockDeviceId.String())
 	}
 
 	// Construct collector
-	myId := "testingMyId"
-	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
+	myId, _ := cmix.GenerateInstanceID(rng)
+	cmix.StoreInstanceID(myId, remoteKv)
+	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 
 	_, err = collector.collectChanges(devices)
 	require.NoError(t, err)
 
 	// Ensure device tracker has proper length for all devices
-	for _, dvcId := range devices {
-		received := collector.deviceTxTracker.changes[DeviceID(dvcId)]
+	for _, dvcIdStr := range devices {
+		dvcId, err := cmix.InstanceIDFromString(dvcIdStr)
+		require.NoError(t, err)
+		received := collector.deviceTxTracker.changes[dvcId]
 		require.Len(t, received, 6)
 	}
 
@@ -150,8 +160,10 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	}
 
 	// Construct collector
-	myId := "testingMyId"
-	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
+	rng := rand.New(rand.NewSource(42))
+	myId, _ := cmix.GenerateInstanceID(rng)
+	cmix.StoreInstanceID(myId, remoteKv)
+	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 	_, err = collector.collectChanges(devices)
 	require.NoError(t, err)
 	require.NoError(t, collector.applyChanges())
@@ -174,7 +186,8 @@ func TestDeviceTransactionTracker_AddToDevice(t *testing.T) {
 	}
 
 	// Add changes to tracker
-	deviceId := DeviceID("device")
+	rng := rand.New(rand.NewSource(42))
+	deviceId, _ := cmix.GenerateInstanceID(rng)
 	dvcTracker.AddToDevice(deviceId, changes)
 
 	// Ensure changes have been put into tracker
@@ -201,7 +214,8 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 	}
 
 	// Add changes to tracker
-	deviceId := DeviceID("device")
+	rng := rand.New(rand.NewSource(42))
+	deviceId, _ := cmix.GenerateInstanceID(rng)
 	dvcTracker.AddToDevice(deviceId, changes)
 
 	// Ensure next retrieves changes put into tracker

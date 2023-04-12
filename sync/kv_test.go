@@ -8,7 +8,10 @@
 package sync
 
 import (
+	"os"
+	"runtime/pprof"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,9 +59,13 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Call NewOrLoad where it should load intents
-	done := make(chan struct{})
+	cnt := 0
+	lck := sync.Mutex{}
+	lck.Lock() // absolutely 0 of these should complete
 	var updateCb RemoteStoreCallback = func(newTx Transaction, err error) {
-		done <- struct{}{}
+		lck.Lock()
+		defer lck.Unlock()
+		cnt += 1
 	}
 
 	// Create remote kv
@@ -66,18 +73,6 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	require.NoError(t, err)
 
 	const numTests = 100
-
-	// empty channel as callbacks are received
-	go func() {
-		cnt := 0
-		select {
-		case <-done:
-			cnt += 1
-			if cnt == numTests {
-				return
-			}
-		}
-	}()
 
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
@@ -93,6 +88,16 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, loaded.UnsyncedWrites, numTests)
+
+	// ok now allow the callbacks to run
+	lck.Unlock()
+	ok := txLog.WaitForRemote(60 * time.Second)
+	if !ok {
+		t.Errorf("threads failed to stop")
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+	}
+
+	require.Equal(t, numTests, cnt)
 }
 
 // Unit test of KV.Set.

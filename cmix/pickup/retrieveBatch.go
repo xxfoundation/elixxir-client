@@ -92,7 +92,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			continue
 		}
 
-		jww.TRACE.Printf("[processBatchMessageRetrieval] Sending batch message request for %d rounds", len(batch))
+		jww.DEBUG.Printf("[processBatchMessageRetrieval] Sending batch message request for %d rounds", len(batch))
 
 		// Reset timer
 		timer.Stop()
@@ -131,8 +131,8 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 					default:
 						jww.ERROR.Printf("[processBatchMessageRetrieval] Failed to return pickup request %+v to queue after failure to contact proxy gateway", orderedBatch[i])
 					}
-
 				}
+				return
 			}
 
 			// Process responses

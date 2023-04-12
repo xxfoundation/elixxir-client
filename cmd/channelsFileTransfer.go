@@ -232,10 +232,10 @@ func (em *ftEventModel) createOrJoinChannel(chanPath string, newChannel,
 		}
 	} else {
 		// Load channel
-		marshalledChan, err2 := utils.ReadFile(chanPath)
-		if err2 != nil {
+		marshalledChan, err := utils.ReadFile(chanPath)
+		if err != nil {
 			return nil,
-				errors.Errorf("failed to read channel from file: %+v", err2)
+				errors.Errorf("failed to read channel from file: %+v", err)
 		}
 
 		channel, err = cryptoBroadcast.UnmarshalChannel(marshalledChan)
@@ -349,10 +349,10 @@ func (em *ftEventModel) receiveFileLink(outputPath string, done chan struct{}) {
 
 				if completed {
 					// Get file from event model
-					f, err2 := em.GetFile(rt.GetFileID())
-					if err2 != nil && !channels.CheckNoMessageErr(err) {
+					f, err := em.GetFile(rt.GetFileID())
+					if err != nil && !channels.CheckNoMessageErr(err) {
 						jww.FATAL.Panicf("[FT] Failed to get file %s: %+v",
-							rt.GetFileID(), err2)
+							rt.GetFileID(), err)
 					} else if channels.CheckNoMessageErr(err) || f.Data == nil {
 						for f.Data == nil {
 							select {

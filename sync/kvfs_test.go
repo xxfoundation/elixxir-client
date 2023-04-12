@@ -15,7 +15,14 @@ import (
 	"gitlab.com/elixxir/ekv"
 )
 
-// Smoke test for EkvLocalStore that executes Read/Write methods of LocalStore.
+// Ensure EkvLocalStore adheres to LocalStore.
+var _ LocalStore = &EkvLocalStore{}
+
+// Smoke test for EkvLocalStore that executes every method of LocalStore.
+//
+// As of writing, EkvLocalStore heavily utilizes the ekv.KeyValue
+// implementation. As such, testing is light touch as heavier testing exists
+// within the dependency.
 func TestEkvLocalStore_Smoke(t *testing.T) {
 	path := "test.txt"
 	data := []byte("Test string.")

@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"os"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"testing"
@@ -95,6 +96,12 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 		newTx := NewTransaction(curTs, key, []byte(val))
 
 		require.NoError(t, txLog.Append(newTx, appendCb))
+	}
+
+	ok := txLog.WaitForRemote(60 * time.Second)
+	if !ok {
+		t.Errorf("threads failed to stop")
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 	}
 
 	// Construct a new TransactionLog, which will load from file

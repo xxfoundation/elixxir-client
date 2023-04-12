@@ -138,6 +138,10 @@ func (r *remoteStoreFileSystemWrapper) Write(path string, data []byte) error {
 	return r.bindingsAPI.Write(path, data)
 }
 
+func (r *remoteStoreFileSystemWrapper) ReadDir(path string) ([]string, error) {
+	panic("unimplmented")
+}
+
 // GetLastModified returns when the file at the given file path was last
 // modified. If the implementation that adheres to this interface does not
 // support this, [Write] or [Read] should be implemented to either write a
@@ -180,7 +184,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV implements a remote KV to handle transaction logs. It writes and
 // reads state data from another device to a remote storage interface.
 type RemoteKV struct {
-	rkv *sync.KV
+	rkv *sync.VersionedKV
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -304,7 +308,7 @@ func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallback
 	}
 
 	// Construct remote KV
-	rkv, err := sync.NewOrLoadKV(
+	rkv, err := sync.NewVersionedKV(
 		txLog, localKV, nil,
 		eventCb, updateCb)
 	if err != nil {
@@ -327,7 +331,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 	var updateCb = func(newTx sync.Transaction, err error) {
 		remoteStoreCbUtil(cb, newTx, err)
 	}
-	return s.rkv.SetRemote(path, data, updateCb)
+	return s.rkv.Remote().SetRemote(path, data, updateCb)
 }
 
 // Read retrieves the data stored in the underlying KV. Returns an error if the
@@ -336,7 +340,7 @@ func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
 // Parameters:
 //   - path - The key that this data will be written to (i.e., the device name).
 func (s *RemoteKV) Read(path string) ([]byte, error) {
-	return s.rkv.GetBytes(path)
+	return s.rkv.Remote().GetBytes(path)
 }
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.

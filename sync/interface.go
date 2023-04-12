@@ -43,6 +43,10 @@ type RemoteStore interface {
 	// GetLastWrite retrieves the most recent successful write
 	// operation that was received by RemoteStore.
 	GetLastWrite() (time.Time, error)
+
+	// ReadDir reads the named directory, returning all its directory entries
+	// sorted by filename.
+	ReadDir(path string) ([]string, error)
 }
 
 // UpsertCallback is a custom upsert handling for specific keys. When

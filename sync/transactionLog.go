@@ -166,8 +166,6 @@ func newTransactionLog(path string, localFS FileIO, remote RemoteStore,
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
 func (tl *TransactionLog) Append(newTx Transaction,
 	remoteCb RemoteStoreCallback) error {
-	atomic.AddInt32(&tl.openWrites, 1)
-	defer atomic.AddInt32(&tl.openWrites, -1)
 	tl.lck.Lock()
 	defer tl.lck.Unlock()
 	// Insert new transaction into list
@@ -211,35 +209,40 @@ func (tl *TransactionLog) WaitForRemote(timeout time.Duration) bool {
 // Note that this operation is NOT thread-safe, and the caller should hold the
 // lck.
 func (tl *TransactionLog) appendUsingInsertion(newTransaction Transaction) {
+	tl.txs = insertionSort(tl.txs, newTransaction)
+}
+
+// insertionSort is a helper function which will insert a new Transaction to
+// the list of Transaction's sorted by its timestamp.
+func insertionSort(curTxs []Transaction, newTransaction Transaction) []Transaction {
 	// If list is empty, just append
-	if tl.txs == nil || len(tl.txs) == 0 {
-		tl.txs = []Transaction{newTransaction}
-		return
+	if curTxs == nil || len(curTxs) == 0 {
+		return []Transaction{newTransaction}
 	}
 
-	for i := len(tl.txs); i != 0; i-- {
+	for i := len(curTxs); i != 0; i-- {
 		curidx := i - 1
-		if tl.txs[curidx].Timestamp.After(newTransaction.Timestamp) {
+		if curTxs[curidx].Timestamp.After(newTransaction.Timestamp) {
 			// If we are the start of the list, place at the beginning
 			if curidx == 0 {
-				tl.txs = append([]Transaction{newTransaction}, tl.txs...)
-				return
+				curTxs = append([]Transaction{newTransaction}, curTxs...)
+				return curTxs
 			}
 			continue
 		}
 		// If the current index is Before, insert just after this index
-		insertionIndex := i
+		insertidx := i
 		// Just append when we are at the end already
-		if insertionIndex == len(tl.txs) {
-			tl.txs = append(tl.txs, newTransaction)
+		if insertidx == len(curTxs) {
+			curTxs = append(curTxs, newTransaction)
 		} else {
-			tl.txs = append(tl.txs[:insertionIndex+1], tl.txs[insertionIndex:]...)
-			tl.txs[insertionIndex] = newTransaction
+			curTxs = append(curTxs[:insertidx+1], curTxs[insertidx:]...)
+			curTxs[insertidx] = newTransaction
 
 		}
-		return
+		return curTxs
 	}
-	return
+	return curTxs
 }
 
 // appendUsingInsertion will write the new Transaction to txs. txs must be
@@ -392,7 +395,7 @@ func (tl *TransactionLog) deserialize(data []byte) error {
 	return nil
 }
 
-// save writes the data passed int to file, both remotely and locally. The data
+// save writes the data passed in to file, both remotely and locally. The data
 // created from serialize.
 func (tl *TransactionLog) save(newTx Transaction,
 	dataToSave []byte, remoteCb RemoteStoreCallback) error {
@@ -407,7 +410,11 @@ func (tl *TransactionLog) save(newTx Transaction,
 	}
 
 	// Do not let remote writing block operations
-	go tl.saveToRemote(newTx, dataToSave, remoteCb)
+	atomic.AddInt32(&tl.openWrites, 1)
+	go func() {
+		tl.saveToRemote(newTx, dataToSave, remoteCb)
+		atomic.AddInt32(&tl.openWrites, -1)
+	}()
 	return nil
 }
 

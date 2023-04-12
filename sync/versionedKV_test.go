@@ -9,6 +9,8 @@ package sync
 
 import (
 	"fmt"
+	"os"
+	"runtime/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -132,7 +134,11 @@ func TestVersionedKV(t *testing.T) {
 		}
 	}
 
-	rkv.remoteKV.WaitForRemote(30 * time.Second)
+	ok := rkv.remoteKV.WaitForRemote(60 * time.Second)
+	if !ok {
+		t.Errorf("threads failed to stop")
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+	}
 
 	for k, v := range expTxs {
 		storedV, ok := txs[k]
@@ -254,7 +260,11 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 		}
 	}
 
-	rkv.remoteKV.WaitForRemote(30 * time.Second)
+	ok := rkv.remoteKV.WaitForRemote(60 * time.Second)
+	if !ok {
+		t.Errorf("threads failed to stop")
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+	}
 
 	for k, v := range expTxs {
 		storedV, ok := txs[k]

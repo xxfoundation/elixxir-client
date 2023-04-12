@@ -318,11 +318,14 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	}
 
 	// Load extension builders from singleton
-	var ebIDS []int
-	if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
-		return nil, err
+	var extensionBuilders []channels.ExtensionBuilder
+	if len(extensionBuilderIDsJSON) == 0 {
+		var ebIDS []int
+		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
+			return nil, err
+		}
+		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
-	extensionBuilders := channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 
 	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
 		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
@@ -447,11 +450,14 @@ func NewChannelsManager(cmixID int, privateIdentity,
 	}
 
 	// Load extension builders from singleton
-	var ebIDS []int
-	if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
-		return nil, err
+	var extensionBuilders []channels.ExtensionBuilder
+	if len(extensionBuilderIDsJSON) == 0 {
+		var ebIDS []int
+		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
+			return nil, err
+		}
+		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
-	extensionBuilders := channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 
 	eb := func(path string) (channels.EventModel, error) {
 		return NewEventModel(eventBuilder.Build(path)), nil
@@ -545,11 +551,14 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	}
 
 	// Load extension builders from singleton
-	var ebIDS []int
-	if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
-		return nil, err
+	var extensionBuilders []channels.ExtensionBuilder
+	if len(extensionBuilderIDsJSON) == 0 {
+		var ebIDS []int
+		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
+			return nil, err
+		}
+		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
-	extensionBuilders := channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 
 	// Construct new channels manager
 	m, err := channels.NewManagerBuilder(

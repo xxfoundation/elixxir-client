@@ -8,18 +8,11 @@
 package bindings
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/sync"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/csprng"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -181,8 +174,14 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV Methods                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
-// RemoteKV implements a remote KV to handle transaction logs. It writes and
-// reads state data from another device to a remote storage interface.
+// RemoteKV implements a bindings-friendly subset of a [versioned.KV]. It has
+// additional features to store and load maps. It uses strings of json for
+// [versioned.Object] to get and set all data. All operations over the bindings
+// interface are prefixed by the "bindings" prefix, and this prefix is always
+// remotely synchronized.
+//
+// RemoteKV is instantiated and an instance is acquired via the Cmix object
+// [Cmix.GetRemoteKV] function. (TODO: write this function)
 type RemoteKV struct {
 	rkv *sync.VersionedKV
 }
@@ -240,108 +239,140 @@ type RemoteKVCallbacks interface {
 	RemoteStoreResult(remoteStoreReport []byte)
 }
 
-// NewOrLoadSyncRemoteKV will construct a remote [KV].
-//
-// Parameters:
-//   - storageDir - the path to the ekv
-//   - remoteKvCallbacks - A [RemoteKVCallbacks]. These will be the callbacks
-//     that are called for [RemoteStore] operations.
-//   - remote - A [RemoteStore]. This will be a structure the consumer
-//     implements. This acts as a wrapper around the remote storage API
-//     (e.g., Google Drive's API, DropBox's API, etc.).
-func NewOrLoadSyncRemoteKV(storageDir string, remoteKvCallbacks RemoteKVCallbacks,
-	remote RemoteStore) (*RemoteKV, error) {
-
-	// todo: properly define
-	var deviceSecret = []byte("dummy, replace")
-	// deviceSecret = e2eCl.GetDeviceSecret()
-
-	localKV, err := ekv.NewFilestore(storageDir, string(deviceSecret))
+// Get returns the object stored at the specified version.
+// returns a json of [versioned.Object]
+func (r *RemoteKV) Get(key string, version int64) ([]byte, error) {
+	obj, err := r.rkv.Get(key, uint64(version))
 	if err != nil {
 		return nil, err
 	}
-
-	versionedKV := versioned.NewKV(localKV)
-
-	// Construct the key update CB
-	var eventCb sync.KeyUpdateCallback = func(key string, oldVal, newVal []byte,
-		updated bool) {
-		remoteKvCallbacks.KeyUpdated(key, oldVal, newVal, updated)
-	}
-	// Construct update CB
-	var updateCb sync.RemoteStoreCallback = func(newTx sync.Transaction,
-		err error) {
-		remoteStoreCbUtil(remoteKvCallbacks, newTx, err)
-	}
-
-	// Construct local storage
-	local := sync.NewKVFilesystem(localKV)
-
-	// Construct txLog path
-	// NOTE: the following assumes this is called after KV
-	//       initialization from calling NewCmix, so this needs to
-	//       be linked up to that somehow. That all likely needs to
-	//       be refactored.
-	instanceID, err := cmix.LoadInstanceID(versionedKV)
-	if err != nil {
-		return nil, err
-	}
-	// Is the transmission key the right thing to load? Not sure..
-	uid, err := user.LoadUser(versionedKV)
-	if err != nil {
-		return nil, err
-	}
-	txKey := base64.RawURLEncoding.EncodeToString(
-		uid.GetTransmissionID().Bytes())
-	txLogPath := fmt.Sprintf("%s/%s", txKey, instanceID)
-
-	// Retrieve rng
-	frng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	rng := frng.GetStream()
-
-	// Construct or load a transaction log
-	txLog, err := sync.NewTransactionLog(txLogPath, local,
-		newRemoteStoreFileSystemWrapper(remote),
-		deviceSecret, rng)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct remote KV
-	rkv, err := sync.NewVersionedKV(
-		txLog, localKV, nil,
-		eventCb, updateCb)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RemoteKV{rkv: rkv}, nil
+	return json.Marshal(obj)
 }
 
-// Write writes a transaction to the remote and local store.
-//
-// Parameters:
-//   - path - The key that this data will be written to (i.e., the device name,
-//     the channel name, etc.). Certain keys should follow a pattern and contain
-//     special characters (see [RemoteKV.GetList] for details).
-//   - data - The data that will be stored (i.e., state data).
-//   - cb - A [RemoteKVCallbacks]. This may be nil if you do not care about the
-//     network report.
-func (s *RemoteKV) Write(path string, data []byte, cb RemoteKVCallbacks) error {
-	var updateCb = func(newTx sync.Transaction, err error) {
-		remoteStoreCbUtil(cb, newTx, err)
-	}
-	return s.rkv.Remote().SetRemote(path, data, updateCb)
+// Delete removes a given key from the data store.
+func (r *RemoteKV) Delete(key string, version int64) error {
+	return r.rkv.Delete(key, uint64(version))
 }
 
-// Read retrieves the data stored in the underlying KV. Returns an error if the
-// data at this key cannot be retrieved.
-//
-// Parameters:
-//   - path - The key that this data will be written to (i.e., the device name).
-func (s *RemoteKV) Read(path string) ([]byte, error) {
-	return s.rkv.Remote().GetBytes(path)
+// Set upserts new data into the storage
+// When calling this, you are responsible for prefixing the
+// key with the correct type optionally unique id! Call
+// MakeKeyWithPrefix() to do so.
+// The [Object] should contain the versioning if you are
+// maintaining such a functionality.
+func (r *RemoteKV) Set(key string, objectJSON []byte) error {
+	obj := versioned.Object{}
+	err := json.Unmarshal(objectJSON, &obj)
+	if err != nil {
+		return err
+	}
+	return r.rkv.Set(key, &obj)
 }
+
+// GetPrefix returns the full Prefix of the KV
+func (r *RemoteKV) GetPrefix() string {
+	return r.rkv.GetPrefix()
+}
+
+// HasPrefix returns whether this prefix exists in the KV
+func (r *RemoteKV) HasPrefix(prefix string) bool {
+	return r.rkv.HasPrefix(prefix)
+}
+
+// Prefix returns a new KV with the new prefix appending
+func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
+	newK, err := r.rkv.Prefix(prefix)
+	if err != nil {
+		return nil, err
+	}
+	newRK := &RemoteKV{
+		rkv: newK.(*sync.VersionedKV),
+	}
+	return newRK, nil
+}
+
+// Root returns the KV with no prefixes
+func (r *RemoteKV) Root() (*RemoteKV, error) {
+	newK, err := r.rkv.Root().Prefix("bindings")
+	if err != nil {
+		return nil, err
+	}
+	newRK := &RemoteKV{
+		rkv: newK.(*sync.VersionedKV),
+	}
+	return newRK, nil
+}
+
+// IsMemStore returns true if the underlying KV is memory based
+func (r *RemoteKV) IsMemStore() bool {
+	return r.rkv.IsMemStore()
+}
+
+// GetFullKey returns the key with all prefixes appended
+func (r *RemoteKV) GetFullKey(key string, version int64) string {
+	return r.rkv.GetFullKey(key, uint64(version))
+}
+
+// StoreMapElement stores a versioned map element into the KV. This relies
+// on the underlying remote [KV.StoreMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+// All Map storage functions update the remote.
+// valueJSON is a json of a versioned.Object
+func (r *RemoteKV) StoreMapElement(mapName, elementKey string,
+	valueJSON []byte, version int64) error {
+	obj := versioned.Object{}
+	err := json.Unmarshal(valueJSON, &obj)
+	if err != nil {
+		return err
+	}
+	return r.rkv.StoreMapElement(mapName, elementKey, &obj, uint64(version))
+}
+
+// StoreMap saves a versioned map element into the KV. This relies
+// on the underlying remote [KV.StoreMap] function to lock and control
+// updates, but it uses [versioned.Object] values.
+// All Map storage functions update the remote.
+// valueJSON is a json of map[string]*versioned.Object
+func (r *RemoteKV) StoreMap(mapName string,
+	valueJSON []byte, version int64) error {
+	obj := make(map[string]*versioned.Object)
+	err := json.Unmarshal(valueJSON, &obj)
+	if err != nil {
+		return err
+	}
+	return r.rkv.StoreMap(mapName, obj, uint64(version))
+}
+
+// GetMap loads a versioned map from the KV. This relies
+// on the underlying remote [KV.GetMap] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *RemoteKV) GetMap(mapName string, version int64) ([]byte, error) {
+	mapData, err := r.rkv.GetMap(mapName, uint64(version))
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(mapData)
+}
+
+// GetMapElement loads a versioned map element from the KV. This relies
+// on the underlying remote [KV.GetMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
+	[]byte, error) {
+	obj, err := r.rkv.GetMapElement(mapName, element, uint64(version))
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(obj)
+}
+
+// TODO: functions to implement potentially in the future.
+// GetAndUpgrade gets and upgrades data stored in the key/value store.
+// Make sure to inspect the version returned in the versioned object.
+// GetAndUpgrade(key string, ut UpgradeTable) (*Object, error)
+// Exists returns if the error indicates a KV error showing
+// the key exists.
+// Exists(err error) bool
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.
 func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Transaction, err error) {

@@ -67,14 +67,14 @@ type Collector struct {
 	remote RemoteStore
 
 	// The remote storage EKV wrapper
-	kv *KV
+	kv *VersionedKV
 
 	deviceTxTracker *deviceTransactionTracker
 }
 
 // NewCollector constructs a collector object.
 func NewCollector(syncPath string, myId string, txLog *TransactionLog,
-	remote RemoteStore, kv *KV) *Collector {
+	remote RemoteStore, kv *VersionedKV) *Collector {
 	return &Collector{
 		syncPath:             syncPath,
 		myID:                 DeviceID(myId),
@@ -254,14 +254,14 @@ func (c *Collector) applyChanges() error {
 		// local value (because local is ahead) and we will overwrite it
 		if tx.Timestamp.After(lastWrite) {
 			jww.WARN.Printf(localMoreRecentThanLocal, collectorLogHeader, tx.Key)
-			if err = c.kv.UpsertLocal(tx.Key, localVal); err != nil {
+			if err = c.kv.Remote().UpsertLocal(tx.Key, localVal); err != nil {
 				jww.WARN.Printf(upsertTxErr, collectorLogHeader, tx.Key, err)
 				continue
 			}
 
 		} else {
 
-			if err = c.kv.SetBytes(tx.Key, tx.Value); err != nil {
+			if err = c.kv.Remote().SetBytes(tx.Key, tx.Value); err != nil {
 				jww.WARN.Printf(localSetErr, collectorLogHeader, tx.Key, err)
 
 			}
@@ -306,7 +306,7 @@ func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, deviceId str
 // from storage. If it cannot retrieve the offset from local, it will assume
 // zero value.
 func (c *Collector) getTxLogOffset(deviceId string) int {
-	offsetData, err := c.kv.GetBytes(deviceOffsetKey(deviceId))
+	offsetData, err := c.kv.Remote().GetBytes(deviceOffsetKey(deviceId))
 	if err != nil {
 		jww.WARN.Printf(retrieveDeviceOffsetErr, collectorLogHeader, deviceId)
 	}
@@ -322,7 +322,7 @@ func (c *Collector) getTxLogOffset(deviceId string) int {
 // the given device to local storage.
 func (c *Collector) setTxLogOffset(deviceId string, offset int) error {
 	data := serializeInt(offset)
-	return c.kv.SetBytes(deviceOffsetKey(deviceId), data)
+	return c.kv.Remote().SetBytes(deviceOffsetKey(deviceId), data)
 }
 
 // deviceOffsetKey is a helper function which creates the key for

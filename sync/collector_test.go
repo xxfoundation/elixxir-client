@@ -32,7 +32,7 @@ func TestNewCollector(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	myId := "testingMyId"
@@ -79,7 +79,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"
@@ -131,7 +131,7 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewOrLoadKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"

@@ -59,6 +59,11 @@ type RemoteKV interface {
 	// GetList is a wrapper of [LocalStore.GetList]. This will return a JSON
 	// marshalled [KeyValueMap].
 	GetList(name string) ([]byte, error)
+
+	// UpsertLocal performs an upsert operation and sets the resultant
+	// value to the local EKV. It is a LOCAL ONLY operation which will
+	// write the Transaction to local store.
+	UpsertLocal(key string, newVal []byte) error
 }
 
 // internalKV implements a remote internalKV to handle transaction logs.

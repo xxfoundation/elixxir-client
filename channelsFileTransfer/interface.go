@@ -46,9 +46,9 @@ type FileTransfer interface {
 	/* === Sending ========================================================== */
 	// The process of sending a file involves three main steps:
 	//  1. Upload the file to a new identity using Upload. It is added to the
-	//     event model with the status SendProcessing.
-	//  2. Wait for the file to be marked as SendProcessingComplete in the event
-	//     model and get the file info stored there.
+	//     event model with the status Uploading.
+	//  2. Wait for the file to be marked as Complete in the event model and get
+	//     the file info stored there.
 	//  3. Send the file info to the channel using Send.
 	//
 	// When the file is uploaded, it is broken into individual, equal-length
@@ -112,7 +112,7 @@ type FileTransfer interface {
 
 	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual file upload. A SentProgressCallback
-	// is auto registered on Send; this function should be called when resuming
+	// is auto-registered on Send; this function should be called when resuming
 	// clients or registering extra callbacks.
 	//
 	// The callback will be called immediately when added to report the current
@@ -158,21 +158,23 @@ type FileTransfer interface {
 	CloseSend(fileID ftCrypto.ID) error
 
 	/* === Receiving ======================================================== */
-	// The processes of receiving a file involves four main steps:
-	//  1. Receiving a new file transfer through a channel set up by the caller.
-	//  2. Registering the file transfer and a progress callback with
-	//     HandleIncomingTransfer.
-	//  3. Receiving transfer progress on the progress callback.
-	//  4. Receiving the complete file using Receive once the callback says the
-	//     transfer is complete.
+	// The process of receiving a file involves four main steps:
+	//  1. Receive file info from a channel message in the event model.
+	//  2. Initiate download and register a progress callback with Download. It
+	//     will be added to the event model with the status Downloading.
+	//  3. Receive transfer progress on the progress callback.
+	//  4. Once the status of the file is marked Complete in the event model, it
+	//     can be downloaded.
 	//
-	// Once the file transfer manager has started, it will call the
-	// ReceiveCallback for every new file transfer that is received. Once that
-	// happens, a ReceivedProgressCallback must be registered using
-	// RegisterReceivedProgressCallback to get progress updates on the transfer.a
+	// All file downloads are initiated by the user from file links they
+	// receive. A ReceivedProgressCallback must be registered to see the
+	// download progress. But the file can only be downloaded once marked
+	// Complete in the event model.
 	//
-	// When the progress callback reports that the transfer is complete, the
-	// full file can be retrieved using Receive.
+	// A ReceivedProgressCallback is registered on the initial download.
+	// However, if the client is closed and reopened, the callback must be
+	// registered again using RegisterReceivedProgressCallback; otherwise, the
+	// continued progress of the download will not be reported.
 
 	// Download begins the download of the file described in the marshalled
 	// FileInfo. The progress of the download is reported on the
@@ -201,7 +203,7 @@ type FileTransfer interface {
 		period time.Duration) (ftCrypto.ID, error)
 
 	// RegisterReceivedProgressCallback allows for the registration of a
-	// callback to track the progress of an individual received file transfer.
+	// callback to track the progress of an individual file download.
 	//
 	// The callback will be called immediately when added to report the current
 	// progress of the transfer. It will then call every time a file part is
@@ -212,8 +214,7 @@ type FileTransfer interface {
 	// used to re-register any callbacks previously registered.
 	//
 	// Once the download completes, the file will be stored in the event model
-	// with the given file ID and with the status
-	// channels.ReceptionProcessingComplete.
+	// with the given file ID and with the status Complete.
 	//
 	// The ReceivedProgressCallback only indicates the progress of the file
 	// download, not the status of the file in the event model. You must rely on

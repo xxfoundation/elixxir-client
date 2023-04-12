@@ -191,7 +191,7 @@ func (ft *ChannelsFileTransfer) Send(channelIdBytes, fileLinkJSON []byte,
 
 // RegisterSentProgressCallback allows for the registration of a callback to
 // track the progress of an individual file upload. A [FtSentProgressCallback]
-// is auto registered on [ChannelsFileTransfer.Send]; this function should be
+// is auto-registered on [ChannelsFileTransfer.Send]; this function should be
 // called when resuming clients or registering extra callbacks.
 //
 // The callback will be called immediately when added to report the current
@@ -354,7 +354,7 @@ func (ft *ChannelsFileTransfer) Download(fileInfoJSON []byte,
 }
 
 // RegisterReceivedProgressCallback allows for the registration of a callback to
-// track the progress of an individual received file transfer.
+// track the progress of an individual file download.
 //
 // The callback will be called immediately when added to report the current
 // progress of the transfer. It will then call every time a file part is
@@ -365,7 +365,7 @@ func (ft *ChannelsFileTransfer) Download(fileInfoJSON []byte,
 // used to re-register any callbacks previously registered.
 //
 // Once the download completes, the file will be stored in the event model with
-// the given file ID and with the status [channels.ReceptionProcessingComplete].
+// the given file ID and with the status [channelsFileTransfer.Complete].
 //
 // The [FtReceivedProgressCallback] only indicates the progress of the file
 // download, not the status of the file in the event model. You must rely on

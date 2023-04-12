@@ -142,7 +142,7 @@ var rootCmd = &cobra.Command{
 		numReg := 1
 		total := 100
 		jww.INFO.Printf("Registering with nodes...")
-		req := 7 / 10
+		req := 3 / 4
 		if cmixParams.Network.EnableEphemeralRegistration {
 			req = 4 / 10
 		}

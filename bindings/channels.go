@@ -319,7 +319,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 
 	// Load extension builders from singleton
 	var extensionBuilders []channels.ExtensionBuilder
-	if len(extensionBuilderIDsJSON) == 0 {
+	if len(extensionBuilderIDsJSON) != 0 {
 		var ebIDS []int
 		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
 			return nil, err
@@ -451,7 +451,7 @@ func NewChannelsManager(cmixID int, privateIdentity,
 
 	// Load extension builders from singleton
 	var extensionBuilders []channels.ExtensionBuilder
-	if len(extensionBuilderIDsJSON) == 0 {
+	if len(extensionBuilderIDsJSON) != 0 {
 		var ebIDS []int
 		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
 			return nil, err
@@ -552,7 +552,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 
 	// Load extension builders from singleton
 	var extensionBuilders []channels.ExtensionBuilder
-	if len(extensionBuilderIDsJSON) == 0 {
+	if len(extensionBuilderIDsJSON) != 0 {
 		var ebIDS []int
 		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
 			return nil, err

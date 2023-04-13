@@ -210,9 +210,9 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 		return err
 	}
 
-	if c.param.EnableEphemeralRegistration {
+	if c.param.EnableImmediateSending {
 		jww.INFO.Printf("Enabling ephemeral registration")
-		c.Registrar.SetEphemeralRegistrationEnabled(c.param.EnableEphemeralRegistration)
+		c.Registrar.SetImmediateSendingEnabled(c.param.EnableImmediateSending)
 	}
 	if c.param.DisableNodeRegistration {
 		c.Registrar.SetNodeRegistrationDisabled(c.param.DisableNodeRegistration)

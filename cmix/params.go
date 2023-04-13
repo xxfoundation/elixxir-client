@@ -66,9 +66,9 @@ type Params struct {
 	// ignored and local time is used
 	ClockSkewClamp time.Duration
 
-	// EnableEphemeralRegistration tells the registrar to allow use of ephemeral
+	// EnableImmediateSending tells the registrar to allow use of ephemeral
 	// ED keys to send to nodes before registration has completed.
-	EnableEphemeralRegistration bool
+	EnableImmediateSending bool
 
 	// DisableNodeRegistration tells the registrar to disable the registration
 	// subsystem. THIS SHOULD ONLY BE USED IN TESTING.
@@ -87,40 +87,40 @@ type Params struct {
 
 // paramsDisk will be the marshal-able and umarshal-able object.
 type paramsDisk struct {
-	TrackNetworkPeriod          time.Duration
-	MaxCheckedRounds            uint
-	RegNodesBufferLen           uint
-	NetworkHealthTimeout        time.Duration
-	ParallelNodeRegistrations   uint
-	KnownRoundsThreshold        uint
-	FastPolling                 bool
-	VerboseRoundTracking        bool
-	RealtimeOnly                bool
-	ReplayRequests              bool
-	Rounds                      rounds.Params
-	Pickup                      pickup.Params
-	Message                     message.Params
-	Historical                  rounds.Params
-	MaxParallelIdentityTracks   uint
-	EnableEphemeralRegistration bool
+	TrackNetworkPeriod        time.Duration
+	MaxCheckedRounds          uint
+	RegNodesBufferLen         uint
+	NetworkHealthTimeout      time.Duration
+	ParallelNodeRegistrations uint
+	KnownRoundsThreshold      uint
+	FastPolling               bool
+	VerboseRoundTracking      bool
+	RealtimeOnly              bool
+	ReplayRequests            bool
+	Rounds                    rounds.Params
+	Pickup                    pickup.Params
+	Message                   message.Params
+	Historical                rounds.Params
+	MaxParallelIdentityTracks uint
+	EnableImmediateSending    bool
 }
 
 // GetDefaultParams returns a Params object containing the
 // default parameters.
 func GetDefaultParams() Params {
 	n := Params{
-		TrackNetworkPeriod:          1000 * time.Millisecond,
-		MaxCheckedRounds:            500,
-		RegNodesBufferLen:           1000,
-		NetworkHealthTimeout:        15 * time.Second,
-		ParallelNodeRegistrations:   defaultParallelNodeRegistration,
-		KnownRoundsThreshold:        1500, // 5 rounds/sec * 60 sec/min * 5 min
-		FastPolling:                 true,
-		VerboseRoundTracking:        false,
-		ReplayRequests:              true,
-		MaxParallelIdentityTracks:   5,
-		ClockSkewClamp:              50 * time.Millisecond,
-		EnableEphemeralRegistration: false,
+		TrackNetworkPeriod:        1000 * time.Millisecond,
+		MaxCheckedRounds:          500,
+		RegNodesBufferLen:         1000,
+		NetworkHealthTimeout:      15 * time.Second,
+		ParallelNodeRegistrations: defaultParallelNodeRegistration,
+		KnownRoundsThreshold:      1500, // 5 rounds/sec * 60 sec/min * 5 min
+		FastPolling:               true,
+		VerboseRoundTracking:      false,
+		ReplayRequests:            true,
+		MaxParallelIdentityTracks: 5,
+		ClockSkewClamp:            50 * time.Millisecond,
+		EnableImmediateSending:    false,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()
@@ -146,21 +146,21 @@ func GetParameters(params string) (Params, error) {
 // MarshalJSON adheres to the json.Marshaler interface.
 func (p Params) MarshalJSON() ([]byte, error) {
 	pDisk := paramsDisk{
-		TrackNetworkPeriod:          p.TrackNetworkPeriod,
-		MaxCheckedRounds:            p.MaxCheckedRounds,
-		RegNodesBufferLen:           p.RegNodesBufferLen,
-		NetworkHealthTimeout:        p.NetworkHealthTimeout,
-		ParallelNodeRegistrations:   p.ParallelNodeRegistrations,
-		KnownRoundsThreshold:        p.KnownRoundsThreshold,
-		FastPolling:                 p.FastPolling,
-		VerboseRoundTracking:        p.VerboseRoundTracking,
-		ReplayRequests:              p.ReplayRequests,
-		Rounds:                      p.Rounds,
-		Pickup:                      p.Pickup,
-		Message:                     p.Message,
-		Historical:                  p.Historical,
-		MaxParallelIdentityTracks:   p.MaxParallelIdentityTracks,
-		EnableEphemeralRegistration: p.EnableEphemeralRegistration,
+		TrackNetworkPeriod:        p.TrackNetworkPeriod,
+		MaxCheckedRounds:          p.MaxCheckedRounds,
+		RegNodesBufferLen:         p.RegNodesBufferLen,
+		NetworkHealthTimeout:      p.NetworkHealthTimeout,
+		ParallelNodeRegistrations: p.ParallelNodeRegistrations,
+		KnownRoundsThreshold:      p.KnownRoundsThreshold,
+		FastPolling:               p.FastPolling,
+		VerboseRoundTracking:      p.VerboseRoundTracking,
+		ReplayRequests:            p.ReplayRequests,
+		Rounds:                    p.Rounds,
+		Pickup:                    p.Pickup,
+		Message:                   p.Message,
+		Historical:                p.Historical,
+		MaxParallelIdentityTracks: p.MaxParallelIdentityTracks,
+		EnableImmediateSending:    p.EnableImmediateSending,
 	}
 
 	return json.Marshal(&pDisk)
@@ -175,21 +175,21 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 	}
 
 	*p = Params{
-		TrackNetworkPeriod:          pDisk.TrackNetworkPeriod,
-		MaxCheckedRounds:            pDisk.MaxCheckedRounds,
-		RegNodesBufferLen:           pDisk.RegNodesBufferLen,
-		NetworkHealthTimeout:        pDisk.NetworkHealthTimeout,
-		ParallelNodeRegistrations:   pDisk.ParallelNodeRegistrations,
-		KnownRoundsThreshold:        pDisk.KnownRoundsThreshold,
-		FastPolling:                 pDisk.FastPolling,
-		VerboseRoundTracking:        pDisk.VerboseRoundTracking,
-		ReplayRequests:              pDisk.ReplayRequests,
-		Rounds:                      pDisk.Rounds,
-		Pickup:                      pDisk.Pickup,
-		Message:                     pDisk.Message,
-		Historical:                  pDisk.Historical,
-		MaxParallelIdentityTracks:   pDisk.MaxParallelIdentityTracks,
-		EnableEphemeralRegistration: pDisk.EnableEphemeralRegistration,
+		TrackNetworkPeriod:        pDisk.TrackNetworkPeriod,
+		MaxCheckedRounds:          pDisk.MaxCheckedRounds,
+		RegNodesBufferLen:         pDisk.RegNodesBufferLen,
+		NetworkHealthTimeout:      pDisk.NetworkHealthTimeout,
+		ParallelNodeRegistrations: pDisk.ParallelNodeRegistrations,
+		KnownRoundsThreshold:      pDisk.KnownRoundsThreshold,
+		FastPolling:               pDisk.FastPolling,
+		VerboseRoundTracking:      pDisk.VerboseRoundTracking,
+		ReplayRequests:            pDisk.ReplayRequests,
+		Rounds:                    pDisk.Rounds,
+		Pickup:                    pDisk.Pickup,
+		Message:                   pDisk.Message,
+		Historical:                pDisk.Historical,
+		MaxParallelIdentityTracks: pDisk.MaxParallelIdentityTracks,
+		EnableImmediateSending:    pDisk.EnableImmediateSending,
 	}
 
 	return nil

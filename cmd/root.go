@@ -145,7 +145,7 @@ var rootCmd = &cobra.Command{
 		// If ephemeral registration is enabled, lower required nodes
 		// registered before starting normal operations
 		threshold := 3 / 4
-		if cmixParams.Network.EnableEphemeralRegistration {
+		if cmixParams.Network.EnableImmediateSending {
 			threshold = 4 / 10
 		}
 
@@ -462,7 +462,7 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 		verboseRoundTrackingFlag)
 
 	cmixParams.Network.DisableNodeRegistration = viper.GetBool(disableNodeRegistrationFlag)
-	cmixParams.Network.EnableEphemeralRegistration = viper.GetBool(enableEphemeralRegistrationFlag)
+	cmixParams.Network.EnableImmediateSending = viper.GetBool(enableImmediateSendingFlag)
 
 	cmixParams.Network.WhitelistedGateways = viper.GetStringSlice(gatewayWhitelistFlag)
 
@@ -1228,9 +1228,9 @@ func init() {
 		"Use to disable registering with nodes.  This should be used FOR TESTING PURPOSES ONLY.")
 	viper.BindPFlag(disableNodeRegistrationFlag, rootCmd.Flags().Lookup(disableNodeRegistrationFlag))
 
-	rootCmd.Flags().BoolP(enableEphemeralRegistrationFlag, "", false,
+	rootCmd.Flags().BoolP(enableImmediateSendingFlag, "", false,
 		"Toggle to use ephemeral ED keys when attempting to send on a round with nodes you have not registered with")
-	viper.BindPFlag(enableEphemeralRegistrationFlag, rootCmd.Flags().Lookup(enableEphemeralRegistrationFlag))
+	viper.BindPFlag(enableImmediateSendingFlag, rootCmd.Flags().Lookup(enableImmediateSendingFlag))
 
 }
 

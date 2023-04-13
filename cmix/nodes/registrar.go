@@ -66,8 +66,8 @@ type registrar struct {
 
 	c chan network.NodeGateway
 
-	enableEphemeralRegistration bool
-	disableNodeRegistration     bool
+	enableImmediateSending  bool
+	disableNodeRegistration bool
 }
 
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
@@ -156,8 +156,8 @@ func (r *registrar) SetNodeRegistrationDisabled(disabled bool) {
 	r.disableNodeRegistration = disabled
 }
 
-func (r *registrar) SetEphemeralRegistrationEnabled(enabled bool) {
-	r.enableEphemeralRegistration = enabled
+func (r *registrar) SetImmediateSendingEnabled(enabled bool) {
+	r.enableImmediateSending = enabled
 }
 
 // ChangeNumberOfNodeRegistrations changes the number of parallel node
@@ -232,7 +232,7 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 				},
 			}
 			// Use ephemeral key for this node if enabled
-			if r.enableEphemeralRegistration {
+			if r.enableImmediateSending {
 				// Cannot use ephemeral key for first node in round
 				// (unless node registration is disabled).
 				if i == 0 && !r.disableNodeRegistration {

@@ -250,11 +250,11 @@ func (m *manager) initBroadcast(
 func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
 	// User message listener
-	p, err := broadcastChan.RegisterListener((&userListener{
+	p, err := broadcastChan.RegisterSymmetricListener((&userListener{
 		chID:      channel.ReceptionID,
 		trigger:   m.events.triggerEvent,
 		checkSent: m.st.MessageReceive,
-	}).Listen, broadcast.Symmetric)
+	}).Listen, nil)
 	if err != nil {
 		return nil, err
 	}

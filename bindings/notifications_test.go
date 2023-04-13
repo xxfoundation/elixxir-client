@@ -21,7 +21,7 @@ func TestNotificationReport(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		nr := NotificationReport{
 			ForMe:  true,
-			Type:   ratchet.E2e,
+			Type:   []string{ratchet.E2e},
 			Source: id.NewIdFromUInt(uint64(i), id.User, t).Bytes(),
 		}
 
@@ -30,6 +30,6 @@ func TestNotificationReport(t *testing.T) {
 
 	nrs := NotificationReports(reports)
 
-	marshal, _ := json.Marshal(nrs)
+	marshal, _ := json.MarshalIndent(nrs, " ", "	")
 	fmt.Printf("%s\n", marshal)
 }

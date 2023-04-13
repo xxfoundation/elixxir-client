@@ -73,7 +73,8 @@ func (ul *userListener) Listen(payload, encryptedPayload []byte, tags []string,
 
 	// Submit the message to the event model for listening
 	uuid, err := ul.trigger(
-		ul.chID, umi, encryptedPayload, ts, receptionID, round, Delivered)
+		ul.chID, umi, MessageType(messageType), encryptedPayload, ts, receptionID,
+		round, Delivered)
 	if err != nil {
 		jww.WARN.Printf(
 			"[CH] Error in passing off trigger for message (UUID: %d): %+v",

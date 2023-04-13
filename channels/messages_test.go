@@ -17,7 +17,7 @@ import (
 )
 
 func Test_unmarshalUserMessageInternal(t *testing.T) {
-	internal, usrMsg, _ := builtTestUMI(t, 7)
+	internal, usrMsg, _ := builtTestUMI(t)
 	channelID := &id.ID{}
 
 	usrMsgMarshaled, err := proto.Marshal(usrMsg)
@@ -53,7 +53,7 @@ func TestUnmarshalUserMessageInternal_BadUserMessage(t *testing.T) {
 }
 
 func TestUnmarshalUserMessageInternal_BadChannelMessage(t *testing.T) {
-	_, usrMsg, _ := builtTestUMI(t, 7)
+	_, usrMsg, _ := builtTestUMI(t)
 
 	usrMsg.Message = []byte("Malformed")
 
@@ -72,7 +72,7 @@ func TestUnmarshalUserMessageInternal_BadChannelMessage(t *testing.T) {
 }
 
 func Test_newUserMessageInternal_BadChannelMessage(t *testing.T) {
-	_, usrMsg, _ := builtTestUMI(t, 7)
+	_, usrMsg, _ := builtTestUMI(t)
 
 	usrMsg.Message = []byte("Malformed")
 
@@ -86,13 +86,12 @@ func Test_newUserMessageInternal_BadChannelMessage(t *testing.T) {
 }
 
 func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
-	internal, _, channelMsg := builtTestUMI(t, 7)
+	internal, _, channelMsg := builtTestUMI(t)
 	received := internal.GetChannelMessage()
 
 	if !reflect.DeepEqual(received.Payload, channelMsg.Payload) ||
 		received.Lease != channelMsg.Lease ||
-		received.RoundID != channelMsg.RoundID ||
-		received.PayloadType != channelMsg.PayloadType {
+		received.RoundID != channelMsg.RoundID {
 		t.Fatalf("GetChannelMessage did not return expected data."+
 			"\nExpected: %v"+
 			"\nReceived: %v", channelMsg, received)
@@ -100,7 +99,7 @@ func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
 }
 
 func TestUserMessageInternal_GetUserMessage(t *testing.T) {
-	internal, usrMsg, _ := builtTestUMI(t, 7)
+	internal, usrMsg, _ := builtTestUMI(t)
 	received := internal.GetUserMessage()
 
 	if !reflect.DeepEqual(received.Message, usrMsg.Message) ||
@@ -113,7 +112,7 @@ func TestUserMessageInternal_GetUserMessage(t *testing.T) {
 }
 
 func TestUserMessageInternal_GetMessageID(t *testing.T) {
-	internal, usrMsg, _ := builtTestUMI(t, 7)
+	internal, usrMsg, _ := builtTestUMI(t)
 	received := internal.GetMessageID()
 
 	chID := &id.ID{}
@@ -132,9 +131,9 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 // be good to know when this changes. If this test breaks, report it, but it
 // should be safe to update the expected.
 func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
-	expected := "MsgID-/9l5HhCSBPgz+CPw+PUBxO4EqmkCrG8z8/39ZUWj+ks="
+	expected := "MsgID-n6zDgrTR/IVdgVeBd9fHh7+Ucebz9cxHLnFbXVmP8nQ="
 
-	internal, _, _ := builtTestUMI(t, 7)
+	internal, _, _ := builtTestUMI(t)
 
 	received := internal.GetMessageID()
 
@@ -145,14 +144,13 @@ func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
 	}
 }
 
-func builtTestUMI(t *testing.T, mt MessageType) (
+func builtTestUMI(t *testing.T) (
 	*userMessageInternal, *UserMessage, *ChannelMessage) {
 	channelMsg := &ChannelMessage{
-		Lease:       69,
-		RoundID:     42,
-		PayloadType: uint32(mt),
-		Payload:     []byte("ban_badUSer"),
-		Nickname:    "paul",
+		Lease:    69,
+		RoundID:  42,
+		Payload:  []byte("ban_badUSer"),
+		Nickname: "paul",
 	}
 
 	serialized, err := proto.Marshal(channelMsg)

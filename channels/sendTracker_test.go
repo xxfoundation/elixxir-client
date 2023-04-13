@@ -39,6 +39,9 @@ func (mc *mockClient) RemoveIdentity(*id.ID)                                    
 func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
 func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                          { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)                                                  {}
+func (mc *mockClient) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
 
 // Test MessageReceive basic logic.
 func TestSendTracker_MessageReceive(t *testing.T) {
@@ -51,7 +54,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		Timestamps: make(map[states.Round]time.Time),
 	}
 	r.Timestamps[states.QUEUED] = netTime.Now()
-	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		oldUUID := uuidNum
 		uuidNum++
@@ -79,10 +82,9 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       netTime.Now().UnixNano(),
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello"),
+			Lease:   netTime.Now().UnixNano(),
+			RoundID: uint64(rid),
+			Payload: []byte("hello"),
 		}})
 	if err != nil {
 		t.Fatal(err)
@@ -104,10 +106,9 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	uuid2, err := st.denotePendingSend(cid2, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       netTime.Now().UnixNano(),
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello again"),
+			Lease:   netTime.Now().UnixNano(),
+			RoundID: uint64(rid),
+			Payload: []byte("hello again"),
 		}})
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +131,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	adminTrigger := func(*id.ID, *ChannelMessage, []byte, time.Time,
+	adminTrigger := func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
 		cryptoMessage.ID, receptionID.EphemeralIdentity, rounds.Round,
 		SentStatus) (uint64, error) {
 		return 0, nil
@@ -150,10 +151,9 @@ func TestSendTracker_failedSend(t *testing.T) {
 	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
 		[]byte("hello"))
 	cm := &ChannelMessage{
-		Lease:       0,
-		RoundID:     uint64(rid),
-		PayloadType: 0,
-		Payload:     []byte("hello"),
+		Lease:   0,
+		RoundID: uint64(rid),
+		Payload: []byte("hello"),
 	}
 	uuid, err := st.denotePendingAdminSend(cid, cm, nil)
 	if err != nil {
@@ -200,7 +200,7 @@ func TestSendTracker_send(t *testing.T) {
 	triggerCh := make(chan bool)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
@@ -222,10 +222,9 @@ func TestSendTracker_send(t *testing.T) {
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       0,
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello"),
+			Lease:   0,
+			RoundID: uint64(rid),
+			Payload: []byte("hello"),
 		},
 		messageID: mid,
 	})
@@ -302,7 +301,7 @@ func TestRoundResult_callback(t *testing.T) {
 		status *SentStatus) {
 		triggerCh <- true
 	}
-	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
@@ -317,10 +316,9 @@ func TestRoundResult_callback(t *testing.T) {
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       0,
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello"),
+			Lease:   0,
+			RoundID: uint64(rid),
+			Payload: []byte("hello"),
 		},
 		messageID: mid,
 	})

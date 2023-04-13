@@ -261,10 +261,10 @@ func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 	m.broadcast.addProcessor(channel.ReceptionID, userProcessor, p)
 
 	// Admin message listener
-	p, err = broadcastChan.RegisterListener((&adminListener{
+	p, err = broadcastChan.RegisterRSAtoPublicListener((&adminListener{
 		chID:    channel.ReceptionID,
 		trigger: m.events.triggerAdminEvent,
-	}).Listen, broadcast.RSAToPublic)
+	}).Listen, nil)
 	if err != nil {
 		return nil, err
 	}

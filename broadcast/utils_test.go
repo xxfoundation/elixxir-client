@@ -82,7 +82,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 }
 
 func (m *mockCmix) SendWithAssembler(recipient *id.ID,
-	assembler cmix.MessageAssembler, _ cmix.CMIXParams) (
+	assembler cmix.MessageAssembler, cp cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 
 	fingerprint, service, payload, mac, err := assembler(42)
@@ -100,7 +100,7 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID,
 
 	key := strings.Join(append(service.(message.CompressedService).Tags, string(service.(message.CompressedService).Identifier)), ",")
 	for _, p := range m.handler.processorMap[*recipient][key] {
-		p.Process(msg, []string{}, []byte{},
+		p.Process(msg, service.(message.CompressedService).Tags, service.(message.CompressedService).Metadata,
 			receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 

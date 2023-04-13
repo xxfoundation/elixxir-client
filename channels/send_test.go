@@ -60,7 +60,8 @@ func Test_manager_SendGeneric(t *testing.T) {
 			rounds.Round, SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+			*bool, *bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -134,8 +135,9 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 				message.ID, receptionID.EphemeralIdentity,
 				rounds.Round, SentStatus) (uint64, error) {
 				return 0, nil
-			}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool,
-				*bool, *SentStatus) {
+			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
+				*bool, *bool, *SentStatus) error {
+				return nil
 			}, crng),
 	}
 
@@ -213,7 +215,8 @@ func Test_manager_SendMessage(t *testing.T) {
 			rounds.Round, SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+			*bool, *bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -300,7 +303,8 @@ func Test_manager_SendReply(t *testing.T) {
 			rounds.Round, SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+			*bool, *bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -389,7 +393,8 @@ func Test_manager_SendReaction(t *testing.T) {
 			rounds.Round, SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+			*bool, *bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -469,7 +474,8 @@ func Test_manager_DeleteMessage(t *testing.T) {
 				rounds.Round, SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-				*bool, *bool, *SentStatus) {
+				*bool, *bool, *SentStatus) error {
+				return nil
 			}, crng),
 	}
 
@@ -542,7 +548,8 @@ func Test_manager_PinMessage(t *testing.T) {
 				rounds.Round, SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-				*bool, *bool, *SentStatus) {
+				*bool, *bool, *SentStatus) error {
+				return nil
 			}, crng),
 	}
 
@@ -620,7 +627,8 @@ func Test_manager_MuteUser(t *testing.T) {
 				rounds.Round, SentStatus) (uint64, error) {
 				return 0, nil
 			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-				*bool, *bool, *SentStatus) {
+				*bool, *bool, *SentStatus) error {
+				return nil
 			}, crng),
 	}
 

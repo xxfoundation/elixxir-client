@@ -364,7 +364,7 @@ func (all *ActionLeaseList) updateLeasesThread(stop *stoppable.Single) {
 func (all *ActionLeaseList) AddMessage(channelID *id.ID, messageID message.ID,
 	action MessageType, unsanitizedPayload, sanitizedPayload,
 	encryptedPayload []byte, timestamp, originatingTimestamp time.Time,
-	lease time.Duration,originatingRound id.Round, round rounds.Round,
+	lease time.Duration, originatingRound id.Round, round rounds.Round,
 	fromAdmin bool) error {
 
 	// Calculate lease trigger time

@@ -19,18 +19,19 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -86,33 +87,25 @@ type Client interface {
 	RemoveHealthCallback(uint64)
 }
 
-// EventModelBuilder initialises the event model using the given path.
-type EventModelBuilder func(path string) (EventModel, error)
-
-// AddServiceFn adds a service to be controlled by the client thread control.
-// These will be started and stopped with the network follower.
-//
-// This type must match [Cmix.AddService].
-type AddServiceFn func(sp xxdk.Service) error
-
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	addService AddServiceFn) (Manager, error) {
+	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return NewManager(identity, kv, net, rng, model, addService)
+	return NewManager(identity, kv, net, rng, model, extensions, addService)
 }
 
-// NewManager creates a new channel Manager from a [cryptoChannel.PrivateIdentity]. It
-// prefixes the KV with a tag derived from the public key that can be retried
-// for reloading using [Manager.GetStorageTag].
+// NewManager creates a new channel [Manager] from a
+// [cryptoChannel.PrivateIdentity]. It prefixes the KV with a tag derived from
+// the public key that can be retried for reloading using
+// [Manager.GetStorageTag].
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	addService AddServiceFn) (Manager, error) {
+	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
 
 	// Make a copy of the public key to prevent outside edits
 	// TODO: Convert this to DeepCopy() method
@@ -130,7 +123,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model)
+	m := setupManager(identity, kv, net, rng, model, extensions)
 	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
@@ -139,8 +132,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, model EventModel) (
-	Manager, error) {
+	rng *fastRNG.StreamGenerator, model EventModel,
+	extensions []ExtensionBuilder) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
@@ -152,7 +145,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model)
+	m := setupManager(identity, kv, net, rng, model, extensions)
 	m.loadDMTokens()
 
 	return m, nil
@@ -161,24 +154,28 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 // LoadManagerBuilder restores a channel Manager from disk stored at the given storage
 // tag.
 func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
+	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
+	extensions []ExtensionBuilder) (Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return LoadManager(storageTag, kv, net, rng, model)
+	return LoadManager(storageTag, kv, net, rng, model, extensions)
 }
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
-	net Client, rng *fastRNG.StreamGenerator, model EventModel) *manager {
-	m := manager{
+	net Client, rng *fastRNG.StreamGenerator, model EventModel,
+	extensionBuilders []ExtensionBuilder) *manager {
+
+	// Build the manager
+	m := &manager{
 		me:             identity,
 		kv:             kv,
 		net:            net,
 		rng:            rng,
-		events:         initEvents(model, 512, kv, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
+		events:         initEvents(model, 512, kv, rng),
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
@@ -190,7 +187,31 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
-	return &m
+	// Activate all extensions
+	var extensions []ExtensionMessageHandler
+	for i := range extensionBuilders {
+		ext, err := extensionBuilders[i](model, m, m.me)
+		if err != nil {
+			jww.FATAL.Panicf("[CH] Failed to initialize extension %d of %d: %+v",
+				i, len(extensionBuilders), err)
+		}
+		extensions = append(extensions, ext...)
+	}
+
+	// Register all extensions
+	for i := range extensions {
+		ext := extensions[i]
+		name, userSpace, adminSpace, mutedSpace := ext.GetProperties()
+		err := m.events.RegisterReceiveHandler(ext.GetType(),
+			&ReceiveMessageHandler{
+				name, ext.Handle, userSpace, adminSpace, mutedSpace})
+		if err != nil {
+			jww.FATAL.Panicf("[CH] Extension message handle %s (%d of %d) "+
+				"failed to register: %+v", name, i, len(extensions), err)
+		}
+	}
+
+	return m
 }
 
 // adminReplayHandler registers a ReplayActionFunc with the lease system.

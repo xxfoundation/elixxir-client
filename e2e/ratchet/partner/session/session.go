@@ -587,7 +587,7 @@ func (s *Session) buildChildKeys() {
 	// To generate the state vector key correctly,
 	// basekey must be computed as the session ID is the hash of basekey
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", numKeys)
+	s.keyState, err = utility.NewStateVector(numKeys, false, "", s.kv)
 	if err != nil {
 		jww.FATAL.Printf("Failed key generation: %s", err)
 	}

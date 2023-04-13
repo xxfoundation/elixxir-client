@@ -56,9 +56,11 @@ func TestImpl(t *testing.T) {
 	testTime := time.Now()
 	testBool := true
 	testStatus := channels.SentStatus(testInt)
-	updatedId := model.UpdateFromMessageID(testMsgId, &testTime, nil,
+	updatedId, err := model.UpdateFromMessageID(testMsgId, &testTime, nil,
 		&testBool, &testBool, &testStatus)
-	if updatedId != newId {
+	if err != nil {
+		t.Fatal(err)
+	} else if updatedId != newId {
 		t.Fatalf("UUIDs differ, Got %d Expected %d", updatedId, newId)
 	}
 

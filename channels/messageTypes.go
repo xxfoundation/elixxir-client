@@ -48,6 +48,14 @@ const (
 
 	// AdminReplay denotes that the message contains an admin message.
 	AdminReplay MessageType = 104
+
+	////////////////////////////////////////////////////////////////////////////
+	// Extensions                                                             //
+	////////////////////////////////////////////////////////////////////////////
+
+	// FileTransfer denotes that a message contains the information about a file
+	// download
+	FileTransfer MessageType = 40000
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -68,6 +76,8 @@ func (mt MessageType) String() string {
 		return "Mute"
 	case AdminReplay:
 		return "AdminReplay"
+	case FileTransfer:
+		return "FileTransfer"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}

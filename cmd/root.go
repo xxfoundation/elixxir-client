@@ -137,17 +137,19 @@ var rootCmd = &cobra.Command{
 			})
 		waitUntilConnected(connected)
 
-		// After connection, make sure we have registered with at least
-		// 85% of the nodes
+		// After connection, make sure we have registered with enough of the
+		// network to continue
 		numReg := 1
 		total := 100
 		jww.INFO.Printf("Registering with nodes...")
-		req := 3 / 4
+		// If ephemeral registration is enabled, lower required nodes
+		// registered before starting normal operations
+		threshold := 3 / 4
 		if cmixParams.Network.EnableEphemeralRegistration {
-			req = 4 / 10
+			threshold = 4 / 10
 		}
 
-		for !cmixParams.Network.DisableNodeRegistration && numReg < total*req {
+		for !cmixParams.Network.DisableNodeRegistration && numReg < total*threshold {
 			time.Sleep(1 * time.Second)
 			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {

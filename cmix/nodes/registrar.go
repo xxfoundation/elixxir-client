@@ -233,7 +233,7 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 			}
 			// Use ephemeral key for this node if enabled
 			if r.enableEphemeralRegistration {
-				// Cannot use ep hemeral key for first node in round
+				// Cannot use ephemeral key for first node in round
 				// (unless node registration is disabled).
 				if i == 0 && !r.disableNodeRegistration {
 					return nil, errors.Errorf(

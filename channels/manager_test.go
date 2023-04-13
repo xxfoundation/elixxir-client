@@ -56,7 +56,7 @@ func TestManager_JoinChannel(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -99,7 +99,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -243,7 +243,7 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -289,7 +289,7 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

@@ -58,9 +58,9 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		return oldUUID, nil
 	}
 
-	updateStatus := func(uuid uint64, messageID *cryptoMessage.ID,
-		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-		status *SentStatus) {
+	updateStatus := func(uint64, *cryptoMessage.ID, *time.Time, *rounds.Round,
+		*bool, *bool, *SentStatus) error {
+		return nil
 	}
 
 	cid := id.NewIdFromString("channel", id.User, t)
@@ -137,8 +137,9 @@ func TestSendTracker_failedSend(t *testing.T) {
 	}
 
 	updateStatus := func(_ uint64, _ *cryptoMessage.ID, _ *time.Time,
-		_ *rounds.Round, _ *bool, _ *bool, status *SentStatus) {
+		_ *rounds.Round, _ *bool, _ *bool, status *SentStatus) error {
 		triggerCh <- *status
+		return nil
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -205,10 +206,10 @@ func TestSendTracker_send(t *testing.T) {
 		return 0, nil
 	}
 
-	updateStatus := func(uuid uint64, messageID *cryptoMessage.ID,
-		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-		status *SentStatus) {
+	updateStatus := func(uint64, *cryptoMessage.ID, *time.Time, *rounds.Round,
+		*bool, *bool, *SentStatus) error {
 		triggerCh <- true
+		return nil
 	}
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -297,10 +298,10 @@ func TestSendTracker_load_store(t *testing.T) {
 func TestRoundResult_callback(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	triggerCh := make(chan bool)
-	update := func(uuid uint64, messageID *cryptoMessage.ID,
-		timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-		status *SentStatus) {
+	update := func(uint64, *cryptoMessage.ID, *time.Time, *rounds.Round, *bool,
+		*bool, *SentStatus) error {
 		triggerCh <- true
+		return nil
 	}
 	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {

@@ -23,8 +23,8 @@ import (
 func TestNewManager(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	numFps := uint16(64)
-	fpv, _ := utility.NewStateVector(kv.Prefix(cypherManagerPrefix),
-		cypherManagerFpVectorKey, uint32(numFps))
+	fpv, _ := utility.NewStateVector(uint32(numFps), false,
+		cypherManagerFpVectorKey, kv.Prefix(cypherManagerPrefix))
 	expected := &Manager{
 		key:      &ftCrypto.TransferKey{1, 2, 3},
 		fpVector: fpv,

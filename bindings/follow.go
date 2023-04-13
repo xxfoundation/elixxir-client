@@ -269,10 +269,10 @@ func (c *Cmix) RegisterClientErrorCallback(clientError ClientError) {
 	}()
 }
 
-// TrackServicesCallback is the callback for [Cmix.TrackServices].
-// This will pass to the user a JSON-marshalled list of backend services.
-// If there was an error retrieving or marshalling the service list,
-// there is an error for the second parameter which will be non-null.
+// TrackServicesCallback is the callback for [Cmix.TrackServices] which passes a
+// JSON-marshalled list of uncompressed backend services. If there was an error
+// retrieving or marshalling the service list, there is an error for the second
+// parameter which will be non-null.
 //
 // Parameters:
 //   - marshalData - JSON marshalled bytes of [message.ServiceList], which is an
@@ -307,6 +307,51 @@ type TrackServicesCallback interface {
 	Callback(marshalData []byte, err error)
 }
 
+// TrackCompressedServicesCallback is the callback for [Cmix.TrackServices]
+// which passes a JSON-marshalled list of compressed backend services. If
+// there was an error retrieving or marshalling the service list, there is an
+// error for the second parameter which will be non-null.
+//
+// Parameters:
+//   - marshalData - JSON marshalled bytes of [message.CompressedServiceList],
+//     which is an array of [id.ID] and [message.CompressedService].
+//   - err - JSON unmarshalling error
+//
+// Example JSON:
+//
+//	{
+//    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD": [
+//      {
+//        "Identifier": null,
+//        "Tags": [
+//          "test"
+//        ],
+//        "Metadata": null
+//      }
+//    ],
+//    "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD": [
+//      {
+//        "Identifier": null,
+//        "Tags": [
+//          "test"
+//        ],
+//        "Metadata": null
+//      }
+//    ],
+//    "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD": [
+//      {
+//        "Identifier": null,
+//        "Tags": [
+//         	"test"
+//        ],
+//        "Metadata": null
+//      }
+//    ]
+//  }
+type TrackCompressedServicesCallback interface {
+	Callback(marshalData []byte, err error)
+}
+
 // TrackServicesWithIdentity will return via a callback the list of services the
 // backend keeps track of for the provided identity. This may be passed into
 // other bindings call which may need context on the available services for this
@@ -317,7 +362,7 @@ type TrackServicesCallback interface {
 //   - cb - A TrackServicesCallback, which will be passed the marshalled
 //     message.ServiceList.
 func (c *Cmix) TrackServicesWithIdentity(e2eId int,
-	cb TrackServicesCallback) error {
+	cb TrackServicesCallback, compressedCb TrackCompressedServicesCallback) error {
 	// Retrieve the user from the tracker
 	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
@@ -326,9 +371,15 @@ func (c *Cmix) TrackServicesWithIdentity(e2eId int,
 
 	receptionId := user.api.GetReceptionIdentity().ID
 	c.api.GetCmix().TrackServices(func(list message.ServiceList, compressedList message.CompressedServiceList) {
+		// Pass along normal services
 		res := make(message.ServiceList)
 		res[*receptionId] = list[*receptionId]
 		cb.Callback(json.Marshal(res))
+
+		// Pass along compressed services
+		compressedRes := make(message.CompressedServiceList)
+		compressedRes[*receptionId] = compressedList[*receptionId]
+		compressedCb.Callback(json.Marshal(compressedRes))
 	})
 
 	return nil

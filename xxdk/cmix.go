@@ -665,7 +665,7 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	storageSess.SetRegCode(registrationCode)
 
 	// Create and store an instance ID
-	instanceID, err := cmix.GenerateInstanceID(rng)
+	instanceID, err := cmix.NewRandomInstanceID(rng)
 	if err != nil {
 		return nil, err
 	}

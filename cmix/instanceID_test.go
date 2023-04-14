@@ -21,7 +21,7 @@ import (
 // TestInstanceID performs basic smoke testing of the type
 func TestInstanceID(t *testing.T) {
 	rng := rand.New(rand.NewSource(8675309))
-	generated, err := GenerateInstanceID(rng)
+	generated, err := NewRandomInstanceID(rng)
 
 	require.NoError(t, err)
 	require.Equal(t, instanceIDLength, len(generated[:]))

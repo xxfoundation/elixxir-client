@@ -49,7 +49,7 @@ func LoadInstanceID(kv versioned.KV) (InstanceID, error) {
 	// If there's an error, just return the empty object and the error
 	// Otherwise decode the bytes into the object.
 	if err == nil {
-		return InstanceIDFromBytes(idBytes)
+		return NewInstanceIDFromBytes(idBytes)
 	}
 	return InstanceID{}, err
 }
@@ -64,8 +64,10 @@ func StoreInstanceID(id InstanceID, kv versioned.KV) error {
 	return kv.Set(instanceIDKey, &obj)
 }
 
-// InstanceIDFromBytes creates an InstanceID from raw bytes
-func InstanceIDFromBytes(idBytes []byte) (InstanceID, error) {
+// NewInstanceIDFromBytes creates an InstanceID from raw bytes
+// This returns errors if the number of bytes is incorrect or the
+// slice is empty.
+func NewInstanceIDFromBytes(idBytes []byte) (InstanceID, error) {
 	instanceID := InstanceID{}
 	if len(idBytes) == 0 {
 		// Error if we got an empty instance id entry
@@ -79,16 +81,20 @@ func InstanceIDFromBytes(idBytes []byte) (InstanceID, error) {
 	return instanceID, nil
 }
 
-// InstanceIDFromString creates an instanceID from a string object
-func InstanceIDFromString(idStr string) (InstanceID, error) {
+// NewInstanceIDFromString creates an instanceID from a string object
+// This returns errors if the number of bytes is incorrect or the
+// slice is empty.
+func NewInstanceIDFromString(idStr string) (InstanceID, error) {
 	bytes, err := base64.RawURLEncoding.Strict().DecodeString(idStr)
 	if err == nil {
-		return InstanceIDFromBytes(bytes)
+		return NewInstanceIDFromBytes(bytes)
 	}
 	return InstanceID{}, err
 }
 
-func GenerateInstanceID(csprng io.Reader) (InstanceID, error) {
+// NewRandomInstanceID creates a new random InstanceID from the provided
+// cryptographically secured random number generator.
+func NewRandomInstanceID(csprng io.Reader) (InstanceID, error) {
 	id := InstanceID{}
 	instanceIDBytes := make([]byte, instanceIDLength)
 	n, err := csprng.Read(instanceIDBytes)

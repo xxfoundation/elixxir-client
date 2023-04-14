@@ -58,7 +58,7 @@ func deserializeDeviceOffset(deviceOffsetSerial []byte) (deviceOffset, error) {
 
 	dvcOff := make(deviceOffset, len(dvcOffset))
 	for k, v := range dvcOffset {
-		newK, err := cmix.InstanceIDFromString(k)
+		newK, err := cmix.NewInstanceIDFromString(k)
 		if err != nil {
 			return nil, err
 		}

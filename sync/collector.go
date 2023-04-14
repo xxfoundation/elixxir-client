@@ -165,7 +165,7 @@ func (c *Collector) collectChanges(devices []string) (
 
 	// Iterate over devices
 	for _, deviceIDStr := range devices {
-		deviceID, err := cmix.InstanceIDFromString(deviceIDStr)
+		deviceID, err := cmix.NewInstanceIDFromString(deviceIDStr)
 		// Retrieve updates from device
 		lastUpdate, err := c.remote.GetLastModified(deviceIDStr)
 		if err != nil {

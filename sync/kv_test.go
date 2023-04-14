@@ -91,7 +91,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
 	// ok now allow the callbacks to run
 	lck.Unlock()
-	ok := txLog.WaitForRemote(60 * time.Second)
+	ok := loaded.WaitForRemote(60 * time.Second)
 	if !ok {
 		t.Errorf("threads failed to stop")
 		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)

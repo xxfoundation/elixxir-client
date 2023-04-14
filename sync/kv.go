@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -95,7 +96,8 @@ type internalKV struct {
 	lck sync.RWMutex
 
 	// mapLck prevents asynchronous map operations
-	mapLck sync.Mutex
+	mapLck       sync.Mutex
+	openRoutines int32
 }
 
 // newKV constructs a new remote KV. If data exists on disk, it loads
@@ -119,10 +121,16 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 
 	// Re-trigger all lingering intents
 	rkv.lck.Lock()
-	for key, val := range rkv.UnsyncedWrites {
+	for key := range rkv.UnsyncedWrites {
 		// Call the internal to avoid writing to intent what
 		// is already there
-		go rkv.remoteSet(key, val, updateCb)
+		k := key
+		v := rkv.UnsyncedWrites[k]
+		atomic.AddInt32(&rkv.openRoutines, 1)
+		go func() {
+			rkv.remoteSet(k, v, updateCb)
+			atomic.AddInt32(&rkv.openRoutines, -1)
+		}()
 	}
 	rkv.lck.Unlock()
 
@@ -418,7 +426,25 @@ func (r *internalKV) getMapKeys(mapName string) (map[string]struct{}, error) {
 
 // WaitForRemote waits until the remote has finished its queued writes or
 // until the specified timeout occurs.
+// Note: This waits for both itself and for the transaction log, so it can
+// take up to 2*timeout for this function to close in the worst case.
 func (r *internalKV) WaitForRemote(timeout time.Duration) bool {
+	//First, wait for my own open threads..
+	t := time.NewTimer(timeout)
+	done := false
+	for !done {
+		select {
+		case <-time.After(time.Millisecond * 100):
+			x := atomic.LoadInt32(&r.openRoutines)
+			if x == 0 {
+				done = true
+			}
+		case <-t.C:
+			return false
+		}
+	}
+
+	//Now wait for tx log
 	return r.txLog.WaitForRemote(timeout)
 }
 

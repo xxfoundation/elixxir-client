@@ -220,7 +220,7 @@ func (e *E2e) RegisterListener(
 
 // Processor is the bindings-specific interface for message.Processor methods.
 type Processor interface {
-	Process(message []byte, tags []string, metadata []byte, receptionId []byte, ephemeralId int64, roundId int64)
+	Process(message []byte, tags []byte, metadata []byte, receptionId []byte, ephemeralId int64, roundId int64)
 	fmt.Stringer
 }
 
@@ -234,14 +234,14 @@ type messageProcessor struct {
 // binding-layer primitives equivalents within the Processor.Process.
 func convertProcessor(msg format.Message, tags []string, metadata []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
-	message []byte, tagsOut []string, metadataOut []byte, receptionId []byte, ephemeralId int64, roundId int64) {
+	message []byte, tagsOut []byte, metadataOut []byte, receptionId []byte, ephemeralId int64, roundId int64) {
 
+	tagsOut, _ = json.Marshal(tags)
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
 	ephemeralId = int64(receptionID.EphId.UInt64())
 	roundId = int64(round.ID)
 	metadataOut = metadata[:]
-	tagsOut = tags[:]
 	return
 }
 

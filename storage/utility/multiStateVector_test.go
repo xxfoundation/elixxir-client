@@ -46,7 +46,8 @@ func TestNewMultiStateVector(t *testing.T) {
 		kv:            kv,
 	}
 
-	newMSV, err := NewMultiStateVector(expected.numKeys, expected.numStates, expected.stateMap, key, kv)
+	newMSV, err := NewMultiStateVector(
+		expected.numKeys, expected.numStates, expected.stateMap, key, kv)
 	if err != nil {
 		t.Errorf("NewMultiStateVector returned an error: %+v", err)
 	}
@@ -106,10 +107,7 @@ func TestMultiStateVector_Get(t *testing.T) {
 
 	// Check that all states are zero
 	for keyNum := uint16(0); keyNum < msv.numKeys; keyNum++ {
-		state, err := msv.Get(keyNum)
-		if err != nil {
-			t.Errorf("get returned an error for key %d: %+v", keyNum, err)
-		}
+		state := msv.Get(keyNum)
 		if state != 0 {
 			t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
 				keyNum, 0, state)
@@ -149,11 +147,7 @@ func TestMultiStateVector_Get(t *testing.T) {
 
 	// Check that each key has the expected state
 	for keyNum, expectedState := range expectedStates {
-		state, err := msv.Get(uint16(keyNum))
-		if err != nil {
-			t.Errorf("get returned an error for key %d: %+v", keyNum, err)
-		}
-
+		state := msv.Get(uint16(keyNum))
 		if expectedState != state {
 			t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
 				keyNum, expectedState, state)
@@ -218,12 +212,10 @@ func TestMultiStateVector_Set(t *testing.T) {
 	}
 
 	for i, v := range testValues {
-		oldStatus, _ := msv.Get(v.keyNum)
+		oldStatus := msv.Get(v.keyNum)
 
-		if err = msv.Set(v.keyNum, v.state); err != nil {
-			t.Errorf("Failed to move key %d to state %d (%d): %+v",
-				v.keyNum, v.state, i, err)
-		} else if received, _ := msv.Get(v.keyNum); received != v.state {
+		msv.Set(v.keyNum, v.state)
+		if received := msv.Get(v.keyNum); received != v.state {
 			t.Errorf("Key %d has state %d instead of %d (%d).",
 				v.keyNum, received, v.state, i)
 		}
@@ -240,9 +232,9 @@ func TestMultiStateVector_Set(t *testing.T) {
 	}
 }
 
-// Error path: tests that MultiStateVector.Set returns the expected error when
-// the key number is greater than the last key number.
-func TestMultiStateVector_Set_KeyNumMaxError(t *testing.T) {
+// Error path: tests that MultiStateVector.setAndSave returns the expected error
+// when the key number is greater than the last key number.
+func TestMultiStateVector_setAndSave_KeyNumMaxError(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
@@ -252,7 +244,7 @@ func TestMultiStateVector_Set_KeyNumMaxError(t *testing.T) {
 	keyNum := msv.numKeys
 	expectedErr := fmt.Sprintf(
 		setStateErr, keyNum, fmt.Sprintf(keyNumMaxErr, keyNum, msv.numKeys-1))
-	err = msv.Set(keyNum, 1)
+	err = msv.setAndSave(keyNum, 1)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Set did not return the expected error when the key number "+
 			"is larger than the max key number.\nexpected: %s\nreceived: %v",
@@ -278,16 +270,11 @@ func TestMultiStateVector_SetMany(t *testing.T) {
 	}
 
 	for i, v := range testValues {
-
-		if err = msv.SetMany(v.keyNums, v.state); err != nil {
-			t.Errorf("Failed to move keys %d to state %d (%d): %+v",
-				v.keyNums, v.state, i, err)
-		} else {
-			for _, keyNum := range v.keyNums {
-				if received, _ := msv.Get(keyNum); received != v.state {
-					t.Errorf("Key %d has state %d instead of %d (%d).",
-						keyNum, received, v.state, i)
-				}
+		msv.SetMany(v.keyNums, v.state)
+		for _, keyNum := range v.keyNums {
+			if received := msv.Get(keyNum); received != v.state {
+				t.Errorf("Key %d has state %d instead of %d (%d).",
+					keyNum, received, v.state, i)
 			}
 		}
 
@@ -298,9 +285,9 @@ func TestMultiStateVector_SetMany(t *testing.T) {
 	}
 }
 
-// Error path: tests that MultiStateVector.SetMany returns the expected error
+// Error path: tests that MultiStateVector.setMany returns the expected error
 // when one of the keys is greater than the last key number.
-func TestMultiStateVector_SetMany_KeyNumMaxError(t *testing.T) {
+func TestMultiStateVector_setMany_KeyNumMaxError(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
@@ -310,7 +297,7 @@ func TestMultiStateVector_SetMany_KeyNumMaxError(t *testing.T) {
 	keyNum := msv.numKeys
 	expectedErr := fmt.Sprintf(setManyStateErr, keyNum, 1, 1,
 		fmt.Sprintf(keyNumMaxErr, keyNum, msv.numKeys-1))
-	err = msv.SetMany([]uint16{keyNum}, 1)
+	err = msv.setMany([]uint16{keyNum}, 1)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("SetMany did not return the expected error when the key "+
 			"number is larger than the max key number."+
@@ -365,7 +352,8 @@ func TestMultiStateVector_set_OldStateMaxError(t *testing.T) {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
 	}
 
-	msv.vect[0] = 0b1110000000000000000000000000000000000000000000000000000000000000
+	msv.vect[0] =
+		0b1110000000000000000000000000000000000000000000000000000000000000
 
 	expectedErr := fmt.Sprintf(oldStateMaxErr, 7, msv.numStates-1)
 
@@ -395,6 +383,54 @@ func TestMultiStateVector_set_StateChangeError(t *testing.T) {
 		t.Errorf("set did not return the expected error when the state change "+
 			"should not be allowed.\nexpected: %s\nreceived: %v",
 			expectedErr, err)
+	}
+}
+
+// Tests that MultiStateVector.CompareAndSwap only changes the state when the
+// state matches the specified old state.
+func TestMultiStateVector_CompareAndSwap(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	msv, err := NewMultiStateVector(155, 2, nil, "", kv)
+	if err != nil {
+		t.Errorf("Failed to create new MultiStateVector: %+v", err)
+	}
+
+	if msv.CompareAndSwap(5, 1, 0) {
+		t.Errorf("Compared and swapped non-matching state.")
+	} else if msv.Get(5) != 0 {
+		t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
+			5, 0, msv.Get(5))
+	}
+
+	if !msv.CompareAndSwap(5, 0, 1) {
+		t.Errorf("Did not compare and swap.")
+	} else if msv.Get(5) != 1 {
+		t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
+			5, 1, msv.Get(5))
+	}
+}
+
+// Tests that MultiStateVector.CompareNotAndSwap only changes the state when the
+// state does not matche the specified old state.
+func TestMultiStateVector_CompareNotAndSwap(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	msv, err := NewMultiStateVector(155, 2, nil, "", kv)
+	if err != nil {
+		t.Errorf("Failed to create new MultiStateVector: %+v", err)
+	}
+
+	if msv.CompareNotAndSwap(5, 0, 1) {
+		t.Errorf("Compared and swapped matching state.")
+	} else if msv.Get(5) != 0 {
+		t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
+			5, 0, msv.Get(5))
+	}
+
+	if !msv.CompareNotAndSwap(5, 1, 1) {
+		t.Errorf("Did not compare and swap.")
+	} else if msv.Get(5) != 1 {
+		t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
+			5, 1, msv.Get(5))
 	}
 }
 
@@ -429,29 +465,23 @@ func TestMultiStateVector_GetCount(t *testing.T) {
 	for keyNum := uint16(0); keyNum < msv.numKeys; keyNum++ {
 		state := uint8(prng.Intn(int(msv.numStates)))
 
-		err = msv.Set(keyNum, state)
-		if err != nil {
-			t.Errorf("Failed to set key %d to state %d.", keyNum, state)
-		}
+		msv.Set(keyNum, state)
 
 		expectedCounts[state]++
 	}
 
 	for state, expected := range expectedCounts {
-		count, err := msv.GetCount(uint8(state))
-		if err != nil {
-			t.Errorf("GetCount returned an error for state %d: %+v", state, err)
-		}
+		count := msv.GetCount(uint8(state))
 		if expected != count {
-			t.Errorf("Incorrect count for state %d.\nexpected: %d\nreceived: %d",
-				state, expected, count)
+			t.Errorf("Incorrect count for state %d."+
+				"\nexpected: %d\nreceived: %d", state, expected, count)
 		}
 	}
 }
 
-// Error path: tests that MultiStateVector.GetCount returns the expected error
+// Error path: tests that MultiStateVector.getCount returns the expected error
 // when the given state is greater than the last state.
-func TestMultiStateVector_GetCount_NewStateMaxError(t *testing.T) {
+func TestMultiStateVector_getCount_NewStateMaxError(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
@@ -460,7 +490,7 @@ func TestMultiStateVector_GetCount_NewStateMaxError(t *testing.T) {
 
 	state := msv.numStates
 	expectedErr := fmt.Sprintf(stateMaxErr, state, msv.numStates-1)
-	_, err = msv.GetCount(state)
+	_, err = msv.getCount(state)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("GetCount did not return the expected error when the state is "+
 			"larger than the max number of states.\nexpected: %s\nreceived: %v",
@@ -484,19 +514,13 @@ func TestMultiStateVector_GetKeys(t *testing.T) {
 	for keyNum := uint16(0); keyNum < msv.numKeys; keyNum++ {
 		state := uint8(prng.Intn(int(msv.numStates)))
 
-		err = msv.Set(keyNum, state)
-		if err != nil {
-			t.Errorf("Failed to set key %d to state %d.", keyNum, state)
-		}
+		msv.Set(keyNum, state)
 
 		expectedKeys[state] = append(expectedKeys[state], keyNum)
 	}
 
 	for state, expected := range expectedKeys {
-		keys, err := msv.GetKeys(uint8(state))
-		if err != nil {
-			t.Errorf("GetNodeKeys returned an error: %+v", err)
-		}
+		keys := msv.GetKeys(uint8(state))
 		if !reflect.DeepEqual(expected, keys) {
 			t.Errorf("Incorrect keys for state %d.\nexpected: %d\nreceived: %d",
 				state, expected, keys)
@@ -504,9 +528,9 @@ func TestMultiStateVector_GetKeys(t *testing.T) {
 	}
 }
 
-// Error path: tests that MultiStateVector.GetKeys returns the expected error
+// Error path: tests that MultiStateVector.getKeys returns the expected error
 // when the given state is greater than the last state.
-func TestMultiStateVector_GetKeys_NewStateMaxError(t *testing.T) {
+func TestMultiStateVector_getKeys_NewStateMaxError(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
@@ -515,7 +539,7 @@ func TestMultiStateVector_GetKeys_NewStateMaxError(t *testing.T) {
 
 	state := msv.numStates
 	expectedErr := fmt.Sprintf(stateMaxErr, state, msv.numStates-1)
-	_, err = msv.GetKeys(state)
+	_, err = msv.getKeys(state)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("GetNodeKeys did not return the expected error when the state is "+
 			"larger than the max number of states.\nexpected: %s\nreceived: %v",
@@ -1037,10 +1061,7 @@ func newTestFilledMSV(numKeys uint16, numStates uint8, stateMap [][]bool,
 	for keyNum := uint16(0); keyNum < msv.numKeys; keyNum++ {
 		state := uint8(prng.Intn(int(msv.numStates)))
 
-		err = msv.Set(keyNum, state)
-		if err != nil {
-			t.Errorf("Failed to set key %d to state %d.", keyNum, state)
-		}
+		msv.Set(keyNum, state)
 	}
 
 	return msv, kv

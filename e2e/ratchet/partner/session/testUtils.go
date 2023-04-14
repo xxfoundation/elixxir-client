@@ -113,8 +113,7 @@ func makeTestSession() (*Session, versioned.KV) {
 		cyHandler:         &mockCyHandler{},
 		rng:               fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
-	s.keyState, err = util.NewStateVector(s.kv,
-		"", 1024)
+	s.keyState, err = util.NewStateVector(1024, false, "", s.kv)
 	if err != nil {
 		panic(err)
 	}

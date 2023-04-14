@@ -250,21 +250,23 @@ func (m *manager) initBroadcast(
 func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
 	// User message listener
-	p, err := broadcastChan.RegisterListener((&userListener{
+	ul := userListener{
 		chID:      channel.ReceptionID,
 		trigger:   m.events.triggerEvent,
 		checkSent: m.st.MessageReceive,
-	}).Listen, broadcast.Symmetric)
+	}
+	p, err := broadcastChan.RegisterListener(ul.Listen, broadcast.Symmetric)
 	if err != nil {
 		return nil, err
 	}
 	m.broadcast.addProcessor(channel.ReceptionID, userProcessor, p)
 
 	// Admin message listener
-	p, err = broadcastChan.RegisterListener((&adminListener{
+	al := adminListener{
 		chID:    channel.ReceptionID,
 		trigger: m.events.triggerAdminEvent,
-	}).Listen, broadcast.RSAToPublic)
+	}
+	p, err = broadcastChan.RegisterListener(al.Listen, broadcast.RSAToPublic)
 	if err != nil {
 		return nil, err
 	}

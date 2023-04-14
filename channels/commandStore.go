@@ -125,32 +125,32 @@ func (cs *CommandStore) DeleteCommand(
 // that will be saved to storage
 type CommandMessage struct {
 	// ChannelID is the ID of the channel.
-	ChannelID *id.ID `json:"channelID"`
+	ChannelID *id.ID `json:"channelID,omitempty"`
 
 	// MessageID is the ID of the message.
-	MessageID message.ID `json:"messageID"`
+	MessageID message.ID `json:"messageID,omitempty"`
 
 	// MessageType is the Type of channel message.
-	MessageType MessageType `json:"messageType"`
+	MessageType MessageType `json:"messageType,omitempty"`
 
 	// Nickname is the nickname of the sender.
-	Nickname string `json:"nickname"`
+	Nickname string `json:"nickname,omitempty"`
 
 	// Content is the message contents. In most cases, this is the various
 	// marshalled proto messages (e.g., channels.CMIXChannelText and
 	// channels.CMIXChannelDelete).
-	Content []byte `json:"content"`
+	Content []byte `json:"content,omitempty"`
 
 	// EncryptedPayload is the encrypted contents of the received format.Message
 	// (with its outer layer of encryption removed). This is the encrypted
 	// channels.ChannelMessage.
-	EncryptedPayload []byte `json:"encryptedPayload"`
+	EncryptedPayload []byte `json:"encryptedPayload,omitempty"`
 
 	// PubKey is the Ed25519 public key of the sender.
-	PubKey ed25519.PublicKey `json:"pubKey"`
+	PubKey ed25519.PublicKey `json:"pubKey,omitempty"`
 
 	// Codeset is the codeset version.
-	Codeset uint8 `json:"codeset"`
+	Codeset uint8 `json:"codeset,omitempty"`
 
 	// Timestamp is the time that the round was queued. It is set by the
 	// listener to be either ChannelMessage.LocalTimestamp or the timestamp for
@@ -158,33 +158,33 @@ type CommandMessage struct {
 	// than OriginatingTimestamp. If the message is a replay, then Timestamp
 	// will
 	// always be the queued time of the round.
-	Timestamp time.Time `json:"timestamp"`
+	Timestamp time.Time `json:"timestamp,omitempty"`
 
 	// OriginatingTimestamp is the time the sender queued the message for
 	// sending on their client.
-	OriginatingTimestamp time.Time `json:"originatingTimestamp"`
+	OriginatingTimestamp time.Time `json:"originatingTimestamp,omitempty"`
 
 	// Lease is how long the message should persist.
-	Lease time.Duration `json:"lease"`
+	Lease time.Duration `json:"lease,omitempty"`
 
 	// OriginatingRound is the ID of the round the message was originally sent
 	// on.
-	OriginatingRound id.Round `json:"originatingRound"`
+	OriginatingRound id.Round `json:"originatingRound,omitempty"`
 
 	// Round is the information about the round the message was sent on. For
 	// replay messages, this is the round of the most recent replay, not the
 	// round of the original message.
-	Round rounds.Round `json:"round"`
+	Round rounds.Round `json:"round,omitempty"`
 
 	// Status is the current status of the message. It is set to Delivered by
 	// the listener.
-	Status SentStatus `json:"status"`
+	Status SentStatus `json:"status,omitempty"`
 
 	// FromAdmin indicates if the message came from the channel admin.
-	FromAdmin bool `json:"fromAdmin"`
+	FromAdmin bool `json:"fromAdmin,omitempty"`
 
 	// UserMuted indicates if the sender of the message is muted.
-	UserMuted bool `json:"userMuted"`
+	UserMuted bool `json:"userMuted,omitempty"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////

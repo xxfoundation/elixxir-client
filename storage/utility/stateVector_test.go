@@ -10,15 +10,17 @@ package utility
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Tests that NewStateVector creates the expected new StateVector and that it is
@@ -36,7 +38,7 @@ func TestNewStateVector(t *testing.T) {
 		kv:             kv,
 	}
 
-	received, err := NewStateVector(kv, key, numKeys)
+	received, err := NewStateVector(numKeys, false, key, kv)
 	if err != nil {
 		t.Errorf("NewStateVector returned an error: %+v", err)
 	}
@@ -475,9 +477,10 @@ func TestStateVector_DeepCopy(t *testing.T) {
 	sv.kv = nil
 
 	// Check that the values are the same
+	newSV.disableKV = false
 	if !reflect.DeepEqual(sv, newSV) {
 		t.Errorf("Original and copy do not match."+
-			"\nexpected: %#v\nreceived: %#v", sv, newSV)
+			"\nexpected: %s\nreceived: %s", sv, newSV)
 	}
 
 	// Check that the pointers are different
@@ -494,34 +497,18 @@ func TestStateVector_DeepCopy(t *testing.T) {
 
 // Tests that StateVector.String returns the expected string.
 func TestStateVector_String(t *testing.T) {
-	key := "StateVectorString"
-	expected := "stateVector: " + makeStateVectorKey(key)
-	sv := newTestStateVector(key, 500, t)
-	// Use every other key
-	for i := uint32(0); i < sv.numKeys; i += 2 {
-		sv.use(i)
-	}
-
-	if expected != sv.String() {
-		t.Errorf("String does not match expected.\nexpected: %q\nreceived: %q",
-			expected, sv.String())
-	}
-}
-
-// Tests that StateVector.GoString returns the expected string.
-func TestStateVector_GoString(t *testing.T) {
 	expected := "{vect:[6148914691236517205 6148914691236517205 " +
 		"6148914691236517205 6148914691236517205 6148914691236517205 " +
 		"6148914691236517205 6148914691236517205 1501199875790165] " +
 		"firstAvailable:1 numKeys:500 numAvailable:250 " +
-		"key:stateVectorStateVectorGoString"
-	sv := newTestStateVector("StateVectorGoString", 500, t)
+		"disableKV:false key:stateVectorStateVector"
+	sv := newTestStateVector("StateVector", 500, t)
 	// Use every other key
 	for i := uint32(0); i < sv.numKeys; i += 2 {
 		sv.use(i)
 	}
 
-	received := strings.Split(sv.GoString(), " kv:")[0]
+	received := strings.Split(sv.String(), " kv:")[0]
 	if expected != received {
 		t.Errorf("String does not match expected.\nexpected: %q\nreceived: %q",
 			expected, received)
@@ -609,7 +596,7 @@ func TestStateVector_save(t *testing.T) {
 		key:            makeStateVectorKey(key),
 		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
-	expectedData, err := sv.marshal()
+	expectedData, err := sv.MarshalJSON()
 	if err != nil {
 		t.Errorf("Failed to marshal StateVector: %+v", err)
 	}
@@ -649,24 +636,23 @@ func TestStateVector_Delete(t *testing.T) {
 	}
 }
 
-func TestStateVector_marshal_unmarshal(t *testing.T) {
+// Tests that a StateVector can be JSON marshalled and unmarshalled.
+func TestStateVector_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	// Generate new StateVector and use ever other key
 	sv1 := newTestStateVector("StateVectorMarshalUnmarshal", 224, t)
 	for i := uint32(0); i < sv1.GetNumKeys(); i += 2 {
 		sv1.Use(i)
 	}
 
-	// Marshal and unmarshal the StateVector
-	marshalledData, err := sv1.marshal()
+	marshalledData, err := json.Marshal(sv1)
 	if err != nil {
-		t.Errorf("marshal returned an error: %+v", err)
+		t.Errorf("Failed to JSON marshal StateVector: %+v", err)
 	}
 
-	// Unmarshal into new StateVector
 	sv2 := &StateVector{key: sv1.key, kv: sv1.kv}
-	err = sv2.unmarshal(marshalledData)
+	err = json.Unmarshal(marshalledData, sv2)
 	if err != nil {
-		t.Errorf("unmarshal returned an error: %+v", err)
+		t.Errorf("Failed to JSON unmarshal StateVector: %+v", err)
 	}
 
 	// Make sure that the unmarshalled StateVector matches the original
@@ -720,7 +706,7 @@ func TestStateVector_SaveTEST(t *testing.T) {
 		key:            makeStateVectorKey(key),
 		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
-	expectedData, err := sv.marshal()
+	expectedData, err := sv.MarshalJSON()
 	if err != nil {
 		t.Errorf("Failed to marshal StateVector: %+v", err)
 	}
@@ -885,7 +871,7 @@ func TestStateVector_SetKvTEST_InvalidInterfaceError(t *testing.T) {
 func newTestStateVector(key string, numKeys uint32, t *testing.T) *StateVector {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	sv, err := NewStateVector(kv, key, numKeys)
+	sv, err := NewStateVector(numKeys, false, key, kv)
 	if err != nil {
 		t.Fatalf("Failed to create new StateVector: %+v", err)
 	}

@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package xxdk
+package cmix
 
 import (
 	"encoding/base64"
@@ -41,26 +41,17 @@ func (i InstanceID) String() string {
 
 // LoadInstanceID loads an InstanceID from storage.
 func LoadInstanceID(kv versioned.KV) (InstanceID, error) {
-	instanceID := InstanceID{}
 	var idBytes []byte
 	obj, err := kv.Get(instanceIDKey, instanceIDVersion)
 	if obj != nil {
 		idBytes = obj.Data
 	}
 	// If there's an error, just return the empty object and the error
-	// Otherwise copy the bytes into the object.
+	// Otherwise decode the bytes into the object.
 	if err == nil {
-		if len(idBytes) == 0 {
-			// Error if we got an empty instance id entry
-			return instanceID, ErrEmptyInstance
-		} else if len(idBytes) != instanceIDLength {
-			// Error if it is the wrong size
-			return instanceID, errors.Wrapf(ErrIncorrectSize,
-				"%d != %d", instanceIDLength, len(idBytes))
-		}
-		copy(instanceID[:], idBytes)
+		return NewInstanceIDFromBytes(idBytes)
 	}
-	return instanceID, err
+	return InstanceID{}, err
 }
 
 // StoreInstanceID saves an instance ID to kv storage.
@@ -73,7 +64,37 @@ func StoreInstanceID(id InstanceID, kv versioned.KV) error {
 	return kv.Set(instanceIDKey, &obj)
 }
 
-func generateInstanceID(csprng io.Reader) (InstanceID, error) {
+// NewInstanceIDFromBytes creates an InstanceID from raw bytes
+// This returns errors if the number of bytes is incorrect or the
+// slice is empty.
+func NewInstanceIDFromBytes(idBytes []byte) (InstanceID, error) {
+	instanceID := InstanceID{}
+	if len(idBytes) == 0 {
+		// Error if we got an empty instance id entry
+		return instanceID, ErrEmptyInstance
+	} else if len(idBytes) != instanceIDLength {
+		// Error if it is the wrong size
+		return instanceID, errors.Wrapf(ErrIncorrectSize,
+			"%d != %d", instanceIDLength, len(idBytes))
+	}
+	copy(instanceID[:], idBytes)
+	return instanceID, nil
+}
+
+// NewInstanceIDFromString creates an instanceID from a string object
+// This returns errors if the number of bytes is incorrect or the
+// slice is empty.
+func NewInstanceIDFromString(idStr string) (InstanceID, error) {
+	bytes, err := base64.RawURLEncoding.Strict().DecodeString(idStr)
+	if err == nil {
+		return NewInstanceIDFromBytes(bytes)
+	}
+	return InstanceID{}, err
+}
+
+// NewRandomInstanceID creates a new random InstanceID from the provided
+// cryptographically secured random number generator.
+func NewRandomInstanceID(csprng io.Reader) (InstanceID, error) {
 	id := InstanceID{}
 	instanceIDBytes := make([]byte, instanceIDLength)
 	n, err := csprng.Read(instanceIDBytes)

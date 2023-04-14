@@ -11,6 +11,7 @@ package sync
 
 import (
 	"encoding/base64"
+	"math/rand"
 	"os"
 	"sort"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/ekv"
 )
 
@@ -25,6 +27,7 @@ const baseDir = "collector_tests/"
 
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
 	syncPath := baseDir + "collector/"
 	txLog := makeTransactionLog(syncPath, password, t)
 
@@ -35,7 +38,9 @@ func TestNewCollector(t *testing.T) {
 	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
-	myId := "testingMyId"
+	myId, err := cmix.NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	cmix.StoreInstanceID(myId, remoteKv)
 
 	workingDir := baseDir + "remoteFsSmoke/"
 	// Delete the test file at the end
@@ -43,12 +48,12 @@ func TestNewCollector(t *testing.T) {
 
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 
-	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
+	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 
 	expected := &Collector{
 		syncPath:             syncPath,
-		myID:                 DeviceID(myId),
-		lastUpdates:          make(changeLogger, 0),
+		myID:                 myId,
+		lastUpdates:          make(map[cmix.InstanceID]time.Time, 0),
 		SynchronizationEpoch: synchronizationEpoch,
 		deviceTxTracker:      newDeviceTransactionTracker(),
 		txLog:                txLog,
@@ -89,24 +94,29 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	// Write mock data to file (collectChanges will read from file)
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]string, 0)
-	for i, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockDeviceId := strconv.Itoa(i)
+	rng := rand.New(rand.NewSource(42))
+	for _, remoteTxLogEnc := range remoteTxLogsEnc {
+		mockInstanceID, err := cmix.NewRandomInstanceID(rng)
+		require.NoError(t, err)
 		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
 		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockDeviceId, mockTxLog))
-		devices = append(devices, mockDeviceId)
+		require.NoError(t, fsRemote.Write(mockInstanceID.String(), mockTxLog))
+		devices = append(devices, mockInstanceID.String())
 	}
 
 	// Construct collector
-	myId := "testingMyId"
-	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
+	myId, _ := cmix.NewRandomInstanceID(rng)
+	cmix.StoreInstanceID(myId, remoteKv)
+	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 
 	_, err = collector.collectChanges(devices)
 	require.NoError(t, err)
 
 	// Ensure device tracker has proper length for all devices
-	for _, dvcId := range devices {
-		received := collector.deviceTxTracker.changes[DeviceID(dvcId)]
+	for _, dvcIdStr := range devices {
+		dvcId, err := cmix.NewInstanceIDFromString(dvcIdStr)
+		require.NoError(t, err)
+		received := collector.deviceTxTracker.changes[dvcId]
 		require.Len(t, received, 6)
 	}
 
@@ -142,16 +152,18 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]string, 0)
 	for i, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockDeviceId := strconv.Itoa(i)
+		mockInstanceID := strconv.Itoa(i)
 		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
 		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockDeviceId, mockTxLog))
-		devices = append(devices, mockDeviceId)
+		require.NoError(t, fsRemote.Write(mockInstanceID, mockTxLog))
+		devices = append(devices, mockInstanceID)
 	}
 
 	// Construct collector
-	myId := "testingMyId"
-	collector := NewCollector(syncPath, myId, txLog, fsRemote, remoteKv)
+	rng := rand.New(rand.NewSource(42))
+	myId, _ := cmix.NewRandomInstanceID(rng)
+	cmix.StoreInstanceID(myId, remoteKv)
+	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 	_, err = collector.collectChanges(devices)
 	require.NoError(t, err)
 	require.NoError(t, collector.applyChanges())
@@ -174,11 +186,12 @@ func TestDeviceTransactionTracker_AddToDevice(t *testing.T) {
 	}
 
 	// Add changes to tracker
-	deviceId := DeviceID("device")
-	dvcTracker.AddToDevice(deviceId, changes)
+	rng := rand.New(rand.NewSource(42))
+	instanceID, _ := cmix.NewRandomInstanceID(rng)
+	dvcTracker.AddToDevice(instanceID, changes)
 
 	// Ensure changes have been put into tracker
-	require.Equal(t, changes, dvcTracker.changes[deviceId])
+	require.Equal(t, changes, dvcTracker.changes[instanceID])
 }
 
 // Unit test for deviceTransactionTracker.Sort.
@@ -201,8 +214,9 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 	}
 
 	// Add changes to tracker
-	deviceId := DeviceID("device")
-	dvcTracker.AddToDevice(deviceId, changes)
+	rng := rand.New(rand.NewSource(42))
+	instanceID, _ := cmix.NewRandomInstanceID(rng)
+	dvcTracker.AddToDevice(instanceID, changes)
 
 	// Ensure next retrieves changes put into tracker
 	ordered := dvcTracker.Sort()
@@ -234,7 +248,7 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 	}
 
 	// Add new transactions to tracker
-	dvcTracker.AddToDevice(deviceId, newChanges)
+	dvcTracker.AddToDevice(instanceID, newChanges)
 
 	// Ensure next retrieves the new transaction list
 	require.Equal(t, newChanges, dvcTracker.Sort())

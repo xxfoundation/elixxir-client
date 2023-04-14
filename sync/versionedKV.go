@@ -9,6 +9,7 @@ package sync
 
 import (
 	"sync"
+	"time"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -243,4 +244,9 @@ func (r *VersionedKV) updateIfSynchronizedPrefix() bool {
 	}
 	r.inSynchronizedPrefix = false
 	return false
+}
+
+// WaitForRemote block until timeout or remote operations complete
+func (r *VersionedKV) WaitForRemote(timeout time.Duration) bool {
+	return r.remoteKV.WaitForRemote(timeout)
 }

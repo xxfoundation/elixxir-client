@@ -11,7 +11,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,9 +57,6 @@ type RemoteKV interface {
 	// SetRemote will write a transaction to the remote and local store
 	// with the specified RemoteCB RemoteStoreCallback
 	SetRemote(key string, val []byte, updateCb RemoteStoreCallback) error
-	// GetList is a wrapper of [LocalStore.GetList]. This will return a JSON
-	// marshalled [KeyValueMap].
-	GetList(name string) ([]byte, error)
 
 	// UpsertLocal performs an upsert operation and sets the resultant
 	// value to the local EKV. It is a LOCAL ONLY operation which will
@@ -98,7 +96,8 @@ type internalKV struct {
 	lck sync.RWMutex
 
 	// mapLck prevents asynchronous map operations
-	mapLck sync.Mutex
+	mapLck       sync.Mutex
+	openRoutines int32
 }
 
 // newKV constructs a new remote KV. If data exists on disk, it loads
@@ -122,14 +121,38 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 
 	// Re-trigger all lingering intents
 	rkv.lck.Lock()
-	for key, val := range rkv.UnsyncedWrites {
+	for key := range rkv.UnsyncedWrites {
 		// Call the internal to avoid writing to intent what
 		// is already there
-		go rkv.remoteSet(key, val, updateCb)
+		k := key
+		v := rkv.UnsyncedWrites[k]
+		atomic.AddInt32(&rkv.openRoutines, 1)
+		go func() {
+			rkv.remoteSet(k, v, updateCb)
+			atomic.AddInt32(&rkv.openRoutines, -1)
+		}()
 	}
 	rkv.lck.Unlock()
 
 	return rkv, nil
+}
+
+// LocalKV Loads or Creates a synchronized remote KV that uses a local-only
+// transaction log. It panics if the underlying KV has ever been used
+// for remote operations in the past.
+func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValue,
+	synchedPrefixes []string,
+	eventCb KeyUpdateCallback,
+	updateCb RemoteStoreCallback, rng io.Reader) (*VersionedKV, error) {
+	if isRemote(kv) {
+		jww.FATAL.Panicf("cannot open remote kv as local")
+	}
+	txLog, err := NewLocalTransactionLog(path, filesystem, deviceSecret,
+		rng)
+	if err != nil {
+		return nil, err
+	}
+	return NewVersionedKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -248,17 +271,6 @@ func (r *internalKV) SetRemote(key string, val []byte,
 func (r *internalKV) SetRemoteOnly(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 	return r.remoteSet(key, val, updateCb)
-}
-
-// GetList is a wrapper of [LocalStore.GetList]. This will return a JSON
-// marshalled [KeyValueMap].
-func (r *internalKV) GetList(name string) ([]byte, error) {
-	valList, err := r.txLog.local.GetList(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(valList)
 }
 
 // StoreMapElement saves a given map element and updates
@@ -414,7 +426,25 @@ func (r *internalKV) getMapKeys(mapName string) (map[string]struct{}, error) {
 
 // WaitForRemote waits until the remote has finished its queued writes or
 // until the specified timeout occurs.
+// Note: This waits for both itself and for the transaction log, so it can
+// take up to 2*timeout for this function to close in the worst case.
 func (r *internalKV) WaitForRemote(timeout time.Duration) bool {
+	//First, wait for my own open threads..
+	t := time.NewTimer(timeout)
+	done := false
+	for !done {
+		select {
+		case <-time.After(time.Millisecond * 100):
+			x := atomic.LoadInt32(&r.openRoutines)
+			if x == 0 {
+				done = true
+			}
+		case <-t.C:
+			return false
+		}
+	}
+
+	//Now wait for tx log
 	return r.txLog.WaitForRemote(timeout)
 }
 
@@ -544,70 +574,7 @@ func (r *internalKV) loadUnsyncedWrites() error {
 	return json.Unmarshal(obj.Data, &r.UnsyncedWrites)
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Remote File System Implementation
-///////////////////////////////////////////////////////////////////////////////
-
-// FileSystemRemoteStorage is a structure adhering to [RemoteStore]. This
-// utilizes the [os.File] IO operations. Implemented for testing purposes for
-// transaction logs.
-type FileSystemRemoteStorage struct {
-	baseDir string
-}
-
-// NewFileSystemRemoteStorage is a constructor for FileSystemRemoteStorage.
-//
-// Arguments:
-//   - baseDir - string. Represents the base directory for which all file
-//     operations will be performed. Must contain a file delimiter (i.e. `/`).
-func NewFileSystemRemoteStorage(baseDir string) *FileSystemRemoteStorage {
-	return &FileSystemRemoteStorage{
-		baseDir: baseDir,
-	}
-}
-
-// Read reads data from path. This will return an error if it fails to read
-// from the file path.
-//
-// This utilizes utils.ReadFile under the hood.
-func (f *FileSystemRemoteStorage) Read(path string) ([]byte, error) {
-	if utils.DirExists(path) {
-		return utils.ReadFile(f.baseDir + path)
-	}
-	return utils.ReadFile(path)
-}
-
-// Write will write data to path. This will return an error if it fails to
-// write.
-//
-// This utilizes utils.WriteFileDef under the hood.
-func (f *FileSystemRemoteStorage) Write(path string, data []byte) error {
-	if utils.DirExists(path) {
-		return utils.WriteFileDef(f.baseDir+path, data)
-	}
-	return utils.WriteFileDef(path, data)
-
-}
-
-func (f *FileSystemRemoteStorage) ReadDir(path string) ([]string, error) {
-	panic("unimplemented")
-}
-
-// GetLastModified will return the last modified timestamp of the file at path.
-// It will return an error if it cannot retrieve any os.FileInfo from the file
-// path.
-//
-// This utilizes utils.GetLastModified under the hood.
-func (f *FileSystemRemoteStorage) GetLastModified(path string) (
-	time.Time, error) {
-	if utils.DirExists(path) {
-		return utils.GetLastModified(f.baseDir + path)
-	}
-	return utils.GetLastModified(path)
-}
-
-// GetLastWrite will retrieve the most recent successful write operation
-// that was received by RemoteStore.
-func (f *FileSystemRemoteStorage) GetLastWrite() (time.Time, error) {
-	return utils.GetLastModified(f.baseDir)
+// todo figure out details in next ticket
+func isRemote(kv ekv.KeyValue) bool {
+	return false
 }

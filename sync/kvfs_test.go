@@ -12,12 +12,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
 
 // Ensure EkvLocalStore adheres to LocalStore.
-var _ LocalStore = &EkvLocalStore{}
+var _ FileIO = &KVFilesystem{}
 
 // Smoke test for EkvLocalStore that executes every method of LocalStore.
 //
@@ -29,11 +28,10 @@ func TestEkvLocalStore_Smoke(t *testing.T) {
 	data := []byte("Test string.")
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Construct local store
-	localStore, err := NewOrLoadEkvLocalStore(kv)
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(kv)
 
 	// Write to file
 	require.NoError(t, localStore.Write(path, data))
@@ -53,24 +51,21 @@ func TestEkvLocalStore_Write_KeyList(t *testing.T) {
 	const numTests = 100
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Construct local store
-	localStore, err := NewOrLoadEkvLocalStore(kv)
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(kv)
 
 	// Write data to local store
 	for i := 0; i < numTests; i++ {
-		curPath := path + LocalStoreKeyDelimiter + strconv.Itoa(i)
+		curPath := path + "/" + strconv.Itoa(i)
 		data := []byte("Test string." + strconv.Itoa(i))
 		require.NoError(t, localStore.Write(curPath, data))
 
-		// check that list has been modified
-		listElem, key := path, strconv.Itoa(i)
+		store := localStore.(*KVFilesystem)
 
 		// Ensure key list has been modified
-		require.Contains(t, localStore.keyLists, listElem)
-		require.Contains(t, localStore.keyLists[listElem], key)
+		require.Contains(t, store.files, curPath)
 	}
 
 }
@@ -81,23 +76,22 @@ func TestEkvLocalStore_GetList(t *testing.T) {
 	const numTests = 100
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Construct local store
-	localStore, err := NewOrLoadEkvLocalStore(kv)
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(kv)
 
 	// Write data to local store
-	expected := make(KeyValueMap, 0)
+	expected := make(map[string]struct{}, 0)
 	for i := 0; i < numTests; i++ {
-		curPath := path + LocalStoreKeyDelimiter + strconv.Itoa(i)
+		curPath := path + "/" + strconv.Itoa(i)
 		data := []byte("Test string." + strconv.Itoa(i))
 		require.NoError(t, localStore.Write(curPath, data))
-		expected[curPath] = data
+		expected[curPath] = struct{}{}
 	}
 
-	received, err := localStore.GetList(path)
-	require.NoError(t, err)
+	store := localStore.(*KVFilesystem)
+	received := store.files
 	require.Equal(t, expected, received)
 }
 
@@ -107,20 +101,21 @@ func TestEkvLocalStore_Loading(t *testing.T) {
 	const numTests = 100
 
 	// Construct kv
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := ekv.MakeMemstore()
 
 	// Construct local store
-	localStore, err := NewOrLoadEkvLocalStore(kv)
-	require.NoError(t, err)
+	localStore := NewKVFilesystem(kv)
 
 	// Write data to local store
 	for i := 0; i < numTests; i++ {
-		curPath := path + LocalStoreKeyDelimiter + strconv.Itoa(i)
+		curPath := path + "/" + strconv.Itoa(i)
 		data := []byte("Test string." + strconv.Itoa(i))
 		require.NoError(t, localStore.Write(curPath, data))
 	}
 
-	loadedLocalStore, err := NewOrLoadEkvLocalStore(kv)
-	require.NoError(t, err)
-	require.Equal(t, localStore.keyLists, loadedLocalStore.keyLists)
+	loadedLocalStore := NewKVFilesystem(kv)
+	orig := localStore.(*KVFilesystem)
+	loaded := loadedLocalStore.(*KVFilesystem)
+
+	require.Equal(t, orig.files, loaded.files)
 }

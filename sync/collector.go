@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -50,11 +51,12 @@ const (
 type Collector struct {
 	// The base path for synchronization
 	syncPath string
-	// my device ID
-	myID DeviceID
+
+	// This local instance ID
+	myID cmix.InstanceID
+
 	// The last time each transaction log was read successfully
-	// The keys are the device ID strings
-	lastUpdates changeLogger
+	lastUpdates map[cmix.InstanceID]time.Time
 
 	// The max time we assume synchronization takes to happen.
 	// This is constant across clients but stored in the object
@@ -73,12 +75,16 @@ type Collector struct {
 }
 
 // NewCollector constructs a collector object.
-func NewCollector(syncPath string, myId string, txLog *TransactionLog,
+func NewCollector(syncPath string, txLog *TransactionLog,
 	remote RemoteStore, kv *VersionedKV) *Collector {
+	myID, err := cmix.LoadInstanceID(kv)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
 	return &Collector{
 		syncPath:             syncPath,
-		myID:                 DeviceID(myId),
-		lastUpdates:          make(changeLogger, 0),
+		myID:                 myID,
+		lastUpdates:          make(map[cmix.InstanceID]time.Time, 0),
 		deviceTxTracker:      newDeviceTransactionTracker(),
 		SynchronizationEpoch: synchronizationEpoch,
 		txLog:                txLog,
@@ -150,24 +156,26 @@ func (c *Collector) collect() {
 }
 
 // collectChanges will collate all changes across all devices.
-func (c *Collector) collectChanges(devices []string) (changeLogger, error) {
+func (c *Collector) collectChanges(devices []string) (
+	map[cmix.InstanceID]time.Time, error) {
 	// Map of Device to list of (new) transactions
 	oldestUpdate := time.Now().Add(-2 * c.SynchronizationEpoch)
 
-	newUpdates := make(changeLogger, 0)
+	newUpdates := make(map[cmix.InstanceID]time.Time, 0)
 
 	// Iterate over devices
-	for _, deviceIdStr := range devices {
-		deviceId := DeviceID(deviceIdStr)
+	for _, deviceIDStr := range devices {
+		deviceID, err := cmix.NewInstanceIDFromString(deviceIDStr)
 		// Retrieve updates from device
-		lastUpdate, err := c.remote.GetLastModified(deviceIdStr)
+		lastUpdate, err := c.remote.GetLastModified(deviceIDStr)
 		if err != nil {
-			return nil, errors.Errorf(deviceUpdateRetrievalErr, deviceIdStr, err)
+			return nil, errors.Errorf(deviceUpdateRetrievalErr,
+				deviceIDStr, err)
 		}
 		// Get the last update
-		lastTrackedUpdate := c.lastUpdates[deviceId]
+		lastTrackedUpdate := c.lastUpdates[deviceID]
 		// If us, read the local log, otherwise read the remote log
-		if deviceId != c.myID &&
+		if deviceID != c.myID &&
 			(lastUpdate.Before(lastTrackedUpdate) ||
 				lastUpdate.Equal(lastTrackedUpdate)) {
 			continue
@@ -181,13 +189,13 @@ func (c *Collector) collectChanges(devices []string) (changeLogger, error) {
 		// If us, read the local log, otherwise read the remote log
 		// TODO: in the future this could work like an open call instead of
 		//  sucking the entire thing into memory.
-		txLog, err := c.readFromDevice(deviceId)
+		txLog, err := c.readFromDevice(deviceID)
 		if err != nil {
 			jww.WARN.Printf("%s", err)
 			continue
 		}
 
-		offset := c.getTxLogOffset(deviceIdStr)
+		offset := c.getTxLogOffset(deviceIDStr)
 
 		// Read all transactions since the last time we saw an update from this
 		// device.
@@ -195,19 +203,19 @@ func (c *Collector) collectChanges(devices []string) (changeLogger, error) {
 		//  the “next” change across all devices get read, but for now drop them
 		//  into a list per device.
 		deviceChanges, err := c.readTransactionsFromLog(
-			txLog, deviceIdStr, offset, c.GetDeviceSecret(deviceIdStr))
+			txLog, deviceIDStr, offset, c.GetDeviceSecret(deviceIDStr))
 		if err != nil {
 			jww.WARN.Printf("failed to read transaction log for %s: %+v",
-				deviceIdStr, err)
+				deviceIDStr, err)
 			continue
 		}
 
-		c.deviceTxTracker.AddToDevice(deviceId, deviceChanges)
+		c.deviceTxTracker.AddToDevice(deviceID, deviceChanges)
 
 		jww.TRACE.Printf("Recorded %d changed for device %s",
-			len(deviceChanges), deviceIdStr)
+			len(deviceChanges), deviceIDStr)
 
-		newUpdates[deviceId] = lastUpdate
+		newUpdates[deviceID] = lastUpdate
 
 	}
 	return newUpdates, nil
@@ -215,12 +223,12 @@ func (c *Collector) collectChanges(devices []string) (changeLogger, error) {
 
 // readFromDevice is a helper function which will read the transaction logs from
 // the DeviceID.
-func (c *Collector) readFromDevice(deviceId DeviceID) (
+func (c *Collector) readFromDevice(instanceID cmix.InstanceID) (
 	txLog []byte, err error) {
 
-	if deviceId != c.myID {
+	if instanceID != c.myID {
 		// Retrieve device's transaction log if it is not this device
-		txLog, err = c.remote.Read(string(deviceId))
+		txLog, err = c.remote.Read(string(instanceID.String()))
 		if err != nil {
 			// todo: continue or return here?
 			return nil, errors.Errorf(
@@ -285,7 +293,7 @@ func (c *Collector) GetDeviceSecret(d string) []byte {
 // readTransactionsFromLog is a utility function which reads all Transaction's
 // after the last read. This deserializes a TransactionLog and must have the
 // device's secret passed in to decrypt transactions.
-func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, deviceId string,
+func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, instanceID string,
 	offset int, deviceSecret []byte) ([]Transaction, error) {
 	txLog := &TransactionLog{
 		deviceSecret: deviceSecret,
@@ -295,20 +303,20 @@ func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, deviceId str
 			"failed to deserialize transaction log: %+v", err)
 	}
 
-	if err := c.setTxLogOffset(deviceId, len(txLog.txs)); err != nil {
+	if err := c.setTxLogOffset(instanceID, len(txLog.txs)); err != nil {
 		return nil, err
 	}
 
 	return txLog.txs[offset:], nil
 }
 
-// getTxLogOffset is a helper function which will read a device ID's offset
+// getTxLogOffset is a helper function which will read a instance ID's offset
 // from storage. If it cannot retrieve the offset from local, it will assume
 // zero value.
-func (c *Collector) getTxLogOffset(deviceId string) int {
-	offsetData, err := c.kv.Remote().GetBytes(deviceOffsetKey(deviceId))
+func (c *Collector) getTxLogOffset(instanceID string) int {
+	offsetData, err := c.kv.Remote().GetBytes(deviceOffsetKey(instanceID))
 	if err != nil {
-		jww.WARN.Printf(retrieveDeviceOffsetErr, collectorLogHeader, deviceId)
+		jww.WARN.Printf(retrieveDeviceOffsetErr, collectorLogHeader, instanceID)
 	}
 
 	if len(offsetData) != 8 {
@@ -320,9 +328,9 @@ func (c *Collector) getTxLogOffset(deviceId string) int {
 
 // setTxLogOffset is a helper function which writes the latest offset value for
 // the given device to local storage.
-func (c *Collector) setTxLogOffset(deviceId string, offset int) error {
+func (c *Collector) setTxLogOffset(instanceID string, offset int) error {
 	data := serializeInt(offset)
-	return c.kv.Remote().SetBytes(deviceOffsetKey(deviceId), data)
+	return c.kv.Remote().SetBytes(deviceOffsetKey(instanceID), data)
 }
 
 // deviceOffsetKey is a helper function which creates the key for
@@ -334,22 +342,22 @@ func deviceOffsetKey(id string) string {
 // deviceTransactionTracker is a structure which tracks the ordered changes of a
 // deviceID and the device's Transaction's.
 type deviceTransactionTracker struct {
-	// Map deviceId -> ordered list of Transactions
-	changes map[DeviceID][]Transaction
+	// Map instanceID -> ordered list of Transactions
+	changes map[cmix.InstanceID][]Transaction
 }
 
 // newDeviceTransactionTracker is the constructor of the
 // deviceTransactionTracker.
 func newDeviceTransactionTracker() *deviceTransactionTracker {
 	return &deviceTransactionTracker{
-		changes: make(map[DeviceID][]Transaction, 0),
+		changes: make(map[cmix.InstanceID][]Transaction, 0),
 	}
 }
 
 // AddToDevice will add a list of Transaction's to the tracked changes.
-func (d *deviceTransactionTracker) AddToDevice(deviceId DeviceID,
+func (d *deviceTransactionTracker) AddToDevice(instanceID cmix.InstanceID,
 	changes []Transaction) {
-	d.changes[deviceId] = append(d.changes[deviceId], changes...)
+	d.changes[instanceID] = append(d.changes[instanceID], changes...)
 }
 
 // Sort will return the list of Transaction's since the last call to Sort on
@@ -384,6 +392,6 @@ func (d *deviceTransactionTracker) Sort() []Transaction {
 		}
 	}
 
-	d.changes = make(map[DeviceID][]Transaction, 0)
+	d.changes = make(map[cmix.InstanceID][]Transaction, 0)
 	return sorted
 }

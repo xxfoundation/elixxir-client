@@ -4,15 +4,17 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
-	"github.com/pkg/errors"
 	"strings"
+
+	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/cmix"
 )
 
 // xxdkDeviceOffsetHeader is the header of the device offset.
 const xxdkDeviceOffsetHeader = "XXDKTXLOGDVCOFFST"
 
-// deviceOffset is the last index a certain device ID has read.
-type deviceOffset map[DeviceID]int
+// deviceOffset is the last index a certain instance ID has read.
+type deviceOffset map[cmix.InstanceID]int
 
 func newDeviceOffset() deviceOffset {
 	return make(deviceOffset, 0)
@@ -20,7 +22,11 @@ func newDeviceOffset() deviceOffset {
 
 // serialize serializes the deviceOffset object.
 func (d deviceOffset) serialize() ([]byte, error) {
-	deviceOffsetMarshal, err := json.Marshal(&d)
+	dataToSave := make(map[string]int, len(d))
+	for k, v := range d {
+		dataToSave[k.String()] = v
+	}
+	deviceOffsetMarshal, err := json.Marshal(dataToSave)
 	if err != nil {
 		return nil, errors.Errorf("failed to marshal device offsets: %+v", err)
 	}
@@ -45,12 +51,21 @@ func deserializeDeviceOffset(deviceOffsetSerial []byte) (deviceOffset, error) {
 	}
 
 	// Unmarshal offset
-	dvcOffset := deviceOffset{}
+	dvcOffset := make(map[string]int)
 	if err = json.Unmarshal(deviceOffsetJson, &dvcOffset); err != nil {
 		return nil, err
 	}
 
-	return dvcOffset, nil
+	dvcOff := make(deviceOffset, len(dvcOffset))
+	for k, v := range dvcOffset {
+		newK, err := cmix.NewInstanceIDFromString(k)
+		if err != nil {
+			return nil, err
+		}
+		dvcOff[newK] = v
+	}
+
+	return dvcOff, nil
 }
 
 // serializeInt is a utility function which serializes an integer into a byte

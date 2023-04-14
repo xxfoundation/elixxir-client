@@ -222,12 +222,12 @@ func (c *Collector) collectChanges(devices []string) (
 
 // readFromDevice is a helper function which will read the transaction logs from
 // the DeviceID.
-func (c *Collector) readFromDevice(deviceId cmix.InstanceID) (
+func (c *Collector) readFromDevice(instanceID cmix.InstanceID) (
 	txLog []byte, err error) {
 
-	if deviceId != c.myID {
+	if instanceID != c.myID {
 		// Retrieve device's transaction log if it is not this device
-		txLog, err = c.remote.Read(string(deviceId.String()))
+		txLog, err = c.remote.Read(string(instanceID.String()))
 		if err != nil {
 			// todo: continue or return here?
 			return nil, errors.Errorf(
@@ -292,7 +292,7 @@ func (c *Collector) GetDeviceSecret(d string) []byte {
 // readTransactionsFromLog is a utility function which reads all Transaction's
 // after the last read. This deserializes a TransactionLog and must have the
 // device's secret passed in to decrypt transactions.
-func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, deviceId string,
+func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, instanceID string,
 	offset int, deviceSecret []byte) ([]Transaction, error) {
 	txLog := &TransactionLog{
 		deviceSecret: deviceSecret,
@@ -302,7 +302,7 @@ func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, deviceId str
 			"failed to deserialize transaction log: %+v", err)
 	}
 
-	if err := c.setTxLogOffset(deviceId, len(txLog.txs)); err != nil {
+	if err := c.setTxLogOffset(instanceID, len(txLog.txs)); err != nil {
 		return nil, err
 	}
 
@@ -312,10 +312,10 @@ func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, deviceId str
 // getTxLogOffset is a helper function which will read a device ID's offset
 // from storage. If it cannot retrieve the offset from local, it will assume
 // zero value.
-func (c *Collector) getTxLogOffset(deviceId string) int {
-	offsetData, err := c.kv.Remote().GetBytes(deviceOffsetKey(deviceId))
+func (c *Collector) getTxLogOffset(instanceID string) int {
+	offsetData, err := c.kv.Remote().GetBytes(deviceOffsetKey(instanceID))
 	if err != nil {
-		jww.WARN.Printf(retrieveDeviceOffsetErr, collectorLogHeader, deviceId)
+		jww.WARN.Printf(retrieveDeviceOffsetErr, collectorLogHeader, instanceID)
 	}
 
 	if len(offsetData) != 8 {
@@ -327,9 +327,9 @@ func (c *Collector) getTxLogOffset(deviceId string) int {
 
 // setTxLogOffset is a helper function which writes the latest offset value for
 // the given device to local storage.
-func (c *Collector) setTxLogOffset(deviceId string, offset int) error {
+func (c *Collector) setTxLogOffset(instanceID string, offset int) error {
 	data := serializeInt(offset)
-	return c.kv.Remote().SetBytes(deviceOffsetKey(deviceId), data)
+	return c.kv.Remote().SetBytes(deviceOffsetKey(instanceID), data)
 }
 
 // deviceOffsetKey is a helper function which creates the key for
@@ -341,7 +341,7 @@ func deviceOffsetKey(id string) string {
 // deviceTransactionTracker is a structure which tracks the ordered changes of a
 // deviceID and the device's Transaction's.
 type deviceTransactionTracker struct {
-	// Map deviceId -> ordered list of Transactions
+	// Map instanceID -> ordered list of Transactions
 	changes map[cmix.InstanceID][]Transaction
 }
 
@@ -354,9 +354,9 @@ func newDeviceTransactionTracker() *deviceTransactionTracker {
 }
 
 // AddToDevice will add a list of Transaction's to the tracked changes.
-func (d *deviceTransactionTracker) AddToDevice(deviceId cmix.InstanceID,
+func (d *deviceTransactionTracker) AddToDevice(instanceID cmix.InstanceID,
 	changes []Transaction) {
-	d.changes[deviceId] = append(d.changes[deviceId], changes...)
+	d.changes[instanceID] = append(d.changes[instanceID], changes...)
 }
 
 // Sort will return the list of Transaction's since the last call to Sort on

@@ -63,6 +63,6 @@ type KeyUpdateCallback func(key string, oldVal, newVal []byte, updated bool)
 // writing the new transaction to remote storage.
 type RemoteStoreCallback func(newTx Transaction, err error)
 
-// DeviceId is the identified of a certain device that holds account
+// InstanceID is the identified of a certain device that holds account
 // state.
-type DeviceId string
+type InstanceID string

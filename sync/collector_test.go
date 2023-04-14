@@ -96,12 +96,12 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	devices := make([]string, 0)
 	rng := rand.New(rand.NewSource(42))
 	for _, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockDeviceId, err := cmix.GenerateInstanceID(rng)
+		mockInstanceID, err := cmix.GenerateInstanceID(rng)
 		require.NoError(t, err)
 		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
 		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockDeviceId.String(), mockTxLog))
-		devices = append(devices, mockDeviceId.String())
+		require.NoError(t, fsRemote.Write(mockInstanceID.String(), mockTxLog))
+		devices = append(devices, mockInstanceID.String())
 	}
 
 	// Construct collector
@@ -152,11 +152,11 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]string, 0)
 	for i, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockDeviceId := strconv.Itoa(i)
+		mockInstanceID := strconv.Itoa(i)
 		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
 		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockDeviceId, mockTxLog))
-		devices = append(devices, mockDeviceId)
+		require.NoError(t, fsRemote.Write(mockInstanceID, mockTxLog))
+		devices = append(devices, mockInstanceID)
 	}
 
 	// Construct collector
@@ -187,11 +187,11 @@ func TestDeviceTransactionTracker_AddToDevice(t *testing.T) {
 
 	// Add changes to tracker
 	rng := rand.New(rand.NewSource(42))
-	deviceId, _ := cmix.GenerateInstanceID(rng)
-	dvcTracker.AddToDevice(deviceId, changes)
+	instanceID, _ := cmix.GenerateInstanceID(rng)
+	dvcTracker.AddToDevice(instanceID, changes)
 
 	// Ensure changes have been put into tracker
-	require.Equal(t, changes, dvcTracker.changes[deviceId])
+	require.Equal(t, changes, dvcTracker.changes[instanceID])
 }
 
 // Unit test for deviceTransactionTracker.Sort.
@@ -215,8 +215,8 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 
 	// Add changes to tracker
 	rng := rand.New(rand.NewSource(42))
-	deviceId, _ := cmix.GenerateInstanceID(rng)
-	dvcTracker.AddToDevice(deviceId, changes)
+	instanceID, _ := cmix.GenerateInstanceID(rng)
+	dvcTracker.AddToDevice(instanceID, changes)
 
 	// Ensure next retrieves changes put into tracker
 	ordered := dvcTracker.Sort()
@@ -248,7 +248,7 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 	}
 
 	// Add new transactions to tracker
-	dvcTracker.AddToDevice(deviceId, newChanges)
+	dvcTracker.AddToDevice(instanceID, newChanges)
 
 	// Ensure next retrieves the new transaction list
 	require.Equal(t, newChanges, dvcTracker.Sort())

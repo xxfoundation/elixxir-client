@@ -59,8 +59,8 @@ func TestDeviceOffset(t *testing.T) {
 	// Populate offset structure with data
 	const numTests = 100
 	for i := 0; i < numTests; i++ {
-		deviceId, _ := cmix.GenerateInstanceID(rng)
-		dvcOffset[deviceId] = i
+		instanceID, _ := cmix.GenerateInstanceID(rng)
+		dvcOffset[instanceID] = i
 	}
 
 	require.Len(t, dvcOffset, numTests)

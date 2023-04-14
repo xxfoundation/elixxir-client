@@ -69,7 +69,7 @@ type TransactionLog struct {
 	// timestamp.
 	txs []Transaction
 
-	// offsets is the last index a certain device ID has read.
+	// offsets is the last index a certain instance ID has read.
 	offsets deviceOffset
 
 	// deviceSecret is the secret for the device that the TransactionLog will

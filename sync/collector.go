@@ -51,10 +51,11 @@ const (
 type Collector struct {
 	// The base path for synchronization
 	syncPath string
-	// my device ID
+
+	// This local instance ID
 	myID cmix.InstanceID
+
 	// The last time each transaction log was read successfully
-	// The keys are the device ID strings
 	lastUpdates map[cmix.InstanceID]time.Time
 
 	// The max time we assume synchronization takes to happen.
@@ -309,7 +310,7 @@ func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, instanceID s
 	return txLog.txs[offset:], nil
 }
 
-// getTxLogOffset is a helper function which will read a device ID's offset
+// getTxLogOffset is a helper function which will read a instance ID's offset
 // from storage. If it cannot retrieve the offset from local, it will assume
 // zero value.
 func (c *Collector) getTxLogOffset(instanceID string) int {

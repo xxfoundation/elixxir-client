@@ -954,6 +954,8 @@ func ValidForever() int {
 //     to the user should be tracked while all actions should not be.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -1014,6 +1016,8 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 //     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //     empty, and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -1076,6 +1080,8 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 //     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].

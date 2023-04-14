@@ -311,7 +311,7 @@ func sendMessageToChannel(chanManager channels.Manager,
 		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
 		channel.ReceptionID, integrationChannelMessage, msgBody, 5*time.Second,
-		true, cmix.GetDefaultCMIXParams())
+		true, cmix.GetDefaultCMIXParams(), nil)
 	if err != nil {
 		return errors.Errorf("%+v", err)
 	}

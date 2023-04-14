@@ -111,7 +111,7 @@ bindings-ios:
     - go get golang.org/x/mobile/bind
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - gomobile init
-    - gomobile bind -v -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
+    - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - ls
     - zip -r -y iOS.zip Bindings.xcframework
     - cp iOS.zip iOS-$CI_COMMIT_SHA.zip

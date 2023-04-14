@@ -227,10 +227,9 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 
 // GetMessage returns the [channels.ModelMessage] with the given [message.ID].
 func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
-	result := &Message{}
+	result := &Message{MessageId: messageID.Bytes()}
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Take(result, "message_id = ?",
-		messageID.Bytes()).Error
+	err := i.db.WithContext(ctx).Take(result).Error
 	cancel()
 	if err != nil {
 		return channels.ModelMessage{}, err

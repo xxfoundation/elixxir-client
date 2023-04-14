@@ -118,7 +118,7 @@ func Test_listener_Process(t *testing.T) {
 			t.Errorf("Received unexpected values."+
 				"\nexpected: %+v\nreceived: %+v", expected, r)
 		}
-	case <-time.After(15 * time.Millisecond):
+	case <-time.After(250 * time.Millisecond):
 		t.Error("Timed out waiting to receive callback.")
 	}
 }

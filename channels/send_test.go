@@ -60,7 +60,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 			SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
-			*bool, *SentStatus) error {
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -131,7 +131,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 			SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
-			*bool, *SentStatus) error {
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -205,7 +205,7 @@ func Test_manager_SendMessage(t *testing.T) {
 			SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
-			*bool, *SentStatus) error {
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -287,7 +287,7 @@ func Test_manager_SendReply(t *testing.T) {
 			SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
-			*bool, *SentStatus) error {
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -515,7 +515,7 @@ func Test_manager_PinMessage(t *testing.T) {
 			SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
-			*bool, *SentStatus) error {
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -589,7 +589,7 @@ func Test_manager_MuteUser(t *testing.T) {
 			SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
-			*bool, *SentStatus) error {
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}

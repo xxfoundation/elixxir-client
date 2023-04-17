@@ -139,6 +139,9 @@ type Client interface {
 	// If the fallthrough processor is not nil, it will be used to process
 	// messages for this id in the event there isn't a service or fingerprint
 	// that matches the message.
+	//
+	// validUntil is the time the identity self-destructs. To set for forever,
+	// use identity.Forever.
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
 		fallthroughProcessor message.Processor)
 

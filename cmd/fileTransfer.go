@@ -9,7 +9,7 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -325,7 +325,7 @@ func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 
 // getContactFromFile loads the contact from the given file path.
 func getContactFromFile(path string) contact.Contact {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	jww.INFO.Printf("Read in contact file of size %d bytes", len(data))
 	if err != nil {
 		jww.FATAL.Panicf("Failed to read contact file: %+v", err)

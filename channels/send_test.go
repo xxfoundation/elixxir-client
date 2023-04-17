@@ -56,11 +56,12 @@ func Test_manager_SendGeneric(t *testing.T) {
 			uint64, error) {
 			return 0, nil
 		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -126,11 +127,12 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 			uint64, error) {
 			return 0, nil
 		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -199,11 +201,12 @@ func Test_manager_SendMessage(t *testing.T) {
 			uint64, error) {
 			return 0, nil
 		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -280,11 +283,12 @@ func Test_manager_SendReply(t *testing.T) {
 			uint64, error) {
 			return 0, nil
 		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -367,14 +371,14 @@ func Test_manager_SendReaction(t *testing.T) {
 			rounds.Round, SentStatus) (uint64, error) {
 			return 0, nil
 		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+			*bool, *bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
 	rng := crng.GetStream()
 	defer rng.Close()
 	channelID, _ := id.NewRandomID(rng, id.User)
-
 	msg := "🍆"
 	params := new(cmix.CMIXParams)
 	replyMsgID := message.ID{69}
@@ -432,18 +436,19 @@ func Test_manager_DeleteMessage(t *testing.T) {
 		channels: make(map[id.ID]*joinedChannel),
 		kv:       kv,
 		rng:      crng,
-		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
-			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
-			uint64, error) {
-			return 0, nil
-		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
-			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
-		}, crng),
+		st: loadSendTracker(&mockBroadcastClient{}, kv,
+			func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+				receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+				uint64, error) {
+				return 0, nil
+			}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+				message.ID, receptionID.EphemeralIdentity,
+				rounds.Round, SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
+				*bool, *bool, *SentStatus) error {
+				return nil
+			}, crng),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -506,11 +511,12 @@ func Test_manager_PinMessage(t *testing.T) {
 			uint64, error) {
 			return 0, nil
 		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -579,11 +585,12 @@ func Test_manager_MuteUser(t *testing.T) {
 			uint64, error) {
 			return 0, nil
 		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*bool, *SentStatus) error {
+			return nil
 		}, crng),
 	}
 
@@ -652,7 +659,7 @@ func (m *mockBroadcastChannel) MaxPayloadSize() int            { return 1024 }
 func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int { return 512 }
 func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel  { return m.crypto }
 
-func (m *mockBroadcastChannel) Broadcast(payload []byte, tags []string, messageType uint16,
+func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ uint16,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -661,8 +668,8 @@ func (m *mockBroadcastChannel) Broadcast(payload []byte, tags []string, messageT
 }
 
 func (m *mockBroadcastChannel) BroadcastWithAssembler(
-	assembler broadcast.Assembler, tags []string, messageType uint16, cMixParams cmix.CMIXParams) (
-	rounds.Round, ephemeral.Id, error) {
+	assembler broadcast.Assembler, _ []string, _ uint16,
+	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
 	m.payload, err = assembler(returnedRound)
@@ -671,7 +678,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
-	payload []byte, tags []string, messageType uint16, cMixParams cmix.CMIXParams) (
+	payload []byte, _ []string, _ uint16, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -681,7 +688,7 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
-	pk rsa.PrivateKey, assembler broadcast.Assembler, tags []string, messageType uint16,
+	pk rsa.PrivateKey, assembler broadcast.Assembler, _ []string, _ uint16,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -691,13 +698,13 @@ func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
 	return nil, rounds.Round{ID: returnedRound}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) RegisterRSAtoPublicListener(listenerCb broadcast.ListenerFunc, tags []string) (broadcast.Processor, error) {
-	//TODO implement me
+func (m *mockBroadcastChannel) RegisterRSAtoPublicListener(
+	broadcast.ListenerFunc, []string) (broadcast.Processor, error) {
 	panic("implement me")
 }
 
-func (m *mockBroadcastChannel) RegisterSymmetricListener(listenerCb broadcast.ListenerFunc, tags []string) (broadcast.Processor, error) {
-	//TODO implement me
+func (m *mockBroadcastChannel) RegisterSymmetricListener(
+	broadcast.ListenerFunc, []string) (broadcast.Processor, error) {
 	panic("implement me")
 }
 

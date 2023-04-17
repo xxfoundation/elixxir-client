@@ -9,15 +9,18 @@ package channels
 
 import (
 	"crypto/ed25519"
-	"github.com/pkg/errors"
 	"math"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -119,6 +122,7 @@ type Manager interface {
 		validUntil time.Duration, tracked bool, params cmix.CMIXParams,
 		pings []ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
+
 	// SendMessage is used to send a formatted message over a channel.
 	//
 	// Due to the underlying encoding using compression, it is not possible to
@@ -330,3 +334,86 @@ type Manager interface {
 // NotAnAdminErr is returned if the user is attempting to do an admin command
 // while not being an admin.
 var NotAnAdminErr = errors.New("user not a member of the channel")
+
+// EventModelBuilder initialises the event model using the given path.
+type EventModelBuilder func(path string) (EventModel, error)
+
+// ExtensionMessageHandler is the mechanism by which extensions register their
+// message handlers with the event model.
+type ExtensionMessageHandler interface {
+	// GetType registers the message type that this handler is for. All messages
+	// of this type will be passed through this handler.
+	GetType() MessageType
+
+	// GetProperties returns debugging and pre-filtering information.
+	//
+	// Parameters:
+	//   - name - A name that is included in log messages for debugging.
+	//   - userSpace - If true, then normal user messages will be passed to the
+	//     handler, otherwise it is dropped.
+	//   - adminSpace - If true, then admin messages will be passed to the
+	//     handler, otherwise it is dropped.
+	//   - mutedSpace - If true, then muted user messages will be passed to the
+	//     handler, otherwise it is dropped.
+	//
+	// userSpace or adminSpace must be true or all messages will be ignored
+	GetProperties() (name string, userSpace, adminSpace, mutedSpace bool)
+
+	// Handle is called when the message is actually received.
+	//
+	// Parameters:
+	//	 - channelID - ID of the channel that the message belongs to.
+	//	 - messageID - Unique ID of the message. May not be present if this
+	//	   user is the sender.
+	//   - messageType - The type of the message. It will always be the same as
+	//     GetType.
+	//   - nickname - Sender's chosen username. It will be "admin" if it is sent
+	//     by a channel administrator.
+	//	 - content - The decrypted contents of the payload. This is the actual
+	//	   message contents sent from the sender.
+	//   - encryptedPayload - Encrypted contents of the received format.Message,
+	//     which is the encrypted channels.ChannelMessage. It is used for some
+	//     specific admin interactions.
+	//   - pubKey - The Ed25519 public key of the sender.
+	//   - dmToken - An optional token that the sender may add to allow any
+	//     recipient to message them directly.
+	//   - codeset - Codename generation version.
+	//   - timestamp - Time the message was sent according to the sender.
+	//   - originatingTimestamp - The time the mix round the message was
+	//     originally sent on started.
+	//   - lease - How long the message should persist. The behavior of the
+	//     lease is subject to what the extension author wants.
+	//   - originatingRound - The ID of the round the message was originally
+	//     sent on.
+	//   - round - All known details of the round the message was sent on.
+	//   - status - The current state of the message, if it is queued to send,
+	//     has been sent, and if it has been delivered. Unless this client is
+	//     the sender, it will always be Delivered.
+	//   - fromAdmin - Indicates if the message came from the channel admin.
+	//   - hidden - Designation that the message should not be shown.
+	Handle(channelID *id.ID, messageID cryptoMessage.ID, messageType MessageType,
+		nickname string, content, encryptedPayload []byte,
+		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp,
+		originatingTimestamp time.Time, lease time.Duration,
+		originatingRound id.Round, round rounds.Round, status SentStatus,
+		fromAdmin, hidden bool) uint64
+}
+
+// ExtensionBuilder builds an extension off of an event model. It must cast the
+// event model to its event model type and return an error if the cast fails. It
+// returns a slice of [ExtensionMessageHandler] that contains the handlers for
+// every custom message type that the extension will handle.
+//
+// Note: The first thing the function should do is extract the extension's event
+// model using the call:
+//  eventModel, success := e.(ExtensionEventModel)
+//
+// It should return an error if the casting is a failure.
+type ExtensionBuilder func(e EventModel, m Manager,
+	me cryptoChannel.PrivateIdentity) ([]ExtensionMessageHandler, error)
+
+// AddServiceFn adds a service to be controlled by the client thread control.
+// These will be started and stopped with the network follower.
+//
+// This type must match [Client.AddService].
+type AddServiceFn func(sp xxdk.Service) error

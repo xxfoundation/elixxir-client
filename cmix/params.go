@@ -66,9 +66,9 @@ type Params struct {
 	// ignored and local time is used
 	ClockSkewClamp time.Duration
 
-	// EnableEphemeralRegistration tells the registrar to allow use of ephemeral
+	// EnableImmediateSending tells the registrar to allow use of ephemeral
 	// ED keys to send to nodes before registration has completed.
-	EnableEphemeralRegistration bool
+	EnableImmediateSending bool
 
 	// DisableNodeRegistration tells the registrar to disable the registration
 	// subsystem. THIS SHOULD ONLY BE USED IN TESTING.
@@ -102,6 +102,7 @@ type paramsDisk struct {
 	Message                   message.Params
 	Historical                rounds.Params
 	MaxParallelIdentityTracks uint
+	EnableImmediateSending    bool
 }
 
 // GetDefaultParams returns a Params object containing the
@@ -119,6 +120,7 @@ func GetDefaultParams() Params {
 		ReplayRequests:            true,
 		MaxParallelIdentityTracks: 5,
 		ClockSkewClamp:            50 * time.Millisecond,
+		EnableImmediateSending:    false,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()
@@ -158,6 +160,7 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		Message:                   p.Message,
 		Historical:                p.Historical,
 		MaxParallelIdentityTracks: p.MaxParallelIdentityTracks,
+		EnableImmediateSending:    p.EnableImmediateSending,
 	}
 
 	return json.Marshal(&pDisk)
@@ -186,6 +189,7 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		Message:                   pDisk.Message,
 		Historical:                pDisk.Historical,
 		MaxParallelIdentityTracks: pDisk.MaxParallelIdentityTracks,
+		EnableImmediateSending:    pDisk.EnableImmediateSending,
 	}
 
 	return nil

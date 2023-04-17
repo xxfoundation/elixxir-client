@@ -83,14 +83,14 @@ const (
 	e2eRekeyThresholdFlag = "e2eRekeyThreshold"
 
 	// Misc
-	sendIdFlag                      = "sendid"
-	profileCpuFlag                  = "profile-cpu"
-	profileMemFlag                  = "profile-mem"
-	userIdPrefixFlag                = "userid-prefix"
-	legacyFlag                      = "legacy"
-	gatewayWhitelistFlag            = "gateway-whitelist"
-	disableNodeRegistrationFlag     = "disableNodeRegistration"
-	enableEphemeralRegistrationFlag = "enableEphemeralRegistration"
+	sendIdFlag                  = "sendid"
+	profileCpuFlag              = "profile-cpu"
+	profileMemFlag              = "profile-mem"
+	userIdPrefixFlag            = "userid-prefix"
+	legacyFlag                  = "legacy"
+	gatewayWhitelistFlag        = "gateway-whitelist"
+	disableNodeRegistrationFlag = "disableNodeRegistration"
+	enableImmediateSendingFlag  = "enableImmediateSending"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "channelName"
@@ -114,6 +114,22 @@ const (
 	channelsLeaveFlag            = "leaveChannel"
 	channelsNewFlag              = "newChannel"
 	channelsSendFlag             = "sendToChannel"
+
+	///////////////// File Transfer subcommand flags //////////////////////////
+	channelsFtChanIdPathFlag    = "ftChannelIdentityPath"
+	channelsFtChanPathFlag      = "ftChannelPath"
+	channelsFtFilePath          = "file"
+	channelsFtTypeFlag          = "ftFileType"
+	channelsFtPreviewStringFlag = "ftFilePreviewString"
+	channelsFtMaxThroughputFlag = "ftMaxThroughput"
+	channelsFtRetry             = "ftRetry"
+	channelsFtOutputPath        = "ftOutput"
+	channelsFtJoinFlag          = "ftJoinChannel"
+	channelsFtNewFlag           = "ftNewChannel"
+	channelsFtSendFlag          = "ftSendToChannel"
+	channelsFtNameFlag          = "ftChannelName"
+	channelsFtDescriptionFlag   = "ftChannelDescription"
+	channelsFtKeyPathFlag       = "ftChannelKeyPath"
 
 	///////////////// Connection subcommand flags /////////////////////////////
 	connectionFlag              = "connect"

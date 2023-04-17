@@ -102,7 +102,11 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	// Denote all unsent messages as failed and clear
 	for uuid, t := range st.unsent {
 		status := Failed
-		updateStatus(uuid, &t.MsgID, nil, nil, nil, nil, &status)
+		err := updateStatus(uuid, &t.MsgID, nil, nil, nil, nil, &status)
+		if err != nil {
+			jww.ERROR.Printf("[CH] Failed to update message %s (UUID %d): %+v",
+				t.MsgID, uuid, err)
+		}
 	}
 	st.unsent = make(map[uint64]*tracked)
 
@@ -307,7 +311,13 @@ func (st *sendTracker) send(
 
 	// Update the message in the UI
 	status := Sent
-	go st.updateStatus(t.UUID, &msgID, &ts, &round, nil, nil, &status)
+	go func() {
+		err = st.updateStatus(t.UUID, &msgID, &ts, &round, nil, nil, &status)
+		if err != nil {
+			jww.ERROR.Printf("[CH] Failed to update message %s (UUID %d): %+v",
+				t.MsgID, uuid, err)
+		}
+	}()
 	return nil
 }
 
@@ -321,7 +331,13 @@ func (st *sendTracker) failedSend(uuid uint64) error {
 
 	// Update the message in the UI
 	status := Failed
-	go st.updateStatus(t.UUID, nil, nil, nil, nil, nil, &status)
+	go func() {
+		err = st.updateStatus(t.UUID, nil, nil, nil, nil, nil, &status)
+		if err != nil {
+			jww.ERROR.Printf("[CH] Failed to update message UUID %d: %+v",
+				uuid, err)
+		}
+	}()
 	return nil
 }
 
@@ -439,7 +455,15 @@ func (st *sendTracker) MessageReceive(
 
 	ts := message.MutateTimestamp(round.Timestamps[states.QUEUED], messageID)
 	status := Delivered
-	go st.updateStatus(msgData.UUID, &messageID, &ts, &round, nil, nil, &status)
+
+	go func() {
+		err := st.updateStatus(
+			msgData.UUID, &messageID, &ts, &round, nil, nil, &status)
+		if err != nil {
+			jww.ERROR.Printf("[CH] Failed to update message %s (UUID %d): %+v",
+				messageID, msgData.UUID, err)
+		}
+	}()
 
 	if err := st.storeSent(); err != nil {
 		jww.FATAL.Panicf("[CH] Failed to store the updated sent list: %+v", err)
@@ -504,8 +528,15 @@ func (rr *roundResults) callback(
 		for i := range registered.List {
 			round := results[rr.round].Round
 			status = Failed
-			go rr.st.updateStatus(registered.List[i].UUID,
-				&registered.List[i].MsgID, nil, &round, nil, nil, &status)
+			go func(i int, round rounds.Round, status SentStatus) {
+				err := rr.st.updateStatus(registered.List[i].UUID,
+					&registered.List[i].MsgID, nil, &round, nil, nil, &status)
+				if err != nil {
+					jww.ERROR.Printf(
+						"[CH] Failed to update message %s (UUID %d): %+v",
+						registered.List[i].MsgID, registered.List[i].UUID, err)
+				}
+			}(i, round, status)
 		}
 	}
 }

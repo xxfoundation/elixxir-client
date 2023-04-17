@@ -175,7 +175,7 @@ func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 			"missing keys!")
 	}
 
-	r.SetEphemeralRegistrationEnabled(true)
+	r.SetImmediateSendingEnabled(true)
 	result, err = r.GetNodeKeys(circuit)
 	if err != nil {
 		t.Fatalf("Should no longer error when some keys are missing: %+v", err)

@@ -13,8 +13,8 @@ import (
 	"gitlab.com/elixxir/primitives/notifications"
 )
 
-// NotificationReports is a list of [NotificationReport]s. This will be returned
-// via GetNotificationsReport as a JSON marshalled byte data.
+// NotificationReports is a list of [NotificationReport] objects. It is returned
+// via [GetNotificationsReport] as a JSON marshalled byte data.
 //
 // Example JSON:
 //
@@ -79,33 +79,34 @@ type NotificationReport struct {
 	Source []byte
 }
 
-// GetNotificationsReport parses the received notification data to determine which
-// notifications are for this user. // This returns the JSON-marshalled
-// NotificationReports.
+// GetNotificationsReport parses the received notification data to determine
+// which notifications are for this user. This returns the JSON-marshalled
+// [NotificationReports].
 //
 // Parameters:
-//   - notificationCSV - the notification data received from the
-//     notifications' server.
+//   - notificationCSV - The notification data received from the notifications
+//     server.
 //   - marshalledServices - the JSON-marshalled list of services the backend
-//     keeps track of. Refer to Cmix.TrackServices or
-//     Cmix.TrackServicesWithIdentity for information about this.
+//     keeps track of. Refer to [Cmix.TrackServices] or
+//     [Cmix.TrackServicesWithIdentity] for information.
 //
 // Returns:
-//   - []byte - A JSON marshalled NotificationReports. Some NotificationReport's
-//     within in this structure may have their NotificationReport.ForMe
-//     set to false. These may be ignored.
+//   - []byte - JSON of [NotificationReports]. Some [NotificationReport] objects
+//     within this structure may have their [NotificationReport.ForMe] set to
+//     false. These may be ignored.
 func GetNotificationsReport(notificationCSV string,
 	marshalledServices, marshalledCompressedServices []byte) ([]byte, error) {
 
 	// Decode notifications' server data
-	notificationList, err := notifications.DecodeNotificationsCSV(notificationCSV)
+	notificationList, err :=
+		notifications.DecodeNotificationsCSV(notificationCSV)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse notifications list against all marshalled services
-	servicesReport, err := getServicesReport(
-		marshalledServices, notificationList)
+	servicesReport, err :=
+		getServicesReport( marshalledServices, notificationList)
 	if err != nil {
 		return nil, err
 	}
@@ -127,36 +128,37 @@ func GetNotificationsReport(notificationCSV string,
 // The token is a firebase messaging token.
 //
 // Parameters:
-//   - e2eId - ID of the E2E object in the E2E tracker
+//   - e2eID - ID of [E2e] object in tracker.
 func RegisterForNotifications(e2eId int, token string) error {
 	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return err
 	}
 
-	return user.api.RegisterForNotifications(user.api.GetReceptionIdentity().ID, token)
+	return user.api.RegisterForNotifications(
+		user.api.GetReceptionIdentity().ID, token)
 }
 
 // UnregisterForNotifications turns off notifications for this client.
 //
 // Parameters:
-//   - e2eId - ID of the E2E object in the E2E tracker
+//   - e2eID - ID of [E2e] object in tracker.
 func UnregisterForNotifications(e2eId int) error {
 	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return err
 	}
 
-	return user.api.UnregisterForNotifications(user.api.GetReceptionIdentity().ID)
+	return user.api.UnregisterForNotifications(
+		user.api.GetReceptionIdentity().ID)
 }
 
-// getCompressedServicesReport is a utility function for
-// [GetNotificationsReport].
+// getCompressedServicesReport is a utility function for GetNotificationsReport.
 //
 // getCompressedServicesReport parses the notifications list against the
 // marshalled compressed services. If a compressed service determines a
 // notification is meant for this user, it appends this data to the list of
-// [NotificationReport]'s.
+// NotificationReport objects.
 func getCompressedServicesReport(marshalledCompressedServices []byte,
 	notificationList []*notifications.Data) ([]*NotificationReport, error) {
 	// Construct  a report list
@@ -196,18 +198,18 @@ func getCompressedServicesReport(marshalledCompressedServices []byte,
 	return reportList, nil
 }
 
-// getServicesReport is a utility function for [GetNotificationsReport].
+// getServicesReport is a utility function for GetNotificationsReport.
 //
 // getServicesReport parses the notifications list against the marshalled
 // services. If a compressed service determines a notification is meant for this
-// user, it appends this data to the list of [NotificationReport]'s.
+// user, it appends this data to the list of NotificationReport objects.
 func getServicesReport(marshalledServices []byte,
 	notificationList []*notifications.Data) ([]*NotificationReport, error) {
 	// Construct  a report list
 	reportList := make([]*NotificationReport, 0)
 
-	// If services are retrieved using TrackServicesWithIdentity, this
-	// should return a single list.
+	// If services are retrieved using TrackServicesWithIdentity, this should
+	// return a single list.
 	serviceList := message.ServiceList{}
 	err := json.Unmarshal(marshalledServices, &serviceList)
 	if err != nil {

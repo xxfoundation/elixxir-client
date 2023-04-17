@@ -95,7 +95,8 @@ func (c *Cmix) UnregisterForNotifications(toBeNotifiedOn *id.ID) error {
 	return nil
 }
 
-func getIidAndSig(signer rsa.PrivateKey, toBeNotified *id.ID, rng io.Reader) ([]byte, []byte, error) {
+func getIidAndSig(signer rsa.PrivateKey, toBeNotified *id.ID, rng io.Reader) (
+	[]byte, []byte, error) {
 	intermediaryReceptionID, err := ephemeral.GetIntermediaryId(
 		toBeNotified)
 	if err != nil {

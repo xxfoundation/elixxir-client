@@ -30,19 +30,19 @@ type processor struct {
 
 // Process decrypts and hands off the file part message and adds it to the
 // correct file transfer.
-func (p *processor) Process(msg format.Message,
+func (p *processor) Process(msg format.Message, _ []string, _ []byte,
 	_ receptionID.EphemeralIdentity, round rounds.Round) {
 
 	decryptedPart, err := p.Decrypt(msg)
 	if err != nil {
-		jww.ERROR.Printf("[FT] Failed to decrypt file part for file %s on " +
+		jww.ERROR.Printf("[FT] Failed to decrypt file part for file %s on "+
 			"round %d: %+v", p.GetFileID(), round.ID, err)
 		return
 	}
 
 	partMsg, err := fileMessage.UnmarshalPartMessage(decryptedPart)
 	if err != nil {
-		jww.ERROR.Printf("[FT] Failed to unmarshal decrypted file part for " +
+		jww.ERROR.Printf("[FT] Failed to unmarshal decrypted file part for "+
 			"file %s on round %d: %+v", p.GetFileID(), round.ID, err)
 		return
 	}

@@ -343,7 +343,7 @@ func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 	}
 
 	return w.ch.SendGeneric(channelID, channels.FileTransfer,
-		fileInfo, validUntil, true, params.CMIX)
+		fileInfo, validUntil, true, params.CMIX, nil)
 }
 
 // RegisterSentProgressCallback registers the callback to the given file

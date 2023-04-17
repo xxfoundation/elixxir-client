@@ -81,7 +81,7 @@ func (p *receptionProcessor) Process(message format.Message, _ []string, _ []byt
 		p.g.Name, p.g.ID, result.Timestamp)
 
 	// Send the decrypted message and original message to the processor
-	p.p.Process(result, message, receptionID, round)
+	p.p.Process(result, message, nil, nil, receptionID, round)
 }
 
 func (p *receptionProcessor) String() string {

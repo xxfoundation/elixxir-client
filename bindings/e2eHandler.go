@@ -220,7 +220,7 @@ func (e *E2e) RegisterListener(
 
 // Processor is the bindings-specific interface for message.Processor methods.
 type Processor interface {
-	Process(message []byte, tags []string, receptionId []byte, ephemeralId int64, roundId int64)
+	Process(message []byte, tags []byte, metadata []byte, receptionId []byte, ephemeralId int64, roundId int64)
 	fmt.Stringer
 }
 
@@ -232,15 +232,16 @@ type messageProcessor struct {
 
 // convertProcessor turns the input of a message.Processor to the
 // binding-layer primitives equivalents within the Processor.Process.
-func convertProcessor(msg format.Message, tags []string,
+func convertProcessor(msg format.Message, tags []string, metadata []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
-	message []byte, tagsOut []string, receptionId []byte, ephemeralId int64, roundId int64) {
+	message []byte, tagsOut []byte, metadataOut []byte, receptionId []byte, ephemeralId int64, roundId int64) {
 
+	tagsOut, _ = json.Marshal(tags)
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
 	ephemeralId = int64(receptionID.EphId.UInt64())
 	roundId = int64(round.ID)
-	tagsOut = tags[:]
+	metadataOut = metadata[:]
 	return
 }
 
@@ -252,9 +253,9 @@ func convertProcessor(msg format.Message, tags []string,
 // added again during application load. It is a security vulnerability to reuse
 // a fingerprint. It leaks privacy and can lead to compromise of message
 // contents and integrity.
-func (m *messageProcessor) Process(msg format.Message, tags []string, _ []byte,
+func (m *messageProcessor) Process(msg format.Message, tags []string, metadata []byte,
 	receptionID receptionID.EphemeralIdentity, roundId rounds.Round) {
-	m.bindingsCbs.Process(convertProcessor(msg, tags, receptionID, roundId))
+	m.bindingsCbs.Process(convertProcessor(msg, tags, metadata, receptionID, roundId))
 }
 
 // String prints a name for debugging.

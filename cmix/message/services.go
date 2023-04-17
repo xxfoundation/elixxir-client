@@ -61,9 +61,10 @@ type compressedService struct {
 
 func NewServices() *ServicesManager {
 	return &ServicesManager{
-		services:    make(map[id.ID]map[sih.Preimage]service),
-		trackers:    make([]ServicesTracker, 0),
-		numServices: 0,
+		compressedServices: make(map[id.ID]map[sih.Preimage]compressedService),
+		services:           make(map[id.ID]map[sih.Preimage]service),
+		trackers:           make([]ServicesTracker, 0),
+		numServices:        0,
 	}
 }
 
@@ -205,8 +206,11 @@ func (sm *ServicesManager) UpsertCompressedService(clientID *id.ID, newService C
 		clientID)
 
 	// Add the service to the internal map
+	_, isUpdate := sm.compressedServices[*clientID][newService.preimage()]
 	sm.compressedServices[*clientID][newService.preimage()] = newEntry
-	sm.numServices++
+	if !isUpdate {
+		sm.numServices++
+	}
 
 	// Signal that a new service was added
 	sm.triggerServiceTracking()

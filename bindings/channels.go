@@ -954,11 +954,13 @@ func ValidForever() int {
 //     to the user should be tracked while all actions should not be.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
-	message []byte, validUntilMS int64, tracked bool, cmixParamsJSON []byte) (
+	message []byte, validUntilMS int64, tracked bool, cmixParamsJSON []byte, pingBytes [][]byte) (
 	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
@@ -976,9 +978,14 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 		lease = channels.ValidForever
 	}
 
+	pings := make([]ed25519.PublicKey, len(pingBytes))
+	for i := range pingBytes {
+		pings[i] = pingBytes[i][:]
+	}
+
 	// Send message
 	messageID, rnd, ephID, err := cm.api.SendGeneric(
-		channelID, msgType, message, lease, tracked, params.CMIX)
+		channelID, msgType, message, lease, tracked, params.CMIX, pings)
 	if err != nil {
 		return nil, err
 	}
@@ -1009,11 +1016,13 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 //     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //     empty, and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
-	validUntilMS int64, cmixParamsJSON []byte) ([]byte, error) {
+	validUntilMS int64, cmixParamsJSON []byte, pingBytes [][]byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err :=
@@ -1028,9 +1037,14 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
+	pings := make([]ed25519.PublicKey, len(pingBytes))
+	for i := range pingBytes {
+		pings[i] = pingBytes[i][:]
+	}
+
 	// Send message
 	messageID, rnd, ephID, err :=
-		cm.api.SendMessage(channelID, message, lease, params.CMIX)
+		cm.api.SendMessage(channelID, message, lease, params.CMIX, pings)
 	if err != nil {
 		return nil, err
 	}
@@ -1066,11 +1080,13 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 //     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
-	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte) (
+	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte, pingBytes [][]byte) (
 	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
@@ -1090,9 +1106,14 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
+	pings := make([]ed25519.PublicKey, len(pingBytes))
+	for i := range pingBytes {
+		pings[i] = pingBytes[i][:]
+	}
+
 	// Send Reply
 	messageID, rnd, ephID, err :=
-		cm.api.SendReply(channelID, message, messageID, lease, params.CMIX)
+		cm.api.SendReply(channelID, message, messageID, lease, params.CMIX, pings)
 	if err != nil {
 		return nil, err
 	}

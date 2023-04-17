@@ -8,23 +8,26 @@
 package xxdk
 
 import (
+	"io"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"io"
 )
 
 // RegisterForNotifications allows a client to register for push notifications.
 // Note that clients are not required to register for push notifications,
 // especially as these rely on third parties (i.e., Firebase *cough* *cough*
-// Google's palantir *cough*) that may represent a security risk to the user.
+// Google's Palantir *cough*) that may represent a security risk to the user.
 // A client can register to receive push notifications on many IDs.
 func (c *Cmix) RegisterForNotifications(toBeNotifiedOn *id.ID, token string) error {
-	jww.INFO.Printf("RegisterForNotifications(%s)", token)
+	jww.INFO.Printf("RegisterForNotifications(%s, %s)", toBeNotifiedOn, token)
+
 	// Pull the host from the manage
 	notificationBotHost, ok := c.GetComms().GetHost(&id.NotificationBot)
 	if !ok {
@@ -32,11 +35,11 @@ func (c *Cmix) RegisterForNotifications(toBeNotifiedOn *id.ID, token string) err
 			"Failed to retrieve host for notification bot")
 	}
 	stream := c.GetRng().GetStream()
-	defer stream.Close()
-	intermediaryReceptionID, sig, err := getIidAndSig(c.GetStorage().GetTransmissionRSA(),
-		toBeNotifiedOn, stream)
+	intermediaryReceptionID, sig, err := getIidAndSig(
+		c.GetStorage().GetTransmissionRSA(), toBeNotifiedOn, stream)
+	stream.Close()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "RegisterForNotifications")
 	}
 
 	privKey := c.GetStorage().GetTransmissionRSA()
@@ -56,9 +59,8 @@ func (c *Cmix) RegisterForNotifications(toBeNotifiedOn *id.ID, token string) err
 			RegistrationTimestamp: regTS.UnixNano(),
 		})
 	if err != nil {
-		err := errors.Errorf("RegisterForNotifications: Unable to "+
-			"register for notifications! %s", err)
-		return err
+		return errors.Wrap(err, "RegisterForNotifications: Unable to "+
+			"register for notifications!")
 	}
 
 	return nil
@@ -66,20 +68,23 @@ func (c *Cmix) RegisterForNotifications(toBeNotifiedOn *id.ID, token string) err
 
 // UnregisterForNotifications turns off notifications for this client.
 func (c *Cmix) UnregisterForNotifications(toBeNotifiedOn *id.ID) error {
-	jww.INFO.Printf("UnregisterForNotifications()")
+	jww.INFO.Printf("UnregisterForNotifications(%s)", toBeNotifiedOn)
+
 	// Pull the host from the manage
 	notificationBotHost, ok := c.GetComms().GetHost(&id.NotificationBot)
 	if !ok {
-		return errors.New("Failed to retrieve host for notification bot")
+		return errors.New("UnregisterForNotifications: " +
+			"Failed to retrieve host for notification bot")
 	}
 
 	stream := c.GetRng().GetStream()
-	defer stream.Close()
-	intermediaryReceptionID, sig, err := getIidAndSig(c.GetStorage().GetTransmissionRSA(),
-		toBeNotifiedOn, stream)
+	intermediaryReceptionID, sig, err := getIidAndSig(
+		c.GetStorage().GetTransmissionRSA(), toBeNotifiedOn, stream)
+	stream.Close()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "UnregisterForNotifications")
 	}
+
 	// Sends the unregister message
 	_, err = c.GetComms().UnregisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationUnregisterRequest{
@@ -87,38 +92,35 @@ func (c *Cmix) UnregisterForNotifications(toBeNotifiedOn *id.ID) error {
 			IIDTransmissionRsaSig: sig,
 		})
 	if err != nil {
-		err := errors.Errorf(
-			"RegisterForNotifications: Unable to register for notifications! %s", err)
-		return err
+		return errors.Wrap(err, "UnregisterForNotifications: Unable to "+
+			"unregister for notifications!")
 	}
 
 	return nil
 }
 
 func getIidAndSig(signer rsa.PrivateKey, toBeNotified *id.ID, rng io.Reader) (
-	[]byte, []byte, error) {
-	intermediaryReceptionID, err := ephemeral.GetIntermediaryId(
-		toBeNotified)
+	intermediaryReceptionID, sig []byte, err error) {
+	intermediaryReceptionID, err = ephemeral.GetIntermediaryId(toBeNotified)
 	if err != nil {
-		return nil, nil, errors.WithMessage(err,
-			"RegisterForNotifications: Failed to form intermediary ID")
+		return nil, nil,
+			errors.WithMessage(err, "Failed to form intermediary ID")
 	}
 	h, err := hash.NewCMixHash()
 	if err != nil {
-		return nil, nil, errors.WithMessage(err,
-			"RegisterForNotifications: Failed to create cMix hash")
+		return nil, nil,
+			errors.WithMessage(err, "Failed to create cMix hash")
 	}
 	_, err = h.Write(intermediaryReceptionID)
 	if err != nil {
-		return nil, nil, errors.WithMessage(err,
-			"RegisterForNotifications: Failed to write intermediary ID to hash")
+		return nil, nil,
+			errors.WithMessage(err, "Failed to write intermediary ID to hash")
 	}
 
-	sig, err := signer.SignPSS(rng,
-		hash.CMixHash, h.Sum(nil), nil)
+	sig, err = signer.SignPSS(rng, hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
-		return nil, nil, errors.WithMessage(err,
-			"RegisterForNotifications: Failed to sign intermediary ID")
+		return nil, nil,
+			errors.WithMessage(err, "Failed to sign intermediary ID")
 	}
 	return intermediaryReceptionID, sig, nil
 }

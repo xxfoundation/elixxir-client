@@ -39,7 +39,11 @@ var initCmd = &cobra.Command{
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.NewCmix(string(ndfJson), storeDir, storePassword, regCode)
+		err = xxdk.NewCmix(string(ndfJson), storeDir, storePassword,
+			regCode)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 		net, err := xxdk.OpenCmix(storeDir, storePassword)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

@@ -619,20 +619,19 @@ func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
-
-func (m *mockBroadcastClient) IsHealthy() bool                                        { return true }
 func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
 func (m *mockBroadcastClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
 }
-func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
-func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
 func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
-func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
+func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
+func (m *mockBroadcastClient) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {
 }
-func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
-func (m *mockBroadcastClient) RemoveHealthCallback(uint64)         {}
-func (m *mockBroadcastClient) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
-	response message.Processor) {
+func (m *mockBroadcastClient) DeleteClientService(*id.ID)            {}
+func (m *mockBroadcastClient) TrackServices(message.ServicesTracker) {}
+func (m *mockBroadcastClient) IsHealthy() bool                       { return true }
+func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64   { return 0 }
+func (m *mockBroadcastClient) RemoveHealthCallback(uint64)           {}
+func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////

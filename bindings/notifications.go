@@ -163,7 +163,7 @@ func UnregisterForNotifications(e2eId int) error {
 func getCompressedServicesReport(marshalledCompressedServices []byte,
 	notificationList []*notifications.Data) ([]*NotificationReport, error) {
 	// Construct a report list
-	reportList := make([]*NotificationReport, len(notificationList))
+	reportList := make([]*NotificationReport, 0, len(notificationList))
 
 	// Process compressed services
 	compressServiceList := message.CompressedServiceList{}
@@ -180,18 +180,15 @@ func getCompressedServicesReport(marshalledCompressedServices []byte,
 			// Iterate over all services {
 			for j := range services {
 				service := services[j]
-				found, tags, metadata := service.ForMe(&id,
-					notifData.MessageHash, service.Metadata)
-				if !found {
-					continue
+				found, tags, metadata :=
+					service.ForMe(&id, notifData.MessageHash, service.Metadata)
+				if found {
+					reportList = append(reportList, &NotificationReport{
+						ForMe:  true,
+						Type:   tags,
+						Source: metadata,
+					})
 				}
-
-				reportList[i] = &NotificationReport{
-					ForMe:  true,
-					Type:   tags,
-					Source: metadata,
-				}
-
 			}
 		}
 	}
@@ -207,7 +204,7 @@ func getCompressedServicesReport(marshalledCompressedServices []byte,
 func getServicesReport(marshalledServices []byte,
 	notificationList []*notifications.Data) ([]*NotificationReport, error) {
 	// Construct a report list
-	reportList := make([]*NotificationReport, 0)
+	reportList := make([]*NotificationReport, 0, len(notificationList))
 
 	// If services are retrieved using TrackServicesWithIdentity, this should
 	// return a single list.
@@ -232,11 +229,11 @@ func getServicesReport(marshalledServices []byte,
 				// this service, ie "ForMe"
 				if service.ForMeFromMessageHash(notifData.MessageHash, hash) {
 					// Fill report list with service data
-					reportList[i] = &NotificationReport{
+					reportList = append(reportList, &NotificationReport{
 						ForMe:  true,
 						Type:   []string{service.Tag},
 						Source: service.Identifier,
-					}
+					})
 				}
 			}
 		}

@@ -113,7 +113,7 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 	// Connect to listeners
 	_, err = m.registerListeners(b, channel)
 
-	return nil
+	return err
 }
 
 // removeChannel deletes the channel with the given ID from the channel list and

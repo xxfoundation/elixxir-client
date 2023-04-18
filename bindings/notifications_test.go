@@ -10,13 +10,14 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/e2e/ratchet"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
 )
 
 func TestNotificationReport(t *testing.T) {
-	reports := []NotificationReport{}
+	var reports []NotificationReport
 
 	for i := 0; i < 3; i++ {
 		nr := NotificationReport{

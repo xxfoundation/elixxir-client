@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/primitives/notifications"
 )
@@ -58,17 +59,17 @@ type NotificationReports []NotificationReport
 // Below is a table that will define the contextual meaning of the Source field
 // given all possible Type fields.
 //
-//	 TYPE     |     SOURCE         |    DESCRIPTION
-//	----------+--------------------+--------------------------------------------------------
-//	"default" |  recipient user ID |  A message with no association.
-//	"request" |  sender user ID    |  A channel request has been received, from Source.
-//	"reset"   |  sender user ID    |  A channel reset has been received.
-//	"confirm" |  sender user ID    |  A channel request has been accepted.
-//	"silent"  |  sender user ID    |  A message where the user should not be notified.
-//	"e2e"     |  sender user ID    |  A reception of an E2E message.
-//	"group"   |  group ID          |  A reception of a group chat message.
-//	"endFT"   |  sender user ID    |  The last message sent confirming end of file transfer.
-//	"groupRQ" |  sender user ID    |  A request from Source to join a group chat.
+//	 TYPE     | SOURCE            | DESCRIPTION
+//	----------+-------------------+--------------------------------------------------------
+//	"default" | recipient user ID | A message with no association.
+//	"request" | sender user ID    | A channel request has been received, from Source.
+//	"reset"   | sender user ID    | A channel reset has been received.
+//	"confirm" | sender user ID    | A channel request has been accepted.
+//	"silent"  | sender user ID    | A message where the user should not be notified.
+//	"e2e"     | sender user ID    | A reception of an E2E message.
+//	"group"   | group ID          | A reception of a group chat message.
+//	"endFT"   | sender user ID    | The last message sent confirming end of file transfer.
+//	"groupRQ" | sender user ID    | A request from Source to join a group chat.
 type NotificationReport struct {
 	// ForMe determines whether this value is for the user. If it is
 	// false, this report may be ignored.
@@ -97,7 +98,7 @@ type NotificationReport struct {
 func GetNotificationsReport(notificationCSV string,
 	marshalledServices, marshalledCompressedServices []byte) ([]byte, error) {
 
-	// Decode notifications' server data
+	// Decode notifications server's data
 	notificationList, err :=
 		notifications.DecodeNotificationsCSV(notificationCSV)
 	if err != nil {
@@ -106,7 +107,7 @@ func GetNotificationsReport(notificationCSV string,
 
 	// Parse notifications list against all marshalled services
 	servicesReport, err :=
-		getServicesReport( marshalledServices, notificationList)
+		getServicesReport(marshalledServices, notificationList)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +162,7 @@ func UnregisterForNotifications(e2eId int) error {
 // NotificationReport objects.
 func getCompressedServicesReport(marshalledCompressedServices []byte,
 	notificationList []*notifications.Data) ([]*NotificationReport, error) {
-	// Construct  a report list
+	// Construct a report list
 	reportList := make([]*NotificationReport, len(notificationList))
 
 	// Process compressed services
@@ -205,7 +206,7 @@ func getCompressedServicesReport(marshalledCompressedServices []byte,
 // user, it appends this data to the list of NotificationReport objects.
 func getServicesReport(marshalledServices []byte,
 	notificationList []*notifications.Data) ([]*NotificationReport, error) {
-	// Construct  a report list
+	// Construct a report list
 	reportList := make([]*NotificationReport, 0)
 
 	// If services are retrieved using TrackServicesWithIdentity, this should

@@ -108,7 +108,12 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 	}
 
 	// Enable notifications
-	m.notifyChannels[*jc.broadcast.Get().ReceptionID] = struct{}{}
+	if m.notificationsManager != nil {
+		err = m.enableChannelNotifications(jc.broadcast.Get().ReceptionID)
+		if err != nil {
+			return err
+		}
+	}
 
 	// Connect to listeners
 	_, err = m.registerListeners(b, channel)
@@ -144,7 +149,11 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 
 	m.events.leases.RemoveChannel(channelID)
 
-	m.disableChannelNotifications(channelID)
+	if m.notificationsManager != nil {
+		if err = m.disableChannelNotifications(channelID); err != nil {
+			return err
+		}
+	}
 
 	delete(m.channels, *channelID)
 

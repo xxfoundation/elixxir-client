@@ -352,8 +352,10 @@ type TrackCompressedServicesCallback interface {
 //
 // Parameters:
 //   - e2eID - ID of [E2e] object in tracker.
-//   - cb - A [TrackServicesCallback], which will be passed the marshalled
+//   - cb - A [TrackServicesCallback], which will be passed the JSON of
 //     [message.ServiceList].
+//   - compressedCb - A [TrackCompressedServicesCallback], which will be passed
+//     the JSON of [message.CompressedServiceList].
 func (c *Cmix) TrackServicesWithIdentity(e2eId int, cb TrackServicesCallback,
 	compressedCb TrackCompressedServicesCallback) error {
 	// Retrieve the user from the tracker
@@ -386,7 +388,7 @@ func (c *Cmix) TrackServicesWithIdentity(e2eId int, cb TrackServicesCallback,
 // provide services for all identities that the client tracks.
 //
 // Parameters:
-//   - cb - A [TrackServicesCallback] that will be passed the marshalled
+//   - cb - A [TrackServicesCallback], which will be passed the JSON of
 //     [message.ServiceList].
 func (c *Cmix) TrackServices(cb TrackServicesCallback) {
 	c.api.GetCmix().TrackServices(func(

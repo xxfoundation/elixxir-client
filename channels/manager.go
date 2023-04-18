@@ -63,6 +63,9 @@ type manager struct {
 	// Makes the function that is used to create broadcasts be a pointer so that
 	// it can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
+
+	// Notification manager
+	*chNotifications
 }
 
 // Client contains the methods from cmix.Client that are required by the
@@ -71,22 +74,23 @@ type Client interface {
 	GetMaxMessageLength() int
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
-	IsHealthy() bool
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
 		fallthroughProcessor message.Processor)
 	AddIdentityWithHistory(
 		id *id.ID, validUntil, beginning time.Time,
 		persistent bool, fallthroughProcessor message.Processor)
+	RemoveIdentity(id *id.ID)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
-	DeleteClientService(clientID *id.ID)
-	RemoveIdentity(id *id.ID)
-	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-		roundList ...id.Round)
-	AddHealthCallback(f func(bool)) uint64
-	RemoveHealthCallback(uint64)
 	UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
 		response message.Processor)
+	DeleteClientService(clientID *id.ID)
+	TrackServices(tracker message.ServicesTracker)
+	IsHealthy() bool
+	AddHealthCallback(f func(bool)) uint64
+	RemoveHealthCallback(uint64)
+	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
+		roundList ...id.Round)
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
@@ -430,4 +434,64 @@ func (m *manager) Muted(channelID *id.ID) bool {
 func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 	jww.INFO.Printf("[CH] GetMutedUsers in channel %s", channelID)
 	return m.mutedUsers.getMutedUsers(channelID)
+}
+
+type chNotifications struct {
+	notifyChannels map[id.ID]struct{} // List of channels with notifications enabled
+}
+
+type TrackedServicesCallback func(sl message.ServiceList, csl message.CompressedServiceList)
+
+// registerServicesCallback registers the provided callback that returns the
+// list of services registered for any channel with notifications enabled. It is
+// called every time a channel service is added or removed.
+func (m *manager) registerServicesCallback(cb TrackedServicesCallback) {
+	m.net.TrackServices(func(
+		sl message.ServiceList, csl message.CompressedServiceList) {
+		channelsSl := make(message.ServiceList)
+		channelsCsl := make(message.CompressedServiceList)
+
+		m.mux.Lock()
+		for chanID := range m.notifyChannels {
+			if s, exists := sl[chanID]; exists {
+				channelsSl[chanID] = s
+			}
+			if s, exists := csl[chanID]; exists {
+				channelsCsl[chanID] = s
+			}
+		}
+		m.mux.Unlock()
+
+		cb(channelsSl, channelsCsl)
+	})
+}
+
+// EnableChannelNotifications enables notifications for the given channel and
+// includes services for this channel in the [message.ServiceList] and
+// [message.CompressedServiceList] returned by the [TrackedServicesCallback]
+func (m *manager) EnableChannelNotifications(channelID *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.enableChannelNotifications(channelID)
+}
+func (m *manager) enableChannelNotifications(channelID *id.ID) error {
+	jww.INFO.Printf("[CH] Enable notifications for channel %s", channelID)
+	if _, exists := m.channels[*channelID]; !exists {
+		return ChannelDoesNotExistsErr
+	}
+	m.notifyChannels[*channelID] = struct{}{}
+	return nil
+}
+
+// DisableChannelNotifications disables notifications for the given channel and
+// stops including services for this channel in the [message.ServiceList] and
+// [message.CompressedServiceList] returned by the [TrackedServicesCallback]
+func (m *manager) DisableChannelNotifications(channelID *id.ID) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	m.disableChannelNotifications(channelID)
+}
+func (m *manager) disableChannelNotifications(channelID *id.ID) {
+	jww.INFO.Printf("[CH] Disable notifications for channel %s", channelID)
+	delete(m.notifyChannels, *channelID)
 }

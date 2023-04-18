@@ -30,3 +30,24 @@ func LocalKV(storageDir string, password []byte,
 		localTxLogPath))
 	return sync.LocalKV(storageDir, password, localFS, localKV, rng)
 }
+
+// SynchronizedKV creates a filesystem based KV that synchronizes
+// with a remote storage system.
+func SynchronizedKV(storageDir string, password []byte,
+	remote sync.RemoteStore,
+	synchedPrefixes []string,
+	eventCb sync.KeyUpdateCallback,
+	updateCb sync.RemoteStoreCallback,
+	rng *fastRNG.StreamGenerator) (*sync.VersionedKV, error) {
+	passwordStr := string(password)
+	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"failed to create storage session")
+	}
+	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+		localTxLogPath))
+
+	return sync.SynchronizedKV(storageDir, password, localFS,
+		remote, localKV, synchedPrefixes, eventCb, updateCb, rng)
+}

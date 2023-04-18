@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -145,6 +146,21 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	return openCmix(storageKV, rngStreamGen)
 }
 
+func OpenSynchronizedCmix(storageDir string, password []byte, remote sync.RemoteStore,
+	synchedPrefixes []string,
+	eventCb sync.KeyUpdateCallback,
+	updateCb sync.RemoteStoreCallback) (*Cmix, error) {
+
+	jww.INFO.Printf("OpenSynchronizedCmix()")
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
+	storageKV, err := SynchronizedKV(storageDir, password,
+		remote, synchedPrefixes, eventCb, updateCb, rngStreamGen)
+	if err != nil {
+		return nil, err
+	}
+	return openCmix(storageKV, rngStreamGen)
+}
+
 func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (
 	*Cmix, error) {
 	currentVersion, err := version.ParseVersion(SEMVER)
@@ -231,7 +247,28 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 	if err != nil {
 		return nil, err
 	}
+	return loadCmix(c, parameters)
+}
 
+// LoadSynchronizedCmix initializes a Cmix object from existing storage using
+// a remote synchronization storage object and starts the network.
+func LoadSynchronizedCmix(storageDir string, password []byte, remote sync.RemoteStore,
+	synchedPrefixes []string,
+	eventCb sync.KeyUpdateCallback,
+	updateCb sync.RemoteStoreCallback,
+	parameters CMIXParams) (*Cmix, error) {
+	jww.INFO.Printf("LoadSynchronizedCmix()")
+
+	c, err := OpenSynchronizedCmix(storageDir, password, remote,
+		synchedPrefixes, eventCb, updateCb)
+	if err != nil {
+		return nil, err
+	}
+	return loadCmix(c, parameters)
+}
+
+func loadCmix(c *Cmix, parameters CMIXParams) (*Cmix, error) {
+	var err error
 	c.network, err = cmix.NewClient(
 		parameters.Network, c.comms, c.storage, c.rng, c.events)
 	if err != nil {

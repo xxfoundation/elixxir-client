@@ -21,7 +21,7 @@ import (
 // FileSystemStorage implements [RemoteStore], and can be used as a
 // local [FileIO] for the transaction log as well as for testing
 // RemoteStorage users. This utilizes the [os.File] IO
-// operations. Implemented for testing purposes for transaction logs.
+// operations.
 type FileSystemStorage struct {
 	baseDir   string
 	lastWrite time.Time

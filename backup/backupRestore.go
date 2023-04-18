@@ -59,7 +59,7 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 	// Note we do not need registration here
 	storageSess, err := xxdk.CheckVersionAndSetupStorage(def, storageDir,
 		sessionPassword, userInfo, cmixGrp, e2eGrp,
-		backUp.RegistrationCode, rngStream)
+		backUp.RegistrationCode, rngStreamGen)
 	if err != nil {
 		return nil, "", err
 	}

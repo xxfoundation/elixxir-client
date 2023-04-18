@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -135,24 +134,6 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	rkv.lck.Unlock()
 
 	return rkv, nil
-}
-
-// LocalKV Loads or Creates a synchronized remote KV that uses a local-only
-// transaction log. It panics if the underlying KV has ever been used
-// for remote operations in the past.
-func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValue,
-	synchedPrefixes []string,
-	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback, rng io.Reader) (*VersionedKV, error) {
-	if isRemote(kv) {
-		jww.FATAL.Panicf("cannot open remote kv as local")
-	}
-	txLog, err := NewLocalTransactionLog(path, filesystem, deviceSecret,
-		rng)
-	if err != nil {
-		return nil, err
-	}
-	return NewVersionedKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

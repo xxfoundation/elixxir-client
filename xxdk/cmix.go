@@ -8,7 +8,6 @@
 package xxdk
 
 import (
-	"io"
 	"math"
 	"path/filepath"
 	"time"
@@ -88,11 +87,8 @@ func NewCmix(
 	jww.DEBUG.Printf(
 		"PortableUserInfo generation took: %s", netTime.Now().Sub(start))
 
-	rng := rngStreamGen.GetStream()
-	defer rng.Close()
-
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, registrationCode, rng)
+		userInfo, cmixGrp, e2eGrp, registrationCode, rngStreamGen)
 	return err
 }
 
@@ -118,13 +114,15 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	userInfo := createNewVanityUser(rngStream, e2eGrp, userIdPrefix)
 
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, registrationCode, rngStream)
+		userInfo, cmixGrp, e2eGrp, registrationCode, rngStreamGen)
 	if err != nil {
 		return err
 	}
 
 	return nil
 }
+
+// func OpenSynchronizedCmix(
 
 // OpenCmix creates client storage but does not connect to the network or login.
 // Note that this is a helper function that, in most applications, should not be
@@ -150,7 +148,7 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
 		localTxLogPath))
 	storageKV, err := sync.LocalKV(storageDir, password,
-		localFS, localKV, nil, nil, nil, rngStreamGen.GetStream())
+		localFS, localKV, nil, nil, nil, rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +198,7 @@ func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 	cmixGrp, e2eGrp := DecodeGroups(def)
 	storageSess, err := CheckVersionAndSetupStorage(
 		def, storageDir, password, usr, cmixGrp, e2eGrp,
-		protoUser.RegCode, rngStream)
+		protoUser.RegCode, rngStreamGen)
 	if err != nil {
 		return err
 	}
@@ -631,7 +629,8 @@ func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 // NewPrecannedCmix and NewVanityCmix.
 func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	password []byte, userInfo user.Info, cmixGrp, e2eGrp *cyclic.Group,
-	registrationCode string, rng io.Reader) (storage.Session, error) {
+	registrationCode string, rng *fastRNG.StreamGenerator) (storage.Session,
+	error) {
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
@@ -664,8 +663,11 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	// Store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
 
+	rngStream := rng.GetStream()
+	defer rngStream.Close()
+
 	// Create and store an instance ID
-	instanceID, err := cmix.NewRandomInstanceID(rng)
+	instanceID, err := cmix.NewRandomInstanceID(rngStream)
 	if err != nil {
 		return nil, err
 	}

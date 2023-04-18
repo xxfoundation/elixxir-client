@@ -43,7 +43,7 @@ func NewPrecannedCmix(precannedID uint, defJSON, storageDir string,
 
 	userInfo := createPrecannedUser(precannedID, rngStream, e2eGrp)
 	store, err := CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, "", rngStream)
+		userInfo, cmixGrp, e2eGrp, "", rngStreamGen)
 	if err != nil {
 		return err
 	}

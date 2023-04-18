@@ -19,7 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	kvsync "gitlab.com/elixxir/client/v4/sync"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -192,27 +194,14 @@ func makeTransactionLog(baseDir, password string, t *testing.T) *kvsync.Transact
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+
 	// Construct transaction log
 	txLog, err := kvsync.NewTransactionLog(baseDir+"test.txt", localStore,
-		remoteStore, deviceSecret, &CountingReader{count: 0})
+		remoteStore, deviceSecret, rngGen)
 	require.NoError(t, err)
 
 	return txLog
-}
-
-// CountingReader is a platform-independent deterministic RNG that adheres to
-// io.Reader.
-type CountingReader struct {
-	count uint8
-}
-
-// Read just counts until 254 then starts over again
-func (c *CountingReader) Read(b []byte) (int, error) {
-	for i := 0; i < len(b); i++ {
-		c.count = (c.count + 1) % 255
-		b[i] = c.count
-	}
-	return len(b), nil
 }
 
 type mockRemote struct {

@@ -8,10 +8,13 @@
 package sync
 
 import (
+	"io"
 	"sync"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 )
 
@@ -58,6 +61,31 @@ func NewVersionedKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	v.updateIfSynchronizedPrefix()
 
 	return v, nil
+}
+func NewSynchronizedKV(path string, deviceSecret []byte,
+	filesystem FileIO, remote RemoteStore, kv ekv.KeyValue,
+	synchedPrefixes []string,
+	eventCb KeyUpdateCallback,
+	updateCb RemoteStoreCallback, rng io.Reader) (*VersionedKV, error) {
+	return nil, nil
+}
+
+// LocalKV Loads or Creates a synchronized remote KV that uses a local-only
+// transaction log. It panics if the underlying KV has ever been used
+// for remote operations in the past.
+func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValue,
+	synchedPrefixes []string,
+	eventCb KeyUpdateCallback,
+	updateCb RemoteStoreCallback, rng *fastRNG.StreamGenerator) (*VersionedKV, error) {
+	if isRemote(kv) {
+		jww.FATAL.Panicf("cannot open remote kv as local")
+	}
+	txLog, err := NewLocalTransactionLog(path, filesystem, deviceSecret,
+		rng)
+	if err != nil {
+		return nil, err
+	}
+	return NewVersionedKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

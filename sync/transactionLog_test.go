@@ -8,7 +8,6 @@
 package sync
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"os"
 	"runtime/pprof"
@@ -18,14 +17,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 )
 
 const (
 	// expectedTransactionLogSerializedBase64 is the base64 encoded serialized
 	// TransactionLog. If the state set in the mock TransactionLog is changed,
 	// this value should be changed to reflect this.
-	expectedTransactionLogSerializedBase64 = `MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0VAAAAAAAAAFhYREtUWExPR0RWQ09GRlNUZTMwPQYAAAAAAAAAkgAAAAAAAAAwLEFRSURCQVVHQndnSkNnc01EUTRQRUJFU0V4UVZGaGNZZGJqX0M2eUVzcW5NSTgtdVI1QmVUUFp4NlVJdmJJVXlzUW1NM2VtdW5KY3c5ZUliS2l5U3A3alZhZjF1NmVLZzFBYXRaSHFLQW9OcnppZFhpS2xjbW5TQWxFaHdTWHN0Q0E3SWVCdG15bEx4MTE4bZIAAAAAAAAAMSxHUm9iSEIwZUh5QWhJaU1rSlNZbktDa3FLeXd0TGk4d0NFR2paN0pIbUljd3gwb2hnbHBXOE5FbWZnN1RaWXVKUFpSdHdqUU9peXVxOVloVGVHeURpUWxEcndrbS1ualdmTVhMTWw2bVZOZHJkaE91XzMxaDlLeEliVEN3blV2NWV5czJ1YS1PMXBCWG5kcFaSAAAAAAAAADIsTVRJek5EVTJOemc1T2pzOFBUNF9RRUZDUTBSRlJrZElISUNBSUVDb2RteW9VN2xsYmFoWTFLNW80ZFVNYndJVnpUVUNXT0F6enZWZE0tWm1SbUVxOGpWTUVsekVtaWlPMlpKSEtWZ0hIaTdoUFBKTFZrTGdxOE9NMFFuN2QyOVN3SjVfSW9MSFdSRkdQYm5SkgAAAAAAAAAzLFNVcExURTFPVDFCUlVsTlVWVlpYV0ZsYVcxeGRYbDlnR1l2c25ZV3pfeUNIVXhnUnQxdVZPVS1pZHEyTXF2bWlYX092UFpYcGNuZFpvMUdVMEgzRFB5bktGb2FEU2t6TDNuYXpjcmIzOTdrTmZZMk9ib2pEM2puSGJ5WWZnbzJlM1FLakFkWl9ybi1aNV82OZIAAAAAAAAANCxZV0pqWkdWbVoyaHBhbXRzYlc1dmNIRnljM1IxZG5kNG1CUkt4Tkd5eWlBMXNGUzM5RnFFSXFaZUh5dVpBYjBIc3J0X1BPMFhkX3REeV94Q2JRNnpnSGFuWWNJdTl5YVJPTF9RcWNoWGx6NEk2QWhONjAzekQxWFVMZVNZeU83LWROeUhCb3hJOTMyWUw2aGiSAAAAAAAAADUsZVhwN2ZIMS1mNENCZ29PRWhZYUhpSW1LaTR5TmpvLVE3UzJvam9DZC1FZEdQTnl3VS13anNSQ0hPNXVXSWZmY2xMOFpoYUs4eTRaV2x0S1ZsVW0xT1BSOGJiQVd1c0tEV1lZUlRLdmZKRldHNFhhM0VYMVVaUktDVm9rWVQ2YjNKR1VRbTZxbTVwRmhIOFlJ`
+	expectedTransactionLogSerializedBase64 = `MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0VAAAAAAAAAFhYREtUWExPR0RWQ09GRlNUZTMwPQYAAAAAAAAAkgAAAAAAAAAwLEhKcEhGVnF0eDJvcVVvanZGbVBpVDBlR25EVEVyUDlmOFBOcC0wYVZ6c29RcnVQMXozQ2paU1VabXBSRDFXWmRjNGFRV1VaY25rTEFFV3RRcUZnU181cWI0YThQaTB4Yy04YUlzOHBKRXo1SnJKOVZKdzM2RWt1TzY0U0prOEQ2bzlURVhYM1V0ay1FVGYwcpIAAAAAAAAAMSxISnBIRlZxdHgyb3FVb2p2Rm1QaVQwZUduRFRFclA5ZnVQb19zdVBhaGdHSzZFQXhRZV9OeWRTMFlHdjJmcFJnRTg0YUdEY2RtbTkyQ3VhV0ZhUnJBZ2ZQWmNVYU41NXRLVTNHbEtoSkVfZTczamVud2dwNW5WemtYbUZvblMzckNNUVdQMUNHSUhwQncxb0GSAAAAAAAAADIsSEpwSEZWcXR4Mm9xVW9qdkZtUGlUMGVHbkRURXJQOWZwRm93UUdMYUpiVGNSNXIzSnY5QmJod1Y0eUozLTd1VlQzOXdIeU1XNTR2eldycjU0eUpTU2l1OF9GVUVMWlVuTDRMNTduc2lQdnp2TWZicE8wWWhEdEdDbHVweFdsZDJVdUxSWmNGWWxpQWFNSlJxkgAAAAAAAAAzLEhKcEhGVnF0eDJvcVVvanZGbVBpVDBlR25EVEVyUDlmLXdEbmMxd1dDWEZuVVcwRFB2Q3F2RngyVEpFYWpYbEd3S2JyclNZWWJhdm1hSmhIQVBNQTh2czZ2ak9CcjZfTFNuT1NvUlZKaFZfa24wQ3Z3RGt3NHAwTWNqWWJUajZfRi1PaXZXOG80X01ScUR6NZIAAAAAAAAANCxISnBIRlZxdHgyb3FVb2p2Rm1QaVQwZUduRFRFclA5ZkdWZXd0ay1BRElUdDhsSkZITE5PRGE1Z254RWZGaXhXYUg2TExTRldUbkMyZjY1WFhvdlJaS1BtMEZsb1ZocDhFX2ZCaUJscmNCUGl2blJ4cWxpc1lyNThmc3pjd0VoWnJRUlhYdkRTcmVJWnhFbm+SAAAAAAAAADUsSEpwSEZWcXR4Mm9xVW9qdkZtUGlUMGVHbkRURXJQOWZtN1ZBME44N1h4S2NLalFFTVBod1NpRjg1M2R3RThCaE1lN0c4NGF6dkdST05PSjctdDgxMWNlV0c2ZVAxRDRrYjduVmY4T0JKaG51OXlNbFBIZUVTeFFOZWN4RHUya3k1Q0o3NXNrRjhlR1RyRTJx`
 )
 
 // Smoke test for NewOrLoadTransactionLog.
@@ -44,21 +45,23 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+
 	// Construct transaction log
 	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
-		deviceSecret, rand.Reader)
+		deviceSecret, rngGen)
 	require.NoError(t, err)
 
 	// Construct expected transaction log object
 	expected := &TransactionLog{
-		path:         baseDir,
-		local:        localStore,
-		remote:       remoteStore,
-		Header:       NewHeader(),
-		txs:          make([]Transaction, 0),
-		deviceSecret: deviceSecret,
-		rng:          rand.Reader,
-		offsets:      make(deviceOffset, 0),
+		path:               baseDir,
+		local:              localStore,
+		remote:             remoteStore,
+		Header:             NewHeader(),
+		txs:                make([]Transaction, 0),
+		deviceSecret:       deviceSecret,
+		rngStreamGenerator: rngGen,
+		offsets:            make(deviceOffset, 0),
 	}
 
 	// Ensure constructor generates expected object
@@ -81,10 +84,12 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 
 	remoteStore := &mockRemote{data: make(map[string][]byte)}
 
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+
 	// Construct transaction log
 	txLog, err := NewTransactionLog("baseDir", localStore,
 		remoteStore,
-		deviceSecret, rand.Reader)
+		deviceSecret, rngGen)
 	require.NoError(t, err)
 
 	// Construct timestamps
@@ -108,7 +113,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct a new TransactionLog, which will load from file
 	newTxLog, err := NewTransactionLog("baseDir", localStore,
 		remoteStore,
-		deviceSecret, rand.Reader)
+		deviceSecret, rngGen)
 	require.NoError(t, err)
 
 	// Ensure loaded log matches original log
@@ -290,9 +295,11 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
+	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
+
 	// Construct transaction log
 	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
-		deviceSecret, &CountingReader{count: 0})
+		deviceSecret, rngGen)
 	require.NoError(t, err)
 
 	// Construct timestamps
@@ -314,11 +321,11 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 
 	// Construct a log w/o header and transaction list
 	newTxLog := &TransactionLog{
-		path:         baseDir,
-		local:        localStore,
-		remote:       remoteStore,
-		deviceSecret: deviceSecret,
-		rng:          txLog.rng,
+		path:               baseDir,
+		local:              localStore,
+		remote:             remoteStore,
+		deviceSecret:       deviceSecret,
+		rngStreamGenerator: txLog.rngStreamGenerator,
 	}
 
 	// Deserialize the transaction log
@@ -385,11 +392,13 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(b, numRandomTimestamps)
 
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+
 	for i := 0; i < b.N; i++ {
 
 		// Construct new transaction log for benchmark iteration
 		txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
-			deviceSecret, rand.Reader)
+			deviceSecret, rngGen)
 		require.NoError(b, err)
 
 		for cnt, curTs := range mockTimestamps {
@@ -429,13 +438,15 @@ func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(b, numRandomTimestamps)
 
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+
 	for i := 0; i < b.N; i++ {
 		// Clear files so constructed transaction log does not load state
 		require.NoError(b, os.RemoveAll(baseDir))
 
 		// Construct new transaction log for benchmark iteration
 		txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
-			deviceSecret, rand.Reader)
+			deviceSecret, rngGen)
 		require.NoError(b, err)
 
 		for cnt, curTs := range mockTimestamps {

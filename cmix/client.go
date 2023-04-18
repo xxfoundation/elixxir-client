@@ -11,6 +11,7 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"math"
 	"strconv"
 	"sync/atomic"
@@ -209,8 +210,9 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 		return err
 	}
 
-	if c.param.EnableEphemeralRegistration {
-		c.Registrar.SetEphemeralRegistrationEnabled(c.param.EnableEphemeralRegistration)
+	if c.param.EnableImmediateSending {
+		jww.INFO.Printf("Enabling ephemeral registration")
+		c.Registrar.SetImmediateSendingEnabled(c.param.EnableImmediateSending)
 	}
 	if c.param.DisableNodeRegistration {
 		c.Registrar.SetNodeRegistrationDisabled(c.param.DisableNodeRegistration)

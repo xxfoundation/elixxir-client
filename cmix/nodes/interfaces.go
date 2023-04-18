@@ -58,7 +58,7 @@ type Registrar interface {
 	TriggerNodeRegistration(nid *id.ID)
 
 	SetNodeRegistrationDisabled(disabled bool)
-	SetEphemeralRegistrationEnabled(enabled bool)
+	SetImmediateSendingEnabled(enabled bool)
 }
 
 // MixCypher is an interface for the cryptographic operations done in order

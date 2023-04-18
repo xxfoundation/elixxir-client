@@ -23,10 +23,9 @@ import (
 	"gitlab.com/elixxir/ekv"
 )
 
-const baseDir = "collector_tests/"
-
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
+	baseDir := "TestNewCollector/"
 	rng := rand.New(rand.NewSource(42))
 	syncPath := baseDir + "collector/"
 	txLog := makeTransactionLog(syncPath, password, t)
@@ -43,8 +42,6 @@ func TestNewCollector(t *testing.T) {
 	cmix.StoreInstanceID(myId, remoteKv)
 
 	workingDir := baseDir + "remoteFsSmoke/"
-	// Delete the test file at the end
-	defer os.RemoveAll(baseDir)
 
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 
@@ -63,9 +60,13 @@ func TestNewCollector(t *testing.T) {
 
 	require.Equal(t, expected, collector)
 
+	// Delete the test file at the end
+	os.RemoveAll(baseDir)
+
 }
 
 func TestNewCollector_CollectChanges(t *testing.T) {
+	baseDir := "TestNewCollector_CollectChanges/"
 
 	// Note: these are pre-canned serialized transaction logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)
@@ -88,8 +89,6 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"
-	// Delete the test file at the end
-	defer os.RemoveAll(baseDir)
 
 	// Write mock data to file (collectChanges will read from file)
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
@@ -119,10 +118,12 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 		received := collector.deviceTxTracker.changes[dvcId]
 		require.Len(t, received, 6)
 	}
-
+	// Delete the test file at the end
+	os.RemoveAll(baseDir)
 }
 
 func TestCollector_ApplyChanges(t *testing.T) {
+	baseDir := "TestCollector_ApplyChanges/"
 
 	// Note: these are pre-canned serialized transaction logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)

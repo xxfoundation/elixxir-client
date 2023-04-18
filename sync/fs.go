@@ -8,6 +8,7 @@
 package sync
 
 import (
+	"path/filepath"
 	"time"
 
 	"gitlab.com/xx_network/primitives/utils"
@@ -22,7 +23,8 @@ import (
 // RemoteStorage users. This utilizes the [os.File] IO
 // operations. Implemented for testing purposes for transaction logs.
 type FileSystemStorage struct {
-	baseDir string
+	baseDir   string
+	lastWrite time.Time
 }
 
 // NewFileSystemRemoteStorage is a constructor for FileSystemRemoteStorage.
@@ -41,10 +43,7 @@ func NewFileSystemRemoteStorage(baseDir string) *FileSystemStorage {
 //
 // This utilizes utils.ReadFile under the hood.
 func (f *FileSystemStorage) Read(path string) ([]byte, error) {
-	if utils.DirExists(path) {
-		return utils.ReadFile(f.baseDir + path)
-	}
-	return utils.ReadFile(path)
+	return utils.ReadFile(filepath.Join(f.baseDir, path))
 }
 
 // Write will write data to path. This will return an error if it fails to
@@ -52,11 +51,13 @@ func (f *FileSystemStorage) Read(path string) ([]byte, error) {
 //
 // This utilizes utils.WriteFileDef under the hood.
 func (f *FileSystemStorage) Write(path string, data []byte) error {
-	if utils.DirExists(path) {
-		return utils.WriteFileDef(f.baseDir+path, data)
+	p := filepath.Join(f.baseDir, path)
+	err := utils.WriteFileDef(p, data)
+	if err != nil {
+		return err
 	}
-	return utils.WriteFileDef(path, data)
-
+	f.lastWrite, err = f.GetLastModified(path)
+	return err
 }
 
 // GetLastModified will return the last modified timestamp of the file at path.
@@ -66,19 +67,16 @@ func (f *FileSystemStorage) Write(path string, data []byte) error {
 // This utilizes utils.GetLastModified under the hood.
 func (f *FileSystemStorage) GetLastModified(path string) (
 	time.Time, error) {
-	if utils.DirExists(path) {
-		return utils.GetLastModified(f.baseDir + path)
-	}
-	return utils.GetLastModified(path)
+	return utils.GetLastModified(filepath.Join(f.baseDir, path))
 }
 
 // GetLastWrite will retrieve the most recent successful write operation
 // that was received by RemoteStore.
 func (f *FileSystemStorage) GetLastWrite() (time.Time, error) {
-	return utils.GetLastModified(f.baseDir)
+	return f.lastWrite, nil
 }
 
 // ReadDir implements [RemoteStore.ReadDir] and gets a file listing.
 func (f *FileSystemStorage) ReadDir(path string) ([]string, error) {
-	return utils.ReadDir(path)
+	return utils.ReadDir(filepath.Join(f.baseDir, path))
 }

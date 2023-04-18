@@ -8,11 +8,11 @@
 package sync
 
 import (
-	"io"
 	"sync"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -62,12 +62,33 @@ func NewVersionedKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 
 	return v, nil
 }
-func NewSynchronizedKV(path string, deviceSecret []byte,
+
+// SynchronizedKV loads or creates a synchronized remote KV that uses
+// a remote RemoteStore to store defined synchronization prefixes to the
+// network.
+func SynchronizedKV(path string, deviceSecret []byte,
 	filesystem FileIO, remote RemoteStore, kv ekv.KeyValue,
 	synchedPrefixes []string,
 	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback, rng io.Reader) (*VersionedKV, error) {
-	return nil, nil
+	updateCb RemoteStoreCallback,
+	rng *fastRNG.StreamGenerator) (*VersionedKV, error) {
+	instanceID, err := cmix.LoadInstanceID(versioned.NewKV(kv))
+	if err != nil {
+		// this is a fatal error BECAUSE it means something didn't
+		// work during a prior initialization.
+		jww.FATAL.Panicf("missing instance id")
+	}
+	if !isRemote(kv) {
+		jww.INFO.Printf("Converting KV to a remote KV: %s",
+			instanceID)
+		setRemote(kv)
+	}
+	txLog, err := newTransactionLog(path, filesystem, remote,
+		deviceSecret, rng)
+	if err != nil {
+		return nil, err
+	}
+	return NewVersionedKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
 }
 
 // LocalKV Loads or Creates a synchronized remote KV that uses a local-only

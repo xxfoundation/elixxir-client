@@ -148,7 +148,7 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
 		localTxLogPath))
 	storageKV, err := sync.LocalKV(storageDir, password,
-		localFS, localKV, nil, nil, nil, rngStreamGen)
+		localFS, localKV, rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
@@ -647,7 +647,7 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
 		localTxLogPath))
 	storageKV, err := sync.LocalKV(storageDir, password,
-		localFS, localKV, nil, nil, nil, rng)
+		localFS, localKV, rng)
 	if err != nil {
 		return nil, err
 	}

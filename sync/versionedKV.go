@@ -74,9 +74,7 @@ func NewSynchronizedKV(path string, deviceSecret []byte,
 // transaction log. It panics if the underlying KV has ever been used
 // for remote operations in the past.
 func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValue,
-	synchedPrefixes []string,
-	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback, rng *fastRNG.StreamGenerator) (*VersionedKV, error) {
+	rng *fastRNG.StreamGenerator) (*VersionedKV, error) {
 	if isRemote(kv) {
 		jww.FATAL.Panicf("cannot open remote kv as local")
 	}
@@ -85,7 +83,9 @@ func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValu
 	if err != nil {
 		return nil, err
 	}
-	return NewVersionedKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
+	// Local sync KV's don't have callbacks or sync prefixes
+	// Use NewVersionedKV directly if this is needed for a test.
+	return NewVersionedKV(txLog, kv, nil, nil, nil)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

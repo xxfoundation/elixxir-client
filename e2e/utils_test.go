@@ -263,6 +263,9 @@ func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          {}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    {}
+func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
 func (m *mockCmix) CheckInProgressMessages()                                 {}
 func (m *mockCmix) IsHealthy() bool                                          { return m.health }
 func (m *mockCmix) WasHealthy() bool                                         { return true }

@@ -235,6 +235,9 @@ func (t *testNetworkManagerGeneric) SetGatewayFilter(f gateway.Filter) {}
 func (t *testNetworkManagerGeneric) TrackServices(
 	tracker message.ServicesTracker) {
 }
+func (t *testNetworkManagerGeneric) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
 func (t *testNetworkManagerGeneric) TriggerNodeRegistration(nid *id.ID) {}
 func (t *testNetworkManagerGeneric) UnregisterAddressSpaceNotification(
 	tag string) {

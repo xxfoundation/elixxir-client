@@ -158,22 +158,27 @@ func (m mockCmix) DeleteService(clientID *id.ID, toDelete message.Service, proce
 }
 
 func (m mockCmix) DeleteClientService(clientID *id.ID) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m mockCmix) TrackServices(tracker message.ServicesTracker) {
-	//TODO implement me
+	// TODO implement me
+	panic("implement me")
+}
+
+func (m mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m mockCmix) CheckInProgressMessages() {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m mockCmix) IsHealthy() bool {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

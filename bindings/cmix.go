@@ -8,12 +8,14 @@
 package bindings
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	remoteSync "gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/client/v4/xxdk"
 )
 
@@ -74,6 +76,68 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 	}
 
 	return cmixTrackerSingleton.make(net), nil
+}
+
+// LoadSynchronizedCmix will load an existing user storage from the
+// storageDir along with a remote store object. Writes to any keys
+// inside a synchronized prefix will be saved to a remote store
+// transaction log, and writes from other cMix instances will be
+// tracked by reading transaction logs written by other instances.
+//
+// The password is passed as a byte array so that it can be cleared from memory
+// and stored as securely as possible using the MemGuard library.
+//
+// LoadCmix does not block on network connection and instead loads and
+// starts subprocesses to perform network operations. This can take a
+// while if there are a lot of transactions to replay by other
+// instances.
+func LoadSynchronizedCmix(storageDir string, password []byte,
+	remote RemoteStore,
+	synchedPrefixesJSON []byte,
+	callbacks RemoteKVCallbacks,
+	cmixParamsJSON []byte) (*Cmix, error) {
+	// KeyUpdated is a passthrough to the lower level, since it
+	// uses all the basice types supported by gomobile.
+	keyUpdateCallback := callbacks.KeyUpdated
+
+	// Use the RemoteStoreReport structure to report the results and
+	// call the given callback.
+	remoteStoreCallback := func(newTx remoteSync.Transaction, err error) {
+		var report RemoteStoreReport
+		if err != nil {
+			report.Error = err.Error()
+		} else {
+			report.Key = newTx.Key
+			report.Value = newTx.Value
+		}
+
+		reportJson, _ := json.Marshal(report)
+		callbacks.RemoteStoreResult(reportJson)
+	}
+
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	var synchedPrefixes []string
+	err = json.Unmarshal(synchedPrefixesJSON, &synchedPrefixes)
+	if err != nil {
+		return nil, err
+	}
+
+	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
+
+	net, err := xxdk.LoadSynchronizedCmix(storageDir, password,
+		wrappedRemote, synchedPrefixes, keyUpdateCallback,
+		remoteStoreCallback, params)
+	if err != nil {
+		return nil, errors.Errorf("LoadSynchronizedCmix failed: %+v",
+			err)
+	}
+
+	return cmixTrackerSingleton.make(net), nil
+
 }
 
 // GetID returns the ID for this Cmix in the cmixTracker.

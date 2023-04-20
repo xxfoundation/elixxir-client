@@ -159,7 +159,7 @@ type Client interface {
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(id *id.ID)
 
-	//GetIdentity returns a currently tracked identity
+	// GetIdentity returns a currently tracked identity.
 	GetIdentity(get *id.ID) (identity.TrackedID, error)
 
 	/* Fingerprints are the primary mechanism of identifying a picked up message
@@ -263,11 +263,17 @@ type Client interface {
 	DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
 		processor message.Processor)
 
-	// TrackServices registers a callback that will get called every time a
-	// service is added or removed. It will receive the triggers list every time
-	// it is modified. It will only get callbacks while the network follower is
-	// running. Multiple trackTriggers can be registered.
+	// TrackServices registers a callback that is called every time a service is
+	// added or removed. It is also called once when registered. The callback
+	// receives the new service lists every time they are modified. Callbacks
+	// only occur when the network follower is running. Multiple
+	// [message.ServicesTracker] can be registered.
 	TrackServices(tracker message.ServicesTracker)
+
+	// GetServices returns the current list of registered services and
+	// compressed services. This returns the same lists as the last lists
+	// provided to trackers registered with [TrackServices].
+	GetServices() (message.ServiceList, message.CompressedServiceList)
 
 	/* === In inProcess ===================================================== */
 	/* It is possible to receive a message over cMix before the fingerprints or

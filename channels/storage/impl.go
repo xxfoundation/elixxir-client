@@ -307,13 +307,18 @@ func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 // Returns an error if the message cannot be deleted. It must return
 // channels.NoMessageErr if the message does not exist.
 func (i *impl) DeleteMessage(messageID message.ID) error {
+	parentErr := "failed to DeleteMessage: %+v"
+
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Where("message_id = ?",
 		messageID.Bytes()).Delete(&Message{}).Error
 	cancel()
 
 	if err != nil {
-		return errors.Errorf("Unable to delete Message: %+v", err)
+		if errors.Is(gorm.ErrRecordNotFound, err) {
+			return errors.Errorf(parentErr, channels.NoMessageErr)
+		}
+		return errors.Errorf(parentErr, err)
 	}
 
 	if i.deleteCb != nil {

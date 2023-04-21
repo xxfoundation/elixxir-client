@@ -229,7 +229,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	}
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
-	tags := makeUserPingTags(pings)
+	tags := makeUserPingTags(pings...)
 	r, ephID, err := ch.broadcast.BroadcastWithAssembler(assemble, tags,
 		uint16(messageType), params)
 	if err != nil {
@@ -687,7 +687,7 @@ func makeChaDebugTag(
 	return fmt.Sprintf("%s-%s", baseTag, tripCode)
 }
 
-func makeUserPingTags(users []ed25519.PublicKey) []string {
+func makeUserPingTags(users ...ed25519.PublicKey) []string {
 	if users == nil || len(users) == 0 {
 		return nil
 	}

@@ -47,9 +47,10 @@ type manager struct {
 	mux      sync.RWMutex
 
 	// External references
-	kv  *versioned.KV
-	net Client
-	rng *fastRNG.StreamGenerator
+	kv   *versioned.KV
+	net  Client
+	user E2e
+	rng  *fastRNG.StreamGenerator
 
 	// Events model
 	*events
@@ -65,7 +66,7 @@ type manager struct {
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 
 	// Notification manager
-	*notificationsManager
+	notify *notifications
 }
 
 // Client contains the methods from [cmix.Client] that are required by the
@@ -100,24 +101,33 @@ type E2e interface {
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
-func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
-	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
+func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, user E2e,
+	kv *versioned.KV, net Client, rng *fastRNG.StreamGenerator,
+	modelBuilder EventModelBuilder, extensions []ExtensionBuilder,
+	addService AddServiceFn, token string, cb TrackedServicesCallback) (
+	Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return NewManager(identity, kv, net, rng, model, extensions, addService)
+	return NewManager(
+		identity, user, kv, net, rng, model, extensions, addService, token, cb)
 }
 
 // NewManager creates a new channel [Manager] from a
 // [cryptoChannel.PrivateIdentity]. It prefixes the KV with a tag derived from
 // the public key that can be retried for reloading using
 // [Manager.GetStorageTag].
-func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
-	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
+//
+// The token is used to register for mobile notifications. Leave it empty to not
+// use notifications. The [TrackedServicesCallback] returns services that
+// are compared with notification data to determine which channel notifications
+// belong to you. It must be registered even if notifications are not used.
+func NewManager(identity cryptoChannel.PrivateIdentity, user E2e,
+	kv *versioned.KV, net Client, rng *fastRNG.StreamGenerator, model EventModel,
+	extensions []ExtensionBuilder, addService AddServiceFn, token string,
+	cb TrackedServicesCallback) (Manager, error) {
 
 	// Make a copy of the public key to prevent outside edits
 	// TODO: Convert this to DeepCopy() method
@@ -135,7 +145,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions)
+	m := setupManager(identity, user, kv, net, rng, model, extensions, token, cb)
 	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
@@ -143,9 +153,10 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
-func LoadManager(storageTag string, kv *versioned.KV, net Client,
+func LoadManager(storageTag string, user E2e, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
-	extensions []ExtensionBuilder) (Manager, error) {
+	extensions []ExtensionBuilder, token string,
+	cb TrackedServicesCallback) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
@@ -157,7 +168,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions)
+	m := setupManager(identity, user, kv, net, rng, model, extensions, token, cb)
 	m.loadDMTokens()
 
 	return m, nil
@@ -165,30 +176,37 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 
 // LoadManagerBuilder restores a channel Manager from disk stored at the given storage
 // tag.
-func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
+func LoadManagerBuilder(storageTag string, user E2e, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder) (Manager, error) {
+	extensions []ExtensionBuilder, token string, cb TrackedServicesCallback) (
+	Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return LoadManager(storageTag, kv, net, rng, model, extensions)
+	return LoadManager(
+		storageTag, user, kv, net, rng, model, extensions, token, cb)
 }
 
-func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
-	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	extensionBuilders []ExtensionBuilder) *manager {
+func setupManager(identity cryptoChannel.PrivateIdentity, user E2e,
+	kv *versioned.KV, net Client, rng *fastRNG.StreamGenerator, model EventModel,
+	extensionBuilders []ExtensionBuilder, token string,
+	cb TrackedServicesCallback) *manager {
 
 	// Build the manager
 	m := &manager{
 		me:             identity,
 		kv:             kv,
 		net:            net,
+		user:           user,
 		rng:            rng,
 		events:         initEvents(model, 512, kv, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
+		notify:         newNotifications(token, user, kv, net),
 	}
+
+	m.notify.registerServicesCallback(cb)
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
 

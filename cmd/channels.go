@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/cmix"
+	cMixMsg "gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
@@ -117,9 +118,10 @@ var channelsCmd = &cobra.Command{
 		}
 
 		// Construct channels manager
-		chanManager, err := channels.NewManagerBuilder(channelIdentity,
+		cb := func(cMixMsg.CompressedServiceList) {}
+		chanManager, err := channels.NewManagerBuilder(channelIdentity, user,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder, nil, user.AddService)
+			mockEventModelBuilder, nil, user.AddService, "", cb)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)

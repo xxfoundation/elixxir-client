@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	cMixMsg "gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/message"
@@ -99,9 +100,10 @@ var channelsFileTransferCmd = &cobra.Command{
 		}
 
 		// Construct channels manager
-		em.eventModel.api, err = channels.NewManager(chanID,
+		cb := func(cMixMsg.CompressedServiceList) {}
+		em.eventModel.api, err = channels.NewManager(chanID, user,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(), em,
-			extensions, user.AddService)
+			extensions, user.AddService, "", cb)
 		if err != nil {
 			jww.FATAL.Panicf("[FT] Failed to create channels manager: %+v", err)
 		}

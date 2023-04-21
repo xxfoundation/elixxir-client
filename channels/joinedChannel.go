@@ -9,7 +9,10 @@ package channels
 
 import (
 	"encoding/json"
+
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
@@ -108,11 +111,10 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 	}
 
 	// Enable notifications
-	if m.notificationsManager != nil {
-		err = m.enableChannelNotifications(jc.broadcast.Get().ReceptionID)
-		if err != nil {
-			return err
-		}
+	err = m.notify.addChannel(channel.ReceptionID)
+	if err != nil {
+		return errors.WithMessage(err,
+			"failed to add channel to notification manager")
 	}
 
 	// Connect to listeners
@@ -149,17 +151,18 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 
 	m.events.leases.RemoveChannel(channelID)
 
-	if m.notificationsManager != nil {
-		if err = m.disableChannelNotifications(channelID); err != nil {
-			return err
-		}
-	}
-
 	delete(m.channels, *channelID)
 
 	err = m.storeUnsafe()
 	if err != nil {
 		return err
+	}
+
+	// Disable notifications
+	// TODO: should this go here?
+	err = m.notify.removeChannel(channelID)
+	if err != nil {
+		return errors.WithMessage(err, "failed to disable channel notifications")
 	}
 
 	return ch.delete(m.kv)

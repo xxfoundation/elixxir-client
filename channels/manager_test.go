@@ -16,7 +16,10 @@ import (
 	"testing"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
+	message2 "gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
@@ -25,8 +28,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 func TestMain(m *testing.M) {
@@ -53,10 +54,10 @@ func TestManager_JoinChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+	versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+	fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+	nil, mockAddServiceFn, "", func(message2.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -96,10 +97,10 @@ func TestManager_LeaveChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+	versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+	fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+	nil, mockAddServiceFn, "", func(message2.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -240,10 +241,10 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+	versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+	fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+	nil, mockAddServiceFn, "", func(message2.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -286,10 +287,10 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+	versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+	fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+	nil, mockAddServiceFn, "", func(message2.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf(err.Error())
 	}

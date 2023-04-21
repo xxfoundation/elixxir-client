@@ -45,10 +45,11 @@ func Test_manager_store(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, "",
+		func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -92,10 +93,10 @@ func Test_manager_loadChannels(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -176,10 +177,10 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -222,10 +223,10 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -259,10 +260,10 @@ func Test_manager_removeChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -305,10 +306,10 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -338,10 +339,10 @@ func Test_manager_getChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -380,10 +381,10 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -414,10 +415,10 @@ func Test_manager_getChannels(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -495,10 +496,10 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+	mFace, err := NewManagerBuilder(pi, mockE2e{},
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
+		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -604,6 +605,16 @@ func newTestChannel(name, description string, rng csprng.Source,
 		name, description, level, netTime.Now(), 1000, rng)
 	return c, pk, err
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock xxdk E2e                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
+// mockE2e adheres to the E2e interface.
+type mockE2e struct{}
+
+func (m mockE2e) RegisterForNotifications(*id.ID, string) error { return nil }
+func (m mockE2e) UnregisterForNotifications(*id.ID) error       { return nil }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Broadcast Client                                                      //

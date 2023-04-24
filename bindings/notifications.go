@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+	id2 "gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/primitives/notifications"
@@ -150,8 +151,36 @@ func UnregisterForNotifications(e2eId int) error {
 		return err
 	}
 
-	return user.api.UnregisterForNotifications(
-		user.api.GetReceptionIdentity().ID)
+	return user.api.UnregisterNotificationLegacy()
+}
+
+// UnregisterIdentityForNotifications turns off notifications for this client.
+//
+// Parameters:
+//   - e2eID - ID of [E2e] object in tracker.
+func UnregisterIdentityForNotifications(e2eId int, identity []byte) error {
+	user, err := e2eTrackerSingleton.get(e2eId)
+	if err != nil {
+		return err
+	}
+	id, err := id2.Unmarshal(identity)
+	if err != nil {
+		return err
+	}
+
+	return user.api.UnregisterNotificationIdentity(id)
+}
+
+// UnregisterTokenForNotifications turns off notifications for this client.
+//
+// Parameters:
+//   - e2eID - ID of [E2e] object in tracker.
+func UnregisterTokenForNotifications(e2eId int, token string) error {
+	user, err := e2eTrackerSingleton.get(e2eId)
+	if err != nil {
+		return err
+	}
+	return user.api.UnregisterNotificationDevice(token)
 }
 
 // getCompressedServicesReport is a utility function for GetNotificationsReport.

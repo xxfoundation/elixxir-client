@@ -66,16 +66,11 @@ func (c *Cmix) RegisterForNotifications(toBeNotifiedOn *id.ID, token string) err
 	return nil
 }
 
-// UnregisterForNotifications turns off notifications for this client.
-func (c *Cmix) UnregisterForNotifications(toBeNotifiedOn *id.ID) error {
-	jww.INFO.Printf("UnregisterForNotifications(%s)", toBeNotifiedOn)
+// UnregisterNotificationIdentity turns off notifications for a specific identity
+func (c *Cmix) UnregisterNotificationIdentity(toBeNotifiedOn *id.ID) error {
+	jww.INFO.Printf("UnregisterNotificationIdentity(%s)", toBeNotifiedOn)
 
 	// Pull the host from the manage
-	notificationBotHost, ok := c.GetComms().GetHost(&id.NotificationBot)
-	if !ok {
-		return errors.New("UnregisterForNotifications: " +
-			"Failed to retrieve host for notification bot")
-	}
 
 	stream := c.GetRng().GetStream()
 	intermediaryReceptionID, sig, err := getIidAndSig(
@@ -85,17 +80,72 @@ func (c *Cmix) UnregisterForNotifications(toBeNotifiedOn *id.ID) error {
 		return errors.Wrap(err, "UnregisterForNotifications")
 	}
 
+	return c.unregisterForNotifications(&mixmessages.NotificationUnregisterRequest{
+		TransmissionRSA:       c.GetStorage().GetTransmissionRSA().Public().MarshalPem(),
+		IntermediaryId:        intermediaryReceptionID,
+		IIDTransmissionRsaSig: sig,
+	})
+}
+
+// UnregisterNotificationIdentity turns off notifications for a specific device token
+func (c *Cmix) UnregisterNotificationDevice(token string) error {
+	jww.INFO.Printf("UnregisterNotificationDevice(%s)", token)
+
+	// Pull the host from the manage
+
+	stream := c.GetRng().GetStream()
+	receptionID := c.GetStorage().GetReceptionID()
+	_, sig, err := getIidAndSig(
+		c.GetStorage().GetTransmissionRSA(), receptionID, stream)
+	stream.Close()
+	if err != nil {
+		return errors.Wrap(err, "UnregisterForNotifications")
+	}
+
+	return c.unregisterForNotifications(&mixmessages.NotificationUnregisterRequest{
+		Token:                 token,
+		IIDTransmissionRsaSig: sig,
+		TransmissionRSA:       c.GetStorage().GetTransmissionRSA().Public().MarshalPem(),
+	})
+}
+
+// UnregisterNotificationLegacy unregisters a user using only the intermediary
+// of their reception ID, hitting the legacy endpoint.  This only works for xxm
+// clients where users have a 1:! relationship with both identities and tokens.
+func (c *Cmix) UnregisterNotificationLegacy() error {
+	toBeNotifiedOn := c.GetStorage().GetReceptionID()
+	jww.INFO.Printf("UnregisterNotificationLegacy(%s)", toBeNotifiedOn)
+
+	// Pull the host from the manage
+
+	stream := c.GetRng().GetStream()
+	intermediaryReceptionID, sig, err := getIidAndSig(
+		c.GetStorage().GetTransmissionRSA(), toBeNotifiedOn, stream)
+	stream.Close()
+	if err != nil {
+		return errors.Wrap(err, "UnregisterForNotifications")
+	}
+
+	return c.unregisterForNotifications(&mixmessages.NotificationUnregisterRequest{
+		IntermediaryId:        intermediaryReceptionID,
+		IIDTransmissionRsaSig: sig,
+	})
+}
+
+func (c *Cmix) unregisterForNotifications(request *mixmessages.NotificationUnregisterRequest) error {
+	notificationBotHost, ok := c.GetComms().GetHost(&id.NotificationBot)
+	if !ok {
+		return errors.New("UnregisterForNotifications: " +
+			"Failed to retrieve host for notification bot")
+	}
+
 	// Sends the unregister message
-	_, err = c.GetComms().UnregisterForNotifications(notificationBotHost,
-		&mixmessages.NotificationUnregisterRequest{
-			IntermediaryId:        intermediaryReceptionID,
-			IIDTransmissionRsaSig: sig,
-		})
+	_, err := c.GetComms().UnregisterForNotifications(notificationBotHost,
+		request)
 	if err != nil {
 		return errors.Wrap(err, "UnregisterForNotifications: Unable to "+
 			"unregister for notifications!")
 	}
-
 	return nil
 }
 

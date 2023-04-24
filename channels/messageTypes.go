@@ -31,6 +31,9 @@ const (
 	// Reaction denotes that the message is a reaction to another message.
 	Reaction MessageType = 3
 
+	// Invitation denotes that the message is an invitation to another channel.
+	Invitation MessageType = 4
+
 	////////////////////////////////////////////////////////////////////////////
 	// Message Actions                                                        //
 	////////////////////////////////////////////////////////////////////////////
@@ -54,7 +57,7 @@ const (
 	////////////////////////////////////////////////////////////////////////////
 
 	// FileTransfer denotes that a message contains the information about a file
-	// download
+	// download.
 	FileTransfer MessageType = 40000
 )
 
@@ -68,6 +71,8 @@ func (mt MessageType) String() string {
 		return "AdminText"
 	case Reaction:
 		return "Reaction"
+	case Invitation:
+		return "Invitation"
 	case Delete:
 		return "Delete"
 	case Pinned:

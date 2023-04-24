@@ -15,15 +15,19 @@ import (
 type MessageType uint32
 
 const (
-	// Text is the default type for a message. It denotes that the
+	// TextType is the default type for a message. It denotes that the
 	// message only contains text.
 	TextType MessageType = 1
 
-	// Reaction denotes that the message is a reaction to another message.
+	// ReplyType denotes that the message is a reply to another message.
 	ReplyType MessageType = 2
 
-	// Reaction denotes that the message is a reaction to another message.
+	// ReactionType denotes that the message is a reaction to another message.
 	ReactionType MessageType = 3
+
+	// InvitationType denotes that the message is an invitation to another
+	// channel.
+	InvitationType MessageType = 4
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -36,6 +40,8 @@ func (mt MessageType) String() string {
 		return "Reply"
 	case ReactionType:
 		return "Reaction"
+	case InvitationType:
+		return "Invitation"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}

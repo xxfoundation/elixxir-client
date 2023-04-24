@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -19,6 +18,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"gitlab.com/elixxir/client/v4/broadcast"
 	clientCmix "gitlab.com/elixxir/client/v4/cmix"
@@ -34,6 +35,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Tests that manager.store stores the channel list in the ekv.
@@ -49,7 +51,7 @@ func Test_manager_store(t *testing.T) {
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, nil, mockAddServiceFn, "",
-		func(message.CompressedServiceList) {})
+		func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -96,7 +98,7 @@ func Test_manager_loadChannels(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -180,7 +182,7 @@ func Test_manager_addChannel(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -226,7 +228,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -263,7 +265,7 @@ func Test_manager_removeChannel(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -309,7 +311,7 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -342,7 +344,7 @@ func Test_manager_getChannel(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -384,7 +386,7 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -418,7 +420,7 @@ func Test_manager_getChannels(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -499,7 +501,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, mockE2e{},
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func(message.CompressedServiceList) {})
+		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -559,10 +561,7 @@ func Test_joinedChannel_delete(t *testing.T) {
 		t.Errorf("Error storing joinedChannel: %+v", err)
 	}
 
-	err = jc.delete(kv)
-	if err != nil {
-		t.Errorf("Error deleting joinedChannel: %+v", err)
-	}
+	jc.delete(kv)
 
 	_, err = kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
 	if ekv.Exists(err) {
@@ -611,10 +610,35 @@ func newTestChannel(name, description string, rng csprng.Source,
 ////////////////////////////////////////////////////////////////////////////////
 
 // mockE2e adheres to the E2e interface.
-type mockE2e struct{}
+type mockE2e struct {
+	registeredIDs   chan id.ID
+	unregisteredIDs chan id.ID
+}
 
-func (m mockE2e) RegisterForNotifications(*id.ID, string) error { return nil }
-func (m mockE2e) UnregisterForNotifications(*id.ID) error       { return nil }
+func newMockE2e() *mockE2e {
+	return &mockE2e{
+		registeredIDs:   make(chan id.ID, 10),
+		unregisteredIDs: make(chan id.ID, 10),
+	}
+}
+
+func (m mockE2e) RegisterForNotifications(channelID *id.ID) error {
+	select {
+	case m.registeredIDs <- *channelID:
+		return nil
+	default:
+		return errors.Errorf("failed to put channel %s on channel", channelID)
+	}
+}
+
+func (m mockE2e) UnregisterNotificationIdentity(channelID *id.ID) error {
+	select {
+	case m.unregisteredIDs <- *channelID:
+		return nil
+	default:
+		return errors.Errorf("failed to put channel %s on channel", channelID)
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Broadcast Client                                                      //
@@ -639,9 +663,12 @@ func (m *mockBroadcastClient) UpsertCompressedService(*id.ID, message.Compressed
 }
 func (m *mockBroadcastClient) DeleteClientService(*id.ID)            {}
 func (m *mockBroadcastClient) TrackServices(message.ServicesTracker) {}
-func (m *mockBroadcastClient) IsHealthy() bool                       { return true }
-func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64   { return 0 }
-func (m *mockBroadcastClient) RemoveHealthCallback(uint64)           {}
+func (m *mockBroadcastClient) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
+func (m *mockBroadcastClient) IsHealthy() bool                     { return true }
+func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
+func (m *mockBroadcastClient) RemoveHealthCallback(uint64)         {}
 func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
 }
 

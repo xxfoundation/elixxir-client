@@ -153,19 +153,19 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 
 	delete(m.channels, *channelID)
 
+	// Delete channel from channel list
 	err = m.storeUnsafe()
 	if err != nil {
 		return err
 	}
 
-	// Disable notifications
-	// TODO: should this go here?
-	err = m.notify.removeChannel(channelID)
-	if err != nil {
-		return errors.WithMessage(err, "failed to disable channel notifications")
-	}
+	// Delete channel from storage
+	ch.delete(m.kv)
 
-	return ch.delete(m.kv)
+	// Disable notifications
+	m.notify.removeChannel(channelID)
+
+	return nil
 }
 
 // getChannel returns the given channel. Returns ChannelDoesNotExistsErr error
@@ -244,9 +244,15 @@ func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
 }
 
 // delete removes the channel from the kv.
-func (jc *joinedChannel) delete(kv *versioned.KV) error {
-	return kv.Delete(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
+func (jc *joinedChannel) delete(kv *versioned.KV) {
+	err := kv.Delete(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
 		joinedChannelVersion)
+	if err != nil {
+		// Print an error instead of returning/panicking because the worst case
+		// scenario is a storage leak
+		jww.ERROR.Printf("[CH] Failed to delete channel %s from KV: %+v",
+			jc.broadcast.Get().ReceptionID, err)
+	}
 }
 
 func makeJoinedChannelKey(channelID *id.ID) string {

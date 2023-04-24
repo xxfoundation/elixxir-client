@@ -33,6 +33,9 @@ func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)    
 func (mc *mockClient) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {}
 func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
 func (mc *mockClient) TrackServices(message.ServicesTracker)                                        {}
+func (mc *mockClient) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
 func (mc *mockClient) IsHealthy() bool                                                              { return true }
 func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                          { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)                                                  {}

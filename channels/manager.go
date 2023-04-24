@@ -87,6 +87,7 @@ type Client interface {
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)
 	TrackServices(tracker message.ServicesTracker)
+	GetServices() (message.ServiceList, message.CompressedServiceList)
 	IsHealthy() bool
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
@@ -94,17 +95,17 @@ type Client interface {
 		roundList ...id.Round)
 }
 
-// E2e contains the methods from [xxdk.E2e] that are required by the [Manager].
+// E2e contains the methods from xxdk.E2e that are required by the [Manager].
 type E2e interface {
-	RegisterForNotifications(toBeNotifiedOn *id.ID, token string) error
-	UnregisterForNotifications(toBeNotifiedOn *id.ID) error
+	RegisterForNotifications(toBeNotifiedOn *id.ID) error
+	UnregisterNotificationIdentity(toBeNotifiedOn *id.ID) error
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, user E2e,
 	kv *versioned.KV, net Client, rng *fastRNG.StreamGenerator,
 	modelBuilder EventModelBuilder, extensions []ExtensionBuilder,
-	addService AddServiceFn, token string, cb TrackedServicesCallback) (
+	addService AddServiceFn, token string, cb FilterCallback) (
 	Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
@@ -121,13 +122,13 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, user E2e,
 // [Manager.GetStorageTag].
 //
 // The token is used to register for mobile notifications. Leave it empty to not
-// use notifications. The [TrackedServicesCallback] returns services that
+// use notifications. The [FilterCallback] returns services that
 // are compared with notification data to determine which channel notifications
 // belong to you. It must be registered even if notifications are not used.
 func NewManager(identity cryptoChannel.PrivateIdentity, user E2e,
 	kv *versioned.KV, net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn, token string,
-	cb TrackedServicesCallback) (Manager, error) {
+	cb FilterCallback) (Manager, error) {
 
 	// Make a copy of the public key to prevent outside edits
 	// TODO: Convert this to DeepCopy() method
@@ -156,7 +157,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, user E2e,
 func LoadManager(storageTag string, user E2e, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, token string,
-	cb TrackedServicesCallback) (Manager, error) {
+	cb FilterCallback) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
@@ -178,7 +179,7 @@ func LoadManager(storageTag string, user E2e, kv *versioned.KV, net Client,
 // tag.
 func LoadManagerBuilder(storageTag string, user E2e, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder, token string, cb TrackedServicesCallback) (
+	extensions []ExtensionBuilder, token string, cb FilterCallback) (
 	Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
@@ -192,7 +193,7 @@ func LoadManagerBuilder(storageTag string, user E2e, kv *versioned.KV, net Clien
 func setupManager(identity cryptoChannel.PrivateIdentity, user E2e,
 	kv *versioned.KV, net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensionBuilders []ExtensionBuilder, token string,
-	cb TrackedServicesCallback) *manager {
+	cb FilterCallback) *manager {
 
 	// Build the manager
 	m := &manager{
@@ -203,10 +204,8 @@ func setupManager(identity cryptoChannel.PrivateIdentity, user E2e,
 		rng:            rng,
 		events:         initEvents(model, 512, kv, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
-		notify:         newNotifications(token, user, kv, net),
+		notify:         newOrLoadNotifications(identity.PubKey, nil, user, kv, net),
 	}
-
-	m.notify.registerServicesCallback(cb)
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
 
@@ -216,6 +215,8 @@ func setupManager(identity cryptoChannel.PrivateIdentity, user E2e,
 	m.loadChannels()
 
 	m.nicknameManager = LoadOrNewNicknameManager(kv)
+
+	m.net.TrackServices(m.notify.serviceTracker)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler

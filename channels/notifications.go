@@ -8,13 +8,14 @@
 package channels
 
 import (
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"strconv"
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
@@ -23,10 +24,12 @@ import (
 
 // TODO: handle token changes
 
-// TrackedServicesCallback is a callback that returns the
-// [message.CompressedServiceList] of all channels with notifications enabled
-// any time a service is added or removed or the notification level changes.
-type TrackedServicesCallback func(csl message.CompressedServiceList)
+// FilterCallback is a callback that returns a slice of [NotificationFilter] of
+// all channels with notifications enabled any time a service is added or
+// removed or the notification level changes. The [NotificationFilter] is used
+// to determine which notifications from the notification server belong to the
+// caller.
+type FilterCallback func(nfs []NotificationFilter)
 
 // Storage values.
 const (
@@ -36,30 +39,49 @@ const (
 
 // notifications manages the notification level for each channel.
 type notifications struct {
+	// User's public key
+	pubKey ed25519.PublicKey
+
+	// User supplied callback to return updated NotificationFilter objects to.
+	cb FilterCallback
+
 	// List of channels and their notification levels
 	channels map[id.ID]NotificationLevel
 
-	// Third-party token used for third-party notification service
-	token string
-
 	// Interface for xxdk.E2e that contains functions for registering and
 	// unregistering notifications
-	user E2e
+	user E2e // TODO: make new notifications object
 	net  Client
 	kv   *versioned.KV
 
-	mux sync.RWMutex
+	mux sync.Mutex
+}
+
+// newOrLoadNotifications initialises a new channels notifications manager if
+// none exists. If one has previously been made, it is loaded.
+func newOrLoadNotifications(pubKey ed25519.PublicKey, cb FilterCallback,
+	user E2e, kv *versioned.KV, net Client) *notifications {
+	n := newNotifications(pubKey, cb, user, kv, net)
+
+	err := n.load()
+	if err != nil && kv.Exists(err) {
+		jww.FATAL.Panicf("Failed to load notification manager: %+v", err)
+	}
+
+	return n
 }
 
 // newNotifications initialises a new channels notifications manager.
-func newNotifications(
-	token string, user E2e, kv *versioned.KV, net Client) *notifications {
+func newNotifications(pubKey ed25519.PublicKey, cb FilterCallback, user E2e,
+	kv *versioned.KV, net Client) *notifications {
 	return &notifications{
+		pubKey:   pubKey,
+		cb:       cb,
 		channels: make(map[id.ID]NotificationLevel),
-		token:    token,
 		user:     user,
 		net:      net,
 		kv:       kv,
+		mux:      sync.Mutex{},
 	}
 }
 
@@ -70,44 +92,46 @@ func newNotifications(
 func (n *notifications) addChannel(channelID *id.ID) error {
 	n.mux.Lock()
 	defer n.mux.Unlock()
-	if _, exists := n.channels[*channelID]; exists {
-		return ChannelAlreadyExistsErr
+	if level, exists := n.channels[*channelID]; exists {
+		jww.FATAL.Panicf("[CH] Cannot add channel %s to notification list "+
+			"when it already exists with level %s", channelID, level)
 	}
+
 	n.channels[*channelID] = NotifyNone
-	return nil
+	return n.save()
 }
 
 // addChannel inserts the channel into the notification list with the given
 // level.
-//
-// Returns an error if the channel already exists.
-func (n *notifications) removeChannel(channelID *id.ID) error {
+func (n *notifications) removeChannel(channelID *id.ID) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 	level, exists := n.channels[*channelID]
-	if exists {
-		return ChannelAlreadyExistsErr
+	if !exists {
+		jww.WARN.Printf("[CH] Cannot remove channel %s from notification "+
+			"list when it does not exist.", channelID)
+		return
 	}
+
 	if level != NotifyNone {
-		err := n.user.UnregisterForNotifications(channelID)
+		err := n.user.UnregisterNotificationIdentity(channelID)
 		if err != nil {
-			return err
+			// TODO: Instead of returning an error here, make failed unregisters
+			//  be added to a list to be retried.
+			jww.ERROR.Printf("[CH] Failed to unregister channel %s for "+
+				"notifications.", channelID)
 		}
 	}
 
 	delete(n.channels, *channelID)
 
-	return nil
+	// Print an error to the log instead of returning or panicking on save error
+	// because the worst thing that happens is a storage leak
+	if err := n.save(); err != nil {
+		jww.ERROR.Printf("[CH] Failed to update channel notification storage "+
+			"after removing channel %s: %+v", channelID, err)
+	}
 }
-
-// func (m *manager) SetMobileNotificationsLevel(token string, channelID *id.ID, level NotificationLevel) {
-// 	jww.INFO.Printf("[CH] Enabling channel notifications with token %s", token)
-// 	m.mux.Lock()
-// 	defer m.mux.Unlock()
-// 	m.notificationsManager = newNotificationsManager(token, user)
-// 	m.registerServicesCallback(cb)
-//
-// }
 
 // SetMobileNotificationsLevel sets the notification level for the given
 // channel.
@@ -131,65 +155,66 @@ func (n *notifications) SetMobileNotificationsLevel(
 
 	// Determine if the channel needs to be registered or unregistered
 	if chanLevel == NotifyNone && level != NotifyNone {
-		if n.token == "" {
-			return errors.New("cannot enable notifications when no token is registered")
+		if err := n.user.RegisterForNotifications(channelID); err != nil {
+			return err
 		}
-		return n.user.RegisterForNotifications(channelID, n.token)
 	} else if chanLevel != NotifyNone && level == NotifyNone {
-		return n.user.UnregisterForNotifications(channelID)
+		if err := n.user.UnregisterNotificationIdentity(channelID); err != nil {
+			return err
+		}
 	}
 
 	n.channels[*channelID] = level
+
+	if err := n.save(); err != nil {
+		return err
+	}
+
+	// Call the callback with the updated filter list
+	go n.serviceTracker(n.net.GetServices())
+
 	return nil
 }
 
-// registerServicesCallback registers the provided callback that returns the
-// list of services registered for any channel with notifications enabled. It is
-// called every time a channel service is added or removed.
-func (n *notifications) registerServicesCallback(cb TrackedServicesCallback) {
-	n.net.TrackServices(func(
-		_ message.ServiceList, csl message.CompressedServiceList) {
+// serviceTracker gets the list of all services and assembles a list of
+// NotificationFilter for each channel that exists in the compressed service
+// list. The results are called on the user-registered FilterCallback.
+func (n *notifications) serviceTracker(
+	_ message.ServiceList, csl message.CompressedServiceList) {
+	n.mux.Lock()
+	nfs := n.createFilterList(csl)
+	n.mux.Unlock()
 
-		n.mux.Lock()
-		for chanID, level := range n.channels {
-			if sList, exists := csl[chanID]; exists {
-				for i, s := range sList {
-					var tags []string
-					var filter MessageTypeFilter
-					switch level {
-					case NotifyNone:
-					case NotifyPing:
-						filter = MessageTypeFilter{
-							FilterType: false,
-							Allow:      []MessageType{Pinned},
-						}
+	n.cb(nfs)
+}
 
-					case NotifyAll:
-						filter = MessageTypeFilter{
-							FilterType: true,
-							Disallow:   []MessageType{AdminReplay},
-						}
-					}
-
-					filterData, err := json.Marshal(filter)
-					if err != nil {
-						jww.FATAL.Panicf(
-							"Failed to JSON marshal %T: %+v", filter, err)
-					}
-
-					csl[chanID][i] = message.CompressedService{
-						Identifier: s.Identifier,
-						Tags:       tags,
-						Metadata:   filterData,
-					}
+func (n *notifications) createFilterList(
+	csl message.CompressedServiceList) []NotificationFilter {
+	var nfs []NotificationFilter
+	for chanID, level := range n.channels {
+		channelID := &chanID
+		if sList, exists := csl[chanID]; exists {
+			for _, s := range sList {
+				if level == NotifyNone {
+					continue
 				}
+
+				nfs = append(nfs, NotificationFilter{
+					Identifier: s.Identifier,
+					ChannelID:  channelID,
+					Tags:       makeUserPingTags(n.pubKey),
+					AllowLists: notificationLevelAllowLists[level],
+				})
 			}
 		}
-		n.mux.Unlock()
+	}
 
-		cb(csl)
-	})
+	return nfs
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Storage                                                                    //
+////////////////////////////////////////////////////////////////////////////////
 
 // save marshals and saves the channels and token to storage.
 func (n *notifications) save() error {
@@ -220,7 +245,6 @@ func (n *notifications) load() error {
 // can be JSON marshalled and unmarshalled to be saved/loaded from storage.
 type notificationsDisk struct {
 	Channels map[string]NotificationLevel `json:"channels"`
-	Token    string                       `json:"token"`
 }
 
 // MarshalJSON marshals the notifications into valid JSON. This function adheres
@@ -228,7 +252,6 @@ type notificationsDisk struct {
 func (n *notifications) MarshalJSON() ([]byte, error) {
 	nd := notificationsDisk{
 		Channels: make(map[string]NotificationLevel, len(n.channels)),
-		Token:    n.token,
 	}
 
 	for uid, level := range n.channels {
@@ -260,7 +283,6 @@ func (n *notifications) UnmarshalJSON(data []byte) error {
 	}
 
 	n.channels = channels
-	n.token = nd.Token
 
 	return nil
 }
@@ -269,26 +291,64 @@ func (n *notifications) UnmarshalJSON(data []byte) error {
 // MessageTypeFilter                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// MessageTypeFilter defines filtering properties for channel message types.
-type MessageTypeFilter struct {
-	// FilterType determines the type of filter. When set to true, the filter is
-	// in "open" mode where only messages on the Disallow list are filter. When
-	// set to true, the filter is in "closed" mode where all messages except
-	// those on the Allow list are filter.
-	FilterType bool `json:"filterType"`
+// NotificationFilter defines filtering properties for channel message
+// notifications.
+//
+// These will be tested against every received notification. The notification,
+// which is encrypted, will not be decrypted properly unless the identifier is
+// correct. As a result, the identifier will be tested against a garbled message
+// and the probability of false collisions is simply the random chance that all
+// bloom bits are flipped.
+//
+// Given that K = 26 (see elixxir/crypto/sih/evaluatable.go), the collision
+// chance is 1/2^26. The message types would also need to collide given that in
+// the 16-bit space there are only expected to be a small number of messages
+// that are valid notifications, the collision chance increases by ~20/2^16.
+//
+// Given this information, the number of evaluations where a user has a 50%
+// chance of a false notification can be calculated as (x = ln(.5)/ln(1-p))
+// where p = (1/2^26) * (1/2^10), x = 1.5 * 10^11, assuming a user is registered
+// in 100 channels and received 100,000 total notifications a day, this number
+// of events would occur after 15,243 days, which is the mean time to false
+// notification through this system. This number is very acceptable.
+type NotificationFilter struct {
+	Identifier []byte `json:"identifier"`
 
-	// Allow is a list of messages types that are not filtered when in "closed"
-	// (false) mode.
-	Allow []MessageType `json:"allow,omitempty"`
+	// ChannelID is the ID that the filter belongs to.
+	ChannelID *id.ID `json:"channelID"`
 
-	// Disallow is a list of messages types that are filtered when in "open"
-	// (true) mode.
-	Disallow []MessageType `json:"disallow,omitempty"`
+	// Tags is a list of tags to match against.
+	Tags []string `json:"tags"`
+
+	AllowLists `json:"allowLists"`
+}
+
+type AllowLists struct {
+	// AllowWithTags is a list of message types that are not filtered when
+	// there are Tags.
+	AllowWithTags []MessageType `json:"allowWithTags"`
+
+	// AllowWithoutTags is a list of message types that are not filtered when
+	// there are no Tags.
+	AllowWithoutTags []MessageType `json:"allowWithoutTags"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // NotificationLevel                                                          //
 ////////////////////////////////////////////////////////////////////////////////
+
+// notificationLevelAllowLists are the predefined message type allow lists for
+// each notification level.
+var notificationLevelAllowLists = map[NotificationLevel]AllowLists{
+	NotifyPing: {
+		AllowWithTags:    []MessageType{Text, AdminText, FileTransfer},
+		AllowWithoutTags: []MessageType{Pinned},
+	},
+	NotifyAll: {
+		AllowWithTags:    []MessageType{},
+		AllowWithoutTags: []MessageType{Text, AdminText, FileTransfer},
+	},
+}
 
 // NotificationLevel specifies what level of notifications should be received
 // for a channel.

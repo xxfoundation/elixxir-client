@@ -49,7 +49,7 @@ const (
 	SendReactionTag = "ChReaction"
 
 	// SendInviteTag is the base tag used when generating a debug tag for
-	// sending and invitation.
+	// sending an invitation.
 	SendInviteTag = "ChInvite"
 
 	// SendDeleteTag is the base tag used when generating a debug tag for a
@@ -379,20 +379,22 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 // SendInvite is used to send to a channel (invited) an invitation to another
 // channel (invitee).
 //
-// Due to the underlying encoding using compression, it is not possible to
-// define the largest payload that can be sent, but it will always be possible
-// to send a payload of 766 bytes at minimum.
-//
 // If the channel ID for the invitee channel is not recognized by the Manager,
 // then an error will be returned.
 //
-// Pings are a list of ed25519 public keys that will receive notifications
-// for this message. They must be in the channel and have notifications enabled.
-func (m *manager) SendInvite(channelID *id.ID, msg string,
-	host string, maxUses int, inviteTo *id.ID, validUntil time.Duration,
+// See [Manager.SendGeneric] for details on payload size limitations and
+// elaboration of pings.
+func (m *manager) SendInvite(channelID *id.ID, msg string, inviteTo *id.ID,
+	host string, maxUses int, validUntil time.Duration,
 	params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
+
+	// Formulate custom tag
 	tag := makeChaDebugTag(
 		channelID, m.me.PubKey, []byte(msg), SendInviteTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
 	jww.INFO.Printf(
 		"[CH] [%s] SendInvite on to channel %s", tag, channelID)
 
@@ -424,9 +426,6 @@ func (m *manager) SendInvite(channelID *id.ID, msg string,
 	if err != nil {
 		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
-
-	// Modify the params for the custom tag
-	params = params.SetDebugTag(tag)
 
 	// Send invitation
 	return m.SendGeneric(channelID, Invitation, invitationMarshalled,

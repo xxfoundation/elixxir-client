@@ -475,9 +475,8 @@ func Test_manager_SendInvite(t *testing.T) {
 	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
 	host := "https://internet.speakeasy.tech/"
 	maxUses := 0
-	messageID, _, _, err := m.SendInvite(
-		invitedChannelID, msg, host, maxUses, inviteeChannelID, ValidForever,
-		*params)
+	messageID, _, _, err := m.SendInvite(invitedChannelID, msg,
+		inviteeChannelID, host, maxUses, ValidForever, *params)
 	require.NoError(t, err)
 
 	// Verify the message was handled correctly
@@ -494,9 +493,9 @@ func Test_manager_SendInvite(t *testing.T) {
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	require.NoError(t, err)
 
+	// Ensure invite URL matches expected
 	expectedLink, err := ch.InviteURL(host, maxUses)
 	require.NoError(t, err)
-
 	require.Equal(t, expectedLink, txt.InviteLink)
 
 }

@@ -9,7 +9,7 @@ package dm
 
 import (
 	"crypto/ed25519"
-	"gitlab.com/elixxir/client/v4/broadcast"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"time"
 
 	"gitlab.com/xx_network/primitives/id"
@@ -90,10 +90,8 @@ type Sender interface {
 
 	// SendInvite is used to send to a DM partner an invitation to another
 	// channel.
-	//
-	// The [broadcast.Channel] must be retrieved from [channels.Manager].
 	SendInvite(partnerPubKey *ed25519.PublicKey,
-		partnerToken uint32, msg string, inviteTo broadcast.Channel,
+		partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
 		host string, maxUses int, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 

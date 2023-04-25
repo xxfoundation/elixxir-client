@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/broadcast"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"io"
 
 	"github.com/pkg/errors"
@@ -165,10 +165,8 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 
 // SendInvite is used to send to a DM partner an invitation to another
 // channel.
-//
-// The [broadcast.Channel] must be retrieved from [channels.Manager].
 func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
-	partnerToken uint32, msg string, inviteTo broadcast.Channel,
+	partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
 	host string, maxUses int, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	// Formulate custom tag
@@ -181,9 +179,9 @@ func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
 
 	jww.INFO.Printf("[DM][%s] SendInvite(%s, for %s)", tag,
 		base64.RawStdEncoding.EncodeToString(*partnerPubKey),
-		inviteTo.Get().ReceptionID)
+		inviteTo.ReceptionID)
 
-	inviteUrl, err := inviteTo.Get().InviteURL(host, maxUses)
+	inviteUrl, err := inviteTo.InviteURL(host, maxUses)
 	if err != nil {
 		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.WithMessage(err, "could not form URL")

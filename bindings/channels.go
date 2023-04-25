@@ -1299,9 +1299,6 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 // If the channel ID for the invitee channel is not recognized by the Manager,
 // then an error will be returned.
 //
-// See [Manager.SendGeneric] for details on payload size limitations and
-// elaboration of pings.
-//
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
 //   - inviteToChannelBytes - Marshalled bytes of the invitee channel.

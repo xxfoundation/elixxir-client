@@ -9,12 +9,16 @@
 package sync
 
 import (
+	"encoding/base64"
+	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -30,6 +34,10 @@ const synchronizationEpoch = 5 * time.Second
 // Log constants.
 const (
 	collectorLogHeader = "COLLECTOR"
+
+	// FIXME: It should be: [name]-[deviceid]/[keyid]/txlog
+	// but we don't have access to a name, so: [deviceid]/[keyid]/txlog
+	txLogPathFmt = "%s/%s/txlog"
 )
 
 // Error messages.
@@ -68,6 +76,8 @@ type Collector struct {
 	// The connection to the remote storage system for reading other device data.
 	remote RemoteStore
 
+	myLogPath string
+
 	// The remote storage EKV wrapper
 	kv *VersionedKV
 
@@ -81,6 +91,9 @@ func NewCollector(syncPath string, txLog *TransactionLog,
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
+	txLogPath := filepath.Join(syncPath,
+		fmt.Sprintf(txLogPathFmt, myID,
+			keyID(txLog.deviceSecret)))
 	return &Collector{
 		syncPath:             syncPath,
 		myID:                 myID,
@@ -90,6 +103,7 @@ func NewCollector(syncPath string, txLog *TransactionLog,
 		txLog:                txLog,
 		remote:               remote,
 		kv:                   kv,
+		myLogPath:            txLogPath,
 	}
 
 }
@@ -163,14 +177,24 @@ func (c *Collector) collectChanges(devices []string) (
 
 	newUpdates := make(map[cmix.InstanceID]time.Time, 0)
 
+	// FIXME: This should get stored in collector directly?
+	keyID := keyID(c.txLog.deviceSecret)
+
 	// Iterate over devices
 	for _, deviceIDStr := range devices {
 		deviceID, err := cmix.NewInstanceIDFromString(deviceIDStr)
+		// If the Device ID is invalid, ignore this directory
+		if err != nil {
+			jww.WARN.Printf("Invalid InstanceID: %s", deviceIDStr)
+			continue
+		}
 		// Retrieve updates from device
-		lastUpdate, err := c.remote.GetLastModified(deviceIDStr)
+		logPath := filepath.Join(c.syncPath,
+			fmt.Sprintf(txLogPathFmt, deviceID, keyID))
+		lastUpdate, err := c.remote.GetLastModified(logPath)
 		if err != nil {
 			return nil, errors.Errorf(deviceUpdateRetrievalErr,
-				deviceIDStr, err)
+				logPath, err)
 		}
 		// Get the last update
 		lastTrackedUpdate := c.lastUpdates[deviceID]
@@ -189,7 +213,7 @@ func (c *Collector) collectChanges(devices []string) (
 		// If us, read the local log, otherwise read the remote log
 		// TODO: in the future this could work like an open call instead of
 		//  sucking the entire thing into memory.
-		txLog, err := c.readFromDevice(deviceID)
+		txLog, err := c.readFromDevice(logPath)
 		if err != nil {
 			jww.WARN.Printf("%s", err)
 			continue
@@ -223,12 +247,12 @@ func (c *Collector) collectChanges(devices []string) (
 
 // readFromDevice is a helper function which will read the transaction logs from
 // the DeviceID.
-func (c *Collector) readFromDevice(instanceID cmix.InstanceID) (
+func (c *Collector) readFromDevice(txLogPath string) (
 	txLog []byte, err error) {
 
-	if instanceID != c.myID {
+	if txLogPath != c.myLogPath {
 		// Retrieve device's transaction log if it is not this device
-		txLog, err = c.remote.Read(string(instanceID.String()))
+		txLog, err = c.remote.Read(txLogPath)
 		if err != nil {
 			// todo: continue or return here?
 			return nil, errors.Errorf(
@@ -394,4 +418,12 @@ func (d *deviceTransactionTracker) Sort() []Transaction {
 
 	d.changes = make(map[cmix.InstanceID][]Transaction, 0)
 	return sorted
+}
+
+func keyID(secret []byte) string {
+	// this will panic on error, intentional
+	h, _ := hash.NewCMixHash()
+	keyIDBytes := h.Sum(secret)
+
+	return base64.RawStdEncoding.EncodeToString(keyIDBytes)
 }

@@ -10,7 +10,6 @@ package sync
 import (
 	"bytes"
 	"encoding/binary"
-	"io"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -76,9 +76,8 @@ type TransactionLog struct {
 	// be stored.
 	deviceSecret []byte
 
-	// rng is an io.Reader that will be used for encrypt. This should be a
-	// secure random number generator (fastRNG.Stream is recommended).
-	rng io.Reader
+	// rngStreamGenerator creates cryptographically secure psuedorng streams
+	rngStreamGenerator *fastRNG.StreamGenerator
 
 	lck        sync.RWMutex
 	openWrites int32
@@ -101,7 +100,8 @@ type TransactionLog struct {
 //     This should be unique for every device.
 //   - rng - An io.Reader used for random generation when encrypting data.
 func NewTransactionLog(path string, localFS FileIO, remote RemoteStore,
-	deviceSecret []byte, rng io.Reader) (*TransactionLog, error) {
+	deviceSecret []byte, rng *fastRNG.StreamGenerator) (*TransactionLog,
+	error) {
 
 	// Check if remote is set
 	if remote == nil {
@@ -125,23 +125,25 @@ func NewTransactionLog(path string, localFS FileIO, remote RemoteStore,
 //     Note: In the future this will be unique per device.
 //   - rng - An io.Reader used for random generation when encrypting data.
 func NewLocalTransactionLog(path string, localFS FileIO,
-	deviceSecret []byte, rng io.Reader) (*TransactionLog, error) {
+	deviceSecret []byte, rng *fastRNG.StreamGenerator) (*TransactionLog,
+	error) {
 	return newTransactionLog(path, localFS, nil, deviceSecret, rng)
 }
 
 func newTransactionLog(path string, localFS FileIO, remote RemoteStore,
-	deviceSecret []byte, rng io.Reader) (*TransactionLog, error) {
+	deviceSecret []byte, rng *fastRNG.StreamGenerator) (*TransactionLog,
+	error) {
 
 	// Construct a new transaction log
 	tx := &TransactionLog{
-		Header:       NewHeader(),
-		path:         path,
-		local:        localFS,
-		remote:       remote,
-		txs:          make([]Transaction, 0),
-		deviceSecret: deviceSecret,
-		rng:          rng,
-		offsets:      make(deviceOffset, 0),
+		Header:             NewHeader(),
+		path:               path,
+		local:              localFS,
+		remote:             remote,
+		txs:                make([]Transaction, 0),
+		deviceSecret:       deviceSecret,
+		rngStreamGenerator: rng,
+		offsets:            make(deviceOffset, 0),
 	}
 
 	// Attempt to read stored transaction log
@@ -322,7 +324,10 @@ func (tl *TransactionLog) serialize() ([]byte, error) {
 		}
 
 		// Serialize transaction
-		txSerialized, err := tl.txs[i].serialize(tl.deviceSecret, i, tl.rng)
+		rng := tl.rngStreamGenerator.GetStream()
+		defer rng.Close()
+		txSerialized, err := tl.txs[i].serialize(tl.deviceSecret, i,
+			rng)
 		if err != nil {
 			return nil, err
 		}

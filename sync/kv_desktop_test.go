@@ -10,6 +10,7 @@
 package sync
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -29,21 +30,23 @@ import (
 func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	data := []byte("Test string.")
 
-	fsRemote := NewFileSystemRemoteStorage("workingDir")
+	baseDir := "workingDir/"
+
+	fsRemote := NewFileSystemRemoteStorage(baseDir)
 
 	// Write to file
 	writeTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write("workingDir", data))
+	require.NoError(t, fsRemote.Write(baseDir, data))
 
 	// Read file
-	read, err := fsRemote.Read("workingDir")
+	read, err := fsRemote.Read(baseDir)
 	require.NoError(t, err)
 
 	// Ensure read data matches originally written data
 	require.Equal(t, data, read)
 
 	// Retrieve the last modification of the file
-	lastModified, err := fsRemote.GetLastModified("workingDir")
+	lastModified, err := fsRemote.GetLastModified(baseDir)
 	require.NoError(t, err)
 
 	//time.Sleep(50 * time.Millisecond)
@@ -67,7 +70,7 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	// Write a new file to remote
 	newPath := "new.txt"
 	newWriteTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write("workingDir"+newPath, data))
+	require.NoError(t, fsRemote.Write(newPath, data))
 
 	// Retrieve the last write
 	newLastWrite, err := fsRemote.GetLastWrite()
@@ -78,4 +81,6 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	// place.
 	require.True(t, newWriteTimestamp.Sub(newLastWrite) < 2*time.Millisecond ||
 		newWriteTimestamp.Sub(newLastWrite) > 2*time.Millisecond)
+
+	os.RemoveAll(baseDir)
 }

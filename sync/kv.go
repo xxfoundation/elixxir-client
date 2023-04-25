@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +41,14 @@ const (
 	Disconnected = "Disconnected"
 	Connected    = "Connected"
 	Successful   = "UpdatedKey"
+
+	// remote key
+	isRemoteKey = "kv_remote_status_0"
+)
+
+var (
+	// is remote or local values
+	kvIsRemoteVal = []byte("REMOTE")
 )
 
 // updateFailureDelay is the backoff period in between retrying to
@@ -135,24 +142,6 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	rkv.lck.Unlock()
 
 	return rkv, nil
-}
-
-// LocalKV Loads or Creates a synchronized remote KV that uses a local-only
-// transaction log. It panics if the underlying KV has ever been used
-// for remote operations in the past.
-func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValue,
-	synchedPrefixes []string,
-	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback, rng io.Reader) (*VersionedKV, error) {
-	if isRemote(kv) {
-		jww.FATAL.Panicf("cannot open remote kv as local")
-	}
-	txLog, err := NewLocalTransactionLog(path, filesystem, deviceSecret,
-		rng)
-	if err != nil {
-		return nil, err
-	}
-	return NewVersionedKV(txLog, kv, synchedPrefixes, eventCb, updateCb)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -574,7 +563,26 @@ func (r *internalKV) loadUnsyncedWrites() error {
 	return json.Unmarshal(obj.Data, &r.UnsyncedWrites)
 }
 
-// todo figure out details in next ticket
+// isRemote checks for the presence and accurate setting of the
+// isRemoteKey inside the kv.
 func isRemote(kv ekv.KeyValue) bool {
+	val, err := kv.GetBytes(isRemoteKey)
+	if err != nil && ekv.Exists(err) {
+		jww.WARN.Printf("error checking if kv is remote: %+v", err)
+		return false
+	}
+	if val != nil && bytes.Equal(val, kvIsRemoteVal) {
+		return true
+	}
 	return false
+}
+
+// setRemote sets the kvIsRemoteVal for isRemoteKey, making isRemote turn
+// true in the future.
+func setRemote(kv ekv.KeyValue) {
+	err := kv.SetBytes(isRemoteKey, kvIsRemoteVal)
+	if err != nil {
+		// we can't proceed if remote can't be set on the local kv
+		jww.FATAL.Panicf("couldn't set remote: %+v", err)
+	}
 }

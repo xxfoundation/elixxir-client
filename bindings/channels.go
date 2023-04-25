@@ -15,12 +15,9 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/channels/storage"
-	cmixMessage "gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -28,6 +25,8 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -276,39 +275,59 @@ type DeletedMessageCallback interface {
 	Callback(messageId []byte)
 }
 
-// ChannelsTrackedServicesCallback is called any time a service is added or
+// ChannelsFilterCallbackCallback is called any time a service is added or
 // removed or when a channel notification level changes.
 //
 // Parameters:
-//   - compressedServiceListJSON - JSON of [message.CompressedServiceList].
+//   - notificationFilterListJSON - JSON of a slice of
+//     [channels.NotificationFilter].
 //
 // Example JSON:
-// TODO: fix example
-//	{
-//    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD": [
-//      {
-//        "Identifier": null,
-//        "Tags": ["test"],
-//        "Metadata": null
-//      }
-//    ],
-//    "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD": [
-//      {
-//        "Identifier": null,
-//        "Tags": ["test"],
-//        "Metadata": null
-//      }
-//    ],
-//    "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD": [
-//      {
-//        "Identifier": null,
-//        "Tags": ["test"],
-//        "Metadata": null
-//      }
-//    ]
-//  }
-type ChannelsTrackedServicesCallback interface {
-	Callback(compressedServiceListJSON []byte)
+//
+//	[
+//	  {
+//	    "identifier": "mwkwmTTnaMXTihl5zVrNjgSZID8p94gcRw3RIhzc/OoDSWRlbnRpZmllcg==",
+//	    "channelID": "mwkwmTTnaMXTihl5zVrNjgSZID8p94gcRw3RIhzc/OoD",
+//	    "tags": ["4942c3d216799ae507e5a0082f306e835acbbd1ae5d5ff03a495eae313c0534f-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": [1, 2, 40000],
+//	      "allowWithoutTags": [102]
+//	    }
+//	  },
+//	  {
+//	    "identifier": "s6182xReoVIXx1jesCk4zE2OoP4C1mgAsALyfebj/xUDSWRlbnRpZmllcg==",
+//	    "channelID": "s6182xReoVIXx1jesCk4zE2OoP4C1mgAsALyfebj/xUD",
+//	    "tags": ["aa2e8255f049e8908ba7f3fe753ecc452b7f2a84038907498dd98803665d0b41-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": [],
+//	      "allowWithoutTags": [1, 2, 40000]
+//	    }
+//	  },
+//	  {
+//	    "identifier": "7SQ3w4dMLR+veINmUvVyaS2PP1Gj+gdauC5LbCjJMkMDSWRlbnRpZmllcg==",
+//	    "channelID": "7SQ3w4dMLR+veINmUvVyaS2PP1Gj+gdauC5LbCjJMkMD",
+//	    "tags": ["98b416818be91c6cc1db8c15812dd31eef86bd371c6d126edcab23cafa62ed31-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": [1, 2, 40000],
+//	      "allowWithoutTags": [102]
+//	    }
+//	  }
+//	]
+type ChannelsFilterCallbackCallback interface {
+	Callback(notificationFilterListJSON []byte)
+}
+
+// newChannelsFilterCallback translates the bindings-level
+// ChannelsFilterCallbackCallback to a channels.FilterCallback.
+func newChannelsFilterCallback(
+	cb ChannelsFilterCallbackCallback) channels.FilterCallback {
+	return func(nfs []channels.NotificationFilter) {
+		if data, err := json.Marshal(nfs); err != nil {
+			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", nfs, err)
+		} else {
+			cb.Callback(data)
+		}
+	}
 }
 
 // NewChannelsManagerMobile creates a new [ChannelsManager] from a new private
@@ -335,15 +354,13 @@ type ChannelsTrackedServicesCallback interface {
 //     updated.
 //   - deleteCb - Callback that is invoked whenever a message is deleted.
 //   - muteCb - Callback that is invoked whenever a sender is muted/unmuted.
-//   - token - Token used with third-party notification service. Leave it empty
-//     if not use mobile notifications.
-//   - trackedServicesCB - Is called everytime a service or channel log level is
-//     changed. It is used to determine which notifications are for you.
+//   - filterCB - Is called everytime a service or channel log level is changed.
+//     It is used to determine which notifications are for you.
 func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, dbFilePath string, cipherID int,
 	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback, token string,
-	trackedServicesCB ChannelsTrackedServicesCallback) (*ChannelsManager, error) {
+	muteCb MuteCallback, filterCB ChannelsFilterCallbackCallback) (
+	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -378,13 +395,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
 		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
 	}
-	newTrackedServicesCB := func(csl cmixMessage.CompressedServiceList) {
-		data, err := json.Marshal(csl)
-		if err != nil {
-			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", csl, err)
-		}
-		trackedServicesCB.Callback(data)
-	}
+	newFilterCB := newChannelsFilterCallback(filterCB)
 
 	model, err := storage.NewEventModel(dbFilePath, cipher,
 		newMsgCb, newDeleteCb, newMuteCb)
@@ -393,9 +404,10 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManager(pi, user.api, user.api.GetStorage().GetKV(),
+	// TODO: pass in notification manager instead of nil
+	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
 		user.api.GetCmix(), user.api.GetRng(), model, extensionBuilders,
-		user.api.AddService, token, newTrackedServicesCB)
+		user.api.AddService, nil, newFilterCB)
 	if err != nil {
 		return nil, err
 	}
@@ -423,14 +435,12 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 //     updated.
 //   - deleteCb - Callback that is invoked whenever a message is deleted.
 //   - muteCb - Callback that is invoked whenever a sender is muted/unmuted.
-//   - token - Token used with third-party notification service. Leave it empty
-//     if not use mobile notifications.
-//   - trackedServicesCB - Is called everytime a service or channel log level is
-//     changed. It is used to determine which notifications are for you.
+//   - filterCB - Is called everytime a service or channel log level is changed.
+//     It is used to determine which notifications are for you.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	cipherID int, msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback, token string,
-	trackedServicesCB ChannelsTrackedServicesCallback) (*ChannelsManager, error) {
+	muteCb MuteCallback, filterCB ChannelsFilterCallbackCallback) (
+	*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -451,13 +461,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
 		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
 	}
-	newTrackedServicesCB := func(csl cmixMessage.CompressedServiceList) {
-		data, err := json.Marshal(csl)
-		if err != nil {
-			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", csl, err)
-		}
-		trackedServicesCB.Callback(data)
-	}
+	newFilterCB := newChannelsFilterCallback(filterCB)
 
 	model, err := storage.NewEventModel(dbFilePath, cipher,
 		newMsgCb, newDeleteCb, newMuteCb)
@@ -466,9 +470,9 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	}
 
 	// Construct new channels manager
-	m, err := channels.LoadManager(storageTag, user.api,
-		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		model, nil, token, newTrackedServicesCB)
+	// TODO: pass in notification manager instead of nil
+	m, err := channels.LoadManager(storageTag, user.api.GetStorage().GetKV(),
+		user.api.GetCmix(), user.api.GetRng(), model, nil, nil, newFilterCB)
 	if err != nil {
 		return nil, err
 	}
@@ -497,17 +501,11 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //     extension builders. Example: `[2,11,5]`.
 //   - eventBuilder - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
-//   - token - Token used with third-party notification service. Leave it empty
-//     if not use mobile notifications.
-//   - trackedServicesCB - Is called everytime a service or channel log level is
-//     changed. It is used to determine which notifications are for you.
-//   - token - Token used with third-party notification service. Leave it empty
-//     if not use mobile notifications.
-//   - trackedServicesCB - Is called everytime a service or channel log level is
-//     changed. It is used to determine which notifications are for you.
+//   - filterCB - Is called everytime a service or channel log level is changed.
+//     It is used to determine which notifications are for you.
 func NewChannelsManager(cmixID int, privateIdentity,
-	extensionBuilderIDsJSON []byte, eventBuilder EventModelBuilder, token string,
-	trackedServicesCB ChannelsTrackedServicesCallback) (*ChannelsManager, error) {
+	extensionBuilderIDsJSON []byte, eventBuilder EventModelBuilder,
+	filterCB ChannelsFilterCallbackCallback) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -532,18 +530,12 @@ func NewChannelsManager(cmixID int, privateIdentity,
 	eb := func(path string) (channels.EventModel, error) {
 		return NewEventModel(eventBuilder.Build(path)), nil
 	}
-	newTrackedServicesCB := func(csl cmixMessage.CompressedServiceList) {
-		data, err := json.Marshal(csl)
-		if err != nil {
-			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", csl, err)
-		}
-		trackedServicesCB.Callback(data)
-	}
 
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(pi, user.api,
-		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		eb, extensionBuilders, user.api.AddService, token, newTrackedServicesCB)
+	// TODO: pass in notification manager instead of nil
+	m, err := channels.NewManagerBuilder(pi, user.api.GetStorage().GetKV(),
+		user.api.GetCmix(), user.api.GetRng(), eb, extensionBuilders,
+		user.api.AddService, nil, newChannelsFilterCallback(filterCB))
 	if err != nil {
 		return nil, err
 	}
@@ -567,13 +559,11 @@ func NewChannelsManager(cmixID int, privateIdentity,
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - event - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
-//   - token - Token used with third-party notification service. Leave it empty
-//     if not use mobile notifications.
-//   - trackedServicesCB - Is called everytime a service or channel log level is
-//     changed. It is used to determine which notifications are for you.
+//   - filterCB - Is called everytime a service or channel log level is changed.
+//     It is used to determine which notifications are for you.
 func LoadChannelsManager(cmixID int, storageTag string,
-	eventBuilder EventModelBuilder, token string,
-	trackedServicesCB ChannelsTrackedServicesCallback) (*ChannelsManager, error) {
+	eventBuilder EventModelBuilder, filterCB ChannelsFilterCallbackCallback) (
+	*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -584,18 +574,12 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	eb := func(path string) (channels.EventModel, error) {
 		return NewEventModel(eventBuilder.Build(path)), nil
 	}
-	newTrackedServicesCB := func(csl cmixMessage.CompressedServiceList) {
-		data, err := json.Marshal(csl)
-		if err != nil {
-			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", csl, err)
-		}
-		trackedServicesCB.Callback(data)
-	}
 
 	// Construct new channels manager
-	m, err := channels.LoadManagerBuilder(storageTag, user.api,
+	// TODO: pass in notification manager instead of nil
+	m, err := channels.LoadManagerBuilder(storageTag,
 		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		eb, nil, token, newTrackedServicesCB)
+		eb, nil, nil, newChannelsFilterCallback(filterCB))
 	if err != nil {
 		return nil, err
 	}
@@ -625,10 +609,11 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //     extension builders. Example: `[2,11,5]`.
 //   - goEventBuilder - A function that initialises and returns the event model
 //     that is not compatible with GoMobile bindings.
+//   - filterCB - Is called everytime a service or channel log level is changed.
+//     It is used to determine which notifications are for you.
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	token string, trackedServicesCB ChannelsTrackedServicesCallback) (
-	*ChannelsManager, error) {
+	filterCB ChannelsFilterCallbackCallback) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -649,19 +634,13 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 		}
 		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
-	newTrackedServicesCB := func(csl cmixMessage.CompressedServiceList) {
-		data, err := json.Marshal(csl)
-		if err != nil {
-			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", csl, err)
-		}
-		trackedServicesCB.Callback(data)
-	}
+	newFilterCB := newChannelsFilterCallback(filterCB)
 
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(pi, user.api,
-		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		goEventBuilder, extensionBuilders, user.api.AddService, token,
-		newTrackedServicesCB)
+	// TODO: pass in notification manager instead of nil
+	m, err := channels.NewManagerBuilder(pi, user.api.GetStorage().GetKV(),
+		user.api.GetCmix(), user.api.GetRng(), goEventBuilder, extensionBuilders,
+		user.api.AddService, nil, newFilterCB)
 	if err != nil {
 		return nil, err
 	}
@@ -684,14 +663,12 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //   - goEvent - A function that initialises and returns the event model that is
 //     not compatible with GoMobile bindings.
 //   - builders - A list of extensions that are to be included with channels.
-//   - token - Token used with third-party notification service. Leave it empty
-//     if not use mobile notifications.
-//   - trackedServicesCB - Is called everytime a service or channel log level is
-//     changed. It is used to determine which notifications are for you.
+//   - filterCB - Is called everytime a service or channel log level is changed.
+//     It is used to determine which notifications are for you.
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder,
-	builders []channels.ExtensionBuilder, token string,
-	trackedServicesCB ChannelsTrackedServicesCallback) (*ChannelsManager, error) {
+	builders []channels.ExtensionBuilder,
+	filterCB ChannelsFilterCallbackCallback) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -699,18 +676,13 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 		return nil, err
 	}
 
-	newTrackedServicesCB := func(csl cmixMessage.CompressedServiceList) {
-		data, err := json.Marshal(csl)
-		if err != nil {
-			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", csl, err)
-		}
-		trackedServicesCB.Callback(data)
-	}
+	newFilterCB := newChannelsFilterCallback(filterCB)
 
 	// Construct new channels manager
-	m, err := channels.LoadManagerBuilder(storageTag, user.api,
+	// TODO: pass in notification manager instead of nil
+	m, err := channels.LoadManagerBuilder(storageTag,
 		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		goEventBuilder, builders, token, newTrackedServicesCB)
+		goEventBuilder, builders, nil, newFilterCB)
 	if err != nil {
 		return nil, err
 	}

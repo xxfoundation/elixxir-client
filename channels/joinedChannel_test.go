@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
-	"math/rand"
 	"reflect"
 	"sort"
 	"strconv"
@@ -27,7 +26,6 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -40,23 +38,7 @@ import (
 
 // Tests that manager.store stores the channel list in the ekv.
 func Test_manager_store(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn, "",
-		func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	for i := 0; i < 10; i++ {
 		ch, _, err := newTestChannel(
@@ -74,7 +56,7 @@ func Test_manager_store(t *testing.T) {
 		m.channels[*ch.ReceptionID] = &joinedChannel{b}
 	}
 
-	err = m.store()
+	err := m.store()
 	if err != nil {
 		t.Errorf("Error storing channels: %+v", err)
 	}
@@ -88,22 +70,7 @@ func Test_manager_store(t *testing.T) {
 // Tests that the manager.loadChannels loads all the expected channels from the
 // ekv.
 func Test_manager_loadChannels(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	expected := make([]*joinedChannel, 10)
 
@@ -130,7 +97,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		expected[i] = jc
 	}
 
-	err = m.store()
+	err := m.store()
 	if err != nil {
 		t.Errorf("Error storing channels: %+v", err)
 	}
@@ -172,22 +139,7 @@ func Test_manager_loadChannels(t *testing.T) {
 // Tests that manager.addChannel adds the channel to the map and stores it in
 // the kv.
 func Test_manager_addChannel(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -218,22 +170,7 @@ func Test_manager_addChannel(t *testing.T) {
 // Error path: tests that manager.addChannel returns ChannelAlreadyExistsErr
 // when the channel was already added.
 func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -255,22 +192,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 
 // Tests the manager.removeChannel deletes the channel from the map.
 func Test_manager_removeChannel(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -301,22 +223,7 @@ func Test_manager_removeChannel(t *testing.T) {
 // Error path: tests that manager.removeChannel returns ChannelDoesNotExistsErr
 // when the channel was never added.
 func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -334,22 +241,7 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 // Tests the manager.getChannel returns the expected channel.
 func Test_manager_getChannel(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -376,22 +268,7 @@ func Test_manager_getChannel(t *testing.T) {
 // Error path: tests that manager.getChannel returns ChannelDoesNotExistsErr
 // when the channel was never added.
 func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -410,22 +287,7 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 // Tests that manager.getChannels returns all the channels that were added to
 // the map.
 func Test_manager_getChannels(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	expected := make([]*id.ID, 10)
 
@@ -491,22 +353,7 @@ func Test_joinedChannel_Store(t *testing.T) {
 // Tests that loadJoinedChannel returns a joinedChannel from storage that
 // matches the original.
 func Test_loadJoinedChannel(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf("GenerateIdentity error: %+v", err)
-	}
-
-	mFace, err := NewManagerBuilder(pi, mockE2e{},
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG), mockEventModelBuilder,
-		nil, mockAddServiceFn, "", func([]NotificationFilter) {})
-	if err != nil {
-		t.Errorf("NewManager error: %+v", err)
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -606,23 +453,23 @@ func newTestChannel(name, description string, rng csprng.Source,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock xxdk E2e                                                              //
+// Mock Notifications Manager                                                 //
 ////////////////////////////////////////////////////////////////////////////////
 
-// mockE2e adheres to the E2e interface.
-type mockE2e struct {
+// mockNM adheres to the NotificationsManager interface.
+type mockNM struct {
 	registeredIDs   chan id.ID
 	unregisteredIDs chan id.ID
 }
 
-func newMockE2e() *mockE2e {
-	return &mockE2e{
+func newMockNM() *mockNM {
+	return &mockNM{
 		registeredIDs:   make(chan id.ID, 10),
 		unregisteredIDs: make(chan id.ID, 10),
 	}
 }
 
-func (m mockE2e) RegisterForNotifications(channelID *id.ID) error {
+func (m *mockNM) RegisterForNotifications(channelID *id.ID) error {
 	select {
 	case m.registeredIDs <- *channelID:
 		return nil
@@ -631,7 +478,7 @@ func (m mockE2e) RegisterForNotifications(channelID *id.ID) error {
 	}
 }
 
-func (m mockE2e) UnregisterNotificationIdentity(channelID *id.ID) error {
+func (m *mockNM) UnregisterNotificationIdentity(channelID *id.ID) error {
 	select {
 	case m.unregisteredIDs <- *channelID:
 		return nil

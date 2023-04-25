@@ -87,7 +87,8 @@ func (c *Cmix) UnregisterNotificationIdentity(toBeNotifiedOn *id.ID) error {
 	})
 }
 
-// UnregisterNotificationIdentity turns off notifications for a specific device token
+// UnregisterNotificationDevice turns off notifications for a specific device
+// token.
 func (c *Cmix) UnregisterNotificationDevice(token string) error {
 	jww.INFO.Printf("UnregisterNotificationDevice(%s)", token)
 

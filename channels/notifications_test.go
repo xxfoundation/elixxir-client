@@ -10,16 +10,17 @@ package channels
 import (
 	"bytes"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Tests that newOrLoadNotifications returns a new notifications when none is
@@ -27,9 +28,9 @@ import (
 func Test_newOrLoadNotifications(t *testing.T) {
 	n := newOrLoadNotifications(
 		makeEd25519PubKey(rand.New(rand.NewSource(42342)), t),
-		nil, newMockE2e(),
-		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient))
-	expected := newNotifications(n.pubKey, nil, n.user, n.kv, n.net)
+		nil, newMockNM(), versioned.NewKV(ekv.MakeMemstore()),
+		new(mockBroadcastClient))
+	expected := newNotifications(n.pubKey, nil, n.nm, n.kv, n.net)
 
 	if !reflect.DeepEqual(expected, n) {
 		t.Errorf("New notifications does not match expected."+
@@ -42,7 +43,7 @@ func Test_newOrLoadNotifications(t *testing.T) {
 	}
 
 	newN := newOrLoadNotifications(
-		n.pubKey, nil, n.user, n.kv, new(mockBroadcastClient))
+		n.pubKey, nil, n.nm, n.kv, new(mockBroadcastClient))
 
 	if !reflect.DeepEqual(n, newN) {
 		t.Errorf("Loaded notifications does not match new."+
@@ -69,7 +70,7 @@ func Test_newOrLoadNotifications_LoadInvalidDataPanic(t *testing.T) {
 		}
 	}()
 
-	_ = newOrLoadNotifications(nil, nil, mockE2e{}, kv, new(mockBroadcastClient))
+	_ = newOrLoadNotifications(nil, nil, &mockNM{}, kv, new(mockBroadcastClient))
 }
 
 // Tests that newNotifications returns the expected new notifications object.
@@ -78,12 +79,12 @@ func Test_newNotifications(t *testing.T) {
 		pubKey:   makeEd25519PubKey(rand.New(rand.NewSource(1219)), t),
 		cb:       nil,
 		channels: make(map[id.ID]NotificationLevel),
-		user:     newMockE2e(),
-		net:      new(mockBroadcastClient),
 		kv:       versioned.NewKV(ekv.MakeMemstore()),
+		nm:       newMockNM(),
+		net:      new(mockBroadcastClient),
 	}
 
-	n := newNotifications(expected.pubKey, nil, expected.user, expected.kv,
+	n := newNotifications(expected.pubKey, nil, expected.nm, expected.kv,
 		new(mockBroadcastClient))
 
 	if !reflect.DeepEqual(expected, n) {
@@ -96,7 +97,7 @@ func Test_newNotifications(t *testing.T) {
 // level NotifyNone.
 func Test_notifications_addChannel(t *testing.T) {
 	n := newNotifications(makeEd25519PubKey(rand.New(rand.NewSource(7632)), t),
-		nil, newMockE2e(), versioned.NewKV(ekv.MakeMemstore()),
+		nil, newMockNM(), versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient))
 
 	expected := map[id.ID]NotificationLevel{
@@ -117,7 +118,7 @@ func Test_notifications_addChannel(t *testing.T) {
 	}
 }
 
-// Panic path" Tests that notifications.addChannel panics when adding a channel
+// Panic path: Tests that notifications.addChannel panics when adding a channel
 // that already exists.
 func Test_notifications_addChannel_AddExistingChannelPanic(t *testing.T) {
 	n := newNotifications(
@@ -141,36 +142,92 @@ func Test_notifications_addChannel_AddExistingChannelPanic(t *testing.T) {
 	}
 }
 
-// TODO
+// Tests that notifications.removeChannel removes the correct channel from the
+// map and that channels with levels other than NotifyNone are unregistered.
 func Test_notifications_removeChannel(t *testing.T) {
-	n := newNotifications(
-		nil, nil, newMockE2e(), versioned.NewKV(ekv.MakeMemstore()), nil)
+	me2e := newMockNM()
+	n := newNotifications(makeEd25519PubKey(rand.New(rand.NewSource(7632)), t),
+		func([]NotificationFilter) {}, me2e,
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient))
 
-	n.channels = map[id.ID]NotificationLevel{
-		*id.NewIdFromString("channel1", id.User, t): NotifyNone,
-		*id.NewIdFromString("channel2", id.User, t): NotifyPing,
-		*id.NewIdFromString("channel3", id.User, t): NotifyAll,
+	channels := map[id.ID]NotificationLevel{
+		*id.NewIdFromString("NotifyNone", id.User, t): NotifyNone,
+		*id.NewIdFromString("NotifyPing", id.User, t): NotifyPing,
+		*id.NewIdFromString("NotifyAll", id.User, t):  NotifyAll,
 	}
 
-	for chanID := range n.channels {
+	unregisterList := make(map[id.ID]struct{})
+	for chanID, level := range channels {
+		if err := n.addChannel(&chanID); err != nil {
+			t.Errorf("Failed to add channel %s: %+v", chanID, err)
+		}
+
+		if level != NotifyNone {
+			n.channels[chanID] = level
+			unregisterList[chanID] = struct{}{}
+		}
+	}
+
+	for chanID := range channels {
 		n.removeChannel(&chanID)
+		if level, exists := n.channels[chanID]; exists {
+			t.Errorf("Channel %s with level %s not deleted", &chanID, level)
+		}
 	}
 
+	for len(unregisterList) != 0 {
+		select {
+		case chanID := <-me2e.unregisteredIDs:
+			if _, exists := unregisterList[chanID]; !exists {
+				t.Errorf("Channel %s not expected to be unregistered.", chanID)
+			} else {
+				delete(unregisterList, chanID)
+			}
+		case <-time.After(15 * time.Millisecond):
+			t.Fatal("Timed out waiting for unregistered IDs")
+		}
+	}
+}
+
+// Tests that notifications.removeChannel does not when trying to remove a
+// channel that does not exist.
+func Test_notifications_removeChannel_NoChannel(t *testing.T) {
+	n := newNotifications(
+		nil, nil, newMockNM(), versioned.NewKV(ekv.MakeMemstore()), nil)
+
+	channels := map[id.ID]NotificationLevel{
+		*id.NewIdFromString("NotifyNone", id.User, t): NotifyNone,
+		*id.NewIdFromString("NotifyPing", id.User, t): NotifyNone,
+		*id.NewIdFromString("NotifyAll", id.User, t):  NotifyNone,
+	}
+
+	for chanID := range channels {
+		if err := n.addChannel(&chanID); err != nil {
+			t.Errorf("Failed to add channel %s: %+v", chanID, err)
+		}
+	}
+
+	n.removeChannel(id.NewIdFromString("NewChannel", id.User, t))
+
+	if !reflect.DeepEqual(channels, n.channels) {
+		t.Errorf("Channel list changed after removing channel that does not "+
+			"exist.\nexpected: %+v\nreceived: %+v", channels, n.channels)
+	}
 }
 
 // Tests that notifications.SetMobileNotificationsLevel sets the notification
 // level in the map correctly and that is properly registers or unregisters
 // the channel for notifications depending on the current and future level.
 func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
-	me2e := newMockE2e()
+	me2e := newMockNM()
 	n := newNotifications(makeEd25519PubKey(rand.New(rand.NewSource(7632)), t),
 		func([]NotificationFilter) {}, me2e,
 		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient))
 
 	channels := map[id.ID]NotificationLevel{
-		*id.NewIdFromBase64String("NotifyNone", id.User, t): NotifyNone,
-		*id.NewIdFromBase64String("NotifyPing", id.User, t): NotifyPing,
-		*id.NewIdFromBase64String("NotifyAll", id.User, t):  NotifyAll,
+		*id.NewIdFromString("NotifyNone", id.User, t): NotifyNone,
+		*id.NewIdFromString("NotifyPing", id.User, t): NotifyPing,
+		*id.NewIdFromString("NotifyAll", id.User, t):  NotifyAll,
 	}
 
 	registerList := make(map[id.ID]struct{})
@@ -228,6 +285,23 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 			t.Fatal("Timed out waiting for unregistered IDs")
 		}
 	}
+}
+
+// Error path: Tests that notifications.SetMobileNotificationsLevel returns an
+// error when trying to modify a channel that does not exist.
+func Test_notifications_SetMobileNotificationsLevel_NoChannelError(t *testing.T) {
+	n := newNotifications(makeEd25519PubKey(rand.New(rand.NewSource(7632)), t),
+		func([]NotificationFilter) {}, newMockNM(),
+		versioned.NewKV(ekv.MakeMemstore()), new(mockBroadcastClient))
+
+	err := n.SetMobileNotificationsLevel(
+		id.NewIdFromString("NewChannel", id.User, t), NotifyNone)
+	if err == nil || err != ChannelDoesNotExistsErr {
+		t.Errorf("Did not return expected error when trying to set level of "+
+			"channel that does not exist.\nexpected: %v\nreceived: %v",
+			ChannelDoesNotExistsErr, err)
+	}
+
 }
 
 // Tests that notifications.createFilterList creates the expected filter list
@@ -329,6 +403,37 @@ func Test_notifications_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	if !reflect.DeepEqual(n, m) {
 		t.Errorf("Marshalled and unmarshalled notifications does not match "+
 			"original.\nexpected: %+v\nreceived: %+v", n, m)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// MessageTypeFilter                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
+// Tests that a NotificationFilter can be JSON marshalled and unmarshalled.
+func TestNotificationFilter_JSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(7632))
+	chanID := id.NewIdFromString("someChannel", id.User, t)
+	nf := NotificationFilter{
+		Identifier: append(chanID.Marshal(), []byte("Identifier")...),
+		ChannelID:  chanID,
+		Tags:       makeUserPingTags(makeEd25519PubKey(rng, t)),
+		AllowLists: notificationLevelAllowLists[NotifyPing],
+	}
+
+	data, err := json.Marshal(nf)
+	if err != nil {
+		t.Fatalf("Failed to JSON marshal %T: %+v", nf, err)
+	}
+
+	var newNf NotificationFilter
+	if err = json.Unmarshal(data, &newNf); err != nil {
+		t.Fatalf("Failed to JSON unmarshal %T: %+v", nf, err)
+	}
+
+	if !reflect.DeepEqual(nf, newNf) {
+		t.Errorf("JSON marshalled and unmarshalled NotificationFilter does "+
+			"not match original.\nexpected: %+v\nreceivedL %+v", nf, newNf)
 	}
 }
 

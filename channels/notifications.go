@@ -22,8 +22,6 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// TODO: handle token changes
-
 // FilterCallback is a callback that returns a slice of [NotificationFilter] of
 // all channels with notifications enabled any time a service is added or
 // removed or the notification level changes. The [NotificationFilter] is used
@@ -48,11 +46,9 @@ type notifications struct {
 	// List of channels and their notification levels
 	channels map[id.ID]NotificationLevel
 
-	// Interface for xxdk.E2e that contains functions for registering and
-	// unregistering notifications
-	user E2e // TODO: make new notifications object
-	net  Client
-	kv   *versioned.KV
+	kv  *versioned.KV
+	nm  NotificationsManager
+	net Client
 
 	mux sync.Mutex
 }
@@ -60,8 +56,8 @@ type notifications struct {
 // newOrLoadNotifications initialises a new channels notifications manager if
 // none exists. If one has previously been made, it is loaded.
 func newOrLoadNotifications(pubKey ed25519.PublicKey, cb FilterCallback,
-	user E2e, kv *versioned.KV, net Client) *notifications {
-	n := newNotifications(pubKey, cb, user, kv, net)
+	nm NotificationsManager, kv *versioned.KV, net Client) *notifications {
+	n := newNotifications(pubKey, cb, nm, kv, net)
 
 	err := n.load()
 	if err != nil && kv.Exists(err) {
@@ -72,15 +68,15 @@ func newOrLoadNotifications(pubKey ed25519.PublicKey, cb FilterCallback,
 }
 
 // newNotifications initialises a new channels notifications manager.
-func newNotifications(pubKey ed25519.PublicKey, cb FilterCallback, user E2e,
-	kv *versioned.KV, net Client) *notifications {
+func newNotifications(pubKey ed25519.PublicKey, cb FilterCallback,
+	nm NotificationsManager, kv *versioned.KV, net Client) *notifications {
 	return &notifications{
 		pubKey:   pubKey,
 		cb:       cb,
 		channels: make(map[id.ID]NotificationLevel),
-		user:     user,
-		net:      net,
 		kv:       kv,
+		nm:       nm,
+		net:      net,
 		mux:      sync.Mutex{},
 	}
 }
@@ -114,7 +110,7 @@ func (n *notifications) removeChannel(channelID *id.ID) {
 	}
 
 	if level != NotifyNone {
-		err := n.user.UnregisterNotificationIdentity(channelID)
+		err := n.nm.UnregisterNotificationIdentity(channelID)
 		if err != nil {
 			// TODO: Instead of returning an error here, make failed unregisters
 			//  be added to a list to be retried.
@@ -155,11 +151,11 @@ func (n *notifications) SetMobileNotificationsLevel(
 
 	// Determine if the channel needs to be registered or unregistered
 	if chanLevel == NotifyNone && level != NotifyNone {
-		if err := n.user.RegisterForNotifications(channelID); err != nil {
+		if err := n.nm.RegisterForNotifications(channelID); err != nil {
 			return err
 		}
 	} else if chanLevel != NotifyNone && level == NotifyNone {
-		if err := n.user.UnregisterNotificationIdentity(channelID); err != nil {
+		if err := n.nm.UnregisterNotificationIdentity(channelID); err != nil {
 			return err
 		}
 	}
@@ -216,7 +212,7 @@ func (n *notifications) createFilterList(
 // Storage                                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 
-// save marshals and saves the channels and token to storage.
+// save marshals and saves the channels to storage.
 func (n *notifications) save() error {
 	data, err := json.Marshal(n)
 	if err != nil {
@@ -230,8 +226,7 @@ func (n *notifications) save() error {
 	})
 }
 
-// load loads and unmarshalls the channels and token from storage into
-// notifications.
+// load loads and unmarshalls the channels from storage into notifications.
 func (n *notifications) load() error {
 	obj, err := n.kv.Get(notificationsKvKey, notificationsKvVersion)
 	if err != nil {
@@ -323,6 +318,7 @@ type NotificationFilter struct {
 	AllowLists `json:"allowLists"`
 }
 
+// AllowLists contains the list of messages types allowed with or without tags.
 type AllowLists struct {
 	// AllowWithTags is a list of message types that are not filtered when
 	// there are Tags.

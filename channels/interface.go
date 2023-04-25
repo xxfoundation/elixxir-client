@@ -164,6 +164,22 @@ type Manager interface {
 		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
+	// SendInvite is used to send to a channel (invited) an invitation to another
+	// channel (invitee).
+	//
+	// Due to the underlying encoding using compression, it is not possible to
+	// define the largest payload that can be sent, but it will always be possible
+	// to send a payload of 766 bytes at minimum.
+	//
+	// If the channel ID for the invitee channel is not recognized by the Manager,
+	// then an error will be returned.
+	//
+	// Pings are a list of ed25519 public keys that will receive notifications
+	// for this message. They must be in the channel and have notifications enabled.
+	SendInvite(channelID *id.ID, msg string,
+		host string, maxUses int, inviteTo *id.ID, validUntil time.Duration,
+		params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
+
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //
 	////////////////////////////////////////////////////////////////////////////
@@ -406,7 +422,8 @@ type ExtensionMessageHandler interface {
 //
 // Note: The first thing the function should do is extract the extension's event
 // model using the call:
-//  eventModel, success := e.(ExtensionEventModel)
+//
+//	eventModel, success := e.(ExtensionEventModel)
 //
 // It should return an error if the casting is a failure.
 type ExtensionBuilder func(e EventModel, m Manager,

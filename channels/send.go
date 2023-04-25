@@ -29,10 +29,12 @@ import (
 )
 
 const (
-	cmixChannelTextVersion     = 0
-	cmixChannelReactionVersion = 0
-	cmixChannelDeleteVersion   = 0
-	cmixChannelPinVersion      = 0
+	/* Versions for various message types */
+	cmixChannelTextVersion       = 0
+	cmixChannelReactionVersion   = 0
+	cmixChannelInvitationVersion = 0
+	cmixChannelDeleteVersion     = 0
+	cmixChannelPinVersion        = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -46,6 +48,10 @@ const (
 	// sending a reaction.
 	SendReactionTag = "ChReaction"
 
+	// SendInviteTag is the base tag used when generating a debug tag for
+	// sending and invitation.
+	SendInviteTag = "ChInvite"
+
 	// SendDeleteTag is the base tag used when generating a debug tag for a
 	// delete message.
 	SendDeleteTag = "ChDelete"
@@ -58,8 +64,8 @@ const (
 	// message.
 	SendMuteTag = "ChMute"
 
-	// SendAdminReplayTag is the base tag used when generating a debug tag for an
-	// admin replay message.
+	// SendAdminReplayTag is the base tag used when generating a debug tag for
+	// an admin replay message.
 	SendAdminReplayTag = "ChAdminReplay"
 
 	// The size of the nonce used in the message ID.
@@ -368,6 +374,63 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	return m.SendGeneric(
 		channelID, Reaction, reactMarshaled, validUntil, true, params,
 		nil)
+}
+
+// SendInvite is used to send to a channel (invited) an invitation to another
+// channel (invitee).
+//
+// Due to the underlying encoding using compression, it is not possible to
+// define the largest payload that can be sent, but it will always be possible
+// to send a payload of 766 bytes at minimum.
+//
+// If the channel ID for the invitee channel is not recognized by the Manager,
+// then an error will be returned.
+//
+// Pings are a list of ed25519 public keys that will receive notifications
+// for this message. They must be in the channel and have notifications enabled.
+func (m *manager) SendInvite(channelID *id.ID, msg string,
+	host string, maxUses int, inviteTo *id.ID, validUntil time.Duration,
+	params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, []byte(msg), SendInviteTag)
+	jww.INFO.Printf(
+		"[CH] [%s] SendInvite on to channel %s", tag, channelID)
+
+	// Retrieve channel that will be used for the invitation
+	ch, err := m.getChannel(inviteTo)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.WithMessage(err,
+				"could form invitation for a channel that has not been joined.")
+
+	}
+
+	// Form link for invitation
+	inviteUrl, err := ch.broadcast.Get().InviteURL(host, maxUses)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.WithMessage(err, "could not form URL")
+	}
+
+	// Construct message
+	invitation := &CMIXChannelInvitation{
+		Version:    cmixChannelInvitationVersion,
+		Text:       msg,
+		InviteLink: inviteUrl,
+	}
+
+	// Marshal message
+	invitationMarshalled, err := proto.Marshal(invitation)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	// Send invitation
+	return m.SendGeneric(channelID, Invitation, invitationMarshalled,
+		validUntil, true, params, nil)
 }
 
 // replayAdminMessage is used to rebroadcast an admin message asa a norma user.

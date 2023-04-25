@@ -111,7 +111,7 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 	}
 
 	// Enable notifications
-	err = m.notif.addChannel(channel.ReceptionID)
+	err = m.notifications.addChannel(channel.ReceptionID)
 	if err != nil {
 		return errors.WithMessage(err,
 			"failed to add channel to notification manager")
@@ -163,7 +163,7 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 	ch.delete(m.kv)
 
 	// Disable notifications
-	m.notif.removeChannel(channelID)
+	m.notifications.removeChannel(channelID)
 
 	return nil
 }

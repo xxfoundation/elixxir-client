@@ -275,6 +275,17 @@ type Manager interface {
 	// an empty list is returned.
 	GetMutedUsers(channelID *id.ID) []ed25519.PublicKey
 
+	// SetMobileNotificationsLevel sets the notification level for the given
+	// channel. If the notification leve lis changed from [NotifyNone] to
+	// another level, then the channel is registered with the external
+	// notification server. If a channel level is set to [NotifyNone], then it
+	// is unregistered.
+	//
+	// Note, when enabling notifications, information may be shared with third
+	// parties (i.e., Firebase and Google's Palantir) that may represent a
+	// security risk to the user.
+	SetMobileNotificationsLevel(channelID *id.ID, level NotificationLevel) error
+
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Management                                                       //
 	////////////////////////////////////////////////////////////////////////////

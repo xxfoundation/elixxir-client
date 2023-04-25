@@ -66,7 +66,7 @@ type manager struct {
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 
 	// Notification manager
-	notif *notifications
+	*notifications
 }
 
 // Client contains the methods from [cmix.Client] that are required by the
@@ -204,7 +204,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 		rng:            rng,
 		events:         initEvents(model, 512, kv, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
-		notif:          newOrLoadNotifications(identity.PubKey, cb, nm, kv, net),
+		notifications:  newOrLoadNotifications(identity.PubKey, cb, nm, kv, net),
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
@@ -216,7 +216,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
-	m.net.TrackServices(m.notif.serviceTracker)
+	m.net.TrackServices(m.notifications.serviceTracker)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler

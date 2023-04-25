@@ -130,13 +130,13 @@ func (n *notifications) removeChannel(channelID *id.ID) {
 }
 
 // SetMobileNotificationsLevel sets the notification level for the given
-// channel.
+// channel. If the notification leve lis changed from [NotifyNone] to another
+// level, then the channel is registered with the external notification server.
+// If a channel level is set to [NotifyNone], then it is unregistered.
 //
-// RegisterForNotifications allows a client to register for push notifications.
-// Note that clients are not required to register for push notifications,
-// especially as these rely on third parties (i.e., Firebase *cough* *cough*
-// Google's Palantir *cough*) that may represent a security risk to the user.
-// A client can register to receive push notifications on many IDs.
+// Note, when enabling notifications, information may be shared with third
+// parties (i.e., Firebase and Google's Palantir) that may represent a security
+// risk to the user.
 func (n *notifications) SetMobileNotificationsLevel(
 	channelID *id.ID, level NotificationLevel) error {
 	jww.INFO.Printf("[CH] Set notification level for channel %s to %s",

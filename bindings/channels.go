@@ -1763,6 +1763,30 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 	return json.Marshal(cm.api.GetMutedUsers(channelID))
 }
 
+// SetMobileNotificationsLevel sets the notification level for the given
+// channel. If the notification leve lis changed from [channels.NotifyNone] to
+// another level, then the channel is registered with the external notification
+// server. If a channel level is set to [channels.NotifyNone], then it is
+// unregistered.
+//
+// Note, when enabling notifications, information may be shared with third
+// parties (i.e., Firebase and Google's Palantir) that may represent a security
+// risk to the user.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//   - level - The [channels.NotificationLevel] to set for the channel.
+func (cm *ChannelsManager) SetMobileNotificationsLevel(
+	channelIDBytes []byte, level int) error {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.SetMobileNotificationsLevel(
+		channelID, channels.NotificationLevel(level))
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Admin Management                                                           //
 ////////////////////////////////////////////////////////////////////////////////

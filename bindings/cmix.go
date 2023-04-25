@@ -93,7 +93,6 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 // instances.
 func LoadSynchronizedCmix(storageDir string, password []byte,
 	remote RemoteStore,
-	synchedPrefixesJSON []byte,
 	callbacks RemoteKVCallbacks,
 	cmixParamsJSON []byte) (*Cmix, error) {
 	// KeyUpdated is a passthrough to the lower level, since it
@@ -121,10 +120,7 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 	}
 
 	var synchedPrefixes []string
-	err = json.Unmarshal(synchedPrefixesJSON, &synchedPrefixes)
-	if err != nil {
-		return nil, err
-	}
+	// TODO: Set these
 
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
 

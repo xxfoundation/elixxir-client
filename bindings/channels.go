@@ -1293,6 +1293,66 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
 }
 
+// SendInvite is used to send to a channel (invited) an invitation to another
+// channel (invitee).
+//
+// If the channel ID for the invitee channel is not recognized by the Manager,
+// then an error will be returned.
+//
+// See [Manager.SendGeneric] for details on payload size limitations and
+// elaboration of pings.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//   - inviteToChannelBytes - Marshalled bytes of the invitee channel.
+//   - message - The contents of the message. The message should be at most 510
+//     bytes. This is expected to be Unicode, and thus a string data type is
+//     expected.
+//   - host - The URL to append the channel info to.
+//   - maxUses - The maximum number of uses the link can be used (0 for
+//     unlimited).
+//   - validUntilMS - The lease of the message. This will be how long the
+//     message is available from the network, in milliseconds. As per the
+//     [channels.Manager] documentation, this has different meanings depending
+//     on the use case. These use cases may be generic enough that they will not
+//     be enumerated here. Use [channels.ValidForever] to last the max message
+//     life.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+//
+// Returns:
+//   - []byte - JSON of [ChannelSendReport].
+func (cm *ChannelsManager) SendInvite(channelIdBytes,
+	inviteToChannelBytes []byte, message string, host string, maxUses int,
+	validUntilMS int64, cmixParamsJSON []byte) ([]byte, error) {
+
+	// Unmarshal channel ID and parameters
+	channelID, params, err := parseChannelsParameters(
+		channelIdBytes, cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal channel to invite to
+	inviteTo, err := id.Unmarshal(inviteToChannelBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate lease
+	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	// Send invite
+	messageID, rnd, ephID, err := cm.api.SendInvite(channelID, message,
+		inviteTo, host, maxUses, lease, params.CMIX)
+
+	// Construct send report
+	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Admin Sending                                                              //
 ////////////////////////////////////////////////////////////////////////////////

@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/broadcast"
 	"io"
 
 	"github.com/pkg/errors"
@@ -34,8 +35,10 @@ import (
 )
 
 const (
-	textVersion     = 0
-	reactionVersion = 0
+	/* Versions for various message types */
+	textVersion       = 0
+	reactionVersion   = 0
+	invitationVersion = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -48,6 +51,10 @@ const (
 	// SendReactionTag is the base tag used when generating a debug tag for
 	// sending a reaction.
 	SendReactionTag = "Reaction"
+
+	// SendInviteTag is the base tag used when generating a debug tag for
+	// sending an invitation.
+	SendInviteTag = "Invite"
 
 	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
@@ -86,7 +93,7 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 		params)
 }
 
-// SendDMReply is used to send a formatted direct message reply.
+// SendReply is used to send a formatted direct message reply.
 //
 // If the message ID that the reply is sent to does not exist,
 // then the other side will post the message as a normal
@@ -156,6 +163,54 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 		reactMarshaled, params)
 }
 
+// SendInvite is used to send to a DM partner an invitation to another
+// channel.
+//
+// The [broadcast.Channel] must be retrieved from [channels.Manager].
+func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
+	partnerToken uint32, msg string, inviteTo broadcast.Channel,
+	host string, maxUses int, params cmix.CMIXParams) (
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// Formulate custom tag
+	tag := makeDebugTag(
+		*partnerPubKey, []byte(msg),
+		SendInviteTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf("[DM][%s] SendInvite(%s, for %s)", tag,
+		base64.RawStdEncoding.EncodeToString(*partnerPubKey),
+		inviteTo.Get().ReceptionID)
+
+	inviteUrl, err := inviteTo.Get().InviteURL(host, maxUses)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.WithMessage(err, "could not form URL")
+	}
+
+	invitation := &ChannelInvitation{
+		Version:    invitationVersion,
+		Text:       msg,
+		InviteLink: inviteUrl,
+	}
+
+	invitationMarshaled, err := proto.Marshal(invitation)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return dc.Send(partnerPubKey, partnerToken, InvitationType,
+		invitationMarshaled, params)
+}
+
+// Send is used to send a raw direct message to a DM partner. In general, it
+// should be wrapped in a function that defines the wire protocol.
+//
+// If the final message, before being sent over the wire, is too long, this will
+// return an error. Due to the underlying encoding using compression, it is not
+// possible to define the largest payload that can be sent, but it will always
+// be possible to send a payload of 802 bytes at minimum.
 func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType, msg []byte,
 	params cmix.CMIXParams) (

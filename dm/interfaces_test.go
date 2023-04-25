@@ -120,6 +120,29 @@ func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback,
 func (mc *mockClient) AddHealthCallback(func(bool)) uint64 { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)         {}
 
+func (mr *mockReceiver) SendWithAssembler(recipient *id.ID,
+	assembler cmix.MessageAssembler, cmixParams cmix.CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+
+func (mr *mockReceiver) IsHealthy() bool { return true }
+
+func (mr *mockReceiver) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool,
+	fallthroughProcessor message.Processor) {
+}
+
+func (mr *mockReceiver) UpsertCompressedService(clientID *id.ID,
+	newService message.CompressedService, response message.Processor) {
+}
+
+func (mr *mockReceiver) DeleteClientService(clientID *id.ID) {}
+
+func (mr *mockReceiver) RemoveIdentity(id *id.ID) {}
+
+func (mr *mockReceiver) GetMaxMessageLength() int { return 2048 }
+
 // mockReceiver stores the messages sent to it for testing/debugging
 // NOTE: when sending remember the sender sees the sent message twice.
 //

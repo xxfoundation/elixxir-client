@@ -466,7 +466,7 @@ func Test_manager_SendInvite(t *testing.T) {
 
 	invitedChannelID, inviteeChannelID := ch.ReceptionID, ch.ReceptionID
 
-	msg := "🍆"
+	msg := "Dude check out this channel!"
 	params := new(cmix.CMIXParams)
 	mbc := &mockBroadcastChannel{
 		crypto: ch,

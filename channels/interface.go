@@ -164,19 +164,14 @@ type Manager interface {
 		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
-	// SendInvite is used to send to a channel (invited) an invitation to
-	// another channel (invitee).
+	// SendInvite is used to send to a channel (invited) an invitation to another
+	// channel (invitee).
 	//
-	// Due to the underlying encoding using compression, it is not possible to
-	// define the largest payload that can be sent, but it will always be
-	// possible to send a payload of 766 bytes at minimum.
+	// If the channel ID for the invitee channel is not recognized by the Manager,
+	// then an error will be returned.
 	//
-	// If the channel ID for the invitee channel is not recognized by the
-	// Manager, then an error will be returned.
-	//
-	// Pings are a list of ed25519 public keys that will receive notifications
-	// for this message. They must be in the channel and have notifications
-	// enabled.
+	// See [Manager.SendGeneric] for details on payload size limitations and
+	// elaboration of pings.
 	SendInvite(channelID *id.ID, msg string, inviteTo *id.ID, host string,
 		maxUses int, validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)

@@ -11,8 +11,10 @@ package sync
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"testing"
@@ -23,10 +25,9 @@ import (
 	"gitlab.com/elixxir/ekv"
 )
 
-const baseDir = "collector_tests/"
-
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
+	baseDir := "TestNewCollector/"
 	rng := rand.New(rand.NewSource(42))
 	syncPath := baseDir + "collector/"
 	txLog := makeTransactionLog(syncPath, password, t)
@@ -43,8 +44,6 @@ func TestNewCollector(t *testing.T) {
 	cmix.StoreInstanceID(myId, remoteKv)
 
 	workingDir := baseDir + "remoteFsSmoke/"
-	// Delete the test file at the end
-	defer os.RemoveAll(baseDir)
 
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 
@@ -59,13 +58,18 @@ func TestNewCollector(t *testing.T) {
 		txLog:                txLog,
 		remote:               fsRemote,
 		kv:                   remoteKv,
+		myLogPath:            collector.myLogPath,
 	}
 
 	require.Equal(t, expected, collector)
 
+	// Delete the test file at the end
+	os.RemoveAll(baseDir)
+
 }
 
 func TestNewCollector_CollectChanges(t *testing.T) {
+	baseDir := "TestNewCollector_CollectChanges/"
 
 	// Note: these are pre-canned serialized transaction logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)
@@ -88,26 +92,29 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"
-	// Delete the test file at the end
-	defer os.RemoveAll(baseDir)
 
-	// Write mock data to file (collectChanges will read from file)
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]string, 0)
 	rng := rand.New(rand.NewSource(42))
-	for _, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockInstanceID, err := cmix.NewRandomInstanceID(rng)
-		require.NoError(t, err)
-		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
-		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockInstanceID.String(), mockTxLog))
-		devices = append(devices, mockInstanceID.String())
-	}
 
 	// Construct collector
 	myId, _ := cmix.NewRandomInstanceID(rng)
 	cmix.StoreInstanceID(myId, remoteKv)
 	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
+
+	// Write mock data to file (collectChanges will read from file)
+	for _, remoteTxLogEnc := range remoteTxLogsEnc {
+		mockInstanceID, err := cmix.NewRandomInstanceID(rng)
+		txLogPath := filepath.Join(syncPath,
+			fmt.Sprintf(txLogPathFmt, mockInstanceID,
+				keyID(txLog.deviceSecret)))
+
+		require.NoError(t, err)
+		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
+		require.NoError(t, err)
+		require.NoError(t, fsRemote.Write(txLogPath, mockTxLog))
+		devices = append(devices, mockInstanceID.String())
+	}
 
 	_, err = collector.collectChanges(devices)
 	require.NoError(t, err)
@@ -119,10 +126,12 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 		received := collector.deviceTxTracker.changes[dvcId]
 		require.Len(t, received, 6)
 	}
-
+	// Delete the test file at the end
+	os.RemoveAll(baseDir)
 }
 
 func TestCollector_ApplyChanges(t *testing.T) {
+	baseDir := "TestCollector_ApplyChanges/"
 
 	// Note: these are pre-canned serialized transaction logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)

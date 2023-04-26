@@ -246,6 +246,14 @@ func (r *VersionedKV) updateIfSynchronizedPrefix() bool {
 	return false
 }
 
+// ListenOnRemoteKey allows the caller to receive updates when
+// a key is updated by synching with another client.
+// Only one callback can be written per key.
+func (r *VersionedKV) ListenOnRemoteKey(key string,
+	callback versioned.KeyChangedByRemoteCallback) {
+	r.remoteKV.ListenOnRemoteKey(key, callback)
+}
+
 // WaitForRemote block until timeout or remote operations complete
 func (r *VersionedKV) WaitForRemote(timeout time.Duration) bool {
 	return r.remoteKV.WaitForRemote(timeout)

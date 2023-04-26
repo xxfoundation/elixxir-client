@@ -125,14 +125,13 @@ func (i *impl) DeleteFile(fileID fileTransfer.ID) error {
 	parentErr := "failed to DeleteFile: %+v"
 
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Delete(&File{Id: fileID.Marshal()}).Error
+	result := i.db.WithContext(ctx).Delete(&File{Id: fileID.Marshal()})
 	cancel()
 
-	if err != nil {
-		if errors.Is(gorm.ErrRecordNotFound, err) {
-			return errors.Errorf(parentErr, channels.NoMessageErr)
-		}
+	if err := result.Error; err != nil {
 		return errors.Errorf(parentErr, err)
+	} else if result.RowsAffected == 0 {
+		return channels.NoMessageErr
 	}
 	return nil
 }

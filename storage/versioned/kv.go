@@ -25,10 +25,11 @@ import (
 // value (see base64.StdEncoding].
 const PrefixSeparator = `\`
 
-const (
-	EmptyPrefixErr               = "empty prefix"
-	PrefixContainingSeparatorErr = "cannot accept prefix with the default separator"
-	DuplicatePrefixErr           = "prefix has already been added, cannot overwrite"
+var (
+	EmptyPrefixErr               = errors.New("empty prefix")
+	PrefixContainingSeparatorErr = errors.New("cannot accept prefix with the default separator")
+	DuplicatePrefixErr           = errors.New("prefix has already been added, cannot overwrite")
+	UnimplementedErr             = errors.New("not implemented")
 )
 
 // KV is a key value store interface that supports versioned and
@@ -146,6 +147,9 @@ func NewKV(data ekv.KeyValue) KV {
 
 	newkv.r = &root
 
+	jww.WARN.Printf("storage/versioned.KV is deprecated. " +
+		"Please use sync.VersionedKV")
+
 	return &newkv
 }
 
@@ -249,17 +253,17 @@ func (v *kv) HasPrefix(prefix string) bool {
 // [KV.Prefix].
 func (v *kv) Prefix(prefix string) (KV, error) {
 	if prefix == "" {
-		return nil, errors.Errorf(EmptyPrefixErr)
+		return nil, EmptyPrefixErr
 	}
 
 	//// Reject invalid prefixes
 	if strings.Contains(prefix, PrefixSeparator) {
-		return nil, errors.Errorf(PrefixContainingSeparatorErr)
+		return nil, PrefixContainingSeparatorErr
 	}
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {
-		return nil, errors.Errorf(DuplicatePrefixErr)
+		return nil, DuplicatePrefixErr
 	}
 
 	newPrefixMap := make(map[string]int)
@@ -313,3 +317,34 @@ func (v *kv) Exists(err error) bool {
 // KeyChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
 type KeyChangedByRemoteCallback func(key string)
+
+// StoreMapElement is not implemented for local KVs
+func (v *kv) StoreMapElement(mapName, elementKey string,
+	value *Object, version uint64) error {
+	return UnimplementedErr
+}
+
+// StoreMap is not implemented for local KVs
+func (v *kv) StoreMap(mapName string, value map[string]*Object,
+	version uint64) error {
+	return UnimplementedErr
+}
+
+// GetMap is not implemented for local KVs
+func (v *kv) GetMap(mapName string, version uint64) (
+	map[string]*Object, error) {
+	return nil, UnimplementedErr
+}
+
+// GetMapElement is not implemented for local KVs
+func (v *kv) GetMapElement(mapName, element string, version uint64) (
+	*Object, error) {
+	return nil, UnimplementedErr
+}
+
+// ListenOnRemoteKey is not implemented for local KVs
+func (v *kv) ListenOnRemoteKey(key string,
+	callback KeyChangedByRemoteCallback) {
+	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
+		"ListenOnRemoteKey"))
+}

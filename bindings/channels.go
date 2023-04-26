@@ -27,6 +27,7 @@ import (
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/elixxir/primitives/notifications"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1763,6 +1764,10 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 	return json.Marshal(cm.api.GetMutedUsers(channelID))
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Notifications                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 // SetMobileNotificationsLevel sets the notification level for the given
 // channel. If the notification leve lis changed from [channels.NotifyNone] to
 // another level, then the channel is registered with the external notification
@@ -1785,6 +1790,33 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 
 	return cm.api.SetMobileNotificationsLevel(
 		channelID, channels.NotificationLevel(level))
+}
+
+// GetNotificationReportsForMe checks the notification data against the filter
+// list to determine which notifications belong to the user. A list of
+// notifications reports is returned detailing all notifications for the user.
+//
+// Parameters:
+//   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
+//   - notificationDataJSON - JSON of a slice of [notifications.Data].
+//
+// Returns:
+//   - []byte - JSON of a slice of [channels.NotificationReport].
+func GetNotificationReportsForMe(notificationFilterJSON,
+	notificationDataJSON []byte) ([]byte, error) {
+	var nfs []channels.NotificationFilter
+	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
+		return nil, err
+	}
+
+	var notifData []*notifications.Data
+	if err := json.Unmarshal(notificationDataJSON, &notifData); err != nil {
+		return nil, err
+	}
+
+	nrs := channels.GetNotificationReportsForMe(nfs, notifData)
+
+	return json.Marshal(nrs)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

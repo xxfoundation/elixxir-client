@@ -24,6 +24,9 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
+// TODO:
+//  use new notification interface
+
 // FilterCallback is a callback that returns a slice of [NotificationFilter] of
 // all channels with notifications enabled any time a service is added or
 // removed or the notification level changes. The [NotificationFilter] is used
@@ -298,10 +301,10 @@ type NotificationReport struct {
 	Type MessageType `json:"type"`
 }
 
-// GetNotificationReportForMe checks the notification data against the filter
+// GetNotificationReportsForMe checks the notification data against the filter
 // list to determine which notifications belong to the user. A list of
 // notifications reports is returned detailing all notifications for the user.
-func GetNotificationReportForMe(nfs []NotificationFilter,
+func GetNotificationReportsForMe(nfs []NotificationFilter,
 	notificationData []*primNotif.Data) []NotificationReport {
 
 	var nr []NotificationReport

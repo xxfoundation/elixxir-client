@@ -412,14 +412,14 @@ func Test_notifications_MarshalJSON_UnmarshalJSON(t *testing.T) {
 // For Me / Notification Report                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-func TestGetNotificationReportForMe(t *testing.T) {
+func TestGetNotificationReportsForMe(t *testing.T) {
 	rng := rand.New(rand.NewSource(6584))
 	types := []MessageType{Text, AdminText, Reaction, Delete, Pinned, Mute,
 		AdminReplay, FileTransfer}
 	levels := []NotificationLevel{NotifyPing, NotifyAll}
 
 	var expected []NotificationReport
-	var notificationData []*primNotif.Data
+	var notifData []*primNotif.Data
 	var nfs []NotificationFilter
 	for _, mt := range types {
 		for _, level := range levels {
@@ -440,7 +440,7 @@ func TestGetNotificationReportForMe(t *testing.T) {
 						t.Fatalf("Failed to make compressed SIH: %+v", err)
 					}
 
-					notificationData = append(notificationData, &primNotif.Data{
+					notifData = append(notifData, &primNotif.Data{
 						IdentityFP:  cSIH,
 						MessageHash: msgHash,
 					})
@@ -475,7 +475,7 @@ func TestGetNotificationReportForMe(t *testing.T) {
 		}
 	}
 
-	nrs := GetNotificationReportForMe(nfs, notificationData)
+	nrs := GetNotificationReportsForMe(nfs, notifData)
 
 	if !reflect.DeepEqual(nrs, expected) {
 		t.Errorf("NotificationReport list does not match expected."+

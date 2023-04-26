@@ -1199,8 +1199,8 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
-	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte, pingBytes [][]byte) (
-	[]byte, error) {
+	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte,
+	pingBytes [][]byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err :=
@@ -1321,7 +1321,8 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendInvite(channelIdBytes,
 	inviteToChannelBytes []byte, message string, host string, maxUses int,
-	validUntilMS int64, cmixParamsJSON []byte) ([]byte, error) {
+	validUntilMS int64, cmixParamsJSON []byte, pingBytes [][]byte) (
+	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err := parseChannelsParameters(
@@ -1342,9 +1343,14 @@ func (cm *ChannelsManager) SendInvite(channelIdBytes,
 		lease = channels.ValidForever
 	}
 
+	pings := make([]ed25519.PublicKey, len(pingBytes))
+	for i := range pingBytes {
+		pings[i] = pingBytes[i][:]
+	}
+
 	// Send invite
 	messageID, rnd, ephID, err := cm.api.SendInvite(channelID, message,
-		inviteTo, host, maxUses, lease, params.CMIX)
+		inviteTo, host, maxUses, lease, params.CMIX, pings)
 
 	// Construct send report
 	return constructChannelSendReport(&messageID, rnd.ID, &ephID)

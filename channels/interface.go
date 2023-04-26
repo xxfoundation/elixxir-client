@@ -173,7 +173,8 @@ type Manager interface {
 	// See [Manager.SendGeneric] for details on payload size limitations and
 	// elaboration of pings.
 	SendInvite(channelID *id.ID, msg string, inviteTo *id.ID, host string,
-		maxUses int, validUntil time.Duration, params cmix.CMIXParams) (
+		maxUses int, validUntil time.Duration, params cmix.CMIXParams,
+		pings []ed25519.PublicKey) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendSilent is used to send to a channel a message with no notifications.

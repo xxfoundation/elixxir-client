@@ -523,13 +523,19 @@ func (dmc *DMClient) SendInvite(channelsManagerId int, partnerPubKeyBytes []byte
 		return nil, err
 	}
 
-	// Unmarshal channel ID and parameters
-	inviteToID, params, err := parseChannelsParameters(
-		inviteToChannelBytes, cmixParamsJSON)
+	// Unmarshal channel ID
+	inviteToID, err := id.Unmarshal(inviteToChannelBytes)
 	if err != nil {
 		return nil, err
 	}
 
+	// Unmarshal cmix params
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Retrieve channel from manager
 	inviteTo, err := chanMan.api.GetChannel(inviteToID)
 	if err != nil {
 		return nil, err

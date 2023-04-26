@@ -407,6 +407,71 @@ func Test_notifications_MarshalJSON_UnmarshalJSON(t *testing.T) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// For Me / Notification Report                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+// Tests that a NotificationReport can be JSON marshalled and unmarshalled.
+func TestNotificationReport_JSON(t *testing.T) {
+	nr := NotificationReport{
+		Channel: id.NewIdFromString("someChannel", id.User, t),
+		Type:    Text,
+	}
+
+	data, err := json.Marshal(nr)
+	if err != nil {
+		t.Fatalf("Failed to JSON marshal %T: %+v", nr, err)
+	}
+
+	var newNr NotificationReport
+	if err = json.Unmarshal(data, &newNr); err != nil {
+		t.Fatalf("Failed to JSON unmarshal %T: %+v", newNr, err)
+	}
+
+	if !reflect.DeepEqual(nr, newNr) {
+		t.Errorf("JSON marshalled and unmarshalled NotificationReport does "+
+			"not match original.\nexpected: %+v\nreceivedL %+v", nr, newNr)
+	}
+}
+
+// Tests that a slice of NotificationReport can be JSON marshalled and
+// unmarshalled.
+func TestNotificationReport_Slice_JSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(7632))
+
+	nrs := make([]NotificationReport, 9)
+	types := []MessageType{Text, AdminText, Reaction, Delete, Pinned, Mute,
+		AdminReplay, FileTransfer}
+	for i := range nrs {
+		chanID, _ := id.NewRandomID(rng, id.User)
+		nrs[i] = NotificationReport{
+			Channel: chanID,
+			Type:    types[i%len(types)],
+		}
+	}
+
+	// data, err := json.MarshalIndent(nrs, "//  ", "  ")
+	// if err != nil {
+	// 	t.Fatalf("Failed to JSON marshal %T: %+v", nrs, err)
+	// }
+	// fmt.Printf("\n\n//  %s\n\n", data)
+
+	data, err := json.Marshal(nrs)
+	if err != nil {
+		t.Fatalf("Failed to JSON marshal %T: %+v", nrs, err)
+	}
+
+	var newNfr []NotificationReport
+	if err = json.Unmarshal(data, &newNfr); err != nil {
+		t.Fatalf("Failed to JSON unmarshal %T: %+v", newNfr, err)
+	}
+
+	if !reflect.DeepEqual(nrs, newNfr) {
+		t.Errorf("JSON marshalled and unmarshalled []NotificationReport does "+
+			"not match original.\nexpected: %+v\nreceivedL %+v", nrs, newNfr)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // MessageTypeFilter                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -428,12 +493,51 @@ func TestNotificationFilter_JSON(t *testing.T) {
 
 	var newNf NotificationFilter
 	if err = json.Unmarshal(data, &newNf); err != nil {
-		t.Fatalf("Failed to JSON unmarshal %T: %+v", nf, err)
+		t.Fatalf("Failed to JSON unmarshal %T: %+v", newNf, err)
 	}
 
 	if !reflect.DeepEqual(nf, newNf) {
 		t.Errorf("JSON marshalled and unmarshalled NotificationFilter does "+
 			"not match original.\nexpected: %+v\nreceivedL %+v", nf, newNf)
+	}
+}
+
+// Tests that a slice of NotificationFilter can be JSON marshalled and
+// unmarshalled.
+func TestNotificationFilter_Slice_JSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(7632))
+
+	nfs := make([]NotificationFilter, 3)
+	levels := []NotificationLevel{NotifyPing, NotifyAll, NotifyPing}
+	for i := range nfs {
+		chanID, _ := id.NewRandomID(rng, id.User)
+		nfs[i] = NotificationFilter{
+			Identifier: append(chanID.Marshal(), []byte("Identifier")...),
+			ChannelID:  chanID,
+			Tags:       makeUserPingTags(makeEd25519PubKey(rng, t)),
+			AllowLists: notificationLevelAllowLists[levels[i%len(levels)]],
+		}
+	}
+
+	// data, err := json.MarshalIndent(nfs, "//  ", "  ")
+	// if err != nil {
+	// 	t.Fatalf("Failed to JSON marshal %T: %+v", nfs, err)
+	// }
+	// fmt.Printf("\n\n//  %s\n\n", data)
+
+	data, err := json.Marshal(nfs)
+	if err != nil {
+		t.Fatalf("Failed to JSON marshal %T: %+v", nfs, err)
+	}
+
+	var newNfs []NotificationFilter
+	if err = json.Unmarshal(data, &newNfs); err != nil {
+		t.Fatalf("Failed to JSON unmarshal %T: %+v", newNfs, err)
+	}
+
+	if !reflect.DeepEqual(nfs, newNfs) {
+		t.Errorf("JSON marshalled and unmarshalled []NotificationFilter does "+
+			"not match original.\nexpected: %+v\nreceivedL %+v", nfs, newNfs)
 	}
 }
 

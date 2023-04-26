@@ -125,7 +125,7 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 
 	if compressed, exists := sm.compressedServices[cid]; exists {
 		for _, c := range compressed {
-			if forMe, tags, metadata := c.ForMe(clientID, ecrMsgContents, receivedSIH); forMe {
+			if tags, forMe, metadata := c.ForMe(clientID, ecrMsgContents, receivedSIH); forMe {
 				return []Processor{c.Processor}, tags, metadata, true
 			}
 		}

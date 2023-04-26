@@ -284,35 +284,35 @@ type DeletedMessageCallback interface {
 //
 // Example JSON:
 //
-//	[
-//	  {
-//	    "identifier": "mwkwmTTnaMXTihl5zVrNjgSZID8p94gcRw3RIhzc/OoDSWRlbnRpZmllcg==",
-//	    "channelID": "mwkwmTTnaMXTihl5zVrNjgSZID8p94gcRw3RIhzc/OoD",
-//	    "tags": ["4942c3d216799ae507e5a0082f306e835acbbd1ae5d5ff03a495eae313c0534f-usrping"],
-//	    "allowLists": {
-//	      "allowWithTags": [1, 2, 40000],
-//	      "allowWithoutTags": [102]
-//	    }
-//	  },
-//	  {
-//	    "identifier": "s6182xReoVIXx1jesCk4zE2OoP4C1mgAsALyfebj/xUDSWRlbnRpZmllcg==",
-//	    "channelID": "s6182xReoVIXx1jesCk4zE2OoP4C1mgAsALyfebj/xUD",
-//	    "tags": ["aa2e8255f049e8908ba7f3fe753ecc452b7f2a84038907498dd98803665d0b41-usrping"],
-//	    "allowLists": {
-//	      "allowWithTags": [],
-//	      "allowWithoutTags": [1, 2, 40000]
-//	    }
-//	  },
-//	  {
-//	    "identifier": "7SQ3w4dMLR+veINmUvVyaS2PP1Gj+gdauC5LbCjJMkMDSWRlbnRpZmllcg==",
-//	    "channelID": "7SQ3w4dMLR+veINmUvVyaS2PP1Gj+gdauC5LbCjJMkMD",
-//	    "tags": ["98b416818be91c6cc1db8c15812dd31eef86bd371c6d126edcab23cafa62ed31-usrping"],
-//	    "allowLists": {
-//	      "allowWithTags": [1, 2, 40000],
-//	      "allowWithoutTags": [102]
-//	    }
-//	  }
-//	]
+//  [
+//    {
+//      "identifier": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4DSWRlbnRpZmllcg==",
+//      "channelID": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4D",
+//      "tags": ["2b7d05b786952709105c194d6d486a59e264217bd03bacf0ed3c895d5fafed72-usrping"],
+//      "allowLists": {
+//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
+//        "allowWithoutTags": {"102":{}}
+//      }
+//    },
+//    {
+//      "identifier": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcDSWRlbnRpZmllcg==",
+//      "channelID": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcD",
+//      "tags": ["c01efa896876b4b5677295a80178efda5cb783706a3f087cfa4a5e8cf126da68-usrping"],
+//      "allowLists": {
+//        "allowWithTags": {},
+//        "allowWithoutTags": {"1":{}, "2":{}, "40000":{}}
+//      }
+//    },
+//    {
+//      "identifier": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wDSWRlbnRpZmllcg==",
+//      "channelID": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wD",
+//      "tags": ["5d07a3251048514c00c521d1d2f1c2778cb553113410b461b5fcc1390fecb5e2-usrping"],
+//      "allowLists": {
+//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
+//        "allowWithoutTags": {"102":{}}
+//      }
+//    }
+//  ]
 type ChannelsFilterCallbackCallback interface {
 	Callback(notificationFilterListJSON []byte)
 }

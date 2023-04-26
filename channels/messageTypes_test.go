@@ -44,3 +44,20 @@ func TestMessageType_Bytes_Consistency(t *testing.T) {
 		}
 	}
 }
+
+// Tests that a MessageType marshalled via MessageType.Marshal and unmarshalled
+// via UnmarshalMessageType matches the original.
+func TestMessageType_Marshal_UnmarshalMessageType(t *testing.T) {
+	tests := []MessageType{Text, AdminText, Reaction, Delete, Pinned, Mute,
+		AdminReplay, FileTransfer}
+
+	for _, mt := range tests {
+		data := mt.Marshal()
+		newMt := UnmarshalMessageType(data)
+
+		if mt != newMt {
+			t.Errorf("Failed to marshal and unmarshal MessageType %s."+
+				"\nexpected: %d\nreceived: %d", mt, mt, newMt)
+		}
+	}
+}

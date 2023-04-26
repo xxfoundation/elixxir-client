@@ -18,6 +18,8 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/sih"
+	primNotif "gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -283,6 +285,52 @@ func (n *notifications) UnmarshalJSON(data []byte) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// For Me / Notification Report                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+// NotificationReport describes information about a single notification
+// belonging to the user.
+type NotificationReport struct {
+	// Channel is the channel ID that the notification is for.
+	Channel *id.ID `json:"channel"`
+
+	// Type is the MessageType of the message that the notification belongs to.
+	Type MessageType `json:"type"`
+}
+
+// GetNotificationReportForMe checks the notification data against the filter
+// list to determine which notifications belong to the user. A list of
+// notifications reports is returned detailing all notifications for the user.
+func GetNotificationReportForMe(nfs []NotificationFilter,
+	notificationData []*primNotif.Data) []NotificationReport {
+
+	var nr []NotificationReport
+
+	for _, data := range notificationData {
+		for _, nf := range nfs {
+			matchedTags, metadata, found, err := sih.EvaluateCompressedSIH(
+				nf.ChannelID, data.MessageHash, nf.Identifier, nf.Tags,
+				data.IdentityFP)
+			if err != nil {
+				jww.TRACE.Printf("[CH] Failed to evaluate compressed SIH for "+
+					"channel %s and identifier %v", nf.ChannelID, nf.Identifier)
+				continue
+			}
+
+			messageType := UnmarshalMessageType(metadata)
+			if found && nf.match(matchedTags, messageType) {
+				nr = append(nr, NotificationReport{
+					Channel: nf.ChannelID,
+					Type:    messageType,
+				})
+			}
+		}
+	}
+
+	return nr
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // MessageTypeFilter                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -322,11 +370,36 @@ type NotificationFilter struct {
 type AllowLists struct {
 	// AllowWithTags is a list of message types that are not filtered when
 	// there are Tags.
-	AllowWithTags []MessageType `json:"allowWithTags"`
+	AllowWithTags map[MessageType]struct{} `json:"allowWithTags"`
 
 	// AllowWithoutTags is a list of message types that are not filtered when
 	// there are no Tags.
-	AllowWithoutTags []MessageType `json:"allowWithoutTags"`
+	AllowWithoutTags map[MessageType]struct{} `json:"allowWithoutTags"`
+}
+
+// match determines if the message with the given tags and message type are
+// allowed through the filter.
+func (nf NotificationFilter) match(
+	matchedTags map[string]struct{}, mt MessageType) bool {
+	// Check if any filter tags match the matched tags
+	for _, tag := range nf.Tags {
+
+		// If a tag matches, then check if the message type is in the allow with
+		// tags list
+		if _, exists := matchedTags[tag]; exists {
+			if _, exists = nf.AllowWithTags[mt]; exists {
+				return true
+			}
+			return false
+		}
+	}
+
+	// If no tag matches, then check if the message type is in the allow without
+	// tags list
+	if _, exists := nf.AllowWithoutTags[mt]; exists {
+		return true
+	}
+	return false
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -337,12 +410,12 @@ type AllowLists struct {
 // each notification level.
 var notificationLevelAllowLists = map[NotificationLevel]AllowLists{
 	NotifyPing: {
-		AllowWithTags:    []MessageType{Text, AdminText, FileTransfer},
-		AllowWithoutTags: []MessageType{Pinned},
+		map[MessageType]struct{}{Text: {}, AdminText: {}, FileTransfer: {}},
+		map[MessageType]struct{}{Pinned: {}},
 	},
 	NotifyAll: {
-		AllowWithTags:    []MessageType{},
-		AllowWithoutTags: []MessageType{Text, AdminText, FileTransfer},
+		map[MessageType]struct{}{},
+		map[MessageType]struct{}{Text: {}, AdminText: {}, FileTransfer: {}},
 	},
 }
 

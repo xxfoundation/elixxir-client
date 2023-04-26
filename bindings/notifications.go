@@ -209,7 +209,7 @@ func getCompressedServicesReport(marshalledCompressedServices []byte,
 			// Iterate over all services {
 			for j := range services {
 				service := services[j]
-				found, tags, metadata :=
+				tags, found, metadata :=
 					service.ForMe(&id, notifData.MessageHash, service.Metadata)
 				if found {
 					reportList = append(reportList, &NotificationReport{

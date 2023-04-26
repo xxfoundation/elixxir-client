@@ -176,6 +176,15 @@ type Manager interface {
 		maxUses int, validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
+	// SendSilent is used to send to a channel a message with no notifications.
+	// Its primary purpose is to communicate new nicknames without calling
+	// SendMessage.
+	//
+	// It takes no payload intentionally as the message should be very
+	// lightweight.
+	SendSilent(channelID *id.ID, validUntil time.Duration,
+		params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
+
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //
 	////////////////////////////////////////////////////////////////////////////

@@ -34,6 +34,10 @@ const (
 	// Invitation denotes that the message is an invitation to another channel.
 	Invitation MessageType = 4
 
+	// Silent denotes that the message is a silent message which should not
+	// notify the user in any way.
+	Silent MessageType = 5
+
 	////////////////////////////////////////////////////////////////////////////
 	// Message Actions                                                        //
 	////////////////////////////////////////////////////////////////////////////
@@ -73,6 +77,8 @@ func (mt MessageType) String() string {
 		return "Reaction"
 	case Invitation:
 		return "Invitation"
+	case Silent:
+		return "Silent"
 	case Delete:
 		return "Delete"
 	case Pinned:

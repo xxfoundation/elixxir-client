@@ -326,7 +326,7 @@ func (r *internalKV) setRemoteUnsafe(key string, val []byte,
 	}
 
 	// Save locally
-	if err := r.SetBytes(key, val); err != nil {
+	if err := r.setBytesUnsafe(key, val); err != nil {
 		return errors.Errorf("failed to write to local kv: %+v", err)
 	}
 
@@ -380,10 +380,10 @@ func (r *internalKV) storeMapElement(mapName, elementKey string, value []byte,
 	_, ok := existingKeys[elementKey]
 	if !ok {
 		existingKeys[elementKey] = struct{}{}
-		r.storeMapKeys(mapName, existingKeys, sync)
+		err = r.storeMapKeys(mapName, existingKeys, sync)
 	}
 
-	return nil
+	return err
 }
 
 // StoreMap saves each element of the map, then updates the map structure
@@ -489,7 +489,6 @@ func (r *internalKV) getMapKeys(mapName string) (map[string]struct{}, error) {
 		}
 		return nil, err
 	}
-
 	err = json.Unmarshal(data, &keys)
 	return keys, err
 }

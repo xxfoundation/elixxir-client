@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -35,8 +36,11 @@ const (
 	intentsKey     = "intentsVersion"
 
 	// map handler constants
-	mapKeysListFmt   = "%s_Keys"
-	mapElementKeyFmt = "%s_element_%s"
+	mapKeysListSuffix  = "_🗺️MapKeys"
+	mapKeysListFmt     = "%s" + mapKeysListSuffix
+	mapElementKeyFmt   = "%s_🗺️MapElement_%s"
+	usedMapSuffixError = "cannot use \"" + mapKeysListSuffix + "\" at the " +
+		"end of a key, it is reserved"
 
 	// KeyUpdateCallback statuses.
 	Disconnected = "Disconnected"
@@ -72,6 +76,12 @@ type internalKV struct {
 	// txLog is the transaction log used to write transactions.
 	txLog *TransactionLog
 
+	UpdateListenerMux sync.RWMutex
+
+	// KeyUpdateListeners holds callbacks called when a key is updated
+	// by a remote
+	KeyUpdateListeners map[string]versioned.KeyChangedByRemoteCallback
+
 	// KeyUpdate is the callback used to report events when
 	// attempting to call Set.
 	KeyUpdate KeyUpdateCallback
@@ -86,7 +96,7 @@ type internalKV struct {
 
 	// defaulteUpdateCB is called when the updateCB is not specified for
 	// remote store and set operations
-	defaultUpdateCB RemoteStoreCallback
+	defaultRemoteWriteCB RemoteStoreCallback
 
 	// Connected determines the connectivity of the remote server.
 	connected bool
@@ -107,12 +117,12 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	updateCb RemoteStoreCallback) (*internalKV, error) {
 
 	rkv := &internalKV{
-		local:           kv,
-		txLog:           transactionLog,
-		KeyUpdate:       eventCb,
-		UnsyncedWrites:  make(map[string][]byte, 0),
-		defaultUpdateCB: updateCb,
-		connected:       true,
+		local:                kv,
+		txLog:                transactionLog,
+		KeyUpdate:            eventCb,
+		UnsyncedWrites:       make(map[string][]byte, 0),
+		defaultRemoteWriteCB: updateCb,
+		connected:            true,
 	}
 
 	if err := rkv.loadUnsyncedWrites(); err != nil {
@@ -162,7 +172,12 @@ func LocalKV(path string, deviceSecret []byte, filesystem FileIO, kv ekv.KeyValu
 // Set implements [ekv.KeyValue.Set]. This is a LOCAL ONLY
 // operation which will write the Transaction to local store.
 // Use [SetRemote] to set keys synchronized to the cloud.
+// Does not allow writing to keys with the suffix "_🗺️MapKeys",
+// it is reserved
 func (r *internalKV) Set(key string, objectToStore ekv.Marshaler) error {
+	if strings.HasSuffix(key, mapKeysListSuffix) {
+		return errors.New(usedMapSuffixError)
+	}
 	return r.SetBytes(key, objectToStore.Marshal())
 }
 
@@ -178,14 +193,25 @@ func (r *internalKV) Get(key string, loadIntoThisObject ekv.Unmarshaler) error {
 // Delete implements [ekv.KeyValue.Delete]. This is a LOCAL ONLY
 // operation which will write the Transaction to local store.
 // Use [SetRemote] to set keys synchronized to the cloud
+// Does not allow writing to keys with the suffix "_🗺️MapKeys",
+// it is reserved
 func (r *internalKV) Delete(key string) error {
+	if strings.HasSuffix(key, mapKeysListSuffix) {
+		return errors.New(usedMapSuffixError)
+	}
 	return r.local.Delete(key)
 }
 
 // SetInterface implements [ekv.KeyValue.SetInterface]. This is a LOCAL ONLY
 // operation which will write the Transaction to local store.
 // Use [SetRemote] to set keys synchronized to the cloud.
+// Does not allow writing to keys with the suffix "_🗺️MapKeys",
+// it is reserved
 func (r *internalKV) SetInterface(key string, objectToStore interface{}) error {
+	if strings.HasSuffix(key, mapKeysListSuffix) {
+		return errors.New(usedMapSuffixError)
+	}
+
 	data, err := json.Marshal(objectToStore)
 	if err != nil {
 		return err
@@ -206,13 +232,54 @@ func (r *internalKV) GetInterface(key string, objectToLoad interface{}) error {
 // SetBytes implements [ekv.KeyValue.SetBytes]. This is a LOCAL ONLY
 // operation which will write the Transaction to local store.
 // Use [SetRemote] to set keys synchronized to the cloud.
+// Does not allow writing to keys with the suffix "_🗺️MapKeys",
+// it is reserved
 func (r *internalKV) SetBytes(key string, data []byte) error {
+	if strings.HasSuffix(key, mapKeysListSuffix) {
+		return errors.New(usedMapSuffixError)
+	}
+
+	return r.setBytesUnsafe(key, data)
+}
+
+// SetBytesFromRemote implements [ekv.KeyValue.SetBytes].
+// This is a LOCAL ONLY operation which will write the Transaction
+// to local store. Only use this from the collector system, designed
+// to allow event models to connect to the write.
+func (r *internalKV) SetBytesFromRemote(key string, data []byte) error {
+
+	if err := r.setBytesUnsafe(key, data); err != nil {
+		return err
+	}
+
+	r.UpdateListenerMux.RLock()
+	defer r.UpdateListenerMux.RUnlock()
+	if cb, exists := r.KeyUpdateListeners[key]; exists {
+		go cb(key)
+	}
+	return nil
+}
+
+// SetBytesUnsafe implements [ekv.KeyValue.SetBytes]. This is a LOCAL ONLY
+// operation which will write the Transaction to local store.
+// Use [SetRemote] to set keys synchronized to the cloud.
+// Does not check for reserved keys
+func (r *internalKV) setBytesUnsafe(key string, data []byte) error {
 	return r.local.SetBytes(key, data)
 }
 
 // GetBytes implements [ekv.KeyValue.GetBytes]
 func (r *internalKV) GetBytes(key string) ([]byte, error) {
 	return r.local.GetBytes(key)
+}
+
+// ListenOnRemoteKey allows the caller to receive updates when
+// a key is updated by synching with another client.
+// Only one callback can be written per key.
+func (r *internalKV) ListenOnRemoteKey(key string, callback versioned.KeyChangedByRemoteCallback) {
+	r.UpdateListenerMux.Lock()
+	defer r.UpdateListenerMux.Unlock()
+	r.KeyUpdateListeners[key] = callback
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -245,8 +312,22 @@ func (r *internalKV) UpsertLocal(key string, newVal []byte) error {
 
 // SetRemote will write a transaction to the remote and local store
 // with the specified RemoteCB RemoteStoreCallback
+// Does not allow writing to keys with the suffix "_🗺️MapKeys",
+// it is reserved
 func (r *internalKV) SetRemote(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
+	if strings.HasSuffix(key, mapKeysListSuffix) {
+		return errors.New(usedMapSuffixError)
+	}
+
+	return r.setRemoteUnsafe(key, val, updateCb)
+}
+
+// SetRemote will write a transaction to the remote and local store
+// with the specified RemoteCB RemoteStoreCallback
+func (r *internalKV) setRemoteUnsafe(key string, val []byte,
+	updateCb RemoteStoreCallback) error {
+
 	r.lck.Lock()
 	defer r.lck.Unlock()
 
@@ -400,9 +481,9 @@ func (r *internalKV) storeMapKeys(mapName string, keys map[string]struct{},
 	}
 	key := fmt.Sprintf(mapKeysListFmt, mapName)
 	if sync {
-		return r.SetRemote(key, data, nil)
+		return r.setRemoteUnsafe(key, data, nil)
 	} else {
-		return r.SetBytes(key, data)
+		return r.setBytesUnsafe(key, data)
 	}
 }
 
@@ -454,7 +535,7 @@ func (r *internalKV) remoteSet(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
 
 	if updateCb == nil {
-		updateCb = r.defaultUpdateCB
+		updateCb = r.defaultRemoteWriteCB
 	}
 
 	wrapper := func(newTx Transaction, err error) {
@@ -497,33 +578,22 @@ func (r *internalKV) handleRemoteSet(newTx Transaction, err error,
 		jww.DEBUG.Printf("Failed to write new transaction (%v) to  remoteKV: %+v",
 			newTx, err)
 
-		// Report to event callback
-		if r.KeyUpdate != nil {
-			r.KeyUpdate(newTx.Key, nil, newTx.Value, false)
-		}
-
 		r.connected = false
-		// fixme: feels like more thought needs to be put. A recursive cb
-		//  such as this seems like a poor idea. Maybe the callback is
-		//  passed down, and it's the responsibility of the caller to ensure
-		//  remote writing of the txLog?
-		//time.Sleep(updateFailureDelay)
-		//r.txLog.Append(newTx, updateCb)
+		go func() {
+			time.Sleep(updateFailureDelay)
+			r.txLog.Append(newTx, updateCb)
+		}()
+
 		return
-	} else if r.connected {
-		// Report to event callback
-		if r.KeyUpdate != nil {
-			r.KeyUpdate(newTx.Key, nil, newTx.Value, true)
-		}
 	}
 
 	r.lck.Lock()
+	defer r.lck.Unlock()
 	err = r.removeUnsyncedWrite(newTx.Key)
 	if err != nil {
 		jww.WARN.Printf("Failed to remove intent for key %s: %+v",
 			newTx.Key, err)
 	}
-	r.lck.Unlock()
 
 }
 

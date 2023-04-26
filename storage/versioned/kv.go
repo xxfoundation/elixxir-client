@@ -52,6 +52,37 @@ type KV interface {
 	// maintaining such a functionality.
 	Set(key string, object *Object) error
 
+	// StoreMapElement stores a versioned map element into the KV. This relies
+	// on the underlying remote [KV.StoreMapElement] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	// All Map storage functions update the remote.
+	StoreMapElement(mapName, elementKey string,
+		value *Object, version uint64) error
+
+	// StoreMap saves a versioned map element into the KV. This relies
+	// on the underlying remote [KV.StoreMap] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	// All Map storage functions update the remote.
+	StoreMap(mapName string, value map[string]*Object,
+		version uint64) error
+
+	// GetMap loads a versioned map from the KV. This relies
+	// on the underlying remote [KV.GetMap] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	GetMap(mapName string, version uint64) (
+		map[string]*Object, error)
+
+	// GetMapElement loads a versioned map element from the KV. This relies
+	// on the underlying remote [KV.GetMapElement] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	GetMapElement(mapName, element string, version uint64) (
+		*Object, error)
+
+	// ListenOnRemoteKey allows the caller to receive updates when
+	// a key is updated by synching with another client.
+	// Only one callback can be written per key.
+	ListenOnRemoteKey(key string, callback KeyChangedByRemoteCallback)
+
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
 
@@ -278,3 +309,7 @@ func (v *kv) makeKey(key string, version uint64) string {
 func (v *kv) Exists(err error) bool {
 	return ekv.Exists(err)
 }
+
+// KeyChangedByRemoteCallback is the callback used to report local updates caused
+// by a remote client editing their EKV
+type KeyChangedByRemoteCallback func(key string)

@@ -385,8 +385,8 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 // See [Manager.SendGeneric] for details on payload size limitations and
 // elaboration of pings.
 func (m *manager) SendInvite(channelID *id.ID, msg string, inviteTo *id.ID,
-	host string, maxUses int, validUntil time.Duration,
-	params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
+	host string, maxUses int, validUntil time.Duration, params cmix.CMIXParams,
+	pings []ed25519.PublicKey) (message.ID, rounds.Round, ephemeral.Id, error) {
 
 	// Formulate custom tag
 	tag := makeChaDebugTag(
@@ -429,7 +429,7 @@ func (m *manager) SendInvite(channelID *id.ID, msg string, inviteTo *id.ID,
 
 	// Send invitation
 	return m.SendGeneric(channelID, Invitation, invitationMarshalled,
-		validUntil, true, params, nil)
+		validUntil, true, params, pings)
 }
 
 // replayAdminMessage is used to rebroadcast an admin message asa a norma user.

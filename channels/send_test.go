@@ -476,7 +476,7 @@ func Test_manager_SendInvite(t *testing.T) {
 	host := "https://internet.speakeasy.tech/"
 	maxUses := 0
 	messageID, _, _, err := m.SendInvite(invitedChannelID, msg,
-		inviteeChannelID, host, maxUses, ValidForever, *params)
+		inviteeChannelID, host, maxUses, ValidForever, *params, nil)
 	require.NoError(t, err)
 
 	// Verify the message was handled correctly

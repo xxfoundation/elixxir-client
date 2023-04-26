@@ -135,7 +135,7 @@ type EventModel interface {
 	Receive(messageID cryptoMessage.ID,
 		nickname string, text []byte,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32,
+		partnerToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status Status) uint64
 
@@ -156,7 +156,7 @@ type EventModel interface {
 	ReceiveText(messageID cryptoMessage.ID,
 		nickname, text string,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32,
+		partnerToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, status Status) uint64
 
@@ -181,7 +181,7 @@ type EventModel interface {
 	ReceiveReply(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, text string,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32, codeset uint8,
+		partnerToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -206,7 +206,7 @@ type EventModel interface {
 	ReceiveReaction(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, reaction string,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32, codeset uint8,
+		partnerToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 

@@ -4,6 +4,9 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
+// sqlite requires cgo, which is not available in wasm
+//go:build !js || !wasm
+
 package storage
 
 import (

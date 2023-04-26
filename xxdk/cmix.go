@@ -8,7 +8,9 @@
 package xxdk
 
 import (
+	"io"
 	"math"
+	"path/filepath"
 	"time"
 
 	"gitlab.com/xx_network/primitives/netTime"
@@ -22,9 +24,11 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
+	"gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -34,7 +38,10 @@ import (
 	"gitlab.com/xx_network/primitives/region"
 )
 
-const followerStoppableName = "client"
+const (
+	followerStoppableName = "client"
+	localTxLogPath        = "txLog"
+)
 
 type Cmix struct {
 	// Generic RNG for client
@@ -81,8 +88,11 @@ func NewCmix(
 	jww.DEBUG.Printf(
 		"PortableUserInfo generation took: %s", netTime.Now().Sub(start))
 
+	rng := rngStreamGen.GetStream()
+	defer rng.Close()
+
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, registrationCode)
+		userInfo, cmixGrp, e2eGrp, registrationCode, rng)
 	return err
 }
 
@@ -97,6 +107,7 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
+	defer rngStream.Close()
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
@@ -107,7 +118,7 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	userInfo := createNewVanityUser(rngStream, e2eGrp, userIdPrefix)
 
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, registrationCode)
+		userInfo, cmixGrp, e2eGrp, registrationCode, rngStream)
 	if err != nil {
 		return err
 	}
@@ -129,8 +140,22 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 		return nil, errors.WithMessage(err, "Could not parse version string.")
 	}
 
+	// OpenCmix never connects to a remote.
 	passwordStr := string(password)
-	storageSess, err := storage.Load(storageDir, passwordStr, currentVersion)
+	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"failed to create storage session")
+	}
+	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+		localTxLogPath))
+	storageKV, err := sync.LocalKV(storageDir, password,
+		localFS, localKV, nil, nil, nil, rngStreamGen.GetStream())
+	if err != nil {
+		return nil, err
+	}
+
+	storageSess, err := storage.Load(storageKV, currentVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -167,9 +192,15 @@ func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 		return err
 	}
 
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
+		csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
+	defer rngStream.Close()
+
 	cmixGrp, e2eGrp := DecodeGroups(def)
 	storageSess, err := CheckVersionAndSetupStorage(
-		def, storageDir, password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
+		def, storageDir, password, usr, cmixGrp, e2eGrp,
+		protoUser.RegCode, rngStream)
 	if err != nil {
 		return err
 	}
@@ -597,10 +628,10 @@ func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 
 // CheckVersionAndSetupStorage checks the client version and creates a new
 // storage for user data. This function is common code shared by NewCmix,
-// // NewPrecannedCmix and NewVanityCmix.
+// NewPrecannedCmix and NewVanityCmix.
 func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	password []byte, userInfo user.Info, cmixGrp, e2eGrp *cyclic.Group,
-	registrationCode string) (storage.Session, error) {
+	registrationCode string, rng io.Reader) (storage.Session, error) {
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
@@ -609,7 +640,19 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 
 	// Create storage
 	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr, userInfo,
+	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"failed to create storage session")
+	}
+	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+		localTxLogPath))
+	storageKV, err := sync.LocalKV(storageDir, password,
+		localFS, localKV, nil, nil, nil, rng)
+	if err != nil {
+		return nil, err
+	}
+	storageSess, err := storage.New(storageKV, userInfo,
 		currentVersion, cmixGrp, e2eGrp)
 	if err != nil {
 		return nil, err
@@ -620,6 +663,16 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 
 	// Store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
+
+	// Create and store an instance ID
+	instanceID, err := cmix.NewRandomInstanceID(rng)
+	if err != nil {
+		return nil, err
+	}
+	err = cmix.StoreInstanceID(instanceID, storageSess.GetKV())
+	if err != nil {
+		return nil, err
+	}
 
 	// Move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)

@@ -48,7 +48,7 @@ type critical struct {
 	send        criticalSender
 }
 
-func newCritical(kv *versioned.KV, hm health.Monitor,
+func newCritical(kv versioned.KV, hm health.Monitor,
 	roundEvents roundEventRegistrar, send criticalSender) *critical {
 	cm, err := NewOrLoadCmixMessageBuffer(kv, criticalRawMessagesKey)
 	if err != nil {

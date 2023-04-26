@@ -39,7 +39,7 @@ type mockE2e struct {
 	grp       *cyclic.Group
 	events    event.Reporter
 	rng       *fastRNG.StreamGenerator
-	kv        *versioned.KV
+	kv        versioned.KV
 	network   cmix.Client
 	mockStore mockStorage
 	t         testing.TB

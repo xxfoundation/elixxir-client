@@ -114,7 +114,7 @@ func loginLegacy(net *Cmix, callbacks AuthCallbacks,
 
 // login creates a new xxdk.E2e backed by the given versioned.KV.
 func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
-	kv *versioned.KV, params E2EParams) (m *E2e, err error) {
+	kv versioned.KV, params E2EParams) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
 	privatePem, err := identity.GetRSAPrivateKey()

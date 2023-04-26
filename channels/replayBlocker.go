@@ -40,7 +40,7 @@ type replayBlocker struct {
 	replay triggerLeaseReplay
 
 	store *CommandStore
-	kv    *versioned.KV
+	kv    versioned.KV
 	mux   sync.Mutex
 }
 
@@ -75,7 +75,7 @@ type commandMessage struct {
 // newOrLoadReplayBlocker loads an existing replayBlocker from storage, if it
 // exists. Otherwise, it initialises a new empty replayBlocker.
 func newOrLoadReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
-	kv *versioned.KV) (*replayBlocker, error) {
+	kv versioned.KV) (*replayBlocker, error) {
 	rb := newReplayBlocker(replay, store, kv)
 
 	err := rb.load()
@@ -88,12 +88,16 @@ func newOrLoadReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
 
 // newReplayBlocker initialises a new empty replayBlocker.
 func newReplayBlocker(replay triggerLeaseReplay, store *CommandStore,
-	kv *versioned.KV) *replayBlocker {
+	kv versioned.KV) *replayBlocker {
+	kv, err := kv.Prefix(replayBlockerStoragePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("[CH] Failed to add prefix %s to KV: %+v", replayBlockerStoragePrefix, err)
+	}
 	return &replayBlocker{
 		commandsByChannel: make(map[id.ID]map[commandFingerprintKey]*commandMessage),
 		replay:            replay,
 		store:             store,
-		kv:                kv.Prefix(replayBlockerStoragePrefix),
+		kv:                kv,
 	}
 }
 

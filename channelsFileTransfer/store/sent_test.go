@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
@@ -28,9 +29,11 @@ import (
 // that the list of unsent parts is nil.
 func TestNewOrLoadSent_New(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	stkv, err := kv.Prefix(sentTransfersStorePrefix)
+	require.NoError(t, err)
 	expected := &Sent{
 		transfers: make(map[ftCrypto.ID]*SentTransfer),
-		kv:        kv.Prefix(sentTransfersStorePrefix),
+		kv:        stkv,
 	}
 
 	s, fidList, err := NewOrLoadSent(kv)

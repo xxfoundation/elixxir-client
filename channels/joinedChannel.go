@@ -188,7 +188,7 @@ type joinedChannelDisk struct {
 }
 
 // Store writes the given channel to a unique storage location within the EKV.
-func (jc *joinedChannel) Store(kv *versioned.KV) error {
+func (jc *joinedChannel) Store(kv versioned.KV) error {
 	jcd := joinedChannelDisk{jc.broadcast.Get()}
 	data, err := json.Marshal(&jcd)
 	if err != nil {
@@ -227,7 +227,7 @@ func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
 }
 
 // delete removes the channel from the kv.
-func (jc *joinedChannel) delete(kv *versioned.KV) error {
+func (jc *joinedChannel) delete(kv versioned.KV) error {
 	return kv.Delete(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
 		joinedChannelVersion)
 }

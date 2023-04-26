@@ -22,10 +22,10 @@ import (
 
 // mockSession is a storage.Session implementation for testing.
 type mockSession struct {
-	kv *versioned.KV
+	kv versioned.KV
 }
 
-func newMockSesion(kv *versioned.KV) storage.Session {
+func newMockSesion(kv versioned.KV) storage.Session {
 	return mockSession{kv: kv}
 }
 
@@ -33,7 +33,7 @@ func (m mockSession) GetE2EGroup() *cyclic.Group {
 	return getGroup()
 }
 
-func (m mockSession) GetKV() *versioned.KV {
+func (m mockSession) GetKV() versioned.KV {
 	if m.kv != nil {
 		return m.kv
 	}

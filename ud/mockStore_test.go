@@ -22,7 +22,7 @@ import (
 
 type mockStorage struct{}
 
-func (m mockStorage) GetKV() *versioned.KV {
+func (m mockStorage) GetKV() versioned.KV {
 	return versioned.NewKV(ekv.MakeMemstore())
 }
 

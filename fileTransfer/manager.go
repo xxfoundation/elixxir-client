@@ -128,7 +128,7 @@ type manager struct {
 	myID      *id.ID
 	cmix      Cmix
 	cmixGroup *cyclic.Group
-	kv        *versioned.KV
+	kv        versioned.KV
 	rng       *fastRNG.StreamGenerator
 }
 
@@ -162,7 +162,7 @@ type Cmix interface {
 // Storage interface matches a subset of the storage.Session methods used by the
 // manager for easier testing.
 type Storage interface {
-	GetKV() *versioned.KV
+	GetKV() versioned.KV
 	GetCmixGroup() *cyclic.Group
 }
 

@@ -36,7 +36,7 @@ type Store struct {
 	active  []*registration
 	present map[idHash]struct{}
 
-	kv *versioned.KV
+	kv versioned.KV
 
 	mux sync.Mutex
 }
@@ -59,17 +59,23 @@ func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
 }
 
 // NewOrLoadStore creates a new reception store that starts empty.
-func NewOrLoadStore(kv *versioned.KV) *Store {
+func NewOrLoadStore(kv versioned.KV) *Store {
 
 	s, err := loadStore(kv)
 	if err != nil {
 		jww.WARN.Printf(
 			"ReceptionID store not found, creating a new one: %s", err.Error())
 
+		kv, err = kv.Prefix(receptionPrefix)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
+				receptionPrefix, err)
+		}
+
 		s = &Store{
 			active:  []*registration{},
 			present: make(map[idHash]struct{}),
-			kv:      kv.Prefix(receptionPrefix),
+			kv:      kv,
 		}
 
 		// Store the empty list
@@ -81,8 +87,11 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 	return s
 }
 
-func loadStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(receptionPrefix)
+func loadStore(kv versioned.KV) (*Store, error) {
+	kv, err := kv.Prefix(receptionPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the versioned object for the reception list
 	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)

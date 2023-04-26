@@ -10,6 +10,8 @@ package store
 import (
 	"bytes"
 	"encoding/binary"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -17,7 +19,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 const (
@@ -61,7 +62,7 @@ type UncheckedRound struct {
 }
 
 // marshal serializes UncheckedRound r into a byte slice.
-func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
+func (r UncheckedRound) marshal(kv versioned.KV) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	// Store teh round info
 	if r.Info != nil && !r.storageUpToDate {
@@ -104,7 +105,7 @@ func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
 }
 
 // unmarshal deserializes round data from buff into UncheckedRound r.
-func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
+func (r *UncheckedRound) unmarshal(kv versioned.KV, buff *bytes.Buffer) error {
 	// Deserialize the roundInfo
 	r.Id = id.Round(binary.LittleEndian.Uint64(buff.Next(uint64Size)))
 
@@ -135,7 +136,7 @@ func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
 	return nil
 }
 
-func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo, recipient *id.ID,
+func storeRoundInfo(kv versioned.KV, info *pb.RoundInfo, recipient *id.ID,
 	ephID ephemeral.Id) error {
 	now := netTime.Now()
 
@@ -155,7 +156,7 @@ func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo, recipient *id.ID,
 		roundKey(id.Round(info.ID), recipient, ephID), &obj)
 }
 
-func loadRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,
+func loadRoundInfo(kv versioned.KV, id id.Round, recipient *id.ID,
 	ephID ephemeral.Id) (*pb.RoundInfo, error) {
 
 	vo, err := kv.Get(roundKey(id, recipient, ephID), roundInfoVersion)
@@ -171,7 +172,7 @@ func loadRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,
 	return ri, nil
 }
 
-func deleteRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,
+func deleteRoundInfo(kv versioned.KV, id id.Round, recipient *id.ID,
 	ephID ephemeral.Id) error {
 	return kv.Delete(roundKey(id, recipient, ephID), roundInfoVersion)
 }

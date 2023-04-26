@@ -19,7 +19,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	
+
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 
@@ -47,7 +47,7 @@ type manager struct {
 	mux      sync.RWMutex
 
 	// External references
-	kv  *versioned.KV
+	kv  versioned.KV
 	net Client
 	rng *fastRNG.StreamGenerator
 
@@ -90,7 +90,7 @@ type Client interface {
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
-func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
@@ -105,7 +105,7 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // [cryptoChannel.PrivateIdentity]. It prefixes the KV with a tag derived from
 // the public key that can be retried for reloading using
 // [Manager.GetStorageTag].
-func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
 
@@ -119,7 +119,10 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
 		identity.Codename, identity.PubKey, storageTag)
-	kv = kv.Prefix(storageTag)
+	kv, err := kv.Prefix(storageTag)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := storeIdentity(kv, identity); err != nil {
 		return nil, err
@@ -133,13 +136,16 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
-func LoadManager(storageTag string, kv *versioned.KV, net Client,
+func LoadManager(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
-	kv = kv.Prefix(storageTag)
+	kv, err := kv.Prefix(storageTag)
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the identity
 	identity, err := loadIdentity(kv)
@@ -155,7 +161,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 
 // LoadManagerBuilder restores a channel Manager from disk stored at the given storage
 // tag.
-func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
+func LoadManagerBuilder(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	extensions []ExtensionBuilder) (Manager, error) {
 	model, err := modelBuilder(storageTag)
@@ -166,7 +172,7 @@ func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
 	return LoadManager(storageTag, kv, net, rng, model, extensions)
 }
 
-func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensionBuilders []ExtensionBuilder) *manager {
 

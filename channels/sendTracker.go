@@ -68,7 +68,7 @@ type sendTracker struct {
 	net Client
 
 	rngSrc *fastRNG.StreamGenerator
-	kv     *versioned.KV
+	kv     versioned.KV
 	mux    sync.RWMutex
 }
 
@@ -80,7 +80,7 @@ type messageReceiveFunc func(
 // loadSendTracker loads a sent tracker, restoring from disk. It will register a
 // function with the cmix client, delayed on when the network goes healthy,
 // which will attempt to discover the status of all rounds that are outstanding.
-func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
+func loadSendTracker(net Client, kv versioned.KV, trigger triggerEventFunc,
 	adminTrigger triggerAdminEventFunc, updateStatus UpdateFromUuidFunc,
 	rngSource *fastRNG.StreamGenerator) *sendTracker {
 	st := &sendTracker{

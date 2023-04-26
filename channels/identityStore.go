@@ -11,7 +11,7 @@ const (
 	identityStoreStorageVersion = 0
 )
 
-func storeIdentity(kv *versioned.KV, ident cryptoChannel.PrivateIdentity) error {
+func storeIdentity(kv versioned.KV, ident cryptoChannel.PrivateIdentity) error {
 	data := ident.Marshal()
 	obj := &versioned.Object{
 		Version:   identityStoreStorageVersion,
@@ -22,7 +22,7 @@ func storeIdentity(kv *versioned.KV, ident cryptoChannel.PrivateIdentity) error 
 	return kv.Set(identityStoreStorageKey, obj)
 }
 
-func loadIdentity(kv *versioned.KV) (cryptoChannel.PrivateIdentity, error) {
+func loadIdentity(kv versioned.KV) (cryptoChannel.PrivateIdentity, error) {
 	obj, err := kv.Get(identityStoreStorageKey, identityStoreStorageVersion)
 	if err != nil {
 		return cryptoChannel.PrivateIdentity{}, err

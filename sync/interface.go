@@ -62,3 +62,7 @@ type KeyUpdateCallback func(key string, oldVal, newVal []byte, updated bool)
 // RemoteStoreCallback is a callback for reporting the status of
 // writing the new transaction to remote storage.
 type RemoteStoreCallback func(newTx Transaction, err error)
+
+// KeyChangedByRemoteCallback is the callback used to report local updates caused
+// by a remote client editing their EKV
+type KeyChangedByRemoteCallback func(key string, oldVal, newVal []byte, updated bool)

@@ -62,6 +62,8 @@ type RemoteKV interface {
 	// value to the local EKV. It is a LOCAL ONLY operation which will
 	// write the Transaction to local store.
 	UpsertLocal(key string, newVal []byte) error
+
+	ListenKey(key string)
 }
 
 // internalKV implements a remote internalKV to handle transaction logs.

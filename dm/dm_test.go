@@ -108,7 +108,7 @@ func TestE2EDMs(t *testing.T) {
 	host := "https://internet.speakeasy.tech/"
 	maxUses := 0
 	_, _, _, err = clientA.SendInvite(&pubKey, dmToken, "Check this channel out!",
-		broadcastChan, host, maxUses, params)
+		broadcastChan.Get(), host, maxUses, params)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(receiverB.Msgs))
 	rcvB2 := receiverB.Msgs[4]
@@ -117,4 +117,14 @@ func TestE2EDMs(t *testing.T) {
 	rcvChannel, err := cryptoBroadcast.DecodeInviteURL(invitation.InviteLink)
 	require.NoError(t, err)
 	require.Equal(t, ch, rcvChannel)
+
+	// Send a silent message
+	pubKey = rcvB1.PubKey
+	dmToken = rcvB1.DMToken
+	_, _, _, err = clientA.SendSilent(&pubKey, dmToken, params)
+	require.NoError(t, err)
+	require.Equal(t, 6, len(receiverB.Msgs))
+	rcvB3 := receiverB.Msgs[5]
+	silent := &SilentMessage{}
+	require.NoError(t, proto.Unmarshal([]byte(rcvB3.Message), silent))
 }

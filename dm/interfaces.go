@@ -95,6 +95,16 @@ type Sender interface {
 		host string, maxUses int, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
+	// SendSilent is used to send to a channel a message with no notifications.
+	// Its primary purpose is to communicate new nicknames without calling
+	// SendMessage.
+	//
+	// It takes no payload intentionally as the message should be very
+	// lightweight.
+	SendSilent(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+		params cmix.CMIXParams) (
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
+
 	// Send is used to send a raw message. In general, it
 	// should be wrapped in a function that defines the wire protocol.
 	//

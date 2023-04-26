@@ -39,6 +39,7 @@ const (
 	textVersion       = 0
 	reactionVersion   = 0
 	invitationVersion = 0
+	silentVersion     = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -55,6 +56,10 @@ const (
 	// SendInviteTag is the base tag used when generating a debug tag for
 	// sending an invitation.
 	SendInviteTag = "Invite"
+
+	// SendSilentTag is the base tag used when generating a debug tag for
+	// sending a silent message.
+	SendSilentTag = "Silent"
 
 	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
@@ -200,6 +205,40 @@ func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
 
 	return dc.Send(partnerPubKey, partnerToken, InvitationType,
 		invitationMarshaled, params)
+}
+
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very
+// lightweight.
+func (dc *dmClient) SendSilent(partnerPubKey *ed25519.PublicKey,
+	partnerToken uint32, params cmix.CMIXParams) (
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// Formulate custom tag
+	tag := makeDebugTag(*partnerPubKey, nil, SendSilentTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf("[DM][%s] SendSilent(%s)", tag,
+		base64.RawStdEncoding.EncodeToString(*partnerPubKey))
+
+	// Form message
+	silent := &SilentMessage{
+		Version: silentVersion,
+	}
+
+	// Marshal message
+	silentMarshaled, err := proto.Marshal(silent)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Send silent message
+	return dc.Send(partnerPubKey, partnerToken, SilentType,
+		silentMarshaled, params)
 }
 
 // Send is used to send a raw direct message to a DM partner. In general, it

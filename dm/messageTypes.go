@@ -28,6 +28,10 @@ const (
 	// InvitationType denotes that the message is an invitation to another
 	// channel.
 	InvitationType MessageType = 4
+
+	// SilentType denotes that the message is a silent message which should not
+	// notify the user in any way.
+	SilentType MessageType = 5
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -42,6 +46,8 @@ func (mt MessageType) String() string {
 		return "Reaction"
 	case InvitationType:
 		return "Invitation"
+	case SilentType:
+		return "Silent"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}

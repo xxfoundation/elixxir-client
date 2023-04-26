@@ -18,7 +18,9 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/sih"
 	"gitlab.com/elixxir/ekv"
+	primNotif "gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -409,6 +411,78 @@ func Test_notifications_MarshalJSON_UnmarshalJSON(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////
 // For Me / Notification Report                                               //
 ////////////////////////////////////////////////////////////////////////////////
+
+func TestGetNotificationReportForMe(t *testing.T) {
+	rng := rand.New(rand.NewSource(6584))
+	types := []MessageType{Text, AdminText, Reaction, Delete, Pinned, Mute,
+		AdminReplay, FileTransfer}
+	levels := []NotificationLevel{NotifyPing, NotifyAll}
+
+	var expected []NotificationReport
+	var notificationData []*primNotif.Data
+	var nfs []NotificationFilter
+	for _, mt := range types {
+		for _, level := range levels {
+			for _, includeTags := range []bool{true, false} {
+				for _, includeChannel := range []bool{true, false} {
+					chanID, _ := id.NewRandomID(rng, id.User)
+					msgHash := make([]byte, 24)
+					rng.Read(msgHash)
+					identifier := append(chanID.Marshal(), []byte("identifier")...)
+					tags := make([]string, 1+rng.Intn(4))
+					for j := range tags {
+						tags[j] = makeUserPingTag(makeEd25519PubKey(rng, t))
+					}
+
+					cSIH, err := sih.MakeCompressedSIH(
+						chanID, msgHash, identifier, tags, mt.Marshal())
+					if err != nil {
+						t.Fatalf("Failed to make compressed SIH: %+v", err)
+					}
+
+					notificationData = append(notificationData, &primNotif.Data{
+						IdentityFP:  cSIH,
+						MessageHash: msgHash,
+					})
+
+					if includeChannel {
+						var filterTags []string
+						if includeTags {
+							filterTags = []string{tags[rng.Intn(len(tags))]}
+						}
+						nfs = append(nfs, NotificationFilter{
+							Identifier: identifier,
+							ChannelID:  chanID,
+							Tags:       filterTags,
+							AllowLists: notificationLevelAllowLists[level],
+						})
+
+						if includeTags {
+							if _, exists := notificationLevelAllowLists[level].AllowWithTags[mt]; !exists {
+								break
+							}
+						} else if _, exists := notificationLevelAllowLists[level].AllowWithoutTags[mt]; !exists {
+							break
+						}
+
+						expected = append(expected, NotificationReport{
+							Channel: chanID,
+							Type:    mt,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	nrs := GetNotificationReportForMe(nfs, notificationData)
+
+	if !reflect.DeepEqual(nrs, expected) {
+		t.Errorf("NotificationReport list does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", expected, nrs)
+	}
+
+}
 
 // Tests that a NotificationReport can be JSON marshalled and unmarshalled.
 func TestNotificationReport_JSON(t *testing.T) {

@@ -275,7 +275,7 @@ func newTestManager(t testing.TB) *manager {
 	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn, &mockNM{},
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
 		func([]NotificationFilter) {})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)

@@ -275,6 +275,9 @@ type Manager interface {
 	// an empty list is returned.
 	GetMutedUsers(channelID *id.ID) []ed25519.PublicKey
 
+	// GetNotificationLevel returns the notification level for the given channel.
+	GetNotificationLevel(channelID *id.ID) (NotificationLevel, error)
+
 	// SetMobileNotificationsLevel sets the notification level for the given
 	// channel. If the notification leve lis changed from [NotifyNone] to
 	// another level, then the channel is registered with the external

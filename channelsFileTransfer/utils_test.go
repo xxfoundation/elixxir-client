@@ -632,6 +632,9 @@ func (m *mockChannelsManager) GetNickname(*id.ID) (nickname string, exists bool)
 
 func (m *mockChannelsManager) Muted(*id.ID) bool                        { panic("implement me") }
 func (m *mockChannelsManager) GetMutedUsers(*id.ID) []ed25519.PublicKey { panic("implement me") }
+func (m *mockChannelsManager) GetNotificationLevel(channelID *id.ID) (channels.NotificationLevel, error) {
+	panic("implement me")
+}
 func (m *mockChannelsManager) SetMobileNotificationsLevel(*id.ID, channels.NotificationLevel) error {
 	panic("implement me")
 }

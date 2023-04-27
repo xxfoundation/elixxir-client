@@ -202,11 +202,6 @@ func Test_notifications_createFilterList(t *testing.T) {
 		}
 	}
 
-	for chanID := range cg.channels {
-		delete(cg.channels, chanID)
-		break
-	}
-
 	nf := n.createFilterList(nim)
 
 	sort.Slice(ex, func(i, j int) bool {

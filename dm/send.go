@@ -177,12 +177,12 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	if dc.myToken == partnerToken &&
-		!dc.me.PubKey.Equal(partnerEdwardsPubKey) {
+		!partnerEdwardsPubKey.Equal(dc.me.PubKey) {
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{},
 			errors.Errorf("can only use myToken on self send: "+
-				"myToken: %d, partnerKey: %v, partnerToken: %d",
-				dc.myToken, partnerEdwardsPubKey, partnerToken)
+				"myToken: %d, myKey: %v, partnerKey: %v, partnerToken: %d",
+				dc.myToken, dc.me.PubKey, partnerEdwardsPubKey, partnerToken)
 	}
 
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)

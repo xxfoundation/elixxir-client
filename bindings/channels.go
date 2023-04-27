@@ -25,9 +25,9 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
+	"gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/elixxir/primitives/notifications"
 )
 
 ////////////////////////////////////////////////////////////////////////////////

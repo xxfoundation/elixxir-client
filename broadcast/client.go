@@ -13,10 +13,9 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"math"
 )
 
-const dummyMessagetype uint16 = math.MaxUint16
+var dummyMessageType = [2]byte{255, 255}
 
 // broadcastClient implements the broadcast.Channel interface for sending/
 // receiving asymmetric or symmetric broadcast messages.
@@ -75,8 +74,8 @@ func (bc *broadcastClient) RegisterRSAtoPublicListener(
 		method: RSAToPublic,
 	}
 
-	//metadata is ignored on a registered service, put a dummy
-	service := bc.GetRSAToPublicCompressedService(tags, dummyMessagetype)
+	// Metadata is ignored on a registered service, put a dummy
+	service := bc.GetRSAToPublicCompressedService(tags, dummyMessageType)
 
 	bc.net.UpsertCompressedService(bc.channel.ReceptionID, service, p)
 	return p, nil
@@ -94,8 +93,8 @@ func (bc *broadcastClient) RegisterSymmetricListener(
 		method: Symmetric,
 	}
 
-	//metadata is ignored on a registered service, put a dummy
-	service := bc.GetSymmetricCompressedService(tags, dummyMessagetype)
+	// Metadata is ignored on a registered service, put a dummy
+	service := bc.GetSymmetricCompressedService(tags, dummyMessageType)
 	bc.net.UpsertCompressedService(bc.channel.ReceptionID, service, p)
 	return p, nil
 }
@@ -133,4 +132,14 @@ func (bc *broadcastClient) MaxRSAToPublicPayloadSize() int {
 func (bc *broadcastClient) maxRSAToPublicPayloadSizeRaw() int {
 	size, _, _ := bc.channel.GetRSAToPublicMessageLength()
 	return size
+}
+
+// AsymmetricIdentifier returns the asymmetric identifier.
+func (bc *broadcastClient) AsymmetricIdentifier() []byte {
+	return bc.asymIdentifier
+}
+
+// SymmetricIdentifier returns the symmetric identifier.
+func (bc *broadcastClient) SymmetricIdentifier() []byte {
+	return bc.symIdentifier
 }

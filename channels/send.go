@@ -230,8 +230,9 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
 	tags := makeUserPingTags(pings...)
+	mt := messageType.Marshal()
 	r, ephID, err := ch.broadcast.BroadcastWithAssembler(assemble, tags,
-		uint16(messageType), params)
+		[2]byte{mt[0], mt[1]}, params)
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
@@ -506,9 +507,10 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	}
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
+	mt := messageType.Marshal()
 	encryptedPayload, r, ephID, err := ch.broadcast.
 		BroadcastRSAToPublicWithAssembler(privKey, assemble, nil,
-			uint16(messageType), params)
+			[2]byte{mt[0], mt[1]}, params)
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)

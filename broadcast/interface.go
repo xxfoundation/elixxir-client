@@ -94,10 +94,10 @@ type Channel interface {
 	// from being tracked.
 	Stop()
 
-	// AsymmetricIdentifier returns the asymmetric identifier.
+	// AsymmetricIdentifier returns a copy of the asymmetric identifier.
 	AsymmetricIdentifier() []byte
 
-	// SymmetricIdentifier returns the symmetric identifier.
+	// SymmetricIdentifier returns a copy of the symmetric identifier.
 	SymmetricIdentifier() []byte
 }
 

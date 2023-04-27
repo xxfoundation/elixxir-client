@@ -134,12 +134,12 @@ func (bc *broadcastClient) maxRSAToPublicPayloadSizeRaw() int {
 	return size
 }
 
-// AsymmetricIdentifier returns the asymmetric identifier.
+// AsymmetricIdentifier returns a copy of the asymmetric identifier.
 func (bc *broadcastClient) AsymmetricIdentifier() []byte {
-	return bc.asymIdentifier
+	return append([]byte{}, bc.asymIdentifier...)
 }
 
-// SymmetricIdentifier returns the symmetric identifier.
+// SymmetricIdentifier returns a copy of the symmetric identifier.
 func (bc *broadcastClient) SymmetricIdentifier() []byte {
-	return bc.symIdentifier
+	return append([]byte{}, bc.symIdentifier...)
 }

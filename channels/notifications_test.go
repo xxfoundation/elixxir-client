@@ -10,6 +10,7 @@ package channels
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -181,21 +182,25 @@ func Test_notifications_createFilterList(t *testing.T) {
 	ex := make([]NotificationFilter, 0, len(cg.channels))
 	levels := []NotificationLevel{NotifyNone, NotifyPing, NotifyAll}
 	for chanId, ch := range cg.channels {
+		channelID := &chanId
 		level := levels[rng.Intn(len(levels))]
-		nim[chanId] = NotificationInfo{
+		nim[*channelID] = NotificationInfo{
 			Status:   level != NotifyNone,
 			Metadata: level.Marshal(),
 		}
 
+		t.Logf("channelID: %v", channelID[:])
+		t.Logf("Asymmetric: %X", ch.broadcast.AsymmetricIdentifier())
+		t.Logf("Symmetric: %X", ch.broadcast.SymmetricIdentifier())
 		if level != NotifyNone {
 			ex = append(ex, NotificationFilter{
 				Identifier: ch.broadcast.AsymmetricIdentifier(),
-				ChannelID:  &chanId,
+				ChannelID:  channelID,
 				Tags:       makeUserPingTags(n.pubKey),
 				AllowLists: notificationLevelAllowLists[asymmetric][level],
 			}, NotificationFilter{
 				Identifier: ch.broadcast.SymmetricIdentifier(),
-				ChannelID:  &chanId,
+				ChannelID:  channelID,
 				Tags:       makeUserPingTags(n.pubKey),
 				AllowLists: notificationLevelAllowLists[symmetric][level],
 			})
@@ -205,15 +210,27 @@ func Test_notifications_createFilterList(t *testing.T) {
 	nf := n.createFilterList(nim)
 
 	sort.Slice(ex, func(i, j int) bool {
-		return bytes.Compare(ex[i].ChannelID[:], ex[j].ChannelID[:]) == -1
+		return bytes.Compare(ex[i].Identifier, ex[j].Identifier) == -1
 	})
 	sort.Slice(nf, func(i, j int) bool {
-		return bytes.Compare(nf[i].ChannelID[:], nf[j].ChannelID[:]) == -1
+		return bytes.Compare(nf[i].Identifier, nf[j].Identifier) == -1
 	})
 
 	if !reflect.DeepEqual(ex, nf) {
 		t.Errorf("Unexpected filter list."+
 			"\nexpected: %+v\nreceived: %+v", ex, nf)
+
+		data1, err := json.MarshalIndent(ex, "", "\t")
+		if err != nil {
+			t.Fatal(err)
+		}
+		data2, err := json.MarshalIndent(nf, "", "\t")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fmt.Printf("expected:\n%s\n\n", data1)
+		fmt.Printf("received:\n%s\n\n", data2)
 	}
 }
 
@@ -542,18 +559,18 @@ var _ channelGetter = (*mockCG)(nil)
 
 // mockNM adheres to the NotificationsManager interface.
 type mockCG struct {
-	channels map[id.ID]*joinedChannel
+	channels map[id.ID]joinedChannel
 	sync.RWMutex
 }
 
 // newMockCG returns a new mockCG with n new channels.
 func newMockCG(n int, t testing.TB) *mockCG {
-	cg := &mockCG{channels: make(map[id.ID]*joinedChannel)}
+	cg := &mockCG{channels: make(map[id.ID]joinedChannel)}
 	for i := 0; i < n; i++ {
 		chanID := id.NewIdFromUInt(uint64(i), id.User, t)
-		cg.channels[*chanID] = &joinedChannel{&mockChannel{
-			asymIdentifier: append(chanID[:], []byte("asymIdentifier")...),
-			symIdentifier:  append(chanID[:], []byte("symIdentifier")...),
+		cg.channels[*chanID] = joinedChannel{&mockChannel{
+			asymIdentifier: append(chanID.Marshal(), []byte("asymIdentifier")...),
+			symIdentifier:  append(chanID.Marshal(), []byte("symIdentifier")...),
 		}}
 	}
 	return cg
@@ -568,7 +585,7 @@ func (m *mockCG) getChannel(channelID *id.ID) (*joinedChannel, error) {
 		return nil, ChannelDoesNotExistsErr
 	}
 
-	return jc, nil
+	return &jc, nil
 }
 
 // Verify that mockChannel adheres to the broadcast.Channel interface.

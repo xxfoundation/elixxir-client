@@ -10,7 +10,6 @@ package channels
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -189,9 +188,6 @@ func Test_notifications_createFilterList(t *testing.T) {
 			Metadata: level.Marshal(),
 		}
 
-		t.Logf("channelID: %v", channelID[:])
-		t.Logf("Asymmetric: %X", ch.broadcast.AsymmetricIdentifier())
-		t.Logf("Symmetric: %X", ch.broadcast.SymmetricIdentifier())
 		if level != NotifyNone {
 			ex = append(ex, NotificationFilter{
 				Identifier: ch.broadcast.AsymmetricIdentifier(),
@@ -219,18 +215,6 @@ func Test_notifications_createFilterList(t *testing.T) {
 	if !reflect.DeepEqual(ex, nf) {
 		t.Errorf("Unexpected filter list."+
 			"\nexpected: %+v\nreceived: %+v", ex, nf)
-
-		data1, err := json.MarshalIndent(ex, "", "\t")
-		if err != nil {
-			t.Fatal(err)
-		}
-		data2, err := json.MarshalIndent(nf, "", "\t")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Printf("expected:\n%s\n\n", data1)
-		fmt.Printf("received:\n%s\n\n", data2)
 	}
 }
 

@@ -86,8 +86,6 @@ type Client interface {
 	UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)
-	TrackServices(tracker message.ServicesTracker)
-	GetServices() (message.ServiceList, message.CompressedServiceList)
 	IsHealthy() bool
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
@@ -99,9 +97,22 @@ type Client interface {
 // are required by the [Manager].
 // TODO: update doc link real API
 type NotificationsManager interface {
-	RegisterForNotifications(toBeNotifiedOn *id.ID) error
-	UnregisterNotificationIdentity(toBeNotifiedOn *id.ID) error
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status bool) error
+	Get(toBeNotifiedOn *id.ID) (status bool, metadata []byte, group string, err error)
+	GetGroup(group string) map[id.ID]NotificationInfo
+	Delete(toBeNotifiedOn *id.ID, group string)
+	AddToken(newToken, app string) error
+	RemoveToken() error
+	RegisterUpdateCallback(group string, nu NotificationsUpdate)
 }
+
+// NotificationInfo contains notification information for each identity.
+type NotificationInfo struct {
+	Status   bool   `json:"status"`
+	Metadata []byte `json:"metadata"`
+}
+
+type NotificationsUpdate func(id *id.ID, metadata []byte, status bool)
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
@@ -204,7 +215,6 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 		rng:            rng,
 		events:         initEvents(model, 512, kv, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
-		notifications:  newOrLoadNotifications(identity.PubKey, cb, nm, kv, net),
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
@@ -216,7 +226,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
-	m.net.TrackServices(m.notifications.serviceTracker)
+	m.notifications = newNotifications(identity.PubKey, cb, m, nm)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler

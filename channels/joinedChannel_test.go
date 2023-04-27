@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"gitlab.com/elixxir/client/v4/broadcast"
 	clientCmix "gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -453,41 +451,6 @@ func newTestChannel(name, description string, rng csprng.Source,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock Notifications Manager                                                 //
-////////////////////////////////////////////////////////////////////////////////
-
-// mockNM adheres to the NotificationsManager interface.
-type mockNM struct {
-	registeredIDs   chan id.ID
-	unregisteredIDs chan id.ID
-}
-
-func newMockNM() *mockNM {
-	return &mockNM{
-		registeredIDs:   make(chan id.ID, 10),
-		unregisteredIDs: make(chan id.ID, 10),
-	}
-}
-
-func (m *mockNM) RegisterForNotifications(channelID *id.ID) error {
-	select {
-	case m.registeredIDs <- *channelID:
-		return nil
-	default:
-		return errors.Errorf("failed to put channel %s on channel", channelID)
-	}
-}
-
-func (m *mockNM) UnregisterNotificationIdentity(channelID *id.ID) error {
-	select {
-	case m.unregisteredIDs <- *channelID:
-		return nil
-	default:
-		return errors.Errorf("failed to put channel %s on channel", channelID)
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Mock Broadcast Client                                                      //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -508,11 +471,7 @@ func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                            
 func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
 func (m *mockBroadcastClient) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {
 }
-func (m *mockBroadcastClient) DeleteClientService(*id.ID)            {}
-func (m *mockBroadcastClient) TrackServices(message.ServicesTracker) {}
-func (m *mockBroadcastClient) GetServices() (message.ServiceList, message.CompressedServiceList) {
-	return message.ServiceList{}, message.CompressedServiceList{}
-}
+func (m *mockBroadcastClient) DeleteClientService(*id.ID)          {}
 func (m *mockBroadcastClient) IsHealthy() bool                     { return true }
 func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
 func (m *mockBroadcastClient) RemoveHealthCallback(uint64)         {}

@@ -81,67 +81,22 @@ type internalKV struct {
 	keyUpdateListeners map[string]versioned.KeyChangedByRemoteCallback
 	mapUpdateListeners map[string]versioned.MapChangedByRemoteCallback
 
-	// keyUpdate is the callback used to report events when
-	// attempting to call Set.
-	keyUpdate KeyUpdateCallback
-
-	// list of tracked keys
-	tracked []string
-
-	// UnsyncedWrites is the pending writes that we are waiting
-	// for on remote storage. Anytime this is not empty, we are
-	// not synchronized and this should be reported.
-	UnsyncedWrites map[string][]byte
-
-	// defaulteUpdateCB is called when the updateCB is not specified for
-	// remote store and set operations
-	defaultRemoteWriteCB RemoteStoreCallback
-
 	// Connected determines the connectivity of the remote server.
 	connected bool
 
-	// lck is used to lck access to Remote, if no remote needed,
-	// then the underlying kv lock is all that is needed.
-	lck sync.RWMutex
-
 	// mapLck prevents asynchronous map operations
-	mapLck       sync.Mutex
 	openRoutines int32
 }
 
 // newKV constructs a new remote KV. If data exists on disk, it loads
 // that context and handle it appropriately.
-func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
-	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback) (*internalKV, error) {
+func newKV(transactionLog *TransactionLog, kv ekv.KeyValue) (*internalKV, error) {
 
 	rkv := &internalKV{
-		local:                kv,
-		txLog:                transactionLog,
-		keyUpdate:            eventCb,
-		UnsyncedWrites:       make(map[string][]byte, 0),
-		defaultRemoteWriteCB: updateCb,
-		connected:            true,
+		local:     kv,
+		txLog:     transactionLog,
+		connected: true,
 	}
-
-	if err := rkv.loadUnsyncedWrites(); err != nil {
-		return nil, err
-	}
-
-	// Re-trigger all lingering intents
-	rkv.lck.Lock()
-	for key := range rkv.UnsyncedWrites {
-		// Call the internal to avoid writing to intent what
-		// is already there
-		k := key
-		v := rkv.UnsyncedWrites[k]
-		atomic.AddInt32(&rkv.openRoutines, 1)
-		go func() {
-			rkv.remoteSet(k, v, updateCb)
-			atomic.AddInt32(&rkv.openRoutines, -1)
-		}()
-	}
-	rkv.lck.Unlock()
 
 	return rkv, nil
 }
@@ -447,10 +402,6 @@ func (r *internalKV) UpsertLocal(key string, newVal []byte) error {
 		return nil
 	}
 
-	if r.keyUpdate != nil {
-		r.keyUpdate(key, obj, newVal, true)
-	}
-
 	return r.local.SetBytes(key, newVal)
 }
 
@@ -458,26 +409,33 @@ func (r *internalKV) UpsertLocal(key string, newVal []byte) error {
 // with the specified RemoteCB RemoteStoreCallback
 // Does not allow writing to keys with the suffix "_🗺️MapKeys",
 // it is reserved
-func (r *internalKV) SetRemote(key string, val []byte,
-	updateCb RemoteStoreCallback) error {
+func (r *internalKV) SetRemote(key string, val []byte) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	return r.setRemoteUnsafe(key, val, updateCb)
+	return r.setRemoteUnsafe(key, val)
 }
 
 // SetRemote will write a transaction to the remote and local store
 // with the specified RemoteCB RemoteStoreCallback
-func (r *internalKV) setRemoteUnsafe(key string, val []byte,
-	updateCb RemoteStoreCallback) error {
+func (r *internalKV) setRemoteUnsafe(key string, val []byte) error {
 
-	r.lck.Lock()
-	defer r.lck.Unlock()
+	wrapper := func(newTx Transaction, err error) {
+		r.handleRemoteSet(newTx, err, updateCb)
+	}
 
-	// Add intent to write transaction
-	if err := r.addUnsyncedWrite(key, val); err != nil {
+	// Write the transaction
+	newTx := NewTransaction(netTime.Now(), key, val)
+	if err := r.txLog.Append(newTx, wrapper); err != nil {
 		return err
 	}
+
+	// Return an error if we are no longer connected.
+	if !r.connected {
+		return errors.Errorf("disconnected from the remote KV")
+	}
+
+	return nil
 
 	// Save locally
 	if err := r.local.SetBytes(key, val); err != nil {
@@ -486,18 +444,6 @@ func (r *internalKV) setRemoteUnsafe(key string, val []byte,
 
 	return r.remoteSet(key, val, updateCb)
 }
-
-// SetRemoteOnly will place this Transaction onto the remote server. This is an
-// asynchronous operation and results will be passed back via the
-// RemoteStoreCallback.
-//
-// NO LOCAL STORAGE OPERATION WIL BE PERFORMED.
-func (r *internalKV) SetRemoteOnly(key string, val []byte,
-	updateCb RemoteStoreCallback) error {
-	return r.remoteSet(key, val, updateCb)
-}
-
-/
 
 // WaitForRemote waits until the remote has finished its queued writes or
 // until the specified timeout occurs.
@@ -521,39 +467,6 @@ func (r *internalKV) WaitForRemote(timeout time.Duration) bool {
 
 	//Now wait for tx log
 	return r.txLog.WaitForRemote(timeout)
-}
-
-// remoteSet is a utility function which will write the transaction to
-// the KV.
-func (r *internalKV) remoteSet(key string, val []byte,
-	updateCb RemoteStoreCallback) error {
-
-	if updateCb == nil {
-		updateCb = r.defaultRemoteWriteCB
-	}
-
-	wrapper := func(newTx Transaction, err error) {
-		r.handleRemoteSet(newTx, err, updateCb)
-	}
-
-	// Write the transaction
-	newTx := NewTransaction(netTime.Now(), key, val)
-	if err := r.txLog.Append(newTx, wrapper); err != nil {
-		return err
-	}
-
-	// Return an error if we are no longer connected.
-	if !r.connected {
-		return errors.Errorf("disconnected from the remote KV")
-	}
-
-	// Report to event callback
-	if r.keyUpdate != nil {
-		// Report write as successful
-		r.keyUpdate(key, nil, val, true)
-	}
-
-	return nil
 }
 
 // handleRemoteSet contains the logic for handling a remoteSet attempt. It will
@@ -583,59 +496,11 @@ func (r *internalKV) handleRemoteSet(newTx Transaction, err error,
 
 	r.lck.Lock()
 	defer r.lck.Unlock()
-	err = r.removeUnsyncedWrite(newTx.Key)
 	if err != nil {
 		jww.WARN.Printf("Failed to remove intent for key %s: %+v",
 			newTx.Key, err)
 	}
 
-}
-
-// addUnsyncedWrite will write the intent to the map. This map will be saved to disk
-// using te kv.
-func (r *internalKV) addUnsyncedWrite(key string, val []byte) error {
-	r.UnsyncedWrites[key] = val
-	return r.saveUnsyncedWrites()
-}
-
-// removeUnsyncedWrite will delete the intent from the map. This modified map will be
-// saved to disk using the kv.
-func (r *internalKV) removeUnsyncedWrite(key string) error {
-	delete(r.UnsyncedWrites, key)
-	return r.saveUnsyncedWrites()
-}
-
-// saveUnsyncedWrites is a utility function which writes the UnsyncedWrites map to disk.
-func (r *internalKV) saveUnsyncedWrites() error {
-	//fmt.Printf("unsynced: %v\n", r.UnsyncedWrites)
-	data, err := json.Marshal(r.UnsyncedWrites)
-	if err != nil {
-		return err
-	}
-
-	obj := &versioned.Object{
-		Version:   intentsVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	}
-
-	return r.local.Set(intentsKey, obj)
-}
-
-// loadUnsyncedWrites will load any intents from kv if present and set it into
-// UnsyncedWrites.
-func (r *internalKV) loadUnsyncedWrites() error {
-	// NOTE: obj is a versioned.Object, but we are not using a
-	// versioned KV because we are implementing the uncoupled,
-	// base KV interface, so you will need to update and check old
-	// keys if we ever change this format.
-	var obj versioned.Object
-	err := r.local.Get(intentsKey, &obj)
-	if err != nil { // Return if there isn't any intents stored
-		return nil
-	}
-
-	return json.Unmarshal(obj.Data, &r.UnsyncedWrites)
 }
 
 // isRemote checks for the presence and accurate setting of the

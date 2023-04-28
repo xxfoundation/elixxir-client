@@ -164,6 +164,27 @@ func newTransactionLog(path string, localFS FileIO, remote RemoteStore,
 	return tx, nil
 }
 
+func (tl *TransactionLog) Runner() {
+	timer := time.NewTicker()
+
+	for {
+		select {
+		case <-newTransactionChan:
+			if !WaitingToWrite {
+				timeToWrite
+			}
+		case <-timeToWrite:
+			err := write(transactionLog)
+			if err != nil {
+				//send a signal that we are not connected
+				//schedule a retry (with backoff)
+			}
+		}
+
+	}
+
+}
+
 // Append will add a transaction to the TransactionLog. This will save the
 // serialized TransactionLog to local and remote storage. The callback for
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.

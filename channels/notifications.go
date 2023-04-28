@@ -112,12 +112,16 @@ func (n *notifications) notificationsUpdateCB(*id.ID, []byte, bool) {
 	n.cb(nfs)
 }
 
+// createFilterList generates two NotificationFilter objects for each channel ID
+// in the provided map; one for asymmetric messages and one for symmetric.
+// The filter generated is based on its message type and NotificationLevel
+// embedded in the Metadata.
 func (n *notifications) createFilterList(
 	channels map[id.ID]NotificationInfo) []NotificationFilter {
 	var nfs []NotificationFilter
 	tags := makeUserPingTags(n.pubKey)
 	for chanID, notif := range channels {
-		channelID := &chanID
+		channelID := chanID.DeepCopy()
 
 		ch, err := n.getChannel(channelID)
 		if err != nil {

@@ -181,7 +181,7 @@ func Test_notifications_createFilterList(t *testing.T) {
 	ex := make([]NotificationFilter, 0, len(cg.channels))
 	levels := []NotificationLevel{NotifyNone, NotifyPing, NotifyAll}
 	for chanId, ch := range cg.channels {
-		channelID := &chanId
+		channelID := chanId.DeepCopy()
 		level := levels[rng.Intn(len(levels))]
 		nim[*channelID] = NotificationInfo{
 			Status:   level != NotifyNone,
@@ -189,17 +189,29 @@ func Test_notifications_createFilterList(t *testing.T) {
 		}
 
 		if level != NotifyNone {
-			ex = append(ex, NotificationFilter{
-				Identifier: ch.broadcast.AsymmetricIdentifier(),
-				ChannelID:  channelID,
-				Tags:       makeUserPingTags(n.pubKey),
-				AllowLists: notificationLevelAllowLists[asymmetric][level],
-			}, NotificationFilter{
-				Identifier: ch.broadcast.SymmetricIdentifier(),
-				ChannelID:  channelID,
-				Tags:       makeUserPingTags(n.pubKey),
-				AllowLists: notificationLevelAllowLists[symmetric][level],
-			})
+			ex = append(ex,
+				NotificationFilter{
+					Identifier: ch.broadcast.AsymmetricIdentifier(),
+					ChannelID:  channelID,
+					Tags:       makeUserPingTags(n.pubKey),
+					AllowLists: notificationLevelAllowLists[asymmetric][level],
+				},
+				NotificationFilter{
+					Identifier: ch.broadcast.SymmetricIdentifier(),
+					ChannelID:  channelID,
+					Tags:       makeUserPingTags(n.pubKey),
+					AllowLists: notificationLevelAllowLists[symmetric][level],
+				})
+		}
+	}
+
+	// Add some channels that are not in the manager
+	for i := 0; i < 2; i++ {
+		channelID, _ := id.NewRandomID(rng, id.User)
+		level := levels[rng.Intn(len(levels))]
+		nim[*channelID] = NotificationInfo{
+			Status:   level != NotifyNone,
+			Metadata: level.Marshal(),
 		}
 	}
 
@@ -549,12 +561,17 @@ type mockCG struct {
 
 // newMockCG returns a new mockCG with n new channels.
 func newMockCG(n int, t testing.TB) *mockCG {
+	rng := rand.New(rand.NewSource(2323))
 	cg := &mockCG{channels: make(map[id.ID]joinedChannel)}
 	for i := 0; i < n; i++ {
-		chanID := id.NewIdFromUInt(uint64(i), id.User, t)
+		chanID, err := id.NewRandomID(rng, id.User)
+		if err != nil {
+			t.Fatalf("Failed to generate new random ID for mockCG: %+v", err)
+		}
 		cg.channels[*chanID] = joinedChannel{&mockChannel{
-			asymIdentifier: append(chanID.Marshal(), []byte("asymIdentifier")...),
-			symIdentifier:  append(chanID.Marshal(), []byte("symIdentifier")...),
+			channelID:      chanID,
+			asymIdentifier: append(chanID.Bytes(), []byte("asymIdentifier")...),
+			symIdentifier:  append(chanID.Bytes(), []byte("symIdentifier")...),
 		}}
 	}
 	return cg
@@ -577,6 +594,7 @@ var _ broadcast.Channel = (*mockChannel)(nil)
 
 // mockChannel adheres to the broadcast.Channel interface.
 type mockChannel struct {
+	channelID      *id.ID
 	asymIdentifier []byte
 	symIdentifier  []byte
 }

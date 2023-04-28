@@ -10,8 +10,6 @@ package sync
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,13 +31,6 @@ const (
 
 	intentsVersion = 0
 	intentsKey     = "intentsVersion"
-
-	// map handler constants
-	mapKeysListSuffix  = "_🗺️MapKeys"
-	mapKeysListFmt     = "%s" + mapKeysListSuffix
-	mapElementKeyFmt   = "%s_🗺️MapElement_%s"
-	usedMapSuffixError = "cannot use \"" + mapKeysListSuffix + "\" at the " +
-		"end of a key, it is reserved"
 
 	// KeyUpdateCallback statuses.
 	Disconnected = "Disconnected"
@@ -85,13 +76,14 @@ type internalKV struct {
 
 	UpdateListenerMux sync.RWMutex
 
-	// KeyUpdateListeners holds callbacks called when a key is updated
+	// keyUpdateListeners holds callbacks called when a key is updated
 	// by a remote
-	KeyUpdateListeners map[string]versioned.KeyChangedByRemoteCallback
+	keyUpdateListeners map[string]versioned.KeyChangedByRemoteCallback
+	mapUpdateListeners map[string]versioned.MapChangedByRemoteCallback
 
-	// KeyUpdate is the callback used to report events when
+	// keyUpdate is the callback used to report events when
 	// attempting to call Set.
-	KeyUpdate KeyUpdateCallback
+	keyUpdate KeyUpdateCallback
 
 	// list of tracked keys
 	tracked []string
@@ -126,7 +118,7 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 	rkv := &internalKV{
 		local:                kv,
 		txLog:                transactionLog,
-		KeyUpdate:            eventCb,
+		keyUpdate:            eventCb,
 		UnsyncedWrites:       make(map[string][]byte, 0),
 		defaultRemoteWriteCB: updateCb,
 		connected:            true,
@@ -164,8 +156,8 @@ func newKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 // Does not allow writing to keys with the suffix "_🗺️MapKeys",
 // it is reserved
 func (r *internalKV) Set(key string, objectToStore ekv.Marshaler) error {
-	if strings.HasSuffix(key, mapKeysListSuffix) {
-		return errors.New(usedMapSuffixError)
+	if err := versioned.IsValidKey(key); err != nil {
+		return err
 	}
 	return r.SetBytes(key, objectToStore.Marshal())
 }
@@ -185,8 +177,8 @@ func (r *internalKV) Get(key string, loadIntoThisObject ekv.Unmarshaler) error {
 // Does not allow writing to keys with the suffix "_🗺️MapKeys",
 // it is reserved
 func (r *internalKV) Delete(key string) error {
-	if strings.HasSuffix(key, mapKeysListSuffix) {
-		return errors.New(usedMapSuffixError)
+	if err := versioned.IsValidKey(key); err != nil {
+		return err
 	}
 	return r.local.Delete(key)
 }
@@ -197,8 +189,8 @@ func (r *internalKV) Delete(key string) error {
 // Does not allow writing to keys with the suffix "_🗺️MapKeys",
 // it is reserved
 func (r *internalKV) SetInterface(key string, objectToStore interface{}) error {
-	if strings.HasSuffix(key, mapKeysListSuffix) {
-		return errors.New(usedMapSuffixError)
+	if err := versioned.IsValidKey(key); err != nil {
+		return err
 	}
 
 	data, err := json.Marshal(objectToStore)
@@ -224,36 +216,9 @@ func (r *internalKV) GetInterface(key string, objectToLoad interface{}) error {
 // Does not allow writing to keys with the suffix "_🗺️MapKeys",
 // it is reserved
 func (r *internalKV) SetBytes(key string, data []byte) error {
-	if strings.HasSuffix(key, mapKeysListSuffix) {
-		return errors.New(usedMapSuffixError)
-	}
-
-	return r.setBytesUnsafe(key, data)
-}
-
-// SetBytesFromRemote implements [ekv.KeyValue.SetBytes].
-// This is a LOCAL ONLY operation which will write the Transaction
-// to local store. Only use this from the collector system, designed
-// to allow event models to connect to the write.
-func (r *internalKV) SetBytesFromRemote(key string, data []byte) error {
-
-	if err := r.setBytesUnsafe(key, data); err != nil {
+	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-
-	r.UpdateListenerMux.RLock()
-	defer r.UpdateListenerMux.RUnlock()
-	if cb, exists := r.KeyUpdateListeners[key]; exists {
-		go cb(key)
-	}
-	return nil
-}
-
-// SetBytesUnsafe implements [ekv.KeyValue.SetBytes]. This is a LOCAL ONLY
-// operation which will write the Transaction to local store.
-// Use [SetRemote] to set keys synchronized to the cloud.
-// Does not check for reserved keys
-func (r *internalKV) setBytesUnsafe(key string, data []byte) error {
 	return r.local.SetBytes(key, data)
 }
 
@@ -262,13 +227,203 @@ func (r *internalKV) GetBytes(key string) ([]byte, error) {
 	return r.local.GetBytes(key)
 }
 
+// Transaction locks a key while it is being mutated then stores the result
+// and returns the old value if it existed.
+// If the op returns an error, the operation will be aborted.
+func (r *internalKV) Transaction(key string, op ekv.TransactionOperation) (
+	old []byte, existed bool, err error) {
+	if err = versioned.IsValidKey(key); err != nil {
+		return nil, false, err
+	}
+
+	return r.transactionUnsafe(key, op)
+}
+
+// MutualTransaction locks all keys while operating, getting the initial values
+// for all keys, passing them into the MutualTransactionOperation, writing
+// the resulting values for all keys to disk, and returns the initial value
+// the return value is the same as is sent to the op, if it is edited they
+// will reflect in the returned old dataset
+func (r *internalKV) MutualTransaction(keys []string, op ekv.MutualTransactionOperation) (
+	old, written map[string]ekv.Value, err error) {
+	for _, k := range keys {
+		if err = versioned.IsValidKey(k); err != nil {
+			return nil, nil, errors.WithMessagef(err,
+				"Failed to execute due to malformed key %s", k)
+		}
+	}
+
+	return r.mutualTransactionUnsafe(keys, op)
+}
+
+func (r *internalKV) mutualTransactionUnsafe(keys []string, op ekv.MutualTransactionOperation) (
+	old, written map[string]ekv.Value, err error) {
+	return r.local.MutualTransaction(keys, op)
+}
+
+func (r *internalKV) transactionUnsafe(key string, op ekv.TransactionOperation) (
+	old []byte, existed bool, err error) {
+	return r.local.Transaction(key, op)
+}
+
+// SetBytesFromRemote implements [ekv.KeyValue.SetBytes].
+// This is a LOCAL ONLY operation which will write the Transaction
+// to local store. Only use this from the collector system, designed
+// to allow event models to connect to the write.
+func (r *internalKV) SetBytesFromRemote(key string, data []byte) error {
+	f := func(_ []byte, _ bool) ([]byte, error) {
+		return data, nil
+	}
+
+	old, existed, err := r.transactionUnsafe(key, f)
+
+	if err != nil {
+		return err
+	}
+
+	r.UpdateListenerMux.RLock()
+	defer r.UpdateListenerMux.RUnlock()
+	if cb, exists := r.keyUpdateListeners[key]; exists {
+		go cb(key, old, data, existed)
+	}
+	return nil
+}
+
+// TransactionFromRemote locks a key while it is being mutated then stores the result
+// and returns the old value if it existed.
+// If the op returns an error, the operation will be aborted.
+func (r *internalKV) TransactionFromRemote(key string,
+	op ekv.TransactionOperation) error {
+	var data []byte
+
+	wrap := func(old []byte, existed bool) ([]byte, error) {
+		var err error
+		data, err = op(old, existed)
+		return data, err
+	}
+
+	old, existed, err := r.transactionUnsafe(key, wrap)
+	if err != nil {
+		return err
+	}
+
+	r.UpdateListenerMux.RLock()
+	defer r.UpdateListenerMux.RUnlock()
+	if cb, exists := r.keyUpdateListeners[key]; exists {
+		go cb(key, old, data, existed)
+	}
+
+	return nil
+}
+
+var noUpdateNeeded = errors.New("no map file update is needed")
+
+// MapTransactionFromRemote
+func (r *internalKV) MapTransactionFromRemote(mapName string,
+	edits map[string]ekv.Value) error {
+
+	// add element keys
+	keys := make([]string, 0, len(edits)+1)
+	keysToName := make(map[string]string, len(edits))
+	for elementKey := range edits {
+		keys = append(keys, elementKey)
+		_, elementName := versioned.GetElementName(elementKey)
+		keysToName[elementKey] = elementName
+	}
+
+	//add the map key list
+	mapKey := versioned.MakeMapKey(mapName)
+	keys = append(keys, mapKey)
+
+	op := func(old map[string]ekv.Value) (map[string]ekv.Value, error) {
+		updates := make(map[string]ekv.Value, len(old))
+
+		//process key map, will always be the last value due to it being
+		mapFile := newSet(uint(len(old) - 1))
+		mapFileValue := old[mapKey]
+		if mapFileValue.Exists {
+			err := mapFile.UnmarshalJSON(mapFileValue.Data)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// edit elements and update map file
+		for elementKey, value := range edits {
+			updates[elementKey] = value
+			if value.Exists {
+				mapFile.Add(keysToName[elementKey])
+			} else {
+				mapFile.Delete(keysToName[elementKey])
+			}
+		}
+
+		// add the map file to updates
+		mapFileUpdate, err := mapFile.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		updates[mapKey] = ekv.Value{
+			Data:   mapFileUpdate,
+			Exists: true,
+		}
+
+		return updates, nil
+	}
+
+	//run the operation on the ekv
+	old, _, err := r.local.MutualTransaction(keys, op)
+	if err != nil {
+		return err
+	}
+
+	//build the return data, ignore deletion failures
+	reportedEdits := make(map[string]versioned.ElementEdit, len(edits))
+	for elementKey := range edits {
+		elementName := keysToName[elementKey]
+		oldElement := old[elementKey]
+		newElement := edits[elementKey]
+
+		var mapOp versioned.MapOperation
+		if !newElement.Exists {
+			if !oldElement.Exists {
+				// if the element was already deleted, dont report the operation
+				continue
+			}
+			mapOp = versioned.Deleted
+		} else {
+			if oldElement.Exists {
+				mapOp = versioned.Updated
+			} else {
+				mapOp = versioned.Created
+			}
+		}
+
+		reportedEdits[elementName] = versioned.ElementEdit{
+			OldElement: oldElement.Data,
+			NewElement: oldElement.Data,
+			Operation:  mapOp,
+		}
+	}
+
+	r.UpdateListenerMux.RLock()
+	defer r.UpdateListenerMux.RUnlock()
+
+	if cb, exists := r.mapUpdateListeners[mapName]; exists {
+		go cb(mapName, reportedEdits)
+	}
+
+	return nil
+}
+
 // ListenOnRemoteKey allows the caller to receive updates when
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
 func (r *internalKV) ListenOnRemoteKey(key string, callback versioned.KeyChangedByRemoteCallback) {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
-	r.KeyUpdateListeners[key] = callback
+	r.keyUpdateListeners[key] = callback
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -292,8 +447,8 @@ func (r *internalKV) UpsertLocal(key string, newVal []byte) error {
 		return nil
 	}
 
-	if r.KeyUpdate != nil {
-		r.KeyUpdate(key, obj, newVal, true)
+	if r.keyUpdate != nil {
+		r.keyUpdate(key, obj, newVal, true)
 	}
 
 	return r.local.SetBytes(key, newVal)
@@ -305,10 +460,9 @@ func (r *internalKV) UpsertLocal(key string, newVal []byte) error {
 // it is reserved
 func (r *internalKV) SetRemote(key string, val []byte,
 	updateCb RemoteStoreCallback) error {
-	if strings.HasSuffix(key, mapKeysListSuffix) {
-		return errors.New(usedMapSuffixError)
+	if err := versioned.IsValidKey(key); err != nil {
+		return err
 	}
-
 	return r.setRemoteUnsafe(key, val, updateCb)
 }
 
@@ -326,7 +480,7 @@ func (r *internalKV) setRemoteUnsafe(key string, val []byte,
 	}
 
 	// Save locally
-	if err := r.setBytesUnsafe(key, val); err != nil {
+	if err := r.local.SetBytes(key, val); err != nil {
 		return errors.Errorf("failed to write to local kv: %+v", err)
 	}
 
@@ -343,155 +497,7 @@ func (r *internalKV) SetRemoteOnly(key string, val []byte,
 	return r.remoteSet(key, val, updateCb)
 }
 
-// StoreMapElement saves a given map element and updates
-// the map keys list if it is a new key.
-// All Map storage functions update the remote.
-func (r *internalKV) StoreMapElement(mapName, elementKey string, value []byte,
-	sync bool) error {
-	r.mapLck.Lock()
-	defer r.mapLck.Unlock()
-	return r.storeMapElement(mapName, elementKey, value, sync)
-}
-
-// keep this private method here because it is the logic of StoreMapElement
-// without the lock.
-func (r *internalKV) storeMapElement(mapName, elementKey string, value []byte,
-	sync bool) error {
-	// Store the element
-	key := fmt.Sprintf(mapElementKeyFmt, mapName, elementKey)
-	var err error
-	if sync {
-		err = r.SetRemote(key, value, nil)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = r.SetBytes(key, value)
-	}
-	if err != nil {
-		return err
-	}
-
-	// Detect if this key is new, and update mapkeys if so
-	existingKeys, err := r.getMapKeys(mapName)
-	if err != nil {
-		return err
-	}
-	_, ok := existingKeys[elementKey]
-	if !ok {
-		existingKeys[elementKey] = struct{}{}
-		err = r.storeMapKeys(mapName, existingKeys, sync)
-	}
-
-	return err
-}
-
-// StoreMap saves each element of the map, then updates the map structure
-// and deletes no longer used keys in the map.
-// All Map storage functions update the remote.
-func (r *internalKV) StoreMap(mapName string, value map[string][]byte,
-	sync bool) error {
-	r.mapLck.Lock()
-	defer r.mapLck.Unlock()
-
-	oldKeys, err := r.getMapKeys(mapName)
-	if err != nil {
-		return err
-	}
-
-	// Store each element, then the keys for the map
-	newKeys := make(map[string]struct{})
-	for k, v := range value {
-		newKeys[k] = struct{}{}
-		err := r.storeMapElement(mapName, k, v, sync)
-		if err != nil {
-			return err
-		}
-	}
-	err = r.storeMapKeys(mapName, newKeys, sync)
-	if err != nil {
-		return err
-	}
-
-	// Check if any elements need to be deleted
-	for k := range oldKeys {
-		_, ok := newKeys[k]
-		if ok {
-			continue
-		}
-		// Delete this element
-		key := fmt.Sprintf(mapElementKeyFmt, mapName, k)
-		err := r.Delete(key)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// GetMapElement looks up the element for the given map
-func (r *internalKV) GetMapElement(mapName, elementKey string) ([]byte, error) {
-	r.mapLck.Lock()
-	defer r.mapLck.Unlock()
-	key := fmt.Sprintf(mapElementKeyFmt, mapName, elementKey)
-	return r.GetBytes(key)
-}
-
-// GetMap returns all values inside a map
-func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
-	r.mapLck.Lock()
-	defer r.mapLck.Unlock()
-
-	// Get the current list of keys
-	keys, err := r.getMapKeys(mapName)
-	if err != nil {
-		// Exists(err) is already checked in getMapKeys
-		return nil, err
-	}
-
-	// Load each key into a new map to return
-	ret := make(map[string][]byte, len(keys))
-	for k := range keys {
-		key := fmt.Sprintf(mapElementKeyFmt, mapName, k)
-		ret[k], err = r.GetBytes(key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return ret, nil
-}
-
-func (r *internalKV) storeMapKeys(mapName string, keys map[string]struct{},
-	sync bool) error {
-	data, err := json.Marshal(keys)
-	if err != nil {
-		return err
-	}
-	key := fmt.Sprintf(mapKeysListFmt, mapName)
-	if sync {
-		return r.setRemoteUnsafe(key, data, nil)
-	} else {
-		return r.setBytesUnsafe(key, data)
-	}
-}
-
-func (r *internalKV) getMapKeys(mapName string) (map[string]struct{}, error) {
-	keys := make(map[string]struct{})
-
-	key := fmt.Sprintf(mapKeysListFmt, mapName)
-	data, err := r.GetBytes(key)
-	if err != nil {
-		// If the key doesn't exist then this is not an error
-		// return empty object
-		if !ekv.Exists(err) {
-			return keys, nil
-		}
-		return nil, err
-	}
-	err = json.Unmarshal(data, &keys)
-	return keys, err
-}
+/
 
 // WaitForRemote waits until the remote has finished its queued writes or
 // until the specified timeout occurs.
@@ -542,9 +548,9 @@ func (r *internalKV) remoteSet(key string, val []byte,
 	}
 
 	// Report to event callback
-	if r.KeyUpdate != nil {
+	if r.keyUpdate != nil {
 		// Report write as successful
-		r.KeyUpdate(key, nil, val, true)
+		r.keyUpdate(key, nil, val, true)
 	}
 
 	return nil

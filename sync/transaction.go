@@ -48,6 +48,7 @@ type transaction struct {
 	Timestamp time.Time
 	Key       string
 	Value     []byte
+	Deletion  bool
 }
 
 // MarshalJSON adheres to json.Marshaler.

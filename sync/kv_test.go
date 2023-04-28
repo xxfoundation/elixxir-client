@@ -39,7 +39,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	expected := &internalKV{
 		local:          kv,
 		txLog:          txLog,
-		KeyUpdate:      nil,
+		keyUpdate:      nil,
 		UnsyncedWrites: make(map[string][]byte, 0),
 		connected:      true,
 	}

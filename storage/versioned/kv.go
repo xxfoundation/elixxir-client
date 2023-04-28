@@ -79,10 +79,28 @@ type KV interface {
 	GetMapElement(mapName, element string, version uint64) (
 		*Object, error)
 
+	// Transaction locks a key while it is being mutated then stores the result
+	// and returns the old value if it existed.
+	// If the op returns an error, the operation will be aborted.
+	Transaction(key string, op ekv.TransactionOperation) (
+		old []byte, existed bool, err error)
+
+	// MutualTransaction locks all keys while operating, getting the initial values
+	// for all keys, passing them into the MutualTransactionOperation, writing
+	// the resulting values for all keys to disk, and returns the initial value
+	// the return value is the same as is sent to the op, if it is edited they
+	// will reflect in the returned old dataset
+	MutualTransaction(keys []string, op ekv.MutualTransactionOperation) (
+		old, written map[string]ekv.Value, err error)
+
 	// ListenOnRemoteKey allows the caller to receive updates when
 	// a key is updated by synching with another client.
 	// Only one callback can be written per key.
 	ListenOnRemoteKey(key string, callback KeyChangedByRemoteCallback)
+
+	// ListenORemoteMap allows the caller to receive updates when
+	// the map or map elements are updated
+	ListenORemoteMap(mapName, callback MapChangedByRemoteCallback)
 
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
@@ -106,6 +124,27 @@ type KV interface {
 	// the key exists.
 	Exists(err error) bool
 }
+
+// KeyChangedByRemoteCallback is the callback used to report local updates caused
+// by a remote client editing their EKV
+type KeyChangedByRemoteCallback func(key string, old, new []byte, existed bool)
+
+// MapChangedByRemoteCallback is the callback used to report local updates caused
+// by a remote client editing their EKV
+type MapChangedByRemoteCallback func(mapName string, edits map[string]ElementEdit)
+type ElementEdit struct {
+	OldElement []byte
+	NewElement []byte
+	Operation  MapOperation
+}
+
+type MapOperation uint8
+
+const (
+	Created MapOperation = iota
+	Updated
+	Deleted
+)
 
 // MakePartnerPrefix creates a string prefix
 // to denote who a conversation or relationship is with
@@ -314,10 +353,6 @@ func (v *kv) Exists(err error) bool {
 	return ekv.Exists(err)
 }
 
-// KeyChangedByRemoteCallback is the callback used to report local updates caused
-// by a remote client editing their EKV
-type KeyChangedByRemoteCallback func(key string)
-
 // StoreMapElement is not implemented for local KVs
 func (v *kv) StoreMapElement(mapName, elementKey string,
 	value *Object, version uint64) error {
@@ -347,4 +382,10 @@ func (v *kv) ListenOnRemoteKey(key string,
 	callback KeyChangedByRemoteCallback) {
 	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
 		"ListenOnRemoteKey"))
+}
+
+// ListenOnRemoteMap is not implemented for local KVs
+func (v *kv) ListenOnRemoteMap(mapName, callback KeyChangedByRemoteCallback) {
+	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
+		"ListenOnRemoteMap"))
 }

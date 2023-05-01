@@ -93,7 +93,7 @@ func TestImpl_GetConversations(t *testing.T) {
 		testBytes := []byte(fmt.Sprintf("%d", i))
 		testPubKey := ed25519.PublicKey(testBytes)
 		err = m.upsertConversation("test", testPubKey,
-			uint32(i), uint8(i), false)
+			uint32(i), uint8(i), false, time.Time{})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -126,7 +126,7 @@ func TestImpl_BlockSender(t *testing.T) {
 	// Insert a test convo
 	testBytes := []byte("test")
 	testPubKey := ed25519.PublicKey(testBytes)
-	err = m.upsertConversation("test", testPubKey, 0, 0, false)
+	err = m.upsertConversation("test", testPubKey, 0, 0, false, time.Time{})
 	if err != nil {
 		t.Fatal(err.Error())
 	}

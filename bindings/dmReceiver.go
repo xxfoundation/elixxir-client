@@ -238,7 +238,7 @@ func (dmr *dmReceiver) Receive(messageID message.ID,
 		int64(mType), int64(status)))
 }
 
-// Receive is called whenever a direct message is received.
+// ReceiveText is called whenever a direct message is received.
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
 func (dmr *dmReceiver) ReceiveText(messageID message.ID,

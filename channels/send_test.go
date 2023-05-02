@@ -10,6 +10,7 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 	"time"
@@ -426,6 +427,68 @@ func Test_manager_SendReaction(t *testing.T) {
 		t.Errorf("Incorrect ReactionMessageID.\nexpected: %v\nreceived: %v",
 			replyMsgID, txt.ReactionMessageID)
 	}
+}
+
+func Test_manager_SendSilent(t *testing.T) {
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	prng := rand.New(rand.NewSource(64))
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	require.NoError(t, err)
+
+	m := &manager{
+		me:              pi,
+		channels:        make(map[id.ID]*joinedChannel),
+		kv:              kv,
+		rng:             crng,
+		events:          initEvents(&mockEventModel{}, 512, kv, crng),
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, MessageType, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity,
+			rounds.Round, SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
+			*bool, *bool, *SentStatus) error {
+			return nil
+		}, crng),
+	}
+
+	rng := crng.GetStream()
+	defer rng.Close()
+
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
+	require.NoError(t, err)
+
+	params := new(cmix.CMIXParams)
+	mbc := &mockBroadcastChannel{
+		crypto: ch,
+	}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+
+	// Send message
+	messageID, _, _, err := m.SendSilent(ch.ReceptionID, ValidForever, *params)
+	require.NoError(t, err)
+
+	// Verify the message was handled correctly
+
+	// Decode the user message
+	umi, err := unmarshalUserMessageInternal(mbc.payload, ch.ReceptionID)
+	require.NoError(t, err)
+
+	// Do checks of the data
+	require.True(t, umi.GetMessageID().Equals(messageID))
+
+	// Decode the text message
+	txt := &CMIXChannelSilentMessage{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	require.NoError(t, err)
+
 }
 
 func Test_manager_DeleteMessage(t *testing.T) {

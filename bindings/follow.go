@@ -80,6 +80,13 @@ func (c *Cmix) StopNetworkFollower() error {
 // This may be used to enable a low power (or battery optimization) mode
 // for the end user.
 //
+// Suggested values are provided, however there are no guarantees that these
+// values will perfectly fit what the end user's device would require to match
+// the user's expectations:
+//   - Low Power Usage: 5000 milliseconds
+//   - High Power Usage: 1000 milliseconds (default, see
+//     [cmix.DefaultFollowPeriod]
+//
 // Parameters:
 //   - periodMS - The duration of the period, in milliseconds.
 func (c *Cmix) SetTrackNetworkPeriod(periodMS int) {

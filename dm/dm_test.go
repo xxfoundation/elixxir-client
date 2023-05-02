@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"google.golang.org/protobuf/proto"
 	"os"
 	"testing"
 
@@ -91,4 +92,14 @@ func TestE2EDMs(t *testing.T) {
 	rcvA2 := receiverB.Msgs[3]
 	require.Equal(t, replyTo2, rcvA2.ReplyTo)
 	require.Equal(t, "😀", rcvA2.Message)
+
+	// Send a silent message
+	pubKey = rcvB1.PubKey
+	dmToken = rcvB1.DMToken
+	_, _, _, err := clientA.SendSilent(&pubKey, dmToken, params)
+	require.NoError(t, err)
+	require.Equal(t, 6, len(receiverB.Msgs))
+	rcvB3 := receiverB.Msgs[5]
+	silent := &SilentMessage{}
+	require.NoError(t, proto.Unmarshal([]byte(rcvB3.Message), silent))
 }

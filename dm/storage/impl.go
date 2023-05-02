@@ -186,10 +186,14 @@ func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error 
 		return err
 	}
 
-	timeBlocked := netTime.Now()
+	var timeBlocked *time.Time = nil
+	if isBlocked {
+		blockUser := netTime.Now()
+		timeBlocked = &blockUser
+	}
 
 	return i.upsertConversation(resultConvo.Nickname, resultConvo.Pubkey,
-		resultConvo.Token, resultConvo.CodesetVersion, isBlocked, timeBlocked)
+		resultConvo.Token, resultConvo.CodesetVersion, timeBlocked)
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
@@ -205,7 +209,6 @@ func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversa
 		Nickname:         resultConvo.Nickname,
 		Token:            resultConvo.Token,
 		CodesetVersion:   resultConvo.CodesetVersion,
-		Blocked:          *resultConvo.Blocked,
 		BlockedTimestamp: resultConvo.BlockedTimestamp,
 	}
 }
@@ -230,7 +233,6 @@ func (i *impl) GetConversations() []dm.ModelConversation {
 			Nickname:         resultConvo.Nickname,
 			Token:            resultConvo.Token,
 			CodesetVersion:   resultConvo.CodesetVersion,
-			Blocked:          *resultConvo.Blocked,
 			BlockedTimestamp: resultConvo.BlockedTimestamp,
 		}
 	}
@@ -254,13 +256,12 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 			// If there is no extant Conversation, create one.
 			jww.DEBUG.Printf(
 				"[DM SQL] Joining conversation with %s", nickname)
-			isBlocked := false
 			convoToUpdate = &Conversation{
-				Pubkey:         senderKey,
-				Nickname:       nickname,
-				Token:          dmToken,
-				CodesetVersion: codeset,
-				Blocked:        &isBlocked,
+				Pubkey:           senderKey,
+				Nickname:         nickname,
+				Token:            dmToken,
+				CodesetVersion:   codeset,
+				BlockedTimestamp: nil,
 			}
 		}
 	} else {
@@ -294,7 +295,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 	if conversationUpdated {
 		err = i.upsertConversation(convoToUpdate.Nickname, convoToUpdate.Pubkey,
 			convoToUpdate.Token, convoToUpdate.CodesetVersion,
-			*convoToUpdate.Blocked, convoToUpdate.BlockedTimestamp)
+			convoToUpdate.BlockedTimestamp)
 		if err != nil {
 			return 0, err
 		}
@@ -358,15 +359,14 @@ func (i *impl) getConversation(senderPubKey ed25519.PublicKey) (*Conversation, e
 
 // upsertConversation is used for updating or creating a Conversation with the given fields.
 func (i *impl) upsertConversation(nickname string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, blocked bool,
-	timeBlocked time.Time) error {
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timeBlocked *time.Time) error {
 
 	newConvo := Conversation{
 		Pubkey:           pubKey,
 		Nickname:         nickname,
 		Token:            dmToken,
 		CodesetVersion:   codeset,
-		Blocked:          &blocked,
 		BlockedTimestamp: timeBlocked,
 	}
 	jww.DEBUG.Printf("[DM SQL] Attempting to upsertConversation: %+v", newConvo)

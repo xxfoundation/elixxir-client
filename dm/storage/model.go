@@ -42,12 +42,9 @@ type Conversation struct {
 	Token          uint32 `gorm:"not null"`
 	CodesetVersion uint8  `gorm:"not null"`
 
-	// Pointer to enforce zero-value reading in ORM.
-	Blocked *bool `gorm:"not null"`
-
 	// Timestamp for when a conversation is blocked. If the conversation has
 	// not been blocked, this will be a zero value.
-	BlockedTimestamp time.Time `gorm:"index"`
+	BlockedTimestamp *time.Time `gorm:""`
 
 	// Have to spell out this relationship because irregular PK name
 	Messages []Message `gorm:"foreignKey:ConversationPubKey;references:Pubkey;constraint:OnDelete:CASCADE"`

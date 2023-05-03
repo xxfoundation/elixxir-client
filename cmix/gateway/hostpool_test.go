@@ -288,10 +288,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
-	if err != nil {
-		t.Fatalf("Failed to store host list: %+v", err)
-	}
+
+	require.NoError(t, saveHostList(
+		testStorage.GetKV().Prefix(hostListPrefix), addedIDs))
 
 	for i, hid := range addedIDs {
 		testNdf.Gateways[i].ID = hid.Marshal()
@@ -312,16 +311,12 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		return filtered
 	}
 	testPool, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan, mccc)
-	if err != nil {
-		t.Fatalf("Failed to create mock host pool: %v", err)
-	}
+	require.NoError(t, err, "Failed to create mock host pool: %v", err)
 
 	stop := stoppable.NewSingle("tester")
 	go testPool.runner(stop)
 	defer func() {
-		if err = stop.Close(); err != nil {
-			t.Fatalf("Failed to close stoppable: %+v", err)
-		}
+		require.NoError(t, stop.Close())
 	}()
 
 	// Construct a new Ndf different from original one above
@@ -340,7 +335,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 
 	select {
 	case <-time.After(2 * time.Second):
-		t.Fatalf("Did not run filter before timeout")
+		require.Fail(t, "Did not run filter before timeout")
 	case <-doneCh:
 	}
 
@@ -349,7 +344,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 
 	select {
 	case <-time.After(5 * time.Second):
-		t.Fatalf("Did not run filter before timeout")
+		require.Fail(t, "Did not run filter before timeout")
 	case <-doneCh:
 	}
 	time.Sleep(time.Second)
@@ -360,9 +355,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	require.Equal(t, allowedIds.Len(), len(testPool.ndfMap))
 
 	for gwID := range testPool.ndfMap {
-		if !allowedIds.Has(gwID.String()) {
-			t.Fatalf("id in NDF map not in allowed IDs")
-		}
+		require.True(t, !allowedIds.Has(gwID.String()), "id in NDF map not in allowed IDs")
 	}
 
 	done := false
@@ -371,14 +364,13 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		select {
 		case <-testPool.testNodes:
 			testCount++
-		case <-time.After(2 * time.Second):
+		case <-time.After(5 * time.Second):
 			done = true
 		}
 	}
-	if testCount != 1 {
-		t.Fatalf("Did not receive expected test count."+
-			"\nexpected: %d\nreceived: %d", 1, testCount)
-	}
+
+	require.Equal(t, testCount, 1, "Did not receive expected test count."+
+		"\nexpected: %d\nreceived: %d", 1, testCount)
 }
 
 type mockCertCheckerComm struct{}

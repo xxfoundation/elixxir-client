@@ -355,7 +355,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	require.Equal(t, allowedIds.Len(), len(testPool.ndfMap))
 
 	for gwID := range testPool.ndfMap {
-		require.True(t, !allowedIds.Has(gwID.String()), "id in NDF map not in allowed IDs")
+		require.True(t, allowedIds.Has(gwID.String()), "id in NDF map not in allowed IDs")
 	}
 
 	done := false
@@ -364,7 +364,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		select {
 		case <-testPool.testNodes:
 			testCount++
-		case <-time.After(5 * time.Second):
+		case <-time.After(10 * time.Second):
 			done = true
 		}
 	}

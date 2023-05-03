@@ -23,6 +23,7 @@ import (
 // messaging settings.
 //
 // Example JSON:
+//
 //	{
 //	  "Network": {
 //	    "TrackNetworkPeriod": 1000000000,
@@ -41,31 +42,31 @@ import (
 //	      "HistoricalRoundsBufferLen": 1000,
 //	      "MaxHistoricalRoundsRetries": 3
 //	    },
-//	  "Pickup": {
-//	    "NumMessageRetrievalWorkers": 2,
-//	    "LookupRoundsBufferLen": 100000,
-//	    "MaxHistoricalRoundsRetries": 2,
-//	    "UncheckRoundPeriod": 120000000000,
-//	    "ForceMessagePickupRetry": false,
-//	    "SendTimeout": 3000000000,
-//	    "RealtimeOnly": false,
-//	    "ForceHistoricalRounds": false
-//	  },
-//	  "Message": {
-//	    "MessageReceptionBuffLen": 500,
-//	    "MessageReceptionWorkerPoolSize": 2,
-//	    "MaxChecksInProcessMessage": 10,
-//	    "InProcessMessageWait": 900000000000,
-//	    "RealtimeOnly": false
-//	  },
-//	  "Historical": {
-//	    "MaxHistoricalRounds": 100,
-//	    "HistoricalRoundsPeriod": 100000000,
-//	    "HistoricalRoundsBufferLen": 1000,
-//	    "MaxHistoricalRoundsRetries": 3
-//	  },
-//	  "MaxParallelIdentityTracks": 5,
-//	  "EnableImmediateSending": false
+//	    "Pickup": {
+//	      "NumMessageRetrievalWorkers": 2,
+//	      "LookupRoundsBufferLen": 100000,
+//	      "MaxHistoricalRoundsRetries": 2,
+//	      "UncheckRoundPeriod": 120000000000,
+//	      "ForceMessagePickupRetry": false,
+//	      "SendTimeout": 3000000000,
+//	      "RealtimeOnly": false,
+//	      "ForceHistoricalRounds": false
+//	    },
+//	    "Message": {
+//	      "MessageReceptionBuffLen": 500,
+//	      "MessageReceptionWorkerPoolSize": 2,
+//	      "MaxChecksInProcessMessage": 10,
+//	      "InProcessMessageWait": 900000000000,
+//	      "RealtimeOnly": false
+//	    },
+//	    "Historical": {
+//	      "MaxHistoricalRounds": 100,
+//	      "HistoricalRoundsPeriod": 100000000,
+//	      "HistoricalRoundsBufferLen": 1000,
+//	      "MaxHistoricalRoundsRetries": 3
+//	    },
+//	    "MaxParallelIdentityTracks": 5,
+//	    "EnableImmediateSending": false
 //	  },
 //	  "CMIX": {
 //	    "RoundTries": 10,
@@ -76,9 +77,10 @@ import (
 //	    "BlacklistedNodes": {},
 //	    "Critical": false
 //	  }
-//	 }
+//	}
 //
 // FIXME: this breakdown could be cleaner and is an unfortunate side effect of
+//
 //	several refactors of the codebase.
 type CMIXParams struct {
 	Network cmix.Params

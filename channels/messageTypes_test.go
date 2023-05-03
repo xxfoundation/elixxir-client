@@ -9,19 +9,18 @@ package channels
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
 // Consistency test of MessageType.String.
 func TestMessageType_String_Consistency(t *testing.T) {
 	expectedStrings := map[MessageType]string{
-		Text: "Text", AdminText: "AdminText", Reaction: "Reaction",
+		Text: "Text", AdminText: "AdminText", Reaction: "Reaction", Silent: "Silent",
 		Delete: "Delete", Pinned: "Pinned", Mute: "Mute",
 		AdminReplay: "AdminReplay", FileTransfer: "FileTransfer",
-		4: "Unknown messageType 4", 5: "Unknown messageType 5",
-		6: "Unknown messageType 6", 7: "Unknown messageType 7",
-		8: "Unknown messageType 8", 9: "Unknown messageType 9",
-		10: "Unknown messageType 10",
+		Silent + 1: fmt.Sprintf("Unknown messageType %d", Silent+1),
+		Silent + 2: fmt.Sprintf("Unknown messageType %d", Silent+2),
 	}
 
 	for mt, expected := range expectedStrings {

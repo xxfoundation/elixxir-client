@@ -164,6 +164,15 @@ type Manager interface {
 		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
+	// SendSilent is used to send to a channel a message with no notifications.
+	// Its primary purpose is to communicate new nicknames without calling
+	// SendMessage.
+	//
+	// It takes no payload intentionally as the message should be very
+	// lightweight.
+	SendSilent(channelID *id.ID, validUntil time.Duration,
+		params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
+
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //
 	////////////////////////////////////////////////////////////////////////////
@@ -420,7 +429,8 @@ type ExtensionMessageHandler interface {
 //
 // Note: The first thing the function should do is extract the extension's event
 // model using the call:
-//  eventModel, success := e.(ExtensionEventModel)
+//
+//	eventModel, success := e.(ExtensionEventModel)
 //
 // It should return an error if the casting is a failure.
 type ExtensionBuilder func(e EventModel, m Manager,

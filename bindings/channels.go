@@ -1377,6 +1377,50 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
 }
 
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very
+// lightweight.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//   - validUntilMS - The lease of the message. This will be how long the
+//     message is available from the network, in milliseconds. As per the
+//     [channels.Manager] documentation, this has different meanings depending
+//     on the use case. These use cases may be generic enough that they will not
+//     be enumerated here. Use [channels.ValidForever] to last the max message
+//     life.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+//
+// Returns:
+//   - []byte - JSON of [ChannelSendReport].
+func (cm *ChannelsManager) SendSilent(channelIdBytes []byte, validUntilMS int64,
+	cmixParamsJSON []byte) ([]byte, error) {
+	// Unmarshal channel ID and parameters
+	channelID, params, err := parseChannelsParameters(
+		channelIdBytes, cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate lease
+	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	// Send invite
+	messageID, rnd, ephID, err := cm.api.SendSilent(
+		channelID, lease, params.CMIX)
+
+	// Construct send report
+	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
+
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Admin Sending                                                              //
 ////////////////////////////////////////////////////////////////////////////////

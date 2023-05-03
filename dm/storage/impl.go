@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"gorm.io/gorm"
 	"time"
 )
@@ -163,6 +164,7 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 
 func (i *impl) BlockSender(senderPubKey ed25519.PublicKey) {
 	parentErr := "failed to BlockSender"
+
 	err := i.setBlocked(senderPubKey, true)
 	if err != nil {
 		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
@@ -184,8 +186,14 @@ func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error 
 		return err
 	}
 
+	var timeBlocked *time.Time = nil
+	if isBlocked {
+		blockUser := netTime.Now()
+		timeBlocked = &blockUser
+	}
+
 	return i.upsertConversation(resultConvo.Nickname, resultConvo.Pubkey,
-		resultConvo.Token, resultConvo.CodesetVersion, isBlocked)
+		resultConvo.Token, resultConvo.CodesetVersion, timeBlocked)
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
@@ -197,11 +205,11 @@ func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversa
 	}
 
 	return &dm.ModelConversation{
-		Pubkey:         resultConvo.Pubkey,
-		Nickname:       resultConvo.Nickname,
-		Token:          resultConvo.Token,
-		CodesetVersion: resultConvo.CodesetVersion,
-		Blocked:        *resultConvo.Blocked,
+		Pubkey:           resultConvo.Pubkey,
+		Nickname:         resultConvo.Nickname,
+		Token:            resultConvo.Token,
+		CodesetVersion:   resultConvo.CodesetVersion,
+		BlockedTimestamp: resultConvo.BlockedTimestamp,
 	}
 }
 
@@ -221,11 +229,11 @@ func (i *impl) GetConversations() []dm.ModelConversation {
 	for i := range results {
 		resultConvo := results[i]
 		conversations[i] = dm.ModelConversation{
-			Pubkey:         resultConvo.Pubkey,
-			Nickname:       resultConvo.Nickname,
-			Token:          resultConvo.Token,
-			CodesetVersion: resultConvo.CodesetVersion,
-			Blocked:        *resultConvo.Blocked,
+			Pubkey:           resultConvo.Pubkey,
+			Nickname:         resultConvo.Nickname,
+			Token:            resultConvo.Token,
+			CodesetVersion:   resultConvo.CodesetVersion,
+			BlockedTimestamp: resultConvo.BlockedTimestamp,
 		}
 	}
 	return conversations
@@ -248,13 +256,12 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 			// If there is no extant Conversation, create one.
 			jww.DEBUG.Printf(
 				"[DM SQL] Joining conversation with %s", nickname)
-			isBlocked := false
 			convoToUpdate = &Conversation{
-				Pubkey:         senderKey,
-				Nickname:       nickname,
-				Token:          dmToken,
-				CodesetVersion: codeset,
-				Blocked:        &isBlocked,
+				Pubkey:           senderKey,
+				Nickname:         nickname,
+				Token:            dmToken,
+				CodesetVersion:   codeset,
+				BlockedTimestamp: nil,
 			}
 		}
 	} else {
@@ -284,9 +291,11 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 
 	// Update the conversation in storage, if needed
 	conversationUpdated := convoToUpdate != nil
+
 	if conversationUpdated {
 		err = i.upsertConversation(convoToUpdate.Nickname, convoToUpdate.Pubkey,
-			convoToUpdate.Token, convoToUpdate.CodesetVersion, *convoToUpdate.Blocked)
+			convoToUpdate.Token, convoToUpdate.CodesetVersion,
+			convoToUpdate.BlockedTimestamp)
 		if err != nil {
 			return 0, err
 		}
@@ -350,13 +359,15 @@ func (i *impl) getConversation(senderPubKey ed25519.PublicKey) (*Conversation, e
 
 // upsertConversation is used for updating or creating a Conversation with the given fields.
 func (i *impl) upsertConversation(nickname string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, blocked bool) error {
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timeBlocked *time.Time) error {
+
 	newConvo := Conversation{
-		Pubkey:         pubKey,
-		Nickname:       nickname,
-		Token:          dmToken,
-		CodesetVersion: codeset,
-		Blocked:        &blocked,
+		Pubkey:           pubKey,
+		Nickname:         nickname,
+		Token:            dmToken,
+		CodesetVersion:   codeset,
+		BlockedTimestamp: timeBlocked,
 	}
 	jww.DEBUG.Printf("[DM SQL] Attempting to upsertConversation: %+v", newConvo)
 

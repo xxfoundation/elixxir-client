@@ -226,7 +226,7 @@ func (mr *mockReceiver) GetConversation(pubKey ed25519.PublicKey) *ModelConversa
 	convo.Pubkey = pubKey
 	for i := range mr.blocked {
 		if bytes.Equal(mr.blocked[i][:], pubKey[:]) {
-			convo.Blocked = true
+			convo.BlockedTimestamp = &time.Time{}
 			return &convo
 		}
 	}
@@ -237,8 +237,8 @@ func (mr *mockReceiver) GetConversations() []ModelConversation {
 	convos := make([]ModelConversation, len(mr.blocked))
 	for i := range mr.blocked {
 		convos[i] = ModelConversation{
-			Pubkey:  mr.blocked[i],
-			Blocked: true,
+			Pubkey:           mr.blocked[i],
+			BlockedTimestamp: &time.Time{},
 		}
 	}
 	return convos

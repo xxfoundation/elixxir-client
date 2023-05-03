@@ -151,7 +151,7 @@ func (dc *dmClient) SetNickname(nick string) {
 func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
 	conversation := dc.receiver.GetConversation(senderPubKey)
 	if conversation != nil {
-		return conversation.Blocked
+		return conversation.BlockedTimestamp != nil
 	}
 	return false
 }
@@ -163,7 +163,7 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 	blocked := make([]ed25519.PublicKey, 0)
 	for i := range allConversations {
 		convo := allConversations[i]
-		if convo.Blocked {
+		if convo.BlockedTimestamp != nil {
 			pub := convo.Pubkey
 			blocked = append(blocked, ed25519.PublicKey(pub))
 		}

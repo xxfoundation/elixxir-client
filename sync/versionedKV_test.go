@@ -47,7 +47,7 @@ func TestVersionedKV(t *testing.T) {
 	remoteCallCnt := 0
 	txs := make(map[string][]byte)
 	var lck sync.Mutex
-	updateCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
 		lck.Lock()
 		defer lck.Unlock()
 		require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestVersionedKV(t *testing.T) {
 	})
 	txLog := makeTransactionLog("versionedKV_TestWorkDir", password, t)
 	ekv := ekv.MakeMemstore()
-	rkv, err := NewVersionedKV(txLog, ekv, syncPrefixes, nil, updateCb)
+	rkv, err := newVersionedKV(txLog, ekv, syncPrefixes, nil, updateCb)
 	require.NoError(t, err)
 	// Overwrite remote w/ non file IO option
 	rkv.remoteKV.txLog.remote = &mockRemote{
@@ -166,7 +166,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 	remoteCallCnt := 0
 	txs := make(map[string][]byte)
 	var lck sync.Mutex
-	updateCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
 		lck.Lock()
 		defer lck.Unlock()
 		require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 	})
 	txLog := makeTransactionLog("versionedKV_TestNewPrefix", password, t)
 	ekv := ekv.MakeMemstore()
-	rkv, err := NewVersionedKV(txLog, ekv, nil, nil, updateCb)
+	rkv, err := newVersionedKV(txLog, ekv, nil, nil, updateCb)
 	require.NoError(t, err)
 	// Overwrite remote w/ non file IO option
 	rkv.remoteKV.txLog.remote = &mockRemote{
@@ -302,7 +302,7 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 	// Construct mock update callback
 	remoteCallCnt := 0
 	var lck sync.Mutex
-	updateCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
 		lck.Lock()
 		defer lck.Unlock()
 		require.NoError(t, err)
@@ -311,7 +311,7 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 	})
 	txLog := makeTransactionLog("versionedKV_TestMaps", password, t)
 	ekv := ekv.MakeMemstore()
-	rkv, err := NewVersionedKV(txLog, ekv, nil, nil, updateCb)
+	rkv, err := newVersionedKV(txLog, ekv, nil, nil, updateCb)
 	require.NoError(t, err)
 	// Overwrite remote w/ non file IO option
 	rkv.remoteKV.txLog.remote = &mockRemote{

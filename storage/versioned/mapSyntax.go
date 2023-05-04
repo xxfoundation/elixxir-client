@@ -83,6 +83,15 @@ func DetectMap(key string) (result KeyType, mapName, elementName string) {
 	return KeyTypeNormal, "", ""
 }
 
+// DetectMapElement Detects if the key is a map element
+func DetectMapElement(key string) (isMapElement bool, mapName, elementName string) {
+	if strings.HasSuffix(key, MapElementKeySuffix) {
+		mapName, elementName = GetElementName(key)
+		return true, mapName, elementName
+	}
+	return false, "", ""
+}
+
 // IsMapElement detects if the key is a mapElement
 func IsMapElement(key string) (IsMapElement bool, mapName, elementName string) {
 	if strings.HasSuffix(key, MapElementKeySuffix) {

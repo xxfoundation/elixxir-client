@@ -17,16 +17,16 @@ import (
 
 const (
 	// expectedHeaderJson is the expected result for calling json.Marshal on a
-	// Header object with example data.
+	// header object with example data.
 	expectedHeaderJson = `{"version":0,"entries":{"key0":"val0","key1":"val1","key2":"val2","key3":"val3","key4":"val4","key5":"val5","key6":"val6","key7":"val7","key8":"val8","key9":"val9"}}`
 
 	// expectedHeaderJsonNewline is the expected result of calling
-	// json.MarshalIndent on a Header object with example data. This differs
+	// json.MarshalIndent on a header object with example data. This differs
 	// from expectedHeaderJson by having a newline character, `\n`. within
-	// Header.entries. expectedHeaderJsonNewline is presented with idents to
+	// header.entries. expectedHeaderJsonNewline is presented with idents to
 	// illustrate that the newline character `\n` is parsed as part of the key
 	// and not as the escape character. Note that if one were to json.Unmarshal
-	// this back into a Header object, then json.Marshal that object, the output
+	// this back into a header object, then json.Marshal that object, the output
 	// would be a single line of text.
 	expectedHeaderJsonNewline = `{
 	"version": 0,
@@ -46,24 +46,24 @@ const (
 }`
 
 	// expectedHeaderSerial is the expected result after calling
-	// Header.serialize with example data.
+	// header.serialize with example data.
 	expectedHeaderSerial = `WFhES1RYTE9HSERSZXlKMlpYSnphVzl1SWpvd0xDSmxiblJ5YVdWeklqcDdJbXRsZVNJNkluWmhiQ0o5ZlE9PQ==`
 )
 
-// Unit test of NewHeader.
+// Unit test of newHeader.
 func TestNewHeader(t *testing.T) {
-	receivedHeader := NewHeader()
-	expectedHeader := &Header{
+	receivedHeader := newHeader()
+	expectedHeader := &header{
 		Version: headerVersion,
 		Entries: make(map[string]string, 0),
 	}
 	require.Equal(t, expectedHeader, receivedHeader)
 }
 
-// Unit test of Header.Set.
+// Unit test of header.Set.
 func TestHeader_Set(t *testing.T) {
 	// Initialize header object
-	head := NewHeader()
+	head := newHeader()
 
 	// Set key-value entry into header
 	key, val := "key", "val"
@@ -75,11 +75,11 @@ func TestHeader_Set(t *testing.T) {
 	require.Equal(t, val, received)
 }
 
-// Error test of Header.Set where Set is called with a duplicate key.
+// Error test of header.Set where Set is called with a duplicate key.
 // Overwriting an entry should not occur.
 func TestHeader_Set_Overwrite(t *testing.T) {
 	// Initialize header object
-	head := NewHeader()
+	head := newHeader()
 
 	// Set key-value entry into header
 	key, originalVal, newVal := "key", "val", "newValFailure"
@@ -94,10 +94,10 @@ func TestHeader_Set_Overwrite(t *testing.T) {
 	require.Equal(t, newVal, received)
 }
 
-// Unit test of Header.Get.
+// Unit test of header.Get.
 func TestHeader_Get(t *testing.T) {
 	// Initialize header object
-	head := NewHeader()
+	head := newHeader()
 
 	// Set key-value entry into header
 	key, val := "key", "val"
@@ -109,12 +109,12 @@ func TestHeader_Get(t *testing.T) {
 	require.Equal(t, val, received)
 }
 
-// Smoke & unit test for Header.MarshalJSON. Checks basic marshaling outputs expected
+// Smoke & unit test for header.MarshalJSON. Checks basic marshaling outputs expected
 // data. Further edge checks that when given a key with a newline character, the
 // character is parsed as part of a string value and not as an escape character.
 func TestHeader_MarshalJSON(t *testing.T) {
 	// Initialize header object
-	head := NewHeader()
+	head := newHeader()
 
 	// Create multiple entries for JSON
 	const numTests = 10
@@ -142,10 +142,10 @@ func TestHeader_MarshalJSON(t *testing.T) {
 	require.Equal(t, expectedHeaderJsonNewline, string(marshaledData))
 }
 
-// Smoke & unit test for Header.UnmarshalJSON.
+// Smoke & unit test for header.UnmarshalJSON.
 func TestHeader_UnmarshalJSON(t *testing.T) {
 	// Initialize header object
-	oldHeader := NewHeader()
+	oldHeader := newHeader()
 
 	// Create multiple entries for JSON
 	const numTests = 10
@@ -159,7 +159,7 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct a new header and unmarshal the old header into it
-	newHeader := NewHeader()
+	newHeader := newHeader()
 	require.NoError(t, json.Unmarshal(oldHeaderData, newHeader))
 
 	// Ensure that the newHeader.UnmarshalJSON call places oldHeader's data
@@ -179,10 +179,10 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 
 }
 
-// Smoke test of Header.serialize.
+// Smoke test of header.serialize.
 func TestHeader_Serialize(t *testing.T) {
 	// Initialize header object
-	head := NewHeader()
+	head := newHeader()
 
 	// Set key-value entry into header
 	key, val := "key", "val"
@@ -197,10 +197,10 @@ func TestHeader_Serialize(t *testing.T) {
 }
 
 // Unit test of deserializeHeader. Ensures that deserialize will construct
-// the same Header that was serialized using Header.serialize.
+// the same header that was serialized using header.serialize.
 func TestHeader_Deserialize(t *testing.T) {
 	// Initialize header object
-	head := NewHeader()
+	head := newHeader()
 
 	// Set key-value entry into header
 	key, val := "key", "val"

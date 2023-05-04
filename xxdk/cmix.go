@@ -693,16 +693,6 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	rngStream := rng.GetStream()
 	defer rngStream.Close()
 
-	// Create and store an instance ID
-	instanceID, err := cmix.NewRandomInstanceID(rngStream)
-	if err != nil {
-		return nil, err
-	}
-	err = cmix.StoreInstanceID(instanceID, storageSess.GetKV())
-	if err != nil {
-		return nil, err
-	}
-
 	// Move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 

@@ -19,7 +19,7 @@ import (
 ///////////////////////////////////////////////////////////////////////////////
 
 // FileSystemStorage implements [RemoteStore], and can be used as a
-// local [FileIO] for the transaction log as well as for testing
+// local [FileIO] for the mutate log as well as for testing
 // RemoteStorage users. This utilizes the [os.File] IO
 // operations.
 type FileSystemStorage struct {
@@ -38,7 +38,7 @@ func NewFileSystemRemoteStorage(baseDir string) *FileSystemStorage {
 	}
 }
 
-// Read reads data from path. This will return an error if it fails to read
+// Read reads data from path. This will return an error if it fails to Read
 // from the file path.
 //
 // This utilizes utils.ReadFile under the hood.
@@ -46,8 +46,8 @@ func (f *FileSystemStorage) Read(path string) ([]byte, error) {
 	return utils.ReadFile(filepath.Join(f.baseDir, path))
 }
 
-// Write will write data to path. This will return an error if it fails to
-// write.
+// Write will Write data to path. This will return an error if it fails to
+// Write.
 //
 // This utilizes utils.WriteFileDef under the hood.
 func (f *FileSystemStorage) Write(path string, data []byte) error {
@@ -70,7 +70,7 @@ func (f *FileSystemStorage) GetLastModified(path string) (
 	return utils.GetLastModified(filepath.Join(f.baseDir, path))
 }
 
-// GetLastWrite will retrieve the most recent successful write operation
+// GetLastWrite will retrieve the most recent successful Write operation
 // that was received by RemoteStore.
 func (f *FileSystemStorage) GetLastWrite() (time.Time, error) {
 	return f.lastWrite, nil

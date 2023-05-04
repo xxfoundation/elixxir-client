@@ -53,13 +53,18 @@ type historicalRoundsRtn struct {
 // RoundEventCallback interface which reports the requested rounds.
 // Designed such that the caller may decide how much detail they need.
 // allRoundsSucceeded:
-//   Returns false if any rounds in the round map were unsuccessful.
-//   Returns true if ALL rounds were successful
+//
+//	Returns false if any rounds in the round map were unsuccessful.
+//	Returns true if ALL rounds were successful
+//
 // timedOut:
-//    Returns true if any of the rounds timed out while being monitored
-//	  Returns false if all rounds statuses were returned
+//
+//	   Returns true if any of the rounds timed out while being monitored
+//		  Returns false if all rounds statuses were returned
+//
 // rounds contains a mapping of all previously requested rounds to
-//   their respective round results
+//
+//	their respective round results
 type RoundEventCallback func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult)
 
 // GetRoundResults adjudicates on the rounds requested. Checks if they are

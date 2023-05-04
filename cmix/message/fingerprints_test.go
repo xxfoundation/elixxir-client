@@ -154,7 +154,8 @@ func TestFingerprintsManager_DeleteClientFingerprints(t *testing.T) {
 }
 
 // TODO: Consider moving this to a test utils somewhere else. Maybe in the
-//  interfaces package?
+//
+//	interfaces package?
 type MockMsgProcessor struct{}
 
 func NewMockMsgProcessor(face interface{}) *MockMsgProcessor {

@@ -9,23 +9,26 @@
 package sync
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"path/filepath"
+	"sort"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Stoppable constants.
 const (
-	collectorStoppable       = "collectorStoppable"
 	collectorRunnerStoppable = "collectorRunnerStoppable"
+	writerRunnerStoppable    = "writerRunnerStoppable"
 )
 
 // todo: determine actual value
@@ -47,81 +50,96 @@ const (
 
 // Log messages
 const (
-	serializeDeviceTxErr       = "[%s] Failed to read for local values for %s: %v"
-	retrieveTxLogFromDeviceErr = "[%s] Failed to serialize this device's transaction log: %+v"
+	serializeDeviceTxErr       = "[%s] Failed to Read for local values for %s: %v"
+	retrieveTxLogFromDeviceErr = "[%s] Failed to serialize this device's mutate log: %+v"
 	retrieveDeviceOffsetErr    = "[%s] Failed to retrieve offset for device %s, assuming it to be zero"
-	localMoreRecentThanLocal   = "[%s] Transaction key %s has local val newer than remote value"
-	upsertTxErr                = "[%s] Failed to upsert for transaction with key %s: %v"
-	localSetErr                = "[%s] Failed to locally set for transaction with key %s: %v"
+	localMoreRecentThanLocal   = "[%s] Mutate key %s has local val newer than remote value"
+	upsertTxErr                = "[%s] Failed to upsert for mutate with key %s: %v"
+	localSetErr                = "[%s] Failed to locally set for mutate with key %s: %v"
 )
 
-// Collector is responsible for reading and collecting all device updates.
-type Collector struct {
+// lastMutationReadStorage
+const lastMutationReadStorageKey = "lastMutationReadStorageKey_"
+
+// collector is responsible for reading and collecting all device updates.
+type collector struct {
 	// The base path for synchronization
 	syncPath string
 
 	// This local instance ID
 	myID cmix.InstanceID
 
-	// The last time each transaction log was read successfully
-	lastUpdates map[cmix.InstanceID]time.Time
+	// The last time each mutate log was Read successfully
+	lastUpdateRead     map[cmix.InstanceID]time.Time
+	devicePatchTracker map[cmix.InstanceID]*Patch
+	lastMutationRead   map[cmix.InstanceID]time.Time
 
 	// The max time we assume synchronization takes to happen.
 	// This is constant across clients but stored in the object
 	// for future parameterization.
-	SynchronizationEpoch time.Duration
+	synchronizationEpoch time.Duration
 
-	// The local transaction log for this device
-	txLog *TransactionLog
+	// The local mutate log for this device
+	txLog *remoteWriter
 	// The connection to the remote storage system for reading other device data.
 	remote RemoteStore
 
-	myLogPath string
-
 	// The remote storage EKV wrapper
-	kv *VersionedKV
+	kv *internalKV
 
-	deviceTxTracker *deviceTransactionTracker
+	encrypt encryptor
+
+	//tracks connection state
+	connected *uint32
+	*notifier
+
+	//tracks if the system has synched with remote
+	synched *uint32
 }
 
-// NewCollector constructs a collector object.
-func NewCollector(syncPath string, txLog *TransactionLog,
-	remote RemoteStore, kv *VersionedKV) *Collector {
-	myID, err := cmix.LoadInstanceID(kv)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	txLogPath := filepath.Join(syncPath,
-		fmt.Sprintf(txLogPathFmt, myID,
-			keyID(txLog.deviceSecret)))
-	return &Collector{
+// newCollector constructs a collector object.
+func newCollector(myID cmix.InstanceID, syncPath string,
+	remote RemoteStore, kv *internalKV, encrypt encryptor,
+	writer *remoteWriter) *collector {
+
+	connected := uint32(0)
+	synched := uint32(0)
+
+	c := &collector{
 		syncPath:             syncPath,
 		myID:                 myID,
-		lastUpdates:          make(map[cmix.InstanceID]time.Time, 0),
-		deviceTxTracker:      newDeviceTransactionTracker(),
-		SynchronizationEpoch: synchronizationEpoch,
-		txLog:                txLog,
+		lastUpdateRead:       make(map[cmix.InstanceID]time.Time),
+		devicePatchTracker:   make(map[cmix.InstanceID]*Patch),
+		lastMutationRead:     make(map[cmix.InstanceID]time.Time),
+		synchronizationEpoch: synchronizationEpoch,
+		txLog:                writer,
 		remote:               remote,
 		kv:                   kv,
-		myLogPath:            txLogPath,
+		encrypt:              encrypt,
+		connected:            &connected,
+		synched:              &synched,
 	}
+	c.notifier = &notifier{}
 
-}
+	c.txLog.Register(func(state bool) {
+		isConnected := c.isConnected()
+		if state && isConnected {
+			c.Notify(true)
+		} else if !isConnected {
+			c.Notify(false)
+		}
+	})
 
-// StartProcesses will begin a long-running thread to collect and
-// synchronize changes across devices.
-func (c *Collector) StartProcesses() (stoppable.Stoppable, error) {
-	// Construct stoppables
-	multiStoppable := stoppable.NewMulti(collectorStoppable)
-	stopper := stoppable.NewSingle(collectorRunnerStoppable)
-	go c.runner(stopper)
-	return multiStoppable, nil
+	c.loadLastMutationTime()
+
+	return c
+
 }
 
 // runner is the long-running thread responsible for collecting changes and
 // synchronizing changes across devices.
-func (c *Collector) runner(stop *stoppable.Single) {
-	t := time.NewTicker(c.SynchronizationEpoch)
+func (c *collector) runner(stop *stoppable.Single) {
+	t := time.NewTicker(c.synchronizationEpoch)
 	select {
 	case <-t.C:
 		c.collect()
@@ -134,25 +152,79 @@ func (c *Collector) runner(stop *stoppable.Single) {
 	}
 }
 
+func (c *collector) isConnected() bool {
+	return atomic.LoadUint32(c.connected) == 1
+}
+
+// IsConnected returns true if the system is capable of both reading
+// and writing to remote
+func (c *collector) IsConnected() bool {
+	return c.isConnected() && c.txLog.RemoteUpToDate()
+}
+
+// IsSynched returns true if the local data has been synchronized with remote
+// during its lifetime
+func (c *collector) IsSynched() bool {
+	return atomic.LoadUint32(c.synched) == 1
+}
+
+// WaitUntilSynched waits until either timeout time has elapsed
+// or the system successfully synchronizes with the remote
+// polls every 100ms
+func (c *collector) WaitUntilSynched(timeout time.Duration) bool {
+	start := netTime.Now()
+
+	for time.Now().Sub(start) < timeout {
+		if c.IsSynched() {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return false
+}
+
+func (c *collector) notify(state bool) {
+	var toWrite uint32
+	if state {
+		toWrite = 1
+	} else {
+		toWrite = 0
+	}
+	old := atomic.SwapUint32(c.connected, toWrite)
+	if toWrite != old {
+		if !state {
+			c.Notify(false)
+		} else if writerConnected := c.txLog.RemoteUpToDate(); state && writerConnected {
+			c.Notify(true)
+		}
+	}
+}
+
 // collect will collect, organize and apply all changes across devices.
-func (c *Collector) collect() {
+func (c *collector) collect() {
 	// note this returns full device paths from the perspective of
 	// the remote
-	devices, err := c.remote.ReadDir(c.syncPath)
+	devicePaths, err := c.remote.ReadDir(c.syncPath)
 	if err != nil {
-		// todo: handle err
-		jww.WARN.Printf("[%s] Failed to read devices: %+v",
+		c.notify(false)
+		jww.WARN.Printf("[%s] Failed to Read devices: %+v",
 			collectorLogHeader, err)
 		return
 	}
 
 	start := netTime.Now()
 
+	devices := c.initDevices(devicePaths)
 	newUpdates, err := c.collectChanges(devices)
 	if err != nil {
 		jww.WARN.Printf("[%s] Failed to collect updates: %+v",
 			collectorLogHeader, err)
+		c.notify(false)
+		return
 	}
+
+	c.notify(true)
 
 	// update this record only if we succeed in applying all changes!
 	if err = c.applyChanges(); err != nil {
@@ -161,269 +233,263 @@ func (c *Collector) collect() {
 		return
 	}
 
+	atomic.StoreUint32(c.synched, 1)
+
 	elapsed := netTime.Now().Sub(start).Milliseconds()
 	jww.INFO.Printf("[%s] Applied new updates took %d ms",
 		collectorLogHeader, elapsed)
 
-	c.lastUpdates = newUpdates
+	c.lastUpdateRead = newUpdates
 
 }
 
 // collectChanges will collate all changes across all devices.
-func (c *Collector) collectChanges(devices []string) (
+func (c *collector) collectChanges(devices []cmix.InstanceID) (
 	map[cmix.InstanceID]time.Time, error) {
-	// Map of Device to list of (new) transactions
-	oldestUpdate := time.Now().Add(-2 * c.SynchronizationEpoch)
 
 	newUpdates := make(map[cmix.InstanceID]time.Time, 0)
 
-	// FIXME: This should get stored in collector directly?
-	keyID := keyID(c.txLog.deviceSecret)
-
+	wg := &sync.WaitGroup{}
+	connectionFailed := uint32(0)
 	// Iterate over devices
-	for _, deviceIDStr := range devices {
-		deviceID, err := cmix.NewInstanceIDFromString(deviceIDStr)
-		// If the Device ID is invalid, ignore this directory
-		if err != nil {
-			jww.WARN.Printf("Invalid InstanceID: %s", deviceIDStr)
-			continue
-		}
-		// Retrieve updates from device
-		logPath := filepath.Join(c.syncPath,
-			fmt.Sprintf(txLogPathFmt, deviceID, keyID))
-		lastUpdate, err := c.remote.GetLastModified(logPath)
-		if err != nil {
-			return nil, errors.Errorf(deviceUpdateRetrievalErr,
-				logPath, err)
-		}
-		// Get the last update
-		lastTrackedUpdate := c.lastUpdates[deviceID]
-		// If us, read the local log, otherwise read the remote log
-		if deviceID != c.myID &&
-			(lastUpdate.Before(lastTrackedUpdate) ||
-				lastUpdate.Equal(lastTrackedUpdate)) {
-			continue
-		}
-
-		// During this pass, record the oldest update across devices
-		if oldestUpdate.After(lastUpdate) {
-			oldestUpdate = lastUpdate
-		}
-
-		// If us, read the local log, otherwise read the remote log
-		// TODO: in the future this could work like an open call instead of
-		//  sucking the entire thing into memory.
-		txLog, err := c.readFromDevice(logPath)
-		if err != nil {
-			jww.WARN.Printf("%s", err)
-			continue
-		}
-
-		offset := c.getTxLogOffset(deviceIDStr)
-
-		// Read all transactions since the last time we saw an update from this
-		// device.
-		// TODO: in the future we could turn this into like an iterator, where
-		//  the “next” change across all devices get read, but for now drop them
-		//  into a list per device.
-		deviceChanges, err := c.readTransactionsFromLog(
-			txLog, deviceIDStr, offset, c.GetDeviceSecret(deviceIDStr))
-		if err != nil {
-			jww.WARN.Printf("failed to read transaction log for %s: %+v",
-				deviceIDStr, err)
-			continue
-		}
-
-		c.deviceTxTracker.AddToDevice(deviceID, deviceChanges)
-
-		jww.TRACE.Printf("Recorded %d changed for device %s",
-			len(deviceChanges), deviceIDStr)
-
-		newUpdates[deviceID] = lastUpdate
-
-	}
-	return newUpdates, nil
-}
-
-// readFromDevice is a helper function which will read the transaction logs from
-// the DeviceID.
-func (c *Collector) readFromDevice(txLogPath string) (
-	txLog []byte, err error) {
-
-	if txLogPath != c.myLogPath {
-		// Retrieve device's transaction log if it is not this device
-		txLog, err = c.remote.Read(txLogPath)
-		if err != nil {
-			// todo: continue or return here?
-			return nil, errors.Errorf(
-				retrieveTxLogFromDeviceErr, collectorLogHeader, err)
-		}
-	} else {
-		txLog, err = c.txLog.serialize()
-		if err != nil {
-			// todo: continue or return here?
-			return nil, errors.Errorf(
-				retrieveTxLogFromDeviceErr, collectorLogHeader, err)
-		}
-	}
-	return txLog, nil
-}
-
-// applyChanges will order the transactionChanges and apply them to the Collector.
-func (c *Collector) applyChanges() error {
-	// Now apply all collected changes
-	ordered := c.deviceTxTracker.Sort()
-	for _, tx := range ordered {
-		lastWrite, _ := c.remote.GetLastWrite()
-		localVal, err := c.remote.Read(tx.Key)
-		if err != nil {
-			jww.WARN.Printf(serializeDeviceTxErr, collectorLogHeader, tx.Key, err)
-			continue
-		}
-
-		// If the local value last write is before the current then we need to
-		// upsert it, otherwise the oldest transaction takes precedence over the
-		// local value (because local is ahead) and we will overwrite it
-		if tx.Timestamp.After(lastWrite) {
-			jww.WARN.Printf(localMoreRecentThanLocal, collectorLogHeader, tx.Key)
-			if err = c.kv.Remote().UpsertLocal(tx.Key, localVal); err != nil {
-				jww.WARN.Printf(upsertTxErr, collectorLogHeader, tx.Key, err)
-				continue
+	for _, deviceID := range devices {
+		wg.Add(1)
+		go func(deviceID cmix.InstanceID) {
+			defer wg.Done()
+			//do not get from remote for my data
+			if deviceID == c.myID {
+				return
 			}
 
-		} else {
-
-			if err = c.kv.Remote().SetBytes(tx.Key, tx.Value); err != nil {
-				jww.WARN.Printf(localSetErr, collectorLogHeader, tx.Key, err)
-
+			// Get the last time the device log was written on the remote
+			logPath := filepath.Join(c.syncPath,
+				fmt.Sprintf(txLogPathFmt, deviceID, keyID))
+			lastRemoteUpdate, err := c.remote.GetLastModified(logPath)
+			if err != nil {
+				atomic.AddUint32(&connectionFailed, 1)
+				jww.WARN.Printf("Failed to get last modified for %s "+
+					"at %s: %+v", deviceID, logPath, err)
+				return
 			}
 
-		}
+			// determine the update timestamp we saw from the device
+			lastTrackedUpdate := c.lastUpdateRead[deviceID]
 
+			// If us, Read the local log, otherwise Read the remote log
+			if !lastRemoteUpdate.After(lastTrackedUpdate) {
+				return
+			}
+
+			// Read the remote log
+			patchFile, err := c.readFromDevice(logPath)
+			if err != nil {
+				atomic.AddUint32(&connectionFailed, 1)
+				jww.WARN.Printf("failed to Read the log from %s "+
+					"at %s %+v", deviceID, logPath, err)
+				return
+			}
+
+			_, patch, err := handleIncomingFile(patchFile, c.encrypt)
+			if err != nil {
+				jww.WARN.Printf("failed to handle incoming file for %s "+
+					"at %s: %+v", deviceID, logPath, err)
+				return
+			}
+
+			// preallocated
+			c.devicePatchTracker[deviceID] = patch
+			newUpdates[deviceID] = lastRemoteUpdate
+		}(deviceID)
 	}
+	wg.Wait()
 
-	return nil
-}
-
-// GetDeviceSecret will return the device secret for the given device identifier.
-//
-// Fixme: For now, it will return the master secret, this will be an rpc in
-//
-//	future, return master secret
-func (c *Collector) GetDeviceSecret(d string) []byte {
-	return c.txLog.deviceSecret
-}
-
-// readTransactionsFromLog is a utility function which reads all Transaction's
-// after the last read. This deserializes a TransactionLog and must have the
-// device's secret passed in to decrypt transactions.
-func (c *Collector) readTransactionsFromLog(txLogSerialized []byte, instanceID string,
-	offset int, deviceSecret []byte) ([]Transaction, error) {
-	txLog := &TransactionLog{
-		deviceSecret: deviceSecret,
-	}
-	if err := txLog.deserialize(txLogSerialized); err != nil {
-		return nil, errors.Errorf(
-			"failed to deserialize transaction log: %+v", err)
-	}
-
-	if err := c.setTxLogOffset(instanceID, len(txLog.txs)); err != nil {
+	if connectionFailed < 0 {
+		err := errors.Errorf("failed to read %d logs, aborting "+
+			"collection", connectionFailed)
 		return nil, err
 	}
 
-	return txLog.txs[offset:], nil
+	return newUpdates, nil
 }
 
-// getTxLogOffset is a helper function which will read a instance ID's offset
-// from storage. If it cannot retrieve the offset from local, it will assume
-// zero value.
-func (c *Collector) getTxLogOffset(instanceID string) int {
-	offsetData, err := c.kv.Remote().GetBytes(deviceOffsetKey(instanceID))
+// readFromDevice is a helper function which will Read the patch from
+// the DeviceID.
+func (c *collector) readFromDevice(txLogPath string) (
+	txLog []byte, err error) {
+
+	// Retrieve device's mutate log if it is not this device
+	txLog, err = c.remote.Read(txLogPath)
 	if err != nil {
-		jww.WARN.Printf(retrieveDeviceOffsetErr, collectorLogHeader, instanceID)
+		return nil, errors.Errorf(
+			retrieveTxLogFromDeviceErr, collectorLogHeader, err)
 	}
 
-	if len(offsetData) != 8 {
-		return 0
+	return txLog, nil
+}
+
+// applyChanges will order the transactionChanges and apply them to the collector.
+func (c *collector) applyChanges() error {
+
+	// get local patch and lock transaction log so no remote wite are witten
+	// while changes are applied
+	localPatch, unlock := c.txLog.Read()
+	defer unlock()
+	c.devicePatchTracker[c.myID] = localPatch
+	c.lastMutationRead[c.myID] = netTime.Now()
+
+	//prepare the data for the diff
+	devices, patches, ignoreBefore := prepareDiff(c.devicePatchTracker, c.lastMutationRead)
+
+	//execute the diff
+	updates, lastSeen := localPatch.Diff(patches, ignoreBefore)
+
+	// store the timestamps
+	for i, device := range devices {
+		c.lastMutationRead[device] = lastSeen[i]
 	}
+	c.saveLastMutationTime()
 
-	return int(deserializeInt(offsetData))
-}
-
-// setTxLogOffset is a helper function which writes the latest offset value for
-// the given device to local storage.
-func (c *Collector) setTxLogOffset(instanceID string, offset int) error {
-	data := serializeInt(offset)
-	return c.kv.Remote().SetBytes(deviceOffsetKey(instanceID), data)
-}
-
-// deviceOffsetKey is a helper function which creates the key for
-// setTxLogOffset & getTxLogOffset.
-func deviceOffsetKey(id string) string {
-	return id + "offset"
-}
-
-// deviceTransactionTracker is a structure which tracks the ordered changes of a
-// deviceID and the device's Transaction's.
-type deviceTransactionTracker struct {
-	// Map instanceID -> ordered list of Transactions
-	changes map[cmix.InstanceID][]Transaction
-}
-
-// newDeviceTransactionTracker is the constructor of the
-// deviceTransactionTracker.
-func newDeviceTransactionTracker() *deviceTransactionTracker {
-	return &deviceTransactionTracker{
-		changes: make(map[cmix.InstanceID][]Transaction, 0),
-	}
-}
-
-// AddToDevice will add a list of Transaction's to the tracked changes.
-func (d *deviceTransactionTracker) AddToDevice(instanceID cmix.InstanceID,
-	changes []Transaction) {
-	d.changes[instanceID] = append(d.changes[instanceID], changes...)
-}
-
-// Sort will return the list of Transaction's since the last call to Sort on
-// this DeviceID.
-func (d *deviceTransactionTracker) Sort() []Transaction {
-	sorted := make([]Transaction, 0)
-	// todo: these transaction lists are already sorted, so there
-	//  is a more efficient way of doing this. Implement this
-	//  when iterating over this code. Example code:
-	//  changesToCompare = []change
-	//  for device, changeList := range changes {
-	//    if changeList != nil && len(changeList) != 0 {
-	//      changesToCompare = append(changesToCompare, changeList[0])
-	//      // pop the first change off this change list, then save it
-	//      changeList = changeList[1:]
-	//      changes[device] = changeList
-	//  }
-	//  if len(changesToCompare) == 0 { // return error/end/whatever }
-	//  /*key code below*/
-	//  oldest := changesToCompare[0]
-	//  for i := 1; i < len(changesToCompare); i++ {
-	//     change = changesToCompare[i]
-	//     if oldest.Timestamp.After(change.Timestamp) {
-	//        oldest = change
-	//    }
-	//  }
-	// Iterate over all device transactions
-	for _, txs := range d.changes {
-		// Insert into sorted list
-		for _, tx := range txs {
-			sorted = insertionSort(sorted, tx)
+	// Sort the updates by map and execute the key operations
+	wg := sync.WaitGroup{}
+	mapUpdates := make(map[string]map[string]*Mutate)
+	for key := range updates {
+		isMapElement, mapName, _ := versioned.DetectMapElement(key)
+		if isMapElement {
+			mapObj, exists := mapUpdates[mapName]
+			if !exists {
+				mapObj = make(map[string]*Mutate)
+				mapUpdates[mapName] = mapObj
+			}
+			mapObj[key] = updates[key]
+		} else {
+			wg.Add(1)
+			func(key string, m *Mutate) {
+				if m.Deletion {
+					err := c.kv.DeleteFromRemote(key)
+					if err != nil {
+						jww.WARN.Printf("Failed to Delete %s "+
+							"from remote: %+v", key, err)
+					}
+				} else {
+					err := c.kv.SetBytesFromRemote(key, m.Value)
+					if err != nil {
+						jww.FATAL.Panicf("Failed to set %s from remote: "+
+							"%+v", key, err)
+					}
+				}
+			}(key, updates[key])
 		}
 	}
 
-	d.changes = make(map[cmix.InstanceID][]Transaction, 0)
-	return sorted
+	//apply the map updates
+	for mapName := range mapUpdates {
+		mapUpdate := mapUpdates[mapName]
+		err := c.kv.MapTransactionFromRemote(mapName, mapUpdate)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to update map %sL %+v", mapName, err)
+		}
+	}
+	return nil
 }
 
-func keyID(secret []byte) string {
-	// this will panic on error, intentional
-	h, _ := hash.NewCMixHash()
-	keyIDBytes := h.Sum(secret)
+func prepareDiff(devicePatchTracker map[cmix.InstanceID]*Patch,
+	lastMutationRead map[cmix.InstanceID]time.Time) ([]cmix.InstanceID, []*Patch, []time.Time) {
+	//sort the devices so they are in supremacy order
+	devices := make([]cmix.InstanceID, 0, len(devicePatchTracker))
+	for deviceID := range devicePatchTracker {
+		devices = append(devices, deviceID)
+	}
 
-	return base64.RawStdEncoding.EncodeToString(keyIDBytes)
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].Cmp(devices[j]) == 1
+	})
+
+	patches := make([]*Patch, len(devices))
+	lastSeen := make([]time.Time, len(devices))
+
+	for i := 0; i < len(devices); i++ {
+		patches[i] = devicePatchTracker[devices[i]]
+		lastSeen[i] = lastMutationRead[devices[i]]
+	}
+
+	return devices, patches, lastSeen
+}
+
+func (c *collector) saveLastMutationTime() {
+	storageKey := makeLastMutationKey(c.myID)
+	data, err := json.Marshal(&c.lastMutationRead)
+	if err != nil {
+		jww.WARN.Printf("Failed to encode lastMutationRead to store "+
+			"to disk at %s, data may be replayed: %+v", storageKey, err)
+		return
+	}
+
+	if err = c.kv.SetBytes(makeLastMutationKey(c.myID), data); err != nil {
+		jww.WARN.Printf("Failed to store lastMutationRead to "+
+			"to disk at %s, data may be replayed: %+v", storageKey, err)
+	}
+}
+
+func (c *collector) loadLastMutationTime() {
+	storageKey := makeLastMutationKey(c.myID)
+	data, err := c.kv.GetBytes(storageKey)
+	if err != nil {
+		jww.WARN.Printf("Failed to load lastMutationRead from "+
+			"to disk at %s, data may be replayed: %+v", storageKey, err)
+		return
+	}
+
+	c.lastMutationRead = make(map[cmix.InstanceID]time.Time)
+	err = json.Unmarshal(data, &c.lastMutationRead)
+	if err != nil {
+		jww.WARN.Printf("Failed to unmarshal lastMutationRead loaded "+
+			"from disk at %s, data may be replayed: %+v", storageKey, err)
+		return
+	}
+}
+
+func (c *collector) initDevices(devicePaths []string) []cmix.InstanceID {
+	devices := make([]cmix.InstanceID, 0, len(devicePaths))
+
+	for i, deviceIDStr := range devicePaths {
+		deviceID, err := cmix.NewInstanceIDFromString(deviceIDStr)
+		if err == nil {
+			jww.WARN.Printf("Failed to decode device ID for "+
+				"index %d: %s, skipping", i, deviceIDStr)
+			continue
+		}
+		devices = append(devices, deviceID)
+		if _, exists := c.lastUpdateRead[deviceID]; !exists {
+			c.lastUpdateRead[deviceID] = time.Unix(0, 0).UTC()
+			c.lastMutationRead[deviceID] = time.Unix(0, 0).UTC()
+			c.devicePatchTracker[deviceID] = newPatch()
+		}
+	}
+	return devices
+}
+
+func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, error) {
+	h, ecrPatchBytes, err := decodeFile(patchFile)
+	if err != nil {
+		err = errors.WithMessagef(err, "failed to decode the file")
+		return nil, nil, err
+	}
+
+	patchBytes, err := decrypt.Decrypt(ecrPatchBytes)
+	if err != nil {
+		err = errors.WithMessagef(err, "failed to decrypt the patch")
+		return h, nil, err
+	}
+	patch := newPatch()
+	err = patch.Deserialize(patchBytes)
+	if err != nil {
+		err = errors.WithMessagef(err, "failed to decode the patch from file")
+		return h, nil, err
+	}
+
+	return h, patch, nil
+}
+
+func makeLastMutationKey(deviceID cmix.InstanceID) string {
+	return lastMutationReadStorageKey + deviceID.String()
 }

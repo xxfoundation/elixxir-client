@@ -24,14 +24,14 @@ import (
 
 const (
 	// expectedTransactionLogSerializedBase64 is the base64 encoded serialized
-	// TransactionLog. If the state set in the mock TransactionLog is changed,
+	// remoteWriter. If the state set in the mock remoteWriter is changed,
 	// this value should be changed to reflect this.
 	expectedTransactionLogSerializedBase64 = `MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0VAAAAAAAAAFhYREtUWExPR0RWQ09GRlNUZTMwPQYAAAAAAAAAkgAAAAAAAAAwLEhKcEhGVnF0eDJvcVVvanZGbVBpVDBlR25EVEVyUDlmOFBOcC0wYVZ6c29RcnVQMXozQ2paU1VabXBSRDFXWmRjNGFRV1VaY25rTEFFV3RRcUZnU181cWI0YThQaTB4Yy04YUlzOHBKRXo1SnJKOVZKdzM2RWt1TzY0U0prOEQ2bzlURVhYM1V0ay1FVGYwcpIAAAAAAAAAMSxISnBIRlZxdHgyb3FVb2p2Rm1QaVQwZUduRFRFclA5ZnVQb19zdVBhaGdHSzZFQXhRZV9OeWRTMFlHdjJmcFJnRTg0YUdEY2RtbTkyQ3VhV0ZhUnJBZ2ZQWmNVYU41NXRLVTNHbEtoSkVfZTczamVud2dwNW5WemtYbUZvblMzckNNUVdQMUNHSUhwQncxb0GSAAAAAAAAADIsSEpwSEZWcXR4Mm9xVW9qdkZtUGlUMGVHbkRURXJQOWZwRm93UUdMYUpiVGNSNXIzSnY5QmJod1Y0eUozLTd1VlQzOXdIeU1XNTR2eldycjU0eUpTU2l1OF9GVUVMWlVuTDRMNTduc2lQdnp2TWZicE8wWWhEdEdDbHVweFdsZDJVdUxSWmNGWWxpQWFNSlJxkgAAAAAAAAAzLEhKcEhGVnF0eDJvcVVvanZGbVBpVDBlR25EVEVyUDlmLXdEbmMxd1dDWEZuVVcwRFB2Q3F2RngyVEpFYWpYbEd3S2JyclNZWWJhdm1hSmhIQVBNQTh2czZ2ak9CcjZfTFNuT1NvUlZKaFZfa24wQ3Z3RGt3NHAwTWNqWWJUajZfRi1PaXZXOG80X01ScUR6NZIAAAAAAAAANCxISnBIRlZxdHgyb3FVb2p2Rm1QaVQwZUduRFRFclA5ZkdWZXd0ay1BRElUdDhsSkZITE5PRGE1Z254RWZGaXhXYUg2TExTRldUbkMyZjY1WFhvdlJaS1BtMEZsb1ZocDhFX2ZCaUJscmNCUGl2blJ4cWxpc1lyNThmc3pjd0VoWnJRUlhYdkRTcmVJWnhFbm+SAAAAAAAAADUsSEpwSEZWcXR4Mm9xVW9qdkZtUGlUMGVHbkRURXJQOWZtN1ZBME44N1h4S2NLalFFTVBod1NpRjg1M2R3RThCaE1lN0c4NGF6dkdST05PSjctdDgxMWNlV0c2ZVAxRDRrYjduVmY4T0JKaG51OXlNbFBIZUVTeFFOZWN4RHUya3k1Q0o3NXNrRjhlR1RyRTJx`
 )
 
 // Smoke test for NewOrLoadTransactionLog.
 //
-// Intentionally constructs TransactionLog manually for testing purposes.
+// Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
@@ -47,18 +47,18 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 		deviceSecret, rngGen)
 	require.NoError(t, err)
 
-	// Construct expected transaction log object
-	expected := &TransactionLog{
+	// Construct expected mutate log object
+	expected := &remoteWriter{
 		path:               baseDir,
 		local:              localStore,
 		remote:             remoteStore,
-		Header:             NewHeader(),
-		txs:                make([]Transaction, 0),
+		Header:             newHeader(),
+		txs:                make([]Mutate, 0),
 		deviceSecret:       deviceSecret,
 		rngStreamGenerator: rngGen,
 		offsets:            make(deviceOffset, 0),
@@ -70,9 +70,9 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 }
 
 // Unit test for NewOrLoadTransactionLog. Tests whether this will load from
-// disk and deserialize the data into the TransactionLog file.
+// disk and deserialize the data into the remoteWriter file.
 //
-// Intentionally constructs TransactionLog manually for testing purposes.
+// Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct local store
 	localStore := NewKVFilesystem(ekv.MakeMemstore())
@@ -80,13 +80,13 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
-	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {})
+	appendCb := RemoteStoreCallback(func(newTx Mutate, err error) {})
 
 	remoteStore := &mockRemote{data: make(map[string][]byte)}
 
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog, err := NewTransactionLog("baseDir", localStore,
 		remoteStore,
 		deviceSecret, rngGen)
@@ -97,9 +97,9 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 
 	// Insert timestamps
 	for cnt, curTs := range mockTimestamps {
-		// Construct transaction
+		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
+		newTx := NewMutate(curTs, key, []byte(val))
 
 		require.NoError(t, txLog.Append(newTx, appendCb))
 	}
@@ -110,7 +110,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 	}
 
-	// Construct a new TransactionLog, which will load from file
+	// Construct a new remoteWriter, which will load from file
 	newTxLog, err := NewTransactionLog("baseDir", localStore,
 		remoteStore,
 		deviceSecret, rngGen)
@@ -121,27 +121,27 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 }
 
 // Unit test for Append. Ensure that callback is called with every call
-// to TransactionLog.Append.
+// to remoteWriter.Append.
 func TestTransactionLog_Append_Callback(t *testing.T) {
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
 
-	// Insert transaction
+	// Insert mutate
 	for cnt, curTs := range mockTimestamps {
-		curChan := make(chan Transaction, 1)
+		curChan := make(chan Mutate, 1)
 		// Set append callback manually
-		appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+		appendCb := RemoteStoreCallback(func(newTx Mutate, err error) {
 			curChan <- newTx
 		})
 
-		// Construct transaction
+		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
+		newTx := NewMutate(curTs, key, []byte(val))
 
-		// Append transaction
+		// Append mutate
 		require.NoError(t, txLog.Append(newTx, appendCb))
 
 		// Wait for signal sent in callback (or timeout)
@@ -156,21 +156,21 @@ func TestTransactionLog_Append_Callback(t *testing.T) {
 
 }
 
-// Unit test for Save. Ensures that TransactionLog's save function writes to
+// Unit test for Save. Ensures that remoteWriter's saveLastMutationTime function writes to
 // remote and local stores when they are set.
 func TestTransactionLog_Save(t *testing.T) {
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
-	// Insert mock data into transaction log
+	// Insert mock data into mutate log
 	for cnt, curTs := range mockTimestamps {
-		// Construct transaction
+		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
+		newTx := NewMutate(curTs, key, []byte(val))
 
-		// Insert transaction (without saving)
+		// Insert mutate (without saving)
 		txLog.appendUsingQuickSort(newTx)
 	}
 
@@ -180,18 +180,18 @@ func TestTransactionLog_Save(t *testing.T) {
 
 	// Construct callback
 	finishedWritingToRemote := make(chan struct{}, 1)
-	appendCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+	appendCb := RemoteStoreCallback(func(newTx Mutate, err error) {
 		finishedWritingToRemote <- struct{}{}
 	})
 
 	// Write data to remote & local
-	require.NoError(t, txLog.save(Transaction{}, data, appendCb))
+	require.NoError(t, txLog.save(Mutate{}, data, appendCb))
 
 	// Read from local
 	dataFromLocal, err := txLog.local.Read(txLog.path)
 	require.NoError(t, err)
 
-	// Ensure read data from local matches originally written
+	// Ensure Read data from local matches originally written
 	require.Equal(t, data, dataFromLocal)
 
 	// Remote writing is done async, so wait for channel reception via
@@ -205,7 +205,7 @@ func TestTransactionLog_Save(t *testing.T) {
 		dataFromRemote, err := txLog.remote.Read(txLog.path)
 		require.NoError(t, err)
 
-		// Ensure read data from remote matches originally written
+		// Ensure Read data from remote matches originally written
 		require.Equal(t, data, dataFromRemote)
 	}
 
@@ -215,25 +215,25 @@ func TestTransactionLog_Save(t *testing.T) {
 	dataFromRemote, err := txLog.remote.Read(txLog.path)
 	require.NoError(t, err)
 
-	// Ensure read data from remote matches originally written
+	// Ensure Read data from remote matches originally written
 	require.Equal(t, data, dataFromRemote)
 }
 
 // Unit test for Append. Ensures that appendUsingInsertion function will insert
-// new Transaction's into the TransactionLog, and that the transactions are
+// new Mutate's into the remoteWriter, and that the transactions are
 // sorted by timestamp after the insertion.
 func TestTransactionLog_Append_Sorting(t *testing.T) {
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 6)
 
-	// Insert mock data into transaction log
+	// Insert mock data into mutate log
 	for cnt, curTs := range mockTimestamps {
-		// Construct transaction
+		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
+		newTx := NewMutate(curTs, key, []byte(val))
 
 		// Append w/o saving using default append
 		txLog.appendUsingInsertion(newTx)
@@ -253,19 +253,19 @@ func TestTransactionLog_Append_Sorting(t *testing.T) {
 // Unit test for Serialize. Ensures the that function returns the serialized
 // internal state. Checks against a hardcoded base64 string.
 func TestTransactionLog_Serialize(t *testing.T) {
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("baseDir", password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
 
-	// Insert mock data into transaction log
+	// Insert mock data into mutate log
 	for cnt, curTs := range mockTimestamps {
-		// Construct transaction
+		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
+		newTx := NewMutate(curTs, key, []byte(val))
 
-		// Insert transaction
+		// Insert mutate
 		txLog.appendUsingInsertion(newTx)
 	}
 
@@ -281,9 +281,9 @@ func TestTransactionLog_Serialize(t *testing.T) {
 }
 
 // Unit test for Deserialize. Ensures that deserialize will construct the same
-// TransactionLog that was serialized using TransactionLog.serialize.
+// remoteWriter that was serialized using remoteWriter.serialize.
 //
-// Intentionally constructs TransactionLog manually for testing purposes.
+// Intentionally constructs remoteWriter manually for testing purposes.
 func TestTransactionLog_Deserialize(t *testing.T) {
 	// Construct local store
 	baseDir := "testDir"
@@ -297,7 +297,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 
 	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 		deviceSecret, rngGen)
 	require.NoError(t, err)
@@ -305,13 +305,13 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
 
-	// Insert mock data into transaction log
+	// Insert mock data into mutate log
 	for cnt, curTs := range mockTimestamps {
-		// Construct transaction
+		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
+		newTx := NewMutate(curTs, key, []byte(val))
 
-		// Insert transaction
+		// Insert mutate
 		txLog.appendUsingInsertion(newTx)
 	}
 
@@ -319,8 +319,8 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	data, err := txLog.serialize()
 	require.NoError(t, err)
 
-	// Construct a log w/o header and transaction list
-	newTxLog := &TransactionLog{
+	// Construct a log w/o header and mutate list
+	newTxLog := &remoteWriter{
 		path:               baseDir,
 		local:              localStore,
 		remote:             remoteStore,
@@ -328,7 +328,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 		rngStreamGenerator: txLog.rngStreamGenerator,
 	}
 
-	// Deserialize the transaction log
+	// Deserialize the mutate log
 	require.NoError(t, newTxLog.deserialize(data))
 
 	// Ensure deserialized object matches original object
@@ -336,21 +336,21 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 }
 
 // Error case for saveToRemote. Ensures that it should panic when
-// TransactionLog's remoteStoreCallback is nil.
+// remoteWriter's remoteStoreCallback is nil.
 func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
-	// Construct transaction log
+	// Construct mutate log
 	baseDir := "testDir/"
 	txLog := makeTransactionLog(baseDir, password, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
-	// Insert mock data into transaction log
+	// Insert mock data into mutate log
 	for cnt, curTs := range mockTimestamps {
-		// Construct transaction
+		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		newTx := NewTransaction(curTs, key, []byte(val))
+		newTx := NewMutate(curTs, key, []byte(val))
 
-		// Insert transaction
+		// Insert mutate
 		txLog.appendUsingInsertion(newTx)
 	}
 
@@ -366,14 +366,14 @@ func TestTransactionLog_SaveToRemote_NilCallback(t *testing.T) {
 	}()
 
 	// Write data to remote & local
-	txLog.saveToRemote(Transaction{}, data, nil)
+	txLog.saveToRemote(Mutate{}, data, nil)
 
 }
 
-// Benchmark the performance of appending to a transaction log using insertion
+// Benchmark the performance of appending to a mutate log using insertion
 // sort.
 //
-// Intentionally constructs TransactionLog manually for testing purposes.
+// Intentionally constructs remoteWriter manually for testing purposes.
 func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	// Construct local store
 	baseDir := "testDir"
@@ -396,15 +396,15 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		// Construct new transaction log for benchmark iteration
+		// Construct new mutate log for benchmark iteration
 		txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 			deviceSecret, rngGen)
 		require.NoError(b, err)
 
 		for cnt, curTs := range mockTimestamps {
-			// Construct transaction
+			// Construct mutate
 			key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-			newTx := NewTransaction(curTs, key, []byte(val))
+			newTx := NewMutate(curTs, key, []byte(val))
 
 			// Append and use insertion sort
 			txLog.appendUsingInsertion(newTx)
@@ -413,10 +413,10 @@ func BenchmarkTransactionLog_AppendInsertion(b *testing.B) {
 	}
 }
 
-// Benchmark the performance of appending to a transaction log using quicksort
+// Benchmark the performance of appending to a mutate log using quicksort
 // (default algorithm of sort.Slice).
 //
-// Intentionally constructs TransactionLog manually for testing purposes.
+// Intentionally constructs remoteWriter manually for testing purposes.
 func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	// Construct local store
 	baseDir, password := "testDir", "password"
@@ -441,18 +441,18 @@ func BenchmarkTransactionLog_AppendQuick(b *testing.B) {
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
 	for i := 0; i < b.N; i++ {
-		// Clear files so constructed transaction log does not load state
+		// Clear files so constructed mutate log does not load state
 		require.NoError(b, os.RemoveAll(baseDir))
 
-		// Construct new transaction log for benchmark iteration
+		// Construct new mutate log for benchmark iteration
 		txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
 			deviceSecret, rngGen)
 		require.NoError(b, err)
 
 		for cnt, curTs := range mockTimestamps {
-			// Construct transaction
+			// Construct mutate
 			key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-			newTx := NewTransaction(curTs, key, []byte(val))
+			newTx := NewMutate(curTs, key, []byte(val))
 
 			// Append and use insertion sort
 			txLog.appendUsingQuickSort(newTx)

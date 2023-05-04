@@ -8,460 +8,416 @@
 package sync
 
 import (
-	"bytes"
-	"encoding/binary"
-	"sort"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// TransactionLog constants.
+// remoteWriter constants.
 const (
 	// The prefix for a serialized header.
 	xxdkTxLogHeader = "XXDKTXLOGHDR"
 
-	// The delimiter for a serialized transaction.
+	// The delimiter for a serialized mutate.
 	xxdkTxLogDelim = ","
 
 	// The header for the jww log print.
-	logHeader = "Transaction Log"
+	logHeader = "Mutate Log"
+
+	toDiskKeyName = "TransactionLog_"
+
+	defaultUploadPeriod = synchronizationEpoch
 )
 
 // Error messages.
 const (
-	getLastWriteErr           = "failed to get last write operation from remote store: %+v"
-	writeToStoreErr           = "failed to write to local store: %+v"
+	getLastWriteErr           = "failed to get last Write operation from remote store: %+v"
+	writeToStoreErr           = "failed to Write to local store: %+v"
 	loadFromLocalStoreErr     = "failed to deserialize log from local store at path %s: %+v"
-	deserializeTransactionErr = "failed to deserialize transaction (%d/%d): %+v"
+	deserializeTransactionErr = "failed to deserialize mutate (%d/%d): %+v"
 )
 
-var (
-	ErrNoRemote = errors.New("no remote set for transaction log, no sync")
-)
-
-// TransactionLog will log all Transaction's to a storage interface. It will
-// contain all Transaction's in an ordered list, and will ensure to retain order
+// remoteWriter will log all Mutate's to a storage interface. It will
+// contain all Mutate's in an ordered list, and will ensure to retain order
 // when Append is called. This will store to a LocalStore and a RemoteStore when
-// appending Transaction's.
-type TransactionLog struct {
-	// path is the filepath that the TransactionLog will be written to on remote
+// appending Mutate's.
+type remoteWriter struct {
+	// path is the filepath that the remoteWriter will be written to on remote
 	// and local storage.
 	path string
 
-	// local is the local file system (or anything implementing
-	// the FileIO interface).
-	local FileIO
-
-	// remote is the store for writing/reading to a remote store. All writes
-	// should be asynchronous.
-	remote RemoteStore
-
-	// Header is the Header of the TransactionLog.
-	Header *Header
+	// header is the header of the remoteWriter.
+	header *header
 
 	// txs is a list of transactions. This list must always be ordered by
 	// timestamp.
-	txs []Transaction
+	state Patch
 
-	// offsets is the last index a certain instance ID has read.
-	offsets deviceOffset
+	//channel over which writes started localy are processed
+	adds chan transaction
 
-	// deviceSecret is the secret for the device that the TransactionLog will
-	// be stored.
-	deviceSecret []byte
+	// call to Write to remote
+	io FileIO
 
-	// rngStreamGenerator creates cryptographically secure psuedorng streams
-	rngStreamGenerator *fastRNG.StreamGenerator
+	// interface to encrypt and decrypt patch files
+	encrypt encryptor
 
-	lck        sync.RWMutex
-	openWrites int32
+	// kv store
+	kv            ekv.KeyValue
+	localWriteKey string
+
+	// exclusion mutex which ensures writes and deletes do not occur
+	// while the collector is running
+	syncLock *sync.RWMutex
+
+	// tracks if as of the last interaction, we are connected to the
+	// remote
+	remoteUpToDate *uint32
+	*notifier
 }
 
-// NewTransactionLog constructs a TransactionLog object.
-// Note that by default the log's header is empty. To set this field,
-// call TransactionLog.SetHeader.
-//
-// Parameters:
-//   - path - the file path that will be used to write transactions, both locally
-//     and remotely.
-//   - localFS - a filesystem [FileIO] adhering object which will be
-//     used to write the transaction log to file.
-//   - remote - the RemoteStore adhering object which will be used to write the
-//     transaction log to file.
-//   - appendCallback - the callback used to report the status of writing to
-//     remote.
-//   - deviceSecret - the randomly generated secret for this individual device.
-//     This should be unique for every device.
-//   - rng - An io.Reader used for random generation when encrypting data.
-func NewTransactionLog(path string, localFS FileIO, remote RemoteStore,
-	deviceSecret []byte, rng *fastRNG.StreamGenerator) (*TransactionLog,
-	error) {
-
-	// Check if remote is set
-	if remote == nil {
-		jww.FATAL.Panicf("[%s] Cannot write to a nil remote store",
-			logHeader)
-	}
-	return newTransactionLog(path, localFS, remote, deviceSecret, rng)
+type transaction struct {
+	Mutate
+	Key string
 }
 
-// NewLocalTransactionLog constructs a TransactionLog object that does
-// not write to a remote.
+// newRemoteWriter constructs a remoteWriter object that does
+// not Write to a remote.
 //
 // Parameters:
-//   - path - the file path that will be used to write transactions, both locally
+//   - path - the file path that will be used to Write transactions, both locally
 //     and remotely.
 //   - localFS - a filesystem [FileIO] adhering object which will be
-//     used to write the transaction log to file.
+//     used to Write the mutate log to file.
 //   - appendCallback - the callback used to report the status of writing to
 //     remote.
 //   - deviceSecret - the secret for this device to communicate with the others.
 //     Note: In the future this will be unique per device.
 //   - rng - An io.Reader used for random generation when encrypting data.
-func NewLocalTransactionLog(path string, localFS FileIO,
-	deviceSecret []byte, rng *fastRNG.StreamGenerator) (*TransactionLog,
-	error) {
-	return newTransactionLog(path, localFS, nil, deviceSecret, rng)
-}
+func newRemoteWriter(path string, deviceID cmix.InstanceID,
+	io FileIO, encrypt encryptor, kv ekv.KeyValue) (*remoteWriter, error) {
 
-func newTransactionLog(path string, localFS FileIO, remote RemoteStore,
-	deviceSecret []byte, rng *fastRNG.StreamGenerator) (*TransactionLog,
-	error) {
-
-	// Construct a new transaction log
-	tx := &TransactionLog{
-		Header:             NewHeader(),
-		path:               path,
-		local:              localFS,
-		remote:             remote,
-		txs:                make([]Transaction, 0),
-		deviceSecret:       deviceSecret,
-		rngStreamGenerator: rng,
-		offsets:            make(deviceOffset, 0),
+	connected := uint32(0)
+	// Construct a new mutate log
+	tx := &remoteWriter{
+		path:           path,
+		header:         newHeader(deviceID),
+		state:          Patch{},
+		adds:           make(chan transaction, 1000),
+		io:             io,
+		encrypt:        encrypt,
+		kv:             kv,
+		localWriteKey:  makeLocalWriteKey(path),
+		remoteUpToDate: &connected,
 	}
 
-	// Attempt to read stored transaction log
-	data, err := tx.local.Read(path)
+	tx.notifier = &notifier{}
+
+	// Attempt to Read stored mutate log
+	data, err := tx.kv.GetBytes(tx.localWriteKey)
 	if err == nil {
-		// If data has been read, attempt to deserialize
-		if err = tx.deserialize(data); err != nil {
+		// If data has been Read, attempt to deserialize
+		if err = tx.state.Deserialize(data); err != nil {
 			return nil, errors.Errorf(loadFromLocalStoreErr, path,
 				err)
 		}
+	} else {
+		jww.WARN.Printf("No transaction log found, creating a new one")
 	}
 
-	// If failed to read, then there is no state, which may or may not be
-	// expected. For example, calling this the first time on a device, there
-	// will naturally be no state to read.
-	jww.DEBUG.Printf("[%s] Failed to read from local when loading: %+v",
-		localFS, err)
 	return tx, nil
 }
 
-func (tl *TransactionLog) Runner() {
-	timer := time.NewTicker()
-
+// Runner pushes updates to the patch file to the remote
+func (rw *remoteWriter) Runner(s *stoppable.Single) {
+	//always Write to remote when we start in order to ensure that any
+	//dropped updates are propogated
+	timer := time.NewTimer(time.Nanosecond)
+	serial, err := rw.state.Serialize()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to serialize transaction", err)
+	}
+	running := true
+	var ts time.Time
+	uploadPeriod := defaultUploadPeriod
 	for {
 		select {
-		case <-newTransactionChan:
-			if !WaitingToWrite {
-				timeToWrite
+		case t := <-rw.adds:
+			rw.state.AddUnsafe(t.Key, &t.Mutate)
+
+			// batch writes
+			counter := 5 * time.Millisecond
+			timer2 := time.NewTimer(counter)
+			quit := false
+		batch:
+			for {
+				select {
+				case t = <-rw.adds:
+					rw.state.AddUnsafe(t.Key, &t.Mutate)
+					rw.syncLock.RUnlock()
+					counter -= 100 * time.Microsecond
+					if counter == 0 {
+						break batch
+					}
+					timer2.Reset(counter)
+				case <-timer2.C:
+					break batch
+				case <-s.Quit():
+					quit = true
+				}
 			}
-		case <-timeToWrite:
-			err := write(transactionLog)
+
+			// once all have been added, unlock allowing the collector
+			// to continue
+			rw.syncLock.RUnlock()
+
+			// Write to disk and queue the remote Write
+			serial, err = rw.state.Serialize()
 			if err != nil {
-				//send a signal that we are not connected
-				//schedule a retry (with backoff)
+				jww.FATAL.Panicf("failed to serialize transaction "+
+					"log: %+v", err)
 			}
+
+			if err = rw.kv.SetBytes(rw.localWriteKey, serial); err != nil {
+				jww.FATAL.Panicf("failed to Write transaction "+
+					"log to disk: %+v", err)
+			}
+
+			if quit == true {
+				s.ToStopped()
+				return
+			}
+			if running == false {
+				timer.Reset(defaultUploadPeriod)
+				running = true
+			}
+
+		case <-timer.C:
+			running = false
+			encrypted := rw.encrypt.Encrypt(serial)
+			file := buildFile(rw.header, encrypted)
+
+			if err = rw.io.Write(rw.path, file); err != nil {
+				rw.notify(true)
+				uploadPeriod = expBackoff(uploadPeriod)
+				jww.ERROR.Printf("Failed to update sync state, "+
+					"last update %s, will auto retry in %s: %+v", ts,
+					uploadPeriod, err)
+				timer.Reset(uploadPeriod)
+				running = true
+			} else {
+				rw.notify(false)
+				uploadPeriod = defaultUploadPeriod
+				ts = netTime.Now()
+				timer.Stop()
+				running = false
+			}
+		case <-s.Quit():
+			s.ToStopped()
 		}
 
 	}
 
 }
 
-// Append will add a transaction to the TransactionLog. This will save the
-// serialized TransactionLog to local and remote storage. The callback for
+// Write will add a mutate to the remoteWriter to Write the
+// key remotely and Write it to disk. This will saveLastMutationTime the
+// serialized remoteWriter to local and remote storage. The callback for
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
-func (tl *TransactionLog) Append(newTx Transaction,
-	remoteCb RemoteStoreCallback) error {
-	tl.lck.Lock()
-	defer tl.lck.Unlock()
-	// Insert new transaction into list
-	jww.INFO.Printf("[%s] Inserting transaction to log", logHeader)
+// this blocks so it cannot be run conncurently with the collector
+func (rw *remoteWriter) Write(key string, value []byte) error {
+	jww.INFO.Printf("[%s] Inserting upsert to remote at %s", logHeader, key)
+	// do not operate while the collector is collecting. this will
+	// be unlocked when the transaction is written to disk
+	rw.syncLock.RLock()
 
-	// Use insertion sort as it has been benchmarked to be more performant
-	tl.appendUsingInsertion(newTx)
+	ts := netTime.Now()
 
-	// Save data to file store
-	jww.INFO.Printf("[%s] Saving transaction log", logHeader)
-
-	// Serialize the transaction log
-	dataToSave, err := tl.serialize()
+	//Write to KV
+	err := rw.kv.SetBytes(key, value)
 	if err != nil {
+		rw.syncLock.RUnlock()
 		return err
 	}
-	return tl.save(newTx, dataToSave, remoteCb)
+
+	rw.adds <- transaction{
+		Mutate{
+			Timestamp: ts.UTC().UnixNano(),
+			Value:     value,
+			Deletion:  false,
+		},
+		key,
+	}
+	return nil
 }
 
-// WaitForRemote blocks until writes complete or the timeout
-// occurs. It returns true if writes completed or false if not.
-func (tl *TransactionLog) WaitForRemote(timeout time.Duration) bool {
-	t := time.NewTimer(timeout)
-	for {
-		select {
-		case <-time.After(time.Millisecond * 100):
-			x := atomic.LoadInt32(&tl.openWrites)
-			if x == 0 {
-				return true
-			}
-		case <-t.C:
-			return false
+// WriteMap
+func (rw *remoteWriter) WriteMap(mapName string,
+	elements map[string][]byte, toDelete map[string]struct{}) error {
+	jww.INFO.Printf("[%s] Inserting upsert to remote for map %s",
+		logHeader, mapName)
+	// do not operate while the collector is collecting. this will
+	// be unlocked when the transaction is written to disk
+
+	ts := netTime.Now()
+	tsInt := ts.UTC().UnixNano()
+
+	mapKey := versioned.MakeMapKey(mapName)
+	keys := make([]string, 0, len(elements)+1)
+	updates := make(map[string]ekv.Value, len(elements)+len(toDelete)+1)
+	mutates := make(map[string]Mutate, len(elements)+len(toDelete))
+	for element := range elements {
+		key := versioned.MakeElementKey(mapName, element)
+		rw.syncLock.RLock()
+		keys = append(keys, key)
+		v := elements[key]
+		updates[key] = ekv.Value{
+			Data:   v,
+			Exists: true,
+		}
+		mutates[key] = Mutate{
+			Timestamp: tsInt,
+			Value:     v,
+			Deletion:  false,
 		}
 	}
-}
-
-// appendUsingInsertion will write the new Transaction to txs. txs must be
-// ordered by timestamp, so it will the txs list is sorted after appending the
-// new Transaction. Sorting is achieved using a custom insertion sort.
-//
-// Note that this operation is NOT thread-safe, and the caller should hold the
-// lck.
-func (tl *TransactionLog) appendUsingInsertion(newTransaction Transaction) {
-	tl.txs = insertionSort(tl.txs, newTransaction)
-}
-
-// insertionSort is a helper function which will insert a new Transaction to
-// the list of Transaction's sorted by its timestamp.
-func insertionSort(curTxs []Transaction, newTransaction Transaction) []Transaction {
-	// If list is empty, just append
-	if curTxs == nil || len(curTxs) == 0 {
-		return []Transaction{newTransaction}
-	}
-
-	for i := len(curTxs); i != 0; i-- {
-		curidx := i - 1
-		if curTxs[curidx].Timestamp.After(newTransaction.Timestamp) {
-			// If we are the start of the list, place at the beginning
-			if curidx == 0 {
-				curTxs = append([]Transaction{newTransaction}, curTxs...)
-				return curTxs
-			}
-			continue
+	for element := range toDelete {
+		key := versioned.MakeElementKey(mapName, element)
+		rw.syncLock.RLock()
+		keys = append(keys, key)
+		updates[key] = ekv.Value{
+			Exists: false,
 		}
-		// If the current index is Before, insert just after this index
-		insertidx := i
-		// Just append when we are at the end already
-		if insertidx == len(curTxs) {
-			curTxs = append(curTxs, newTransaction)
-		} else {
-			curTxs = append(curTxs[:insertidx+1], curTxs[insertidx:]...)
-			curTxs[insertidx] = newTransaction
-
-		}
-		return curTxs
-	}
-	return curTxs
-}
-
-// appendUsingInsertion will write the new Transaction to txs. txs must be
-// ordered by timestamp, so it will the txs list is sorted after appending the
-// new Transaction. Sorting is achieved using a quick sort as defined by Go's
-// native sort package (specifically sort.Slice).
-//
-// This is not used for production. It is left here for benchmarking purposes to
-// compare against appendUsingInsertion.
-//
-// Note that this operation is NOT thread-safe, and the caller should hold the
-// lck.
-func (tl *TransactionLog) appendUsingQuickSort(newTransaction Transaction) {
-	// Lazily insert new transaction
-	tl.txs = append(tl.txs, newTransaction)
-
-	//Sort transaction list. This operates in n * log(n) time complexity
-	sort.Slice(tl.txs, func(i, j int) bool {
-		firstTs, secondTs := tl.txs[i].Timestamp, tl.txs[j].Timestamp
-		return firstTs.Before(secondTs)
-	})
-
-}
-
-// serialize serializes the state of TransactionLog to byte data, so that it can
-// be written to a store (remote, local or both).
-//
-// This is the inverse operation of TransactionLog.deserialize.
-func (tl *TransactionLog) serialize() ([]byte, error) {
-	buff := new(bytes.Buffer)
-
-	// Serialize header
-	headerSerialized, err := tl.Header.serialize()
-	if err != nil {
-		return nil, err
-	}
-
-	// Write the length of the header info into the buffer
-	headerInfoLen := len(headerSerialized)
-	buff.Write(serializeInt(headerInfoLen))
-
-	// Write serialized header to buffer
-	buff.Write(headerSerialized)
-
-	// Serialize the device offset
-	offsetSerialized, err := tl.offsets.serialize()
-	if err != nil {
-		return nil, err
-	}
-
-	// Write the length of the serialized offset
-	offsetLen := len(offsetSerialized)
-	buff.Write(serializeInt(offsetLen))
-
-	// Write the serialized offsets
-	buff.Write(offsetSerialized)
-
-	var lastRemoteWrite time.Time
-	if tl.remote != nil {
-		// Retrieve the last written timestamp from remote
-		lastRemoteWrite, err = tl.remote.GetLastWrite()
-		if err != nil {
-			return nil, errors.Errorf(getLastWriteErr, err)
+		mutates[key] = Mutate{
+			Timestamp: tsInt,
+			Value:     nil,
+			Deletion:  true,
 		}
 	}
+	keys = append(keys, mapKey)
 
-	// Serialize the length of the list
-	buff.Write(serializeInt(len(tl.txs)))
-
-	// Serialize all transactions
-	for i := 0; i < len(tl.txs); i++ {
-		// Timestamp must be updated every write attempt time
-		// if new entry
-		if tl.txs[i].Timestamp.After(lastRemoteWrite) {
-			tl.txs[i].Timestamp = netTime.Now()
-		}
-
-		// Serialize transaction
-		rng := tl.rngStreamGenerator.GetStream()
-		defer rng.Close()
-		txSerialized, err := tl.txs[i].serialize(tl.deviceSecret, i,
-			rng)
+	op := func(old map[string]ekv.Value) (updates map[string]ekv.Value, err error) {
+		// process key map, will always be the last value due to it being
+		mapFile, err := getMapFile(old[mapKey], len(old)-1)
 		if err != nil {
 			return nil, err
 		}
 
-		// Write the length of the transaction info into the buffer
-		txInfoLen := len(txSerialized)
-		buff.Write(serializeInt(txInfoLen))
-
-		// Write to buffer
-		buff.Write(txSerialized)
-
-	}
-
-	return buff.Bytes(), nil
-}
-
-// deserialize will deserialize TransactionLog byte data.
-//
-// This is the inverse operation of TransactionLog.serialize.
-func (tl *TransactionLog) deserialize(data []byte) error {
-	// Initialize buffer
-	buff := bytes.NewBuffer(data)
-
-	// Extract header length from buffer
-	lengthOfHeaderInfo := deserializeInt(buff.Next(8))
-	serializedHeader := buff.Next(int(lengthOfHeaderInfo))
-
-	// Deserialize header
-	hdr, err := deserializeHeader(serializedHeader)
-	if err != nil {
-		return err
-	}
-
-	// Set the header
-	tl.Header = hdr
-
-	// Extract offset length from buffer
-	offsetLen := deserializeInt(buff.Next(8))
-	serializedOffset := buff.Next(int(offsetLen))
-
-	// Deserialize the offset
-	offset, err := deserializeDeviceOffset(serializedOffset)
-	if err != nil {
-		return err
-	}
-
-	// Set the offset
-	tl.offsets = offset
-
-	// Deserialize length of transactions list
-	listLen := binary.LittleEndian.Uint64(buff.Next(8))
-
-	// Construct transactions list
-	txs := make([]Transaction, listLen)
-
-	// Iterate over transaction log
-	for i := range txs {
-		//Read length of transaction from buffer
-		txInfoLen := deserializeInt(buff.Next(8))
-		txInfo := buff.Next(int(txInfoLen))
-		tx, err := deserializeTransaction(txInfo, tl.deviceSecret)
-		if err != nil {
-			return errors.Errorf(deserializeTransactionErr, i, listLen, err)
+		// ensure all elements are in the map file
+		for key := range elements {
+			mapFile.Add(key)
 		}
 
-		txs[i] = tx
+		//remove all deletions from the map file
+		for key := range toDelete {
+			mapFile.Delete(key)
+		}
+
+		// add the updated map file to updates
+		mapFileValue, err := mapFile.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		updates[mapKey] = ekv.Value{
+			Data:   mapFileValue,
+			Exists: true,
+		}
+
+		return updates, nil
 	}
 
-	tl.txs = txs
+	//Write to KV
+	_, _, err := rw.kv.MutualTransaction(keys, op)
+	if err != nil && !strings.Contains(err.Error(), ekv.ErrDeletesFailed) {
+		for i := 0; i < len(elements)+len(toDelete); i++ {
+			rw.syncLock.RUnlock()
+		}
+		return err
+	}
+
+	// send signals to sync all transactions
+	for key, m := range mutates {
+		rw.adds <- transaction{m, key}
+	}
 
 	return nil
 }
 
-// save writes the data passed in to file, both remotely and locally. The data
-// created from serialize.
-func (tl *TransactionLog) save(newTx Transaction,
-	dataToSave []byte, remoteCb RemoteStoreCallback) error {
-	// Save to local storage (if set)
-	if tl.local == nil {
-		jww.FATAL.Panicf("[%s] Cannot write to a nil local store", logHeader)
+// Delete will add a mutate to the remoteWriter to Delete the
+// key remotely and Delete it on disk. This will saveLastMutationTime the
+// serialized remoteWriter to local and remote storage. The callback for
+// remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
+// this blocks so it cannot be run conncurently with the collector
+func (rw *remoteWriter) Delete(key string) error {
+	jww.INFO.Printf("[%s] Inserting Delete to remote at %s", logHeader, key)
+	// do not operate while the collector is collecting. this will
+	// be unlocked when the transaction is written to disk
+	rw.syncLock.RLock()
+
+	ts := netTime.Now()
+
+	//Write to KV
+	err := rw.kv.Delete(key)
+	if err != nil {
+		rw.syncLock.RUnlock()
+		return err
 	}
 
-	jww.INFO.Printf("[%s] Writing transaction log to local store", logHeader)
-	if err := tl.local.Write(tl.path, dataToSave); err != nil {
-		return errors.Errorf(writeToStoreErr, err)
+	rw.adds <- transaction{
+		Mutate{
+			Timestamp: ts.UTC().UnixNano(),
+			Value:     nil,
+			Deletion:  true,
+		},
+		key,
 	}
-
-	// Do not let remote writing block operations
-	atomic.AddInt32(&tl.openWrites, 1)
-	go func() {
-		tl.saveToRemote(newTx, dataToSave, remoteCb)
-		atomic.AddInt32(&tl.openWrites, -1)
-	}()
 	return nil
 }
 
-// saveToRemote will write the data to save to remote. It will panic if remote
-// or remoteStoreCb are nil.
-func (tl *TransactionLog) saveToRemote(newTx Transaction, dataToSave []byte,
-	remoteCb RemoteStoreCallback) {
-
-	if remoteCb == nil {
-		jww.FATAL.Panicf(
-			"[%s] Cannot report status of remote storage write for transaction %s to a nil callback",
-			logHeader, newTx)
+func (rw *remoteWriter) Read() (patch *Patch, unlock func()) {
+	rw.syncLock.Lock()
+	unlock = func() {
+		rw.syncLock.Unlock()
 	}
+	patch = &rw.state
+	return patch, unlock
+}
 
-	jww.INFO.Printf("[%s] Writing transaction log to remote store", logHeader)
+func (rw *remoteWriter) RemoteUpToDate() bool {
+	return atomic.LoadUint32(rw.remoteUpToDate) == 1
+}
 
-	if tl.remote != nil {
-		// Use callback to report status of remote write.
-		remoteCb(newTx, tl.remote.Write(tl.path, dataToSave))
+func (rw *remoteWriter) notify(state bool) {
+	var toWrite uint32
+	if state {
+		toWrite = 1
 	} else {
-		remoteCb(newTx, ErrNoRemote)
+		toWrite = 0
 	}
+	old := atomic.SwapUint32(rw.remoteUpToDate, toWrite)
+	if old != toWrite {
+		rw.Notify(state)
+	}
+}
+
+func makeLocalWriteKey(path string) string {
+	return toDiskKeyName + path
+}
+
+func expBackoff(timeout time.Duration) time.Duration {
+	timeout = (timeout * 3) / 2
+	if timeout > 5*time.Minute {
+		return 5 * time.Minute
+	}
+	return timeout
 }

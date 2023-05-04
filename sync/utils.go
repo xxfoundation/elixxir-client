@@ -13,7 +13,7 @@ import (
 // xxdkDeviceOffsetHeader is the header of the device offset.
 const xxdkDeviceOffsetHeader = "XXDKTXLOGDVCOFFST"
 
-// deviceOffset is the last index a certain instance ID has read.
+// deviceOffset is the last index a certain instance ID has Read.
 type deviceOffset map[cmix.InstanceID]int
 
 func newDeviceOffset() deviceOffset {

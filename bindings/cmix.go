@@ -101,7 +101,7 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 
 	// Use the RemoteStoreReport structure to report the results and
 	// call the given callback.
-	remoteStoreCallback := func(newTx remoteSync.Transaction, err error) {
+	remoteStoreCallback := func(newTx remoteSync.Mutate, err error) {
 		var report RemoteStoreReport
 		if err != nil {
 			report.Error = err.Error()

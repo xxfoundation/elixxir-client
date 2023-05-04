@@ -19,7 +19,7 @@ import (
 // LocalKV creates a filesystem based KV that doesn't
 // synchronize with a remote storage system.
 func LocalKV(storageDir string, password []byte,
-	rng *fastRNG.StreamGenerator) (*sync.VersionedKV, error) {
+	rng *fastRNG.StreamGenerator) (*sync.versionedKV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
 	if err != nil {
@@ -38,7 +38,7 @@ func SynchronizedKV(storageDir string, password []byte,
 	synchedPrefixes []string,
 	eventCb sync.KeyUpdateCallback,
 	updateCb sync.RemoteStoreCallback,
-	rng *fastRNG.StreamGenerator) (*sync.VersionedKV, error) {
+	rng *fastRNG.StreamGenerator) (*sync.versionedKV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
 	if err != nil {

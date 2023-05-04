@@ -193,7 +193,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV is instantiated and an instance is acquired via the Cmix object
 // [Cmix.GetRemoteKV] function. (TODO: write this function)
 type RemoteKV struct {
-	rkv *sync.VersionedKV
+	rkv *sync.versionedKV
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -296,7 +296,7 @@ func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*sync.VersionedKV),
+		rkv: newK.(*sync.versionedKV),
 	}
 	return newRK, nil
 }
@@ -308,7 +308,7 @@ func (r *RemoteKV) Root() (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*sync.VersionedKV),
+		rkv: newK.(*sync.versionedKV),
 	}
 	return newRK, nil
 }
@@ -385,7 +385,7 @@ func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 // Exists(err error) bool
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.
-func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Transaction, err error) {
+func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Mutate, err error) {
 	var report RemoteStoreReport
 	if err != nil {
 		report.Error = err.Error()

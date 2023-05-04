@@ -82,9 +82,9 @@ func TestDeviceOffset(t *testing.T) {
 	require.Equal(t, dvcOffset, deserial)
 }
 
-// makeTransactionLog is a utility function which generates a TransactionLog for
+// makeTransactionLog is a utility function which generates a remoteWriter for
 // testing purposes.
-func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog {
+func makeTransactionLog(baseDir, password string, t *testing.T) *remoteWriter {
 
 	localStore := NewKVFilesystem(ekv.MakeMemstore())
 	// Construct remote store
@@ -95,7 +95,7 @@ func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog 
 
 	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog, err := NewTransactionLog(baseDir+"test.txt", localStore,
 		remoteStore, deviceSecret, rngGen)
 	require.NoError(t, err)

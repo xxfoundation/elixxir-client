@@ -38,7 +38,7 @@ func TestSynchronized(t *testing.T) {
 	//Now upgrade using Synchronized
 	syncPrefixes := []string{"sync", "a", "abcdefghijklmnop", "b", "c"}
 	remoteCallCnt := 0
-	updateCb := func(newTx remoteSync.Transaction, err error) {
+	updateCb := func(newTx remoteSync.Mutate, err error) {
 		t.Logf("KEY: %s, VAL: %s", newTx.Key, newTx.Value)
 		remoteCallCnt += 1
 	}

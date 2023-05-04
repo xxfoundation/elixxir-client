@@ -9,6 +9,7 @@ package versioned
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -56,51 +57,43 @@ type KV interface {
 	// StoreMapElement stores a versioned map element into the KV. This relies
 	// on the underlying remote [KV.StoreMapElement] function to lock and control
 	// updates, but it uses [versioned.Object] values.
+	// The version of the value must match the version of the map.
 	// All Map storage functions update the remote.
-	StoreMapElement(mapName, elementKey string,
-		value *Object, version uint64) error
+	StoreMapElement(mapName, elementName string, mapVersion uint64,
+		value *Object) error
 
 	// StoreMap saves a versioned map element into the KV. This relies
 	// on the underlying remote [KV.StoreMap] function to lock and control
 	// updates, but it uses [versioned.Object] values.
+	// the version of values must match the version of the map
 	// All Map storage functions update the remote.
-	StoreMap(mapName string, value map[string]*Object,
-		version uint64) error
+	StoreMap(mapName string, mapVersion uint64, values map[string]*Object) error
 
 	// GetMap loads a versioned map from the KV. This relies
 	// on the underlying remote [KV.GetMap] function to lock and control
 	// updates, but it uses [versioned.Object] values.
-	GetMap(mapName string, version uint64) (
-		map[string]*Object, error)
+	GetMap(mapName string, mapVersion uint64) (map[string]*Object, error)
 
 	// GetMapElement loads a versioned map element from the KV. This relies
 	// on the underlying remote [KV.GetMapElement] function to lock and control
 	// updates, but it uses [versioned.Object] values.
-	GetMapElement(mapName, element string, version uint64) (
+	GetMapElement(mapName, elementName string, mapVersion uint64) (
 		*Object, error)
 
 	// Transaction locks a key while it is being mutated then stores the result
 	// and returns the old value if it existed.
 	// If the op returns an error, the operation will be aborted.
-	Transaction(key string, op ekv.TransactionOperation) (
-		old []byte, existed bool, err error)
-
-	// MutualTransaction locks all keys while operating, getting the initial values
-	// for all keys, passing them into the MutualTransactionOperation, writing
-	// the resulting values for all keys to disk, and returns the initial value
-	// the return value is the same as is sent to the op, if it is edited they
-	// will reflect in the returned old dataset
-	MutualTransaction(keys []string, op ekv.MutualTransactionOperation) (
-		old, written map[string]ekv.Value, err error)
+	Transaction(key string, op TransactionOperation, version uint64) (
+		old *Object, existed bool, err error)
 
 	// ListenOnRemoteKey allows the caller to receive updates when
 	// a key is updated by synching with another client.
 	// Only one callback can be written per key.
-	ListenOnRemoteKey(key string, callback KeyChangedByRemoteCallback)
+	ListenOnRemoteKey(key string, version uint64, callback KeyChangedByRemoteCallback)
 
-	// ListenORemoteMap allows the caller to receive updates when
+	// ListenOnRemoteMap allows the caller to receive updates when
 	// the map or map elements are updated
-	ListenORemoteMap(mapName, callback MapChangedByRemoteCallback)
+	ListenOnRemoteMap(mapName string, version uint64, callback MapChangedByRemoteCallback)
 
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
@@ -127,24 +120,35 @@ type KV interface {
 
 // KeyChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
-type KeyChangedByRemoteCallback func(key string, old, new []byte, existed bool)
+type KeyChangedByRemoteCallback func(key string, old, new *Object, op KeyOperation)
 
 // MapChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
 type MapChangedByRemoteCallback func(mapName string, edits map[string]ElementEdit)
 type ElementEdit struct {
-	OldElement []byte
-	NewElement []byte
-	Operation  MapOperation
+	OldElement *Object
+	NewElement *Object
+	Operation  KeyOperation
 }
 
-type MapOperation uint8
+type KeyOperation uint8
 
 const (
-	Created MapOperation = iota
+	Created KeyOperation = iota
 	Updated
 	Deleted
 )
+
+type TransactionOperation func(old *Object, existed bool) (data *Object,
+	err error)
+
+type MutualTransactionOperation func(map[string]Value) (
+	updates map[string]Value, err error)
+
+type Value struct {
+	Obj    *Object
+	Exists bool
+}
 
 // MakePartnerPrefix creates a string prefix
 // to denote who a conversation or relationship is with
@@ -338,13 +342,13 @@ func (v *kv) IsMemStore() bool {
 	return success
 }
 
-// Returns the key with all prefixes appended
+// GetFullKey returns the key with all prefixes appended
 func (v *kv) GetFullKey(key string, version uint64) string {
 	return v.makeKey(key, version)
 }
 
 func (v *kv) makeKey(key string, version uint64) string {
-	return fmt.Sprintf("%s%s_%d", v.prefix, key, version)
+	return v.prefix + key + "_" + strconv.Itoa(int(version))
 }
 
 // Exists returns false if the error indicates the element doesn't
@@ -354,14 +358,14 @@ func (v *kv) Exists(err error) bool {
 }
 
 // StoreMapElement is not implemented for local KVs
-func (v *kv) StoreMapElement(mapName, elementKey string,
-	value *Object, version uint64) error {
+func (v *kv) StoreMapElement(mapName, elementName string, mapVersion uint64,
+	value *Object) error {
 	return UnimplementedErr
 }
 
 // StoreMap is not implemented for local KVs
-func (v *kv) StoreMap(mapName string, value map[string]*Object,
-	version uint64) error {
+func (v *kv) StoreMap(mapName string, mapVersion uint64,
+	values map[string]*Object) error {
 	return UnimplementedErr
 }
 
@@ -377,15 +381,22 @@ func (v *kv) GetMapElement(mapName, element string, version uint64) (
 	return nil, UnimplementedErr
 }
 
+// Transaction is not implemented for local KVs
+func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
+	old *Object, existed bool, err error) {
+	return nil, false, UnimplementedErr
+}
+
 // ListenOnRemoteKey is not implemented for local KVs
-func (v *kv) ListenOnRemoteKey(key string,
+func (v *kv) ListenOnRemoteKey(key string, version uint64,
 	callback KeyChangedByRemoteCallback) {
 	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
 		"ListenOnRemoteKey"))
 }
 
 // ListenOnRemoteMap is not implemented for local KVs
-func (v *kv) ListenOnRemoteMap(mapName, callback KeyChangedByRemoteCallback) {
+func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
+	callback MapChangedByRemoteCallback) {
 	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
 		"ListenOnRemoteMap"))
 }

@@ -43,7 +43,7 @@ func TestRemoteKV(t *testing.T) {
 	remoteCallCnt := 0
 	txs := make(map[string][]byte)
 	var lck sync.Mutex
-	updateCb := kvsync.RemoteStoreCallback(func(newTx kvsync.Transaction,
+	updateCb := kvsync.RemoteStoreCallback(func(newTx kvsync.Mutate,
 		err error) {
 		lck.Lock()
 		defer lck.Unlock()
@@ -55,12 +55,12 @@ func TestRemoteKV(t *testing.T) {
 	})
 	txLog := makeTransactionLog("versionedKV_TestWorkDir", password, t)
 	ekv := ekv.MakeMemstore()
-	kv, err := kvsync.NewVersionedKV(txLog, ekv, nil, nil, updateCb)
+	kv, err := kvsync.newVersionedKV(txLog, ekv, nil, nil, updateCb)
 	require.NoError(t, err)
 	kv.SyncPrefix("bindings")
 	newKV, err := kv.Prefix("bindings")
 	rkv := &RemoteKV{
-		rkv: newKV.(*kvsync.VersionedKV),
+		rkv: newKV.(*kvsync.versionedKV),
 	}
 	require.NoError(t, err)
 
@@ -123,7 +123,7 @@ func TestRemoteKVMapFuncs(t *testing.T) {
 	// Construct mock update callback
 	remoteCallCnt := 0
 	var lck sync.Mutex
-	updateCb := kvsync.RemoteStoreCallback(func(newTx kvsync.Transaction, err error) {
+	updateCb := kvsync.RemoteStoreCallback(func(newTx kvsync.Mutate, err error) {
 		lck.Lock()
 		defer lck.Unlock()
 		require.NoError(t, err)
@@ -131,12 +131,12 @@ func TestRemoteKVMapFuncs(t *testing.T) {
 	})
 	txLog := makeTransactionLog("remoteKV_TestMaps", password, t)
 	ekv := ekv.MakeMemstore()
-	kv, err := kvsync.NewVersionedKV(txLog, ekv, nil, nil, updateCb)
+	kv, err := kvsync.newVersionedKV(txLog, ekv, nil, nil, updateCb)
 	require.NoError(t, err)
 	kv.SyncPrefix("bindings")
 	newKV, err := kv.Prefix("bindings")
 	rkv := &RemoteKV{
-		rkv: newKV.(*kvsync.VersionedKV),
+		rkv: newKV.(*kvsync.versionedKV),
 	}
 	require.NoError(t, err)
 
@@ -183,9 +183,9 @@ func TestRemoteKVMapFuncs(t *testing.T) {
 	require.Equal(t, secondJSON, newSecondJSON)
 }
 
-// makeTransactionLog is a utility function which generates a TransactionLog for
+// makeTransactionLog is a utility function which generates a remoteWriter for
 // testing purposes.
-func makeTransactionLog(baseDir, password string, t *testing.T) *kvsync.TransactionLog {
+func makeTransactionLog(baseDir, password string, t *testing.T) *kvsync.remoteWriter {
 
 	localStore := kvsync.NewKVFilesystem(ekv.MakeMemstore())
 	// Construct remote store

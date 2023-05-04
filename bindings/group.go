@@ -32,9 +32,9 @@ type GroupChat struct {
 // NewGroupChat creates a bindings-layer group chat manager.
 //
 // Parameters:
-//  - e2eID - e2e object ID in the tracker.
-//  - requestFunc - a callback to handle group chat requests.
-//  - processor - the group chat message processor.
+//   - e2eID - e2e object ID in the tracker.
+//   - requestFunc - a callback to handle group chat requests.
+//   - processor - the group chat message processor.
 func NewGroupChat(e2eID int,
 	requestFunc GroupRequest, processor GroupChatProcessor) (*GroupChat, error) {
 
@@ -65,18 +65,18 @@ func NewGroupChat(e2eID int,
 // group.
 //
 // Parameters:
-//  - membershipBytes - the JSON marshalled list of []*id.ID; it contains the
-//    IDs of members the user wants to add to the group.
-//  - message - the initial message sent to all members in the group. This is an
-//    optional parameter and may be nil.
-//  - name - the name of the group decided by the creator. This is an optional
-//    parameter and may be nil. If nil the group will be assigned the default
-//    name.
+//   - membershipBytes - the JSON marshalled list of []*id.ID; it contains the
+//     IDs of members the user wants to add to the group.
+//   - message - the initial message sent to all members in the group. This is an
+//     optional parameter and may be nil.
+//   - name - the name of the group decided by the creator. This is an optional
+//     parameter and may be nil. If nil the group will be assigned the default
+//     name.
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of the GroupReport object, which can be
-//    passed into Cmix.WaitForRoundResult to see if the group request message
-//    send succeeded.
+//   - []byte - the JSON marshalled bytes of the GroupReport object, which can be
+//     passed into Cmix.WaitForRoundResult to see if the group request message
+//     send succeeded.
 func (g *GroupChat) MakeGroup(
 	membershipBytes, message, name []byte) ([]byte, error) {
 
@@ -108,13 +108,13 @@ func (g *GroupChat) MakeGroup(
 // ResendRequest resends a group request to all members in the group.
 //
 // Parameters:
-//  - groupId - a byte representation of a group's ID.
-//    This can be found in the report returned by GroupChat.MakeGroup.
+//   - groupId - a byte representation of a group's ID.
+//     This can be found in the report returned by GroupChat.MakeGroup.
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of the GroupReport object, which can be
-//    passed into WaitForRoundResult to see if the group request message send
-//    succeeded.
+//   - []byte - the JSON marshalled bytes of the GroupReport object, which can be
+//     passed into WaitForRoundResult to see if the group request message send
+//     succeeded.
 func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 
 	// Unmarshal the group ID
@@ -153,8 +153,8 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 // with the same trackedGroupId.
 //
 // Parameters:
-//  - serializedGroupData - the result of calling Group.Serialize() on
-//    any Group object returned over the bindings
+//   - serializedGroupData - the result of calling Group.Serialize() on
+//     any Group object returned over the bindings
 func (g *GroupChat) JoinGroup(serializedGroupData []byte) error {
 	grp, err := DeserializeGroup(serializedGroupData)
 	if err != nil {
@@ -166,8 +166,8 @@ func (g *GroupChat) JoinGroup(serializedGroupData []byte) error {
 // LeaveGroup deletes a group so a user no longer has access.
 //
 // Parameters:
-//  - groupId - the byte data representing a group ID.
-//    This can be pulled from a marshalled GroupReport.
+//   - groupId - the byte data representing a group ID.
+//     This can be pulled from a marshalled GroupReport.
 func (g *GroupChat) LeaveGroup(groupId []byte) error {
 	grpId, err := id.Unmarshal(groupId)
 	if err != nil {
@@ -180,15 +180,15 @@ func (g *GroupChat) LeaveGroup(groupId []byte) error {
 // Send is the bindings-level function for sending to a group.
 //
 // Parameters:
-//  - groupId - the byte data representing a group ID. This can be pulled from
-//    marshalled GroupReport.
-//  - message - the message that the user wishes to send to the group.
-//  - tag - the tag associated with the message. This tag may be empty.
+//   - groupId - the byte data representing a group ID. This can be pulled from
+//     marshalled GroupReport.
+//   - message - the message that the user wishes to send to the group.
+//   - tag - the tag associated with the message. This tag may be empty.
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of the GroupSendReport object, which
-//    can be passed into Cmix.WaitForRoundResult to see if the group message
-//    send succeeded.
+//   - []byte - the JSON marshalled bytes of the GroupSendReport object, which
+//     can be passed into Cmix.WaitForRoundResult to see if the group message
+//     send succeeded.
 func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 	groupID, err := id.Unmarshal(groupId)
 	if err != nil {
@@ -215,7 +215,7 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 // GetGroups returns a list of group IDs that the user is a member of.
 //
 // Returns:
-//  - []byte - a JSON marshalled []*id.ID representing all group ID's.
+//   - []byte - a JSON marshalled []*id.ID representing all group ID's.
 func (g *GroupChat) GetGroups() ([]byte, error) {
 	return json.Marshal(g.m.GetGroups())
 }
@@ -224,10 +224,11 @@ func (g *GroupChat) GetGroups() ([]byte, error) {
 // error "failed to find group" is returned.
 //
 // Parameters:
-//  - groupId - The byte data representing a group ID (a byte marshalled id.ID).
-//    This can be pulled from a marshalled GroupReport.
+//   - groupId - The byte data representing a group ID (a byte marshalled id.ID).
+//     This can be pulled from a marshalled GroupReport.
+//
 // Returns:
-//  - Group - The bindings-layer representation of a group.
+//   - Group - The bindings-layer representation of a group.
 func (g *GroupChat) GetGroup(groupId []byte) (*Group, error) {
 	// Unmarshal group ID
 	groupID, err := id.Unmarshal(groupId)
@@ -293,26 +294,27 @@ func (g *Group) GetCreatedMS() int64 {
 // All subsequent members are ordered by their ID.
 //
 // Returns:
-//  - []byte - JSON marshalled [group.Membership], which is an array of
-//    [group.Member].
+//   - []byte - JSON marshalled [group.Membership], which is an array of
+//     [group.Member].
 //
 // Example JSON [group.Membership] return:
-//  [
-//    {
-//      "ID": "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
-//      "DhKey": {
-//        "Value": 3534334367214237261,
-//        "Fingerprint": 16801541511233098363
-//      }
-//    },
-//    {
-//      "ID": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//      "DhKey": {
-//        "Value": 7497468244883513247,
-//        "Fingerprint": 16801541511233098363
-//      }
-//    }
-//  ]
+//
+//	[
+//	  {
+//	    "ID": "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+//	    "DhKey": {
+//	      "Value": 3534334367214237261,
+//	      "Fingerprint": 16801541511233098363
+//	    }
+//	  },
+//	  {
+//	    "ID": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//	    "DhKey": {
+//	      "Value": 7497468244883513247,
+//	      "Fingerprint": 16801541511233098363
+//	    }
+//	  }
+//	]
 func (g *Group) GetMembership() ([]byte, error) {
 	return json.Marshal(g.g.Members)
 }
@@ -339,7 +341,7 @@ func DeserializeGroup(serializedGroupData []byte) (*Group, error) {
 // GroupRequest is a bindings-layer interface that handles a group reception.
 //
 // Parameters:
-//  - g - a bindings layer Group object.
+//   - g - a bindings layer Group object.
 type GroupRequest interface {
 	Callback(g *Group)
 }
@@ -362,13 +364,14 @@ type groupChatProcessor struct {
 // [groupChat.MessageReceive].
 //
 // GroupChatMessage Example JSON:
-//  {
-//    "GroupId": "AAAAAAAJlasAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
-//    "SenderId": "AAAAAAAAB8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//    "MessageId": "Zm9ydHkgZml2ZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-//    "Payload": "Zm9ydHkgZml2ZQ==",
-//    "Timestamp": 1663009269474079000
-//  }
+//
+//	{
+//	  "GroupId": "AAAAAAAJlasAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
+//	  "SenderId": "AAAAAAAAB8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//	  "MessageId": "Zm9ydHkgZml2ZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+//	  "Payload": "Zm9ydHkgZml2ZQ==",
+//	  "Timestamp": 1663009269474079000
+//	}
 type GroupChatMessage struct {
 	// GroupId is the ID of the group that this message was sent on.
 	GroupId []byte
@@ -433,12 +436,13 @@ func (gcp *groupChatProcessor) String() string {
 // status of the send operation.
 //
 // Example GroupReport JSON:
-//		{
-//			"Id": "AAAAAAAAAM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
-//			"Rounds": [25, 64],
-//			"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
-//			"Status": 1
-//		}
+//
+//	{
+//		"Id": "AAAAAAAAAM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
+//		"Rounds": [25, 64],
+//		"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//		"Status": 1
+//	}
 type GroupReport struct {
 	Id []byte
 	RoundsList
@@ -450,12 +454,13 @@ type GroupReport struct {
 // round ID sent on and the timestamp of the send operation.
 //
 // Example GroupSendReport JSON:
-//      {
-//  	"Rounds": [25,	64],
-//  	"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
-//  	"Timestamp": 1662577352813112000,
-//  	"MessageID": "69ug6FA50UT2q6MWH3hne9PkHQ+H9DnEDsBhc0m0Aww="
-//	    }
+//
+//	     {
+//	 	"Rounds": [25,	64],
+//	 	"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//	 	"Timestamp": 1662577352813112000,
+//	 	"MessageID": "69ug6FA50UT2q6MWH3hne9PkHQ+H9DnEDsBhc0m0Aww="
+//		    }
 type GroupSendReport struct {
 	RoundsList
 	RoundURL  string

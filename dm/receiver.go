@@ -117,12 +117,15 @@ func (dp *dmProcessor) Process(msg format.Message, _ []string, _ []byte,
 		return
 	}
 
+	// partner Token is the sender Token
+	partnerToken := senderToken
+
 	// Process the receivedMessage. This is already in an instanced event;
 	// no new thread is needed.
 	// Note that in the non-self send case the partner key and sender
 	// key are the same. This is how the UI differentiates between the two.
 	uuid, err := dp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
-		directMsg.Payload, senderToken,
+		directMsg.Payload, partnerToken,
 		*pubSigningKey, *pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
@@ -153,7 +156,6 @@ func (sp *selfProcessor) Process(msg format.Message, _ []string, _ []byte,
 		return
 	}
 	senderPublicKey := sp.r.c.publicKey
-	senderToken := sp.r.c.myToken
 
 	directMsg := &DirectMessage{}
 	if err := proto.Unmarshal(payload, directMsg); err != nil {
@@ -223,7 +225,7 @@ func (sp *selfProcessor) Process(msg format.Message, _ []string, _ []byte,
 	// Process the receivedMessage. This is already in an instanced event;
 	// no new thread is needed.
 	uuid, err := sp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
-		directMsg.Payload, senderToken,
+		directMsg.Payload, partnerToken,
 		*partnerPubKey, *pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
@@ -245,27 +247,27 @@ func (r *receiver) GetProcessor() *dmProcessor {
 // receiveMessage attempts to parse the message and calls the appropriate
 // receiver function.
 func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
-	nick string, plaintext []byte, dmToken uint32,
+	nick string, plaintext []byte, partnerDMToken uint32,
 	partnerPubKey, senderPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error) {
 	switch messageType {
 	case TextType:
 		return r.receiveTextMessage(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
-			0, ts, round, status)
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	case ReplyType:
 		return r.receiveTextMessage(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
-			0, ts, round, status)
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	case ReactionType:
 		return r.receiveReaction(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
-			0, ts, round, status)
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	default:
 		return r.api.Receive(msgID, nick, plaintext,
 			partnerPubKey, senderPubKey,
-			dmToken, 0, ts, round,
+			partnerDMToken, 0, ts, round,
 			messageType, status), nil
 	}
 }

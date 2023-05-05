@@ -577,6 +577,9 @@ func (m *mockChannelsManager) GetChannels() []*id.ID                      { pani
 func (m *mockChannelsManager) GetChannel(*id.ID) (*cryptoBroadcast.Channel, error) {
 	panic("implement me")
 }
+func (m *mockChannelsManager) SendSilent(channelID *id.ID, validUntil time.Duration, params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
 
 func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	messageType channels.MessageType, msg []byte, validUntil time.Duration,

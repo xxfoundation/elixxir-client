@@ -141,6 +141,20 @@ const (
 	Deleted
 )
 
+// String implements the [Stringer.String] interface function
+func (ko KeyOperation) String() string {
+	switch ko {
+	case Created:
+		return "Created"
+	case Updated:
+		return "Updated"
+	case Deleted:
+		return "Deleted"
+	default:
+		return fmt.Sprintf("Unknown Key Operation %d", ko)
+	}
+}
+
 type TransactionOperation func(old *Object, existed bool) (data *Object,
 	err error)
 

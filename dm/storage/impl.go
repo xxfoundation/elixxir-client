@@ -259,7 +259,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 			jww.DEBUG.Printf(
 				"[DM SQL] Joining conversation with %s", partnerKeyStr)
 			convoToUpdate = &Conversation{
-				Pubkey:           senderKey,
+				Pubkey:           partnerKey,
 				Nickname:         nickname,
 				Token:            dmToken,
 				CodesetVersion:   codeset,
@@ -271,7 +271,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 			"[DM SQL] Conversation with %s already joined", partnerKeyStr)
 
 		// Update Conversation if nickname was altered
-		isFromPartner := bytes.Equal(result.Pubkey, senderKey)
+		isFromPartner := bytes.Equal(result.Pubkey, partnerKey)
 		nicknameChanged := result.Nickname != nickname
 		if isFromPartner && nicknameChanged {
 			jww.DEBUG.Printf("[DM SQL] Updating from nickname %s to %s",
@@ -335,9 +335,10 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 // upsertMessage is a helper function that will update an existing record
 // if Message.ID is specified. Otherwise, it will perform an insert.
 func (i *impl) upsertMessage(msg *Message) (uint64, error) {
-	var err error
+	jww.DEBUG.Printf("[DM SQL] Attempting to upsertMessage: %+v", msg)
+
 	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Save(msg).Error
+	err := i.db.WithContext(ctx).Save(msg).Error
 	cancel()
 	if err != nil {
 		return 0, errors.Errorf("failed to upsertMessage: %+v", err)

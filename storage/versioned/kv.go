@@ -89,11 +89,17 @@ type KV interface {
 	// ListenOnRemoteKey allows the caller to receive updates when
 	// a key is updated by synching with another client.
 	// Only one callback can be written per key.
-	ListenOnRemoteKey(key string, version uint64, callback KeyChangedByRemoteCallback)
+	// returns the object for the key such that callbacks will be updates on
+	// that state. The object will be nil if it doesn't exist yet.
+	ListenOnRemoteKey(key string, version uint64,
+		callback KeyChangedByRemoteCallback) *Object
 
 	// ListenOnRemoteMap allows the caller to receive updates when
 	// the map or map elements are updated
-	ListenOnRemoteMap(mapName string, version uint64, callback MapChangedByRemoteCallback)
+	// returns the map such that callbacks will be updates on
+	// that state. The Map will be nil if it doesn't exist yet.
+	ListenOnRemoteMap(mapName string, version uint64,
+		callback MapChangedByRemoteCallback) map[string]*Object
 
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
@@ -389,14 +395,16 @@ func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 
 // ListenOnRemoteKey is not implemented for local KVs
 func (v *kv) ListenOnRemoteKey(key string, version uint64,
-	callback KeyChangedByRemoteCallback) {
+	callback KeyChangedByRemoteCallback) *Object {
 	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
 		"ListenOnRemoteKey"))
+	return nil
 }
 
 // ListenOnRemoteMap is not implemented for local KVs
 func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
-	callback MapChangedByRemoteCallback) {
+	callback MapChangedByRemoteCallback) map[string]*Object {
 	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
 		"ListenOnRemoteMap"))
+	return nil
 }

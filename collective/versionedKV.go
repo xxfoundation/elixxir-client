@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package sync
+package collective
 
 import (
 	"github.com/pkg/errors"
@@ -20,7 +20,7 @@ import (
 
 const syncStoppable = "syncStoppable"
 
-type VersionedKV interface {
+type SyncKV interface {
 	versioned.KV
 	StartProcesses() (stoppable.Stoppable, error)
 	RegisterConnectionTracker(nc NotifyCallback)
@@ -29,7 +29,7 @@ type VersionedKV interface {
 	WaitForRemote(timeout time.Duration) bool
 }
 
-// versionedKV wraps a [sync.KV] inside of a [storage.versioned.KV] interface.
+// versionedKV wraps a [collective.KV] inside of a [storage.versioned.KV] interface.
 type versionedKV struct {
 	// synchronizedPrefixes are prefixes that trigger remote
 	// synchronization calls.
@@ -53,7 +53,7 @@ type versionedKV struct {
 // network.
 func SynchronizedKV(path string, deviceSecret string,
 	remote RemoteStore, kv ekv.KeyValue, synchedPrefixes []string,
-	rng *fastRNG.StreamGenerator) (VersionedKV, error) {
+	rng *fastRNG.StreamGenerator) (SyncKV, error) {
 
 	deviceID, err := cmix.GetInstanceID(kv)
 	if err != nil {
@@ -88,7 +88,7 @@ func SynchronizedKV(path string, deviceSecret string,
 // mutate log. It panics if the underlying KV has ever been used
 // for remote operations in the past.
 func LocalKV(path string, deviceSecret string, kv ekv.KeyValue,
-	rng *fastRNG.StreamGenerator) (VersionedKV, error) {
+	rng *fastRNG.StreamGenerator) (SyncKV, error) {
 
 	deviceID, err := cmix.GetInstanceID(kv)
 	if err != nil {
@@ -111,7 +111,7 @@ func LocalKV(path string, deviceSecret string, kv ekv.KeyValue,
 	if err != nil {
 		return nil, err
 	}
-	// Local sync KV's don't have callbacks or sync prefixes
+	// Local collective KV's don't have callbacks or collective prefixes
 	// Use newVersionedKV directly if this is needed for a test.
 	return newVersionedKV(txLog, kv, nil), nil
 }

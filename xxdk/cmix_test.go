@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	remoteSync "gitlab.com/elixxir/client/v4/sync"
+	remoteSync "gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -36,7 +36,7 @@ func TestSynchronized(t *testing.T) {
 	require.NoError(t, err)
 
 	//Now upgrade using Synchronized
-	syncPrefixes := []string{"sync", "a", "abcdefghijklmnop", "b", "c"}
+	syncPrefixes := []string{"collective", "a", "abcdefghijklmnop", "b", "c"}
 	remoteCallCnt := 0
 	updateCb := func(newTx remoteSync.Mutate, err error) {
 		t.Logf("KEY: %s, VAL: %s", newTx.Key, newTx.Value)

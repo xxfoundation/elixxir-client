@@ -34,7 +34,7 @@ var initSize uint8 = 8
 // 		deleteIdentity: make(chan *id.ID, deleteIDChanSize),
 // 		addrSpace:      addrSpace,
 // 		ephemeral:      receptionID.NewOrLoadStore(session.GetKV()),
-// 		mux:            &sync.Mutex{},
+// 		mux:            &collective.Mutex{},
 // 	}
 
 // 	// Add some expired test IDs

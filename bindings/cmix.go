@@ -14,8 +14,8 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	remoteSync "gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	remoteSync "gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/client/v4/xxdk"
 )
 

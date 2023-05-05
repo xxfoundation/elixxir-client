@@ -255,7 +255,7 @@ type Manager interface {
 
 	// RegisterReceiveHandler registers a listener for non-default message types
 	// so that they can be processed by modules. It is important that such
-	// modules sync up with the event model implementation.
+	// modules collective up with the event model implementation.
 	//
 	// There can only be one handler per message type; the error
 	// MessageTypeAlreadyRegistered will be returned on multiple registrations

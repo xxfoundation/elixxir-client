@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	kvsync "gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	kvsync "gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -30,12 +30,12 @@ const (
 )
 
 // TestRemoteKV uses a RemoteKV and shows that several
-// different prefixes that are synched will sync all the keys and any
-// not in the sync list will not. A separate test should add a prefix
-// mid-way and show that the keys begin to sync after the prefix was
+// different prefixes that are synched will collective all the keys and any
+// not in the collective list will not. A separate test should add a prefix
+// mid-way and show that the keys begin to collective after the prefix was
 // added.
 func TestRemoteKV(t *testing.T) {
-	testKeys := []string{"hello", "how", "are", "you", "sync", "sync1",
+	testKeys := []string{"hello", "how", "are", "you", "collective", "sync1",
 		"1sync"}
 
 	// Initialize KV

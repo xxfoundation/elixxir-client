@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/client/v4/sync"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -22,8 +22,8 @@ import (
 // RemoteStore is the mechanism that all remote storage implementations should
 // adhere to.
 type RemoteStore interface {
-	// FileIO is used to write and read files. Refer to [sync.FileIO].
-	sync.FileIO
+	// FileIO is used to write and read files. Refer to [collective.FileIO].
+	collective.FileIO
 
 	// GetLastModified returns when the file at the given file path was last
 	// modified. If the implementation that adheres to this interface does not
@@ -48,7 +48,7 @@ type RemoteStore interface {
 // the [os.File] IO operations. Implemented for testing purposes for transaction
 // logs.
 type RemoteStoreFileSystem struct {
-	api *sync.FileSystemStorage
+	api *collective.FileSystemStorage
 }
 
 // NewFileSystemRemoteStorage is a constructor for [RemoteStoreFileSystem].
@@ -57,7 +57,7 @@ type RemoteStoreFileSystem struct {
 //   - baseDir - The base directory that all file operations will be performed.
 //     It must contain a file delimiter (i.e., `/`).
 func NewFileSystemRemoteStorage(baseDir string) *RemoteStoreFileSystem {
-	return &RemoteStoreFileSystem{sync.NewFileSystemRemoteStorage(baseDir)}
+	return &RemoteStoreFileSystem{collective.NewFileSystemRemoteStorage(baseDir)}
 }
 
 // Read reads from the provided file path and returns the data at that path.
@@ -111,7 +111,7 @@ func (r *RemoteStoreFileSystem) GetLastWrite() ([]byte, error) {
 }
 
 // remoteStoreFileSystemWrapper is an internal Go wrapper for
-// RemoteStoreFileSystem that adheres to sync.RemoteStore.
+// RemoteStoreFileSystem that adheres to collective.RemoteStore.
 // fixme: reviewer, is this the correct solution?
 type remoteStoreFileSystemWrapper struct {
 	bindingsAPI RemoteStore
@@ -193,7 +193,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV is instantiated and an instance is acquired via the Cmix object
 // [Cmix.GetRemoteKV] function. (TODO: write this function)
 type RemoteKV struct {
-	rkv *sync.versionedKV
+	rkv *collective.versionedKV
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -218,12 +218,12 @@ type RemoteStoreReport struct {
 	Value []byte
 
 	// LastModified is the timestamp (in nanoseconds) of the last time the
-	// specific path was modified. Refer to sync.RemoteKV.GetLastModified.
+	// specific path was modified. Refer to collective.RemoteKV.GetLastModified.
 	LastModified int64 `json:"lastModified"`
 
 	// LastWrite is the timestamp (in nanoseconds) of the last write to the
 	// remote storage interface by any device. Refer to
-	// sync.RemoteKV.GetLastWrite.
+	// collective.RemoteKV.GetLastWrite.
 	LastWrite int64 `json:"lastWrite"`
 
 	// Any error that occurs. It is omitted when no error occurred.
@@ -296,7 +296,7 @@ func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*sync.versionedKV),
+		rkv: newK.(*collective.versionedKV),
 	}
 	return newRK, nil
 }
@@ -308,7 +308,7 @@ func (r *RemoteKV) Root() (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*sync.versionedKV),
+		rkv: newK.(*collective.versionedKV),
 	}
 	return newRK, nil
 }
@@ -384,8 +384,8 @@ func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 // the key exists.
 // Exists(err error) bool
 
-// remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.
-func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Mutate, err error) {
+// remoteStoreCbUtil is a utility function for the collective.RemoteStoreCallback.
+func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx collective.Mutate, err error) {
 	var report RemoteStoreReport
 	if err != nil {
 		report.Error = err.Error()

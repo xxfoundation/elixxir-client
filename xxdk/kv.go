@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/sync"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 )
@@ -19,35 +19,35 @@ import (
 // LocalKV creates a filesystem based KV that doesn't
 // synchronize with a remote storage system.
 func LocalKV(storageDir string, password []byte,
-	rng *fastRNG.StreamGenerator) (*sync.versionedKV, error) {
+	rng *fastRNG.StreamGenerator) (*collective.versionedKV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+	localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
 		localTxLogPath))
-	return sync.LocalKV(storageDir, password, localFS, localKV, rng)
+	return collective.LocalKV(storageDir, password, localFS, localKV, rng)
 }
 
 // SynchronizedKV creates a filesystem based KV that synchronizes
 // with a remote storage system.
 func SynchronizedKV(storageDir string, password []byte,
-	remote sync.RemoteStore,
+	remote collective.RemoteStore,
 	synchedPrefixes []string,
-	eventCb sync.KeyUpdateCallback,
-	updateCb sync.RemoteStoreCallback,
-	rng *fastRNG.StreamGenerator) (*sync.versionedKV, error) {
+	eventCb collective.KeyUpdateCallback,
+	updateCb collective.RemoteStoreCallback,
+	rng *fastRNG.StreamGenerator) (*collective.versionedKV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	localFS := sync.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+	localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
 		localTxLogPath))
 
-	return sync.SynchronizedKV(storageDir, password, localFS,
+	return collective.SynchronizedKV(storageDir, password, localFS,
 		remote, localKV, synchedPrefixes, eventCb, updateCb, rng)
 }

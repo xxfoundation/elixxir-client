@@ -193,7 +193,7 @@ func NewKV(data ekv.KeyValue) KV {
 	newkv.r = &root
 
 	jww.WARN.Printf("storage/versioned.KV is deprecated. " +
-		"Please use sync.VersionedKV")
+		"Please use collective.VersionedKV")
 
 	return &newkv
 }

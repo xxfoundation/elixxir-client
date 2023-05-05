@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package sync
+package collective
 
 import (
 	"fmt"
@@ -25,15 +25,15 @@ import (
 )
 
 // TestVersionedKV uses a RemoteKV and shows that several
-// different prefixes that are synched will sync all the keys and any
-// not in the sync list will not. A separate test should add a prefix
-// mid-way and show that the keys begin to sync after the prefix was
+// different prefixes that are synched will collective all the keys and any
+// not in the collective list will not. A separate test should add a prefix
+// mid-way and show that the keys begin to collective after the prefix was
 // added.
 func TestVersionedKV(t *testing.T) {
-	syncPrefixes := []string{"sync", "a", "abcdefghijklmnop", "b", "c"}
+	syncPrefixes := []string{"collective", "a", "abcdefghijklmnop", "b", "c"}
 	nonSyncPrefixes := []string{"hello", "sync1", "1sync", "synd", "ak"}
 
-	testKeys := []string{"hello", "how", "are", "you", "sync", "sync1",
+	testKeys := []string{"hello", "how", "are", "you", "collective", "sync1",
 		"1sync"}
 
 	testSyncPrefixes, testNoSyncPrefixes := genTestCases(syncPrefixes,
@@ -150,12 +150,12 @@ func TestVersionedKV(t *testing.T) {
 }
 
 // TestVersionedKVNewPrefix adds a prefix mid-way and show that the
-// keys begin to sync after the prefix was added.
+// keys begin to collective after the prefix was added.
 func TestVersionedKVNewPrefix(t *testing.T) {
-	syncPrefixes := []string{"sync", "a", "abcdefghijklmnop", "b", "c"}
+	syncPrefixes := []string{"collective", "a", "abcdefghijklmnop", "b", "c"}
 	nonSyncPrefixes := []string{"hello", "sync1", "1sync", "synd", "ak"}
 
-	testKeys := []string{"hello", "how", "are", "you", "sync", "sync1",
+	testKeys := []string{"hello", "how", "are", "you", "collective", "sync1",
 		"1sync"}
 
 	testSyncPrefixes, _ := genTestCases(syncPrefixes,
@@ -185,7 +185,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 		data: make(map[string][]byte, 0),
 	}
 
-	// Even these are all "sync prefixes" there should be 0 of
+	// Even these are all "collective prefixes" there should be 0 of
 	// them because they aren't tracked.
 	for i := range testSyncPrefixes {
 		var tkv versioned.KV
@@ -218,7 +218,7 @@ func TestVersionedKVNewPrefix(t *testing.T) {
 	require.Equal(t, 0, remoteCallCnt)
 	require.Equal(t, 0, len(rkv.remoteKV.txLog.txs))
 
-	// Add the sync prefixes
+	// Add the collective prefixes
 	for i := range syncPrefixes {
 		rkv.SyncPrefix(syncPrefixes[i])
 	}

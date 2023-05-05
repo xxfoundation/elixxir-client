@@ -41,9 +41,14 @@ func NewPrecannedCmix(precannedID uint, defJSON, storageDir string,
 	}
 	cmixGrp, e2eGrp := DecodeGroups(def)
 
+	kv, err := LocalKV(storageDir, password, rngStreamGen)
+	if err != nil {
+		return err
+	}
+
 	userInfo := createPrecannedUser(precannedID, rngStream, e2eGrp)
-	store, err := CheckVersionAndSetupStorage(def, storageDir, password,
-		userInfo, cmixGrp, e2eGrp, "", rngStream)
+	store, err := CheckVersionAndSetupStorage(def, kv,
+		userInfo, cmixGrp, e2eGrp, "", rngStreamGen)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@
 package sync
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -29,35 +30,37 @@ import (
 func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	data := []byte("Test string.")
 
-	fsRemote := NewFileSystemRemoteStorage("workingDir")
+	baseDir := "workingDir/"
+
+	fsRemote := NewFileSystemRemoteStorage(baseDir)
 
 	// Write to file
 	writeTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write("workingDir", data))
+	require.NoError(t, fsRemote.Write(baseDir, data))
 
 	// Read file
-	read, err := fsRemote.Read("workingDir")
+	read, err := fsRemote.Read(baseDir)
 	require.NoError(t, err)
 
-	// Ensure read data matches originally written data
+	// Ensure Read data matches originally written data
 	require.Equal(t, data, read)
 
 	// Retrieve the last modification of the file
-	lastModified, err := fsRemote.GetLastModified("workingDir")
+	lastModified, err := fsRemote.GetLastModified(baseDir)
 	require.NoError(t, err)
 
 	//time.Sleep(50 * time.Millisecond)
 
 	// The last modified timestamp should not differ by more than a few
-	// milliseconds from the timestamp taken before the write operation took
+	// milliseconds from the timestamp taken before the Write operation took
 	// place.
 	require.True(t, lastModified.Sub(writeTimestamp) < 2*time.Millisecond ||
 		lastModified.Sub(writeTimestamp) > 2*time.Millisecond)
 
-	// Sleep here to ensure the new write timestamp significantly differs
-	// from the old write timestamp
+	// Sleep here to ensure the new Write timestamp significantly differs
+	// from the old Write timestamp
 
-	// Ensure last write matches last modified when checking the filepath
+	// Ensure last Write matches last modified when checking the filepath
 	// of the file that was las written to
 	lastWrite, err := fsRemote.GetLastWrite()
 	require.NoError(t, err)
@@ -67,15 +70,17 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	// Write a new file to remote
 	newPath := "new.txt"
 	newWriteTimestamp := time.Now()
-	require.NoError(t, fsRemote.Write("workingDir"+newPath, data))
+	require.NoError(t, fsRemote.Write(newPath, data))
 
-	// Retrieve the last write
+	// Retrieve the last Write
 	newLastWrite, err := fsRemote.GetLastWrite()
 	require.NoError(t, err)
 
-	// The last write timestamp should not differ by more than a few
-	// milliseconds from the timestamp taken before the write operation took
+	// The last Write timestamp should not differ by more than a few
+	// milliseconds from the timestamp taken before the Write operation took
 	// place.
 	require.True(t, newWriteTimestamp.Sub(newLastWrite) < 2*time.Millisecond ||
 		newWriteTimestamp.Sub(newLastWrite) > 2*time.Millisecond)
+
+	os.RemoveAll(baseDir)
 }

@@ -21,18 +21,17 @@ import (
 // TestInstanceID performs basic smoke testing of the type
 func TestInstanceID(t *testing.T) {
 	rng := rand.New(rand.NewSource(8675309))
-	generated, err := NewRandomInstanceID(rng)
 
+	kv := ekv.MakeMemstore()
+	generated, err := InitInstanceID(kv, rng)
 	require.NoError(t, err)
 	require.Equal(t, instanceIDLength, len(generated[:]))
 
 	gStr := generated.String()
 
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	err = StoreInstanceID(generated, kv)
 	require.NoError(t, err)
 
-	loaded, err := LoadInstanceID(kv)
+	loaded, err := GetInstanceID(kv)
 	require.NoError(t, err)
 	require.Equal(t, generated, loaded)
 
@@ -45,18 +44,18 @@ func TestInstanceID(t *testing.T) {
 		Timestamp: time.Now(),
 	}
 	kv.Set(instanceIDKey, &obj)
-	invalid, err := LoadInstanceID(kv)
+	invalid, err := GetInstanceID(kv)
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid)
 
-	kv.Delete(instanceIDKey, 0)
-	invalid2, err := LoadInstanceID(kv)
+	kv.Delete(instanceIDKey)
+	invalid2, err := GetInstanceID(kv)
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid2)
 
 	obj.Data = []byte("")
 	kv.Set(instanceIDKey, &obj)
-	invalid3, err := LoadInstanceID(kv)
+	invalid3, err := GetInstanceID(kv)
 	require.Error(t, err)
 	require.Equal(t, InstanceID{}, invalid3)
 }

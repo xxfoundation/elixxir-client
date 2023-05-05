@@ -25,7 +25,7 @@ import (
 
 // Smoke test of NewOrLoadKV.
 func TestNewOrLoadRemoteKv(t *testing.T) {
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("", password, t)
 
 	// Construct kv
@@ -39,7 +39,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	expected := &internalKV{
 		local:          kv,
 		txLog:          txLog,
-		KeyUpdate:      nil,
+		keyUpdate:      nil,
 		UnsyncedWrites: make(map[string][]byte, 0),
 		connected:      true,
 	}
@@ -52,7 +52,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 // on disk.
 func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("kv_Loading_TestDir", password, t)
 
 	// Construct kv
@@ -62,7 +62,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	cnt := 0
 	lck := sync.Mutex{}
 	lck.Lock() // absolutely 0 of these should complete
-	var updateCb RemoteStoreCallback = func(newTx Transaction, err error) {
+	var updateCb RemoteStoreCallback = func(newTx Mutate, err error) {
 		lck.Lock()
 		defer lck.Unlock()
 		cnt += 1
@@ -104,7 +104,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 func TestKV_Set(t *testing.T) {
 	const numTests = 100
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("workingDirSet", password, t)
 
 	// Construct kv
@@ -119,8 +119,8 @@ func TestKV_Set(t *testing.T) {
 	}
 
 	// Construct mock update callback
-	txChan := make(chan Transaction, numTests)
-	updateCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+	txChan := make(chan Mutate, numTests)
+	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
 		require.NoError(t, err)
 
 		txChan <- newTx
@@ -144,7 +144,7 @@ func TestKV_Set(t *testing.T) {
 func TestKV_Get(t *testing.T) {
 	const numTests = 100
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
@@ -160,8 +160,8 @@ func TestKV_Get(t *testing.T) {
 	}
 
 	// Construct mock update callback
-	txChan := make(chan Transaction, numTests)
-	updateCb := RemoteStoreCallback(func(newTx Transaction, err error) {
+	txChan := make(chan Mutate, numTests)
+	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
 		require.NoError(t, err)
 
 		txChan <- newTx
@@ -172,7 +172,7 @@ func TestKV_Get(t *testing.T) {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
 		require.NoError(t, rkv.SetRemote(key, val, updateCb))
 
-		// Ensure write has completed
+		// Ensure Write has completed
 		select {
 		case <-time.After(500 * time.Second):
 			t.Fatalf("Failed to recieve from callback")
@@ -190,7 +190,7 @@ func TestKV_Get(t *testing.T) {
 func TestKV_AddRemoveUnsyncedWrite(t *testing.T) {
 	const numTests = 100
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
@@ -220,7 +220,7 @@ func TestKV_AddRemoveUnsyncedWrite(t *testing.T) {
 func TestKV_SaveLoadUnsyncedWrite(t *testing.T) {
 	const numTests = 100
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv
@@ -256,7 +256,7 @@ func TestKV_SaveLoadUnsyncedWrite(t *testing.T) {
 func TestKV_UpsertLocal(t *testing.T) {
 	const numTests = 100
 
-	// Construct transaction log
+	// Construct mutate log
 	txLog := makeTransactionLog("workingDir", password, t)
 
 	// Construct kv

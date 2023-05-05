@@ -55,7 +55,7 @@ func NewKVFilesystemWithPrefix(prefix string, kv ekv.KeyValue) FileIO {
 	return fs
 }
 
-// Read reads data from path. This will return an error if it fails to read from
+// Read reads data from path. This will return an error if it fails to Read from
 // the file path.
 //
 // This utilizes [ekv.KeyValue] under the hood.
@@ -65,7 +65,7 @@ func (k *KVFilesystem) Read(path string) ([]byte, error) {
 }
 
 // Write writes data to the path. This will return an error if it fails to
-// write.
+// Write.
 //
 // This utilizes [ekv.KeyValue] under the hood.
 func (k *KVFilesystem) Write(path string, data []byte) error {

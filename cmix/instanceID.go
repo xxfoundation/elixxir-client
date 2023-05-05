@@ -9,11 +9,9 @@ package cmix
 
 import (
 	"encoding/base64"
-	"io"
-	"time"
-
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"io"
 )
 
 const (
@@ -23,9 +21,11 @@ const (
 )
 
 var (
-	ErrEmptyInstance = errors.New("empty instance ID")
-	ErrShortRead     = errors.New("short read generating instance ID")
-	ErrIncorrectSize = errors.New("incorrect instance ID size")
+	ErrEmptyInstance                = errors.New("empty instance ID")
+	ErrShortRead                    = errors.New("short read generating instance ID")
+	ErrIncorrectSize                = errors.New("incorrect instance ID size")
+	ErrInstanceIDAlreadyInitialized = errors.New("instanceID already " +
+		"initialized, cannot do a second instanceID")
 )
 
 // InstanceID is a random, URL Safe, base64 string generated when an
@@ -39,29 +39,112 @@ func (i InstanceID) String() string {
 	return base64.RawURLEncoding.EncodeToString(i[:])
 }
 
-// LoadInstanceID loads an InstanceID from storage.
-func LoadInstanceID(kv versioned.KV) (InstanceID, error) {
-	var idBytes []byte
-	obj, err := kv.Get(instanceIDKey, instanceIDVersion)
-	if obj != nil {
-		idBytes = obj.Data
-	}
-	// If there's an error, just return the empty object and the error
-	// Otherwise decode the bytes into the object.
-	if err == nil {
-		return NewInstanceIDFromBytes(idBytes)
-	}
-	return InstanceID{}, err
+// MarshalText implements the [encoding.MarshalText] interface function
+func (i InstanceID) MarshalText() (text []byte, err error) {
+	return i[:], nil
 }
 
-// StoreInstanceID saves an instance ID to kv storage.
-func StoreInstanceID(id InstanceID, kv versioned.KV) error {
-	obj := versioned.Object{
-		Data:      id[:],
-		Timestamp: time.Now(),
-		Version:   instanceIDVersion,
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface function
+func (i *InstanceID) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		// Error if we got an empty instance id entry
+		return ErrEmptyInstance
+	} else if len(text) != instanceIDLength {
+		// Error if it is the wrong size
+		return errors.Wrapf(ErrIncorrectSize,
+			"%d != %d", instanceIDLength, len(text))
 	}
-	return kv.Set(instanceIDKey, &obj)
+	copy(i[:], text)
+	return nil
+}
+
+// Cmp determines which instance id is greater assuming they are numbers.
+// -1 - i and j are lesser
+//
+//	0 - i and j are equal
+//	1 - i is greater than j
+func (i InstanceID) Cmp(j InstanceID) int {
+	for x := 0; x < instanceIDLength; x++ {
+		if i[x] > j[x] {
+			return 1
+		} else if i[x] < j[x] {
+			return -1
+		}
+	}
+	return 0
+}
+
+// Equals determines if the two instances are the same.
+func (i InstanceID) Equals(j InstanceID) bool {
+	for x := 0; x < instanceIDLength; x++ {
+		if i[x] != j[x] {
+			return false
+		}
+	}
+	return true
+}
+
+// InitInstanceID creates the InstanceID and returns it if it doesnt exist.
+// If it already exists, Init will return an error.
+func InitInstanceID(kv ekv.KeyValue, rng io.Reader) (InstanceID, error) {
+
+	//check if the instance ID already exists. If it does refuse to operate
+	idBytes, err := kv.GetBytes(instanceIDKey)
+	if err != nil && !ekv.Exists(err) {
+		return InstanceID{}, err
+	}
+	if idBytes != nil {
+		return InstanceID{}, errors.WithStack(ErrInstanceIDAlreadyInitialized)
+	}
+
+	// create a new instance ID
+	instanceID, err := NewRandomInstanceID(rng)
+	if err != nil {
+		return InstanceID{}, err
+	}
+
+	// Store the new instance ID
+	idBytes, err = instanceID.MarshalText()
+	if err != nil {
+		return InstanceID{}, err
+	}
+
+	err = kv.SetBytes(instanceIDKey, idBytes)
+	if err != nil {
+		return InstanceID{}, err
+	}
+
+	return instanceID, nil
+}
+
+func IsLocalInstanceID(kv ekv.KeyValue, expected InstanceID) (bool, error) {
+	instanceIDBytes, err := kv.GetBytes(instanceIDKey)
+	if err != nil {
+		return false, err
+	}
+
+	storedInstanceID := InstanceID{}
+	err = storedInstanceID.UnmarshalText(instanceIDBytes)
+	if err != nil {
+		return false, err
+	}
+
+	return storedInstanceID.Equals(expected), nil
+}
+
+func GetInstanceID(kv ekv.KeyValue) (InstanceID, error) {
+	instanceIDBytes, err := kv.GetBytes(instanceIDKey)
+	if err != nil {
+		return InstanceID{}, err
+	}
+
+	storedInstanceID := InstanceID{}
+	err = storedInstanceID.UnmarshalText(instanceIDBytes)
+	if err != nil {
+		return InstanceID{}, err
+	}
+
+	return storedInstanceID, nil
 }
 
 // NewInstanceIDFromBytes creates an InstanceID from raw bytes
@@ -69,16 +152,7 @@ func StoreInstanceID(id InstanceID, kv versioned.KV) error {
 // slice is empty.
 func NewInstanceIDFromBytes(idBytes []byte) (InstanceID, error) {
 	instanceID := InstanceID{}
-	if len(idBytes) == 0 {
-		// Error if we got an empty instance id entry
-		return instanceID, ErrEmptyInstance
-	} else if len(idBytes) != instanceIDLength {
-		// Error if it is the wrong size
-		return instanceID, errors.Wrapf(ErrIncorrectSize,
-			"%d != %d", instanceIDLength, len(idBytes))
-	}
-	copy(instanceID[:], idBytes)
-	return instanceID, nil
+	return instanceID, (&instanceID).UnmarshalText(idBytes)
 }
 
 // NewInstanceIDFromString creates an instanceID from a string object

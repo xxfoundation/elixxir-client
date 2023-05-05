@@ -8,15 +8,29 @@
 package sync
 
 import (
-	"sync"
-	"time"
-
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"time"
 )
 
-// VersionedKV wraps a [sync.KV] inside of a [storage.versioned.KV] interface.
-type VersionedKV struct {
+const syncStoppable = "syncStoppable"
+
+type VersionedKV interface {
+	versioned.KV
+	StartProcesses() (stoppable.Stoppable, error)
+	RegisterConnectionTracker(nc NotifyCallback)
+	IsConnected() bool
+	IsSynched() bool
+	WaitForRemote(timeout time.Duration) bool
+}
+
+// versionedKV wraps a [sync.KV] inside of a [storage.versioned.KV] interface.
+type versionedKV struct {
 	// synchronizedPrefixes are prefixes that trigger remote
 	// synchronization calls.
 	synchronizedPrefixes []string
@@ -24,40 +38,101 @@ type VersionedKV struct {
 	// hasSynchronizedPrefix tells us we are in a prefix that is synchronized.
 	inSynchronizedPrefix bool
 
+	col   *collector
+	txLog *remoteWriter
 	// remoteKV is the remote synching KV instance. This is used
 	// when we intercept Set calls because we are synchronizing this prefix.
 	remoteKV *internalKV
 	// vkv is a versioned KV instance that wraps the remoteKV, used
 	// for all local operations.
 	vkv versioned.KV
-
-	lck sync.Mutex
 }
 
-// NewVersionedKV returns a versioned KV instance wrapping a remote KV
-func NewVersionedKV(transactionLog *TransactionLog, kv ekv.KeyValue,
-	synchedPrefixes []string,
-	eventCb KeyUpdateCallback,
-	updateCb RemoteStoreCallback) (*VersionedKV, error) {
+// SynchronizedKV loads or creates a synchronized remote KV that uses
+// a remote RemoteStore to store defined synchronization prefixes to the
+// network.
+func SynchronizedKV(path string, deviceSecret string,
+	remote RemoteStore, kv ekv.KeyValue, synchedPrefixes []string,
+	rng *fastRNG.StreamGenerator) (VersionedKV, error) {
+
+	deviceID, err := cmix.GetInstanceID(kv)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isRemoteKV(kv) {
+		jww.INFO.Printf("Converting KV to a remote KV: %s",
+			deviceID)
+		enableRemoteKV(kv)
+	}
+
+	crypt := &deviceCrypto{
+		secret: deviceSecret,
+		rngGen: rng,
+	}
+
+	txLog, err := newRemoteWriter(path, deviceID, remote,
+		crypt, kv)
+	if err != nil {
+		return nil, err
+	}
+
+	vkv := newVersionedKV(txLog, kv, synchedPrefixes)
+
+	vkv.col = newCollector(deviceID, path, remote, vkv.remoteKV, crypt, txLog)
+
+	return vkv, nil
+}
+
+// LocalKV Loads or Creates a synchronized remote KV that uses a local-only
+// mutate log. It panics if the underlying KV has ever been used
+// for remote operations in the past.
+func LocalKV(path string, deviceSecret string, kv ekv.KeyValue,
+	rng *fastRNG.StreamGenerator) (VersionedKV, error) {
+
+	deviceID, err := cmix.GetInstanceID(kv)
+	if err != nil {
+		return nil, err
+	}
+
+	if isRemoteKV(kv) {
+		jww.FATAL.Panicf("cannot open remote kv as local")
+	}
+
+	crypt := &deviceCrypto{
+		secret: deviceSecret,
+		rngGen: rng,
+	}
+
+	dummy := &dummyIO{}
+
+	txLog, err := newRemoteWriter(path, deviceID, dummy,
+		crypt, kv)
+	if err != nil {
+		return nil, err
+	}
+	// Local sync KV's don't have callbacks or sync prefixes
+	// Use newVersionedKV directly if this is needed for a test.
+	return newVersionedKV(txLog, kv, nil), nil
+}
+
+// newVersionedKV returns a versioned KV instance wrapping a remote KV
+func newVersionedKV(transactionLog *remoteWriter, kv ekv.KeyValue,
+	synchedPrefixes []string) *versionedKV {
 
 	sPrefixes := synchedPrefixes
 	if sPrefixes == nil {
 		sPrefixes = make([]string, 0)
 	}
 
-	remote, err := newKV(transactionLog, kv, eventCb, updateCb)
-	if err != nil {
-		return nil, err
-	}
+	remote := newKV(transactionLog, kv)
 
-	v := &VersionedKV{
+	v := &versionedKV{
 		synchronizedPrefixes: sPrefixes,
 		remoteKV:             remote,
 		vkv:                  versioned.NewKV(remote),
 	}
-	v.updateIfSynchronizedPrefix()
-
-	return v, nil
+	return v
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,18 +140,18 @@ func NewVersionedKV(transactionLog *TransactionLog, kv ekv.KeyValue,
 ///////////////////////////////////////////////////////////////////////////////
 
 // Get implements [storage.versioned.KV.Get]
-func (r *VersionedKV) Get(key string, version uint64) (*versioned.Object, error) {
+func (r *versionedKV) Get(key string, version uint64) (*versioned.Object, error) {
 	return r.vkv.Get(key, version)
 }
 
 // GetAndUpgrade implemenets [storage.versioned.KV.GetAndUpgrade]
-func (r *VersionedKV) GetAndUpgrade(key string, ut versioned.UpgradeTable) (
+func (r *versionedKV) GetAndUpgrade(key string, ut versioned.UpgradeTable) (
 	*versioned.Object, error) {
 	return r.vkv.GetAndUpgrade(key, ut)
 }
 
 // Delete implements [storage.versioned.KV.Delete]
-func (r *VersionedKV) Delete(key string, version uint64) error {
+func (r *versionedKV) Delete(key string, version uint64) error {
 	return r.vkv.Delete(key, version)
 }
 
@@ -86,32 +161,245 @@ func (r *VersionedKV) Delete(key string, version uint64) error {
 // [versioned.MakeKeyWithPrefix] to do so.
 // The [Object] should contain the versioning if you are
 // maintaining such a functionality.
-func (r *VersionedKV) Set(key string, object *versioned.Object) error {
+func (r *versionedKV) Set(key string, object *versioned.Object) error {
 	if r.inSynchronizedPrefix {
 		k := r.vkv.GetFullKey(key, object.Version)
-		return r.remoteKV.SetRemote(k, object.Marshal(), nil)
+		return r.remoteKV.SetRemote(k, object.Marshal())
 	}
 	return r.vkv.Set(key, object)
 }
 
+// StoreMapElement stores a versioned map element into the KV. This relies
+// on the underlying remote [KV.StoreMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+// The version of the value must match the version of the map.
+// All Map storage functions update the remote.
+func (r *versionedKV) StoreMapElement(mapName,
+	elementName string, mapVersion uint64, value *versioned.Object) error {
+	if !r.inSynchronizedPrefix {
+		return errors.New("Map operations must be remote" +
+			"operations")
+	}
+
+	if value.Version != mapVersion {
+		return errors.New("mismatched map and element versions")
+	}
+
+	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
+
+	return r.remoteKV.StoreMapElement(mapKey, elementName, value.Marshal())
+}
+
+// StoreMap saves a versioned map element into the KV. This relies
+// on the underlying remote [KV.StoreMap] function to lock and control
+// updates, but it uses [versioned.Object] values.
+// the version of values must match the version of the map
+// All Map storage functions update the remote.
+func (r *versionedKV) StoreMap(mapName string, mapVersion uint64,
+	values map[string]*versioned.Object) error {
+	if !r.inSynchronizedPrefix {
+		return errors.New("Map operations must be remote" +
+			"operations")
+	}
+
+	m := make(map[string][]byte, len(values))
+
+	for key, value := range values {
+		if value.Version != mapVersion {
+			return errors.New("mismatched map and element versions")
+		}
+		m[key] = value.Marshal()
+	}
+
+	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
+
+	return r.remoteKV.StoreMap(mapKey, m)
+}
+
+// GetMap loads a versioned map from the KV. This relies
+// on the underlying remote [KV.GetMap] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *versionedKV) GetMap(mapName string, mapVersion uint64) (
+	map[string]*versioned.Object, error) {
+	if !r.inSynchronizedPrefix {
+		return nil, errors.New("Map operations must be remote" +
+			"operations")
+	}
+
+	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
+
+	m, err := r.remoteKV.GetMap(mapKey)
+	if err != nil {
+		return nil, err
+	}
+
+	versionedM := make(map[string]*versioned.Object, len(m))
+
+	for key, data := range m {
+		obj := &versioned.Object{}
+		if err = obj.Unmarshal(data); err != nil {
+			return nil, err
+		}
+		versionedM[key] = obj
+	}
+
+	return versionedM, nil
+}
+
+// GetMapElement loads a versioned map element from the KV. This relies
+// on the underlying remote [KV.GetMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint64) (
+	*versioned.Object, error) {
+	if !r.inSynchronizedPrefix {
+		return nil, errors.New("Map operations must be remote" +
+			"operations")
+	}
+
+	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
+
+	data, err := r.remoteKV.GetMapElement(mapKey, elementName)
+	if err != nil {
+		return nil, err
+	}
+
+	obj := &versioned.Object{}
+	if err = obj.Unmarshal(data); err != nil {
+		return nil, err
+	}
+
+	return obj, err
+}
+
+// Transaction locks a key while it is being mutated then stores the result
+// and returns the old value if it existed.
+// Transactions cannot be remote operations
+// If the op returns an error, the operation will be aborted.
+func (r *versionedKV) Transaction(key string, op versioned.TransactionOperation,
+	version uint64) (*versioned.Object, bool, error) {
+
+	if r.inSynchronizedPrefix {
+		return nil, false, errors.New("Transactions cannot be remote" +
+			"operations")
+	}
+
+	fullKey := r.vkv.GetFullKey(key, version)
+
+	var oldObj *versioned.Object
+
+	wrapper := func(old []byte, existed bool) (data []byte, delete bool, err error) {
+		oldObj = &versioned.Object{}
+		err = oldObj.Unmarshal(old)
+		if err != nil {
+			return nil, false, err
+		}
+		newObj, err := op(oldObj, existed)
+		if err != nil {
+			return nil, false, err
+		}
+
+		return newObj.Marshal(), false, nil
+	}
+
+	_, existed, err := r.remoteKV.Transaction(fullKey, wrapper)
+
+	return oldObj, existed, err
+}
+
+// ListenOnRemoteKey allows the caller to receive updates when
+// a key is updated by synching with another client.
+// Only one callback can be written per key.
+func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
+	callback versioned.KeyChangedByRemoteCallback) {
+
+	versionedKey := r.vkv.GetFullKey(key, version)
+
+	wrap := func(key string, old, new []byte, op versioned.KeyOperation) {
+		var oldObj *versioned.Object
+		if old != nil {
+			oldObj = &versioned.Object{}
+			err := oldObj.Unmarshal(old)
+			if err != nil {
+				jww.WARN.Printf("Failed to unmarshal old versioned object "+
+					"for listener on key %s", key)
+			}
+		}
+
+		var newObj *versioned.Object
+		if op != versioned.Deleted {
+			newObj = &versioned.Object{}
+			err := newObj.Unmarshal(new)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to unmarshal new versioned object "+
+					"for listener on key %s", key)
+			}
+		}
+
+		cleanedKey := cleanKey(key)
+
+		callback(cleanedKey, oldObj, newObj, op)
+	}
+
+	r.remoteKV.ListenOnRemoteKey(versionedKey, wrap)
+}
+
+// ListenOnRemoteMap allows the caller to receive updates when
+// the map or map elements are updated
+func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
+	callback versioned.MapChangedByRemoteCallback) {
+
+	versionedMap := r.vkv.GetFullKey(mapName, version)
+
+	wrap := func(mapName string, edits map[string]elementEdit) {
+		versionedEdits := make(map[string]versioned.ElementEdit, len(edits))
+
+		for key, edit := range edits {
+			versionedEdit := versioned.ElementEdit{
+				OldElement: &versioned.Object{},
+				NewElement: &versioned.Object{},
+				Operation:  edit.Operation,
+			}
+
+			if err := versionedEdit.OldElement.Unmarshal(edit.OldElement); err != nil {
+				jww.WARN.Printf("Failed to unmarshal old versioned object "+
+					"for listener on map %s element %s", mapName, key)
+			}
+
+			if err := versionedEdit.NewElement.Unmarshal(edit.NewElement); err != nil {
+				jww.FATAL.Printf("Failed to unmarshal new versioned object "+
+					"for listener on map %s element %s", mapName, key)
+			}
+
+			versionedEdits[key] = versionedEdit
+		}
+
+		cleanedMapName := cleanKey(mapName)
+		callback(cleanedMapName, versionedEdits)
+	}
+
+	r.remoteKV.ListenOnRemoteMap(versionedMap, wrap)
+}
+
 // GetPrefix implements [storage.versioned.KV.GetPrefix]
-func (r *VersionedKV) GetPrefix() string {
+func (r *versionedKV) GetPrefix() string {
 	return r.vkv.GetPrefix()
 }
 
 // HasPrefix implements [storage.versioned.KV.HasPrefix]
-func (r *VersionedKV) HasPrefix(prefix string) bool {
+func (r *versionedKV) HasPrefix(prefix string) bool {
 	return r.vkv.HasPrefix(prefix)
 }
 
 // Prefix implements [storage.versioned.KV.Prefix]
-func (r *VersionedKV) Prefix(prefix string) (versioned.KV, error) {
-	newKV, err := r.vkv.Prefix(prefix)
+func (r *versionedKV) Prefix(prefix string) (versioned.KV, error) {
+	subKV, err := r.vkv.Prefix(prefix)
 	if err == nil {
-		v := &VersionedKV{
+		v := &versionedKV{
 			synchronizedPrefixes: r.synchronizedPrefixes,
+			col:                  r.col,
+			txLog:                r.txLog,
 			remoteKV:             r.remoteKV,
-			vkv:                  newKV,
+			vkv:                  subKV,
 		}
 		v.updateIfSynchronizedPrefix()
 		return v, nil
@@ -119,9 +407,11 @@ func (r *VersionedKV) Prefix(prefix string) (versioned.KV, error) {
 	return nil, err
 }
 
-func (r *VersionedKV) Root() versioned.KV {
-	v := &VersionedKV{
+func (r *versionedKV) Root() versioned.KV {
+	v := &versionedKV{
 		synchronizedPrefixes: r.synchronizedPrefixes,
+		col:                  r.col,
+		txLog:                r.txLog,
 		remoteKV:             r.remoteKV,
 		vkv:                  r.vkv.Root(),
 	}
@@ -130,17 +420,17 @@ func (r *VersionedKV) Root() versioned.KV {
 }
 
 // IsMemStore implements [storage.versioned.KV.IsMemStore]
-func (r *VersionedKV) IsMemStore() bool {
+func (r *versionedKV) IsMemStore() bool {
 	return r.vkv.IsMemStore()
 }
 
 // GetFullKey implements [storage.versioned.KV.GetFullKey]
-func (r *VersionedKV) GetFullKey(key string, version uint64) string {
+func (r *versionedKV) GetFullKey(key string, version uint64) string {
 	return r.vkv.GetFullKey(key, version)
 }
 
 // Exists implements [storage.versioned.KV.Exists]
-func (r *VersionedKV) Exists(err error) bool {
+func (r *versionedKV) Exists(err error) bool {
 	return r.vkv.Exists(err)
 }
 
@@ -148,94 +438,47 @@ func (r *VersionedKV) Exists(err error) bool {
 // End Remote KV [storage.versioned.KV] interface
 ///////////////////////////////////////////////////////////////////////////////
 
-// SyncPrefix adds a prefix to the synchronization list. Please note that when
-// you call [VersionedKV.Prefix] it creates a new object, so calls to this will
-// not update other instances of the kv.
-func (r *VersionedKV) SyncPrefix(prefix string) {
-	r.lck.Lock()
-	defer r.lck.Unlock()
-	for i := range r.synchronizedPrefixes {
-		if prefix == r.synchronizedPrefixes[i] {
-			return
-		}
-	}
-	r.synchronizedPrefixes = append(r.synchronizedPrefixes, prefix)
-}
+func (r *versionedKV) StartProcesses() (stoppable.Stoppable, error) {
 
-// StoreMapElement stores a versioned map element into the KV. This relies
-// on the underlying remote [KV.StoreMapElement] function to lock and control
-// updates, but it uses [versioned.Object] values.
-// All Map storage functions update the remote.
-func (r *VersionedKV) StoreMapElement(mapName, elementKey string,
-	value *versioned.Object, version uint64) error {
-	// Generate the full key mapping (Prefixes + mapName + objectVersion)
-	mapFullKey := r.GetFullKey(mapName, version)
-	return r.remoteKV.StoreMapElement(mapFullKey, elementKey,
-		value.Marshal(), r.inSynchronizedPrefix)
-}
+	// Construct stoppables
+	multiStoppable := stoppable.NewMulti(syncStoppable)
 
-// StoreMap saves a versioned map element into the KV. This relies
-// on the underlying remote [KV.StoreMap] function to lock and control
-// updates, but it uses [versioned.Object] values.
-// All Map storage functions update the remote.
-func (r *VersionedKV) StoreMap(mapName string,
-	value map[string]*versioned.Object, version uint64) error {
-	mapFullKey := r.GetFullKey(mapName, version)
-	newMap := make(map[string][]byte, len(value))
-	for k, v := range value {
-		// we don't have to prepend the fullkey because the mapName
-		// will be prepended
-		newMap[k] = v.Marshal()
-	}
-	return r.remoteKV.StoreMap(mapFullKey, newMap, r.inSynchronizedPrefix)
-}
-
-// GetMap loads a versioned map from the KV. This relies
-// on the underlying remote [KV.GetMap] function to lock and control
-// updates, but it uses [versioned.Object] values.
-func (r *VersionedKV) GetMap(mapName string, version uint64) (
-	map[string]*versioned.Object, error) {
-	mapFullKey := r.GetFullKey(mapName, version)
-	mapData, err := r.remoteKV.GetMap(mapFullKey)
-	if err != nil {
-		return nil, err
+	if r.col != nil {
+		colStopper := stoppable.NewSingle(collectorRunnerStoppable)
+		multiStoppable.Add(colStopper)
+		go r.col.runner(colStopper)
 	}
 
-	newMap := make(map[string]*versioned.Object, len(mapData))
-	for k, v := range mapData {
-		obj := versioned.Object{}
-		err = obj.Unmarshal(v)
-		if err != nil {
-			return nil, err
-		}
-		newMap[k] = &obj
-	}
-	return newMap, nil
+	writerStopper := stoppable.NewSingle(writerRunnerStoppable)
+	multiStoppable.Add(writerStopper)
+	go r.txLog.Runner(writerStopper)
+
+	return multiStoppable, nil
 }
 
-// GetMapElement loads a versioned map element from the KV. This relies
-// on the underlying remote [KV.GetMapElement] function to lock and control
-// updates, but it uses [versioned.Object] values.
-func (r *VersionedKV) GetMapElement(mapName, element string, version uint64) (
-	*versioned.Object, error) {
-	mapFullKey := r.GetFullKey(mapName, version)
-	data, err := r.remoteKV.GetMapElement(mapFullKey, element)
-	if err != nil {
-		return nil, err
-	}
-
-	obj := versioned.Object{}
-	err = obj.Unmarshal(data)
-	return &obj, err
+func (r *versionedKV) RegisterConnectionTracker(nc NotifyCallback) {
+	r.col.Register(nc)
+	go nc(r.col.IsConnected())
 }
 
-func (r *VersionedKV) Remote() RemoteKV {
+func (r *versionedKV) IsConnected() bool {
+	return r.col.IsConnected()
+}
+
+func (r *versionedKV) IsSynched() bool {
+	return r.IsSynched()
+}
+
+// WaitForRemote block until timeout or remote operations complete
+func (r *versionedKV) WaitForRemote(timeout time.Duration) bool {
+	return r.col.WaitUntilSynched(timeout)
+}
+
+func (r *versionedKV) Remote() RemoteKV {
 	return r.remoteKV
 }
 
-func (r *VersionedKV) updateIfSynchronizedPrefix() bool {
-	r.lck.Lock()
-	defer r.lck.Unlock()
+func (r *versionedKV) updateIfSynchronizedPrefix() bool {
 	for i := range r.synchronizedPrefixes {
 		if r.vkv.HasPrefix(r.synchronizedPrefixes[i]) {
 			r.inSynchronizedPrefix = true
@@ -246,7 +489,25 @@ func (r *VersionedKV) updateIfSynchronizedPrefix() bool {
 	return false
 }
 
-// WaitForRemote block until timeout or remote operations complete
-func (r *VersionedKV) WaitForRemote(timeout time.Duration) bool {
-	return r.remoteKV.WaitForRemote(timeout)
+func cleanKey(key string) string {
+
+	versionLoc := -1
+	prefixLoc := -1
+
+	for i := len(key) - 1; i > 0; i-- {
+		if versionLoc == -1 && key[i] == "_"[0] {
+			versionLoc = i
+		}
+		if key[i] == versioned.PrefixSeparator[0] {
+			prefixLoc = i
+			// prefix always is after version, so we can break
+			break
+		}
+	}
+
+	cleanedKey := key[:versionLoc]
+	if prefixLoc != -1 {
+		cleanedKey = cleanedKey[prefixLoc+1:]
+	}
+	return cleanedKey
 }

@@ -38,6 +38,10 @@ type RemoteStore interface {
 	//
 	// Returns the JSON of [RemoteStoreReport].
 	GetLastWrite() ([]byte, error)
+
+	// ReadDir reads the named directory, returning all its
+	// directory entries sorted by filename as json of a []string
+	ReadDir(path string) ([]byte, error)
 }
 
 // RemoteStoreFileSystem is a structure adhering to [RemoteStore]. This utilizes
@@ -132,7 +136,13 @@ func (r *remoteStoreFileSystemWrapper) Write(path string, data []byte) error {
 }
 
 func (r *remoteStoreFileSystemWrapper) ReadDir(path string) ([]string, error) {
-	panic("unimplmented")
+	filesJSON, err := r.bindingsAPI.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	err = json.Unmarshal(filesJSON, &files)
+	return files, err
 }
 
 // GetLastModified returns when the file at the given file path was last
@@ -183,7 +193,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV is instantiated and an instance is acquired via the Cmix object
 // [Cmix.GetRemoteKV] function. (TODO: write this function)
 type RemoteKV struct {
-	rkv *sync.VersionedKV
+	rkv *sync.versionedKV
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -286,7 +296,7 @@ func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*sync.VersionedKV),
+		rkv: newK.(*sync.versionedKV),
 	}
 	return newRK, nil
 }
@@ -298,7 +308,7 @@ func (r *RemoteKV) Root() (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*sync.VersionedKV),
+		rkv: newK.(*sync.versionedKV),
 	}
 	return newRK, nil
 }
@@ -375,7 +385,7 @@ func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 // Exists(err error) bool
 
 // remoteStoreCbUtil is a utility function for the sync.RemoteStoreCallback.
-func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Transaction, err error) {
+func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx sync.Mutate, err error) {
 	var report RemoteStoreReport
 	if err != nil {
 		report.Error = err.Error()

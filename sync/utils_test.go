@@ -9,7 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -80,9 +82,9 @@ func TestDeviceOffset(t *testing.T) {
 	require.Equal(t, dvcOffset, deserial)
 }
 
-// makeTransactionLog is a utility function which generates a TransactionLog for
+// makeTransactionLog is a utility function which generates a remoteWriter for
 // testing purposes.
-func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog {
+func makeTransactionLog(baseDir, password string, t *testing.T) *remoteWriter {
 
 	localStore := NewKVFilesystem(ekv.MakeMemstore())
 	// Construct remote store
@@ -91,9 +93,11 @@ func makeTransactionLog(baseDir, password string, t *testing.T) *TransactionLog 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
 
-	// Construct transaction log
+	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
+
+	// Construct mutate log
 	txLog, err := NewTransactionLog(baseDir+"test.txt", localStore,
-		remoteStore, deviceSecret, &CountingReader{count: 0})
+		remoteStore, deviceSecret, rngGen)
 	require.NoError(t, err)
 
 	return txLog
@@ -105,6 +109,10 @@ type CountingReader struct {
 	count uint8
 }
 
+func NewCountingReader() csprng.Source {
+	return &CountingReader{count: 0}
+}
+
 // Read just counts until 254 then starts over again
 func (c *CountingReader) Read(b []byte) (int, error) {
 	for i := 0; i < len(b); i++ {
@@ -112,6 +120,10 @@ func (c *CountingReader) Read(b []byte) (int, error) {
 		b[i] = c.count
 	}
 	return len(b), nil
+}
+
+func (c *CountingReader) SetSeed(s []byte) error {
+	return nil
 }
 
 // constructTimestamps is a testing utility function. It constructs a list of

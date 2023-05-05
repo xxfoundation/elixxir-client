@@ -11,8 +11,10 @@ package sync
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"testing"
@@ -23,10 +25,9 @@ import (
 	"gitlab.com/elixxir/ekv"
 )
 
-const baseDir = "collector_tests/"
-
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
+	baseDir := "TestNewCollector/"
 	rng := rand.New(rand.NewSource(42))
 	syncPath := baseDir + "collector/"
 	txLog := makeTransactionLog(syncPath, password, t)
@@ -35,7 +36,7 @@ func TestNewCollector(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := newVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	myId, err := cmix.NewRandomInstanceID(rng)
@@ -43,31 +44,34 @@ func TestNewCollector(t *testing.T) {
 	cmix.StoreInstanceID(myId, remoteKv)
 
 	workingDir := baseDir + "remoteFsSmoke/"
-	// Delete the test file at the end
-	defer os.RemoveAll(baseDir)
 
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 
 	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 
-	expected := &Collector{
+	expected := &collector{
 		syncPath:             syncPath,
 		myID:                 myId,
-		lastUpdates:          make(map[cmix.InstanceID]time.Time, 0),
-		SynchronizationEpoch: synchronizationEpoch,
+		lastUpdateRead:       make(map[cmix.InstanceID]time.Time, 0),
+		synchronizationEpoch: synchronizationEpoch,
 		deviceTxTracker:      newDeviceTransactionTracker(),
 		txLog:                txLog,
 		remote:               fsRemote,
 		kv:                   remoteKv,
+		myLogPath:            collector.myLogPath,
 	}
 
 	require.Equal(t, expected, collector)
 
+	// Delete the test file at the end
+	os.RemoveAll(baseDir)
+
 }
 
 func TestNewCollector_CollectChanges(t *testing.T) {
+	baseDir := "TestNewCollector_CollectChanges/"
 
-	// Note: these are pre-canned serialized transaction logs w/ transactions
+	// Note: these are pre-canned serialized mutate logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)
 	var remoteTxLogsEnc = []string{
 		"MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0ZAAAAAAAAAFhYREtUWExPR0RWQ09GRlNUYm5Wc2JBPT0GAAAAAAAAAJIAAAAAAAAAMCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWWRial9DNnlFc3FuTUk4LXVSNUJlVFBOejZVSXZiSVV5c1FtTTNlbXVuSmN3OWVJYktpeVNwN2pWYWYxdTZlZWcxQWF0WkhxS0FvTnJ6aWRYaUtsZmluU0FsRWhDX3hSZVNqT3dVMGk3R0NadWp1YWWSAAAAAAAAADEsR1JvYkhCMGVIeUFoSWlNa0pTWW5LQ2txS3l3dExpOHdDRUdqWjdKSG1JY3d4MG9oZ2xwVzhOUWhmZzdUWll1SlBaUnR3alFPaXl1cTlZaFRlR3lEaVFsRHJ3a20tbnZXZk1YTE1sNm1WTmRyZGhPdV8zMWh3cXhJYlRERlBHQW1Kd25hS01UZ29kM2FfV1NqkgAAAAAAAAAyLE1USXpORFUyTnpnNU9qczhQVDRfUUVGQ1EwUkZSa2RJSElDQUlFQ29kbXlvVTdsbGJhaFkxS3B2NGRVTWJ3SVZ6VFVDV09Benp2VmRNLVptUm1FcThqVk1FbHpFbWltTzJaSkhLVmdISGk3aFBQSkxWa0xndThPTTBRa0N2Q1dMcXJnX2tNYk9aOE9YNTFUQZIAAAAAAAAAMyxTVXBMVEUxT1QxQlJVbE5VVlZaWFdGbGFXMXhkWGw5Z0dZdnNuWVd6X3lDSFV4Z1J0MXVWT1V1bmRxMk1xdm1pWF9PdlBaWHBjbmRabzFHVTBIM0RQeW5LRm9hRFNrN0wzbmF6Y3JiMzk3a05mWTJPYm9qRC1EbkhieWF0dU9JNnVRdnZUdDJSQTlSOGVYWjKSAAAAAAAAADQsWVdKalpHVm1aMmhwYW10c2JXNXZjSEZ5YzNSMWRuZDRtQlJLeE5HeXlpQTFzRlMzOUZxRUlxSmRIeXVaQWIwSHNydF9QTzBYZF90RHlfeENiUTZ6Z0hhblljSXU5eWFST0xfUXFjaFhsejRJNkFoTjYwM3pEMVhVTGVTMkRDUmVvd1dURUFRNG02alBObHQzkgAAAAAAAAA1LGVYcDdmSDEtZjRDQmdvT0VoWWFIaUltS2k0eU5qby1RN1Myb2pvQ2QtRWRHUE55d1Utd2pzUlNLTzV1V0lmZmNsTDhaaGFLOHk0WldsdEtWbFVtMU9QUjhiYkFXdXNlRFdZWVJUS3ZmSkZXRzRYYTNFWDFYZFJLQ1Zva2d5SGx6RGJGVnFpZ2xTbTFZN29fbg==",
@@ -84,30 +88,33 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := newVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"
-	// Delete the test file at the end
-	defer os.RemoveAll(baseDir)
 
-	// Write mock data to file (collectChanges will read from file)
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]string, 0)
 	rng := rand.New(rand.NewSource(42))
-	for _, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockInstanceID, err := cmix.NewRandomInstanceID(rng)
-		require.NoError(t, err)
-		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
-		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockInstanceID.String(), mockTxLog))
-		devices = append(devices, mockInstanceID.String())
-	}
 
 	// Construct collector
 	myId, _ := cmix.NewRandomInstanceID(rng)
 	cmix.StoreInstanceID(myId, remoteKv)
 	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
+
+	// Write mock data to file (collectChanges will Read from file)
+	for _, remoteTxLogEnc := range remoteTxLogsEnc {
+		mockInstanceID, err := cmix.NewRandomInstanceID(rng)
+		txLogPath := filepath.Join(syncPath,
+			fmt.Sprintf(txLogPathFmt, mockInstanceID,
+				keyID(txLog.deviceSecret)))
+
+		require.NoError(t, err)
+		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
+		require.NoError(t, err)
+		require.NoError(t, fsRemote.Write(txLogPath, mockTxLog))
+		devices = append(devices, mockInstanceID.String())
+	}
 
 	_, err = collector.collectChanges(devices)
 	require.NoError(t, err)
@@ -119,12 +126,14 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 		received := collector.deviceTxTracker.changes[dvcId]
 		require.Len(t, received, 6)
 	}
-
+	// Delete the test file at the end
+	os.RemoveAll(baseDir)
 }
 
 func TestCollector_ApplyChanges(t *testing.T) {
+	baseDir := "TestCollector_ApplyChanges/"
 
-	// Note: these are pre-canned serialized transaction logs w/ transactions
+	// Note: these are pre-canned serialized mutate logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)
 	var remoteTxLogsEnc = []string{
 		"MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0ZAAAAAAAAAFhYREtUWExPR0RWQ09GRlNUYm5Wc2JBPT0GAAAAAAAAAJIAAAAAAAAAMCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWWRial9DNnlFc3FuTUk4LXVSNUJlVFBOejZVSXZiSVV5c1FtTTNlbXVuSmN3OWVJYktpeVNwN2pWYWYxdTZlZWcxQWF0WkhxS0FvTnJ6aWRYaUtsZmluU0FsRWhDX3hSZVNqT3dVMGk3R0NadWp1YWWSAAAAAAAAADEsR1JvYkhCMGVIeUFoSWlNa0pTWW5LQ2txS3l3dExpOHdDRUdqWjdKSG1JY3d4MG9oZ2xwVzhOUWhmZzdUWll1SlBaUnR3alFPaXl1cTlZaFRlR3lEaVFsRHJ3a20tbnZXZk1YTE1sNm1WTmRyZGhPdV8zMWh3cXhJYlRERlBHQW1Kd25hS01UZ29kM2FfV1NqkgAAAAAAAAAyLE1USXpORFUyTnpnNU9qczhQVDRfUUVGQ1EwUkZSa2RJSElDQUlFQ29kbXlvVTdsbGJhaFkxS3B2NGRVTWJ3SVZ6VFVDV09Benp2VmRNLVptUm1FcThqVk1FbHpFbWltTzJaSkhLVmdISGk3aFBQSkxWa0xndThPTTBRa0N2Q1dMcXJnX2tNYk9aOE9YNTFUQZIAAAAAAAAAMyxTVXBMVEUxT1QxQlJVbE5VVlZaWFdGbGFXMXhkWGw5Z0dZdnNuWVd6X3lDSFV4Z1J0MXVWT1V1bmRxMk1xdm1pWF9PdlBaWHBjbmRabzFHVTBIM0RQeW5LRm9hRFNrN0wzbmF6Y3JiMzk3a05mWTJPYm9qRC1EbkhieWF0dU9JNnVRdnZUdDJSQTlSOGVYWjKSAAAAAAAAADQsWVdKalpHVm1aMmhwYW10c2JXNXZjSEZ5YzNSMWRuZDRtQlJLeE5HeXlpQTFzRlMzOUZxRUlxSmRIeXVaQWIwSHNydF9QTzBYZF90RHlfeENiUTZ6Z0hhblljSXU5eWFST0xfUXFjaFhsejRJNkFoTjYwM3pEMVhVTGVTMkRDUmVvd1dURUFRNG02alBObHQzkgAAAAAAAAA1LGVYcDdmSDEtZjRDQmdvT0VoWWFIaUltS2k0eU5qby1RN1Myb2pvQ2QtRWRHUE55d1Utd2pzUlNLTzV1V0lmZmNsTDhaaGFLOHk0WldsdEtWbFVtMU9QUjhiYkFXdXNlRFdZWVJUS3ZmSkZXRzRYYTNFWDFYZFJLQ1Zva2d5SGx6RGJGVnFpZ2xTbTFZN29fbg==",
@@ -141,14 +150,14 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	remoteKv, err := NewVersionedKV(txLog, kv, nil, nil, nil)
+	remoteKv, err := newVersionedKV(txLog, kv, nil, nil, nil)
 	require.NoError(t, err)
 
 	workingDir := baseDir + "remoteFsSmoke/"
 	// Delete the test file at the end
 	defer os.RemoveAll(baseDir)
 
-	// Write mock data to file (collectChanges will read from file)
+	// Write mock data to file (collectChanges will Read from file)
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]string, 0)
 	for i, remoteTxLogEnc := range remoteTxLogsEnc {
@@ -170,18 +179,18 @@ func TestCollector_ApplyChanges(t *testing.T) {
 
 }
 
-// Unit test for deviceTransactionTracker.AddToDevice.
+// Unit test for devicePatchTracker.AddToDevice.
 func TestDeviceTransactionTracker_AddToDevice(t *testing.T) {
 	const numTests = 100
 	dvcTracker := newDeviceTransactionTracker()
 
 	// Construct transactions
-	changes := make([]Transaction, 0)
+	changes := make([]Mutate, 0)
 	for i := 0; i < numTests; i++ {
 		iStr := strconv.Itoa(i)
 		key, val := "key"+iStr, "val"+iStr
 		offset := time.Now().Add(time.Duration(i) * time.Second)
-		tx := NewTransaction(offset, key, []byte(val))
+		tx := NewMutate(offset, key, []byte(val))
 		changes = append(changes, tx)
 	}
 
@@ -194,13 +203,13 @@ func TestDeviceTransactionTracker_AddToDevice(t *testing.T) {
 	require.Equal(t, changes, dvcTracker.changes[instanceID])
 }
 
-// Unit test for deviceTransactionTracker.Sort.
+// Unit test for devicePatchTracker.Sort.
 func TestDeviceTransactionTracker_Next(t *testing.T) {
 	const numTests = 100
 	dvcTracker := newDeviceTransactionTracker()
 
 	// Construct transactions
-	changes := make([]Transaction, 0)
+	changes := make([]Mutate, 0)
 	for i := 0; i < numTests; i++ {
 		iStr := strconv.Itoa(i)
 		key, val := "key"+iStr, "val"+iStr
@@ -209,7 +218,7 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 			offset = offset * -1
 		}
 		offsetTs := time.Now().Add(offset)
-		tx := NewTransaction(offsetTs, key, []byte(val))
+		tx := NewMutate(offsetTs, key, []byte(val))
 		changes = append(changes, tx)
 	}
 
@@ -237,19 +246,19 @@ func TestDeviceTransactionTracker_Next(t *testing.T) {
 	require.Equal(t, changes, ordered)
 
 	// Construct new transactions
-	newChanges := make([]Transaction, 0)
+	newChanges := make([]Mutate, 0)
 	for i := 0; i < numTests; i++ {
 		iStr := strconv.Itoa(i)
 		key, val := "keyAfterNext"+iStr, "valAfterNext"+iStr
 
 		offsetTs := time.Now().Add(time.Duration(i))
-		tx := NewTransaction(offsetTs, key, []byte(val))
+		tx := NewMutate(offsetTs, key, []byte(val))
 		newChanges = append(newChanges, tx)
 	}
 
 	// Add new transactions to tracker
 	dvcTracker.AddToDevice(instanceID, newChanges)
 
-	// Ensure next retrieves the new transaction list
+	// Ensure next retrieves the new mutate list
 	require.Equal(t, newChanges, dvcTracker.Sort())
 }

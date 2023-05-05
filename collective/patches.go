@@ -1,4 +1,4 @@
-package sync
+package collective
 
 import (
 	"encoding/json"

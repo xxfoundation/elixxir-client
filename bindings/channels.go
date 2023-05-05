@@ -1828,7 +1828,7 @@ type ChannelMessageReceptionCallback interface {
 }
 
 // RegisterReceiveHandler registers a listener for non-default message types so
-// that they can be processed by modules. It is important that such modules sync
+// that they can be processed by modules. It is important that such modules collective
 // up with the event model implementation.
 //
 // There can only be one handler per [channels.MessageType]; the error

@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package sync
+package collective
 
 import (
 	"gitlab.com/elixxir/client/v4/cmix"
@@ -209,7 +209,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 			if err = rw.io.Write(rw.path, file); err != nil {
 				rw.notify(true)
 				uploadPeriod = expBackoff(uploadPeriod)
-				jww.ERROR.Printf("Failed to update sync state, "+
+				jww.ERROR.Printf("Failed to update collective state, "+
 					"last update %s, will auto retry in %s: %+v", ts,
 					uploadPeriod, err)
 				timer.Reset(uploadPeriod)
@@ -345,7 +345,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		return err
 	}
 
-	// send signals to sync all transactions
+	// send signals to collective all transactions
 	for key, m := range mutates {
 		rw.adds <- transaction{m, key}
 	}

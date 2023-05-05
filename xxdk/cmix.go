@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/event"
 	"gitlab.com/elixxir/client/v4/interfaces"
 	"gitlab.com/elixxir/client/v4/registration"
@@ -23,7 +24,6 @@ import (
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -146,10 +146,10 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	return openCmix(storageKV, rngStreamGen)
 }
 
-func OpenSynchronizedCmix(storageDir string, password []byte, remote sync.RemoteStore,
+func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
 	synchedPrefixes []string,
-	eventCb sync.KeyUpdateCallback,
-	updateCb sync.RemoteStoreCallback) (*Cmix, error) {
+	eventCb collective.KeyUpdateCallback,
+	updateCb collective.RemoteStoreCallback) (*Cmix, error) {
 
 	jww.INFO.Printf("OpenSynchronizedCmix()")
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
@@ -252,10 +252,10 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 
 // LoadSynchronizedCmix initializes a Cmix object from existing storage using
 // a remote synchronization storage object and starts the network.
-func LoadSynchronizedCmix(storageDir string, password []byte, remote sync.RemoteStore,
+func LoadSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
 	synchedPrefixes []string,
-	eventCb sync.KeyUpdateCallback,
-	updateCb sync.RemoteStoreCallback,
+	eventCb collective.KeyUpdateCallback,
+	updateCb collective.RemoteStoreCallback,
 	parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("LoadSynchronizedCmix()")
 

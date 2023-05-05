@@ -5,8 +5,8 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Package sync covers logic regarding account synchronization.
-package sync
+// Package collective covers logic regarding account synchronization.
+package collective
 
 import (
 	"encoding/json"
@@ -146,7 +146,7 @@ func (c *collector) runner(stop *stoppable.Single) {
 	case <-stop.Quit():
 		stop.ToStopped()
 		jww.DEBUG.Printf(
-			"[%s] Stopping sync collector: stoppable triggered.",
+			"[%s] Stopping collective collector: stoppable triggered.",
 			collectorLogHeader)
 		return
 	}

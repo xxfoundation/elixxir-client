@@ -244,7 +244,7 @@ type Manager interface {
 
 	// RegisterReceiveHandler registers a listener for non-default message types
 	// so that they can be processed by modules. It is important that such
-	// modules sync up with the event model implementation.
+	// modules collective up with the event model implementation.
 	//
 	// There can only be one handler per message type; the error
 	// MessageTypeAlreadyRegistered will be returned on multiple registrations
@@ -404,7 +404,8 @@ type ExtensionMessageHandler interface {
 //
 // Note: The first thing the function should do is extract the extension's event
 // model using the call:
-//  eventModel, success := e.(ExtensionEventModel)
+//
+//	eventModel, success := e.(ExtensionEventModel)
 //
 // It should return an error if the casting is a failure.
 type ExtensionBuilder func(e EventModel, m Manager,

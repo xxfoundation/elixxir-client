@@ -21,7 +21,7 @@ type KnownRounds struct {
 	rounds *knownRounds.KnownRounds
 	kv     versioned.KV
 	key    string
-	mux    sync.RWMutex
+	mux    collective.RWMutex
 }
 
 // NewKnownRounds creates a new empty KnownRounds and saves it to the passed

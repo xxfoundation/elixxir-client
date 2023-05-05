@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	kvSync "gitlab.com/elixxir/client/v4/sync"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -45,11 +45,11 @@ type manager struct {
 
 	mux sync.Mutex
 
-	kvLocal  *kvSync.VersionedKV
-	kvRemote *kvSync.VersionedKV
+	local  versioned.KV
+	remote versioned.KV
 }
 
-func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte, kv *kvSync.VersionedKV,
+func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte, kv versioned.KV,
 	comms *client.Comms, rng *fastRNG.StreamGenerator) Manger {
 
 	nd, exists := comms.GetHost(&id.NotificationBot)
@@ -63,7 +63,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte, kv *kvS
 		jww.FATAL.Panicf("Notifications failed to prefix kv")
 	}
 
-	kvRemote, err := kvLocal.Prefix("remote")
+	kvRemote, err := kvLocal.Prefix(versioned.StandardRemoteSyncPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Notifications failed to prefix kv")
 	}
@@ -76,7 +76,8 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte, kv *kvS
 		comms:                                       comms,
 		rng:                                         rng,
 		notificationHost:                            nd,
-		kvLocal:                                     kvLocal,
+		local:                                       kvLocal,
+		remote:                                      kvRemote,
 	}
 
 }

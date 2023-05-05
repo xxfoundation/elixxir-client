@@ -26,6 +26,8 @@ import (
 // value (see base64.StdEncoding].
 const PrefixSeparator = `\`
 
+const StandardRemoteSyncPrefix = "remoteSync"
+
 var (
 	EmptyPrefixErr               = errors.New("empty prefix")
 	PrefixContainingSeparatorErr = errors.New("cannot accept prefix with the default separator")
@@ -100,28 +102,6 @@ type KV interface {
 
 	// HasPrefix returns whether this prefix exists in the KV
 	HasPrefix(prefix string) bool
-
-	// StoreMapElement stores a versioned map element into the KV. This relies
-	// on the underlying remote [KV.StoreMapElement] function to lock and control
-	// updates, but it uses [versioned.Object] values.
-	// All Map storage functions update the remote.
-	StoreMapElement(mapName, elementKey string, value *Object, version uint64) error
-
-	// StoreMap saves a versioned map element into the KV. This relies
-	// on the underlying remote [KV.StoreMap] function to lock and control
-	// updates, but it uses [versioned.Object] values.
-	// All Map storage functions update the remote.
-	StoreMap(mapName string, value map[string]*Object, version uint64) error
-
-	// GetMap loads a versioned map from the KV. This relies
-	// on the underlying remote [KV.GetMap] function to lock and control
-	// updates, but it uses [versioned.Object] values.
-	GetMap(mapName string, version uint64) (map[string]*Object, error)
-
-	// GetMapElement loads a versioned map element from the KV. This relies
-	// on the underlying remote [KV.GetMapElement] function to lock and control
-	// updates, but it uses [versioned.Object] values.
-	GetMapElement(mapName, element string, version uint64) (*Object, error)
 
 	// Prefix returns a new KV with the new prefix appending
 	Prefix(prefix string) (KV, error)

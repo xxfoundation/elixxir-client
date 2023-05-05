@@ -26,7 +26,7 @@ import (
 func dummyReceivedMessageCB(uint64, ed25519.PublicKey, bool, bool) {}
 
 func TestMain(m *testing.M) {
-	jww.SetStdoutThreshold(jww.LevelDebug)
+	jww.SetStdoutThreshold(jww.LevelTrace)
 	os.Exit(m.Run())
 }
 

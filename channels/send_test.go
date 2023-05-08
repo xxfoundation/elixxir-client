@@ -49,7 +49,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), local: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
@@ -204,7 +204,7 @@ func Test_manager_SendMessage(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), local: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
@@ -292,7 +292,7 @@ func Test_manager_SendReply(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), local: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
@@ -382,7 +382,7 @@ func Test_manager_SendReaction(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), local: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (

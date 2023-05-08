@@ -27,8 +27,13 @@ type nicknameManager struct {
 	remote    versioned.KV
 }
 
-// Todo: move to interfaces.go
-type UpdateNicknames func(created, edits, deletions *NicknameChanges)
+// Todo: docstrign & move to interfaces.go
+type UpdateNicknames func(createdOrEdited, deleted *NicknameUpdate)
+type NicknameUpdate struct {
+	ChannelId      id.ID
+	Nickname       string
+	NicknameExists bool
+}
 
 // LoadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
@@ -48,7 +53,7 @@ func LoadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
 	nm.mux.Lock()
 	loadedMap := nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
 		nm.mapUpdate)
-	err = nm.load()
+	err = nm.load(loadedMap)
 	if err != nil && nm.local.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load nicknameManager: %+v", err)
 	}
@@ -92,47 +97,38 @@ func (nm *nicknameManager) GetNickname(channelID *id.ID) (
 	return
 }
 
-func newNicknameChanges() *nicknameChanges {
-	return &nicknameChanges{
-		created:  make([]NicknameChanges, 0),
-		edit:     make([]NicknameChanges, 0),
-		deletion: make([]NicknameChanges, 0),
+func newNicknameChanges() *nicknameUpdates {
+	return &nicknameUpdates{
+		createdOrEdited: make([]NicknameUpdate, 0),
+		deleted:         make([]NicknameUpdate, 0),
 	}
 }
 
-type nicknameChanges struct {
-	created  []NicknameChanges
-	edit     []NicknameChanges
-	deletion []NicknameChanges
+type nicknameUpdates struct {
+	createdOrEdited []NicknameUpdate
+	deleted         []NicknameUpdate
 }
 
-func (nc *nicknameChanges) AddDeletion(nickname string, chanId *id.ID) {
-	nc.deletion = append(nc.deletion, NicknameChanges{
-		ChannelId:       *chanId,
-		Nickname:        nickname,
-		NicknameExisted: false,
+func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
+	nc.deleted = append(nc.deleted, NicknameUpdate{
+		ChannelId:      *chanId,
+		Nickname:       "",
+		NicknameExists: false,
 	})
 }
 
-func (nc *nicknameChanges) AddCreated(nickname string, chanId id.ID) {
-	nc.created = append(nc.created, NicknameChanges{
-		ChannelId:       chanId,
-		Nickname:        nickname,
-		NicknameExisted: false,
-	})
-}
-
-func (nc *nicknameChanges) AddEdit(nickname string, chanId id.ID) {
-	nc.edit = append(nc.edit, NicknameChanges{
-		ChannelId:       chanId,
-		Nickname:        nickname,
-		NicknameExisted: true,
+func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
+	nc.createdOrEdited = append(nc.createdOrEdited, NicknameUpdate{
+		ChannelId:      chanId,
+		Nickname:       nickname,
+		NicknameExists: true,
 	})
 }
 
 func (nm *nicknameManager) mapUpdate(
 	mapName string, edits map[string]versioned.ElementEdit) {
 
+	// Ensure the user is attempting to modify the correct map
 	if mapName != nicknameMapName {
 		jww.ERROR.Printf("Got an update for the wrong map, "+
 			"expected: %s, got: %s", nicknameMapName, mapName)
@@ -143,7 +139,6 @@ func (nm *nicknameManager) mapUpdate(
 	defer nm.mux.Unlock()
 
 	updates := newNicknameChanges()
-
 	for elementName, edit := range edits {
 		// unmarshal element name
 		chanId := &id.ID{}
@@ -154,13 +149,12 @@ func (nm *nicknameManager) mapUpdate(
 		}
 
 		if edit.Operation == versioned.Deleted {
-			localNickname, exists := nm.byChannel[*chanId]
-			if !exists {
+			if _, exists := nm.byChannel[*chanId]; !exists {
 				// if we don't have it locally, skip
 				continue
 			}
 
-			updates.AddDeletion(localNickname, chanId)
+			updates.AddDeletion(chanId)
 			continue
 		}
 
@@ -171,10 +165,8 @@ func (nm *nicknameManager) mapUpdate(
 			continue
 		}
 
-		if edit.Operation == versioned.Created {
-			updates.AddCreated(newUpdate.Nickname, newUpdate.ChannelId)
-		} else if edit.Operation == versioned.Updated {
-			updates.AddEdit(newUpdate.Nickname, newUpdate.ChannelId)
+		if edit.Operation == versioned.Created || edit.Operation == versioned.Updated {
+			updates.AddCreatedOrEdit(newUpdate.Nickname, newUpdate.ChannelId)
 		} else {
 			jww.WARN.Printf("Failed to handle nickname update %s, "+
 				"bad operation: %s, skipping", elementName, edit.Operation)
@@ -190,34 +182,22 @@ func (nm *nicknameManager) mapUpdate(
 	}
 }
 
-func (nm *nicknameManager) initiateCallbacks(updates *nicknameChanges) {
-	for _, created := range updates.created {
-		if cb, exists := nm.callback[created.ChannelId]; exists {
-			go cb(&created, nil, nil)
+func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
+	for _, createdOrEdited := range updates.createdOrEdited {
+		if cb, exists := nm.callback[createdOrEdited.ChannelId]; exists {
+			go cb(&createdOrEdited, nil)
 		}
 	}
 
-	for _, edited := range updates.edit {
-		if cb, exists := nm.callback[edited.ChannelId]; exists {
-			go cb(nil, &edited, nil)
-		}
-	}
-
-	for _, deleted := range updates.deletion {
+	for _, deleted := range updates.deleted {
 		if cb, exists := nm.callback[deleted.ChannelId]; exists {
-			go cb(nil, nil, &deleted)
+			go cb(nil, &deleted)
 		}
 	}
 }
 
 func (nm *nicknameManager) upsertNicknameUnsafeRAM(newUpdate channelIDToNickname) {
 	nm.byChannel[newUpdate.ChannelId] = newUpdate.Nickname
-}
-
-type NicknameChanges struct {
-	ChannelId       id.ID
-	Nickname        string
-	NicknameExisted bool
 }
 
 // channelIDToNickname is a serialization structure. This is used by the save
@@ -252,7 +232,7 @@ func (nm *nicknameManager) save() error {
 }
 
 // load restores the nickname manager from disk.
-func (nm *nicknameManager) load() error {
+func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
 	obj, err := nm.local.Get(nicknameStoreStorageKey, nicknameStoreStorageVersion)
 	if err != nil {
 		return err

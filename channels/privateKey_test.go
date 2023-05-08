@@ -110,7 +110,7 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 
 // Error path: Tests that when no private key exists for the channel ID,
 // manager.ExportChannelAdminKey returns an error that the private key does not
-// exist in storage, as determined by local.Exists.
+// exist in storage, as determined by kv.Exists.
 func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 	m := &manager{
 		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),

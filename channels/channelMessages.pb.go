@@ -52,9 +52,9 @@ type ChannelMessage struct {
 	// the same message ID.
 	Nonce []byte `protobuf:"bytes,6,opt,name=Nonce,proto3" json:"Nonce,omitempty"`
 	// LocalTimestamp is the timestamp when the "send call" is made based upon
-	// the local clock. If this differs by more than 5 seconds +/- from when the
+	// the kv clock. If this differs by more than 5 seconds +/- from when the
 	// round it sent on is queued, then a random mutation on the queued time
-	// (+/- 200ms) will be used by local clients instead.
+	// (+/- 200ms) will be used by kv clients instead.
 	LocalTimestamp int64  `protobuf:"varint,7,opt,name=LocalTimestamp,proto3" json:"LocalTimestamp,omitempty"`
 	DMToken        uint32 `protobuf:"varint,8,opt,name=DMToken,proto3" json:"DMToken,omitempty"` // hash of private key
 }

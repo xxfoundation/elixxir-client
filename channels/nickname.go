@@ -22,13 +22,13 @@ const (
 type nicknameManager struct {
 	byChannel map[id.ID]string
 	mux       sync.RWMutex
-	callback  UpdateNicknames
+	callback  map[id.ID]UpdateNicknames
 	local     versioned.KV
 	remote    versioned.KV
 }
 
 // Todo: move to interfaces.go
-type UpdateNicknames func(created, edits, deletions []NicknameChanges)
+type UpdateNicknames func(created, edits, deletions *NicknameChanges)
 
 // LoadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
@@ -42,6 +42,7 @@ func LoadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
 		byChannel: make(map[id.ID]string),
 		local:     kv,
 		remote:    kvRemote,
+		callback:  make(map[id.ID]UpdateNicknames),
 	}
 
 	nm.mux.Lock()
@@ -184,8 +185,28 @@ func (nm *nicknameManager) mapUpdate(
 	}
 
 	// Initiate callback
-	if nm.callback != nil {
-		go nm.callback(updates.created, updates.edit, updates.deletion)
+	if len(nm.callback) != 0 {
+		nm.initiateCallbacks(updates)
+	}
+}
+
+func (nm *nicknameManager) initiateCallbacks(updates *nicknameChanges) {
+	for _, created := range updates.created {
+		if cb, exists := nm.callback[created.ChannelId]; exists {
+			go cb(&created, nil, nil)
+		}
+	}
+
+	for _, edited := range updates.edit {
+		if cb, exists := nm.callback[edited.ChannelId]; exists {
+			go cb(nil, &edited, nil)
+		}
+	}
+
+	for _, deleted := range updates.deletion {
+		if cb, exists := nm.callback[deleted.ChannelId]; exists {
+			go cb(nil, nil, &deleted)
+		}
 	}
 }
 

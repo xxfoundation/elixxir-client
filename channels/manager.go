@@ -435,3 +435,7 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 	jww.INFO.Printf("[CH] GetMutedUsers in channel %s", channelID)
 	return m.mutedUsers.getMutedUsers(channelID)
 }
+
+func (m *manager) RegisterNicknameCallback(chId *id.ID, cb UpdateNicknames) {
+	m.nicknameManager.callback[*chId] = cb
+}

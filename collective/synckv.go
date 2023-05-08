@@ -8,6 +8,8 @@
 package collective
 
 import (
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -38,6 +40,10 @@ type versionedKV struct {
 
 	// hasSynchronizedPrefix tells us we are in a prefix that is synchronized.
 	inSynchronizedPrefix bool
+
+	// is the synchronization thread active?
+	isSynchronizing *atomic.Bool
+	mux             sync.Mutex
 
 	col   *collector
 	txLog *remoteWriter
@@ -339,7 +345,15 @@ func (r *versionedKV) Transaction(key string, op versioned.TransactionOperation,
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
 func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
-	callback versioned.KeyChangedByRemoteCallback) *versioned.Object {
+	callback versioned.KeyChangedByRemoteCallback) (*versioned.Object,
+	error) {
+
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	if r.isSynchronizing.Load() {
+		jww.FATAL.Panic("cannot add listener when synchronizing")
+	}
 
 	versionedKey := r.vkv.GetFullKey(key, version)
 
@@ -369,20 +383,23 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 		callback(cleanedKey, oldObj, newObj, op)
 	}
 
-	// FIXME: this isn't right
-	mapElement, err := r.Get(key, version)
-	if err != nil {
-		jww.ERROR.Printf("cannot get: %+v", err)
-	}
 	r.remoteKV.ListenOnRemoteKey(versionedKey, wrap)
 
-	return mapElement
+	return r.Get(key, version)
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated
 func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
-	callback versioned.MapChangedByRemoteCallback) map[string]*versioned.Object {
+	callback versioned.MapChangedByRemoteCallback) (
+	map[string]*versioned.Object, error) {
+
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	if r.isSynchronizing.Load() {
+		jww.FATAL.Panic("cannot add map listener when synchronizing")
+	}
 
 	versionedMap := r.vkv.GetFullKey(mapName, version)
 
@@ -413,14 +430,9 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 		callback(cleanedMapName, versionedEdits)
 	}
 
-	mapObj, err := r.GetMap(mapName, version)
-	if err != nil {
-		jww.ERROR.Printf("Error reading map: %+v", err)
-	}
-
 	r.remoteKV.ListenOnRemoteMap(versionedMap, wrap)
 
-	return mapObj
+	return r.GetMap(mapName, version)
 }
 
 // GetPrefix implements [storage.versioned.KV.GetPrefix]
@@ -483,6 +495,13 @@ func (r *versionedKV) Exists(err error) bool {
 
 func (r *versionedKV) StartProcesses() (stoppable.Stoppable, error) {
 
+	// Lock up while we start to prevent Listen functions from overlapping
+	// with this function.
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	r.isSynchronizing.Store(true)
+
 	// Construct stoppables
 	multiStoppable := stoppable.NewMulti(syncStoppable)
 
@@ -495,6 +514,14 @@ func (r *versionedKV) StartProcesses() (stoppable.Stoppable, error) {
 	writerStopper := stoppable.NewSingle(writerRunnerStoppable)
 	multiStoppable.Add(writerStopper)
 	go r.txLog.Runner(writerStopper)
+
+	// Switch my state back to not synchronizing when stopped
+	myStopper := stoppable.NewSingle(syncStoppable + "_synchronizing")
+	go func(s *stoppable.Single) {
+		<-s.Quit()
+		r.isSynchronizing.Store(false)
+	}(myStopper)
+	multiStoppable.Add(myStopper)
 
 	return multiStoppable, nil
 }

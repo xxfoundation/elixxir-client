@@ -193,7 +193,7 @@ func (r *remoteStoreFileSystemWrapper) GetLastWrite() (time.Time, error) {
 // RemoteKV is instantiated and an instance is acquired via the Cmix object
 // [Cmix.GetRemoteKV] function. (TODO: write this function)
 type RemoteKV struct {
-	rkv *collective.versionedKV
+	rkv versioned.KV
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -296,7 +296,7 @@ func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*collective.versionedKV),
+		rkv: newK.(versioned.KV),
 	}
 	return newRK, nil
 }
@@ -308,7 +308,7 @@ func (r *RemoteKV) Root() (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK.(*collective.versionedKV),
+		rkv: newK.(versioned.KV),
 	}
 	return newRK, nil
 }
@@ -390,7 +390,7 @@ func remoteStoreCbUtil(cb RemoteKVCallbacks, newTx collective.Mutate, err error)
 	if err != nil {
 		report.Error = err.Error()
 	} else {
-		report.Key = newTx.Key
+		// report.Key = newTx.Key
 		report.Value = newTx.Value
 	}
 

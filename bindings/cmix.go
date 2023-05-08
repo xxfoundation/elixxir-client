@@ -106,7 +106,7 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 		if err != nil {
 			report.Error = err.Error()
 		} else {
-			report.Key = newTx.Key
+			// report.Key = newTx.Key
 			report.Value = newTx.Value
 		}
 

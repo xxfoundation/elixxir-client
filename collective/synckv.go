@@ -8,6 +8,8 @@
 package collective
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
@@ -15,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
-	"time"
 )
 
 const syncStoppable = "syncStoppable"
@@ -175,7 +176,7 @@ func (r *versionedKV) Set(key string, object *versioned.Object) error {
 // The version of the value must match the version of the map.
 // All Map storage functions update the remote.
 func (r *versionedKV) StoreMapElement(mapName,
-	elementName string, mapVersion uint64, value *versioned.Object) error {
+	elementName string, value *versioned.Object, mapVersion uint64) error {
 	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")
@@ -195,8 +196,8 @@ func (r *versionedKV) StoreMapElement(mapName,
 // updates, but it uses [versioned.Object] values.
 // the version of values must match the version of the map
 // All Map storage functions update the remote.
-func (r *versionedKV) StoreMap(mapName string, mapVersion uint64,
-	values map[string]*versioned.Object) error {
+func (r *versionedKV) StoreMap(mapName string,
+	values map[string]*versioned.Object, mapVersion uint64) error {
 	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")
@@ -268,6 +269,34 @@ func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint
 		return nil, err
 	}
 
+	// FIXME: this needs to be synchronized
+	err = r.vkv.Delete(mapKey, mapVersion)
+
+	return obj, err
+}
+
+// DeleteMapElement loads a versioned map element from the KV. This relies
+// on the underlying remote [KV.GetMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *versionedKV) DeleteMapElement(mapName, elementName string,
+	mapVersion uint64) (*versioned.Object, error) {
+	if !r.inSynchronizedPrefix {
+		return nil, errors.New("Map operations must be remote" +
+			"operations")
+	}
+
+	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
+
+	data, err := r.remoteKV.GetMapElement(mapKey, elementName)
+	if err != nil {
+		return nil, err
+	}
+
+	obj := &versioned.Object{}
+	if err = obj.Unmarshal(data); err != nil {
+		return nil, err
+	}
+
 	return obj, err
 }
 
@@ -310,7 +339,7 @@ func (r *versionedKV) Transaction(key string, op versioned.TransactionOperation,
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
 func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
-	callback versioned.KeyChangedByRemoteCallback) {
+	callback versioned.KeyChangedByRemoteCallback) *versioned.Object {
 
 	versionedKey := r.vkv.GetFullKey(key, version)
 
@@ -340,13 +369,20 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 		callback(cleanedKey, oldObj, newObj, op)
 	}
 
+	// FIXME: this isn't right
+	mapElement, err := r.Get(key, version)
+	if err != nil {
+		jww.ERROR.Printf("cannot get: %+v", err)
+	}
 	r.remoteKV.ListenOnRemoteKey(versionedKey, wrap)
+
+	return mapElement
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated
 func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
-	callback versioned.MapChangedByRemoteCallback) {
+	callback versioned.MapChangedByRemoteCallback) map[string]*versioned.Object {
 
 	versionedMap := r.vkv.GetFullKey(mapName, version)
 
@@ -377,7 +413,14 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 		callback(cleanedMapName, versionedEdits)
 	}
 
+	mapObj, err := r.GetMap(mapName, version)
+	if err != nil {
+		jww.ERROR.Printf("Error reading map: %+v", err)
+	}
+
 	r.remoteKV.ListenOnRemoteMap(versionedMap, wrap)
+
+	return mapObj
 }
 
 // GetPrefix implements [storage.versioned.KV.GetPrefix]

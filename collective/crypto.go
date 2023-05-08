@@ -11,19 +11,19 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"fmt"
+	"io"
+
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20poly1305"
-	"io"
 )
 
 type encryptor interface {
 	Encrypt(data []byte) []byte
 	Decrypt(data []byte) ([]byte, error)
-	KeyID(deviceID cmix.InstanceID) string
+	KeyID(deviceID InstanceID) string
 }
 
 type deviceCrypto struct {
@@ -41,7 +41,7 @@ func (dc *deviceCrypto) Decrypt(data []byte) ([]byte, error) {
 	return decrypt(data, dc.secret)
 }
 
-func (dc *deviceCrypto) KeyID(deviceID cmix.InstanceID) string {
+func (dc *deviceCrypto) KeyID(deviceID InstanceID) string {
 	return keyID(dc.secret, deviceID)
 }
 
@@ -81,7 +81,7 @@ func initChaCha20Poly1305(secret string) cipher.AEAD {
 	return chaCipher
 }
 
-func keyID(secret string, deviceID cmix.InstanceID) string {
+func keyID(secret string, deviceID InstanceID) string {
 	// this will panic on error, intentional
 	h, _ := hash.NewCMixHash()
 	h.Write([]byte(secret))

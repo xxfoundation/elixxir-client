@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -62,7 +61,7 @@ func SynchronizedKV(path string, deviceSecret string,
 	remote RemoteStore, kv ekv.KeyValue, synchedPrefixes []string,
 	rng *fastRNG.StreamGenerator) (SyncKV, error) {
 
-	deviceID, err := cmix.GetInstanceID(kv)
+	deviceID, err := GetInstanceID(kv)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +96,7 @@ func SynchronizedKV(path string, deviceSecret string,
 func LocalKV(path string, deviceSecret string, kv ekv.KeyValue,
 	rng *fastRNG.StreamGenerator) (SyncKV, error) {
 
-	deviceID, err := cmix.GetInstanceID(kv)
+	deviceID, err := GetInstanceID(kv)
 	if err != nil {
 		return nil, err
 	}

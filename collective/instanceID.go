@@ -5,13 +5,14 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package collective
 
 import (
 	"encoding/base64"
+	"io"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/ekv"
-	"io"
 )
 
 const (

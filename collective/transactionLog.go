@@ -8,15 +8,15 @@
 package collective
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -103,7 +103,7 @@ type transaction struct {
 //   - deviceSecret - the secret for this device to communicate with the others.
 //     Note: In the future this will be unique per device.
 //   - rng - An io.Reader used for random generation when encrypting data.
-func newRemoteWriter(path string, deviceID cmix.InstanceID,
+func newRemoteWriter(path string, deviceID InstanceID,
 	io FileIO, encrypt encryptor, kv ekv.KeyValue) (*remoteWriter, error) {
 
 	connected := uint32(0)

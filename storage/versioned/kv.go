@@ -80,6 +80,11 @@ type KV interface {
 	GetMapElement(mapName, elementName string, mapVersion uint64) (
 		*Object, error)
 
+	// DeleteMapElement removes a map element from the list. It
+	// returns the element that was deleted and any errors if they occur.
+	DeleteMapElement(mapName, elementName string, mapVersion uint64) (
+		*Object, error)
+
 	// Transaction locks a key while it is being mutated then stores the result
 	// and returns the old value if it existed.
 	// If the op returns an error, the operation will be aborted.

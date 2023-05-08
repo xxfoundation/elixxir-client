@@ -113,7 +113,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	copy(pubKey, identity.PubKey)
 	identity.PubKey = pubKey
 
-	// Prefix the kv with the username so multiple can be run
+	// Prefix the local with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
 		identity.Codename, identity.PubKey, storageTag)
@@ -139,7 +139,7 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 	extensions []ExtensionBuilder) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
-	// Prefix the kv with the username so multiple can be run
+	// Prefix the local with the username so multiple can be run
 	kv, err := kv.Prefix(storageTag)
 	if err != nil {
 		return nil, err

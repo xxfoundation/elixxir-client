@@ -167,7 +167,7 @@ func Test_manager_loadChannels(t *testing.T) {
 }
 
 // Tests that manager.addChannel adds the channel to the map and stores it in
-// the kv.
+// the local.
 func Test_manager_addChannel(t *testing.T) {
 	rng := rand.New(rand.NewSource(64))
 
@@ -203,12 +203,12 @@ func Test_manager_addChannel(t *testing.T) {
 
 	_, err = m.kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
 	if err != nil {
-		t.Errorf("Failed to get joinedChannel from kv: %+v", err)
+		t.Errorf("Failed to get joinedChannel from local: %+v", err)
 	}
 
 	_, err = m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
 	if err != nil {
-		t.Errorf("Failed to get channels from kv: %+v", err)
+		t.Errorf("Failed to get channels from local: %+v", err)
 	}
 }
 
@@ -291,7 +291,7 @@ func Test_manager_removeChannel(t *testing.T) {
 
 	_, err = m.kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
 	if ekv.Exists(err) {
-		t.Errorf("joinedChannel not removed from kv: %+v", err)
+		t.Errorf("joinedChannel not removed from local: %+v", err)
 	}
 }
 

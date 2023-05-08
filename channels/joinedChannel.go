@@ -226,7 +226,7 @@ func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
 	return jc, nil
 }
 
-// delete removes the channel from the kv.
+// delete removes the channel from the local.
 func (jc *joinedChannel) delete(kv versioned.KV) error {
 	return kv.Delete(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
 		joinedChannelVersion)

@@ -9,8 +9,10 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
 	"sync"
 )
@@ -19,6 +21,8 @@ const (
 	prefixConst             = "notificationsManager:%x"
 	notificationsMap        = "notificationsRegistrations"
 	notificationsMapVersion = 0
+	tokenStorageKey         = "tokenStorageKey"
+	tokenStorageVersion     = 0
 )
 
 type manager struct {
@@ -26,13 +30,14 @@ type manager struct {
 	notifications map[id.ID]registration
 	group         map[string]Group  // ordered by group for easy access
 	callbacks     map[string]Update //update events
-	mux           sync.Mutex
+	mux           sync.RWMutex
 
 	// internal data defining notifications access
 	transmissionRSA                             rsa.PrivateKey
+	transmissionRSAPubPem                       []byte
 	transmissionRegistrationValidationSignature []byte
 	registrationTimestampNs                     int64
-	registrationSalt                            []byte
+	transmissionSalt                            []byte
 
 	// external refrences
 	comms *client.Comms
@@ -42,14 +47,20 @@ type manager struct {
 	// will be nil if this device does not talk to notifications
 	notificationHost *connect.Host
 
+	token tokenReg
+
 	local  versioned.KV
 	remote versioned.KV
 }
 
 type registration struct {
 	Group string
-	Registered bool
 	State
+}
+
+type tokenReg struct {
+	Token string
+	App   string
 }
 
 // NewOrLoadManager creates a new notifications manager for tracking and
@@ -58,17 +69,15 @@ type registration struct {
 // Will not register notifications with the remote if `allowRemoteRegistration`
 // is false, which should be the case for web based instantiations
 func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
-	kv versioned.KV, comms *client.Comms, rng *fastRNG.StreamGenerator,
-	allowRemoteRegistration bool) Manger {
+	kv versioned.KV, comms *client.Comms, rng *fastRNG.StreamGenerator) Manger {
 
 	var nbHost *connect.Host
-	if allowRemoteRegistration{
-		var exists bool
-		nbHost, exists = comms.GetHost(&id.NotificationBot)
-		if !exists {
-			jww.FATAL.Panicf("Notification bot not registered, " +
-				"notifications cannot be startedL")
-		}
+
+	var exists bool
+	nbHost, exists = comms.GetHost(&id.NotificationBot)
+	if !exists {
+		jww.FATAL.Panicf("Notification bot not registered, " +
+			"notifications cannot be startedL")
 	}
 
 	kvLocal, err := kv.Prefix(prefix(identity.RSAPrivate.Public()))
@@ -82,10 +91,11 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	}
 
 	m := &manager{
-		transmissionRSA: identity.RSAPrivate,
+		transmissionRSA:                             identity.RSAPrivate,
+		transmissionRSAPubPem:                       identity.RSAPrivate.MarshalPem(),
 		transmissionRegistrationValidationSignature: regSig,
 		registrationTimestampNs:                     identity.RegistrationTimestamp,
-		registrationSalt:                            identity.Salt,
+		transmissionSalt:                            identity.Salt,
 		comms:                                       comms,
 		rng:                                         rng,
 		notificationHost:                            nbHost,
@@ -96,12 +106,12 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	// lock so that an update cannot run while we are loading the basic
 	// notifications structure from disk into ram
 	m.mux.Lock()
-	m.remote.ListenOnRemoteMap(notificationsMap, notificationsMapVersion, m.mapUpdate)
-	m.loadNotifications()
+	loadedMap := m.remote.ListenOnRemoteMap(notificationsMap,
+		notificationsMapVersion, m.mapUpdate)
+	m.loadNotificationsUnsafe(loadedMap)
+	m.loadTokenUnsafe()
 	m.mux.Unlock()
-
 }
-
 
 // mapUpdate is the listener function which is called whenever the notifications
 // data is updated based upon a remote sync
@@ -135,7 +145,7 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 				continue
 			}
 			updates.AddDeletion(localReg.Group, nID)
-			m.deleteNotificationRAM(nID)
+			m.deleteNotificationUnsafeRAM(nID)
 			continue
 		}
 
@@ -155,8 +165,7 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 				"bad operation: %s, skipping", elementName, edit.Operation)
 			continue
 		}
-		m.upsertNotificationRAM(nID, newUpdate)
-		if newUpdate.Status && !newUpdate.Registered
+		m.upsertNotificationUnsafeRAM(nID, newUpdate)
 	}
 
 	//call callbacks
@@ -170,43 +179,42 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 	}
 }
 
-// loadNotifications loads the notifications from the local storage.
+// loadNotificationsUnsafe loads the notifications from the local storage.
 // does not take the lock and cannot run concurrently with the update function
-func (m *manager) loadNotifications() {
-
-	mapObj, err := m.remote.GetMap(notificationsMap, notificationsMapVersion)
-	if err != nil {
-		jww.WARN.Printf("Notifications map not found, creating from scratch: %+v", err)
-		m.notifications = make(map[id.ID]registration)
-		m.group = make(map[string]Group)
-		return
-	}
+// must be called under the lock
+func (m *manager) loadNotificationsUnsafe(mapObj map[string]*versioned.Object) {
 
 	for key, regObj := range mapObj {
 		reg := registration{}
 
-		if err = json.Unmarshal(regObj.Data, &reg); err != nil {
+		if err := json.Unmarshal(regObj.Data, &reg); err != nil {
 			jww.WARN.Printf("Failed to unmarshal notifications "+
 				"registration for %s, skipping: %+v", key, err)
 			continue
 		}
 		nID := &id.ID{}
-		if err = nID.UnmarshalText([]byte(key)); err != nil {
+		if err := nID.UnmarshalText([]byte(key)); err != nil {
 			jww.WARN.Printf("Failed to unmarshal notifications "+
 				"registration id for %s, skipping: %+v", key, err)
 			continue
 		}
 
-		m.upsertNotificationRAM(nID, reg)
+		m.upsertNotificationUnsafeRAM(nID, reg)
 	}
 }
 
-func (m *manager) upsertNotificationRAM(nid *id.ID, reg registration) {
+// upsertNotificationUnsafeRAM adds the given notification registration to the
+// in ram storage, both to notification and groups
+// must be called under the lock
+func (m *manager) upsertNotificationUnsafeRAM(nid *id.ID, reg registration) {
 	m.notifications[*nid] = reg
-	m.addToGroupRAM(nid, reg)
+	m.addToGroupUnsafeRAM(nid, reg)
 }
 
-func (m *manager) addToGroupRAM(nID *id.ID, reg registration) {
+// addToGroupUnsafeRAM adds the given notification registration to the
+// groups in ram storage
+// must be called under the lock
+func (m *manager) addToGroupUnsafeRAM(nID *id.ID, reg registration) {
 	g, exists := m.group[reg.Group]
 	if !exists {
 		g = make(Group)
@@ -215,7 +223,10 @@ func (m *manager) addToGroupRAM(nID *id.ID, reg registration) {
 	m.group[reg.Group] = g
 }
 
-func (m *manager) deleteNotificationRAM(nid *id.ID) {
+// deleteNotificationUnsafeRAM removes the given notification registration from
+// the in ram storage, both to notification and groups
+// must be called under the lock
+func (m *manager) deleteNotificationUnsafeRAM(nid *id.ID) {
 	reg, exists := m.notifications[*nid]
 	if !exists {
 		return
@@ -230,6 +241,63 @@ func (m *manager) deleteNotificationRAM(nid *id.ID) {
 	m.group[reg.Group] = groupList
 
 	delete(m.notifications, *nid)
+}
+
+// setTokenUnsafe sets the token in ram and on disk, locally only. Returns true
+// if the token was not net before
+// must be called under the lock
+func (m *manager) setTokenUnsafe(token, app string) bool {
+	setBefore := m.token.Token == ""
+	m.token = tokenReg{
+		Token: token,
+		App:   app,
+	}
+	tokenBytes, err := json.Marshal(m.token)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to marshal Token to disk to %s: %+v",
+			token, err)
+	}
+
+	err = m.local.Set(tokenStorageKey, &versioned.Object{
+		Version:   tokenStorageVersion,
+		Timestamp: netTime.Now(),
+		Data:      tokenBytes,
+	})
+	if err != nil {
+		jww.FATAL.Panicf("Failed to set Token on disk to %s: %+v", token, err)
+	}
+	return setBefore
+}
+
+// deleteTokenUnsafe deletes the token from ram and disk locally.
+// returns true if it existed
+// must be called under the lock
+func (m *manager) deleteTokenUnsafe() bool {
+	setBefore := m.token.Token == ""
+	if setBefore {
+		err := m.local.Delete(tokenStorageKey, tokenStorageVersion)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to delete Token on disk to %s: %+v",
+				m.token.Token, err)
+		}
+	}
+	m.token = tokenReg{}
+	return setBefore
+}
+
+// loadTokenUnsafe loads the token from disk, setting it to empty if it cannot be
+// found
+// must be called under the lock
+func (m *manager) loadTokenUnsafe() {
+	tokenObj, err := m.local.Get(tokenStorageKey, tokenStorageVersion)
+	if err != nil && ekv.Exists(err) {
+		jww.FATAL.Panicf("Error received from ekv on loading "+
+			"Token: %+v", err)
+	}
+
+	if err = json.Unmarshal(tokenObj.Data, &m.token); err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal token from disk: %+v", err)
+	}
 }
 
 // data structure to make map updates cleaner

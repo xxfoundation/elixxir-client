@@ -3,12 +3,11 @@ package channels
 import (
 	"encoding/json"
 	"errors"
-	"sync"
-
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"sync"
 )
 
 const (
@@ -72,8 +71,7 @@ func (nm *nicknameManager) SetNickname(nickname string, channelID *id.ID) error 
 		return err
 	}
 
-	nm.byChannel[*channelID] = nickname
-	return nm.save()
+	return nm.setNicknameUnsafe(nickname, channelID)
 }
 
 // DeleteNickname removes the nickname for a given channel. The name will revert
@@ -82,9 +80,7 @@ func (nm *nicknameManager) DeleteNickname(channelID *id.ID) error {
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	delete(nm.byChannel, *channelID)
-
-	return nm.save()
+	return nm.deleteNicknameUnsafe(channelID)
 }
 
 // GetNickname returns the nickname for the given channel if it exists.
@@ -240,6 +236,38 @@ func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
 		nm.upsertNicknameUnsafeRAM(data)
 	}
 
+	return nil
+}
+
+func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
+	if err := nm.local.Delete(
+		channelID.String(), nicknameStoreStorageVersion); err != nil {
+		return err
+	}
+	delete(nm.byChannel, *channelID)
+	return nil
+}
+
+func (nm *nicknameManager) setNicknameUnsafe(nickname string, channelID *id.ID) error {
+	nm.byChannel[*channelID] = nickname
+	data, err := json.Marshal(&channelIDToNickname{
+		ChannelId: *channelID,
+		Nickname:  nickname,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = nm.local.Set(channelID.String(), &versioned.Object{
+		Version:   nicknameStoreStorageVersion,
+		Timestamp: netTime.Now(),
+		Data:      data,
+	})
+	if err != nil {
+		return err
+	}
+
+	nm.byChannel[*channelID] = nickname
 	return nil
 }
 

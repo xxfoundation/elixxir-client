@@ -8,10 +8,9 @@
 package xxdk
 
 import (
-	"path/filepath"
-
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/collective"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 )
@@ -19,16 +18,16 @@ import (
 // LocalKV creates a filesystem based KV that doesn't
 // synchronize with a remote storage system.
 func LocalKV(storageDir string, password []byte,
-	rng *fastRNG.StreamGenerator) (*collective.versionedKV, error) {
+	rng *fastRNG.StreamGenerator) (versioned.KV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
-		localTxLogPath))
-	return collective.LocalKV(storageDir, password, localFS, localKV, rng)
+	// localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+	// 	localTxLogPath))
+	return collective.LocalKV(storageDir, string(password), localKV, rng)
 }
 
 // SynchronizedKV creates a filesystem based KV that synchronizes
@@ -38,16 +37,16 @@ func SynchronizedKV(storageDir string, password []byte,
 	synchedPrefixes []string,
 	eventCb collective.KeyUpdateCallback,
 	updateCb collective.RemoteStoreCallback,
-	rng *fastRNG.StreamGenerator) (*collective.versionedKV, error) {
+	rng *fastRNG.StreamGenerator) (versioned.KV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
-		localTxLogPath))
+	// localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
+	// 	localTxLogPath))
 
-	return collective.SynchronizedKV(storageDir, password, localFS,
-		remote, localKV, synchedPrefixes, eventCb, updateCb, rng)
+	return collective.SynchronizedKV(storageDir, string(password),
+		remote, localKV, synchedPrefixes, rng)
 }

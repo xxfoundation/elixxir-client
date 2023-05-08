@@ -392,6 +392,12 @@ func (v *kv) GetMapElement(mapName, element string, version uint64) (
 	return nil, UnimplementedErr
 }
 
+// DeleteMapElement is not implemented for local KVs
+func (v *kv) DeleteMapElement(mapName, element string, version uint64) (
+	*Object, error) {
+	return nil, UnimplementedErr
+}
+
 // Transaction is not implemented for local KVs
 func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 	old *Object, existed bool, err error) {

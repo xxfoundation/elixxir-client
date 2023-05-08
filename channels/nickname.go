@@ -27,8 +27,8 @@ type nicknameManager struct {
 	remote    versioned.KV
 }
 
-// Todo: docstrign & move to interfaces.go
-type UpdateNicknames func(createdOrEdited, deleted *NicknameUpdate)
+// Todo: add docstrings & move to interface.go
+type UpdateNicknames func(update NicknameUpdate)
 type NicknameUpdate struct {
 	ChannelId      id.ID
 	Nickname       string
@@ -97,20 +97,22 @@ func (nm *nicknameManager) GetNickname(channelID *id.ID) (
 	return
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Internal Nickname Changes Tracker                                       //
+/////////////////////////////////////////////////////////////////////////////
+
 func newNicknameChanges() *nicknameUpdates {
 	return &nicknameUpdates{
-		createdOrEdited: make([]NicknameUpdate, 0),
-		deleted:         make([]NicknameUpdate, 0),
+		modified: make([]NicknameUpdate, 0),
 	}
 }
 
 type nicknameUpdates struct {
-	createdOrEdited []NicknameUpdate
-	deleted         []NicknameUpdate
+	modified []NicknameUpdate
 }
 
 func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
-	nc.deleted = append(nc.deleted, NicknameUpdate{
+	nc.modified = append(nc.modified, NicknameUpdate{
 		ChannelId:      *chanId,
 		Nickname:       "",
 		NicknameExists: false,
@@ -118,7 +120,7 @@ func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
 }
 
 func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
-	nc.createdOrEdited = append(nc.createdOrEdited, NicknameUpdate{
+	nc.modified = append(nc.modified, NicknameUpdate{
 		ChannelId:      chanId,
 		Nickname:       nickname,
 		NicknameExists: true,
@@ -183,15 +185,9 @@ func (nm *nicknameManager) mapUpdate(
 }
 
 func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
-	for _, createdOrEdited := range updates.createdOrEdited {
-		if cb, exists := nm.callback[createdOrEdited.ChannelId]; exists {
-			go cb(&createdOrEdited, nil)
-		}
-	}
-
-	for _, deleted := range updates.deleted {
-		if cb, exists := nm.callback[deleted.ChannelId]; exists {
-			go cb(nil, &deleted)
+	for _, edited := range updates.modified {
+		if cb, exists := nm.callback[edited.ChannelId]; exists {
+			go cb(edited)
 		}
 	}
 }
@@ -233,20 +229,15 @@ func (nm *nicknameManager) save() error {
 
 // load restores the nickname manager from disk.
 func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
-	obj, err := nm.local.Get(nicknameStoreStorageKey, nicknameStoreStorageVersion)
-	if err != nil {
-		return err
-	}
 
-	list := make([]channelIDToNickname, 0)
-	err = json.Unmarshal(obj.Data, &list)
-	if err != nil {
-		return err
-	}
+	for key, obj := range loadedMap {
+		data := channelIDToNickname{}
+		if err := json.Unmarshal(obj.Data, &data); err != nil {
+			jww.WARN.Printf("Failed to unmarshal nickname "+
+				"for %s, skipping: %+v", key, err)
+		}
 
-	for i := range list {
-		current := list[i]
-		nm.byChannel[current.ChannelId] = current.Nickname
+		nm.upsertNicknameUnsafeRAM(data)
 	}
 
 	return nil

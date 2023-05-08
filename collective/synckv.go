@@ -176,7 +176,7 @@ func (r *versionedKV) Set(key string, object *versioned.Object) error {
 // The version of the value must match the version of the map.
 // All Map storage functions update the remote.
 func (r *versionedKV) StoreMapElement(mapName,
-	elementName string, mapVersion uint64, value *versioned.Object) error {
+	elementName string, value *versioned.Object, mapVersion uint64) error {
 	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")
@@ -196,8 +196,8 @@ func (r *versionedKV) StoreMapElement(mapName,
 // updates, but it uses [versioned.Object] values.
 // the version of values must match the version of the map
 // All Map storage functions update the remote.
-func (r *versionedKV) StoreMap(mapName string, mapVersion uint64,
-	values map[string]*versioned.Object) error {
+func (r *versionedKV) StoreMap(mapName string,
+	values map[string]*versioned.Object, mapVersion uint64) error {
 	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")

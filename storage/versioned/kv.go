@@ -67,7 +67,7 @@ type KV interface {
 	// updates, but it uses [versioned.Object] values.
 	// the version of values must match the version of the map
 	// All Map storage functions update the remote.
-	StoreMap(mapName string, mapVersion uint64, values map[string]*Object) error
+	StoreMap(mapName string, values map[string]*Object, mapVersion uint64) error
 
 	// GetMap loads a versioned map from the KV. This relies
 	// on the underlying remote [KV.GetMap] function to lock and control
@@ -375,8 +375,8 @@ func (v *kv) StoreMapElement(mapName, elementName string, value *Object,
 }
 
 // StoreMap is not implemented for local KVs
-func (v *kv) StoreMap(mapName string, mapVersion uint64,
-	values map[string]*Object) error {
+func (v *kv) StoreMap(mapName string,
+	values map[string]*Object, mapVersion uint64) error {
 	return UnimplementedErr
 }
 

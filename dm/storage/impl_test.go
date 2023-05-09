@@ -67,7 +67,7 @@ func TestImpl_Receive(t *testing.T) {
 	}
 
 	// Next, we expect the message to be created
-	testMessage := &Message{Id: uuid}
+	testMessage := &Message{Id: int64(uuid)}
 	err = m.db.Take(testMessage).Error
 	if err != nil {
 		t.Fatalf(err.Error())

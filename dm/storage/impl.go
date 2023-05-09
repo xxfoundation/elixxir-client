@@ -55,7 +55,7 @@ func buildMessage(messageID, parentID, text []byte, partnerKey,
 		CodesetVersion:     codeset,
 		Text:               text,
 		Type:               uint16(mType),
-		Round:              uint64(round),
+		Round:              int64(round),
 	}
 }
 
@@ -129,7 +129,7 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 		"[DM SQL] UpdateSentStatus(%d, %s, ...)", uuid, messageID)
 
 	// Use the uuid to get the existing Message
-	currentMessage := &Message{Id: uuid}
+	currentMessage := &Message{Id: int64(uuid)}
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Take(currentMessage).Error
 	cancel()
@@ -144,7 +144,7 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 		currentMessage.MessageId = messageID.Bytes()
 	}
 	if round.ID != 0 {
-		currentMessage.Round = uint64(round.ID)
+		currentMessage.Round = int64(round.ID)
 	}
 	if !timestamp.Equal(time.Time{}) {
 		currentMessage.Timestamp = timestamp
@@ -345,7 +345,7 @@ func (i *impl) upsertMessage(msg *Message) (uint64, error) {
 	}
 
 	jww.DEBUG.Printf("[DM SQL] Successfully stored message %d", msg.Id)
-	return msg.Id, nil
+	return uint64(msg.Id), nil
 }
 
 // getConversation is a helper that returns the Conversation with the given senderPubKey.

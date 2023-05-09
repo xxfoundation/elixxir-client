@@ -15,7 +15,7 @@ import (
 // A Message belongs to one Conversation.
 // A Message may belong to one Message (Parent).
 type Message struct {
-	Id                 uint64 `gorm:"primaryKey;autoIncrement:true"`
+	Id                 int64  `gorm:"primaryKey;autoIncrement:true"`
 	MessageId          []byte `gorm:"uniqueIndex;not null"`
 	ConversationPubKey []byte `gorm:"index;not null"`
 	ParentMessageId    []byte
@@ -25,7 +25,7 @@ type Message struct {
 	Status             uint8     `gorm:"not null"`
 	Text               []byte    `gorm:"not null"`
 	Type               uint16    `gorm:"not null"`
-	Round              uint64    `gorm:"not null"`
+	Round              int64     `gorm:"not null"`
 }
 
 // TableName overrides the table name used by Message.

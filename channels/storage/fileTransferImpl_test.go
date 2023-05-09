@@ -24,7 +24,7 @@ import (
 // Happy path test for receiving, updating, getting, and deleting a File.
 func TestImpl_ReceiveFile(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
-	testCb := func(uuid uint64, channelID *id.ID, update bool) {}
+	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
 	testString := "TestImpl_ReceiveFile"
 	m, err := newImpl("", nil,
@@ -100,7 +100,7 @@ func TestImpl_ReceiveFile(t *testing.T) {
 // Test error does not exist path
 func TestImpl_DeleteMessage_Error(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
-	testCb := func(uuid uint64, channelID *id.ID, update bool) {}
+	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
 	testString := "TestImpl_DeleteMessage_Error"
 	m, err := newImpl("", nil,

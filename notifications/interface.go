@@ -15,16 +15,16 @@ type Manger interface {
 	// Group is used to segment the notifications lists so different users of the same
 	// object do not interfere. Metadata will be synchronized, allowing more verbose
 	// notifications settings. Max 1KB.
-	Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status bool) error
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error
 	// Get returns the status of the notifications for the given ID, or
 	// an error if not present
-	Get(toBeNotifiedOn *id.ID) (status bool, metadata []byte, group string, err error)
+	Get(toBeNotifiedOn *id.ID) (status NotificationState, metadata []byte, group string, exists bool)
 	// Delete deletes the given notification, unregistering it if it is registered
 	// and removing the reference from the local store
-	Delete(toBeNotifiedOn *id.ID)
+	Delete(toBeNotifiedOn *id.ID) error
 	// GetGroup the status of all registered notifications for
 	// the given group. If the group isn't present, an empty map will be returned.
-	GetGroup(group string) Group
+	GetGroup(group string) (Group, bool)
 	// AddToken registers the Token with the remote server if this manager is
 	// in set to register, otherwise it will return ErrRemoteRegistrationDisabled
 	// This will add the token to the list of tokens which are forwarded the messages
@@ -45,6 +45,14 @@ type Update func(group Group, created, edits, deletions []*id.ID)
 
 type Group map[id.ID]State
 
+func (g Group) DeepCopy() Group {
+	gCopy := make(Group, len(g))
+	for key, value := range g {
+		gCopy[key] = value
+	}
+	return gCopy
+}
+
 type State struct {
 	Metadata []byte
 	Status   NotificationState
@@ -53,8 +61,13 @@ type State struct {
 type NotificationState uint8
 
 const (
+	// Mute - show no notifications for the id
 	Mute NotificationState = iota
+	// WhenOpen - show notifications only within the open app, no registration
+	// or privacy leak will occur
 	WhenOpen
+	// Push - show notifications as push notification on applicable devices,
+	// will have a minor privacy loss
 	Push
 )
 
@@ -76,4 +89,6 @@ type Comms interface {
 		*messages.Ack, error)
 	UnregisterToken(host *connect.Host, message *pb.UnregisterTokenRequest) (
 		*messages.Ack, error)
+	RegisterTrackedID(host *connect.Host,
+		message *pb.TrackedIntermediaryIDRequest) (*messages.Ack, error)
 }

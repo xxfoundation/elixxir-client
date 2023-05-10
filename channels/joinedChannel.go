@@ -14,103 +14,129 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
+	"time"
 )
 
 const (
-	joinedChannelsVersion = 0
-	joinedChannelsKey     = "JoinedChannelsKey"
-	joinedChannelVersion  = 0
-	joinedChannelKey      = "JoinedChannelKey-"
+	joinedChannelsMapVersion = 0
+	joinedChannelsMap        = "JoinedChannelsMap"
 )
-
-// store stores the list of joined channels to disk while taking the read lock.
-func (m *manager) store() error {
-	m.mux.RLock()
-	defer m.mux.RUnlock()
-	return m.storeUnsafe()
-}
-
-// storeUnsafe stores the list of joined channels to disk without taking the
-// read lock. It must be used by another function that has already taken the
-// read lock.
-func (m *manager) storeUnsafe() error {
-	channelsList := m.getChannelsUnsafe()
-
-	data, err := json.Marshal(&channelsList)
-	if err != nil {
-		return err
-	}
-
-	obj := &versioned.Object{
-		Version:   joinedChannelsVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	}
-
-	return m.kv.Set(joinedChannelsKey, obj)
-}
 
 // loadChannels loads all currently joined channels from disk and registers them
 // for message reception.
 func (m *manager) loadChannels() {
-	obj, err := m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
-	if !m.kv.Exists(err) {
-		m.channels = make(map[id.ID]*joinedChannel)
-		return
-	} else if err != nil {
-		jww.FATAL.Panicf("[CH] Failed to load channels: %+v", err)
-	}
-
-	chList := make([]*id.ID, 0, len(m.channels))
-	if err = json.Unmarshal(obj.Data, &chList); err != nil {
-		jww.FATAL.Panicf("[CH] Failed to load channels: %+v", err)
-	}
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	mapObj := m.remote.ListenOnRemoteMap(joinedChannelsMap, joinedChannelsMapVersion, m.mapUpdate)
 
 	chMap := make(map[id.ID]*joinedChannel)
 
-	for i := range chList {
-		jc, err2 := m.loadJoinedChannel(chList[i])
-		if err2 != nil {
-			jww.FATAL.Panicf("[CH] Failed to load channel %s (%d of %d): %+v",
-				chList[i], i, len(chList), err2)
+	for elementName, chObj := range mapObj {
+		channelID := &id.ID{}
+		if err := channelID.UnmarshalJSON([]byte(elementName)); err != nil {
+			jww.WARN.Printf("Failed to unmarshal channel ID in"+
+				"remote channel %s, skipping: %+v", elementName, err)
+			continue
 		}
-		chMap[*chList[i]] = jc
+
+		if _, err := m.setUpJoinedChannel(chObj.Data); err != nil {
+			jww.WARN.Printf("Failed to set up channel %s, skipping: "+
+				"%+v", elementName, err)
+			continue
+		}
 	}
 
 	m.channels = chMap
+}
+
+func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEdit) {
+	if mapName != joinedChannelsMap {
+		jww.ERROR.Printf("Got an update for the wrong map, "+
+			"expected: %s, got: %s", joinedChannelsMap, mapName)
+		return
+	}
+
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	joined := make([]*cryptoBroadcast.Channel, 0, len(edits))
+	deleted := make([]*id.ID, 0, len(edits))
+
+	for elementName, edit := range edits {
+		channelID := &id.ID{}
+		if err := channelID.UnmarshalJSON([]byte(elementName)); err != nil {
+			jww.WARN.Printf("Failed to unmarshal channel ID in"+
+				"remote channel %s, skipping: %+v", elementName, err)
+			continue
+		}
+		if edit.Operation == versioned.Deleted {
+			if err := m.removeChannelUnsafe(channelID); err != nil {
+				jww.WARN.Printf("Failed to remove "+
+					"channel on instruction from remote %s: %+v", channelID,
+					err)
+			} else {
+				deleted = append(deleted, channelID)
+			}
+			continue
+		} else if edit.Operation == versioned.Updated {
+			jww.WARN.Printf("Received update from remote for %s, "+
+				"updates not supported", channelID)
+			continue
+		}
+
+		jc, err := m.setUpJoinedChannel(edit.NewElement.Data)
+		if err != nil {
+			jww.WARN.Printf("Failed to set up channel %s passed by "+
+				"remote, skipping: %+v", channelID, err)
+		}
+		joined = append(joined, jc.broadcast.Get())
+	}
+
+	go m.uiCallbacks.ChannelListUpdate(joined, deleted)
 }
 
 // addChannel adds a channel.
 func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
-	if _, exists := m.channels[*channel.ReceptionID]; exists {
-		return ChannelAlreadyExistsErr
-	}
 
-	b, err := m.broadcastMaker(channel, m.net, m.rng)
+	jc, err := m.addChannelInternal(channel)
+	if err != nil {
+		return err
+	}
+	elementName := string(channel.ReceptionID.Marshal())
+
+	jcBytes, err := jc.Marshal()
 	if err != nil {
 		return err
 	}
 
-	jc := &joinedChannel{b}
-	if err = jc.Store(m.kv); err != nil {
-		go b.Stop()
-		return err
+	return m.remote.StoreMapElement(joinedChannelsMap, elementName, &versioned.Object{
+		Version:   joinedChannelsMapVersion,
+		Timestamp: time.Time{},
+		Data:      jcBytes,
+	}, joinedChannelsMapVersion)
+}
+
+// addChannel adds a channel.
+func (m *manager) addChannelInternal(channel *cryptoBroadcast.Channel) (*joinedChannel, error) {
+	if _, exists := m.channels[*channel.ReceptionID]; exists {
+		return nil, ChannelAlreadyExistsErr
 	}
+
+	b, err := m.broadcastMaker(channel, m.net, m.rng)
+	if err != nil {
+		return nil, err
+	}
+
+	jc := &joinedChannel{b}
 
 	m.channels[*jc.broadcast.Get().ReceptionID] = jc
-
-	if err = m.storeUnsafe(); err != nil {
-		go b.Stop()
-		return err
-	}
 
 	// Connect to listeners
 	_, err = m.registerListeners(b, channel)
 
-	return nil
+	return jc, nil
 }
 
 // removeChannel deletes the channel with the given ID from the channel list and
@@ -120,6 +146,10 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
+	return m.removeChannelUnsafe(channelID)
+}
+
+func (m *manager) removeChannelUnsafe(channelID *id.ID) error {
 	ch, exists := m.channels[*channelID]
 	if !exists {
 		return ChannelDoesNotExistsErr
@@ -143,12 +173,7 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 
 	delete(m.channels, *channelID)
 
-	err = m.storeUnsafe()
-	if err != nil {
-		return err
-	}
-
-	return ch.delete(m.kv)
+	return nil
 }
 
 // getChannel returns the given channel. Returns ChannelDoesNotExistsErr error
@@ -187,53 +212,30 @@ type joinedChannelDisk struct {
 	Broadcast *cryptoBroadcast.Channel
 }
 
-// Store writes the given channel to a unique storage location within the EKV.
-func (jc *joinedChannel) Store(kv versioned.KV) error {
+// Marshal marshals a given channel to bytes.
+func (jc *joinedChannel) Marshal() ([]byte, error) {
 	jcd := joinedChannelDisk{jc.broadcast.Get()}
-	data, err := json.Marshal(&jcd)
-	if err != nil {
-		return err
-	}
-
-	obj := &versioned.Object{
-		Version:   joinedChannelVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	}
-
-	return kv.Set(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID), obj)
+	return json.Marshal(&jcd)
 }
 
-// loadJoinedChannel loads a given channel from ekv storage.
-func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
-	obj, err := m.kv.Get(makeJoinedChannelKey(channelID), joinedChannelVersion)
-	if err != nil {
-		return nil, err
-	}
-
+// Unmarshal loads a given channel from ekv storage.
+func (m *manager) setUpJoinedChannel(b []byte) (*joinedChannel, error) {
 	jcd := &joinedChannelDisk{}
-	err = json.Unmarshal(obj.Data, jcd)
+	err := json.Unmarshal(b, jcd)
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := m.initBroadcast(jcd.Broadcast)
+	bc, err := m.initBroadcast(jcd.Broadcast)
 	if err != nil {
 		return nil, err
 	}
 
-	jc := &joinedChannel{broadcast: b}
+	jc := &joinedChannel{broadcast: bc}
+
+	m.channels[*jc.broadcast.Get().ReceptionID] = jc
+
 	return jc, nil
-}
-
-// delete removes the channel from the kv.
-func (jc *joinedChannel) delete(kv versioned.KV) error {
-	return kv.Delete(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
-		joinedChannelVersion)
-}
-
-func makeJoinedChannelKey(channelID *id.ID) string {
-	return joinedChannelKey + channelID.HexEncode()
 }
 
 func (m *manager) initBroadcast(

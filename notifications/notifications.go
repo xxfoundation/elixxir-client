@@ -1,26 +1,177 @@
 package notifications
 
 import (
-	"github.com/pkg/errors"
+	"bytes"
+	"encoding/json"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	notifCrypto "gitlab.com/elixxir/crypto/notifications"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// registerNotificationUnsafe registers to receive notifications on the given
-// id from remote. Only can be called if this manager is set to register, otherwise
-// it will return ErrRemoteRegistrationDisabled.
-// Must be called under the lock
-func (m *manager) registerNotificationUnsafe(nid *id.ID) error {
-	if m.notificationHost == nil {
-		return errors.WithStack(ErrRemoteRegistrationDisabled)
+func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	currentReg, exists := m.notifications[*toBeNotifiedOn]
+	if exists {
+		if currentReg.Status == status &&
+			bytes.Equal(metadata, currentReg.Metadata) {
+			return nil
+		}
 	}
-	m.comms.RegisterTrackedID(m.notificationHost, &pb.TrackedIntermediaryIDRequest{
-		Token:                 "",
-		IntermediaryId:        nil,
-		TransmissionRsa:       nil,
-		TransmissionSalt:      nil,
-		TransmissionRsaSig:    nil,
-		IIDTransmissionRsaSig: nil,
-		RegistrationTimestamp: 0,
-	}})
+
+	// register with remote
+	if status == Push && (!exists || exists && currentReg.Status != Push) {
+		if err := m.registerNotification(toBeNotifiedOn); err != nil {
+			return err
+		}
+	} else if status != Push {
+		if err := m.unregisterNotification(toBeNotifiedOn); err != nil {
+			return err
+		}
+	}
+
+	ts := netTime.Now().UTC()
+
+	reg := registration{
+		Group: group,
+		State: State{
+			Metadata: copyBytes(metadata),
+			Status:   status,
+		},
+	}
+
+	regBytes, err := json.Marshal(&reg)
+	if err != nil {
+		return err
+	}
+
+	// update remote storage
+	elementName := makeElementName(toBeNotifiedOn)
+	err = m.remote.StoreMapElement(notificationsMap, elementName,
+		&versioned.Object{
+			Version:   notificationsMapVersion,
+			Timestamp: ts,
+			Data:      regBytes,
+		}, notificationsMapVersion)
+	if err != nil {
+		return err
+	}
+
+	// update in ram storage
+	m.upsertNotificationUnsafeRAM(toBeNotifiedOn, reg)
+
+	return nil
+}
+
+func (m *manager) Get(toBeNotifiedOn *id.ID) (NotificationState, []byte, string, bool) {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	r, exist := m.notifications[*toBeNotifiedOn]
+	if exist {
+		return r.Status, copyBytes(r.Metadata), r.Group, true
+	} else {
+		return 255, nil, "", false
+	}
+}
+
+func (m *manager) Delete(toBeNotifiedOn *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	r, exist := m.notifications[*toBeNotifiedOn]
+	if !exist {
+		return nil
+	}
+
+	if r.Status == Push {
+		if err := m.unregisterNotification(toBeNotifiedOn); err != nil {
+			return err
+		}
+	}
+
+	elementName := makeElementName(toBeNotifiedOn)
+
+	_, err := m.remote.DeleteMapElement(notificationsMap, elementName,
+		notificationsMapVersion)
+	return err
+}
+
+func (m *manager) GetGroup(group string) (Group, bool) {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	g, exists := m.group[group]
+	if !exists {
+		return nil, false
+	}
+	return g.DeepCopy(), true
+}
+
+// registerNotification registers to receive notifications on the given
+// id from remote.
+func (m *manager) registerNotification(nid *id.ID) error {
+	iid, err := ephemeral.GetIntermediaryId(nid)
+	if err != nil {
+		return err
+	}
+
+	ts := netTime.Now().UTC()
+
+	stream := m.rng.GetStream()
+	sig, err := notifCrypto.SignIdentity(m.transmissionRSA, iid, ts,
+		notifCrypto.RegisterTrackedIDTag, stream)
+	stream.Close()
+	if err != nil {
+		return err
+	}
+
+	_, err = m.comms.RegisterTrackedID(m.notificationHost,
+		&pb.TrackedIntermediaryIDRequest{
+			TrackedIntermediaryID: iid,
+			TransmissionRSAPem:    m.transmissionRSAPubPem,
+			RequestTimestamp:      ts.UnixNano(),
+			Signature:             sig,
+		})
+
+	return err
+}
+
+// unregisterNotification unregisters to receive notifications on the given
+// id from remote.
+func (m *manager) unregisterNotification(nid *id.ID) error {
+	iid, err := ephemeral.GetIntermediaryId(nid)
+	if err != nil {
+		return err
+	}
+
+	ts := netTime.Now().UTC()
+
+	stream := m.rng.GetStream()
+	sig, err := notifCrypto.SignIdentity(m.transmissionRSA, iid, ts,
+		notifCrypto.UnregisterTokenTag, stream)
+	stream.Close()
+	if err != nil {
+		return err
+	}
+
+	_, err = m.comms.UnregisterTrackedID(m.notificationHost,
+		&pb.TrackedIntermediaryIDRequest{
+			TrackedIntermediaryID: iid,
+			TransmissionRSAPem:    m.transmissionRSAPubPem,
+			RequestTimestamp:      ts.UnixNano(),
+			Signature:             sig,
+		})
+
+	return err
+}
+
+func copyBytes(b []byte) []byte {
+	c := make([]byte, len(b))
+	copy(c, b)
+	return c
 }

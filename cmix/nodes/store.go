@@ -8,8 +8,6 @@
 package nodes
 
 import (
-	"encoding/json"
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -18,10 +16,68 @@ import (
 )
 
 const (
-	prefix              = "cmix"
-	currentStoreVersion = 0
-	storeKey            = "KeyStore"
+	prefix                 = "cmix"
+	currentStoreMapVersion = 0
+	storeMapName           = "KeyMap"
 )
+
+func (r *registrar) loadStore() {
+	r.mux.Lock()
+	keyObjs := r.remote.ListenOnRemoteMap(storeMapName, currentStoreMapVersion, r.mapUpdate)
+
+	for elementName, keyObj := range keyObjs {
+		nID := &id.ID{}
+		if err := nID.UnmarshalJSON([]byte(elementName)); err != nil {
+			jww.WARN.Printf("Failed to unmarshal key name in node key "+
+				"storage on local init, skipping keyName: %s: %+v",
+				elementName, err)
+			continue
+		}
+		k := &key{}
+		if err := k.unmarshal(keyObj.Data); err != nil {
+			jww.WARN.Printf("Failed to unmarshal node key "+
+				" in key storage on remote update, skipping keyName: %s: %+v",
+				nID, err)
+			continue
+		}
+		r.nodes[*nID] = k
+	}
+	r.mux.Unlock()
+}
+
+func (r *registrar) mapUpdate(mapName string, edits map[string]versioned.ElementEdit) {
+	if mapName != storeMapName {
+		jww.ERROR.Printf("Got an update for the wrong map, "+
+			"expected: %s, got: %s", storeMapName, mapName)
+		return
+	}
+
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	for element, edit := range edits {
+		nID := &id.ID{}
+		if err := nID.UnmarshalJSON([]byte(element)); err != nil {
+			jww.WARN.Printf("Failed to unmarshal key name in node key "+
+				"storage on remote update op %s, skipping keyName: %s: %+v",
+				edit.Operation, element, err)
+			continue
+		}
+
+		if edit.Operation == versioned.Deleted {
+			delete(r.nodes, *nID)
+		} else {
+			k := &key{}
+			if err := k.unmarshal(edit.NewElement.Data); err != nil {
+				jww.WARN.Printf("Failed to unmarshal node key "+
+					" in key storage on remote update, skipping keyName: %s: %+v",
+					nID, err)
+				continue
+			}
+			r.nodes[*nID] = k
+		}
+	}
+}
 
 // Add adds the key for a round to the cMix storage object. Saves the updated
 // list of nodes and the key to disk.
@@ -30,12 +86,25 @@ func (r *registrar) add(nid *id.ID, k *cyclic.Int,
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	nodeKey := newKey(r.kv, k, nid, validUntil, keyId)
+	nodeKey := newKey(k, validUntil, keyId)
+
+	nodeKeyBytes, err := nodeKey.marshal()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to marshal new nodeKey %s: %+v", nid, err)
+	}
+
+	elementName := string(nid.Marshal())
+
+	err = r.remote.StoreMapElement(storeMapName, elementName, &versioned.Object{
+		Version:   currentStoreMapVersion,
+		Timestamp: netTime.Now(),
+		Data:      nodeKeyBytes,
+	}, currentStoreMapVersion)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to store new nodeKey %s: %+v", nid, err)
+	}
 
 	r.nodes[*nid] = nodeKey
-	if err := r.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save nodeKey list for %s: %+v", nid, err)
-	}
 }
 
 // Remove removes a nodes key from the nodes map and saves.
@@ -43,69 +112,16 @@ func (r *registrar) remove(nid *id.ID) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	nodeKey, ok := r.nodes[*nid]
-	if !ok {
+	if _, ok := r.nodes[*nid]; !ok {
 		return
 	}
 
-	nodeKey.delete(r.kv, nid)
+	elementName := string(nid.Marshal())
+
+	if _, err := r.remote.DeleteMapElement(storeMapName, elementName,
+		currentStoreMapVersion); err != nil {
+		jww.FATAL.Panicf("Failed to delete nodeKey %s: %+v", nid, err)
+	}
 
 	delete(r.nodes, *nid)
-
-	if err := r.save(); err != nil {
-		jww.FATAL.Panicf("Failed to make nodeKey for %s: %+v", nid, err)
-	}
-}
-
-// save stores the cMix store.
-func (r *registrar) save() error {
-	now := netTime.Now()
-
-	data, err := r.marshal()
-	if err != nil {
-		return err
-	}
-
-	obj := versioned.Object{
-		Version:   currentKeyVersion,
-		Timestamp: now,
-		Data:      data,
-	}
-
-	return r.kv.Set(storeKey, &obj)
-}
-
-// marshal builds a byte representation of the registrar.
-func (r *registrar) marshal() ([]byte, error) {
-	nodes := make([]id.ID, len(r.nodes))
-
-	index := 0
-	for nid := range r.nodes {
-		nodes[index] = nid
-		index++
-	}
-
-	return json.Marshal(&nodes)
-}
-
-// unmarshal restores the data for a registrar from the byte representation of
-// the registrar.
-func (r *registrar) unmarshal(b []byte) error {
-	var nodes []id.ID
-
-	err := json.Unmarshal(b, &nodes)
-	if err != nil {
-		return err
-	}
-
-	for _, nid := range nodes {
-		k, err := loadKey(r.kv, &nid)
-		if err != nil {
-			return errors.WithMessagef(
-				err, "could not load nodes key for %s", &nid)
-		}
-		r.nodes[nid] = k
-	}
-
-	return nil
 }

@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -111,6 +112,14 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	m.loadNotificationsUnsafe(loadedMap)
 	m.loadTokenUnsafe()
 	m.mux.Unlock()
+
+	return m
+}
+
+func (m *manager) RegisterUpdateCallback(group string, nu Update) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	m.callbacks[group] = nu
 }
 
 // mapUpdate is the listener function which is called whenever the notifications
@@ -129,8 +138,8 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 
 	// process edits
 	for elementName, edit := range edits {
-		nID := &id.ID{}
-		if err := nID.UnmarshalText([]byte(elementName)); err != nil {
+		nID, err := getIDFromElementName(elementName)
+		if err != nil {
 			jww.WARN.Printf("Failed to unmarshal id in notification "+
 				"update %s on operation %s , skipping: %+v", elementName,
 				edit.Operation, err)
@@ -173,7 +182,7 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 		if cb, exists := m.callbacks[groupName]; exists {
 			// can be nil if the last element was deleted
 			group, _ := m.group[groupName]
-			go cb(group, update.created, update.edit,
+			go cb(group.DeepCopy(), update.created, update.edit,
 				update.deletion)
 		}
 	}
@@ -192,8 +201,8 @@ func (m *manager) loadNotificationsUnsafe(mapObj map[string]*versioned.Object) {
 				"registration for %s, skipping: %+v", key, err)
 			continue
 		}
-		nID := &id.ID{}
-		if err := nID.UnmarshalText([]byte(key)); err != nil {
+		nID, err := getIDFromElementName(key)
+		if err != nil {
 			jww.WARN.Printf("Failed to unmarshal notifications "+
 				"registration id for %s, skipping: %+v", key, err)
 			continue
@@ -339,4 +348,16 @@ func prefix(pubkey rsa.PublicKey) string {
 	h, _ := blake2b.New256(nil)
 	h.Write(pubkey.MarshalPem())
 	return fmt.Sprintf(prefixConst, h.Sum(nil))
+}
+
+func makeElementName(nid *id.ID) string {
+	return base64.StdEncoding.EncodeToString(nid[:])
+}
+
+func getIDFromElementName(elementName string) (*id.ID, error) {
+	b, err := base64.StdEncoding.DecodeString(elementName)
+	if err != nil {
+		return nil, err
+	}
+	return id.Unmarshal(b)
 }

@@ -51,7 +51,7 @@ func TestLoadRegistrar_New(t *testing.T) {
 	if r.(*registrar).nodes == nil {
 		t.Errorf("Failed to initialize nodes")
 	}
-	if r.(*registrar).kv == nil {
+	if r.(*registrar).local == nil {
 		t.Errorf("Failed to set store.kv")
 	}
 }

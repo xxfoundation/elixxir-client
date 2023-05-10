@@ -24,7 +24,7 @@ func newPrivKeyTestManager() *manager {
 	return &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		rng:      fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:       versioned.NewKV(ekv.MakeMemstore()),
+		local:    versioned.NewKV(ekv.MakeMemstore()),
 	}
 }
 
@@ -113,13 +113,13 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 // exist in storage, as determined by kv.Exists.
 func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 	m := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:  versioned.NewKV(ekv.MakeMemstore()),
+		rng:   fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		local: versioned.NewKV(ekv.MakeMemstore()),
 	}
 
 	invalidChannelID := id.NewIdFromString("someID", id.User, t)
 	_, err := m.ExportChannelAdminKey(invalidChannelID, "password")
-	if err == nil || m.kv.Exists(err) {
+	if err == nil || m.local.Exists(err) {
 		t.Errorf("Unexpected error when no private key exist."+
 			"\nexpected: %s\nreceived: %+v", "object not found", err)
 	}
@@ -226,7 +226,7 @@ func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 	}
 
 	_, err = m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
-	if m.kv.Exists(err) {
+	if m.local.Exists(err) {
 		t.Fatalf("Private key was not deleted: %+v", err)
 	}
 }

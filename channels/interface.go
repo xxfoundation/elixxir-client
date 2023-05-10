@@ -262,6 +262,11 @@ type Manager interface {
 	// revert back to the codename for this channel instead.
 	DeleteNickname(channelID *id.ID) error
 
+	// RegisterNicknameCallback will register an [UpdateNicknames] callback with
+	// the Manager. This will call the callback for any nickname change on any
+	// channel.
+	RegisterNicknameCallback(cb UpdateNicknames)
+
 	// GetNickname returns the nickname for the given channel, if it exists.
 	GetNickname(channelID *id.ID) (nickname string, exists bool)
 

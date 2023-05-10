@@ -242,6 +242,8 @@ func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
 	return nil
 }
 
+// deleteNicknameUnsafe will remote the nickname into the remote kv and into the
+// memoized map.
 func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 	if err := nm.remote.Delete(
 		channelID.String(), nicknameStoreStorageVersion); err != nil {
@@ -251,7 +253,10 @@ func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 	return nil
 }
 
-func (nm *nicknameManager) setNicknameUnsafe(nickname string, channelID *id.ID) error {
+// setNicknameUnsafe will save the nickname into the remote kv and into the
+// memoized map.
+func (nm *nicknameManager) setNicknameUnsafe(
+	nickname string, channelID *id.ID) error {
 	nm.byChannel[*channelID] = nickname
 	data, err := json.Marshal(&channelIDToNickname{
 		ChannelId: *channelID,
@@ -270,7 +275,6 @@ func (nm *nicknameManager) setNicknameUnsafe(nickname string, channelID *id.ID) 
 		return err
 	}
 
-	nm.byChannel[*channelID] = nickname
 	return nil
 }
 

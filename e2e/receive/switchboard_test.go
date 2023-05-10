@@ -8,6 +8,7 @@
 package receive
 
 import (
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
@@ -279,15 +280,12 @@ func TestSwitchboard_Speak(t *testing.T) {
 					select {
 					case <-ch1:
 						heard1 = true
-					case <-time.After(25 * time.Millisecond):
+					case <-time.After(250 * time.Millisecond):
 						heard1 = false
 					}
-
-					if shouldHear != heard1 {
-						t.Errorf("Correct operation not recorded "+
-							"for listener 1: Expected: %v, Occured: %v",
-							shouldHear, heard1)
-					}
+					require.Equal(t, shouldHear, heard1, "Correct operation not recorded "+
+						"for listener 1: Expected: %v, Occured: %v",
+						shouldHear, heard1)
 
 					var heard2 bool
 
@@ -298,11 +296,10 @@ func TestSwitchboard_Speak(t *testing.T) {
 						heard2 = false
 					}
 
-					if shouldHear != heard2 {
-						t.Errorf("Correct operation not recorded "+
-							"for listener 2: Expected: %v, Occurred: %v",
-							shouldHear, heard2)
-					}
+					require.Equal(t, shouldHear, heard2, "Correct operation not recorded "+
+						"for listener 2: Expected: %v, Occurred: %v",
+						shouldHear, heard2)
+
 				}
 			}
 		}

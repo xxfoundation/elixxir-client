@@ -98,7 +98,7 @@ type nicknameUpdates struct {
 
 func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
 	nc.modified = append(nc.modified, NicknameUpdate{
-		ChannelId:      *chanId,
+		ChannelId:      chanId,
 		Nickname:       "",
 		NicknameExists: false,
 	})
@@ -106,7 +106,7 @@ func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
 
 func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
 	nc.modified = append(nc.modified, NicknameUpdate{
-		ChannelId:      chanId,
+		ChannelId:      &chanId,
 		Nickname:       nickname,
 		NicknameExists: true,
 	})

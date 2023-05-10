@@ -19,13 +19,6 @@ import (
 	"sync"
 )
 
-// todo: docstring and move to interface.go
-type UpdateAdminKeys func(updates []AdminKeyUpdate)
-type AdminKeyUpdate struct {
-	ChannelId *id.ID
-	IsAdmin   bool
-}
-
 // IsChannelAdmin returns true if the user is an admin of the channel.
 func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
 	jww.INFO.Printf("[CH] IsChannelAdmin in channel %s", channelID)

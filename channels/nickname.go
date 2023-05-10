@@ -21,17 +21,8 @@ const (
 type nicknameManager struct {
 	byChannel map[id.ID]string
 	mux       sync.RWMutex
-	callback  map[id.ID]UpdateNicknames
-	local     versioned.KV
+	callback  UpdateNicknames
 	remote    versioned.KV
-}
-
-// Todo: add docstrings & move to interface.go
-type UpdateNicknames func(update NicknameUpdate)
-type NicknameUpdate struct {
-	ChannelId      id.ID
-	Nickname       string
-	NicknameExists bool
 }
 
 // LoadOrNewNicknameManager returns the stored nickname manager if there is one
@@ -44,16 +35,14 @@ func LoadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
 
 	nm := &nicknameManager{
 		byChannel: make(map[id.ID]string),
-		local:     kv,
 		remote:    kvRemote,
-		callback:  make(map[id.ID]UpdateNicknames),
 	}
 
 	nm.mux.Lock()
 	loadedMap := nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
 		nm.mapUpdate)
 	err = nm.load(loadedMap)
-	if err != nil && nm.local.Exists(err) {
+	if err != nil && nm.remote.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load nicknameManager: %+v", err)
 	}
 	nm.mux.Unlock()
@@ -153,6 +142,7 @@ func (nm *nicknameManager) mapUpdate(
 			}
 
 			updates.AddDeletion(chanId)
+			delete(nm.byChannel, *chanId)
 			continue
 		}
 
@@ -175,16 +165,14 @@ func (nm *nicknameManager) mapUpdate(
 	}
 
 	// Initiate callback
-	if len(nm.callback) != 0 {
+	if nm.callback != nil {
 		nm.initiateCallbacks(updates)
 	}
 }
 
 func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
 	for _, edited := range updates.modified {
-		if cb, exists := nm.callback[edited.ChannelId]; exists {
-			go cb(edited)
-		}
+		go nm.callback(edited)
 	}
 }
 
@@ -220,7 +208,7 @@ func (nm *nicknameManager) save() error {
 		Data:      data,
 	}
 
-	return nm.local.Set(nicknameStoreStorageKey, obj)
+	return nm.remote.Set(nicknameStoreStorageKey, obj)
 }
 
 // load restores the nickname manager from disk.
@@ -240,7 +228,7 @@ func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
 }
 
 func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
-	if err := nm.local.Delete(
+	if err := nm.remote.Delete(
 		channelID.String(), nicknameStoreStorageVersion); err != nil {
 		return err
 	}
@@ -258,7 +246,7 @@ func (nm *nicknameManager) setNicknameUnsafe(nickname string, channelID *id.ID) 
 		return err
 	}
 
-	err = nm.local.Set(channelID.String(), &versioned.Object{
+	err = nm.remote.Set(channelID.String(), &versioned.Object{
 		Version:   nicknameStoreStorageVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,

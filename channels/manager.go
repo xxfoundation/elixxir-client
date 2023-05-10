@@ -436,6 +436,9 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 	return m.mutedUsers.getMutedUsers(channelID)
 }
 
-func (m *manager) RegisterNicknameCallback(chId *id.ID, cb UpdateNicknames) {
-	m.nicknameManager.callback[*chId] = cb
+// RegisterNicknameCallback will register an [UpdateNicknames] callback with
+// the Manager. This will call the callback for any nickname change on any
+// channel.
+func (m *manager) RegisterNicknameCallback(cb UpdateNicknames) {
+	m.nicknameManager.callback = cb
 }

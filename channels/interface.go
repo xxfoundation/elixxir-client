@@ -416,3 +416,17 @@ type ExtensionBuilder func(e EventModel, m Manager,
 //
 // This type must match [Client.AddService].
 type AddServiceFn func(sp xxdk.Service) error
+
+// UpdateNicknames is a function signature for a callback. This callback
+// is to be called when a channel's nickname is modified in any way
+// (see Manager.SetNickname, Manager.DeleteNickname). This will
+// pass along a NicknameUpdate report.
+type UpdateNicknames func(update NicknameUpdate)
+
+// NicknameUpdate is a structure which reports how the channel's nickname
+// has been modified. 
+type NicknameUpdate struct {
+	ChannelId      id.ID
+	Nickname       string
+	NicknameExists bool
+}

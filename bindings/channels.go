@@ -327,8 +327,8 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
 
-	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
+	newMsgCb := func(uuid int64, channelID *id.ID, update bool) {
+		msgCb.Callback(uuid, channelID.Marshal(), update)
 	}
 	newDeleteCb := func(messageID message.ID) {
 		deleteCb.Callback(messageID.Marshal())
@@ -388,8 +388,8 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
-	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
+	newMsgCb := func(uuid int64, channelID *id.ID, update bool) {
+		msgCb.Callback(uuid, channelID.Marshal(), update)
 	}
 	newDeleteCb := func(messageID message.ID) {
 		deleteCb.Callback(messageID.Marshal())

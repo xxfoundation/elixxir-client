@@ -424,9 +424,9 @@ type AddServiceFn func(sp xxdk.Service) error
 type UpdateNicknames func(update NicknameUpdate)
 
 // NicknameUpdate is a structure which reports how the channel's nickname
-// has been modified. 
+// has been modified.
 type NicknameUpdate struct {
-	ChannelId      id.ID
+	ChannelId      *id.ID
 	Nickname       string
 	NicknameExists bool
 }

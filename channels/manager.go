@@ -193,6 +193,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	m.loadChannels()
 
 	m.nicknameManager = LoadOrNewNicknameManager(kv)
+	m.adminKeysManager = newAdminKeysManager(kv)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
@@ -265,10 +266,12 @@ func (m *manager) generateChannel(name, description string,
 	}
 
 	// Save private key to storage
-	err = saveChannelPrivateKey(ch.ReceptionID, pk, m.kv)
+	err = m.adminKeysManager.saveChannelPrivateKey(ch.ReceptionID, pk)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	m.adminKeysManager.reportNewAdmin(ch.ReceptionID)
 
 	return ch, pk, nil
 }
@@ -442,4 +445,11 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 // channel.
 func (m *manager) RegisterNicknameCallback(cb UpdateNicknames) {
 	m.nicknameManager.callback = cb
+}
+
+// RegisterAdminKeyCallback will register an [UpdateAdminKeys] callback with
+// the Manager. This will call the callback for any nickname change on any
+// channel.
+func (m *manager) RegisterAdminKeyCallback(cb UpdateAdminKeys) {
+	m.adminKeysManager.callback = cb
 }

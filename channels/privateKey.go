@@ -129,6 +129,9 @@ func (m *manager) ImportChannelAdminKey(
 		c.broadcast.Get().RsaPubKeyHash) {
 		return WrongPrivateKeyErr
 	}
+
+	m.adminKeysManager.reportNewAdmin(channelID)
+
 	return m.adminKeysManager.saveChannelPrivateKey(channelID, pk)
 }
 
@@ -139,6 +142,9 @@ func (m *manager) ImportChannelAdminKey(
 // admin.
 func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
 	jww.INFO.Printf("[CH] DeleteChannelAdminKey for channel %s", channelID)
+	update := newAdminKeyChanges()
+	update.AddDeletion(channelID)
+	m.adminKeysManager.report(update.modified)
 	return m.adminKeysManager.deleteChannelPrivateKey(channelID)
 }
 
@@ -154,19 +160,20 @@ const (
 	adminKeysMapVersion           = 0
 )
 
-// todo: docstring
+// adminKeysManager is responsible for handling admin key modifications
+// for any channel. This is embedded within the [manager].
 type adminKeysManager struct {
 	callback UpdateAdminKeys
 	remote   versioned.KV
 	mux      sync.RWMutex
 }
 
-// todo: docstring
-func newAdminKeysManager(kv versioned.KV) (*adminKeysManager, error) {
+// newAdminKeysManager is a constructor for the adminKeysManager.
+func newAdminKeysManager(kv versioned.KV) *adminKeysManager {
 
 	kvRemote, err := kv.Prefix(versioned.StandardRemoteSyncPrefix)
 	if err != nil {
-		return nil, err
+		jww.FATAL.Panicf("[CH] Admin keys failed to prefix KV: %+v", err)
 	}
 
 	adminMan := &adminKeysManager{remote: kvRemote}
@@ -174,7 +181,7 @@ func newAdminKeysManager(kv versioned.KV) (*adminKeysManager, error) {
 	adminMan.remote.ListenOnRemoteMap(
 		adminKeysMapName, adminKeysMapVersion, adminMan.mapUpdate)
 
-	return adminMan, nil
+	return adminMan
 }
 
 // todo: rewrite, make admin structure responsible for kv, embedded in manager
@@ -220,6 +227,8 @@ func (akm *adminKeysManager) deleteChannelPrivateKey(
 		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
 }
 
+// mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
+// method.
 func (akm *adminKeysManager) mapUpdate(
 	mapName string, edits map[string]versioned.ElementEdit) {
 
@@ -277,21 +286,40 @@ func (akm *adminKeysManager) mapUpdate(
 		}
 	}
 
+	akm.report(updates.modified)
+}
+
+// report is a helper function which reports every AdminKeyUpdate to the
+// UpdateAdminKeys callback.
+func (akm *adminKeysManager) report(updates []AdminKeyUpdate) {
 	if akm.callback != nil {
-		akm.callback(updates.modified)
+		go akm.callback(updates)
 	}
 }
 
+// reportNewAdmin is a helper function which will specifically report a new
+// channel which the user has gained admin access.
+func (akm *adminKeysManager) reportNewAdmin(channelID *id.ID) {
+	update := newAdminKeyChanges()
+	update.AddCreatedOrEdit(channelID)
+	akm.report(update.modified)
+}
+
+// adminKeyUpdates is a tracker for any modified channel admin key. This
+// is used by [adminKeysManager.mapUpdate] and every element of [modified]
+// is reported as a [AdminKeyUpdate] to the [UpdateAdminKeys] callback.
 type adminKeyUpdates struct {
 	modified []AdminKeyUpdate
 }
 
+// newAdminKeyChanges is a constructor for adminKeyUpdates.
 func newAdminKeyChanges() *adminKeyUpdates {
 	return &adminKeyUpdates{
 		modified: make([]AdminKeyUpdate, 0),
 	}
 }
 
+// AddDeletion creates a [AdminKeyUpdate] report for a deleted channel admin key.
 func (aku *adminKeyUpdates) AddDeletion(chanId *id.ID) {
 	aku.modified = append(aku.modified, AdminKeyUpdate{
 		ChannelId: chanId,
@@ -299,6 +327,8 @@ func (aku *adminKeyUpdates) AddDeletion(chanId *id.ID) {
 	})
 }
 
+// AddCreatedOrEdit creates a [AdminKeyUpdate] report for an addition of a
+// channel's admin key.
 func (aku *adminKeyUpdates) AddCreatedOrEdit(chanId *id.ID) {
 	aku.modified = append(aku.modified, AdminKeyUpdate{
 		ChannelId: chanId,

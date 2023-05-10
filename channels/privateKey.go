@@ -177,10 +177,6 @@ func newAdminKeysManager(kv versioned.KV) *adminKeysManager {
 	return adminMan
 }
 
-// todo: rewrite, make admin structure responsible for kv, embedded in manager
-//  map w/ cb registration, called when becoming an admin
-//  no in RAM copy, go straight to KV
-
 // saveChannelPrivateKey saves the [rsa.PrivateKey] for the given channel ID to
 // storage. This is called everytime a user generates a channel so that they can
 // access the channel's private key.
@@ -291,7 +287,9 @@ func (akm *adminKeysManager) report(updates []AdminKeyUpdate) {
 }
 
 // reportNewAdmin is a helper function which will specifically report a new
-// channel which the user has gained admin access.
+// channel which the user has gained admin access. This may be used by
+// adminKeysManager or the higher level manager (for example when creating
+// a new channel).
 func (akm *adminKeysManager) reportNewAdmin(channelID *id.ID) {
 	update := newAdminKeyChanges()
 	update.AddCreatedOrEdit(channelID)

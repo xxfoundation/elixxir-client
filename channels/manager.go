@@ -63,6 +63,7 @@ type manager struct {
 	// Makes the function that is used to create broadcasts be a pointer so that
 	// it can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
+	*adminKeysManager
 }
 
 // Client contains the methods from cmix.Client that are required by the

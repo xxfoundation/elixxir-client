@@ -16,12 +16,21 @@ import (
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"sync"
 )
+
+// todo: docstring and move to interface.go
+type UpdateAdminKeys func(updates []AdminKeyUpdate)
+type AdminKeyUpdate struct {
+	ChannelId *id.ID
+	IsAdmin   bool
+}
 
 // IsChannelAdmin returns true if the user is an admin of the channel.
 func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
 	jww.INFO.Printf("[CH] IsChannelAdmin in channel %s", channelID)
-	if _, err := loadChannelPrivateKey(channelID, m.kv); err != nil {
+	if _, err := m.adminKeysManager.loadChannelPrivateKey(
+		channelID); err != nil {
 		if m.kv.Exists(err) {
 			jww.WARN.Printf("[CH] Private key for channel ID %s found in "+
 				"storage, but an error was encountered while accessing it: %+v",
@@ -37,7 +46,7 @@ func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
 func (m *manager) ExportChannelAdminKey(
 	channelID *id.ID, encryptionPassword string) ([]byte, error) {
 	jww.INFO.Printf("[CH] ExportChannelAdminKey in channel %s", channelID)
-	privKey, err := loadChannelPrivateKey(channelID, m.kv)
+	privKey, err := m.adminKeysManager.loadChannelPrivateKey(channelID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load private key from storage")
 	}
@@ -120,8 +129,7 @@ func (m *manager) ImportChannelAdminKey(
 		c.broadcast.Get().RsaPubKeyHash) {
 		return WrongPrivateKeyErr
 	}
-
-	return saveChannelPrivateKey(channelID, pk, m.kv)
+	return m.adminKeysManager.saveChannelPrivateKey(channelID, pk)
 }
 
 // DeleteChannelAdminKey deletes the private key for the given channel.
@@ -131,7 +139,7 @@ func (m *manager) ImportChannelAdminKey(
 // admin.
 func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
 	jww.INFO.Printf("[CH] DeleteChannelAdminKey for channel %s", channelID)
-	return deleteChannelPrivateKey(channelID, m.kv)
+	return m.adminKeysManager.deleteChannelPrivateKey(channelID)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,16 +150,45 @@ func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
 const (
 	channelPrivateKeyStoreVersion = 0
 	channelPrivateKeyStoreKey     = "channelPrivateKey/"
+	adminKeysMapName              = "adminKeysMap"
+	adminKeysMapVersion           = 0
 )
+
+// todo: docstring
+type adminKeysManager struct {
+	callback UpdateAdminKeys
+	remote   versioned.KV
+	mux      sync.RWMutex
+}
+
+// todo: docstring
+func newAdminKeysManager(kv versioned.KV) (*adminKeysManager, error) {
+
+	kvRemote, err := kv.Prefix(versioned.StandardRemoteSyncPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	adminMan := &adminKeysManager{remote: kvRemote}
+
+	adminMan.remote.ListenOnRemoteMap(
+		adminKeysMapName, adminKeysMapVersion, adminMan.mapUpdate)
+
+	return adminMan, nil
+}
+
+// todo: rewrite, make admin structure responsible for kv, embedded in manager
+//  map w/ cb registration, called when becoming an admin
+//  no in RAM copy, go straight to KV
 
 // saveChannelPrivateKey saves the [rsa.PrivateKey] for the given channel ID to
 // storage. This is called everytime a user generates a channel so that they can
 // access the channel's private key.
 //
 // The private key can retrieved from storage via loadChannelPrivateKey.
-func saveChannelPrivateKey(
-	channelID *id.ID, pk rsa.PrivateKey, kv versioned.KV) error {
-	return kv.Set(makeChannelPrivateKeyStoreKey(channelID),
+func (akm *adminKeysManager) saveChannelPrivateKey(
+	channelID *id.ID, pk rsa.PrivateKey) error {
+	return akm.remote.Set(makeChannelPrivateKeyStoreKey(channelID),
 		&versioned.Object{
 			Version:   channelPrivateKeyStoreVersion,
 			Timestamp: netTime.Now(),
@@ -164,9 +201,9 @@ func saveChannelPrivateKey(
 // from storage.
 //
 // The private key is saved to storage via saveChannelPrivateKey.
-func loadChannelPrivateKey(
-	channelID *id.ID, kv versioned.KV) (rsa.PrivateKey, error) {
-	obj, err := kv.Get(
+func (akm *adminKeysManager) loadChannelPrivateKey(
+	channelID *id.ID) (rsa.PrivateKey, error) {
+	obj, err := akm.remote.Get(
 		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
 	if err != nil {
 		return nil, err
@@ -177,9 +214,96 @@ func loadChannelPrivateKey(
 
 // deleteChannelPrivateKey deletes the private key from storage for the given
 // channel ID.
-func deleteChannelPrivateKey(channelID *id.ID, kv versioned.KV) error {
-	return kv.Delete(
+func (akm *adminKeysManager) deleteChannelPrivateKey(
+	channelID *id.ID) error {
+	return akm.remote.Delete(
 		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
+}
+
+func (akm *adminKeysManager) mapUpdate(
+	mapName string, edits map[string]versioned.ElementEdit) {
+
+	if mapName != adminKeysMapName {
+		jww.ERROR.Printf("Got an update for the wrong map, "+
+			"expected: %s, got: %s", adminKeysMapName, mapName)
+		return
+	}
+
+	akm.mux.Lock()
+	defer akm.mux.Unlock()
+
+	updates := newAdminKeyChanges()
+	for elementName, edit := range edits {
+		// unmarshal element name
+		chanId := &id.ID{}
+		if err := chanId.UnmarshalText([]byte(elementName)); err != nil {
+			jww.WARN.Printf("Failed to unmarshal id in admin key "+
+				"update %s on operation %s , skipping: %+v", elementName,
+				edit.Operation, err)
+		}
+
+		if edit.Operation == versioned.Deleted {
+			if err := akm.deleteChannelPrivateKey(chanId); err != nil {
+				jww.WARN.Printf("Failed to delete channel's private key "+
+					"for %s, skipping: %+v", elementName, err)
+				continue
+			}
+
+			updates.AddDeletion(chanId)
+			continue
+		}
+
+		if edit.Operation == versioned.Created ||
+			edit.Operation == versioned.Updated {
+			updates.AddCreatedOrEdit(chanId)
+		} else {
+			jww.WARN.Printf("Failed to handle admin key update %s, "+
+				"bad operation: %s, skipping", elementName, edit.Operation)
+			continue
+		}
+
+		newUpdate, err := rsa.GetScheme().UnmarshalPrivateKeyPEM(
+			edit.NewElement.Data)
+		if err != nil {
+			jww.WARN.Printf("Failed to unmarshal data in admin key update %s, "+
+				"bad operation: %s, skipping", elementName, edit.Operation)
+			continue
+		}
+
+		if err = akm.saveChannelPrivateKey(chanId, newUpdate); err != nil {
+			jww.WARN.Printf("Failed to save channel's private key "+
+				"for %s, skipping: %+v", elementName, err)
+			continue
+		}
+	}
+
+	if akm.callback != nil {
+		akm.callback(updates.modified)
+	}
+}
+
+type adminKeyUpdates struct {
+	modified []AdminKeyUpdate
+}
+
+func newAdminKeyChanges() *adminKeyUpdates {
+	return &adminKeyUpdates{
+		modified: make([]AdminKeyUpdate, 0),
+	}
+}
+
+func (aku *adminKeyUpdates) AddDeletion(chanId *id.ID) {
+	aku.modified = append(aku.modified, AdminKeyUpdate{
+		ChannelId: chanId,
+		IsAdmin:   false,
+	})
+}
+
+func (aku *adminKeyUpdates) AddCreatedOrEdit(chanId *id.ID) {
+	aku.modified = append(aku.modified, AdminKeyUpdate{
+		ChannelId: chanId,
+		IsAdmin:   true,
+	})
 }
 
 // makeChannelPrivateKeyStoreKey generates a unique storage key for the given

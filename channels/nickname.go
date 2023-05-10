@@ -190,7 +190,7 @@ func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
 }
 
 // upsertNicknameUnsafeRAM is a helper function which memoizes channel updates
-// to in RAM memoer.
+// to in RAM memory.
 func (nm *nicknameManager) upsertNicknameUnsafeRAM(newUpdate channelIDToNickname) {
 	nm.byChannel[newUpdate.ChannelId] = newUpdate.Nickname
 }

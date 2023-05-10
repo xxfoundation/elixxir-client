@@ -28,37 +28,38 @@ import (
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
 	baseDir := "TestNewCollector/"
-	rng := rand.New(rand.NewSource(42))
 	syncPath := baseDir + "collector/"
-	txLog := makeTransactionLog(syncPath, password, t)
-
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
-	// Create remote kv
-	remoteKv, err := newVersionedKV(txLog, kv, nil, nil, nil)
-	require.NoError(t, err)
+	txLog := makeTransactionLog(kv, syncPath, password, t)
 
-	myId, err := cmix.NewRandomInstanceID(rng)
+	// Create remote kv
+	remoteKv := newVersionedKV(txLog, kv, nil)
+
+	myID, err := GetInstanceID(kv)
 	require.NoError(t, err)
-	cmix.StoreInstanceID(myId, remoteKv)
 
 	workingDir := baseDir + "remoteFsSmoke/"
 
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 
-	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
+	crypt := &deviceCrypto{
+		secret: deviceSecret,
+		rngGen: rng,
+	}
+
+	collector := newCollector(myID, syncPath, fsRemote, remoteKv, txLog,
+		crypt, fsRemote)
 
 	expected := &collector{
 		syncPath:             syncPath,
-		myID:                 myId,
-		lastUpdateRead:       make(map[cmix.InstanceID]time.Time, 0),
+		myID:                 myID,
+		lastUpdateRead:       make(map[InstanceID]time.Time, 0),
 		synchronizationEpoch: synchronizationEpoch,
-		deviceTxTracker:      newDeviceTransactionTracker(),
 		txLog:                txLog,
 		remote:               fsRemote,
 		kv:                   remoteKv,
-		myLogPath:            collector.myLogPath,
 	}
 
 	require.Equal(t, expected, collector)
@@ -98,8 +99,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 
 	// Construct collector
-	myId, _ := cmix.NewRandomInstanceID(rng)
-	cmix.StoreInstanceID(myId, remoteKv)
+	myId, _ := InitInstanceID(remoteKv, rng)
 	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
 
 	// Write mock data to file (collectChanges will Read from file)

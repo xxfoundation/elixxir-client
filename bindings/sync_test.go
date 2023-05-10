@@ -42,17 +42,6 @@ func TestRemoteKV(t *testing.T) {
 	// Construct mock update callback
 	remoteCallCnt := 0
 	txs := make(map[string][]byte)
-	var lck sync.Mutex
-	updateCb := kvsync.RemoteStoreCallback(func(newTx kvsync.Mutate,
-		err error) {
-		lck.Lock()
-		defer lck.Unlock()
-		require.NoError(t, err)
-		remoteCallCnt += 1
-		_, ok := txs[newTx.Key]
-		require.False(t, ok, newTx.Key)
-		txs[newTx.Key] = newTx.Value
-	})
 	txLog := makeTransactionLog("versionedKV_TestWorkDir", password, t)
 	ekv := ekv.MakeMemstore()
 	kv, err := kvsync.newVersionedKV(txLog, ekv, nil, nil, updateCb)

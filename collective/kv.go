@@ -93,6 +93,14 @@ func newKV(transactionLog *remoteWriter, kv ekv.KeyValue) *internalKV {
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
 	}
 
+	// Panic if an instance ID doesn't exist
+	instanceID, err := GetInstanceID(kv)
+	if err != nil {
+		jww.FATAL.Panicf("[COLLECTIVE] kv load fail: %+v", err)
+	}
+
+	jww.INFO.Printf("[COLLECTIVE] kv loaded: %s", instanceID)
+
 	return rkv
 }
 

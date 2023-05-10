@@ -8,6 +8,7 @@
 package collective
 
 import (
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -57,18 +58,19 @@ type versionedKV struct {
 // SynchronizedKV loads or creates a synchronized remote KV that uses
 // a remote RemoteStore to store defined synchronization prefixes to the
 // network.
-func SynchronizedKV(path string, deviceSecret string,
+func SynchronizedKV(path string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue, synchedPrefixes []string,
 	rng *fastRNG.StreamGenerator) (SyncKV, error) {
 
-	deviceID, err := GetInstanceID(kv)
+	rngStream := rng.GetStream()
+	defer rngStream.Close()
+	deviceID, err := getOrInitDeviceID(kv, rngStream)
 	if err != nil {
 		return nil, err
 	}
 
 	if !isRemoteKV(kv) {
-		jww.INFO.Printf("Converting KV to a remote KV: %s",
-			deviceID)
+		jww.INFO.Printf("Converting KV to a remote KV: %s", deviceID)
 		enableRemoteKV(kv)
 	}
 
@@ -93,16 +95,18 @@ func SynchronizedKV(path string, deviceSecret string,
 // LocalKV Loads or Creates a synchronized remote KV that uses a local-only
 // mutate log. It panics if the underlying KV has ever been used
 // for remote operations in the past.
-func LocalKV(path string, deviceSecret string, kv ekv.KeyValue,
+func LocalKV(path string, deviceSecret []byte, kv ekv.KeyValue,
 	rng *fastRNG.StreamGenerator) (SyncKV, error) {
-
-	deviceID, err := GetInstanceID(kv)
-	if err != nil {
-		return nil, err
-	}
 
 	if isRemoteKV(kv) {
 		jww.FATAL.Panicf("cannot open remote kv as local")
+	}
+
+	rngStream := rng.GetStream()
+	defer rngStream.Close()
+	deviceID, err := getOrInitDeviceID(kv, rngStream)
+	if err != nil {
+		return nil, err
 	}
 
 	crypt := &deviceCrypto{
@@ -579,4 +583,18 @@ func cleanKey(key string) string {
 		cleanedKey = cleanedKey[prefixLoc+1:]
 	}
 	return cleanedKey
+}
+
+func getOrInitDeviceID(kv ekv.KeyValue, rng io.Reader) (InstanceID, error) {
+	deviceID, err := GetInstanceID(kv)
+	// if Instance id doesn't exist, create one.
+	if err != nil {
+		if !ekv.Exists(err) {
+			deviceID, err = InitInstanceID(kv, rng)
+		}
+		if err != nil {
+			return InstanceID{}, err
+		}
+	}
+	return deviceID, err
 }

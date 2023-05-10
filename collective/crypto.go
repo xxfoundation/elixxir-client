@@ -27,7 +27,7 @@ type encryptor interface {
 }
 
 type deviceCrypto struct {
-	secret string
+	secret []byte
 	rngGen *fastRNG.StreamGenerator
 }
 
@@ -45,7 +45,7 @@ func (dc *deviceCrypto) KeyID(deviceID InstanceID) string {
 	return keyID(dc.secret, deviceID)
 }
 
-func encrypt(data []byte, secret string, csprng io.Reader) []byte {
+func encrypt(data, secret []byte, csprng io.Reader) []byte {
 	chaCipher := initChaCha20Poly1305(secret)
 	nonce := make([]byte, chaCipher.NonceSize())
 	if _, err := io.ReadFull(csprng, nonce); err != nil {
@@ -55,7 +55,7 @@ func encrypt(data []byte, secret string, csprng io.Reader) []byte {
 	return ciphertext
 }
 
-func decrypt(data []byte, secret string) ([]byte, error) {
+func decrypt(data, secret []byte) ([]byte, error) {
 	chaCipher := initChaCha20Poly1305(secret)
 	nonceLen := chaCipher.NonceSize()
 	if (len(data) - nonceLen) <= 0 {
@@ -71,8 +71,8 @@ func decrypt(data []byte, secret string) ([]byte, error) {
 	return plaintext, nil
 }
 
-func initChaCha20Poly1305(secret string) cipher.AEAD {
-	pwHash := blake2b.Sum256([]byte(secret))
+func initChaCha20Poly1305(secret []byte) cipher.AEAD {
+	pwHash := blake2b.Sum256(secret)
 	chaCipher, err := chacha20poly1305.NewX(pwHash[:])
 	if err != nil {
 		panic(fmt.Sprintf("Could not init XChaCha20Poly1305 mode: %s",
@@ -81,10 +81,10 @@ func initChaCha20Poly1305(secret string) cipher.AEAD {
 	return chaCipher
 }
 
-func keyID(secret string, deviceID InstanceID) string {
+func keyID(secret []byte, deviceID InstanceID) string {
 	// this will panic on error, intentional
 	h, _ := hash.NewCMixHash()
-	h.Write([]byte(secret))
+	h.Write(secret)
 	h.Write(deviceID[:])
 	keyIDBytes := h.Sum(nil)
 

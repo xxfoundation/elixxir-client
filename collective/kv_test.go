@@ -32,16 +32,14 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Create remote kv
-	received, err := newKV(txLog, kv, nil, nil)
-	require.NoError(t, err)
+	received := newKV(txLog, kv)
 
 	// Create expected remote kv
 	expected := &internalKV{
-		local:          kv,
-		txLog:          txLog,
-		keyUpdate:      nil,
-		UnsyncedWrites: make(map[string][]byte, 0),
-		connected:      true,
+		local:              kv,
+		txLog:              txLog,
+		keyUpdateListeners: make(map[string]keyChangedByRemoteCallback),
+		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
 	}
 
 	// Check equality of created vs expected remote kv

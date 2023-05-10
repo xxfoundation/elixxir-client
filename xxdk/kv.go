@@ -25,7 +25,7 @@ func LocalKV(storageDir string, password []byte,
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	return collective.LocalKV(storageDir, string(password), localKV, rng)
+	return collective.LocalKV(storageDir, password, localKV, rng)
 }
 
 // SynchronizedKV creates a filesystem based KV that synchronizes
@@ -41,6 +41,6 @@ func SynchronizedKV(storageDir string, password []byte,
 			"failed to create storage session")
 	}
 
-	return collective.SynchronizedKV(storageDir, string(password),
+	return collective.SynchronizedKV(storageDir, password,
 		remote, localKV, synchedPrefixes, rng)
 }

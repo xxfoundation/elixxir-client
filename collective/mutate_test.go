@@ -10,9 +10,10 @@ package collective
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // Hard-coded constants for testing purposes.
@@ -40,14 +41,13 @@ func TestNewTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct expected Mutate object
-	key, val := "key", []byte("value")
+	_, val := "key", []byte("value")
 	expectedTx := Mutate{
-		Timestamp: testTime.UTC(),
-		Key:       key,
+		Timestamp: testTime.UTC().Unix(),
 		Value:     val,
 	}
 
-	require.Equal(t, expectedTx, NewMutate(testTime, key, val))
+	require.Equal(t, expectedTx, NewMutate(testTime, val, false))
 }
 
 // Smoke & unit test for Mutate.MarshalJSON.
@@ -58,8 +58,8 @@ func TestTransaction_MarshalJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct a Mutate object
-	key, val := "key", []byte("value")
-	tx := NewMutate(testTime, key, val)
+	_, val := "key", []byte("value")
+	tx := NewMutate(testTime, val, false)
 
 	// Marshal Mutate into JSON data
 	marshalledData, err := json.Marshal(tx)
@@ -78,15 +78,15 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct a Mutate object
-	key, val := "key", []byte("value")
-	oldTx := NewMutate(testTime, key, val)
+	_, val := "key", []byte("value")
+	oldTx := NewMutate(testTime, val, false)
 
 	// Marshal mutate into JSON data
 	oldTxData, err := json.Marshal(oldTx)
 	require.NoError(t, err)
 
 	// Construct a new mutate and unmarshal the old mutate into it
-	newTx := NewMutate(time.Time{}, "", make([]byte, 0))
+	newTx := NewMutate(time.Time{}, make([]byte, 0), false)
 	require.NoError(t, json.Unmarshal(oldTxData, &newTx))
 
 	// Ensure that the newTx.UnmarshalJSON call places
@@ -109,8 +109,8 @@ func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
 	testTime := time.Time{}
 
 	// Construct a Mutate object
-	key, val := "key", []byte("value")
-	oldTx := NewMutate(testTime, key, val)
+	_, val := "key", []byte("value")
+	oldTx := NewMutate(testTime, val, false)
 
 	// Marshal mutate into JSON data
 	oldTxData, err := json.Marshal(oldTx)
@@ -119,10 +119,10 @@ func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
 	require.Equal(t, expectedTransactionZeroTimeJson, string(oldTxData))
 
 	// Construct a new mutate and unmarshal the old mutate into it
-	newTx := NewMutate(time.Time{}, "", make([]byte, 0))
+	newTx := NewMutate(time.Time{}, make([]byte, 0), false)
 	require.NoError(t, json.Unmarshal(oldTxData, &newTx))
 
-	require.True(t, newTx.Timestamp.Equal(testTime))
+	require.Equal(t, newTx.Timestamp, testTime)
 }
 
 // Smoke test of Mutate.serialize.
@@ -133,12 +133,11 @@ func TestTransaction_Serialize(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct a Mutate object
-	key, val := "key", []byte("value")
-	tx := NewMutate(testTime, key, val)
+	_, val := "key", []byte("value")
+	tx := NewMutate(testTime, val, false)
 
 	// Serialize mutate
-	secret, mockRng := []byte("secret"), &CountingReader{count: 0}
-	txSerial, err := tx.serialize(secret, 0, mockRng)
+	txSerial, err := tx.MarshalJSON()
 	require.NoError(t, err)
 
 	// Ensure serialization is consistent
@@ -155,16 +154,16 @@ func TestTransaction_Deserialize(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct a Mutate object
-	key, val := "key", []byte("value")
-	tx := NewMutate(testTime, key, val)
+	_, val := "key", []byte("value")
+	tx := NewMutate(testTime, val, false)
 
 	// Serialize mutate
-	secret, mockRng := []byte("secret"), &CountingReader{count: 0}
-	txSerial, err := tx.serialize(secret, 0, mockRng)
+	txSerial, err := tx.MarshalJSON()
 	require.NoError(t, err)
 
 	// Deserialize mutate
-	txDeserialize, err := deserializeTransaction(txSerial, secret)
+	txDeserialize := &Mutate{}
+	err = txDeserialize.UnmarshalJSON(txSerial)
 	require.NoError(t, err)
 
 	// Ensure deserialized object matches original object

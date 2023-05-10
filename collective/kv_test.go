@@ -8,14 +8,12 @@
 package collective
 
 import (
-	"os"
-	"runtime/pprof"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
 
@@ -25,11 +23,11 @@ import (
 
 // Smoke test of NewOrLoadKV.
 func TestNewOrLoadRemoteKv(t *testing.T) {
-	// Construct mutate log
-	txLog := makeTransactionLog("", password, t)
-
 	// Construct kv
 	kv := ekv.MakeMemstore()
+
+	// Construct mutate log
+	txLog := makeTransactionLog(kv, "", password, t)
 
 	// Create remote kv
 	received := newKV(txLog, kv)
@@ -38,7 +36,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	expected := &internalKV{
 		local:              kv,
 		txLog:              txLog,
-		keyUpdateListeners: make(map[string]keyChangedByRemoteCallback),
+		keyUpdateListeners: make(map[string]KeyUpdateCallback),
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
 	}
 
@@ -50,90 +48,57 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 // on disk.
 func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
-	// Construct mutate log
-	txLog := makeTransactionLog("kv_Loading_TestDir", password, t)
-
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
-	// Call NewOrLoad where it should load intents
-	cnt := 0
-	lck := sync.Mutex{}
-	lck.Lock() // absolutely 0 of these should complete
-	var updateCb RemoteStoreCallback = func(newTx Mutate, err error) {
-		lck.Lock()
-		defer lck.Unlock()
-		cnt += 1
-	}
+	// Construct mutate log
+	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", password, t)
 
 	// Create remote kv
-	rkv, err := newKV(txLog, kv, nil, updateCb)
+	rkv := newKV(txLog, kv)
+
+	instance, err := GetInstanceID(rkv.local)
 	require.NoError(t, err)
 
-	const numTests = 100
-
-	// Add intents to remote KV
-	for i := 0; i < numTests; i++ {
-		key, val := "key"+strconv.Itoa(i), "val"+strconv.Itoa(i)
-		require.NoError(t, rkv.addUnsyncedWrite(key, []byte(val)))
-	}
-
-	// Ensure intents is not empty
-	require.NotEmpty(t, rkv.UnsyncedWrites)
-
-	// Call NewOrLoad where it should load intents
-	loaded, err := newKV(txLog, kv, nil, updateCb)
-	require.NoError(t, err)
-
-	require.Len(t, loaded.UnsyncedWrites, numTests)
-
-	// ok now allow the callbacks to run
-	lck.Unlock()
-	ok := loaded.WaitForRemote(60 * time.Second)
-	if !ok {
-		t.Errorf("threads failed to stop")
-		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-	}
-
-	require.Equal(t, numTests, cnt)
+	require.NotEmpty(t, instance.String())
 }
 
 // Unit test of KV.Set.
 func TestKV_Set(t *testing.T) {
 	const numTests = 100
 
-	// Construct mutate log
-	txLog := makeTransactionLog("workingDirSet", password, t)
-
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
-	// Create remote kv
-	rkv, err := newKV(txLog, kv, nil, nil)
-	require.NoError(t, err)
+	// Construct mutate log
+	txLog := makeTransactionLog(kv, "workingDirSet", password, t)
 
-	rkv.txLog.remote = &mockRemote{
+	// Create remote kv
+	rkv := newKV(txLog, kv)
+
+	rkv.txLog.io = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 
 	// Construct mock update callback
-	txChan := make(chan Mutate, numTests)
-	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
-		require.NoError(t, err)
-
-		txChan <- newTx
+	txChan := make(chan string, numTests)
+	updateCb := KeyUpdateCallback(func(key string, oldVal, newVal []byte,
+		op versioned.KeyOperation) {
+		require.Nil(t, oldVal)
+		txChan <- key
 	})
 
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.SetRemote(key, val, updateCb))
+		rkv.ListenOnRemoteKey(key, updateCb)
+		require.NoError(t, rkv.SetRemote(key, val))
 
 		select {
 		case <-time.After(500 * time.Second):
 			t.Fatalf("Failed to recieve from callback")
-		case tx := <-txChan:
-			require.Equal(t, tx.Key, key)
+		case txKey := <-txChan:
+			require.Equal(t, txKey, key)
 		}
 	}
 }
@@ -142,33 +107,33 @@ func TestKV_Set(t *testing.T) {
 func TestKV_Get(t *testing.T) {
 	const numTests = 100
 
-	// Construct mutate log
-	txLog := makeTransactionLog("workingDir", password, t)
-
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
+	// Construct mutate log
+	txLog := makeTransactionLog(kv, "workingDir", password, t)
+
 	// Create remote kv
-	rkv, err := newKV(txLog, kv, nil, nil)
-	require.NoError(t, err)
+	rkv := newKV(txLog, kv)
 
 	// Overwrite remote w/ non file IO option
-	rkv.txLog.remote = &mockRemote{
+	rkv.txLog.io = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 
 	// Construct mock update callback
-	txChan := make(chan Mutate, numTests)
-	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
-		require.NoError(t, err)
-
-		txChan <- newTx
+	txChan := make(chan string, numTests)
+	updateCb := KeyUpdateCallback(func(key string, oldVal, newVal []byte,
+		op versioned.KeyOperation) {
+		require.Nil(t, oldVal)
+		txChan <- key
 	})
 
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.SetRemote(key, val, updateCb))
+		rkv.ListenOnRemoteKey(key, updateCb)
+		require.NoError(t, rkv.SetRemote(key, val))
 
 		// Ensure Write has completed
 		select {
@@ -182,125 +147,4 @@ func TestKV_Get(t *testing.T) {
 
 		require.Equal(t, val, received)
 	}
-}
-
-// Unit test of KV.addUnsyncedWrite and KV.removeUnsyncedWrite.
-func TestKV_AddRemoveUnsyncedWrite(t *testing.T) {
-	const numTests = 100
-
-	// Construct mutate log
-	txLog := makeTransactionLog("workingDir", password, t)
-
-	// Construct kv
-	kv := ekv.MakeMemstore()
-
-	// Create remote kv
-	rkv, err := newKV(txLog, kv, nil, nil)
-	require.NoError(t, err)
-
-	// Ensure the map's length is incremented every time
-	for i := 0; i < numTests; i++ {
-		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.addUnsyncedWrite(key, val))
-		require.Equal(t, i+1, len(rkv.UnsyncedWrites))
-	}
-
-	// Ensure the map's length is decremented every time
-	for i := 0; i < numTests; i++ {
-		key := "key" + strconv.Itoa(i)
-		require.NoError(t, rkv.removeUnsyncedWrite(key))
-		require.Equal(t, numTests-i-1, len(rkv.UnsyncedWrites))
-	}
-
-}
-
-// Unit test of KV.saveUnsyncedWrites and KV.loadUnsyncedWrites.
-func TestKV_SaveLoadUnsyncedWrite(t *testing.T) {
-	const numTests = 100
-
-	// Construct mutate log
-	txLog := makeTransactionLog("workingDir", password, t)
-
-	// Construct kv
-	kv := ekv.MakeMemstore()
-
-	// Create remote kv
-	rkv, err := newKV(txLog, kv, nil, nil)
-	require.NoError(t, err)
-
-	// Add unsynced writes to rkv
-	for i := 0; i < numTests; i++ {
-		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.addUnsyncedWrite(key, val))
-	}
-
-	// Save unsynced writes to storage
-	require.NoError(t, rkv.saveUnsyncedWrites())
-
-	// Save current state into variable
-	expected := rkv.UnsyncedWrites
-
-	// Manually clear current state
-	rkv.UnsyncedWrites = nil
-
-	// Load map from store into object
-	require.NoError(t, rkv.loadUnsyncedWrites())
-
-	// Ensure KV's map matches previous state
-	require.Equal(t, expected, rkv.UnsyncedWrites)
-}
-
-// Unit test for KV.UpsertLocal
-func TestKV_UpsertLocal(t *testing.T) {
-	const numTests = 100
-
-	// Construct mutate log
-	txLog := makeTransactionLog("workingDir", password, t)
-
-	// Construct kv
-	kv := ekv.MakeMemstore()
-
-	// Create remote kv
-	mockKeyUpdateChan := make(chan mockUpsert, 2*numTests)
-
-	var mockCb KeyUpdateCallback = func(key string, oldVal, newVal []byte, updated bool) {
-		mockKeyUpdateChan <- mockUpsert{
-			key:    key,
-			curVal: oldVal,
-			newVal: newVal,
-		}
-	}
-
-	rkv, err := newKV(txLog, kv, mockCb, nil)
-	require.NoError(t, err)
-
-	// Populate w/ initial values
-	firstVals := make(map[string][]byte, numTests)
-	for i := 0; i < numTests; i++ {
-		key, oldVal := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		require.NoError(t, rkv.UpsertLocal(key, oldVal))
-		firstVals[key] = oldVal
-	}
-
-	// Update all initial vals
-	for i := 0; i < numTests; i++ {
-		// Upsert locally
-		key, newVal := "key"+strconv.Itoa(i), []byte("newVal"+strconv.Itoa(i))
-		require.NoError(t, rkv.UpsertLocal(key, newVal))
-
-		// Should receive off of channel from mock upsert handler
-		received := <-mockKeyUpdateChan
-
-		// Expected value
-		expected := mockUpsert{
-			key:    key,
-			curVal: firstVals[key],
-			newVal: newVal,
-		}
-
-		// Ensure consistency between expected and received
-		require.Equal(t, expected, received)
-
-	}
-
 }

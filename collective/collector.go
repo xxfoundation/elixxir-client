@@ -67,7 +67,8 @@ type collector struct {
 	syncPath string
 
 	// This local instance ID
-	myID InstanceID
+	myID  InstanceID
+	keyID string
 
 	// The last time each mutate log was Read successfully
 	lastUpdateRead     map[InstanceID]time.Time
@@ -108,6 +109,7 @@ func newCollector(myID InstanceID, syncPath string,
 	c := &collector{
 		syncPath:             syncPath,
 		myID:                 myID,
+		keyID:                encrypt.KeyID(myID),
 		lastUpdateRead:       make(map[InstanceID]time.Time),
 		devicePatchTracker:   make(map[InstanceID]*Patch),
 		lastMutationRead:     make(map[InstanceID]time.Time),
@@ -261,9 +263,11 @@ func (c *collector) collectChanges(devices []InstanceID) (
 				return
 			}
 
+			kid := c.encrypt.KeyID(c.myID)
+
 			// Get the last time the device log was written on the remote
 			logPath := filepath.Join(c.syncPath,
-				fmt.Sprintf(txLogPathFmt, deviceID, keyID))
+				fmt.Sprintf(txLogPathFmt, deviceID, kid))
 			lastRemoteUpdate, err := c.remote.GetLastModified(logPath)
 			if err != nil {
 				atomic.AddUint32(&connectionFailed, 1)

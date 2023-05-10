@@ -10,9 +10,10 @@ package collective
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
-	"strconv"
+	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -52,61 +53,15 @@ const (
 
 // Unit test of newHeader.
 func TestNewHeader(t *testing.T) {
-	receivedHeader := newHeader()
+	rng := rand.New(rand.NewSource(42))
+	dvcID, err := NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	receivedHeader := newHeader(dvcID)
 	expectedHeader := &header{
-		Version: headerVersion,
-		Entries: make(map[string]string, 0),
+		Version:  headerVersion,
+		DeviceID: dvcID,
 	}
 	require.Equal(t, expectedHeader, receivedHeader)
-}
-
-// Unit test of header.Set.
-func TestHeader_Set(t *testing.T) {
-	// Initialize header object
-	head := newHeader()
-
-	// Set key-value entry into header
-	key, val := "key", "val"
-	require.NoError(t, head.Set(key, val))
-
-	// Ensure that key exists in map and is the expected value
-	received, exists := head.Entries[key]
-	require.True(t, exists)
-	require.Equal(t, val, received)
-}
-
-// Error test of header.Set where Set is called with a duplicate key.
-// Overwriting an entry should not occur.
-func TestHeader_Set_Overwrite(t *testing.T) {
-	// Initialize header object
-	head := newHeader()
-
-	// Set key-value entry into header
-	key, originalVal, newVal := "key", "val", "newValFailure"
-	require.NoError(t, head.Set(key, originalVal))
-
-	// Attempt to overwrite key with new value
-	require.NoError(t, head.Set(key, newVal))
-
-	// Ensure that key exists in map and is the expected value
-	received, exists := head.Entries[key]
-	require.True(t, exists)
-	require.Equal(t, newVal, received)
-}
-
-// Unit test of header.Get.
-func TestHeader_Get(t *testing.T) {
-	// Initialize header object
-	head := newHeader()
-
-	// Set key-value entry into header
-	key, val := "key", "val"
-	require.NoError(t, head.Set(key, val))
-
-	// Ensure that key exists in map and is the expected value
-	received, err := head.Get(key)
-	require.NoError(t, err)
-	require.Equal(t, val, received)
 }
 
 // Smoke & unit test for header.MarshalJSON. Checks basic marshaling outputs expected
@@ -114,14 +69,10 @@ func TestHeader_Get(t *testing.T) {
 // character is parsed as part of a string value and not as an escape character.
 func TestHeader_MarshalJSON(t *testing.T) {
 	// Initialize header object
-	head := newHeader()
-
-	// Create multiple entries for JSON
-	const numTests = 10
-	for i := 0; i < numTests; i++ {
-		key, val := "key"+strconv.Itoa(i), "val"+strconv.Itoa(i)
-		require.NoError(t, head.Set(key, val))
-	}
+	rng := rand.New(rand.NewSource(42))
+	dvcID, err := NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	head := newHeader(dvcID)
 
 	// Marshal header into JSON byte data
 	marshaledData, err := json.Marshal(head)
@@ -129,13 +80,6 @@ func TestHeader_MarshalJSON(t *testing.T) {
 
 	// Check that marshaled data matches expected JSON
 	require.Equal(t, expectedHeaderJson, string(marshaledData))
-
-	// Edge check: Add a key with a newline character
-	key, val := "edgeCheckKey\n", "edgeCheckVal"
-	require.NoError(t, head.Set(key, val))
-
-	marshaledData, err = json.MarshalIndent(head, "", "\t")
-	require.NoError(t, err)
 
 	// Ensure it outputs a single line, ie the newline character does not
 	// create a multi-line JSON file.
@@ -145,21 +89,17 @@ func TestHeader_MarshalJSON(t *testing.T) {
 // Smoke & unit test for header.UnmarshalJSON.
 func TestHeader_UnmarshalJSON(t *testing.T) {
 	// Initialize header object
-	oldHeader := newHeader()
-
-	// Create multiple entries for JSON
-	const numTests = 10
-	for i := 0; i < numTests; i++ {
-		key, val := "key"+strconv.Itoa(i), "val"+strconv.Itoa(i)
-		require.NoError(t, oldHeader.Set(key, val))
-	}
+	rng := rand.New(rand.NewSource(42))
+	dvcID, err := NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	oldHeader := newHeader(dvcID)
 
 	// Marshal header
 	oldHeaderData, err := json.Marshal(oldHeader)
 	require.NoError(t, err)
 
 	// Construct a new header and unmarshal the old header into it
-	newHeader := newHeader()
+	newHeader := &header{}
 	require.NoError(t, json.Unmarshal(oldHeaderData, newHeader))
 
 	// Ensure that the newHeader.UnmarshalJSON call places oldHeader's data
@@ -182,29 +122,28 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 // Smoke test of header.serialize.
 func TestHeader_Serialize(t *testing.T) {
 	// Initialize header object
-	head := newHeader()
-
-	// Set key-value entry into header
-	key, val := "key", "val"
-	require.NoError(t, head.Set(key, val))
+	rng := rand.New(rand.NewSource(42))
+	dvcID, err := NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	head := newHeader(dvcID)
 
 	// Serialize header
 	hdrSerial, err := head.serialize()
 	require.NoError(t, err)
 
 	// Ensure serialization is consistent
-	require.Equal(t, expectedHeaderSerial, base64.StdEncoding.EncodeToString(hdrSerial))
+	require.Equal(t, expectedHeaderSerial,
+		base64.StdEncoding.EncodeToString(hdrSerial))
 }
 
 // Unit test of deserializeHeader. Ensures that deserialize will construct
 // the same header that was serialized using header.serialize.
 func TestHeader_Deserialize(t *testing.T) {
 	// Initialize header object
-	head := newHeader()
-
-	// Set key-value entry into header
-	key, val := "key", "val"
-	require.NoError(t, head.Set(key, val))
+	rng := rand.New(rand.NewSource(42))
+	dvcID, err := NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	head := newHeader(dvcID)
 
 	// Serialize header
 	hdrSerial, err := head.serialize()

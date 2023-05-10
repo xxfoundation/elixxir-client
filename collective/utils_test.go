@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -61,7 +60,7 @@ func TestDeviceOffset(t *testing.T) {
 	// Populate offset structure with data
 	const numTests = 100
 	for i := 0; i < numTests; i++ {
-		instanceID, _ := cmix.NewRandomInstanceID(rng)
+		instanceID, _ := NewRandomInstanceID(rng)
 		dvcOffset[instanceID] = i
 	}
 

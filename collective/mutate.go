@@ -15,7 +15,7 @@ import (
 // NewMutate is the constructor of a Mutate object.
 func NewMutate(ts time.Time, value []byte, deletion bool) Mutate {
 	return Mutate{
-		Timestamp: ts.UTC().UnixNano(),
+		Timestamp: ts.UTC().Unix(),
 		Value:     value,
 		Deletion:  deletion,
 	}

@@ -144,7 +144,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 	timer := time.NewTimer(time.Nanosecond)
 	serial, err := rw.state.Serialize()
 	if err != nil {
-		jww.FATAL.Panicf("Failed to serialize transaction", err)
+		jww.FATAL.Panicf("Failed to serialize transaction: %+v", err)
 	}
 	running := true
 	var ts time.Time

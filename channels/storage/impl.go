@@ -134,7 +134,7 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	parentErr := "failed to UpdateFromUUID"
 
 	msgToUpdate := &Message{
-		Id:     uuid,
+		Id:     int64(uuid),
 		Hidden: hidden,
 		Pinned: pinned,
 	}
@@ -142,7 +142,7 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 		msgToUpdate.MessageId = messageID.Marshal()
 	}
 	if round != nil {
-		msgToUpdate.Round = uint64(round.ID)
+		msgToUpdate.Round = int64(round.ID)
 	}
 	if timestamp != nil {
 		msgToUpdate.Timestamp = *timestamp
@@ -201,7 +201,7 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 		Pinned:    pinned,
 	}
 	if round != nil {
-		msgToUpdate.Round = uint64(round.ID)
+		msgToUpdate.Round = int64(round.ID)
 	}
 	if timestamp != nil {
 		msgToUpdate.Timestamp = *timestamp
@@ -235,7 +235,7 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	copy(channelId[:], currentMessage.ChannelId)
 	go i.msgCb(msgToUpdate.Id, channelId, true)
 
-	return msgToUpdate.Id, nil
+	return uint64(msgToUpdate.Id), nil
 }
 
 // GetMessage returns the [channels.ModelMessage] with the given [message.ID].
@@ -273,7 +273,7 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 	}
 
 	return channels.ModelMessage{
-		UUID:            result.Id,
+		UUID:            uint64(result.Id),
 		Nickname:        result.Nickname,
 		MessageID:       messageID,
 		ChannelID:       channelId,
@@ -361,7 +361,7 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 	}
 
 	go i.msgCb(msgToInsert.Id, channelID, false)
-	return msgToInsert.Id, nil
+	return uint64(msgToInsert.Id), nil
 }
 
 // buildMessage is a private helper that converts typical [channels.EventModel]
@@ -387,7 +387,7 @@ func buildMessage(channelID, messageID, parentID []byte, nickname string,
 		Pinned:          &pinned,
 		Text:            text,
 		Type:            uint16(mType),
-		Round:           uint64(round),
+		Round:           int64(round),
 		// User Identity Info
 		Pubkey:         pubKey,
 		DmToken:        dmToken,

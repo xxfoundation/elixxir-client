@@ -86,16 +86,21 @@ func (nm *nicknameManager) GetNickname(channelID *id.ID) (
 // Internal Nickname Changes Tracker                                       //
 /////////////////////////////////////////////////////////////////////////////
 
-func newNicknameChanges() *nicknameUpdates {
+// nicknameUpdates is a tracker for any modified channel nickname. This
+// is used by [nicknameManager.mapUpdate] and every element of [modified]
+// is reported as a [NicknameUpdate] to the [UpdateNicknames] callback.
+type nicknameUpdates struct {
+	modified []NicknameUpdate
+}
+
+// newNicknameUpdates is a constructor for nicknameUpdates.
+func newNicknameUpdates() *nicknameUpdates {
 	return &nicknameUpdates{
 		modified: make([]NicknameUpdate, 0),
 	}
 }
 
-type nicknameUpdates struct {
-	modified []NicknameUpdate
-}
-
+// AddDeletion creates a [NicknameUpdate] report for a deleted channel nickname.
 func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
 	nc.modified = append(nc.modified, NicknameUpdate{
 		ChannelId:      chanId,
@@ -104,6 +109,8 @@ func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
 	})
 }
 
+// AddCreatedOrEdit creates a [NicknameUpdate] report for a new or modified
+// channel nickname.
 func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
 	nc.modified = append(nc.modified, NicknameUpdate{
 		ChannelId:      &chanId,
@@ -112,6 +119,8 @@ func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
 	})
 }
 
+// mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
+// method.
 func (nm *nicknameManager) mapUpdate(
 	mapName string, edits map[string]versioned.ElementEdit) {
 
@@ -125,7 +134,7 @@ func (nm *nicknameManager) mapUpdate(
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	updates := newNicknameChanges()
+	updates := newNicknameUpdates()
 	for elementName, edit := range edits {
 		// unmarshal element name
 		chanId := &id.ID{}
@@ -170,12 +179,18 @@ func (nm *nicknameManager) mapUpdate(
 	}
 }
 
+// initiateCallbacks is a helper function which reports every nicknameUpdate to
+// the UpdateNicknames callback. It is acceptable for this to not be done in
+// batch as modifications can be assumed to be independent of one another and
+// should not create synchronization issues.
 func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
 	for _, edited := range updates.modified {
 		go nm.callback(edited)
 	}
 }
 
+// upsertNicknameUnsafeRAM is a helper function which memoizes channel updates
+// to in RAM memoer.
 func (nm *nicknameManager) upsertNicknameUnsafeRAM(newUpdate channelIDToNickname) {
 	nm.byChannel[newUpdate.ChannelId] = newUpdate.Nickname
 }

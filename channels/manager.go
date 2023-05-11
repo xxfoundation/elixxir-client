@@ -101,13 +101,14 @@ type UICallbacks interface {
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
+	extensions []ExtensionBuilder, addService AddServiceFn,
+	uiCallbacks UiCallbacks) (Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return NewManager(identity, kv, net, rng, model, extensions, addService)
+	return NewManager(identity, kv, net, rng, model, extensions, addService, uiCallbacks)
 }
 
 // NewManager creates a new channel [Manager] from a
@@ -116,7 +117,8 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 // [Manager.GetStorageTag].
 func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	extensions []ExtensionBuilder, addService AddServiceFn) (Manager, error) {
+	extensions []ExtensionBuilder, addService AddServiceFn,
+	uiCallbacks UiCallbacks) (Manager, error) {
 
 	// Make a copy of the public key to prevent outside edits
 	// TODO: Convert this to DeepCopy() method
@@ -137,7 +139,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions)
+	m := setupManager(identity, kv, net, rng, model, extensions, uiCallbacks)
 	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
@@ -147,7 +149,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 // tag.
 func LoadManager(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
-	extensions []ExtensionBuilder) (Manager, error) {
+	extensions []ExtensionBuilder, uiCallbacks UiCallbacks) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
@@ -162,7 +164,7 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions)
+	m := setupManager(identity, kv, net, rng, model, extensions, uiCallbacks)
 	m.loadDMTokens()
 
 	return m, nil
@@ -172,18 +174,22 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 // tag.
 func LoadManagerBuilder(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder) (Manager, error) {
+	extensions []ExtensionBuilder, uiCallbacks UiCallbacks) (Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return LoadManager(storageTag, kv, net, rng, model, extensions)
+	return LoadManager(storageTag, kv, net, rng, model, extensions, uiCallbacks)
 }
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	extensionBuilders []ExtensionBuilder) *manager {
+	extensionBuilders []ExtensionBuilder, uiCallbacks UiCallbacks) *manager {
+
+	if uiCallbacks == nil {
+		uiCallbacks = &dummyUICallback{}
+	}
 
 	// Build the manager
 	m := &manager{
@@ -202,7 +208,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 
 	m.loadChannels()
 
-	m.nicknameManager = LoadOrNewNicknameManager(kv)
+	m.nicknameManager = loadOrNewNicknameManager(kv, uiCallbacks.NicknameUpdate)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
@@ -445,4 +451,13 @@ func (m *manager) Muted(channelID *id.ID) bool {
 func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 	jww.INFO.Printf("[CH] GetMutedUsers in channel %s", channelID)
 	return m.mutedUsers.getMutedUsers(channelID)
+}
+
+// dummyUICallback is an implementation of UI callbacks that does nothing
+// it is used for tests and when nothing is passed in for UI callbacks
+type dummyUICallback struct{}
+
+func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
+	exists bool) {
+	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
 }

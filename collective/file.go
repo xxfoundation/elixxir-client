@@ -12,10 +12,10 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"strings"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix"
-	"strings"
 )
 
 // headerVersion is the most up-to-date edition of the header object. If the
@@ -36,7 +36,7 @@ const (
 var delimiterBytes = []byte(delimiter)
 
 // newHeader is the constructor of a header object.
-func newHeader(DeviceID cmix.InstanceID) *header {
+func newHeader(DeviceID InstanceID) *header {
 	return &header{
 		Version:  headerVersion,
 		DeviceID: DeviceID,
@@ -47,8 +47,8 @@ func newHeader(DeviceID cmix.InstanceID) *header {
 // marshal-able an unmarshal-able object that header.MarshalJSON and
 // header.UnmarshalJSON utilizes when calling json.Marshal/json.Unmarshal.
 type header struct {
-	Version  uint16          `json:"version"`
-	DeviceID cmix.InstanceID `json:"device"`
+	Version  uint16     `json:"version"`
+	DeviceID InstanceID `json:"device"`
 }
 
 // serialize serializes a header object.

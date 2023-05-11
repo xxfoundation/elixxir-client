@@ -12,56 +12,57 @@ package collective
 import (
 	"encoding/base64"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 )
 
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
 	baseDir := "TestNewCollector/"
-	rng := rand.New(rand.NewSource(42))
 	syncPath := baseDir + "collector/"
-	txLog := makeTransactionLog(syncPath, password, t)
-
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
-	// Create remote kv
-	remoteKv, err := newVersionedKV(txLog, kv, nil, nil, nil)
-	require.NoError(t, err)
+	txLog := makeTransactionLog(kv, syncPath, password, t)
 
-	myId, err := cmix.NewRandomInstanceID(rng)
+	// Create remote kv
+	remoteKv := newVersionedKV(txLog, kv, nil)
+
+	myID, err := GetInstanceID(kv)
 	require.NoError(t, err)
-	cmix.StoreInstanceID(myId, remoteKv)
 
 	workingDir := baseDir + "remoteFsSmoke/"
 
+	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
+
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 
-	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
+	crypt := &deviceCrypto{
+		secret: []byte("deviceSecret"),
+		rngGen: rngGen,
+	}
+
+	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remoteKV,
+		crypt, txLog)
 
 	expected := &collector{
 		syncPath:             syncPath,
-		myID:                 myId,
-		lastUpdateRead:       make(map[cmix.InstanceID]time.Time, 0),
+		myID:                 myID,
+		lastUpdateRead:       make(map[InstanceID]time.Time, 0),
 		synchronizationEpoch: synchronizationEpoch,
-		deviceTxTracker:      newDeviceTransactionTracker(),
 		txLog:                txLog,
 		remote:               fsRemote,
-		kv:                   remoteKv,
-		myLogPath:            collector.myLogPath,
+		kv:                   remoteKv.remoteKV,
 	}
 
-	require.Equal(t, expected, collector)
+	require.Equal(t, expected, testcol)
 
 	// Delete the test file at the end
 	os.RemoveAll(baseDir)
@@ -81,51 +82,59 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 		"MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0ZAAAAAAAAAFhYREtUWExPR0RWQ09GRlNUYm5Wc2JBPT0GAAAAAAAAAJIAAAAAAAAAMCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWWRial9DNnlFc3FuTUk4LXVSNUJmVGZadzZVSXZiSVV5c1FtTTNlbXVuSmN3OWVJYktpeVNwN2pWYWYxdTZlZWcxQWF0WkhxS0FvTnJ6aWRYaUtsZmluU0FsRWlrcDRENVVCQl9jaG5NajJ4bTQ3YzKSAAAAAAAAADEsR1JvYkhCMGVIeUFoSWlNa0pTWW5LQ2txS3l3dExpOHdDRUdqWjdKSG1JY3d4MG9oZ2xwWDhkRW5mZzdUWll1SlBaUnR3alFPaXl1cTlZaFRlR3lEaVFsRHJ3a20tbnZXZk1YTE1sNm1WTmRyZGhPdV8zMWh3cXhJYlREaEN1aFItRm5lSFVzYWxCUVAtd1JGkgAAAAAAAAAyLE1USXpORFUyTnpnNU9qczhQVDRfUUVGQ1EwUkZSa2RJSElDQUlFQ29kbXlvVTdsbGJhaFoxYTlwNGRVTWJ3SVZ6VFVDV09Benp2VmRNLVptUm1FcThqVk1FbHpFbWlpTzJaSkhLVmdISGk3aFBQSkxWa0xncThPTTBRbk5DNUNlTmVfTzlJM2RlaU9LMUhmUZIAAAAAAAAAMyxTVXBMVEUxT1QxQlJVbE5VVlZaWFdGbGFXMXhkWGw5Z0dZdnNuWVd6X3lDSFV4Z1J0MXVVT0U2bGRxMk1xdm1pWF9PdlBaWHBjbmRabzFHVTBIM0RQeW5LRm9hRFNrX0wzbmF6Y3JiMzk3a05mWTJPYm9qRDZEbkhieVp3SENDNzhwR1lLTUtqcVRaR3RtUVOSAAAAAAAAADQsWVdKalpHVm1aMmhwYW10c2JXNXZjSEZ5YzNSMWRuZDRtQlJLeE5HeXlpQTFzRlMzOUZxRkk2ZGZIeXVaQWIwSHNydF9QTzBYZF90RHlfeENiUTZ6Z0hhblljSXU5eWFST0xfUXFjaFhsejRJNkFoTjYwM3pEMVhVTGVUQlhwMnZPeEJNSTloNTdEblVZQVN5kgAAAAAAAAA1LGVYcDdmSDEtZjRDQmdvT0VoWWFIaUltS2k0eU5qby1RN1Myb2pvQ2QtRWRHUE55d1Utd2lzQkdMTzV1V0lmZmNsTDhaaGFLOHk0WldsdEtWbFVtMU9QUjhiYkFXdXNlRFdZWVJUS3ZmSkZXRzRYYTNFWDFYZFJLQ1ZvbkIyYUx6MUVoQjllRHp6OWRBd2VLUQ==",
 	}
 
-	syncPath := baseDir + "collector/"
-	txLog := makeTransactionLog(syncPath, password, t)
-
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
+	syncPath := baseDir + "collector/"
+	txLog := makeTransactionLog(kv, syncPath, password, t)
+
 	// Create remote kv
-	remoteKv, err := newVersionedKV(txLog, kv, nil, nil, nil)
-	require.NoError(t, err)
+	remoteKv := newVersionedKV(txLog, kv, nil)
 
 	workingDir := baseDir + "remoteFsSmoke/"
 
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
-	devices := make([]string, 0)
-	rng := rand.New(rand.NewSource(42))
+	devices := make([]InstanceID, 0)
+
+	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
+	rng := rngGen.GetStream()
+	defer rng.Close()
+
+	crypt := &deviceCrypto{
+		secret: []byte("deviceSecret"),
+		rngGen: rngGen,
+	}
 
 	// Construct collector
-	myId, _ := cmix.NewRandomInstanceID(rng)
-	cmix.StoreInstanceID(myId, remoteKv)
-	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
+	myID, err := GetInstanceID(kv)
+	require.NoError(t, err)
+	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remoteKV,
+		crypt, txLog)
 
 	// Write mock data to file (collectChanges will Read from file)
 	for _, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockInstanceID, err := cmix.NewRandomInstanceID(rng)
+		mockInstanceID, err := NewRandomInstanceID(rng)
 		txLogPath := filepath.Join(syncPath,
 			fmt.Sprintf(txLogPathFmt, mockInstanceID,
-				keyID(txLog.deviceSecret)))
+				keyID(crypt.secret, mockInstanceID)))
 
 		require.NoError(t, err)
 		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
 		require.NoError(t, err)
 		require.NoError(t, fsRemote.Write(txLogPath, mockTxLog))
-		devices = append(devices, mockInstanceID.String())
+		devices = append(devices, mockInstanceID)
 	}
 
-	_, err = collector.collectChanges(devices)
+	_, err = testcol.collectChanges(devices)
 	require.NoError(t, err)
 
 	// Ensure device tracker has proper length for all devices
-	for _, dvcIdStr := range devices {
-		dvcId, err := cmix.NewInstanceIDFromString(dvcIdStr)
-		require.NoError(t, err)
-		received := collector.deviceTxTracker.changes[dvcId]
-		require.Len(t, received, 6)
-	}
+	// for _, dvcIdStr := range devices {
+	// dvcId, err := NewInstanceIDFromString(dvcIdStr)
+	// require.NoError(t, err)
+	// received := testcol.deviceTxTracker.changes[dvcId]
+	// require.Len(t, received, 6)
+	// }
 	// Delete the test file at the end
 	os.RemoveAll(baseDir)
 }
@@ -144,14 +153,14 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	}
 
 	syncPath := baseDir + "collector/"
-	txLog := makeTransactionLog(syncPath, password, t)
 
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
+	txLog := makeTransactionLog(kv, syncPath, password, t)
+
 	// Create remote kv
-	remoteKv, err := newVersionedKV(txLog, kv, nil, nil, nil)
-	require.NoError(t, err)
+	remoteKv := newVersionedKV(txLog, kv, nil)
 
 	workingDir := baseDir + "remoteFsSmoke/"
 	// Delete the test file at the end
@@ -159,106 +168,33 @@ func TestCollector_ApplyChanges(t *testing.T) {
 
 	// Write mock data to file (collectChanges will Read from file)
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
-	devices := make([]string, 0)
+	devices := make([]InstanceID, 0)
 	for i, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockInstanceID := strconv.Itoa(i)
-		mockTxLog, err := base64.StdEncoding.DecodeString(remoteTxLogEnc)
+		mockInstanceID, err := NewInstanceIDFromString(strconv.Itoa(i))
 		require.NoError(t, err)
-		require.NoError(t, fsRemote.Write(mockInstanceID, mockTxLog))
+		mockTxLog, err := base64.StdEncoding.DecodeString(
+			remoteTxLogEnc)
+		require.NoError(t, err)
+		require.NoError(t, fsRemote.Write(mockInstanceID.String(),
+			mockTxLog))
 		devices = append(devices, mockInstanceID)
 	}
 
-	// Construct collector
-	rng := rand.New(rand.NewSource(42))
-	myId, _ := cmix.NewRandomInstanceID(rng)
-	cmix.StoreInstanceID(myId, remoteKv)
-	collector := NewCollector(syncPath, txLog, fsRemote, remoteKv)
-	_, err = collector.collectChanges(devices)
+	myID, err := GetInstanceID(kv)
 	require.NoError(t, err)
-	require.NoError(t, collector.applyChanges())
 
-}
+	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
 
-// Unit test for devicePatchTracker.AddToDevice.
-func TestDeviceTransactionTracker_AddToDevice(t *testing.T) {
-	const numTests = 100
-	dvcTracker := newDeviceTransactionTracker()
-
-	// Construct transactions
-	changes := make([]Mutate, 0)
-	for i := 0; i < numTests; i++ {
-		iStr := strconv.Itoa(i)
-		key, val := "key"+iStr, "val"+iStr
-		offset := time.Now().Add(time.Duration(i) * time.Second)
-		tx := NewMutate(offset, key, []byte(val))
-		changes = append(changes, tx)
+	crypt := &deviceCrypto{
+		secret: []byte("deviceSecret"),
+		rngGen: rngGen,
 	}
 
-	// Add changes to tracker
-	rng := rand.New(rand.NewSource(42))
-	instanceID, _ := cmix.NewRandomInstanceID(rng)
-	dvcTracker.AddToDevice(instanceID, changes)
+	// Construct collector
+	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remoteKV,
+		crypt, txLog)
+	_, err = testcol.collectChanges(devices)
+	require.NoError(t, err)
+	require.NoError(t, testcol.applyChanges())
 
-	// Ensure changes have been put into tracker
-	require.Equal(t, changes, dvcTracker.changes[instanceID])
-}
-
-// Unit test for devicePatchTracker.Sort.
-func TestDeviceTransactionTracker_Next(t *testing.T) {
-	const numTests = 100
-	dvcTracker := newDeviceTransactionTracker()
-
-	// Construct transactions
-	changes := make([]Mutate, 0)
-	for i := 0; i < numTests; i++ {
-		iStr := strconv.Itoa(i)
-		key, val := "key"+iStr, "val"+iStr
-		offset := time.Duration(i) * time.Minute
-		if i%2 == 0 {
-			offset = offset * -1
-		}
-		offsetTs := time.Now().Add(offset)
-		tx := NewMutate(offsetTs, key, []byte(val))
-		changes = append(changes, tx)
-	}
-
-	// Add changes to tracker
-	rng := rand.New(rand.NewSource(42))
-	instanceID, _ := cmix.NewRandomInstanceID(rng)
-	dvcTracker.AddToDevice(instanceID, changes)
-
-	// Ensure next retrieves changes put into tracker
-	ordered := dvcTracker.Sort()
-
-	// Ensure ordered is indeed sorted
-	require.True(t, sort.SliceIsSorted(ordered, func(i, j int) bool {
-		first, second := ordered[i].Timestamp, ordered[j].Timestamp
-		return first.Before(second)
-	}))
-
-	// Manually sort changes
-	sort.Slice(changes, func(i, j int) bool {
-		first, second := changes[i].Timestamp, changes[j].Timestamp
-		return first.Before(second)
-	})
-
-	// Ensure sorted changes matches
-	require.Equal(t, changes, ordered)
-
-	// Construct new transactions
-	newChanges := make([]Mutate, 0)
-	for i := 0; i < numTests; i++ {
-		iStr := strconv.Itoa(i)
-		key, val := "keyAfterNext"+iStr, "valAfterNext"+iStr
-
-		offsetTs := time.Now().Add(time.Duration(i))
-		tx := NewMutate(offsetTs, key, []byte(val))
-		newChanges = append(newChanges, tx)
-	}
-
-	// Add new transactions to tracker
-	dvcTracker.AddToDevice(instanceID, newChanges)
-
-	// Ensure next retrieves the new mutate list
-	require.Equal(t, newChanges, dvcTracker.Sort())
 }

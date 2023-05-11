@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"strings"
 )
 
 // StoreMapElement stores a versioned map element into the KV. This relies
@@ -72,19 +73,27 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 
 	keys := make([]string, 0, mapFile.Length())
 	for key := range mapFile {
-		keys = append(keys, key)
+		fullKey := versioned.MakeElementKey(mapName, key)
+		keys = append(keys, fullKey)
 	}
 
 	op := func(old map[string]ekv.Value) (updates map[string]ekv.Value, err error) {
 		return nil, errors.New("dummy")
 	}
 
-	old, _, _ := r.MutualTransaction(keys, op)
+	old, _, err := r.local.MutualTransaction(keys, op)
+	if err != nil && !strings.Contains("dummy", err.Error()) {
+		return nil, err
+	}
 
 	m := make(map[string][]byte)
 	for key, value := range old {
+		isMapElement, _, elementName := versioned.DetectMapElement(key)
+		if !isMapElement {
+			return nil, errors.New("Loaded invaid map element in map")
+		}
 		if value.Exists {
-			m[key] = value.Data
+			m[elementName] = value.Data
 		}
 	}
 
@@ -94,7 +103,7 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 func getMapFile(mapFileValue ekv.Value, length int) (set, error) {
 	mapFile := newSet(uint(length))
 	if mapFileValue.Exists {
-		err := mapFile.UnmarshalJSON(mapFileValue.Data)
+		err := json.Unmarshal(mapFileValue.Data, &mapFile)
 		if err != nil {
 			return nil, err
 		}
@@ -111,14 +120,6 @@ func newSet(size uint) set {
 	} else {
 		return make(set, size)
 	}
-}
-
-func (ks set) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, &set{})
-}
-
-func (ks set) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&ks)
 }
 
 func (ks set) Has(element string) bool {

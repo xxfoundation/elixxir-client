@@ -427,3 +427,10 @@ type ExtensionBuilder func(e EventModel, m Manager,
 //
 // This type must match [Client.AddService].
 type AddServiceFn func(sp xxdk.Service) error
+
+// UiCallbacks is an interface that a caller can adhere to in order to get
+// updates on when sync events occur that require the UI to be updated
+// and what those events are
+type UiCallbacks interface {
+	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
+}

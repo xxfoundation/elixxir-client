@@ -25,9 +25,7 @@ func LocalKV(storageDir string, password []byte,
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	// localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
-	// 	localTxLogPath))
-	return collective.LocalKV(storageDir, string(password), localKV, rng)
+	return collective.LocalKV(storageDir, password, localKV, rng)
 }
 
 // SynchronizedKV creates a filesystem based KV that synchronizes
@@ -35,8 +33,6 @@ func LocalKV(storageDir string, password []byte,
 func SynchronizedKV(storageDir string, password []byte,
 	remote collective.RemoteStore,
 	synchedPrefixes []string,
-	eventCb collective.KeyUpdateCallback,
-	updateCb collective.RemoteStoreCallback,
 	rng *fastRNG.StreamGenerator) (versioned.KV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
@@ -44,9 +40,7 @@ func SynchronizedKV(storageDir string, password []byte,
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	// localFS := collective.NewFileSystemRemoteStorage(filepath.Join(storageDir,
-	// 	localTxLogPath))
 
-	return collective.SynchronizedKV(storageDir, string(password),
+	return collective.SynchronizedKV(storageDir, password,
 		remote, localKV, synchedPrefixes, rng)
 }

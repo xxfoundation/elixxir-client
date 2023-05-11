@@ -11,8 +11,10 @@ import (
 	"crypto/ed25519"
 	"strconv"
 
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/crypto/sih"
 	primNotif "gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
@@ -65,49 +67,60 @@ func newNotifications(pubKey ed25519.PublicKey, cb FilterCallback,
 //
 // Returns an error if the channel already exists.
 func (n *notifications) addChannel(channelID *id.ID) error {
-	return n.nm.Set(channelID, notificationGroup, NotifyNone.Marshal(), false)
+	return n.nm.Set(
+		channelID, notificationGroup, NotifyNone.Marshal(), clientNotif.Mute)
 }
 
 // addChannel inserts the channel into the notification list with the given
 // level.
 func (n *notifications) removeChannel(channelID *id.ID) {
-	n.nm.Delete(channelID, notificationGroup)
+	n.nm.Delete(channelID)
 }
 
 // GetNotificationLevel returns the notification level for the given channel.
 func (n *notifications) GetNotificationLevel(
 	channelID *id.ID) (NotificationLevel, error) {
 
-	_, metadata, _, err := n.nm.Get(channelID)
-	if err != nil {
-		return 0, err
+	_, metadata, _, exists := n.nm.Get(channelID)
+	if !exists {
+		return 0,
+			errors.Errorf("channel %s not found in notifications", channelID)
 	}
 
 	return UnmarshalNotificationLevel(metadata), nil
 }
 
 // SetMobileNotificationsLevel sets the notification level for the given
-// channel. If the notification leve lis changed from [NotifyNone] to another
-// level, then the channel is registered with the external notification server.
-// If a channel level is set to [NotifyNone], then it is unregistered.
+// channel. The [NotificationLevel] dictates the type of notifications received.
+// If push is set to true, then push notifications will be received when the app
+// is closed. Otherwise, notifications will only appear when the app is open.
 //
-// Note, when enabling notifications, information may be shared with third
-// parties (i.e., Firebase and Google's Palantir) that may represent a security
-// risk to the user.
-func (n *notifications) SetMobileNotificationsLevel(
-	channelID *id.ID, level NotificationLevel) error {
+// To use push notifications, a token must be registered with the notification
+// manager. Note, when enabling push notifications, information may be shared
+// with third parties (i.e., Firebase and Google's Palantir) and may represent a
+// security risk to the user.
+func (n *notifications) SetMobileNotificationsLevel(channelID *id.ID,
+	level NotificationLevel, push bool) error {
 	jww.INFO.Printf("[CH] Set notification level for channel %s to %s",
 		channelID, level)
 
-	status := level != NotifyNone
+	status := clientNotif.Mute
+	if level != NotifyNone {
+		if push {
+			status = clientNotif.Push
+		} else {
+			status = clientNotif.WhenOpen
+		}
+	}
 	return n.nm.Set(channelID, notificationGroup, level.Marshal(), status)
 }
 
 // notificationsUpdateCB gets the list of all services and assembles a list of
 // NotificationFilter for each channel that exists in the compressed service
 // list. The results are called on the user-registered FilterCallback.
-func (n *notifications) notificationsUpdateCB(*id.ID, []byte, bool) {
-	nfs := n.createFilterList(n.nm.GetGroup(notificationGroup))
+func (n *notifications) notificationsUpdateCB(
+	group clientNotif.Group, _, _, _ []*id.ID) {
+	nfs := n.createFilterList(group)
 
 	n.cb(nfs)
 }
@@ -116,11 +129,10 @@ func (n *notifications) notificationsUpdateCB(*id.ID, []byte, bool) {
 // in the provided map; one for asymmetric messages and one for symmetric.
 // The filter generated is based on its message type and NotificationLevel
 // embedded in the Metadata.
-func (n *notifications) createFilterList(
-	channels map[id.ID]NotificationInfo) []NotificationFilter {
+func (n *notifications) createFilterList(group clientNotif.Group) []NotificationFilter {
 	var nfs []NotificationFilter
 	tags := makeUserPingTags(n.pubKey)
-	for chanID, notif := range channels {
+	for chanID, notif := range group {
 		channelID := chanID.DeepCopy()
 
 		ch, err := n.getChannel(channelID)

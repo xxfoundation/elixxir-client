@@ -20,18 +20,18 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -97,13 +97,15 @@ type Client interface {
 // are required by the [Manager].
 // TODO: update doc link real API
 type NotificationsManager interface {
-	Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status bool) error
-	Get(toBeNotifiedOn *id.ID) (status bool, metadata []byte, group string, err error)
-	GetGroup(group string) map[id.ID]NotificationInfo
-	Delete(toBeNotifiedOn *id.ID, group string)
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
+		status clientNotif.NotificationStatus) error
+	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationStatus,
+		metadata []byte, group string, exists bool)
+	Delete(toBeNotifiedOn *id.ID)
+	GetGroup(group string) (clientNotif.Group, bool)
 	AddToken(newToken, app string) error
 	RemoveToken() error
-	RegisterUpdateCallback(group string, nu NotificationsUpdate)
+	RegisterUpdateCallback(group string, nu clientNotif.Update)
 }
 
 // NotificationInfo contains notification information for each identity.
@@ -111,8 +113,6 @@ type NotificationInfo struct {
 	Status   bool   `json:"status"`
 	Metadata []byte `json:"metadata"`
 }
-
-type NotificationsUpdate func(id *id.ID, metadata []byte, status bool)
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
@@ -134,9 +134,9 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // [Manager.GetStorageTag].
 //
 // The [FilterCallback] returns services that are compared with notification
-// data to determine which channel notifications belong to you. It must be
-// registered even if notifications are not used.
-// TODO: update paragraph above with forme function
+// data to determine which channel notifications belong to you using
+// [GetNotificationReportsForMe]. It must be registered even if notifications
+// are not used.
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn,

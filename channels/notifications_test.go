@@ -16,11 +16,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/crypto/sih"
@@ -53,10 +52,10 @@ func Test_notifications_addChannel(t *testing.T) {
 	nm := newMockNM()
 	n := notifications{nil, nil, nil, nm}
 
-	expected := map[id.ID]NotificationInfo{
-		*id.NewIdFromString("channel1", id.User, t): {false, NotifyNone.Marshal()},
-		*id.NewIdFromString("channel2", id.User, t): {false, NotifyNone.Marshal()},
-		*id.NewIdFromString("channel3", id.User, t): {false, NotifyNone.Marshal()},
+	expected := clientNotif.Group{
+		*id.NewIdFromString("channel1", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
+		*id.NewIdFromString("channel2", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
+		*id.NewIdFromString("channel3", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
 	}
 
 	for chanID := range expected {
@@ -113,7 +112,7 @@ func TestNotifications_GetNotificationLevel(t *testing.T) {
 	}
 
 	for chanID, level := range expected {
-		if err := n.SetMobileNotificationsLevel(&chanID, level); err != nil {
+		if err := n.SetMobileNotificationsLevel(&chanID, level, true); err != nil {
 			t.Errorf("Failed to set level for channel %s: %+v", chanID, err)
 		}
 	}
@@ -143,10 +142,10 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	nm := newMockNM()
 	n := notifications{nil, nil, nil, nm}
 
-	expected := map[id.ID]NotificationInfo{
-		*id.NewIdFromString("channel1", id.User, t): {false, NotifyNone.Marshal()},
-		*id.NewIdFromString("channel2", id.User, t): {true, NotifyPing.Marshal()},
-		*id.NewIdFromString("channel3", id.User, t): {true, NotifyAll.Marshal()},
+	expected := clientNotif.Group{
+		*id.NewIdFromString("channel1", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
+		*id.NewIdFromString("channel2", id.User, t): {NotifyPing.Marshal(), clientNotif.Push},
+		*id.NewIdFromString("channel3", id.User, t): {NotifyAll.Marshal(), clientNotif.WhenOpen},
 	}
 
 	for chanID := range expected {
@@ -156,8 +155,12 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	}
 
 	for chanID, ni := range expected {
+		var push bool
+		if ni.Status == clientNotif.Push {
+			push = true
+		}
 		err := n.SetMobileNotificationsLevel(
-			&chanID, UnmarshalNotificationLevel(ni.Metadata))
+			&chanID, UnmarshalNotificationLevel(ni.Metadata), push)
 		if err != nil {
 			t.Errorf("Failed to add channel %s: %+v", chanID, err)
 		}
@@ -177,15 +180,19 @@ func Test_notifications_createFilterList(t *testing.T) {
 	cg, nm := newMockCG(5, t), newMockNM()
 	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nm}
 
-	nim := make(map[id.ID]NotificationInfo, len(cg.channels))
+	nim := make(clientNotif.Group, len(cg.channels))
 	ex := make([]NotificationFilter, 0, len(cg.channels))
 	levels := []NotificationLevel{NotifyNone, NotifyPing, NotifyAll}
 	for chanId, ch := range cg.channels {
 		channelID := chanId.DeepCopy()
 		level := levels[rng.Intn(len(levels))]
-		nim[*channelID] = NotificationInfo{
-			Status:   level != NotifyNone,
+		state := clientNotif.Mute
+		if level != NotifyNone {
+			state = clientNotif.Push
+		}
+		nim[*channelID] = clientNotif.State{
 			Metadata: level.Marshal(),
+			Status:   state,
 		}
 
 		if level != NotifyNone {
@@ -209,9 +216,13 @@ func Test_notifications_createFilterList(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		channelID, _ := id.NewRandomID(rng, id.User)
 		level := levels[rng.Intn(len(levels))]
-		nim[*channelID] = NotificationInfo{
-			Status:   level != NotifyNone,
+		state := clientNotif.Mute
+		if level != NotifyNone {
+			state = clientNotif.Push
+		}
+		nim[*channelID] = clientNotif.State{
 			Metadata: level.Marshal(),
+			Status:   state,
 		}
 	}
 
@@ -485,64 +496,67 @@ var _ NotificationsManager = (*mockNM)(nil)
 
 // mockNM adheres to the NotificationsManager interface.
 type mockNM struct {
-	channels map[string]map[id.ID]NotificationInfo
-	cbs      map[string]NotificationsUpdate
+	channels map[string]clientNotif.Group
+	cbs      map[string]clientNotif.Update
 }
 
 func newMockNM() *mockNM {
 	return &mockNM{
-		channels: make(map[string]map[id.ID]NotificationInfo),
-		cbs:      make(map[string]NotificationsUpdate),
+		channels: make(map[string]clientNotif.Group),
+		cbs:      make(map[string]clientNotif.Update),
 	}
 }
 
 func (m *mockNM) Set(
-	toBeNotifiedOn *id.ID, group string, metadata []byte, status bool) error {
+	toBeNotifiedOn *id.ID, group string, metadata []byte, status clientNotif.NotificationStatus) error {
 	if _, exists := m.channels[group]; !exists {
-		m.channels[group] = map[id.ID]NotificationInfo{}
+		m.channels[group] = clientNotif.Group{}
 	}
-	m.channels[group][*toBeNotifiedOn] = NotificationInfo{status, metadata}
+	m.channels[group][*toBeNotifiedOn] = clientNotif.State{Metadata: metadata, Status: status}
 
 	if _, exists := m.cbs[group]; exists {
-		go m.cbs[group](toBeNotifiedOn, metadata, status)
+		go m.cbs[group](m.channels[group], nil, nil, nil)
 	}
 	return nil
 }
 
-func (m *mockNM) Get(toBeNotifiedOn *id.ID) (bool, []byte, string, error) {
+func (m *mockNM) Get(toBeNotifiedOn *id.ID) (clientNotif.NotificationStatus, []byte, string, bool) {
 	for group, ids := range m.channels {
 		for chanID, ni := range ids {
 			if chanID.Cmp(toBeNotifiedOn) {
-				return ni.Status, ni.Metadata, group, nil
+				return ni.Status, ni.Metadata, group, true
 			}
 		}
 	}
 
-	return false, nil, "", errors.Errorf("failed to find ID %s", toBeNotifiedOn)
+	return clientNotif.Mute, nil, "", false
 }
 
-func (m *mockNM) GetGroup(group string) map[id.ID]NotificationInfo {
-	g, exists := m.channels[group]
-	if !exists {
-		return map[id.ID]NotificationInfo{}
-	}
-
-	return g
-}
-
-func (m *mockNM) Delete(toBeNotifiedOn *id.ID, group string) {
-	if _, exists := m.channels[group]; exists {
-		delete(m.channels[group], *toBeNotifiedOn)
-		if _, exists = m.cbs[group]; exists {
-			go m.cbs[group](toBeNotifiedOn, nil, false)
+func (m *mockNM) Delete(toBeNotifiedOn *id.ID) {
+	for group, ids := range m.channels {
+		if _, exists := ids[*toBeNotifiedOn]; exists {
+			delete(m.channels[group], *toBeNotifiedOn)
+			if _, exists = m.cbs[group]; exists {
+				go m.cbs[group](m.channels[group], nil, nil, nil)
+			}
+			return
 		}
 	}
+}
+
+func (m *mockNM) GetGroup(group string) (clientNotif.Group, bool) {
+	g, exists := m.channels[group]
+	if !exists {
+		return clientNotif.Group{}, false
+	}
+
+	return g, true
 }
 
 func (m *mockNM) AddToken(string, string) error { panic("implement me") }
 func (m *mockNM) RemoveToken() error            { panic("implement me") }
 
-func (m *mockNM) RegisterUpdateCallback(group string, nu NotificationsUpdate) {
+func (m *mockNM) RegisterUpdateCallback(group string, nu clientNotif.Update) {
 	m.cbs[group] = nu
 }
 

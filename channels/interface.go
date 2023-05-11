@@ -288,15 +288,17 @@ type Manager interface {
 	GetNotificationLevel(channelID *id.ID) (NotificationLevel, error)
 
 	// SetMobileNotificationsLevel sets the notification level for the given
-	// channel. If the notification leve lis changed from [NotifyNone] to
-	// another level, then the channel is registered with the external
-	// notification server. If a channel level is set to [NotifyNone], then it
-	// is unregistered.
+	// channel. The [NotificationLevel] dictates the type of notifications
+	// received. If push is set to true, then push notifications will be
+	// received when the app is closed. Otherwise, notifications will only
+	// appear when the app is open.
 	//
-	// Note, when enabling notifications, information may be shared with third
-	// parties (i.e., Firebase and Google's Palantir) that may represent a
-	// security risk to the user.
-	SetMobileNotificationsLevel(channelID *id.ID, level NotificationLevel) error
+	// To use push notifications, a token must be registered with the
+	// notification manager. Note, when enabling push notifications, information
+	// may be shared with third parties (i.e., Firebase and Google's Palantir)
+	// and may represent a security risk to the user.
+	SetMobileNotificationsLevel(
+		channelID *id.ID, level NotificationLevel, push bool) error
 
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Management                                                       //

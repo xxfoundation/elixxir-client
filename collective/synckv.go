@@ -8,6 +8,7 @@
 package collective
 
 import (
+	"bytes"
 	"time"
 
 	"github.com/pkg/errors"
@@ -404,6 +405,10 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 			if err := versionedEdit.NewElement.Unmarshal(edit.NewElement); err != nil {
 				jww.FATAL.Printf("Failed to unmarshal new versioned object "+
 					"for listener on map %s element %s", mapName, key)
+			}
+
+			if bytes.Equal(versionedEdit.OldElement.Data, versionedEdit.NewElement.Data) {
+				continue
 			}
 
 			versionedEdits[key] = versionedEdit

@@ -88,11 +88,18 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 		if err != nil {
 			jww.WARN.Printf("Failed to set up channel %s passed by "+
 				"remote, skipping: %+v", channelID, err)
+			continue
 		}
 		joined = append(joined, jc.broadcast.Get())
 	}
 
-	go m.uiCallbacks.ChannelListUpdate(joined, deleted)
+	if !(len(joined) == 0 && len(deleted) == 0) {
+		go m.uiCallbacks.ChannelListUpdate(joined, deleted)
+	} else {
+		jww.WARN.Printf("Received empty update from remote in " +
+			"join channels")
+	}
+
 }
 
 // addChannel adds a channel.
@@ -111,11 +118,17 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 		return err
 	}
 
-	return m.remote.StoreMapElement(joinedChannelsMap, elementName, &versioned.Object{
+	err = m.remote.StoreMapElement(joinedChannelsMap, elementName, &versioned.Object{
 		Version:   joinedChannelsMapVersion,
 		Timestamp: time.Time{},
 		Data:      jcBytes,
 	}, joinedChannelsMapVersion)
+	if err != nil {
+		return err
+	}
+
+	go m.uiCallbacks.ChannelListUpdate([]*cryptoBroadcast.Channel{jc.broadcast.Get()}, nil)
+	return nil
 }
 
 // addChannel adds a channel.
@@ -240,6 +253,7 @@ func (m *manager) setUpJoinedChannel(b []byte) (*joinedChannel, error) {
 
 func (m *manager) initBroadcast(
 	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
+
 	broadcastChan, err := m.broadcastMaker(channel, m.net, m.rng)
 	if err != nil {
 		return nil, err

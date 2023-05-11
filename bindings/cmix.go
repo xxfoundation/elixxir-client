@@ -90,9 +90,7 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 // while if there are a lot of transactions to replay by other
 // instances.
 func LoadSynchronizedCmix(storageDir string, password []byte,
-	remote RemoteStore,
-	callbacks RemoteKVCallbacks,
-	cmixParamsJSON []byte) (*Cmix, error) {
+	remote RemoteStore, cmixParamsJSON []byte) (*Cmix, error) {
 
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {
@@ -125,6 +123,15 @@ func (c *Cmix) GetID() int {
 func (c *Cmix) GetReceptionID() []byte {
 	rid := *c.api.GetStorage().GetReceptionID()
 	return rid.Bytes()
+}
+
+// GetRemoteKV returns the underlying [RemoteKV] storage so it can be
+// interacted with directly.
+// TODO: force this into a synchronized prefix?
+func (c *Cmix) GetRemoteKV() *RemoteKV {
+	return &RemoteKV{
+		rkv: c.api.GetStorage().GetKV(),
+	}
 }
 
 // EKVGet allows access to a value inside secure encrypted key value store

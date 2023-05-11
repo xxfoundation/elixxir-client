@@ -3,7 +3,6 @@ package channels
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -54,8 +53,6 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 	}
 
 	nm2 := loadOrNewNicknameManager(rkv)
-
-	fmt.Println(nm2.byChannel)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -128,6 +125,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 
 	rng := rand.New(rand.NewSource(69))
 
+	// build the input and output data
 	for i := 0; i < numIDs; i++ {
 		cid := &id.ID{}
 		cid[0] = byte(i)
@@ -178,6 +176,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 		}
 	}
 
+	// check that all callbacks get called correctly
 	testingCB := func(update NicknameUpdate) {
 		expectedNU, exists := expectedUpdates[*update.ChannelId]
 		if !exists {
@@ -194,5 +193,25 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 	nm.mapUpdate(nicknameMapName, edits)
 
 	wg.Wait()
+
+	//check that the local store is in the correct state
+
+	for cID, update := range expectedUpdates {
+		if !update.NicknameExists {
+			_, exists := nm.GetNickname(&cID)
+			if exists {
+				t.Errorf("Nickname exists when it shouldt")
+			}
+		} else {
+			nickname, exists := nm.GetNickname(&cID)
+			if !exists {
+				t.Errorf("Nickname does not exist when it should")
+			} else {
+				if nickname != update.Nickname {
+					t.Errorf("Nickname is not correct")
+				}
+			}
+		}
+	}
 
 }

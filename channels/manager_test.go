@@ -9,6 +9,7 @@ package channels
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/v4/collective"
 	"math/rand"
 	"os"
 	"reflect"
@@ -17,7 +18,6 @@ import (
 	"time"
 
 	"gitlab.com/elixxir/client/v4/broadcast"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -53,8 +53,9 @@ func TestManager_JoinChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {
@@ -96,8 +97,9 @@ func TestManager_LeaveChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {
@@ -240,8 +242,9 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {
@@ -286,8 +289,9 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	mFace, err := NewManagerBuilder(pi, versioned.NewKV(ekv.MakeMemstore()),
-		new(mockBroadcastClient),
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		mockEventModelBuilder, nil, mockAddServiceFn)
 	if err != nil {

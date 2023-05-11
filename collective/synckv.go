@@ -8,6 +8,7 @@
 package collective
 
 import (
+	"bytes"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -394,8 +395,7 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated
 func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
-	callback versioned.MapChangedByRemoteCallback) (
-	map[string]*versioned.Object, error) {
+	callback versioned.MapChangedByRemoteCallback) (map[string]*versioned.Object, error) {
 
 	r.mux.Lock()
 	defer r.mux.Unlock()
@@ -424,6 +424,10 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 			if err := versionedEdit.NewElement.Unmarshal(edit.NewElement); err != nil {
 				jww.FATAL.Printf("Failed to unmarshal new versioned object "+
 					"for listener on map %s element %s", mapName, key)
+			}
+
+			if bytes.Equal(versionedEdit.OldElement.Data, versionedEdit.NewElement.Data) {
+				continue
 			}
 
 			versionedEdits[key] = versionedEdit

@@ -24,6 +24,8 @@ import (
 
 const syncStoppable = "syncStoppable"
 
+const StandardRemoteSyncPrefix = "remoteSync"
+
 type SyncKV interface {
 	versioned.KV
 	StartProcesses() (stoppable.Stoppable, error)

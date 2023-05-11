@@ -8,13 +8,11 @@
 package bindings
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	remoteSync "gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 )
@@ -92,27 +90,7 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 // while if there are a lot of transactions to replay by other
 // instances.
 func LoadSynchronizedCmix(storageDir string, password []byte,
-	remote RemoteStore,
-	callbacks RemoteKVCallbacks,
-	cmixParamsJSON []byte) (*Cmix, error) {
-	// KeyUpdated is a passthrough to the lower level, since it
-	// uses all the basice types supported by gomobile.
-	keyUpdateCallback := callbacks.KeyUpdated
-
-	// Use the RemoteStoreReport structure to report the results and
-	// call the given callback.
-	remoteStoreCallback := func(newTx remoteSync.Mutate, err error) {
-		var report RemoteStoreReport
-		if err != nil {
-			report.Error = err.Error()
-		} else {
-			report.Key = newTx.Key
-			report.Value = newTx.Value
-		}
-
-		reportJson, _ := json.Marshal(report)
-		callbacks.RemoteStoreResult(reportJson)
-	}
+	remote RemoteStore, cmixParamsJSON []byte) (*Cmix, error) {
 
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {
@@ -125,8 +103,7 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
 
 	net, err := xxdk.LoadSynchronizedCmix(storageDir, password,
-		wrappedRemote, synchedPrefixes, keyUpdateCallback,
-		remoteStoreCallback, params)
+		wrappedRemote, synchedPrefixes, params)
 	if err != nil {
 		return nil, errors.Errorf("LoadSynchronizedCmix failed: %+v",
 			err)
@@ -146,6 +123,15 @@ func (c *Cmix) GetID() int {
 func (c *Cmix) GetReceptionID() []byte {
 	rid := *c.api.GetStorage().GetReceptionID()
 	return rid.Bytes()
+}
+
+// GetRemoteKV returns the underlying [RemoteKV] storage so it can be
+// interacted with directly.
+// TODO: force this into a synchronized prefix?
+func (c *Cmix) GetRemoteKV() *RemoteKV {
+	return &RemoteKV{
+		rkv: c.api.GetStorage().GetKV(),
+	}
 }
 
 // EKVGet allows access to a value inside secure encrypted key value store

@@ -78,7 +78,7 @@ type internalKV struct {
 	// keyUpdateListeners holds callbacks called when a key is updated
 	// by a remote
 	UpdateListenerMux  sync.RWMutex
-	keyUpdateListeners map[string]keyChangedByRemoteCallback
+	keyUpdateListeners map[string]KeyUpdateCallback
 	mapUpdateListeners map[string]mapChangedByRemoteCallback
 }
 
@@ -89,9 +89,17 @@ func newKV(transactionLog *remoteWriter, kv ekv.KeyValue) *internalKV {
 	rkv := &internalKV{
 		local:              kv,
 		txLog:              transactionLog,
-		keyUpdateListeners: make(map[string]keyChangedByRemoteCallback),
+		keyUpdateListeners: make(map[string]KeyUpdateCallback),
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
 	}
+
+	// Panic if an instance ID doesn't exist
+	instanceID, err := GetInstanceID(kv)
+	if err != nil {
+		jww.FATAL.Panicf("[COLLECTIVE] kv load fail: %+v", err)
+	}
+
+	jww.INFO.Printf("[COLLECTIVE] kv loaded: %s", instanceID)
 
 	return rkv
 }
@@ -274,7 +282,7 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 		}
 
 		// add the map file to updates
-		mapFileUpdate, err := mapFile.MarshalJSON()
+		mapFileUpdate, err := json.Marshal(mapFile)
 		if err != nil {
 			return nil, err
 		}
@@ -354,13 +362,11 @@ func (r *internalKV) DeleteFromRemote(key string) error {
 // ListenOnRemoteKey allows the caller to receive updates when
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
-func (r *internalKV) ListenOnRemoteKey(key string, callback keyChangedByRemoteCallback) {
+func (r *internalKV) ListenOnRemoteKey(key string, callback KeyUpdateCallback) {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
 	r.keyUpdateListeners[key] = callback
 }
-
-type keyChangedByRemoteCallback func(key string, old, new []byte, op versioned.KeyOperation)
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // any element in the given map is updated by synching with another client.

@@ -1,9 +1,11 @@
 package channels
 
 import (
+	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -21,14 +23,15 @@ const (
 type nicknameManager struct {
 	byChannel map[id.ID]string
 	mux       sync.RWMutex
-	callback  UpdateNicknames
+	callback  func(channelId *id.ID, nickname string, exists bool)
 	remote    versioned.KV
 }
 
-// LoadOrNewNicknameManager returns the stored nickname manager if there is one
+// loadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
-func LoadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
-	kvRemote, err := kv.Prefix(versioned.StandardRemoteSyncPrefix)
+func loadOrNewNicknameManager(kv versioned.KV, callback func(channelId *id.ID,
+	nickname string, exists bool)) *nicknameManager {
+	kvRemote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Nicknames failed to prefix KV (remote)")
 	}
@@ -36,13 +39,18 @@ func LoadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
 	nm := &nicknameManager{
 		byChannel: make(map[id.ID]string),
 		remote:    kvRemote,
+		callback:  callback,
 	}
 
 	nm.mux.Lock()
-	loadedMap := nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
+	loadedMap, err := nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
 		nm.mapUpdate)
-	err = nm.load(loadedMap)
 	if err != nil && nm.remote.Exists(err) {
+		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
+			"updates on nicknameManager: %+v", err)
+	}
+	err = nm.load(loadedMap)
+	if err != nil {
 		jww.FATAL.Panicf("[CH] Failed to load nicknameManager: %+v", err)
 	}
 	nm.mux.Unlock()
@@ -88,31 +96,31 @@ func (nm *nicknameManager) GetNickname(channelID *id.ID) (
 
 // nicknameUpdates is a tracker for any modified channel nickname. This
 // is used by [nicknameManager.mapUpdate] and every element of [modified]
-// is reported as a [NicknameUpdate] to the [UpdateNicknames] callback.
+// is reported as a [nicknameUpdate] to the [UpdateNicknames] callback.
 type nicknameUpdates struct {
-	modified []NicknameUpdate
+	modified []nicknameUpdate
 }
 
 // newNicknameUpdates is a constructor for nicknameUpdates.
 func newNicknameUpdates() *nicknameUpdates {
 	return &nicknameUpdates{
-		modified: make([]NicknameUpdate, 0),
+		modified: make([]nicknameUpdate, 0),
 	}
 }
 
-// AddDeletion creates a [NicknameUpdate] report for a deleted channel nickname.
+// AddDeletion creates a [nicknameUpdate] report for a deleted channel nickname.
 func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
-	nc.modified = append(nc.modified, NicknameUpdate{
+	nc.modified = append(nc.modified, nicknameUpdate{
 		ChannelId:      chanId,
 		Nickname:       "",
 		NicknameExists: false,
 	})
 }
 
-// AddCreatedOrEdit creates a [NicknameUpdate] report for a new or modified
+// AddCreatedOrEdit creates a [nicknameUpdate] report for a new or modified
 // channel nickname.
 func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
-	nc.modified = append(nc.modified, NicknameUpdate{
+	nc.modified = append(nc.modified, nicknameUpdate{
 		ChannelId:      &chanId,
 		Nickname:       nickname,
 		NicknameExists: true,
@@ -137,8 +145,8 @@ func (nm *nicknameManager) mapUpdate(
 	updates := newNicknameUpdates()
 	for elementName, edit := range edits {
 		// unmarshal element name
-		chanId := &id.ID{}
-		if err := chanId.UnmarshalText([]byte(elementName)); err != nil {
+		chanId, err := unmarshalChID(elementName)
+		if err != nil {
 			jww.WARN.Printf("Failed to unmarshal id in nickname "+
 				"update %s on operation %s , skipping: %+v", elementName,
 				edit.Operation, err)
@@ -155,7 +163,7 @@ func (nm *nicknameManager) mapUpdate(
 			continue
 		}
 
-		newUpdate := channelIDToNickname{}
+		var newUpdate string
 		if err := json.Unmarshal(edit.NewElement.Data, &newUpdate); err != nil {
 			jww.WARN.Printf("Failed to unmarshal data in nickname "+
 				"update %s, skipping: %+v", elementName, err)
@@ -163,14 +171,14 @@ func (nm *nicknameManager) mapUpdate(
 		}
 
 		if edit.Operation == versioned.Created || edit.Operation == versioned.Updated {
-			updates.AddCreatedOrEdit(newUpdate.Nickname, newUpdate.ChannelId)
+			updates.AddCreatedOrEdit(newUpdate, *chanId)
 		} else {
 			jww.WARN.Printf("Failed to handle nickname update %s, "+
 				"bad operation: %s, skipping", elementName, edit.Operation)
 			continue
 		}
 
-		nm.upsertNicknameUnsafeRAM(newUpdate)
+		nm.upsertNicknameUnsafeRAM(chanId, newUpdate)
 	}
 
 	// Initiate callback
@@ -185,58 +193,33 @@ func (nm *nicknameManager) mapUpdate(
 // should not create synchronization issues.
 func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
 	for _, edited := range updates.modified {
-		go nm.callback(edited)
+		go nm.callback(edited.ChannelId, edited.Nickname, edited.NicknameExists)
 	}
 }
 
 // upsertNicknameUnsafeRAM is a helper function which memoizes channel updates
 // to in RAM memory.
-func (nm *nicknameManager) upsertNicknameUnsafeRAM(newUpdate channelIDToNickname) {
-	nm.byChannel[newUpdate.ChannelId] = newUpdate.Nickname
-}
-
-// channelIDToNickname is a serialization structure. This is used by the save
-// and load functions to serialize the nicknameManager's byChannel map.
-type channelIDToNickname struct {
-	ChannelId id.ID
-	Nickname  string
-}
-
-// save stores the nickname manager to disk. The caller of this must
-// hold the mux.
-func (nm *nicknameManager) save() error {
-	list := make([]channelIDToNickname, 0)
-	for channelID, nickname := range nm.byChannel {
-		list = append(list, channelIDToNickname{
-			ChannelId: channelID,
-			Nickname:  nickname,
-		})
-	}
-
-	data, err := json.Marshal(list)
-	if err != nil {
-		return err
-	}
-	obj := &versioned.Object{
-		Version:   nicknameStoreStorageVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	}
-
-	return nm.remote.Set(nicknameStoreStorageKey, obj)
+func (nm *nicknameManager) upsertNicknameUnsafeRAM(cID *id.ID, nickname string) {
+	nm.byChannel[*cID] = nickname
 }
 
 // load restores the nickname manager from disk.
 func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
 
-	for key, obj := range loadedMap {
-		data := channelIDToNickname{}
-		if err := json.Unmarshal(obj.Data, &data); err != nil {
-			jww.WARN.Printf("Failed to unmarshal nickname "+
-				"for %s, skipping: %+v", key, err)
+	for elementName, obj := range loadedMap {
+		chanId, err := unmarshalChID(elementName)
+		if err != nil {
+			jww.WARN.Printf("Failed to unmarshal id in nickname "+
+				"in load of %s, skipping: %+v", elementName, err)
+			continue
 		}
-
-		nm.upsertNicknameUnsafeRAM(data)
+		var nickname string
+		if err := json.Unmarshal(obj.Data, &nickname); err != nil {
+			jww.WARN.Printf("Failed to unmarshal nickname "+
+				"for %s, skipping: %+v", elementName, err)
+			continue
+		}
+		nm.upsertNicknameUnsafeRAM(chanId, nickname)
 	}
 
 	return nil
@@ -246,7 +229,7 @@ func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
 // memoized map.
 func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 	if err := nm.remote.Delete(
-		channelID.String(), nicknameStoreStorageVersion); err != nil {
+		marshalChID(channelID), nicknameStoreStorageVersion); err != nil {
 		return err
 	}
 	delete(nm.byChannel, *channelID)
@@ -258,24 +241,48 @@ func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 func (nm *nicknameManager) setNicknameUnsafe(
 	nickname string, channelID *id.ID) error {
 	nm.byChannel[*channelID] = nickname
-	data, err := json.Marshal(&channelIDToNickname{
-		ChannelId: *channelID,
-		Nickname:  nickname,
-	})
+	data, err := json.Marshal(&nickname)
 	if err != nil {
 		return err
 	}
 
-	err = nm.remote.Set(channelID.String(), &versioned.Object{
-		Version:   nicknameStoreStorageVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	})
+	elementName := marshalChID(channelID)
+
+	err = nm.remote.StoreMapElement(nicknameMapName, elementName,
+		&versioned.Object{
+			Version:   nicknameStoreStorageVersion,
+			Timestamp: netTime.Now(),
+			Data:      data,
+		}, nicknameMapVersion)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// nicknameUpdate is a structure which reports how the channel's nickname
+// has been modified.
+type nicknameUpdate struct {
+	ChannelId      *id.ID
+	Nickname       string
+	NicknameExists bool
+}
+
+func (nu nicknameUpdate) Equals(nu2 nicknameUpdate) bool {
+	if nu.NicknameExists != nu2.NicknameExists {
+		return false
+	}
+
+	if nu.Nickname != nu.Nickname {
+		return false
+	}
+
+	if !nu.ChannelId.Cmp(nu2.ChannelId) {
+		return false
+	}
+
+	return true
 }
 
 // IsNicknameValid checks if a nickname is valid.
@@ -296,4 +303,17 @@ func IsNicknameValid(nick string) error {
 	}
 
 	return nil
+}
+
+func marshalChID(chID *id.ID) string {
+	idBytes := chID.Marshal()
+	return base64.StdEncoding.EncodeToString(idBytes)
+}
+
+func unmarshalChID(s string) (*id.ID, error) {
+	chID := &id.ID{}
+	if _, err := base64.StdEncoding.Decode(chID[:], []byte(s)); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to decode id of nickname")
+	}
+	return chID, nil
 }

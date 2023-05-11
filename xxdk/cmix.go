@@ -147,14 +147,12 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 }
 
 func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
-	synchedPrefixes []string,
-	eventCb collective.KeyUpdateCallback,
-	updateCb collective.RemoteStoreCallback) (*Cmix, error) {
+	synchedPrefixes []string) (*Cmix, error) {
 
 	jww.INFO.Printf("OpenSynchronizedCmix()")
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	storageKV, err := SynchronizedKV(storageDir, password,
-		remote, synchedPrefixes, eventCb, updateCb, rngStreamGen)
+		remote, synchedPrefixes, rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
@@ -253,14 +251,11 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 // LoadSynchronizedCmix initializes a Cmix object from existing storage using
 // a remote synchronization storage object and starts the network.
 func LoadSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
-	synchedPrefixes []string,
-	eventCb collective.KeyUpdateCallback,
-	updateCb collective.RemoteStoreCallback,
-	parameters CMIXParams) (*Cmix, error) {
+	synchedPrefixes []string, parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("LoadSynchronizedCmix()")
 
 	c, err := OpenSynchronizedCmix(storageDir, password, remote,
-		synchedPrefixes, eventCb, updateCb)
+		synchedPrefixes)
 	if err != nil {
 		return nil, err
 	}

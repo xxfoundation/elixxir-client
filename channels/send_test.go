@@ -10,34 +10,32 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"math/rand"
-	"testing"
-	"time"
-
-	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/netTime"
-
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-
-	"gitlab.com/elixxir/client/v4/broadcast"
-	"gitlab.com/elixxir/client/v4/cmix"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/protobuf/proto"
+	"math/rand"
+	"testing"
+	"time"
 )
 
 func Test_manager_SendGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -49,7 +47,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
@@ -192,7 +190,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 func Test_manager_SendMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -204,7 +202,7 @@ func Test_manager_SendMessage(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
@@ -280,7 +278,7 @@ func Test_manager_SendMessage(t *testing.T) {
 func Test_manager_SendReply(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -292,7 +290,7 @@ func Test_manager_SendReply(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
@@ -370,7 +368,7 @@ func Test_manager_SendReply(t *testing.T) {
 func Test_manager_SendReaction(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -382,7 +380,7 @@ func Test_manager_SendReaction(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (

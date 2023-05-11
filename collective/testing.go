@@ -15,7 +15,6 @@ import (
 
 // params used by the testing KV
 const TestingKVPath = "versionedKV_TestWorkDir"
-const TestingKVPassword = "password"
 
 // StandardPrefexs will be passed into tests for syncPrefixes
 var StandardPrefexs = []string{StandardRemoteSyncPrefix}
@@ -32,15 +31,13 @@ func testingKV(t *testing.T, kv ekv.KeyValue,
 	if t == nil {
 		jww.FATAL.Printf("Cannot use testing KV in production")
 	}
-	txLog := makeTransactionLog(kv, TestingKVPath,
-		TestingKVPath, t)
+	txLog := makeTransactionLog(kv, TestingKVPath, t)
 	return newVersionedKV(txLog, kv, syncPrefixes), txLog
 }
 
 // makeTransactionLog is a utility function which generates a remoteWriter for
 // testing purposes.
-func makeTransactionLog(kv ekv.KeyValue, baseDir,
-	password string, t *testing.T) *remoteWriter {
+func makeTransactionLog(kv ekv.KeyValue, baseDir string, t *testing.T) *remoteWriter {
 
 	// Construct remote store
 	remoteStore := &mockRemote{data: make(map[string][]byte)}

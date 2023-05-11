@@ -50,7 +50,7 @@ func Test_manager_store(t *testing.T) {
 	mFace, err := NewManagerBuilder(pi, kv,
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -98,7 +98,7 @@ func Test_manager_loadChannels(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -183,7 +183,7 @@ func Test_manager_addChannel(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -230,7 +230,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -268,7 +268,7 @@ func Test_manager_removeChannel(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -315,7 +315,7 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -349,7 +349,7 @@ func Test_manager_getChannel(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -392,7 +392,7 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -427,7 +427,7 @@ func Test_manager_getChannels(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}
@@ -509,7 +509,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf("NewManager error: %+v", err)
 	}

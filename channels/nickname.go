@@ -23,13 +23,14 @@ const (
 type nicknameManager struct {
 	byChannel map[id.ID]string
 	mux       sync.RWMutex
-	callback  UpdateNicknames
+	callback  func(channelId *id.ID, nickname string, exists bool)
 	remote    versioned.KV
 }
 
 // loadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
-func loadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
+func loadOrNewNicknameManager(kv versioned.KV, callback func(channelId *id.ID,
+	nickname string, exists bool)) *nicknameManager {
 	kvRemote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Nicknames failed to prefix KV (remote)")
@@ -38,6 +39,7 @@ func loadOrNewNicknameManager(kv versioned.KV) *nicknameManager {
 	nm := &nicknameManager{
 		byChannel: make(map[id.ID]string),
 		remote:    kvRemote,
+		callback:  callback,
 	}
 
 	nm.mux.Lock()
@@ -94,31 +96,31 @@ func (nm *nicknameManager) GetNickname(channelID *id.ID) (
 
 // nicknameUpdates is a tracker for any modified channel nickname. This
 // is used by [nicknameManager.mapUpdate] and every element of [modified]
-// is reported as a [NicknameUpdate] to the [UpdateNicknames] callback.
+// is reported as a [nicknameUpdate] to the [UpdateNicknames] callback.
 type nicknameUpdates struct {
-	modified []NicknameUpdate
+	modified []nicknameUpdate
 }
 
 // newNicknameUpdates is a constructor for nicknameUpdates.
 func newNicknameUpdates() *nicknameUpdates {
 	return &nicknameUpdates{
-		modified: make([]NicknameUpdate, 0),
+		modified: make([]nicknameUpdate, 0),
 	}
 }
 
-// AddDeletion creates a [NicknameUpdate] report for a deleted channel nickname.
+// AddDeletion creates a [nicknameUpdate] report for a deleted channel nickname.
 func (nc *nicknameUpdates) AddDeletion(chanId *id.ID) {
-	nc.modified = append(nc.modified, NicknameUpdate{
+	nc.modified = append(nc.modified, nicknameUpdate{
 		ChannelId:      chanId,
 		Nickname:       "",
 		NicknameExists: false,
 	})
 }
 
-// AddCreatedOrEdit creates a [NicknameUpdate] report for a new or modified
+// AddCreatedOrEdit creates a [nicknameUpdate] report for a new or modified
 // channel nickname.
 func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
-	nc.modified = append(nc.modified, NicknameUpdate{
+	nc.modified = append(nc.modified, nicknameUpdate{
 		ChannelId:      &chanId,
 		Nickname:       nickname,
 		NicknameExists: true,
@@ -191,7 +193,7 @@ func (nm *nicknameManager) mapUpdate(
 // should not create synchronization issues.
 func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
 	for _, edited := range updates.modified {
-		go nm.callback(edited)
+		go nm.callback(edited.ChannelId, edited.Nickname, edited.NicknameExists)
 	}
 }
 
@@ -257,6 +259,30 @@ func (nm *nicknameManager) setNicknameUnsafe(
 	}
 
 	return nil
+}
+
+// nicknameUpdate is a structure which reports how the channel's nickname
+// has been modified.
+type nicknameUpdate struct {
+	ChannelId      *id.ID
+	Nickname       string
+	NicknameExists bool
+}
+
+func (nu nicknameUpdate) Equals(nu2 nicknameUpdate) bool {
+	if nu.NicknameExists != nu2.NicknameExists {
+		return false
+	}
+
+	if nu.Nickname != nu.Nickname {
+		return false
+	}
+
+	if !nu.ChannelId.Cmp(nu2.ChannelId) {
+		return false
+	}
+
+	return true
 }
 
 // IsNicknameValid checks if a nickname is valid.

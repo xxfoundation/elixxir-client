@@ -262,11 +262,6 @@ type Manager interface {
 	// revert back to the codename for this channel instead.
 	DeleteNickname(channelID *id.ID) error
 
-	// RegisterNicknameCallback will register an [UpdateNicknames] callback with
-	// the Manager. This will call the callback for any nickname change on any
-	// channel.
-	RegisterNicknameCallback(cb UpdateNicknames)
-
 	// GetNickname returns the nickname for the given channel, if it exists.
 	GetNickname(channelID *id.ID) (nickname string, exists bool)
 
@@ -422,32 +417,9 @@ type ExtensionBuilder func(e EventModel, m Manager,
 // This type must match [Client.AddService].
 type AddServiceFn func(sp xxdk.Service) error
 
-// UpdateNicknames is a function signature for a callback. This callback
-// is to be called when a channel's nickname is modified in any way
-// (see Manager.SetNickname, Manager.DeleteNickname). This will
-// pass along a NicknameUpdate report.
-type UpdateNicknames func(update NicknameUpdate)
-
-// NicknameUpdate is a structure which reports how the channel's nickname
-// has been modified.
-type NicknameUpdate struct {
-	ChannelId      *id.ID
-	Nickname       string
-	NicknameExists bool
-}
-
-func (nu NicknameUpdate) Equals(nu2 NicknameUpdate) bool {
-	if nu.NicknameExists != nu2.NicknameExists {
-		return false
-	}
-
-	if nu.Nickname != nu.Nickname {
-		return false
-	}
-
-	if !nu.ChannelId.Cmp(nu2.ChannelId) {
-		return false
-	}
-
-	return true
+// UiCallbacks is an interface that a caller can adhere to in order to get
+// updates on when sync events occur that require the UI to be updated
+// and what those events are
+type UiCallbacks interface {
+	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
 }

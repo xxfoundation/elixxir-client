@@ -14,11 +14,13 @@ import (
 	"time"
 )
 
+var dummyNicknameUpdate = func(channelId *id.ID, nickname string, exists bool) {}
+
 // Unit test. Tests that once you set a nickname with SetNickname, you can
 // retrieve the nickname using GetNickname.
 func TestNicknameManager_SetGetNickname(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-	nm := loadOrNewNicknameManager(rkv)
+	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -41,7 +43,7 @@ func TestNicknameManager_SetGetNickname(t *testing.T) {
 // retrieve the nickname using GetNickname after a reload.
 func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-	nm := loadOrNewNicknameManager(rkv)
+	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -52,7 +54,7 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 		}
 	}
 
-	nm2 := loadOrNewNicknameManager(rkv)
+	nm2 := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -72,7 +74,7 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 // if no nickname has been set with the channel ID.
 func TestNicknameManager_GetNickname_Error(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-	nm := loadOrNewNicknameManager(rkv)
+	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -87,7 +89,7 @@ func TestNicknameManager_GetNickname_Error(t *testing.T) {
 
 func TestNicknameManager_DeleteNickname(t *testing.T) {
 	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-	nm := loadOrNewNicknameManager(kv)
+	nm := loadOrNewNicknameManager(kv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -112,18 +114,36 @@ func TestNicknameManager_DeleteNickname(t *testing.T) {
 }
 
 func TestNicknameManager_mapUpdate(t *testing.T) {
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-	nm := loadOrNewNicknameManager(kv)
 
 	numIDs := 100
 
 	wg := &sync.WaitGroup{}
 	wg.Add(numIDs)
 
-	expectedUpdates := make(map[id.ID]NicknameUpdate, numIDs)
+	expectedUpdates := make(map[id.ID]nicknameUpdate, numIDs)
 	edits := make(map[string]versioned.ElementEdit, numIDs)
 
 	rng := rand.New(rand.NewSource(69))
+
+	// check that all callbacks get called correctly
+	testingCB := func(channelId *id.ID, nickname string, exists bool) {
+		receivedUpdate := nicknameUpdate{
+			ChannelId:      channelId,
+			Nickname:       nickname,
+			NicknameExists: exists,
+		}
+		expectedNU, exists := expectedUpdates[*channelId]
+		if !exists {
+			t.Errorf("Update not found in list of updates fpr: %s", channelId)
+		} else if !expectedNU.Equals(receivedUpdate) {
+			t.Errorf("updates do not match: %+v vs %+v", receivedUpdate, expectedNU)
+		}
+
+		wg.Done()
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	nm := loadOrNewNicknameManager(kv, testingCB)
 
 	// build the input and output data
 	for i := 0; i < numIDs; i++ {
@@ -140,7 +160,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 		op := versioned.KeyOperation(int(existsChoice[0]) % 3)
 		data, _ := json.Marshal(&nickname)
 
-		nu := NicknameUpdate{
+		nu := nicknameUpdate{
 			ChannelId:      cid,
 			Nickname:       nickname,
 			NicknameExists: true,
@@ -174,18 +194,6 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 			},
 			Operation: op,
 		}
-	}
-
-	// check that all callbacks get called correctly
-	testingCB := func(update NicknameUpdate) {
-		expectedNU, exists := expectedUpdates[*update.ChannelId]
-		if !exists {
-			t.Errorf("Update not found in list of updates: %+v", update)
-		} else if !expectedNU.Equals(update) {
-			t.Errorf("updates do not match: %+v vs %+v", update, expectedNU)
-		}
-
-		wg.Done()
 	}
 
 	nm.callback = testingCB

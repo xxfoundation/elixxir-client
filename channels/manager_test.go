@@ -57,7 +57,7 @@ func TestManager_JoinChannel(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -101,7 +101,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -246,7 +246,7 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -293,7 +293,7 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn)
+		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
 	if err != nil {
 		t.Errorf(err.Error())
 	}

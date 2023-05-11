@@ -128,25 +128,6 @@ type RemoteStoreReport struct {
 	Error string `json:"error,omitempty"`
 }
 
-// RemoteKVCallbacks is an interface for the [RemoteKV]. This will handle all
-// callbacks used for the various operations [RemoteKV] supports.
-type RemoteKVCallbacks interface {
-	// KeyUpdated is the callback to be called any time a key is updated by
-	// another device tracked by the RemoteKV store.
-	KeyUpdated(key string, oldVal, newVal []byte, updated bool)
-
-	// RemoteStoreResult is called to report network save results after the key
-	// has been updated locally.
-	//
-	// NOTE: Errors originate from the authentication and writing code in regard
-	// to remote which is handled by the user of this API. As a result, this
-	// callback provides no information in simple implementations.
-	//
-	// Parameters:
-	//   - remoteStoreReport - JSON of [RemoteStoreReport].
-	RemoteStoreResult(remoteStoreReport []byte)
-}
-
 // Get returns the object stored at the specified version.
 // returns a json of [versioned.Object]
 func (r *RemoteKV) Get(key string, version int64) ([]byte, error) {

@@ -58,9 +58,8 @@ func TestVersionedKV(t *testing.T) {
 			txs[key] = newVal
 
 		})
-	ekv := ekv.MakeMemstore()
-	txLog := makeTransactionLog(ekv, "versionedKV_TestWorkDir", password, t)
-	rkv := newVersionedKV(txLog, ekv, syncPrefixes)
+	memKV := ekv.MakeMemstore()
+	rkv, _ := testingKV(t, memKV, syncPrefixes)
 
 	// Overwrite remote w/ non file IO option
 	rkv.remoteKV.txLog.io = &mockRemote{
@@ -187,9 +186,8 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 			remoteCallCnt += 1
 
 		})
-	ekv := ekv.MakeMemstore()
-	txLog := makeTransactionLog(ekv, "versionedKV_TestMaps", password, t)
-	rkv := newVersionedKV(txLog, ekv, nil)
+	memKV := ekv.MakeMemstore()
+	rkv, _ := testingKV(t, memKV, nil)
 
 	// Overwrite remote w/ non file IO option
 	rkv.remoteKV.txLog.io = &mockRemote{

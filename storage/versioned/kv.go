@@ -59,15 +59,15 @@ type KV interface {
 	// updates, but it uses [versioned.Object] values.
 	// The version of the value must match the version of the map.
 	// All Map storage functions update the remote.
-	StoreMapElement(mapName, elementName string, mapVersion uint64,
-		value *Object) error
+	StoreMapElement(mapName, elementName string, value *Object,
+		mapVersion uint64) error
 
 	// StoreMap saves a versioned map element into the KV. This relies
 	// on the underlying remote [KV.StoreMap] function to lock and control
 	// updates, but it uses [versioned.Object] values.
 	// the version of values must match the version of the map
 	// All Map storage functions update the remote.
-	StoreMap(mapName string, mapVersion uint64, values map[string]*Object) error
+	StoreMap(mapName string, values map[string]*Object, mapVersion uint64) error
 
 	// GetMap loads a versioned map from the KV. This relies
 	// on the underlying remote [KV.GetMap] function to lock and control
@@ -78,6 +78,11 @@ type KV interface {
 	// on the underlying remote [KV.GetMapElement] function to lock and control
 	// updates, but it uses [versioned.Object] values.
 	GetMapElement(mapName, elementName string, mapVersion uint64) (
+		*Object, error)
+
+	// DeleteMapElement removes a map element from the list. It
+	// returns the element that was deleted and any errors if they occur.
+	DeleteMapElement(mapName, elementName string, mapVersion uint64) (
 		*Object, error)
 
 	// Transaction locks a key while it is being mutated then stores the result
@@ -91,15 +96,19 @@ type KV interface {
 	// Only one callback can be written per key.
 	// returns the object for the key such that callbacks will be updates on
 	// that state. The object will be nil if it doesn't exist yet.
+	// You cannot add listeners when network processor for
+	// synchronization is active.
 	ListenOnRemoteKey(key string, version uint64,
-		callback KeyChangedByRemoteCallback) *Object
+		callback KeyChangedByRemoteCallback) (*Object, error)
 
 	// ListenOnRemoteMap allows the caller to receive updates when
 	// the map or map elements are updated
 	// returns the map such that callbacks will be updates on
 	// that state. The Map will be nil if it doesn't exist yet.
+	// You cannot add listeners when network processor for
+	// synchronization is active.
 	ListenOnRemoteMap(mapName string, version uint64,
-		callback MapChangedByRemoteCallback) map[string]*Object
+		callback MapChangedByRemoteCallback) (map[string]*Object, error)
 
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
@@ -364,14 +373,14 @@ func (v *kv) Exists(err error) bool {
 }
 
 // StoreMapElement is not implemented for local KVs
-func (v *kv) StoreMapElement(mapName, elementName string, mapVersion uint64,
-	value *Object) error {
+func (v *kv) StoreMapElement(mapName, elementName string, value *Object,
+	mapVersion uint64) error {
 	return UnimplementedErr
 }
 
 // StoreMap is not implemented for local KVs
-func (v *kv) StoreMap(mapName string, mapVersion uint64,
-	values map[string]*Object) error {
+func (v *kv) StoreMap(mapName string,
+	values map[string]*Object, mapVersion uint64) error {
 	return UnimplementedErr
 }
 
@@ -387,6 +396,12 @@ func (v *kv) GetMapElement(mapName, element string, version uint64) (
 	return nil, UnimplementedErr
 }
 
+// DeleteMapElement is not implemented for local KVs
+func (v *kv) DeleteMapElement(mapName, element string, version uint64) (
+	*Object, error) {
+	return nil, UnimplementedErr
+}
+
 // Transaction is not implemented for local KVs
 func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 	old *Object, existed bool, err error) {
@@ -395,16 +410,14 @@ func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 
 // ListenOnRemoteKey is not implemented for local KVs
 func (v *kv) ListenOnRemoteKey(key string, version uint64,
-	callback KeyChangedByRemoteCallback) *Object {
-	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
-		"ListenOnRemoteKey"))
-	return nil
+	callback KeyChangedByRemoteCallback) (*Object, error) {
+	return nil, errors.Wrapf(UnimplementedErr,
+		"ListenOnRemoteMap")
 }
 
 // ListenOnRemoteMap is not implemented for local KVs
 func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
-	callback MapChangedByRemoteCallback) map[string]*Object {
-	jww.ERROR.Printf("%+v", errors.Wrapf(UnimplementedErr,
-		"ListenOnRemoteMap"))
-	return nil
+	callback MapChangedByRemoteCallback) (map[string]*Object, error) {
+	return nil, errors.Wrapf(UnimplementedErr,
+		"ListenOnRemoteMap")
 }

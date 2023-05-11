@@ -8,14 +8,17 @@
 package collective
 
 import (
+	"io"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
-	"time"
 )
 
 const syncStoppable = "syncStoppable"
@@ -38,6 +41,10 @@ type versionedKV struct {
 	// hasSynchronizedPrefix tells us we are in a prefix that is synchronized.
 	inSynchronizedPrefix bool
 
+	// is the synchronization thread active?
+	isSynchronizing *atomic.Bool
+	mux             sync.Mutex
+
 	col   *collector
 	txLog *remoteWriter
 	// remoteKV is the remote synching KV instance. This is used
@@ -51,18 +58,19 @@ type versionedKV struct {
 // SynchronizedKV loads or creates a synchronized remote KV that uses
 // a remote RemoteStore to store defined synchronization prefixes to the
 // network.
-func SynchronizedKV(path string, deviceSecret string,
+func SynchronizedKV(path string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue, synchedPrefixes []string,
 	rng *fastRNG.StreamGenerator) (SyncKV, error) {
 
-	deviceID, err := cmix.GetInstanceID(kv)
+	rngStream := rng.GetStream()
+	defer rngStream.Close()
+	deviceID, err := getOrInitDeviceID(kv, rngStream)
 	if err != nil {
 		return nil, err
 	}
 
 	if !isRemoteKV(kv) {
-		jww.INFO.Printf("Converting KV to a remote KV: %s",
-			deviceID)
+		jww.INFO.Printf("Converting KV to a remote KV: %s", deviceID)
 		enableRemoteKV(kv)
 	}
 
@@ -87,16 +95,18 @@ func SynchronizedKV(path string, deviceSecret string,
 // LocalKV Loads or Creates a synchronized remote KV that uses a local-only
 // mutate log. It panics if the underlying KV has ever been used
 // for remote operations in the past.
-func LocalKV(path string, deviceSecret string, kv ekv.KeyValue,
+func LocalKV(path string, deviceSecret []byte, kv ekv.KeyValue,
 	rng *fastRNG.StreamGenerator) (SyncKV, error) {
-
-	deviceID, err := cmix.GetInstanceID(kv)
-	if err != nil {
-		return nil, err
-	}
 
 	if isRemoteKV(kv) {
 		jww.FATAL.Panicf("cannot open remote kv as local")
+	}
+
+	rngStream := rng.GetStream()
+	defer rngStream.Close()
+	deviceID, err := getOrInitDeviceID(kv, rngStream)
+	if err != nil {
+		return nil, err
 	}
 
 	crypt := &deviceCrypto{
@@ -175,7 +185,7 @@ func (r *versionedKV) Set(key string, object *versioned.Object) error {
 // The version of the value must match the version of the map.
 // All Map storage functions update the remote.
 func (r *versionedKV) StoreMapElement(mapName,
-	elementName string, mapVersion uint64, value *versioned.Object) error {
+	elementName string, value *versioned.Object, mapVersion uint64) error {
 	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")
@@ -195,8 +205,8 @@ func (r *versionedKV) StoreMapElement(mapName,
 // updates, but it uses [versioned.Object] values.
 // the version of values must match the version of the map
 // All Map storage functions update the remote.
-func (r *versionedKV) StoreMap(mapName string, mapVersion uint64,
-	values map[string]*versioned.Object) error {
+func (r *versionedKV) StoreMap(mapName string,
+	values map[string]*versioned.Object, mapVersion uint64) error {
 	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")
@@ -268,6 +278,34 @@ func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint
 		return nil, err
 	}
 
+	// FIXME: this needs to be synchronized
+	err = r.vkv.Delete(mapKey, mapVersion)
+
+	return obj, err
+}
+
+// DeleteMapElement loads a versioned map element from the KV. This relies
+// on the underlying remote [KV.GetMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+func (r *versionedKV) DeleteMapElement(mapName, elementName string,
+	mapVersion uint64) (*versioned.Object, error) {
+	if !r.inSynchronizedPrefix {
+		return nil, errors.New("Map operations must be remote" +
+			"operations")
+	}
+
+	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
+
+	data, err := r.remoteKV.GetMapElement(mapKey, elementName)
+	if err != nil {
+		return nil, err
+	}
+
+	obj := &versioned.Object{}
+	if err = obj.Unmarshal(data); err != nil {
+		return nil, err
+	}
+
 	return obj, err
 }
 
@@ -310,7 +348,15 @@ func (r *versionedKV) Transaction(key string, op versioned.TransactionOperation,
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
 func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
-	callback versioned.KeyChangedByRemoteCallback) {
+	callback versioned.KeyChangedByRemoteCallback) (*versioned.Object,
+	error) {
+
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	if r.isSynchronizing.Load() {
+		jww.FATAL.Panic("cannot add listener when synchronizing")
+	}
 
 	versionedKey := r.vkv.GetFullKey(key, version)
 
@@ -341,12 +387,22 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 	}
 
 	r.remoteKV.ListenOnRemoteKey(versionedKey, wrap)
+
+	return r.Get(key, version)
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated
 func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
-	callback versioned.MapChangedByRemoteCallback) {
+	callback versioned.MapChangedByRemoteCallback) (
+	map[string]*versioned.Object, error) {
+
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	if r.isSynchronizing.Load() {
+		jww.FATAL.Panic("cannot add map listener when synchronizing")
+	}
 
 	versionedMap := r.vkv.GetFullKey(mapName, version)
 
@@ -378,6 +434,8 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 	}
 
 	r.remoteKV.ListenOnRemoteMap(versionedMap, wrap)
+
+	return r.GetMap(mapName, version)
 }
 
 // GetPrefix implements [storage.versioned.KV.GetPrefix]
@@ -440,6 +498,13 @@ func (r *versionedKV) Exists(err error) bool {
 
 func (r *versionedKV) StartProcesses() (stoppable.Stoppable, error) {
 
+	// Lock up while we start to prevent Listen functions from overlapping
+	// with this function.
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	r.isSynchronizing.Store(true)
+
 	// Construct stoppables
 	multiStoppable := stoppable.NewMulti(syncStoppable)
 
@@ -452,6 +517,14 @@ func (r *versionedKV) StartProcesses() (stoppable.Stoppable, error) {
 	writerStopper := stoppable.NewSingle(writerRunnerStoppable)
 	multiStoppable.Add(writerStopper)
 	go r.txLog.Runner(writerStopper)
+
+	// Switch my state back to not synchronizing when stopped
+	myStopper := stoppable.NewSingle(syncStoppable + "_synchronizing")
+	go func(s *stoppable.Single) {
+		<-s.Quit()
+		r.isSynchronizing.Store(false)
+	}(myStopper)
+	multiStoppable.Add(myStopper)
 
 	return multiStoppable, nil
 }
@@ -510,4 +583,18 @@ func cleanKey(key string) string {
 		cleanedKey = cleanedKey[prefixLoc+1:]
 	}
 	return cleanedKey
+}
+
+func getOrInitDeviceID(kv ekv.KeyValue, rng io.Reader) (InstanceID, error) {
+	deviceID, err := GetInstanceID(kv)
+	// if Instance id doesn't exist, create one.
+	if err != nil {
+		if !ekv.Exists(err) {
+			deviceID, err = InitInstanceID(kv, rng)
+		}
+		if err != nil {
+			return InstanceID{}, err
+		}
+	}
+	return deviceID, err
 }

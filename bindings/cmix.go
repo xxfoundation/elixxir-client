@@ -8,13 +8,11 @@
 package bindings
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	remoteSync "gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 )
@@ -95,24 +93,6 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 	remote RemoteStore,
 	callbacks RemoteKVCallbacks,
 	cmixParamsJSON []byte) (*Cmix, error) {
-	// KeyUpdated is a passthrough to the lower level, since it
-	// uses all the basice types supported by gomobile.
-	keyUpdateCallback := callbacks.KeyUpdated
-
-	// Use the RemoteStoreReport structure to report the results and
-	// call the given callback.
-	remoteStoreCallback := func(newTx remoteSync.Mutate, err error) {
-		var report RemoteStoreReport
-		if err != nil {
-			report.Error = err.Error()
-		} else {
-			report.Key = newTx.Key
-			report.Value = newTx.Value
-		}
-
-		reportJson, _ := json.Marshal(report)
-		callbacks.RemoteStoreResult(reportJson)
-	}
 
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {
@@ -125,8 +105,7 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
 
 	net, err := xxdk.LoadSynchronizedCmix(storageDir, password,
-		wrappedRemote, synchedPrefixes, keyUpdateCallback,
-		remoteStoreCallback, params)
+		wrappedRemote, synchedPrefixes, params)
 	if err != nil {
 		return nil, errors.Errorf("LoadSynchronizedCmix failed: %+v",
 			err)

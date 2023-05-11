@@ -7,14 +7,13 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/cmix"
 )
 
 // xxdkDeviceOffsetHeader is the header of the device offset.
 const xxdkDeviceOffsetHeader = "XXDKTXLOGDVCOFFST"
 
 // deviceOffset is the last index a certain instance ID has Read.
-type deviceOffset map[cmix.InstanceID]int
+type deviceOffset map[InstanceID]int
 
 func newDeviceOffset() deviceOffset {
 	return make(deviceOffset, 0)
@@ -58,7 +57,7 @@ func deserializeDeviceOffset(deviceOffsetSerial []byte) (deviceOffset, error) {
 
 	dvcOff := make(deviceOffset, len(dvcOffset))
 	for k, v := range dvcOffset {
-		newK, err := cmix.NewInstanceIDFromString(k)
+		newK, err := NewInstanceIDFromString(k)
 		if err != nil {
 			return nil, err
 		}

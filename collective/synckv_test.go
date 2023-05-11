@@ -9,8 +9,6 @@ package collective
 
 import (
 	"fmt"
-	"os"
-	"runtime/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -45,26 +43,31 @@ func TestVersionedKV(t *testing.T) {
 	// Initialize KV
 	// Construct mock update callback
 	remoteCallCnt := 0
-	txs := make(map[string][]byte)
+	txs := make(map[string]*versioned.Object)
 	var lck sync.Mutex
-	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
-		lck.Lock()
-		defer lck.Unlock()
-		require.NoError(t, err)
-		remoteCallCnt += 1
-		_, ok := txs[newTx.Key]
-		require.False(t, ok, newTx.Key)
-		txs[newTx.Key] = newTx.Value
-	})
-	txLog := makeTransactionLog("versionedKV_TestWorkDir", password, t)
+	updateCb := versioned.KeyChangedByRemoteCallback(
+		func(key string, oldVal, newVal *versioned.Object,
+			op versioned.KeyOperation) {
+			lck.Lock()
+			defer lck.Unlock()
+			require.Nil(t, oldVal)
+			t.Logf("KEY: %s", key)
+			remoteCallCnt += 1
+			_, ok := txs[key]
+			require.False(t, ok, key)
+			txs[key] = newVal
+
+		})
 	ekv := ekv.MakeMemstore()
-	rkv, err := newVersionedKV(txLog, ekv, syncPrefixes, nil, updateCb)
-	require.NoError(t, err)
+	txLog := makeTransactionLog(ekv, "versionedKV_TestWorkDir", password, t)
+	rkv := newVersionedKV(txLog, ekv, syncPrefixes)
+
 	// Overwrite remote w/ non file IO option
-	rkv.remoteKV.txLog.remote = &mockRemote{
+	rkv.remoteKV.txLog.io = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 
+	var err error
 	// There should be 0 activity when working with non tracked prefixes
 	for i := range testNoSyncPrefixes {
 		var tkv versioned.KV
@@ -87,6 +90,7 @@ func TestVersionedKV(t *testing.T) {
 				Timestamp: time.Now(),
 				Data:      []byte("WhatsUpDoc?"),
 			}
+			tkv.ListenOnRemoteKey(testKeys[j], 0, updateCb)
 			tkv.Set(testKeys[j], obj)
 
 			data, err := rkv.remoteKV.GetBytes(tkv.GetFullKey(testKeys[j],
@@ -96,7 +100,7 @@ func TestVersionedKV(t *testing.T) {
 		}
 	}
 	require.Equal(t, 0, remoteCallCnt)
-	require.Equal(t, 0, len(rkv.remoteKV.txLog.txs))
+	require.Equal(t, 0, len(rkv.remoteKV.txLog.state.keys))
 
 	// There should be 1 tx per synchronized key
 	txCnt := 0
@@ -134,12 +138,6 @@ func TestVersionedKV(t *testing.T) {
 		}
 	}
 
-	ok := rkv.remoteKV.WaitForRemote(60 * time.Second)
-	if !ok {
-		t.Errorf("threads failed to stop")
-		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-	}
-
 	for k, v := range expTxs {
 		storedV, ok := txs[k]
 		require.True(t, ok, k)
@@ -147,134 +145,6 @@ func TestVersionedKV(t *testing.T) {
 	}
 
 	require.Equal(t, txCnt, remoteCallCnt)
-}
-
-// TestVersionedKVNewPrefix adds a prefix mid-way and show that the
-// keys begin to collective after the prefix was added.
-func TestVersionedKVNewPrefix(t *testing.T) {
-	syncPrefixes := []string{"collective", "a", "abcdefghijklmnop", "b", "c"}
-	nonSyncPrefixes := []string{"hello", "sync1", "1sync", "synd", "ak"}
-
-	testKeys := []string{"hello", "how", "are", "you", "collective", "sync1",
-		"1sync"}
-
-	testSyncPrefixes, _ := genTestCases(syncPrefixes,
-		nonSyncPrefixes, t)
-
-	// Initialize KV
-	// Construct mock update callback
-	remoteCallCnt := 0
-	txs := make(map[string][]byte)
-	var lck sync.Mutex
-	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
-		lck.Lock()
-		defer lck.Unlock()
-		require.NoError(t, err)
-		t.Logf("KEY: %s", newTx.Key)
-		remoteCallCnt += 1
-		_, ok := txs[newTx.Key]
-		require.False(t, ok, newTx.Key)
-		txs[newTx.Key] = newTx.Value
-	})
-	txLog := makeTransactionLog("versionedKV_TestNewPrefix", password, t)
-	ekv := ekv.MakeMemstore()
-	rkv, err := newVersionedKV(txLog, ekv, nil, nil, updateCb)
-	require.NoError(t, err)
-	// Overwrite remote w/ non file IO option
-	rkv.remoteKV.txLog.remote = &mockRemote{
-		data: make(map[string][]byte, 0),
-	}
-
-	// Even these are all "collective prefixes" there should be 0 of
-	// them because they aren't tracked.
-	for i := range testSyncPrefixes {
-		var tkv versioned.KV
-		for j := range testSyncPrefixes[i] {
-			curP := testSyncPrefixes[i][j]
-			if tkv == nil {
-				tkv, err = rkv.Prefix(curP)
-			} else {
-				tkv, err = tkv.Prefix(curP)
-			}
-			require.NoError(t, err, curP)
-		}
-		for j := range testSyncPrefixes[i] {
-			require.True(t, tkv.HasPrefix(testSyncPrefixes[i][j]))
-		}
-		for j := range testKeys {
-			obj := &versioned.Object{
-				Version:   0,
-				Timestamp: time.Now(),
-				Data:      []byte("WhatsUpDoc?"),
-			}
-			tkv.Set(testKeys[j], obj)
-
-			data, err := rkv.remoteKV.GetBytes(
-				tkv.GetFullKey(testKeys[j], obj.Version))
-			require.NoError(t, err)
-			require.Equal(t, obj.Marshal(), data)
-		}
-	}
-	require.Equal(t, 0, remoteCallCnt)
-	require.Equal(t, 0, len(rkv.remoteKV.txLog.txs))
-
-	// Add the collective prefixes
-	for i := range syncPrefixes {
-		rkv.SyncPrefix(syncPrefixes[i])
-	}
-	require.Equal(t, syncPrefixes, rkv.synchronizedPrefixes)
-
-	// Now there should be 1 tx per synchronized key
-	txCnt := 0
-	expTxs := make(map[string][]byte)
-	for i := range testSyncPrefixes {
-		var tkv versioned.KV
-		for j := range testSyncPrefixes[i] {
-			curP := testSyncPrefixes[i][j]
-			if tkv == nil {
-				tkv, err = rkv.Prefix(curP)
-			} else {
-				tkv, err = tkv.Prefix(curP)
-			}
-			require.NoError(t, err, curP)
-		}
-		for j := range testSyncPrefixes[i] {
-			require.True(t, tkv.HasPrefix(testSyncPrefixes[i][j]))
-		}
-		for j := range testKeys {
-			txCnt = txCnt + 1
-			obj := &versioned.Object{
-				Version:   0,
-				Timestamp: time.Now(),
-				Data:      []byte("WhatsUpDoc?"),
-			}
-			tkv.Set(testKeys[j], obj)
-
-			k := tkv.GetFullKey(testKeys[j], obj.Version)
-			v := obj.Marshal()
-			data, err := rkv.remoteKV.GetBytes(k)
-			require.NoError(t, err)
-			require.Equal(t, v, data)
-
-			expTxs[k] = v
-		}
-	}
-
-	ok := rkv.remoteKV.WaitForRemote(60 * time.Second)
-	if !ok {
-		t.Errorf("threads failed to stop")
-		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-	}
-
-	for k, v := range expTxs {
-		storedV, ok := txs[k]
-		require.True(t, ok, k)
-		require.Equal(t, v, storedV)
-	}
-
-	// NOTE: need a better way to detect when remote writes are done...
-	require.Equal(t, txCnt, remoteCallCnt)
-
 }
 
 // TestVersionedKVMapFuncs tests getting and setting a map of versioned.Objects
@@ -302,26 +172,36 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 	// Construct mock update callback
 	remoteCallCnt := 0
 	var lck sync.Mutex
-	updateCb := RemoteStoreCallback(func(newTx Mutate, err error) {
-		lck.Lock()
-		defer lck.Unlock()
-		require.NoError(t, err)
-		t.Logf("KEY: %s", newTx.Key)
-		remoteCallCnt += 1
-	})
-	txLog := makeTransactionLog("versionedKV_TestMaps", password, t)
+	txs := make(map[string]*versioned.Object)
+	updateCb := versioned.MapChangedByRemoteCallback(
+		func(mapName string, edits map[string]versioned.ElementEdit) {
+			lck.Lock()
+			defer lck.Unlock()
+			t.Logf("KEY: %s", mapName)
+			for k := range edits {
+				require.Nil(t, edits[k].OldElement)
+				_, ok := txs[k]
+				require.False(t, ok, k)
+				txs[k] = edits[k].NewElement
+			}
+			remoteCallCnt += 1
+
+		})
 	ekv := ekv.MakeMemstore()
-	rkv, err := newVersionedKV(txLog, ekv, nil, nil, updateCb)
-	require.NoError(t, err)
+	txLog := makeTransactionLog(ekv, "versionedKV_TestMaps", password, t)
+	rkv := newVersionedKV(txLog, ekv, nil)
+
 	// Overwrite remote w/ non file IO option
-	rkv.remoteKV.txLog.remote = &mockRemote{
+	rkv.remoteKV.txLog.io = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 
 	mapKey := "mapkey"
 
+	rkv.ListenOnRemoteMap(mapKey, 0, updateCb)
+
 	// An empty map shouldn't return an error
-	_, err = rkv.GetMap(mapKey, 0)
+	_, err := rkv.GetMap(mapKey, 0)
 	require.NoError(t, err)
 
 	// A nonexistent map element should

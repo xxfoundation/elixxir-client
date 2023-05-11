@@ -11,16 +11,16 @@ package collective
 import (
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"path/filepath"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/storage/versioned"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -67,12 +67,13 @@ type collector struct {
 	syncPath string
 
 	// This local instance ID
-	myID cmix.InstanceID
+	myID  InstanceID
+	keyID string
 
 	// The last time each mutate log was Read successfully
-	lastUpdateRead     map[cmix.InstanceID]time.Time
-	devicePatchTracker map[cmix.InstanceID]*Patch
-	lastMutationRead   map[cmix.InstanceID]time.Time
+	lastUpdateRead     map[InstanceID]time.Time
+	devicePatchTracker map[InstanceID]*Patch
+	lastMutationRead   map[InstanceID]time.Time
 
 	// The max time we assume synchronization takes to happen.
 	// This is constant across clients but stored in the object
@@ -98,7 +99,7 @@ type collector struct {
 }
 
 // newCollector constructs a collector object.
-func newCollector(myID cmix.InstanceID, syncPath string,
+func newCollector(myID InstanceID, syncPath string,
 	remote RemoteStore, kv *internalKV, encrypt encryptor,
 	writer *remoteWriter) *collector {
 
@@ -108,9 +109,10 @@ func newCollector(myID cmix.InstanceID, syncPath string,
 	c := &collector{
 		syncPath:             syncPath,
 		myID:                 myID,
-		lastUpdateRead:       make(map[cmix.InstanceID]time.Time),
-		devicePatchTracker:   make(map[cmix.InstanceID]*Patch),
-		lastMutationRead:     make(map[cmix.InstanceID]time.Time),
+		keyID:                encrypt.KeyID(myID),
+		lastUpdateRead:       make(map[InstanceID]time.Time),
+		devicePatchTracker:   make(map[InstanceID]*Patch),
+		lastMutationRead:     make(map[InstanceID]time.Time),
 		synchronizationEpoch: synchronizationEpoch,
 		txLog:                writer,
 		remote:               remote,
@@ -244,26 +246,28 @@ func (c *collector) collect() {
 }
 
 // collectChanges will collate all changes across all devices.
-func (c *collector) collectChanges(devices []cmix.InstanceID) (
-	map[cmix.InstanceID]time.Time, error) {
+func (c *collector) collectChanges(devices []InstanceID) (
+	map[InstanceID]time.Time, error) {
 
-	newUpdates := make(map[cmix.InstanceID]time.Time, 0)
+	newUpdates := make(map[InstanceID]time.Time, 0)
 
 	wg := &sync.WaitGroup{}
 	connectionFailed := uint32(0)
 	// Iterate over devices
 	for _, deviceID := range devices {
 		wg.Add(1)
-		go func(deviceID cmix.InstanceID) {
+		go func(deviceID InstanceID) {
 			defer wg.Done()
 			//do not get from remote for my data
 			if deviceID == c.myID {
 				return
 			}
 
+			kid := c.encrypt.KeyID(c.myID)
+
 			// Get the last time the device log was written on the remote
 			logPath := filepath.Join(c.syncPath,
-				fmt.Sprintf(txLogPathFmt, deviceID, keyID))
+				fmt.Sprintf(txLogPathFmt, deviceID, kid))
 			lastRemoteUpdate, err := c.remote.GetLastModified(logPath)
 			if err != nil {
 				atomic.AddUint32(&connectionFailed, 1)
@@ -392,10 +396,10 @@ func (c *collector) applyChanges() error {
 	return nil
 }
 
-func prepareDiff(devicePatchTracker map[cmix.InstanceID]*Patch,
-	lastMutationRead map[cmix.InstanceID]time.Time) ([]cmix.InstanceID, []*Patch, []time.Time) {
+func prepareDiff(devicePatchTracker map[InstanceID]*Patch,
+	lastMutationRead map[InstanceID]time.Time) ([]InstanceID, []*Patch, []time.Time) {
 	//sort the devices so they are in supremacy order
-	devices := make([]cmix.InstanceID, 0, len(devicePatchTracker))
+	devices := make([]InstanceID, 0, len(devicePatchTracker))
 	for deviceID := range devicePatchTracker {
 		devices = append(devices, deviceID)
 	}
@@ -439,7 +443,7 @@ func (c *collector) loadLastMutationTime() {
 		return
 	}
 
-	c.lastMutationRead = make(map[cmix.InstanceID]time.Time)
+	c.lastMutationRead = make(map[InstanceID]time.Time)
 	err = json.Unmarshal(data, &c.lastMutationRead)
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal lastMutationRead loaded "+
@@ -448,11 +452,11 @@ func (c *collector) loadLastMutationTime() {
 	}
 }
 
-func (c *collector) initDevices(devicePaths []string) []cmix.InstanceID {
-	devices := make([]cmix.InstanceID, 0, len(devicePaths))
+func (c *collector) initDevices(devicePaths []string) []InstanceID {
+	devices := make([]InstanceID, 0, len(devicePaths))
 
 	for i, deviceIDStr := range devicePaths {
-		deviceID, err := cmix.NewInstanceIDFromString(deviceIDStr)
+		deviceID, err := NewInstanceIDFromString(deviceIDStr)
 		if err == nil {
 			jww.WARN.Printf("Failed to decode device ID for "+
 				"index %d: %s, skipping", i, deviceIDStr)
@@ -490,6 +494,6 @@ func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, e
 	return h, patch, nil
 }
 
-func makeLastMutationKey(deviceID cmix.InstanceID) string {
+func makeLastMutationKey(deviceID InstanceID) string {
 	return lastMutationReadStorageKey + deviceID.String()
 }

@@ -15,7 +15,7 @@ import (
 // TestCrypto smoke tests the crypto helper functions
 func TestCrypto(t *testing.T) {
 	plaintext := []byte("Hello, World!")
-	password := "test_password"
+	password := []byte("test_password")
 	ciphertext := encrypt(plaintext, password, rand.Reader)
 	decrypted, err := decrypt(ciphertext, password)
 	if err != nil {
@@ -35,7 +35,7 @@ func TestShortData(t *testing.T) {
 	// Anything under 24 should cause an error.
 	ciphertext := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0}
-	_, err := decrypt(ciphertext, "dummypassword")
+	_, err := decrypt(ciphertext, []byte("dummypassword"))
 	if err == nil {
 		t.Errorf("Expected error on short decryption")
 	}
@@ -46,7 +46,7 @@ func TestShortData(t *testing.T) {
 
 	// Empty string shouldn't panic should cause an error.
 	ciphertext = []byte{}
-	_, err = decrypt(ciphertext, "dummypassword")
+	_, err = decrypt(ciphertext, []byte("dummypassword"))
 	if err == nil {
 		t.Errorf("Expected error on short decryption")
 	}

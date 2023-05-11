@@ -435,3 +435,19 @@ type NicknameUpdate struct {
 	Nickname       string
 	NicknameExists bool
 }
+
+func (nu NicknameUpdate) Equals(nu2 NicknameUpdate) bool {
+	if nu.NicknameExists != nu2.NicknameExists {
+		return false
+	}
+
+	if nu.Nickname != nu.Nickname {
+		return false
+	}
+
+	if !nu.ChannelId.Cmp(nu2.ChannelId) {
+		return false
+	}
+
+	return true
+}

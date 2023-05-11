@@ -191,7 +191,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 
 	m.loadChannels()
 
-	m.nicknameManager = LoadOrNewNicknameManager(kv)
+	m.nicknameManager = loadOrNewNicknameManager(kv)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler

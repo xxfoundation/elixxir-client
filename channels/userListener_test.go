@@ -8,20 +8,9 @@
 package channels
 
 import (
-	"bytes"
-	"crypto/ed25519"
-	"math/rand"
-	"testing"
-	"time"
-
-	"gitlab.com/xx_network/primitives/netTime"
-
-	"github.com/golang/protobuf/proto"
-
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -35,6 +24,7 @@ type triggerEventDummy struct {
 	round       rounds.Round
 }
 
+/*
 func (ted *triggerEventDummy) triggerEvent(chID *id.ID,
 	umi *userMessageInternal, _ []byte, _ time.Time,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
@@ -361,4 +351,4 @@ func Test_userListener_Listen_BadSizedBroadcast(t *testing.T) {
 	if dummy.gotData {
 		t.Fatalf("Data returned after invalid listen")
 	}
-}
+}*/

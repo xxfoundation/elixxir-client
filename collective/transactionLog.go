@@ -8,6 +8,7 @@
 package collective
 
 import (
+	"encoding/json"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -77,7 +78,7 @@ type remoteWriter struct {
 
 	// exclusion mutex which ensures writes and deletes do not occur
 	// while the collector is running
-	syncLock *sync.RWMutex
+	syncLock sync.RWMutex
 
 	// tracks if as of the last interaction, we are connected to the
 	// remote
@@ -279,7 +280,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		key := versioned.MakeElementKey(mapName, element)
 		rw.syncLock.RLock()
 		keys = append(keys, key)
-		v := elements[key]
+		v := elements[element]
 		updates[key] = ekv.Value{
 			Data:   v,
 			Exists: true,
@@ -289,6 +290,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 			Value:     v,
 			Deletion:  false,
 		}
+
 	}
 	for element := range toDelete {
 		key := versioned.MakeElementKey(mapName, element)
@@ -305,7 +307,8 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	}
 	keys = append(keys, mapKey)
 
-	op := func(old map[string]ekv.Value) (updates map[string]ekv.Value, err error) {
+	op := func(old map[string]ekv.Value) (map[string]ekv.Value, error) {
+
 		// process key map, will always be the last value due to it being
 		mapFile, err := getMapFile(old[mapKey], len(old)-1)
 		if err != nil {
@@ -323,7 +326,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		}
 
 		// add the updated map file to updates
-		mapFileValue, err := mapFile.MarshalJSON()
+		mapFileValue, err := json.Marshal(mapFile)
 		if err != nil {
 			return nil, err
 		}

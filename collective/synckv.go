@@ -139,10 +139,15 @@ func newVersionedKV(transactionLog *remoteWriter, kv ekv.KeyValue,
 
 	remote := newKV(transactionLog, kv)
 
+	isSync := atomic.Bool{}
+	isSync.Store(false)
+
 	v := &versionedKV{
 		synchronizedPrefixes: sPrefixes,
 		remoteKV:             remote,
 		vkv:                  versioned.NewKV(remote),
+		isSynchronizing:      &isSync,
+		txLog:                transactionLog,
 	}
 	return v
 }
@@ -250,7 +255,10 @@ func (r *versionedKV) GetMap(mapName string, mapVersion uint64) (
 	for key, data := range m {
 		obj := &versioned.Object{}
 		if err = obj.Unmarshal(data); err != nil {
-			return nil, err
+
+			return nil, errors.WithMessagef(err, "failed to unmarshal "+
+				"versioned object on %s", key)
+
 		}
 		versionedM[key] = obj
 	}
@@ -460,6 +468,7 @@ func (r *versionedKV) Prefix(prefix string) (versioned.KV, error) {
 			txLog:                r.txLog,
 			remoteKV:             r.remoteKV,
 			vkv:                  subKV,
+			isSynchronizing:      r.isSynchronizing,
 		}
 		v.updateIfSynchronizedPrefix()
 		return v, nil
@@ -474,6 +483,7 @@ func (r *versionedKV) Root() versioned.KV {
 		txLog:                r.txLog,
 		remoteKV:             r.remoteKV,
 		vkv:                  r.vkv.Root(),
+		isSynchronizing:      r.isSynchronizing,
 	}
 	v.updateIfSynchronizedPrefix()
 	return v

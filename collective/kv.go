@@ -282,7 +282,7 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 		}
 
 		// add the map file to updates
-		mapFileUpdate, err := mapFile.MarshalJSON()
+		mapFileUpdate, err := json.Marshal(mapFile)
 		if err != nil {
 			return nil, err
 		}

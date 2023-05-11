@@ -91,7 +91,7 @@ func InitInstanceID(kv ekv.KeyValue, rng io.Reader) (InstanceID, error) {
 
 	//check if the instance ID already exists. If it does refuse to operate
 	idBytes, err := kv.GetBytes(instanceIDKey)
-	if err != nil && !ekv.Exists(err) {
+	if err != nil && ekv.Exists(err) {
 		return InstanceID{}, err
 	}
 	if idBytes != nil {

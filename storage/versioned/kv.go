@@ -154,6 +154,19 @@ const (
 	Deleted
 )
 
+func (ko KeyOperation) String() string {
+	switch ko {
+	case Created:
+		return "Created"
+	case Updated:
+		return "Updated"
+	case Deleted:
+		return "Deleted"
+	default:
+		return "Unknown Key Operation: " + strconv.Itoa(int(ko))
+	}
+}
+
 type TransactionOperation func(old *Object, existed bool) (data *Object,
 	err error)
 

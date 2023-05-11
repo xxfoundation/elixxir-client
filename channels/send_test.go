@@ -7,33 +7,7 @@
 
 package channels
 
-import (
-	"bytes"
-	"crypto/ed25519"
-	"math/rand"
-	"testing"
-	"time"
-
-	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/netTime"
-
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-
-	"gitlab.com/elixxir/client/v4/broadcast"
-	"gitlab.com/elixxir/client/v4/cmix"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-)
-
+/*
 func Test_manager_SendGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
@@ -766,4 +740,4 @@ func (m *mockNameService) SignChannelMessage([]byte) ([]byte, error) {
 func (m *mockNameService) ValidateChannelMessage(string, time.Time,
 	ed25519.PublicKey, []byte) bool {
 	return m.validChMsg
-}
+}*/

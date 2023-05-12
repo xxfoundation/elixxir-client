@@ -75,6 +75,32 @@ func ConnectWithAuthentication(recipient contact.Contact, user *xxdk.E2e,
 		identity.Salt, privKey, user.GetRng(), user.GetCmix(), p)
 }
 
+// AuthenticatedConnectWithoutReset is called by the client, ie the one
+// establishing connection with the server. Once a connect.Connection has been
+// established with the server and then authenticate their identity to the
+// server.
+func AuthenticatedConnectWithoutReset(recipient contact.Contact, user *xxdk.E2e,
+	p xxdk.E2EParams) (AuthenticatedConnection, error) {
+	// Track the time since we started to attempt to establish a connection
+	timeStart := netTime.Now()
+
+	conn, err := ConnectWithoutReset(recipient, user, p)
+
+	if err != nil {
+		return nil, errors.Errorf("failed to establish connection "+
+			"with recipient %s: %+v", recipient.ID, err)
+	}
+
+	// Build the authenticated connection and return
+	identity := user.GetReceptionIdentity()
+	privKey, err := identity.GetRSAPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	return connectWithAuthentication(conn, timeStart, recipient,
+		identity.Salt, privKey, user.GetRng(), user.GetCmix(), p)
+}
+
 // connectWithAuthentication builds and sends an IdentityAuthentication to
 // the server. This will wait until the round it sends on completes or a
 // timeout occurs.

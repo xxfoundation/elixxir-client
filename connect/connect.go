@@ -119,6 +119,22 @@ func Connect(recipient contact.Contact, user *xxdk.E2e,
 	}
 }
 
+// ConnectWithoutReset is built as toy example which will provide a Connection,
+// similar to Connect. However, unlike Connect, if the user has already created
+// an authenticated channel with the recipient the channel will not be reset,
+// and instead a Connection is built and returned to the caller. If the user
+// has not already established an authenticated channel, the channel will be
+// established.
+func ConnectWithoutReset(recipient contact.Contact, user *xxdk.E2e,
+	p xxdk.E2EParams) (Connection, error) {
+	partnerManger, err := user.GetE2E().GetPartner(recipient.ID)
+	if err != nil {
+		return Connect(recipient, user, p)
+	}
+
+	return BuildConnection(partnerManger, user.GetE2E(), user.GetAuth(), p), nil
+}
+
 // StartServer assembles a Connection object on the reception-side and feeds it
 // into the given Callback whenever an incoming request for an E2E partnership
 // with a partner.Manager is confirmed.

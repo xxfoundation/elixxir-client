@@ -34,7 +34,12 @@ func NewServer(identity xxdk.ReceptionIdentity, net *xxdk.Cmix,
 
 	// Callback for connection requests
 	cb := func(conn connect.Connection) {
-		handler := receiver{endpoints: newServer.endpoints, conn: conn}
+
+		handler := receiver{
+			endpoints: newServer.endpoints,
+			conn:      conn,
+			net:       net,
+		}
 		conn.RegisterListener(catalog.XxMessage, handler)
 	}
 

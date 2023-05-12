@@ -2,10 +2,11 @@ package collective
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
-	"strings"
 )
 
 // StoreMapElement stores a versioned map element into the KV. This relies
@@ -60,7 +61,13 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 
 	mapFileBytes, err := r.local.GetBytes(mapKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "could not find map")
+		if ekv.Exists(err) {
+			return nil, errors.WithMessage(err, "map file could not be found")
+		} else {
+			// if it doesnt exist, that means the map hasnt been created yet
+			// this is a valid state, equivalent to an empty map
+			return make(map[string][]byte), nil
+		}
 	}
 
 	mapFile, err := getMapFile(ekv.Value{

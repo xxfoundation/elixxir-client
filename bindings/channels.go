@@ -2600,7 +2600,7 @@ type ChannelUICallbacks interface {
 	// MessageDeleted is called any time a message is deleted.
 	MessageDeleted(messageId []byte)
 	// NicknameUpdate is called when your nickname changes due to a
-	// change on a remote
+	// change on a remote.
 	NicknameUpdate(channelIdBytes []byte, nickname string, exists bool)
 }
 

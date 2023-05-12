@@ -356,11 +356,11 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	return nil
 }
 
-// Delete will add a mutate to the remoteWriter to Delete the
+// Delete will add a mutate operation to the remoteWriter to Delete the
 // key remotely and Delete it on disk. This will saveLastMutationTime the
 // serialized remoteWriter to local and remote storage. The callback for
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
-// this blocks so it cannot be run conncurently with the collector
+// this blocks so it cannot be run concurrently with the collector
 func (rw *remoteWriter) Delete(key string) error {
 	jww.INFO.Printf("[%s] Inserting Delete to remote at %s", logHeader, key)
 	// do not operate while the collector is collecting. this will

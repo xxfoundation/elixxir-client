@@ -201,7 +201,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	m.loadChannels()
 
 	m.nicknameManager = loadOrNewNicknameManager(kv, uiCallbacks.NicknameUpdate)
-	m.adminKeysManager = newAdminKeysManager(kv)
+	m.adminKeysManager = newAdminKeysManager(kv, uiCallbacks.UpdateAdminKeys)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
@@ -452,8 +452,11 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 // it is used for tests and when nothing is passed in for UI callbacks
 type dummyUICallback struct{}
 
+func (duic *dummyUICallback) UpdateAdminKeys(updates []AdminKeyUpdate) {
+	jww.DEBUG.Printf("UpdateAdminKeys unimplemented in dummyUICallback")
+}
+
 func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 	exists bool) {
 	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
 }
-

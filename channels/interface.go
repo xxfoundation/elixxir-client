@@ -327,11 +327,6 @@ type Manager interface {
 	// private key is deleted, it cannot be recovered and the channel can never
 	// have another admin.
 	DeleteChannelAdminKey(channelID *id.ID) error
-
-	// RegisterAdminKeyCallback will register an [UpdateAdminKeys] callback with
-	// the Manager. This will call the callback for any nickname change on any
-	// channel.
-	RegisterAdminKeyCallback(cb UpdateAdminKeys)
 }
 
 // NotAnAdminErr is returned if the user is attempting to do an admin command
@@ -426,14 +421,16 @@ type AddServiceFn func(sp xxdk.Service) error
 // updates on when sync events occur that require the UI to be updated
 // and what those events are
 type UiCallbacks interface {
+	// NicknameUpdate is called when your nickname changes due to a
+	// change on a remote.
 	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
-}
 
-// UpdateAdminKeys is a function signature for a callback. This callback
-// is to be called when a channel's admin key is added or removed. (See
-// [Manager.ImportChannelAdminKey] or [Manager.DeleteChannelAdminKey]). This
-// will pass along a list of AdminKeyUpdate as a report.
-type UpdateAdminKeys func(updates []AdminKeyUpdate)
+	// UpdateAdminKeys is a callback be called when a channel's admin key is
+	// added or removed. (See [Manager.ImportChannelAdminKey] or
+	// [Manager.DeleteChannelAdminKey]). This will pass along a list of
+	// AdminKeyUpdate as a report.
+	UpdateAdminKeys(updates []AdminKeyUpdate)
+}
 
 // AdminKeyUpdate is a structure which reporting how the possession of a
 // channel's private key has been modified (ie whether the user has gained or

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -24,7 +25,7 @@ func (m *manager) IsChannelAdmin(channelID *id.ID) bool {
 	jww.INFO.Printf("[CH] IsChannelAdmin in channel %s", channelID)
 	if _, err := m.adminKeysManager.loadChannelPrivateKey(
 		channelID); err != nil {
-		if m.kv.Exists(err) {
+		if m.adminKeysManager.remote.Exists(err) {
 			jww.WARN.Printf("[CH] Private key for channel ID %s found in "+
 				"storage, but an error was encountered while accessing it: %+v",
 				channelID, err)
@@ -145,34 +146,36 @@ func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
 // Storage                                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Storage values.
 const (
-	channelPrivateKeyStoreVersion = 0
-	channelPrivateKeyStoreKey     = "channelPrivateKey/"
-	adminKeysMapName              = "adminKeysMap"
-	adminKeysMapVersion           = 0
+	adminKeysMapName    = "adminKeysMap"
+	adminKeysMapVersion = 0
 )
 
-// adminKeysManager is responsible for handling admin key modifications
-// for any channel. This is embedded within the [manager].
+// adminKeysManager is responsible for handling admin key modifications for any
+// channel. This is embedded within the [manager].
 type adminKeysManager struct {
-	callback UpdateAdminKeys
+	callback func(updates []AdminKeyUpdate)
 	remote   versioned.KV
 	mux      sync.RWMutex
 }
 
 // newAdminKeysManager is a constructor for the adminKeysManager.
-func newAdminKeysManager(kv versioned.KV) *adminKeysManager {
+func newAdminKeysManager(
+	kv versioned.KV, cb func(updates []AdminKeyUpdate)) *adminKeysManager {
 
-	kvRemote, err := kv.Prefix(versioned.StandardRemoteSyncPrefix)
+	kvRemote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("[CH] Admin keys failed to prefix KV: %+v", err)
 	}
 
-	adminMan := &adminKeysManager{remote: kvRemote}
+	adminMan := &adminKeysManager{remote: kvRemote, callback: cb}
 
-	adminMan.remote.ListenOnRemoteMap(
+	_, err = adminMan.remote.ListenOnRemoteMap(
 		adminKeysMapName, adminKeysMapVersion, adminMan.mapUpdate)
+	if err != nil && adminMan.remote.Exists(err) {
+		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
+			"updates on adminKeysManager: %+v", err)
+	}
 
 	return adminMan
 }
@@ -184,13 +187,14 @@ func newAdminKeysManager(kv versioned.KV) *adminKeysManager {
 // The private key can retrieved from storage via loadChannelPrivateKey.
 func (akm *adminKeysManager) saveChannelPrivateKey(
 	channelID *id.ID, pk rsa.PrivateKey) error {
-	return akm.remote.Set(makeChannelPrivateKeyStoreKey(channelID),
+
+	elementName := marshalChID(channelID)
+	return akm.remote.StoreMapElement(adminKeysMapName, elementName,
 		&versioned.Object{
-			Version:   channelPrivateKeyStoreVersion,
+			Version:   adminKeysMapVersion,
 			Timestamp: netTime.Now(),
 			Data:      pk.MarshalPem(),
-		},
-	)
+		}, adminKeysMapVersion)
 }
 
 // loadChannelPrivateKey retrieves the [rsa.PrivateKey] for the given channel ID
@@ -199,8 +203,9 @@ func (akm *adminKeysManager) saveChannelPrivateKey(
 // The private key is saved to storage via saveChannelPrivateKey.
 func (akm *adminKeysManager) loadChannelPrivateKey(
 	channelID *id.ID) (rsa.PrivateKey, error) {
-	obj, err := akm.remote.Get(
-		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
+	elementName := marshalChID(channelID)
+	obj, err := akm.remote.GetMapElement(
+		adminKeysMapName, elementName, adminKeysMapVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +217,9 @@ func (akm *adminKeysManager) loadChannelPrivateKey(
 // channel ID.
 func (akm *adminKeysManager) deleteChannelPrivateKey(
 	channelID *id.ID) error {
-	return akm.remote.Delete(
-		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
+	elementName := marshalChID(channelID)
+	_, err := akm.remote.DeleteMapElement(adminKeysMapName, elementName, adminKeysMapVersion)
+	return err
 }
 
 // mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
@@ -325,10 +331,4 @@ func (aku *adminKeyUpdates) AddCreatedOrEdit(chanId *id.ID) {
 		ChannelId: chanId,
 		IsAdmin:   true,
 	})
-}
-
-// makeChannelPrivateKeyStoreKey generates a unique storage key for the given
-// channel that is used to save and load the channel's private key from storage.
-func makeChannelPrivateKeyStoreKey(channelID *id.ID) string {
-	return channelPrivateKeyStoreKey + channelID.String()
 }

@@ -30,7 +30,6 @@ func (r *internalKV) StoreMap(mapName string, value map[string][]byte) error {
 func (r *internalKV) GetMapElement(mapName, element string) ([]byte, error) {
 	mapKey := versioned.MakeMapKey(mapName)
 	elementKey := versioned.MakeElementKey(mapName, element)
-
 	keys := []string{elementKey, mapKey}
 
 	op := func(old map[string]ekv.Value) (updates map[string]ekv.Value, err error) {
@@ -38,12 +37,11 @@ func (r *internalKV) GetMapElement(mapName, element string) ([]byte, error) {
 	}
 
 	old, _, _ := r.local.MutualTransaction(keys, op)
-
 	mapFile, err := getMapFile(old[mapKey], 100)
 	if err != nil {
 		return nil, errors.WithMessage(err, "map file could not be found")
 	}
-	if !mapFile.Has(elementKey) {
+	if !mapFile.Has(element) {
 		return nil, errors.New("element not found in map")
 	}
 	elementValue := old[elementKey]

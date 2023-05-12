@@ -506,7 +506,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //   - uiCallbacks - callbacks to inform the ui about various events, can be nil) (
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	callbacks channels.UiCallbacks) (
+	callbacks ChannelUICallbacks) (
 	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
@@ -529,10 +529,12 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
 
+	cbs := newChannelUICallbacksWrapper(callbacks)
+
 	// Construct new channels manager
 	m, err := channels.NewManagerBuilder(
 		pi, user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		goEventBuilder, extensionBuilders, user.api.AddService, callbacks)
+		goEventBuilder, extensionBuilders, user.api.AddService, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +560,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //   - uiCallbacks - callbacks to inform the ui about various events, can be nil
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder,
-	builders []channels.ExtensionBuilder, uiCallbacks channels.UiCallbacks) (*ChannelsManager, error) {
+	builders []channels.ExtensionBuilder, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -566,10 +568,12 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 		return nil, err
 	}
 
+	cbs := newChannelUICallbacksWrapper(uiCallbacks)
+
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag,
 		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		goEventBuilder, builders, uiCallbacks)
+		goEventBuilder, builders, cbs)
 	if err != nil {
 		return nil, err
 	}

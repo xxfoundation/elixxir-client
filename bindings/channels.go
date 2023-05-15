@@ -315,8 +315,13 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 		return nil, err
 	}
 
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
-	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
+	m, err := channels.NewManager(pi, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), model, extensionBuilders,
 		user.api.AddService, wrap)
 	if err != nil {
@@ -364,8 +369,13 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
-	m, err := channels.LoadManager(storageTag, user.api.GetStorage().GetKV(),
+	m, err := channels.LoadManager(storageTag, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), model, nil, wrap)
 	if err != nil {
 		return nil, err

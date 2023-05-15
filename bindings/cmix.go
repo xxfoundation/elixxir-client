@@ -97,8 +97,9 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 		return nil, err
 	}
 
-	var synchedPrefixes []string
-	// TODO: Set these
+	synchedPrefixes := []string{
+		"channels",
+	}
 
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
 

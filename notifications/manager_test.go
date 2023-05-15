@@ -646,12 +646,16 @@ type commsMock struct {
 }
 
 func initCommsMock() *commsMock {
-	return &commsMock{
-		receivedHost:    nil,
-		receivedMessage: nil,
-		returnedMessage: &messages.Ack{},
-		returnedError:   nil,
-	}
+	cm := &commsMock{}
+	cm.reset()
+	return cm
+}
+
+func (cm *commsMock) reset() {
+	cm.receivedHost = nil
+	cm.receivedMessage = nil
+	cm.returnedMessage = &messages.Ack{}
+	cm.returnedError = nil
 }
 
 func (cm *commsMock) RegisterToken(host *connect.Host,

@@ -12,7 +12,8 @@ import (
 	"time"
 )
 
-func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error {
+func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
+	status NotificationState) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 

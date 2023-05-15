@@ -8,6 +8,7 @@
 package nodes
 
 import (
+	"encoding/base64"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -28,19 +29,19 @@ func (r *registrar) loadStore() {
 	if err != nil {
 		jww.FATAL.Panicf("Registration with remote failed: %+v", err)
 	}
-
 	for elementName, keyObj := range keyObjs {
 		nID := &id.ID{}
-		if err := nID.UnmarshalJSON([]byte(elementName)); err != nil {
+
+		if _, err = base64.StdEncoding.Decode(nID[:], []byte(elementName)); err != nil {
 			jww.WARN.Printf("Failed to unmarshal key name in node key "+
-				"storage on local init, skipping keyName: %s: %+v",
+				"storage on local init, skipping keyName: %s: %+v\n",
 				elementName, err)
 			continue
 		}
 		k := &key{}
-		if err := k.unmarshal(keyObj.Data); err != nil {
+		if err = k.unmarshal(keyObj.Data); err != nil {
 			jww.WARN.Printf("Failed to unmarshal node key "+
-				" in key storage on remote update, skipping keyName: %s: %+v",
+				" in key storage on remote update, skipping keyName: %s: %+v\n",
 				nID, err)
 			continue
 		}
@@ -61,7 +62,8 @@ func (r *registrar) mapUpdate(mapName string, edits map[string]versioned.Element
 
 	for element, edit := range edits {
 		nID := &id.ID{}
-		if err := nID.UnmarshalJSON([]byte(element)); err != nil {
+
+		if _, err := base64.StdEncoding.Decode(nID[:], []byte(element)); err != nil {
 			jww.WARN.Printf("Failed to unmarshal key name in node key "+
 				"storage on remote update op %s, skipping keyName: %s: %+v",
 				edit.Operation, element, err)
@@ -97,9 +99,12 @@ func (r *registrar) add(nid *id.ID, k *cyclic.Int,
 		jww.FATAL.Panicf("Failed to marshal new nodeKey %s: %+v", nid, err)
 	}
 
-	elementName := string(nid.Marshal())
+	elementName, err := nid.MarshalText()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to marshal test node id %s: %+v", nid, err)
+	}
 
-	err = r.remote.StoreMapElement(storeMapName, elementName, &versioned.Object{
+	err = r.remote.StoreMapElement(storeMapName, string(elementName), &versioned.Object{
 		Version:   currentStoreMapVersion,
 		Timestamp: netTime.Now(),
 		Data:      nodeKeyBytes,

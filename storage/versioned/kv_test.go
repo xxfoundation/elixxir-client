@@ -10,9 +10,10 @@ package versioned
 import (
 	"bytes"
 	"errors"
+	"testing"
+
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
-	"testing"
 )
 
 // KV get should call the Upgrade function when it's available

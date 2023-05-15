@@ -2,10 +2,11 @@ package collective
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
-	"strings"
 )
 
 // StoreMapElement stores a versioned map element into the KV. This relies

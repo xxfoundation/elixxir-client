@@ -239,11 +239,12 @@ func (akm *adminKeysManager) mapUpdate(
 	updates := newAdminKeyChanges()
 	for elementName, edit := range edits {
 		// unmarshal element name
-		chanId := &id.ID{}
-		if err := chanId.UnmarshalText([]byte(elementName)); err != nil {
+		chanId, err := unmarshalChID(elementName)
+		if err != nil {
 			jww.WARN.Printf("Failed to unmarshal id in admin key "+
 				"update %s on operation %s , skipping: %+v", elementName,
 				edit.Operation, err)
+			continue
 		}
 
 		if edit.Operation == versioned.Deleted {
@@ -331,4 +332,16 @@ func (aku *adminKeyUpdates) AddCreatedOrEdit(chanId *id.ID) {
 		ChannelId: chanId,
 		IsAdmin:   true,
 	})
+}
+
+func (aku *AdminKeyUpdate) Equals(nu2 AdminKeyUpdate) bool {
+	if aku.IsAdmin != nu2.IsAdmin {
+		return false
+	}
+
+	if !aku.ChannelId.Cmp(nu2.ChannelId) {
+		return false
+	}
+
+	return true
 }

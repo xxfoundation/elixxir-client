@@ -14,12 +14,15 @@ import (
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"os"
+	"sync"
 	"testing"
+	"time"
 )
 
 var dummyAdminKeyUpdate = func(updates []AdminKeyUpdate) {}
@@ -276,3 +279,74 @@ func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
 //		t.Errorf("Private key not deleted: %+v", err)
 //	}
 //}
+
+func Test_mapUpdate(t *testing.T) {
+	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs)
+	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
+
+	const numTests = 10
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	edits := make(map[string]versioned.ElementEdit, numTests)
+	expectedUpdates := make(map[id.ID]AdminKeyUpdate, numTests)
+	rng := rand.New(rand.NewSource(69))
+
+	// build the input and output data
+	for i := 0; i < numTests; i++ {
+		cid := &id.ID{}
+		cid[0] = byte(i)
+
+		privKey, err := rsa.GetScheme().Generate(rng, 1024)
+		require.NoError(t, err)
+
+		// make 1/3 chance it will be deleted
+		existsChoice := make([]byte, 1)
+		rng.Read(existsChoice)
+		op := versioned.KeyOperation(int(existsChoice[0]) % 3)
+		data := privKey.MarshalPem()
+		aku := AdminKeyUpdate{
+			ChannelId: cid,
+			IsAdmin:   true,
+		}
+
+		if op == versioned.Deleted {
+			require.NoError(t, akm.saveChannelPrivateKey(cid, privKey))
+			data = nil
+			aku.IsAdmin = false
+		} else if op == versioned.Updated {
+			privKeyOld, err := rsa.GetScheme().Generate(rng, 1024)
+			require.NoError(t, err)
+			require.NoError(t, akm.saveChannelPrivateKey(cid, privKeyOld))
+		}
+
+		expectedUpdates[*aku.ChannelId] = aku
+
+		// Create the edit
+		edits[marshalChID(aku.ChannelId)] = versioned.ElementEdit{
+			OldElement: nil,
+			NewElement: &versioned.Object{
+				Version:   0,
+				Timestamp: time.Now(),
+				Data:      data,
+			},
+			Operation: op,
+		}
+	}
+
+	akm.callback = func(updates []AdminKeyUpdate) {
+		for _, update := range updates {
+			expectedUpdate, exists := expectedUpdates[*update.ChannelId]
+			require.True(t, exists)
+			require.Equal(t, expectedUpdate, update)
+		}
+
+		wg.Done()
+	}
+
+	akm.mapUpdate(adminKeysMapName, edits)
+	wg.Wait()
+
+}

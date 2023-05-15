@@ -13,7 +13,7 @@ import (
 )
 
 // MessageType is the type of message being sent to a channel.
-type MessageType uint32
+type MessageType uint16
 
 const (
 	////////////////////////////////////////////////////////////////////////////
@@ -30,6 +30,10 @@ const (
 
 	// Reaction denotes that the message is a reaction to another message.
 	Reaction MessageType = 3
+
+	// Silent denotes that the message is a silent message which should not
+	// notify the user in any way.
+	Silent MessageType = 4
 
 	////////////////////////////////////////////////////////////////////////////
 	// Message Actions                                                        //
@@ -68,6 +72,8 @@ func (mt MessageType) String() string {
 		return "AdminText"
 	case Reaction:
 		return "Reaction"
+	case Silent:
+		return "Silent"
 	case Delete:
 		return "Delete"
 	case Pinned:

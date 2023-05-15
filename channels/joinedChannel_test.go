@@ -78,7 +78,7 @@ func Test_manager_store(t *testing.T) {
 		t.Errorf("Error storing channels: %+v", err)
 	}
 
-	_, err = m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
+	_, err = m.local.Get(joinedChannelsKey, joinedChannelsVersion)
 	if !ekv.Exists(err) {
 		t.Errorf("channel list not found in KV: %+v", err)
 	}
@@ -121,7 +121,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		}
 
 		jc := &joinedChannel{b}
-		if err = jc.Store(m.kv); err != nil {
+		if err = jc.Store(m.local); err != nil {
 			t.Errorf("Failed to store joinedChannel %d: %+v", i, err)
 		}
 
@@ -137,7 +137,7 @@ func Test_manager_loadChannels(t *testing.T) {
 
 	newManager := &manager{
 		channels:       make(map[id.ID]*joinedChannel),
-		kv:             m.kv,
+		local:          m.local,
 		net:            m.net,
 		rng:            m.rng,
 		events:         &events{broadcast: newProcessorList()},
@@ -205,12 +205,12 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Errorf("Channel %s not added to channel map.", ch.Name)
 	}
 
-	_, err = m.kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
+	_, err = m.local.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
 	if err != nil {
 		t.Errorf("Failed to get joinedChannel from kv: %+v", err)
 	}
 
-	_, err = m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
+	_, err = m.local.Get(joinedChannelsKey, joinedChannelsVersion)
 	if err != nil {
 		t.Errorf("Failed to get channels from kv: %+v", err)
 	}
@@ -295,7 +295,7 @@ func Test_manager_removeChannel(t *testing.T) {
 		t.Errorf("Channel %s was not remove from the channel map.", ch.Name)
 	}
 
-	_, err = m.kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
+	_, err = m.local.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
 	if ekv.Exists(err) {
 		t.Errorf("joinedChannel not removed from kv: %+v", err)
 	}
@@ -642,6 +642,9 @@ func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEve
 }
 func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
 func (m *mockBroadcastClient) RemoveHealthCallback(uint64)         {}
+func (m *mockBroadcastClient) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock EventModel                                                            //

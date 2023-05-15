@@ -8,7 +8,7 @@
 package dummy
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
@@ -59,14 +59,18 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 // given message data.
 func generateMessage(payloadSize int,
 	fingerprint format.Fingerprint,
-	service message.Service,
+	service cmix.Service,
 	payload, mac []byte) format.Message {
 
 	// Build message. Will panic if inputs are not correct.
 	msg := format.NewMessage(payloadSize)
 	msg.SetContents(payload)
 	msg.SetKeyFP(fingerprint)
-	msg.SetSIH(service.Hash(msg.GetContents()))
+	SIH, err := service.Hash(nil, msg.GetContents())
+	if err != nil {
+		panic(err)
+	}
+	msg.SetSIH(SIH)
 	msg.SetMac(mac)
 
 	return msg

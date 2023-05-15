@@ -109,7 +109,7 @@ func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 
 	m := &manager{
 		rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		kv:               versioned.NewKV(ekv.MakeMemstore()),
+		local:               versioned.NewKV(ekv.MakeMemstore()),
 		adminKeysManager: akm,
 	}
 
@@ -189,25 +189,23 @@ func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
 
 // Tests that manager.DeleteChannelAdminKey deletes the channel and that
 // manager.ExportChannelAdminKey returns an error.
-// fixme: delete literally does not function in KV
-//func Test_manager_DeleteChannelAdminKey(t *testing.T) {
-//	m := newPrivKeyTestManager(t)
-//	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
-//	if err != nil {
-//		t.Fatalf("Failed to generate new channel: %+v", err)
-//	}
-//
-//	err = m.DeleteChannelAdminKey(c.ReceptionID)
-//	if err != nil {
-//		t.Fatalf("Failed to delete private key: %+v", err)
-//	}
-//
-//	k, err := m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
-//	t.Log(k)
-//	if m.adminKeysManager.remote.Exists(err) {
-//		t.Fatalf("Private key was not deleted: %+v", err)
-//	}
-//}
+func Test_manager_DeleteChannelAdminKey(t *testing.T) {
+	m := newPrivKeyTestManager()
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
+	if err != nil {
+		t.Fatalf("Failed to generate new channel: %+v", err)
+	}
+
+	err = m.DeleteChannelAdminKey(c.ReceptionID)
+	if err != nil {
+		t.Fatalf("Failed to delete private key: %+v", err)
+	}
+
+	_, err = m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
+	if m.local.Exists(err) {
+		t.Fatalf("Private key was not deleted: %+v", err)
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Storage                                                                    //

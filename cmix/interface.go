@@ -60,7 +60,7 @@ type Client interface {
 	// (along with the reason). Blocks until successful sends or errors.
 	// WARNING: Do not roll your own crypto.
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service message.Service, payload, mac []byte, cmixParams CMIXParams) (
+		service Service, payload, mac []byte, cmixParams CMIXParams) (
 		rounds.Round, ephemeral.Id, error)
 
 	// SendMany sends many "raw" cMix message payloads to the provided
@@ -206,6 +206,11 @@ type Client interface {
 
 	   Services are address to the session. When starting a new client, all
 	   services must be re-added before StartNetworkFollower is called.
+
+	   Compressed Services allow a server with many optional tags. They
+	   achieve this by using a bloom filter to compress multiple tags
+	   together. The rate of false positives increases exponentially after more than
+	   4 tags are used in sending on the same compressed service.
 	*/
 
 	// AddService adds a service that can call a message handing function or be
@@ -222,6 +227,13 @@ type Client interface {
 	// nil service is used to detect notifications when pickup is done by
 	// fingerprints.
 	AddService(clientID *id.ID, newService message.Service,
+		response message.Processor)
+
+	// UpsertCompressedService adds a compressed service which can call a message
+	// handing function or be used for notifications. Online a single compressed
+	// service can be registered to an identifier. If the same identifier is used,
+	// it will replace the old one.
+	UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
 		response message.Processor)
 
 	// PauseNodeRegistrations stops all node registrations and returns a
@@ -241,7 +253,15 @@ type Client interface {
 		processor message.Processor)
 
 	// DeleteClientService deletes the mapping associated with an ID.
+	// deletes both services and compressed services
 	DeleteClientService(clientID *id.ID)
+
+	// DeleteCompressedService - If only a single response is associated with the preimage,
+	// the entire preimage is removed. If there is more than one response, only the
+	// given response is removed. If nil is passed in for response, all triggers for
+	// the preimage will be removed.
+	DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+		processor message.Processor)
 
 	// TrackServices registers a callback that will get called every time a
 	// service is added or removed. It will receive the triggers list every time
@@ -368,11 +388,24 @@ type ManyMessageAssembler func(rid id.Round) ([]TargetedCmixMessage, error)
 // returns a list of assembledCmixMessage.
 type manyMessageAssembler func(rid id.Round) ([]assembledCmixMessage, error)
 
+// A Service is an operator which creates a tag on the message which can be
+// used, without leaking metadata, to find if a message is for a specific
+// party. The tag fits in the 200 bit "SIH" (Service Identification Hash)
+// field on the cmix message.  They come in two flavors, message.Service,
+// Which has a single tag which is matched on, and
+// message.CompressedService which used and encrypted bloom filter
+// to compress multiple SIH tags into the field.
+// It takes in the ID that is being sent to as well as the contents
+// of the message.
+type Service interface {
+	Hash(pickup *id.ID, contents []byte) ([]byte, error)
+}
+
 // MessageAssembler func accepts a round ID, returning fingerprint, service,
 // payload & mac. This allows users to pass in a payload which will contain the
 // round ID over which the message is sent.
 type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint,
-	service message.Service, payload, mac []byte, err error)
+	service Service, payload, mac []byte, err error)
 
 // messageAssembler is an internal wrapper around MessageAssembler which
 // returns a format.Message This is necessary to preserve the interaction

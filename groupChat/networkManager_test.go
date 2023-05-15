@@ -50,6 +50,14 @@ func newTestNetworkManager(sendErr int) cmix.Client {
 	}
 }
 
+func (m *testNetworkManager) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *testNetworkManager) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if tnm.sendErr == 1 {
 		return rounds.Round{}, nil, errors.New("SendManyCMIX error")
@@ -97,7 +105,7 @@ func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID,
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service cmix.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	// TODO implement me
 	panic("implement me")
 }

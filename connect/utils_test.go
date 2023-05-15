@@ -161,11 +161,18 @@ func newMockCmix() *mockCmix {
 	return &mockCmix{}
 }
 
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+}
+
 func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 
 func (m *mockCmix) GetMaxMessageLength() int { return 4096 }
 
-func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
+func (m *mockCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte,
 	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }

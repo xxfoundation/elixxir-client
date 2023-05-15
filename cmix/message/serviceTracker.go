@@ -12,7 +12,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type ServicesTracker func(ServiceList)
+type ServicesTracker func(ServiceList, CompressedServiceList)
 
 // TrackServices adds a service tracker to be triggered when a new service is
 // added. Generally used for notification to use this system to identify a
@@ -34,25 +34,35 @@ func (sm *ServicesManager) triggerServiceTracking() {
 		return
 	}
 	services := make(ServiceList)
-	for uid, tmap := range sm.tmap {
+	for uid, tmap := range sm.services {
 		tList := make([]Service, 0, len(tmap))
 		for _, s := range tmap {
 			tList = append(tList, s.Service)
 		}
 		services[uid] = tList
 	}
+	cServices := make(CompressedServiceList)
+	for uid, tmap := range sm.compressedServices {
+		tList := make([]CompressedService, 0, len(tmap))
+		for _, s := range tmap {
+			tList = append(tList, s.CompressedService)
+		}
+		cServices[uid] = tList
+	}
 
 	for _, callback := range sm.trackers {
-		go callback(services)
+		go callback(services, cServices)
 	}
 }
 
 // The ServiceList holds all services.
 type ServiceList map[id.ID][]Service
+type CompressedServiceList map[id.ID][]CompressedService
 
 type slMarshaled struct {
-	Id       id.ID
-	Services []Service
+	Id                 id.ID
+	Services           []Service
+	CompressedServices []CompressedService
 }
 
 func (sl ServiceList) MarshalJSON() ([]byte, error) {

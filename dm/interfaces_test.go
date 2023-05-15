@@ -84,13 +84,17 @@ func (mc *mockClient) SendManyWithAssembler(recipients []*id.ID,
 			msg.SetKeyFP(msgs[i].Fingerprint)
 			msg.SetContents(msgs[i].Payload)
 			msg.SetMac(msgs[i].Mac)
-			msg.SetSIH(msgs[i].Service.Hash(msg.GetContents()))
+			SIH, err := msgs[i].Service.Hash(nil, msg.GetContents())
+			if err != nil {
+				panic(err)
+			}
+			msg.SetSIH(SIH)
 			recID := receptionID.EphemeralIdentity{
 				EphId:  ids[i],
 				Source: recipients[i],
 			}
 			clients[i].processors[*recipients[i]].Process(
-				msg, recID, rnd)
+				msg, []string{}, []byte{}, recID, rnd)
 		}
 	}
 	return rounds.Round{ID: id.Round(mc.rndID)}, ids, nil

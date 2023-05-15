@@ -24,13 +24,14 @@ import (
 // SendE2E.
 //
 // E2ESendReport Example JSON:
-//  {
-//		"Rounds": [ 1, 4, 9],
-//      "RoundURL":"https://dashboard.xx.network/rounds/25?xxmessenger=true",
-//		"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
-//		"Timestamp": 1661532254302612000,
-//		"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
-//  }
+//
+//	 {
+//			"Rounds": [ 1, 4, 9],
+//	     "RoundURL":"https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//			"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
+//			"Timestamp": 1661532254302612000,
+//			"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
+//	 }
 type E2ESendReport struct {
 	RoundsList
 	RoundURL   string
@@ -42,7 +43,7 @@ type E2ESendReport struct {
 // GetReceptionID returns the marshalled default IDs.
 //
 // Returns:
-//  - []byte - the marshalled bytes of the id.ID object.
+//   - []byte - the marshalled bytes of the id.ID object.
 func (e *E2e) GetReceptionID() []byte {
 	return e.api.GetE2E().GetReceptionID().Marshal()
 }
@@ -50,7 +51,7 @@ func (e *E2e) GetReceptionID() []byte {
 // DeleteContact removes a partner from E2e's storage.
 //
 // Parameters:
-//  - partnerID - the marshalled bytes of id.ID.
+//   - partnerID - the marshalled bytes of id.ID.
 func (e *E2e) DeleteContact(partnerID []byte) error {
 	partner, err := id.Unmarshal(partnerID)
 	if err != nil {
@@ -64,7 +65,7 @@ func (e *E2e) DeleteContact(partnerID []byte) error {
 // relationship with.
 //
 // Returns:
-//  - []byte - the marshalled bytes of []*id.ID.
+//   - []byte - the marshalled bytes of []*id.ID.
 func (e *E2e) GetAllPartnerIDs() ([]byte, error) {
 	return json.Marshal(e.api.GetE2E().GetAllPartnerIDs())
 }
@@ -96,7 +97,7 @@ func (e *E2e) FirstPartitionSize() int {
 // key.
 //
 // Returns:
-//  - []byte - the marshalled bytes of the cyclic.Int object.
+//   - []byte - the marshalled bytes of the cyclic.Int object.
 func (e *E2e) GetHistoricalDHPrivkey() ([]byte, error) {
 	return e.api.GetE2E().GetHistoricalDHPrivkey().MarshalJSON()
 }
@@ -104,7 +105,7 @@ func (e *E2e) GetHistoricalDHPrivkey() ([]byte, error) {
 // GetHistoricalDHPubkey returns the user's marshalled historical DH public key.
 //
 // Returns:
-//  - []byte - the marshalled bytes of the cyclic.Int object.
+//   - []byte - the marshalled bytes of the cyclic.Int object.
 func (e *E2e) GetHistoricalDHPubkey() ([]byte, error) {
 	return e.api.GetE2E().GetHistoricalDHPubkey().MarshalJSON()
 }
@@ -113,7 +114,7 @@ func (e *E2e) GetHistoricalDHPubkey() ([]byte, error) {
 // partner exists, otherwise returns false.
 //
 // Parameters:
-//  - partnerId - the marshalled bytes of the id.ID object.
+//   - partnerId - the marshalled bytes of the id.ID object.
 func (e *E2e) HasAuthenticatedChannel(partnerId []byte) (bool, error) {
 	partner, err := id.Unmarshal(partnerId)
 	if err != nil {
@@ -131,12 +132,12 @@ func (e *E2e) RemoveService(tag string) error {
 // message type, per the given parameters--encrypted with end-to-end encryption.
 //
 // Parameters:
-//  - recipientId - the marshalled bytes of the id.ID object.
-//  - e2eParams - the marshalled bytes of the e2e.Params object.
+//   - recipientId - the marshalled bytes of the id.ID object.
+//   - e2eParams - the marshalled bytes of the e2e.Params object.
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
-//    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
+//   - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
+//     be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	e2eParamsJSON []byte) ([]byte, error) {
 	if len(e2eParamsJSON) == 0 {
@@ -186,11 +187,11 @@ func (e *E2e) AddService(tag string, processor Processor) error {
 // RegisterListener registers a new listener.
 //
 // Parameters:
-//  - senderId - the user ID who sends messages to this user that
-//    this function will register a listener for.
-//  - messageType - message type from the sender you want to listen for.
-//  - newListener: A provider for a callback to hear a message.
-//    Do not pass nil to this.
+//   - senderId - the user ID who sends messages to this user that
+//     this function will register a listener for.
+//   - messageType - message type from the sender you want to listen for.
+//   - newListener: A provider for a callback to hear a message.
+//     Do not pass nil to this.
 func (e *E2e) RegisterListener(
 	senderID []byte, messageType int, newListener Listener) error {
 	jww.INFO.Printf("RegisterListener(%v, %d)", senderID, messageType)
@@ -219,7 +220,7 @@ func (e *E2e) RegisterListener(
 
 // Processor is the bindings-specific interface for message.Processor methods.
 type Processor interface {
-	Process(message []byte, receptionId []byte, ephemeralId int64, roundId int64)
+	Process(message []byte, tags []byte, metadata []byte, receptionId []byte, ephemeralId int64, roundId int64)
 	fmt.Stringer
 }
 
@@ -231,14 +232,16 @@ type messageProcessor struct {
 
 // convertProcessor turns the input of a message.Processor to the
 // binding-layer primitives equivalents within the Processor.Process.
-func convertProcessor(msg format.Message,
+func convertProcessor(msg format.Message, tags []string, metadata []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
-	message []byte, receptionId []byte, ephemeralId int64, roundId int64) {
+	message []byte, tagsOut []byte, metadataOut []byte, receptionId []byte, ephemeralId int64, roundId int64) {
 
+	tagsOut, _ = json.Marshal(tags)
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
 	ephemeralId = int64(receptionID.EphId.UInt64())
 	roundId = int64(round.ID)
+	metadataOut = metadata[:]
 	return
 }
 
@@ -250,9 +253,9 @@ func convertProcessor(msg format.Message,
 // added again during application load. It is a security vulnerability to reuse
 // a fingerprint. It leaks privacy and can lead to compromise of message
 // contents and integrity.
-func (m *messageProcessor) Process(msg format.Message,
+func (m *messageProcessor) Process(msg format.Message, tags []string, metadata []byte,
 	receptionID receptionID.EphemeralIdentity, roundId rounds.Round) {
-	m.bindingsCbs.Process(convertProcessor(msg, receptionID, roundId))
+	m.bindingsCbs.Process(convertProcessor(msg, tags, metadata, receptionID, roundId))
 }
 
 // String prints a name for debugging.

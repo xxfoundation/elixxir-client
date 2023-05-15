@@ -142,8 +142,8 @@ type mockProcessor struct {
 	name string
 }
 
-func (m *mockProcessor) Process(message format.Message,
-	receptionID receptionID.EphemeralIdentity,
+func (m *mockProcessor) Process(message format.Message, tags []string,
+	_ []byte, receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
 
 }

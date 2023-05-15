@@ -495,6 +495,38 @@ func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, partnerToken int32,
 	return constructDMSendReport(msgID, rnd.ID, ephID)
 }
 
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very
+// lightweight.
+//
+// Parameters:
+//   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519
+//     signing key.
+//   - partnerToken - The token used to derive the reception ID for the partner.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+func (dmc *DMClient) SendSilent(partnerPubKeyBytes []byte,
+	partnerToken int32, cmixParamsJSON []byte) ([]byte, error) {
+	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
+
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	msgID, rnd, ephID, err := dmc.api.SendSilent(&partnerPubKey, uint32(partnerToken),
+		params.CMIX)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct send report
+	return constructDMSendReport(msgID, rnd.ID, ephID)
+}
+
 // Send is used to send a raw message. In general, it
 // should be wrapped in a function that defines the wire protocol.
 //

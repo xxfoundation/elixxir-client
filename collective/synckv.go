@@ -194,7 +194,7 @@ func (r *versionedKV) Set(key string, object *versioned.Object) error {
 // All Map storage functions update the remote.
 func (r *versionedKV) StoreMapElement(mapName,
 	elementName string, value *versioned.Object, mapVersion uint64) error {
-	if !r.inSynchronizedPrefix {
+	if !r.inSynchronizedPrefix && isRemoteKV(r.remoteKV) {
 		return errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -215,7 +215,7 @@ func (r *versionedKV) StoreMapElement(mapName,
 // All Map storage functions update the remote.
 func (r *versionedKV) StoreMap(mapName string,
 	values map[string]*versioned.Object, mapVersion uint64) error {
-	if !r.inSynchronizedPrefix {
+	if !r.inSynchronizedPrefix && isRemoteKV(r.remoteKV) {
 		return errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -239,7 +239,7 @@ func (r *versionedKV) StoreMap(mapName string,
 // updates, but it uses [versioned.Object] values.
 func (r *versionedKV) GetMap(mapName string, mapVersion uint64) (
 	map[string]*versioned.Object, error) {
-	if !r.inSynchronizedPrefix {
+	if !r.inSynchronizedPrefix && isRemoteKV(r.remoteKV) {
 		return nil, errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -272,7 +272,7 @@ func (r *versionedKV) GetMap(mapName string, mapVersion uint64) (
 // updates, but it uses [versioned.Object] values.
 func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint64) (
 	*versioned.Object, error) {
-	if !r.inSynchronizedPrefix {
+	if !r.inSynchronizedPrefix && isRemoteKV(r.remoteKV) {
 		return nil, errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -289,27 +289,28 @@ func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint
 		return nil, err
 	}
 
-	// FIXME: this needs to be synchronized
-	err = r.vkv.Delete(mapKey, mapVersion)
-
 	return obj, err
 }
 
-// DeleteMapElement loads a versioned map element from the KV. This relies
+// DeleteMapElement deletes a versioned map element from the KV. This relies
 // on the underlying remote [KV.GetMapElement] function to lock and control
 // updates, but it uses [versioned.Object] values.
 func (r *versionedKV) DeleteMapElement(mapName, elementName string,
 	mapVersion uint64) (*versioned.Object, error) {
-	if !r.inSynchronizedPrefix {
+	if !r.inSynchronizedPrefix && isRemoteKV(r.remoteKV) {
 		return nil, errors.New("Map operations must be remote" +
 			"operations")
 	}
 
 	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
 
-	data, err := r.remoteKV.GetMapElement(mapKey, elementName)
+	data, err := r.remoteKV.DeleteMapElement(mapKey, elementName)
 	if err != nil {
 		return nil, err
+	}
+
+	if data == nil {
+		return nil, nil
 	}
 
 	obj := &versioned.Object{}
@@ -327,7 +328,7 @@ func (r *versionedKV) DeleteMapElement(mapName, elementName string,
 func (r *versionedKV) Transaction(key string, op versioned.TransactionOperation,
 	version uint64) (*versioned.Object, bool, error) {
 
-	if r.inSynchronizedPrefix {
+	if r.inSynchronizedPrefix && isRemoteKV(r.remoteKV) {
 		return nil, false, errors.New("Transactions cannot be remote" +
 			"operations")
 	}
@@ -555,7 +556,7 @@ func (r *versionedKV) IsConnected() bool {
 }
 
 func (r *versionedKV) IsSynched() bool {
-	return r.IsSynched()
+	return r.col.IsSynched()
 }
 
 // WaitForRemote block until timeout or remote operations complete

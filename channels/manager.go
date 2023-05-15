@@ -47,9 +47,10 @@ type manager struct {
 	mux      sync.RWMutex
 
 	// External references
-	kv  versioned.KV
-	net Client
-	rng *fastRNG.StreamGenerator
+	local  versioned.KV
+	remote versioned.KV
+	net    Client
+	rng    *fastRNG.StreamGenerator
 
 	// Events model
 	*events
@@ -66,6 +67,10 @@ type manager struct {
 	// Makes the function that is used to create broadcasts be a pointer so that
 	// it can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
+
+	// Ui callbacks are calls made when the remote does something which will
+	// update the UI
+	uiCallbacks UICallbacks
 }
 
 // Client contains the methods from cmix.Client that are required by the
@@ -88,6 +93,12 @@ type Client interface {
 		roundList ...id.Round)
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
+	UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+		response message.Processor)
+}
+
+type UICallbacks interface {
+	ChannelListUpdate(joined []*cryptoBroadcast.Channel, left []*id.ID)
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
@@ -186,7 +197,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	// Build the manager
 	m := &manager{
 		me:             identity,
-		kv:             kv,
+		local:          kv,
 		net:            net,
 		rng:            rng,
 		broadcastMaker: broadcast.NewBroadcastChannel,

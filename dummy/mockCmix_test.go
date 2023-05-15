@@ -44,7 +44,14 @@ func newMockCmix(payloadSize int) cmix.Client {
 	}
 }
 
-func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+}
+
+func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service cmix.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.Lock()
 	defer m.Unlock()
 	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)

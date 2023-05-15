@@ -9,6 +9,7 @@ package nodes
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/collective"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -42,9 +43,9 @@ var delayTable = [5]time.Duration{
 
 // registrar is an implementation of the Registrar interface.
 type registrar struct {
-	nodes map[id.ID]*key
-	kv    versioned.KV
-	mux   sync.RWMutex
+	nodes  map[id.ID]*key
+	remote versioned.KV
+	mux    sync.RWMutex
 
 	session session
 	sender  gateway.Sender
@@ -79,33 +80,24 @@ func LoadRegistrar(session session, sender gateway.Sender,
 
 	running := int64(0)
 
-	kv, err := session.GetKV().Prefix(prefix)
+	local, err := session.GetKV().Prefix(prefix)
+	if err != nil {
+		return nil, err
+	}
+	remote, err := local.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		return nil, err
 	}
 	r := &registrar{
 		nodes:          make(map[id.ID]*key),
-		kv:             kv,
+		remote:         remote,
 		pauser:         make(chan interface{}),
 		resumer:        make(chan interface{}),
 		numberRunning:  &running,
 		numnodesGetter: numNodesGetter,
 	}
 
-	obj, err := kv.Get(storeKey, currentKeyVersion)
-	if err != nil {
-		// If there is no stored data, make a new node handler
-		jww.WARN.Printf("Failed to load Node Registrar, creating a new object.")
-		err = r.save()
-		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to make a new registrar")
-		}
-	} else {
-		err = r.unmarshal(obj.Data)
-		if err != nil {
-			return nil, err
-		}
-	}
+	r.loadStore()
 
 	r.session = session
 	r.sender = sender
@@ -221,7 +213,7 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 		k, ok := r.nodes[*nid]
 		if !ok {
 			if r.session.IsPrecanned() {
-				rk.keys[i] = &key{nil, getPrecannedTransmissionKey(r.session, r), nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""}
+				rk.keys[i] = &key{getPrecannedTransmissionKey(r.session, r), nil, uint64(time.Now().Add(time.Second * 5).UnixNano())}
 				continue
 			}
 			gwID := nid.DeepCopy()
@@ -327,7 +319,7 @@ func (r *registrar) handleMissingNode(rk *mixCypher, missingNodeID id.ID) (*key,
 			ephemeralSecretHash.Write(ephemeralSecret)
 			hashBytes := ephemeralSecretHash.Sum(nil)
 			k := r.session.GetCmixGroup().NewIntFromBytes(hashBytes)
-			return &key{nil, k, nil, uint64(time.Now().Add(time.Second * 5).UnixNano()), ""}, nil
+			return &key{k, nil, uint64(time.Now().Add(time.Second * 5).UnixNano())}, nil
 		}
 	}
 	return nil, errors.Errorf("Could not find missing node %s in NDF", missingNodeID.String())

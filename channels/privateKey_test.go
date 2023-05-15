@@ -109,7 +109,7 @@ func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 
 	m := &manager{
 		rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		local:               versioned.NewKV(ekv.MakeMemstore()),
+		local:            versioned.NewKV(ekv.MakeMemstore()),
 		adminKeysManager: akm,
 	}
 
@@ -190,21 +190,16 @@ func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
 // Tests that manager.DeleteChannelAdminKey deletes the channel and that
 // manager.ExportChannelAdminKey returns an error.
 func Test_manager_DeleteChannelAdminKey(t *testing.T) {
-	m := newPrivKeyTestManager()
+	m := newPrivKeyTestManager(t)
 	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
-	if err != nil {
-		t.Fatalf("Failed to generate new channel: %+v", err)
-	}
+	require.NoError(t, err,
+		"Failed to generate new channel: %+v", err)
 
-	err = m.DeleteChannelAdminKey(c.ReceptionID)
-	if err != nil {
-		t.Fatalf("Failed to delete private key: %+v", err)
-	}
+	require.NoError(t, m.DeleteChannelAdminKey(c.ReceptionID),
+		"Failed to delete private key: %+v", err)
 
 	_, err = m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
-	if m.local.Exists(err) {
-		t.Fatalf("Private key was not deleted: %+v", err)
-	}
+	require.Error(t, err)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -251,39 +246,30 @@ func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
 
 // Tests that deleteChannelPrivateKey deletes the private key for the channel
 // from storage.
-// fixme: delete is not functional in KV
-//func Test_deleteChannelPrivateKey(t *testing.T) {
-//	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
-//		collective.StandardPrefexs)
-//	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
-//	c, pk, err := cryptoBroadcast.NewChannel(
-//		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
-//	if err != nil {
-//		t.Fatalf("Failed to generate new channel: %+v", err)
-//	}
-//
-//	err = akm.saveChannelPrivateKey(c.ReceptionID, pk)
-//	if err != nil {
-//		t.Errorf("Failed to save private key: %+v", err)
-//	}
-//
-//	err = akm.deleteChannelPrivateKey(c.ReceptionID)
-//	if err != nil {
-//		t.Errorf("Failed to delete private key: %+v", err)
-//	}
-//
-//	_, err = akm.loadChannelPrivateKey(c.ReceptionID)
-//	if rkv.Exists(err) {
-//		t.Errorf("Private key not deleted: %+v", err)
-//	}
-//}
+func Test_deleteChannelPrivateKey(t *testing.T) {
+	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs)
+	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
+	c, pk, err := cryptoBroadcast.NewChannel(
+		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
+	require.NoError(t, err, "Failed to generate new channel: %+v", err)
+
+	require.NoError(t, akm.saveChannelPrivateKey(c.ReceptionID, pk),
+		"Failed to save private key: %+v", err)
+
+	require.NoError(t, akm.deleteChannelPrivateKey(c.ReceptionID),
+		"Failed to delete private key: %+v", err)
+
+	_, err = akm.loadChannelPrivateKey(c.ReceptionID)
+	require.Error(t, err)
+}
 
 func Test_mapUpdate(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs)
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 
-	const numTests = 10
+	const numTests = 100
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)

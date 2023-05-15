@@ -23,7 +23,11 @@ const (
 
 func (r *registrar) loadStore() {
 	r.mux.Lock()
-	keyObjs := r.remote.ListenOnRemoteMap(storeMapName, currentStoreMapVersion, r.mapUpdate)
+	keyObjs, err := r.remote.ListenOnRemoteMap(storeMapName, currentStoreMapVersion, r.mapUpdate)
+
+	if err != nil {
+		jww.FATAL.Panicf("Registration with remote failed: %+v", err)
+	}
 
 	for elementName, keyObj := range keyObjs {
 		nID := &id.ID{}

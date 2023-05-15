@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
-	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
@@ -41,7 +41,7 @@ type manager struct {
 	transmissionSalt                            []byte
 
 	// external refrences
-	comms *client.Comms
+	comms Comms
 	rng   *fastRNG.StreamGenerator
 
 	// notificationHost stores the host of the remote notifications server
@@ -70,7 +70,7 @@ type tokenReg struct {
 // Will not register notifications with the remote if `allowRemoteRegistration`
 // is false, which should be the case for web based instantiations
 func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
-	kv versioned.KV, comms *client.Comms, rng *fastRNG.StreamGenerator) Manger {
+	kv versioned.KV, comms Comms, rng *fastRNG.StreamGenerator) Manager {
 
 	var nbHost *connect.Host
 
@@ -86,7 +86,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		jww.FATAL.Panicf("Notifications failed to prefix kv")
 	}
 
-	kvRemote, err := kvLocal.Prefix(versioned.StandardRemoteSyncPrefix)
+	kvRemote, err := kvLocal.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Notifications failed to prefix kv")
 	}
@@ -102,13 +102,19 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		notificationHost:                            nbHost,
 		local:                                       kvLocal,
 		remote:                                      kvRemote,
+		callbacks:                                   make(map[string]Update),
+		notifications:                               make(map[id.ID]registration),
+		group:                                       make(map[string]Group),
 	}
 
 	// lock so that an update cannot run while we are loading the basic
 	// notifications structure from disk into ram
 	m.mux.Lock()
-	loadedMap := m.remote.ListenOnRemoteMap(notificationsMap,
+	loadedMap, err := m.remote.ListenOnRemoteMap(notificationsMap,
 		notificationsMapVersion, m.mapUpdate)
+	if err != nil {
+		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
+	}
 	m.loadNotificationsUnsafe(loadedMap)
 	m.loadTokenUnsafe()
 	m.mux.Unlock()
@@ -244,10 +250,10 @@ func (m *manager) deleteNotificationUnsafeRAM(nid *id.ID) {
 	groupList := m.group[reg.Group]
 	if len(groupList) == 1 {
 		delete(m.group, reg.Group)
+	} else {
+		delete(groupList, *nid)
+		m.group[reg.Group] = groupList
 	}
-
-	delete(groupList, *nid)
-	m.group[reg.Group] = groupList
 
 	delete(m.notifications, *nid)
 }
@@ -256,7 +262,7 @@ func (m *manager) deleteNotificationUnsafeRAM(nid *id.ID) {
 // if the token was not net before
 // must be called under the lock
 func (m *manager) setTokenUnsafe(token, app string) bool {
-	setBefore := m.token.Token == ""
+	setBefore := m.token.Token != ""
 	m.token = tokenReg{
 		Token: token,
 		App:   app,
@@ -282,7 +288,7 @@ func (m *manager) setTokenUnsafe(token, app string) bool {
 // returns true if it existed
 // must be called under the lock
 func (m *manager) deleteTokenUnsafe() bool {
-	setBefore := m.token.Token == ""
+	setBefore := m.token.Token != ""
 	if setBefore {
 		err := m.local.Delete(tokenStorageKey, tokenStorageVersion)
 		if err != nil {
@@ -299,9 +305,16 @@ func (m *manager) deleteTokenUnsafe() bool {
 // must be called under the lock
 func (m *manager) loadTokenUnsafe() {
 	tokenObj, err := m.local.Get(tokenStorageKey, tokenStorageVersion)
-	if err != nil && ekv.Exists(err) {
-		jww.FATAL.Panicf("Error received from ekv on loading "+
-			"Token: %+v", err)
+	if err != nil {
+		if ekv.Exists(err) {
+			jww.FATAL.Panicf("Error received from ekv on loading "+
+				"Token: %+v", err)
+		} else {
+			// no token has been registered
+			jww.DEBUG.Printf("No token found on disk, assuming we have" +
+				"not registered")
+			return
+		}
 	}
 
 	if err = json.Unmarshal(tokenObj.Data, &m.token); err != nil {

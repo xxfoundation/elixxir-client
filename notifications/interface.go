@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-type Manger interface {
+type Manager interface {
 	// Set can be used to turn on or off notifications for a given ID.
 	// Will synchronize the state with all clients and register with the notifications
 	// server if status == true and a Token is set
@@ -91,4 +91,7 @@ type Comms interface {
 		*messages.Ack, error)
 	RegisterTrackedID(host *connect.Host,
 		message *pb.TrackedIntermediaryIDRequest) (*messages.Ack, error)
+	UnregisterTrackedID(host *connect.Host,
+		message *pb.TrackedIntermediaryIDRequest) (*messages.Ack, error)
+	GetHost(id *id.ID) (*connect.Host, bool)
 }

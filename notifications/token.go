@@ -8,8 +8,6 @@ import (
 )
 
 var (
-	ErrRemoteRegistrationDisabled = errors.New("remote registration is " +
-		"disabled, cannot register remotely")
 	ErrNoTokenRegistered = errors.New("cannot do operation, no token is " +
 		"registered with the remote")
 )
@@ -33,8 +31,8 @@ func (m *manager) AddToken(token, app string) error {
 	}
 
 	_, err = m.comms.RegisterToken(m.notificationHost, &pb.RegisterTokenRequest{
-		App:                        token,
-		Token:                      app,
+		App:                        app,
+		Token:                      token,
 		TransmissionRSAPem:         m.transmissionRSAPubPem,
 		TransmissionSalt:           m.transmissionSalt,
 		RegistrationTimestamp:      m.registrationTimestampNs,
@@ -58,12 +56,12 @@ func (m *manager) AddToken(token, app string) error {
 // This will remove all registered identities if it is the last token for the
 // given identity,
 func (m *manager) RemoveToken() error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
 	if m.token.Token == "" {
 		return errors.WithStack(ErrNoTokenRegistered)
 	}
 
-	m.mux.Lock()
-	defer m.mux.Unlock()
 	ts := netTime.Now().UTC()
 
 	stream := m.rng.GetStream()

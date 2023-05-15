@@ -60,7 +60,13 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 
 	mapFileBytes, err := r.local.GetBytes(mapKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "could not find map")
+		if ekv.Exists(err) {
+			return nil, errors.WithMessage(err, "map file could not be found")
+		} else {
+			// if it doesnt exist, that means the map hasnt been created yet
+			// this is a valid state, equivalent to an empty map
+			return make(map[string][]byte), nil
+		}
 	}
 
 	mapFile, err := getMapFile(ekv.Value{
@@ -68,7 +74,8 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 		Exists: true,
 	}, 100)
 	if err != nil {
-		return nil, errors.WithMessage(err, "map file could not be found")
+		return nil, errors.WithMessage(err, "map file could not be "+
+			"unmarshaled")
 	}
 
 	keys := make([]string, 0, mapFile.Length())

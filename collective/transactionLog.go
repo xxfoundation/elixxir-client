@@ -290,7 +290,6 @@ func (rw *remoteWriter) WriteMap(mapName string,
 			Value:     v,
 			Deletion:  false,
 		}
-
 	}
 	for element := range toDelete {
 		key := versioned.MakeElementKey(mapName, element)
@@ -316,7 +315,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		}
 
 		// ensure all elements are in the map file
-		for key := range elements {
+		for _, key := range keys {
 			mapFile.Add(key)
 		}
 

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"time"
 )
 
 func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error {
@@ -34,7 +35,7 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte, stat
 		}
 	}
 
-	ts := netTime.Now().UTC()
+	ts := netTime.Now()
 
 	reg := registration{
 		Group: group,
@@ -44,19 +45,7 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte, stat
 		},
 	}
 
-	regBytes, err := json.Marshal(&reg)
-	if err != nil {
-		return err
-	}
-
-	// update remote storage
-	elementName := makeElementName(toBeNotifiedOn)
-	err = m.remote.StoreMapElement(notificationsMap, elementName,
-		&versioned.Object{
-			Version:   notificationsMapVersion,
-			Timestamp: ts,
-			Data:      regBytes,
-		}, notificationsMapVersion)
+	err := m.storeRegistration(toBeNotifiedOn, reg, ts)
 	if err != nil {
 		return err
 	}
@@ -98,6 +87,27 @@ func (m *manager) Delete(toBeNotifiedOn *id.ID) error {
 
 	_, err := m.remote.DeleteMapElement(notificationsMap, elementName,
 		notificationsMapVersion)
+	m.deleteNotificationUnsafeRAM(toBeNotifiedOn)
+	return err
+}
+
+func (m *manager) storeRegistration(nid *id.ID, reg registration,
+	ts time.Time) error {
+
+	ts = ts.UTC()
+	regBytes, err := json.Marshal(&reg)
+	if err != nil {
+		return err
+	}
+
+	// update remote storage
+	elementName := makeElementName(nid)
+	err = m.remote.StoreMapElement(notificationsMap, elementName,
+		&versioned.Object{
+			Version:   notificationsMapVersion,
+			Timestamp: ts,
+			Data:      regBytes,
+		}, notificationsMapVersion)
 	return err
 }
 
@@ -153,7 +163,7 @@ func (m *manager) unregisterNotification(nid *id.ID) error {
 
 	stream := m.rng.GetStream()
 	sig, err := notifCrypto.SignIdentity(m.transmissionRSA, iid, ts,
-		notifCrypto.UnregisterTokenTag, stream)
+		notifCrypto.UnregisterTrackedIDTag, stream)
 	stream.Close()
 	if err != nil {
 		return err

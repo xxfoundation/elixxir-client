@@ -9,6 +9,7 @@ package nodes
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/collective"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -83,7 +84,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 	if err != nil {
 		return nil, err
 	}
-	remote, err := local.Prefix(versioned.StandardRemoteSyncPrefix)
+	remote, err := local.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		return nil, err
 	}

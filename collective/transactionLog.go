@@ -261,9 +261,12 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 	return nil
 }
 
-// WriteMap
+// WriteMap writes to a map, adding the passed in elements and deleting the
+// elements designated for deletion.  It will return the old values for all
+// inserted and deleted elements
 func (rw *remoteWriter) WriteMap(mapName string,
-	elements map[string][]byte, toDelete map[string]struct{}) error {
+	elements map[string][]byte, toDelete map[string]struct{}) (
+	oldE map[string][]byte, deletedE map[string][]byte, err error) {
 	jww.INFO.Printf("[%s] Inserting upsert to remote for map %s",
 		logHeader, mapName)
 	// do not operate while the collector is collecting. this will
@@ -276,6 +279,11 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	keys := make([]string, 0, len(elements)+1)
 	updates := make(map[string]ekv.Value, len(elements)+len(toDelete)+1)
 	mutates := make(map[string]Mutate, len(elements)+len(toDelete))
+	oldE = make(map[string][]byte, len(elements))
+	deletedE = make(map[string][]byte)
+
+	keyConversions := make(map[string]string, len(elements))
+
 	for element := range elements {
 		key := versioned.MakeElementKey(mapName, element)
 		rw.syncLock.RLock()
@@ -290,6 +298,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 			Value:     v,
 			Deletion:  false,
 		}
+		keyConversions[key] = element
 	}
 	for element := range toDelete {
 		key := versioned.MakeElementKey(mapName, element)
@@ -303,6 +312,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 			Value:     nil,
 			Deletion:  true,
 		}
+		keyConversions[key] = element
 	}
 	keys = append(keys, mapKey)
 
@@ -314,14 +324,15 @@ func (rw *remoteWriter) WriteMap(mapName string,
 			return nil, err
 		}
 
-		// ensure all elements are in the map file
-		for _, key := range keys {
-			mapFile.Add(key)
-		}
-
-		//remove all deletions from the map file
-		for key := range toDelete {
-			mapFile.Delete(key)
+		// make edits to the map file and store changes
+		for key, update := range updates {
+			if update.Exists {
+				mapFile.Add(key)
+				oldE[keyConversions[key]] = copyData(old[key].Data)
+			} else {
+				mapFile.Delete(key)
+				deletedE[keyConversions[key]] = copyData(old[key].Data)
+			}
 		}
 
 		// add the updated map file to updates
@@ -339,12 +350,12 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	}
 
 	//Write to KV
-	_, _, err := rw.kv.MutualTransaction(keys, op)
+	_, _, err = rw.kv.MutualTransaction(keys, op)
 	if err != nil && !strings.Contains(err.Error(), ekv.ErrDeletesFailed) {
 		for i := 0; i < len(elements)+len(toDelete); i++ {
 			rw.syncLock.RUnlock()
 		}
-		return err
+		return oldE, deletedE, err
 	}
 
 	// send signals to collective all transactions
@@ -352,7 +363,16 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		rw.adds <- transaction{m, key}
 	}
 
-	return nil
+	return oldE, deletedE, err
+}
+
+func copyData(b []byte) []byte {
+	if b == nil {
+		return nil
+	}
+	c := make([]byte, len(b))
+	copy(c, b)
+	return c
 }
 
 // Delete will add a mutate to the remoteWriter to Delete the

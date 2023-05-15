@@ -17,14 +17,35 @@ func (r *internalKV) StoreMapElement(mapName, element string,
 	value []byte) error {
 	elementsMap := make(map[string][]byte)
 	elementsMap[element] = value
-	return r.txLog.WriteMap(mapName, elementsMap, nil)
+	_, _, err := r.txLog.WriteMap(mapName, elementsMap, nil)
+	return err
+}
+
+// DeleteMapElement deletes a versioned map element from a KV. This relies
+// on the underlying remote [KV.StoreMapElement] function to lock and control
+// updates, but it uses [versioned.Object] values.
+// All Map storage functions update the remote.
+func (r *internalKV) DeleteMapElement(mapName, element string) ([]byte, error) {
+	elementsMap := make(map[string]struct{})
+	elementsMap[element] = struct{}{}
+	_, deleted, err := r.txLog.WriteMap(mapName, nil, elementsMap)
+	if err != nil {
+		return nil, err
+	}
+
+	oldData, exists := deleted[element]
+	if !exists {
+		return nil, nil
+	}
+	return oldData, nil
 }
 
 // StoreMap saves each element of the map, then updates the map structure
 // and deletes no longer used keys in the map.
 // All Map storage functions update the remote.
 func (r *internalKV) StoreMap(mapName string, value map[string][]byte) error {
-	return r.txLog.WriteMap(mapName, value, nil)
+	_, _, err := r.txLog.WriteMap(mapName, value, nil)
+	return err
 }
 
 // GetMapElement looks up the element for the given map

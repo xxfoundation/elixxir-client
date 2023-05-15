@@ -289,13 +289,10 @@ func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint
 		return nil, err
 	}
 
-	// FIXME: this needs to be synchronized
-	err = r.vkv.Delete(mapKey, mapVersion)
-
 	return obj, err
 }
 
-// DeleteMapElement loads a versioned map element from the KV. This relies
+// DeleteMapElement deletes a versioned map element from the KV. This relies
 // on the underlying remote [KV.GetMapElement] function to lock and control
 // updates, but it uses [versioned.Object] values.
 func (r *versionedKV) DeleteMapElement(mapName, elementName string,
@@ -307,9 +304,13 @@ func (r *versionedKV) DeleteMapElement(mapName, elementName string,
 
 	mapKey := r.vkv.GetFullKey(mapName, mapVersion)
 
-	data, err := r.remoteKV.GetMapElement(mapKey, elementName)
+	data, err := r.remoteKV.DeleteMapElement(mapKey, elementName)
 	if err != nil {
 		return nil, err
+	}
+
+	if data == nil {
+		return nil, nil
 	}
 
 	obj := &versioned.Object{}

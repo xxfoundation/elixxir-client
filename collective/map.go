@@ -79,7 +79,6 @@ func (r *internalKV) GetMapElement(mapName, element string) ([]byte, error) {
 // GetMap get an entire map from disk
 func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 	mapKey := versioned.MakeMapKey(mapName)
-
 	mapFileBytes, err := r.local.GetBytes(mapKey)
 	if err != nil {
 		if ekv.Exists(err) {
@@ -101,8 +100,7 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 
 	keys := make([]string, 0, mapFile.Length())
 	for key := range mapFile {
-		fullKey := versioned.MakeElementKey(mapName, key)
-		keys = append(keys, fullKey)
+		keys = append(keys, key)
 	}
 
 	op := func(old map[string]ekv.Value) (updates map[string]ekv.Value, err error) {
@@ -118,7 +116,7 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 	for key, value := range old {
 		isMapElement, _, elementName := versioned.DetectMapElement(key)
 		if !isMapElement {
-			return nil, errors.New("Loaded invaid map element in map")
+			return nil, errors.New("Loaded invalid map element in map")
 		}
 		if value.Exists {
 			m[elementName] = value.Data

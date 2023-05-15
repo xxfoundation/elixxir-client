@@ -2,7 +2,6 @@ package collective
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -21,12 +20,19 @@ var StandardPrefexs = []string{StandardRemoteSyncPrefix}
 
 // TestingKV returns a versioned ekv which can be used for testing. it does not do
 // remote writes but maintains the proper interface
-func TestingKV(t *testing.T, kv ekv.KeyValue, syncPrefixes []string) versioned.KV {
+func TestingKV(t interface{}, kv ekv.KeyValue, syncPrefixes []string) versioned.KV {
+	switch t.(type) {
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
+		break
+	default:
+		jww.FATAL.Panicf("TestingKV is restricted to "+
+			"testing only. Got %T", t)
+	}
 	rkv, _ := testingKV(t, kv, syncPrefixes)
 	return rkv
 }
 
-func testingKV(t *testing.T, kv ekv.KeyValue,
+func testingKV(t interface{}, kv ekv.KeyValue,
 	syncPrefixes []string) (*versionedKV, *remoteWriter) {
 	if t == nil {
 		jww.FATAL.Printf("Cannot use testing KV in production")
@@ -37,7 +43,14 @@ func testingKV(t *testing.T, kv ekv.KeyValue,
 
 // makeTransactionLog is a utility function which generates a remoteWriter for
 // testing purposes.
-func makeTransactionLog(kv ekv.KeyValue, baseDir string, t *testing.T) *remoteWriter {
+func makeTransactionLog(kv ekv.KeyValue, baseDir string, t interface{}) *remoteWriter {
+	switch t.(type) {
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
+		break
+	default:
+		jww.FATAL.Panicf("makeTransactionLof is restricted to testing "+
+			"only. Got %T", t)
+	}
 
 	// Construct remote store
 	remoteStore := &mockRemote{data: make(map[string][]byte)}
@@ -59,7 +72,10 @@ func makeTransactionLog(kv ekv.KeyValue, baseDir string, t *testing.T) *remoteWr
 	// Construct mutate log
 	txLog, err := newRemoteWriter(baseDir+"test.txt", deviceID,
 		remoteStore, crypt, kv)
-	require.NoError(t, err)
+	if err != nil {
+		jww.FATAL.Panicf("Cannot continue when creation of remote writer "+
+			"fails: %+v", err)
+	}
 
 	return txLog
 }

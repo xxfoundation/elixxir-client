@@ -63,7 +63,7 @@ func (r *internalKV) GetMapElement(mapName, element string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.WithMessage(err, "map file could not be found")
 	}
-	if !mapFile.Has(element) {
+	if !mapFile.Has(elementKey) {
 		return nil, errors.New("element not found in map")
 	}
 	elementValue := old[elementKey]

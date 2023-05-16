@@ -135,7 +135,7 @@ func (v *KV) Delete(key string, version uint64) error {
 // a functionality.
 func (v *KV) Set(key string, object *Object) error {
 	key = v.makeKey(key, object.Version)
-	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
+	jww.INFO.Printf("Set %d with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }
 
@@ -144,7 +144,7 @@ func (v *KV) GetPrefix() string {
 	return v.prefix
 }
 
-//Returns a new KV with the new prefix
+// Returns a new KV with the new prefix
 func (v *KV) Prefix(prefix string) *KV {
 	kvPrefix := KV{
 		r:      v.r,
@@ -158,7 +158,7 @@ func (v *KV) IsMemStore() bool {
 	return success
 }
 
-//Returns the key with all prefixes appended
+// Returns the key with all prefixes appended
 func (v *KV) GetFullKey(key string, version uint64) string {
 	return v.makeKey(key, version)
 }

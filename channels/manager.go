@@ -14,6 +14,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/collective"
 	"sync"
 	"time"
 
@@ -94,15 +95,11 @@ type Client interface {
 		response message.Processor)
 }
 
-type UICallbacks interface {
-	ChannelListUpdate(joined []*cryptoBroadcast.Channel, left []*id.ID)
-}
-
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	extensions []ExtensionBuilder, addService AddServiceFn,
-	uiCallbacks UiCallbacks) (Manager, error) {
+	uiCallbacks UICallbacks) (Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
@@ -118,7 +115,7 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn,
-	uiCallbacks UiCallbacks) (Manager, error) {
+	uiCallbacks UICallbacks) (Manager, error) {
 
 	// Make a copy of the public key to prevent outside edits
 	// TODO: Convert this to DeepCopy() method
@@ -149,7 +146,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 // tag.
 func LoadManager(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
-	extensions []ExtensionBuilder, uiCallbacks UiCallbacks) (Manager, error) {
+	extensions []ExtensionBuilder, uiCallbacks UICallbacks) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
@@ -174,7 +171,7 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 // tag.
 func LoadManagerBuilder(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder, uiCallbacks UiCallbacks) (Manager, error) {
+	extensions []ExtensionBuilder, uiCallbacks UICallbacks) (Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
@@ -185,20 +182,28 @@ func LoadManagerBuilder(storageTag string, kv versioned.KV, net Client,
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	extensionBuilders []ExtensionBuilder, uiCallbacks UiCallbacks) *manager {
+	extensionBuilders []ExtensionBuilder, uiCallbacks UICallbacks) *manager {
 
 	if uiCallbacks == nil {
 		uiCallbacks = &dummyUICallback{}
+	}
+
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("failed to make the remote kv in channels: %+v",
+			remote)
 	}
 
 	// Build the manager
 	m := &manager{
 		me:             identity,
 		local:          kv,
+		remote:         remote,
 		net:            net,
 		rng:            rng,
 		broadcastMaker: broadcast.NewBroadcastChannel,
 		events:         initEvents(model, 512, kv, rng),
+		uiCallbacks:    uiCallbacks,
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
@@ -460,4 +465,9 @@ type dummyUICallback struct{}
 func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 	exists bool) {
 	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
+}
+
+func (duic *dummyUICallback) ChannelListUpdate(joined []*cryptoBroadcast.Channel,
+	left []*id.ID) {
+	jww.DEBUG.Printf("ChannelListUpdate unimplemented in dummyUICallback")
 }

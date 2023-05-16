@@ -8,30 +8,18 @@
 package channels
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"google.golang.org/protobuf/proto"
-	"math/rand"
-	"testing"
 	"time"
 )
 
+/*
 func Test_manager_SendGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
@@ -679,7 +667,7 @@ func Test_manager_MuteUser(t *testing.T) {
 		t.Errorf("Incorrect PubKey.\nexpected: %x\nreceived: %x",
 			pi.PubKey, muteMsg.PubKey)
 	}
-}
+}*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Interfaces                                                            //

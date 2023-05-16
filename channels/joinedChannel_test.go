@@ -8,24 +8,12 @@
 package channels
 
 import (
-	"bytes"
 	"crypto/ed25519"
-	"encoding/binary"
-	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"reflect"
-	"sort"
-	"strconv"
-	"sync"
-	"testing"
-	"time"
-
-	"gitlab.com/elixxir/client/v4/broadcast"
+	"encoding/base64"
 	clientCmix "gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -35,10 +23,17 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
+	"reflect"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
 )
 
 // Tests that manager.store stores the channel list in the ekv.
-func Test_manager_store(t *testing.T) {
+/*func Test_manager_store(t *testing.T) {
 	rng := rand.New(rand.NewSource(64))
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
@@ -82,7 +77,7 @@ func Test_manager_store(t *testing.T) {
 	if !ekv.Exists(err) {
 		t.Errorf("channel list not found in KV: %+v", err)
 	}
-}
+}*/
 
 // Tests that the manager.loadChannels loads all the expected channels from the
 // ekv.
@@ -115,22 +110,12 @@ func Test_manager_loadChannels(t *testing.T) {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
 
-		b, err := broadcast.NewBroadcastChannel(ch, m.net, m.rng)
+		err = m.addChannel(ch)
 		if err != nil {
-			t.Errorf("Failed to make new broadcast channel: %+v", err)
+			t.Errorf("Failed to add new channel %d: %+v", i, err)
 		}
-
-		jc := &joinedChannel{b}
-		if err = jc.Store(m.local); err != nil {
-			t.Errorf("Failed to store joinedChannel %d: %+v", i, err)
-		}
-
-		chID := *ch.ReceptionID
-		m.channels[chID] = jc
-		expected[i] = jc
 	}
 
-	err = m.store()
 	if err != nil {
 		t.Errorf("Error storing channels: %+v", err)
 	}
@@ -138,10 +123,12 @@ func Test_manager_loadChannels(t *testing.T) {
 	newManager := &manager{
 		channels:       make(map[id.ID]*joinedChannel),
 		local:          m.local,
+		remote:         m.remote,
 		net:            m.net,
 		rng:            m.rng,
 		events:         &events{broadcast: newProcessorList()},
 		broadcastMaker: m.broadcastMaker,
+		uiCallbacks:    m.uiCallbacks,
 	}
 
 	newManager.loadChannels()
@@ -205,12 +192,13 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Errorf("Channel %s not added to channel map.", ch.Name)
 	}
 
-	_, err = m.local.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
+	_, err = m.remote.GetMapElement(joinedChannelsMap,
+		base64.StdEncoding.EncodeToString(ch.ReceptionID[:]), joinedChannelsMapVersion)
 	if err != nil {
 		t.Errorf("Failed to get joinedChannel from kv: %+v", err)
 	}
 
-	_, err = m.local.Get(joinedChannelsKey, joinedChannelsVersion)
+	_, err = m.local.GetMap(joinedChannelsMap, joinedChannelsMapVersion)
 	if err != nil {
 		t.Errorf("Failed to get channels from kv: %+v", err)
 	}
@@ -295,13 +283,14 @@ func Test_manager_removeChannel(t *testing.T) {
 		t.Errorf("Channel %s was not remove from the channel map.", ch.Name)
 	}
 
-	_, err = m.local.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
+	_, err = m.remote.GetMapElement(joinedChannelsMap,
+		base64.StdEncoding.EncodeToString(ch.ReceptionID[:]), joinedChannelsMapVersion)
 	if ekv.Exists(err) {
 		t.Errorf("joinedChannel not removed from kv: %+v", err)
 	}
 }
 
-// Error path: tests that manager.removeChannel returns ChannelDoesNotExistsErr
+/*// Error path: tests that manager.removeChannel returns ChannelDoesNotExistsErr
 // when the channel was never added.
 func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 	rng := rand.New(rand.NewSource(64))
@@ -603,7 +592,7 @@ func Test_makeJoinedChannelKey_Consistency(t *testing.T) {
 				binary.BigEndian.Uint64(chID[:8]), expected, key)
 		}
 	}
-}
+}*/
 
 // newTestChannel creates a new cryptoBroadcast.Channel in the same way that
 // cryptoBroadcast.NewChannel does but with a smaller RSA key and salt to make

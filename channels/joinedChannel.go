@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/broadcast"
@@ -38,7 +39,8 @@ func (m *manager) loadChannels() {
 
 	for elementName, chObj := range mapObj {
 		channelID := &id.ID{}
-		if err := channelID.UnmarshalJSON([]byte(elementName)); err != nil {
+
+		if _, err = base64.StdEncoding.Decode(channelID[:], []byte(elementName)); err != nil {
 			jww.WARN.Printf("Failed to unmarshal channel ID in"+
 				"remote channel %s, skipping: %+v", elementName, err)
 			continue
@@ -116,7 +118,7 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 	if err != nil {
 		return err
 	}
-	elementName := string(channel.ReceptionID.Marshal())
+	elementName := base64.StdEncoding.EncodeToString(channel.ReceptionID[:])
 
 	jcBytes, err := jc.Marshal()
 	if err != nil {
@@ -191,7 +193,10 @@ func (m *manager) removeChannelUnsafe(channelID *id.ID) error {
 
 	delete(m.channels, *channelID)
 
-	return nil
+	_, err = m.remote.DeleteMapElement(joinedChannelsMap,
+		base64.StdEncoding.EncodeToString(channelID[:]), joinedChannelsMapVersion)
+
+	return err
 }
 
 // getChannel returns the given channel. Returns ChannelDoesNotExistsErr error

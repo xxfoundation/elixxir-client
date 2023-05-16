@@ -27,7 +27,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "", password, t)
+	txLog := makeTransactionLog(kv, "", t)
 
 	// Create remote kv
 	received := newKV(txLog, kv)
@@ -52,7 +52,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", password, t)
+	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", t)
 
 	// Create remote kv
 	rkv := newKV(txLog, kv)
@@ -71,7 +71,7 @@ func TestKV_Set(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "workingDirSet", password, t)
+	txLog := makeTransactionLog(kv, "workingDirSet", t)
 
 	// Create remote kv
 	rkv := newKV(txLog, kv)
@@ -111,7 +111,7 @@ func TestKV_Get(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "workingDir", password, t)
+	txLog := makeTransactionLog(kv, "workingDir", t)
 
 	// Create remote kv
 	rkv := newKV(txLog, kv)

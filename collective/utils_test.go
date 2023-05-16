@@ -42,19 +42,6 @@ func TestDeviceOffset(t *testing.T) {
 	require.Equal(t, dvcOffset, deserial)
 }
 
-// Read just counts until 254 then starts over again
-func (c *CountingReader) Read(b []byte) (int, error) {
-	for i := 0; i < len(b); i++ {
-		c.count = (c.count + 1) % 255
-		b[i] = c.count
-	}
-	return len(b), nil
-}
-
-func (c *CountingReader) SetSeed(s []byte) error {
-	return nil
-}
-
 // constructTimestamps is a testing utility function. It constructs a list of
 // out-of order mock timestamps. By default, it creates a list of 6 hard-coded
 // timestamps. It will also append to that list the number of random timestamps.

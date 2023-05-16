@@ -30,7 +30,7 @@ func TestNewCollector(t *testing.T) {
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
-	txLog := makeTransactionLog(kv, syncPath, password, t)
+	txLog := makeTransactionLog(kv, syncPath, t)
 
 	// Create remote kv
 	remoteKv := newVersionedKV(txLog, kv, nil)
@@ -86,7 +86,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	kv := ekv.MakeMemstore()
 
 	syncPath := baseDir + "collector/"
-	txLog := makeTransactionLog(kv, syncPath, password, t)
+	txLog := makeTransactionLog(kv, syncPath, t)
 
 	// Create remote kv
 	remoteKv := newVersionedKV(txLog, kv, nil)
@@ -157,7 +157,7 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	// Construct kv
 	kv := ekv.MakeMemstore()
 
-	txLog := makeTransactionLog(kv, syncPath, password, t)
+	txLog := makeTransactionLog(kv, syncPath, t)
 
 	// Create remote kv
 	remoteKv := newVersionedKV(txLog, kv, nil)

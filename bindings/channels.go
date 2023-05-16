@@ -436,8 +436,13 @@ func NewChannelsManager(cmixID int, privateIdentity,
 
 	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(pi, user.api.GetStorage().GetKV(),
+	m, err := channels.NewManagerBuilder(pi, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), eb, extensionBuilders,
 		user.api.AddService, wrap)
 	if err != nil {
@@ -480,9 +485,14 @@ func LoadChannelsManager(cmixID int, storageTag string,
 
 	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
-	m, err := channels.LoadManagerBuilder(storageTag,
-		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
+	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
+		user.api.GetCmix(), user.api.GetRng(),
 		eb, nil, wrap)
 	if err != nil {
 		return nil, err
@@ -540,10 +550,14 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	}
 
 	cbs := newChannelUICallbacksWrapper(callbacks)
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(
-		pi, user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
+	m, err := channels.NewManagerBuilder(pi, channelsKV,
+		user.api.GetCmix(), user.api.GetRng(),
 		goEventBuilder, extensionBuilders, user.api.AddService, cbs)
 	if err != nil {
 		return nil, err
@@ -579,11 +593,15 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	}
 
 	cbs := newChannelUICallbacksWrapper(uiCallbacks)
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct new channels manager
-	m, err := channels.LoadManagerBuilder(storageTag,
-		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		goEventBuilder, builders, cbs)
+	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
+		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
+		builders, cbs)
 	if err != nil {
 		return nil, err
 	}

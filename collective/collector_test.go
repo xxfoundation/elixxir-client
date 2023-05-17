@@ -52,6 +52,8 @@ func TestNewCollector(t *testing.T) {
 	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remoteKV,
 		crypt, txLog)
 
+	zero := uint32(0)
+
 	expected := &collector{
 		syncPath:             syncPath,
 		myID:                 myID,
@@ -60,6 +62,13 @@ func TestNewCollector(t *testing.T) {
 		txLog:                txLog,
 		remote:               fsRemote,
 		kv:                   remoteKv.remoteKV,
+		encrypt:              crypt,
+		keyID:                crypt.KeyID(myID),
+		devicePatchTracker:   make(map[InstanceID]*Patch),
+		lastMutationRead:     make(map[InstanceID]time.Time),
+		connected:            &zero,
+		synched:              &zero,
+		notifier:             &notifier{},
 	}
 
 	require.Equal(t, expected, testcol)

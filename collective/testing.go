@@ -1,15 +1,17 @@
 package collective
 
 import (
+	"sync"
+	"testing"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"testing"
-	"time"
 )
 
 // params used by the testing KV
@@ -43,14 +45,16 @@ func testingKV(t interface{}, kv ekv.KeyValue,
 
 // makeTransactionLog is a utility function which generates a remoteWriter for
 // testing purposes.
-func makeTransactionLog(kv ekv.KeyValue, baseDir string, t interface{}) *remoteWriter {
-	switch t.(type) {
+func makeTransactionLog(kv ekv.KeyValue, baseDir string, x interface{}) *remoteWriter {
+	switch x.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
 		jww.FATAL.Panicf("makeTransactionLof is restricted to testing "+
-			"only. Got %T", t)
+			"only. Got %T", x)
 	}
+
+	t := x.(testing.TB)
 
 	// Construct remote store
 	remoteStore := &mockRemote{data: make(map[string][]byte)}
@@ -63,6 +67,7 @@ func makeTransactionLog(kv ekv.KeyValue, baseDir string, t interface{}) *remoteW
 	rng := rngGen.GetStream()
 	defer rng.Close()
 	deviceID, err := InitInstanceID(kv, rng)
+	require.NoError(t, err)
 
 	crypt := &deviceCrypto{
 		secret: deviceSecret,

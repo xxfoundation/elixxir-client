@@ -8,7 +8,6 @@
 package collective
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -29,24 +28,6 @@ type Mutate struct {
 	Timestamp int64
 	Value     []byte
 	Deletion  bool
-}
-
-// MarshalJSON adheres to json.Marshaler.
-func (m *Mutate) MarshalJSON() ([]byte, error) {
-	// Marshal the current mutate
-	return json.Marshal(*m)
-}
-
-// UnmarshalJSON adheres to json.Unmarshaler.
-func (m *Mutate) UnmarshalJSON(data []byte) error {
-	// Unmarshal mutate
-	tx := Mutate{}
-	if err := json.Unmarshal(data, &tx); err != nil {
-		return err
-	}
-
-	*m = Mutate(tx)
-	return nil
 }
 
 // GetTimestamp returns the timestamp of the mutation in standard go format

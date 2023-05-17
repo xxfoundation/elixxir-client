@@ -11,10 +11,10 @@ package collective
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -179,7 +179,9 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	fsRemote := NewFileSystemRemoteStorage(workingDir)
 	devices := make([]InstanceID, 0)
 	for i, remoteTxLogEnc := range remoteTxLogsEnc {
-		mockInstanceID, err := NewInstanceIDFromString(strconv.Itoa(i))
+		idBytes := make([]byte, instanceIDLength)
+		binary.BigEndian.PutUint32(idBytes[4:8], uint32(i))
+		mockInstanceID, err := NewInstanceIDFromBytes(idBytes)
 		require.NoError(t, err)
 		mockTxLog, err := base64.StdEncoding.DecodeString(
 			remoteTxLogEnc)

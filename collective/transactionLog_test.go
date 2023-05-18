@@ -7,103 +7,159 @@
 
 package collective
 
-const (
-	// expectedTransactionLogSerializedBase64 is the base64 encoded serialized
-	// remoteWriter. If the state set in the mock remoteWriter is changed,
-	// this value should be changed to reflect this.
-	expectedTransactionLogSerializedBase64 = `MAAAAAAAAABYWERLVFhMT0dIRFJleUoyWlhKemFXOXVJam93TENKbGJuUnlhV1Z6SWpwN2ZYMD0VAAAAAAAAAFhYREtUWExPR0RWQ09GRlNUZTMwPQYAAAAAAAAAkgAAAAAAAAAwLEhKcEhGVnF0eDJvcVVvanZGbVBpVDBlR25EVEVyUDlmOFBOcC0wYVZ6c29RcnVQMXozQ2paU1VabXBSRDFXWmRjNGFRV1VaY25rTEFFV3RRcUZnU181cWI0YThQaTB4Yy04YUlzOHBKRXo1SnJKOVZKdzM2RWt1TzY0U0prOEQ2bzlURVhYM1V0ay1FVGYwcpIAAAAAAAAAMSxISnBIRlZxdHgyb3FVb2p2Rm1QaVQwZUduRFRFclA5ZnVQb19zdVBhaGdHSzZFQXhRZV9OeWRTMFlHdjJmcFJnRTg0YUdEY2RtbTkyQ3VhV0ZhUnJBZ2ZQWmNVYU41NXRLVTNHbEtoSkVfZTczamVud2dwNW5WemtYbUZvblMzckNNUVdQMUNHSUhwQncxb0GSAAAAAAAAADIsSEpwSEZWcXR4Mm9xVW9qdkZtUGlUMGVHbkRURXJQOWZwRm93UUdMYUpiVGNSNXIzSnY5QmJod1Y0eUozLTd1VlQzOXdIeU1XNTR2eldycjU0eUpTU2l1OF9GVUVMWlVuTDRMNTduc2lQdnp2TWZicE8wWWhEdEdDbHVweFdsZDJVdUxSWmNGWWxpQWFNSlJxkgAAAAAAAAAzLEhKcEhGVnF0eDJvcVVvanZGbVBpVDBlR25EVEVyUDlmLXdEbmMxd1dDWEZuVVcwRFB2Q3F2RngyVEpFYWpYbEd3S2JyclNZWWJhdm1hSmhIQVBNQTh2czZ2ak9CcjZfTFNuT1NvUlZKaFZfa24wQ3Z3RGt3NHAwTWNqWWJUajZfRi1PaXZXOG80X01ScUR6NZIAAAAAAAAANCxISnBIRlZxdHgyb3FVb2p2Rm1QaVQwZUduRFRFclA5ZkdWZXd0ay1BRElUdDhsSkZITE5PRGE1Z254RWZGaXhXYUg2TExTRldUbkMyZjY1WFhvdlJaS1BtMEZsb1ZocDhFX2ZCaUJscmNCUGl2blJ4cWxpc1lyNThmc3pjd0VoWnJRUlhYdkRTcmVJWnhFbm+SAAAAAAAAADUsSEpwSEZWcXR4Mm9xVW9qdkZtUGlUMGVHbkRURXJQOWZtN1ZBME44N1h4S2NLalFFTVBod1NpRjg1M2R3RThCaE1lN0c4NGF6dkdST05PSjctdDgxMWNlV0c2ZVAxRDRrYjduVmY4T0JKaG51OXlNbFBIZUVTeFFOZWN4RHUya3k1Q0o3NXNrRjhlR1RyRTJx`
+import (
+	"os"
+	"runtime/pprof"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/stoppable"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// // Smoke test for NewOrLoadTransactionLog.
-// //
-// // Intentionally constructs remoteWriter manually for testing purposes.
-// func TestNewOrLoadTransactionLog(t *testing.T) {
-// 	// Construct local store
-// 	baseDir, password := "testDir", "password"
-// 	fs, err := ekv.NewFilestore(baseDir, password)
-// 	require.NoError(t, err)
-// 	localStore := NewKVFilesystem(fs)
+// Smoke test for NewOrLoadTransactionLog.
+//
+// Intentionally constructs remoteWriter manually for testing purposes.
+func TestNewOrLoadTransactionLog(t *testing.T) {
+	baseDir := ".testDir"
+	logFile := baseDir + "/test.txt"
+	os.RemoveAll(baseDir)
+	password := "password"
+	fs, err := ekv.NewFilestore(baseDir, password)
+	require.NoError(t, err)
 
-// 	// Construct remote store
-// 	remoteStore := NewFileSystemRemoteStorage(baseDir)
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
-// 	// Construct device secret
-// 	deviceSecret := []byte("deviceSecret")
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
 
-// 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-// 	// Construct mutate log
-// 	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
-// 		deviceSecret, rngGen)
-// 	require.NoError(t, err)
+	crypt := &deviceCrypto{
+		secret: deviceSecret,
+		rngGen: rngGen,
+	}
 
-// 	// Construct expected mutate log object
-// 	expected := &remoteWriter{
-// 		path:               baseDir,
-// 		local:              localStore,
-// 		remote:             remoteStore,
-// 		Header:             newHeader(),
-// 		txs:                make([]Mutate, 0),
-// 		deviceSecret:       deviceSecret,
-// 		rngStreamGenerator: rngGen,
-// 		offsets:            make(deviceOffset, 0),
-// 	}
+	rng := rngGen.GetStream()
+	defer rng.Close()
+	deviceID, err := InitInstanceID(fs, rng)
+	require.NoError(t, err)
 
-// 	// Ensure constructor generates expected object
-// 	require.Equal(t, expected, txLog)
+	// Construct mutate log
+	txLog, err := newRemoteWriter(logFile, deviceID,
+		remoteStore, crypt, fs)
+	require.NoError(t, err)
 
-// }
+	zero := uint32(0)
 
-// // Unit test for NewOrLoadTransactionLog. Tests whether this will load from
-// // disk and deserialize the data into the remoteWriter file.
-// //
-// // Intentionally constructs remoteWriter manually for testing purposes.
-// func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
-// 	// Construct local store
-// 	localStore := NewKVFilesystem(ekv.MakeMemstore())
+	// Construct expected mutate log object
+	expected := &remoteWriter{
+		path:           logFile,
+		header:         newHeader(deviceID),
+		state:          newPatch(),
+		adds:           txLog.adds, // hack, but new chan won't work
+		io:             remoteStore,
+		encrypt:        crypt,
+		kv:             fs,
+		localWriteKey:  makeLocalWriteKey(logFile),
+		remoteUpToDate: &zero,
+		notifier:       &notifier{},
+	}
 
-// 	// Construct device secret
-// 	deviceSecret := []byte("deviceSecret")
+	// Ensure constructor generates expected object
+	require.Equal(t, expected, txLog)
 
-// 	appendCb := RemoteStoreCallback(func(newTx Mutate, err error) {})
+}
 
-// 	remoteStore := &mockRemote{data: make(map[string][]byte)}
+// Unit test for NewOrLoadTransactionLog. Tests whether this will load from
+// disk and deserialize the data into the remoteWriter file.
+//
+// Intentionally constructs remoteWriter manually for testing purposes.
+func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
+	baseDir := ".testDir"
+	logFile := baseDir + "/test.txt"
+	os.RemoveAll(baseDir)
+	password := "password"
+	fs, err := ekv.NewFilestore(baseDir, password)
+	require.NoError(t, err)
 
-// 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	// Construct remote store
+	remoteStore := NewFileSystemRemoteStorage(baseDir)
 
-// 	// Construct mutate log
-// 	txLog, err := NewTransactionLog("baseDir", localStore,
-// 		remoteStore,
-// 		deviceSecret, rngGen)
-// 	require.NoError(t, err)
+	// Construct device secret
+	deviceSecret := []byte("deviceSecret")
 
-// 	// Construct timestamps
-// 	mockTimestamps := constructTimestamps(t, 0)
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-// 	// Insert timestamps
-// 	for cnt, curTs := range mockTimestamps {
-// 		// Construct mutate
-// 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-// 		newTx := NewMutate(curTs, key, []byte(val))
+	crypt := &deviceCrypto{
+		secret: deviceSecret,
+		rngGen: rngGen,
+	}
 
-// 		require.NoError(t, txLog.Append(newTx, appendCb))
-// 	}
+	rng := rngGen.GetStream()
+	defer rng.Close()
+	deviceID, err := InitInstanceID(fs, rng)
+	require.NoError(t, err)
 
-// 	ok := txLog.WaitForRemote(60 * time.Second)
-// 	if !ok {
-// 		t.Errorf("threads failed to stop")
-// 		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-// 	}
+	// Construct mutate log
+	txLog, err := newRemoteWriter(logFile, deviceID,
+		remoteStore, crypt, fs)
+	require.NoError(t, err)
 
-// 	// Construct a new remoteWriter, which will load from file
-// 	newTxLog, err := NewTransactionLog("baseDir", localStore,
-// 		remoteStore,
-// 		deviceSecret, rngGen)
-// 	require.NoError(t, err)
+	ntfyCh := make(chan bool)
+	ntfy := func(state bool) {
+		ntfyCh <- state
+	}
+	txLog.Register(ntfy)
 
-// 	// Ensure loaded log matches original log
-// 	require.Equal(t, txLog, newTxLog)
-// }
+	stopper := stoppable.NewSingle("txLogRunner")
+	go txLog.Runner(stopper)
+
+	// Insert timestamps
+	for cnt := 0; cnt < 10; cnt++ {
+		// Construct mutate
+		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+		err := txLog.Write(key, []byte(val))
+		require.NoError(t, err)
+	}
+
+	done := false
+	for !done {
+		select {
+		case <-time.After(5 * time.Second):
+			t.Errorf("threads failed to stop")
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+			done = true
+		case x := <-ntfyCh:
+			done = x
+		}
+	}
+
+	err = stopper.Close()
+	require.NoError(t, err)
+	err = stoppable.WaitForStopped(stopper, 5*time.Second)
+	require.NoError(t, err)
+	require.True(t, stopper.IsStopped())
+
+	newTxLog, err := newRemoteWriter(logFile, deviceID,
+		remoteStore, crypt, fs)
+	require.NoError(t, err)
+
+	require.NoError(t, err)
+
+	// Hacks for comparison
+	newTxLog.adds = txLog.adds
+	newTxLog.notifier = txLog.notifier
+	newTxLog.remoteUpToDate = txLog.remoteUpToDate
+
+	// Ensure loaded log matches original log
+	require.Equal(t, txLog, newTxLog)
+}
 
 // // Unit test for Append. Ensure that callback is called with every call
 // // to remoteWriter.Append.

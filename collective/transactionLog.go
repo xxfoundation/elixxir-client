@@ -61,7 +61,7 @@ type remoteWriter struct {
 
 	// txs is a list of transactions. This list must always be ordered by
 	// timestamp.
-	state Patch
+	state *Patch
 
 	//channel over which writes started localy are processed
 	adds chan transaction
@@ -112,16 +112,15 @@ func newRemoteWriter(path string, deviceID InstanceID,
 	tx := &remoteWriter{
 		path:           path,
 		header:         newHeader(deviceID),
-		state:          Patch{},
+		state:          newPatch(),
 		adds:           make(chan transaction, 1000),
 		io:             io,
 		encrypt:        encrypt,
 		kv:             kv,
 		localWriteKey:  makeLocalWriteKey(path),
 		remoteUpToDate: &connected,
+		notifier:       &notifier{},
 	}
-
-	tx.notifier = &notifier{}
 
 	// Attempt to Read stored mutate log
 	data, err := tx.kv.GetBytes(tx.localWriteKey)
@@ -156,24 +155,26 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 			rw.state.AddUnsafe(t.Key, &t.Mutate)
 
 			// batch writes
-			counter := 5 * time.Millisecond
+			counter := 100 * time.Millisecond
 			timer2 := time.NewTimer(counter)
 			quit := false
-		batch:
-			for {
+			done := false
+			for !done {
 				select {
 				case t = <-rw.adds:
 					rw.state.AddUnsafe(t.Key, &t.Mutate)
 					rw.syncLock.RUnlock()
 					counter -= 100 * time.Microsecond
-					if counter == 0 {
-						break batch
+					if counter <= 0 {
+						done = true
+					} else {
+						timer2.Reset(counter)
 					}
-					timer2.Reset(counter)
 				case <-timer2.C:
-					break batch
+					done = true
 				case <-s.Quit():
 					quit = true
+					done = true
 				}
 			}
 
@@ -193,22 +194,26 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 					"log to disk: %+v", err)
 			}
 
-			if quit == true {
+			if quit {
 				s.ToStopped()
 				return
 			}
-			if running == false {
+			if !running {
+				jww.ERROR.Printf("[RW] reset runtimer")
+
 				timer.Reset(defaultUploadPeriod)
 				running = true
 			}
 
 		case <-timer.C:
+			jww.ERROR.Printf("[RW] Writing")
+
 			running = false
 			encrypted := rw.encrypt.Encrypt(serial)
 			file := buildFile(rw.header, encrypted)
 
 			if err = rw.io.Write(rw.path, file); err != nil {
-				rw.notify(true)
+				rw.notify(false)
 				uploadPeriod = expBackoff(uploadPeriod)
 				jww.ERROR.Printf("Failed to update collective state, "+
 					"last update %s, will auto retry in %s: %+v", ts,
@@ -216,7 +221,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				timer.Reset(uploadPeriod)
 				running = true
 			} else {
-				rw.notify(false)
+				rw.notify(true)
 				uploadPeriod = defaultUploadPeriod
 				ts = netTime.Now()
 				timer.Stop()
@@ -224,6 +229,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 			}
 		case <-s.Quit():
 			s.ToStopped()
+			return
 		}
 
 	}
@@ -411,7 +417,7 @@ func (rw *remoteWriter) Read() (patch *Patch, unlock func()) {
 	unlock = func() {
 		rw.syncLock.Unlock()
 	}
-	patch = &rw.state
+	patch = rw.state
 	return patch, unlock
 }
 
@@ -419,16 +425,16 @@ func (rw *remoteWriter) RemoteUpToDate() bool {
 	return atomic.LoadUint32(rw.remoteUpToDate) == 1
 }
 
-func (rw *remoteWriter) notify(state bool) {
+func (rw *remoteWriter) notify(updatedRemote bool) {
 	var toWrite uint32
-	if state {
+	if updatedRemote {
 		toWrite = 1
 	} else {
 		toWrite = 0
 	}
 	old := atomic.SwapUint32(rw.remoteUpToDate, toWrite)
 	if old != toWrite {
-		rw.Notify(state)
+		rw.Notify(updatedRemote)
 	}
 }
 

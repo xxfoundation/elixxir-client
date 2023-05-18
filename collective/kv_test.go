@@ -67,14 +67,13 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 func TestKV_Set(t *testing.T) {
 	const numTests = 100
 
-	// Construct kv
 	kv := ekv.MakeMemstore()
-
-	// Construct mutate log
-	txLog := makeTransactionLog(kv, "workingDirSet", t)
-
-	// Create remote kv
+	txLog := makeTransactionLog(kv, ".workingDirSet", t)
 	rkv := newKV(txLog, kv)
+
+	kv2 := ekv.MakeMemstore()
+	txLog2 := makeTransactionLog(kv2, ".workingDirSet", t)
+	rkv2 := newKV(txLog2, kv2)
 
 	rkv.txLog.io = &mockRemote{
 		data: make(map[string][]byte, 0),
@@ -91,11 +90,11 @@ func TestKV_Set(t *testing.T) {
 	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		rkv.ListenOnRemoteKey(key, updateCb)
+		rkv2.ListenOnRemoteKey(key, updateCb)
 		require.NoError(t, rkv.SetRemote(key, val))
 
 		select {
-		case <-time.After(500 * time.Second):
+		case <-time.After(500 * time.Millisecond):
 			t.Fatalf("Failed to recieve from callback")
 		case txKey := <-txChan:
 			require.Equal(t, txKey, key)
@@ -137,7 +136,7 @@ func TestKV_Get(t *testing.T) {
 
 		// Ensure Write has completed
 		select {
-		case <-time.After(500 * time.Second):
+		case <-time.After(500 * time.Millisecond):
 			t.Fatalf("Failed to recieve from callback")
 		case <-txChan:
 		}

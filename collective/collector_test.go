@@ -25,7 +25,7 @@ import (
 
 // Smoke test of NewCollector.
 func TestNewCollector(t *testing.T) {
-	baseDir := "TestNewCollector/"
+	baseDir := ".TestNewCollector/"
 	syncPath := baseDir + "collector/"
 	// Construct kv
 	kv := ekv.MakeMemstore()
@@ -79,7 +79,7 @@ func TestNewCollector(t *testing.T) {
 }
 
 func TestNewCollector_CollectChanges(t *testing.T) {
-	baseDir := "TestNewCollector_CollectChanges/"
+	baseDir := ".TestNewCollector_CollectChanges/"
 
 	// Note: these are pre-canned serialized mutate logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)
@@ -149,7 +149,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 }
 
 func TestCollector_ApplyChanges(t *testing.T) {
-	baseDir := "TestCollector_ApplyChanges/"
+	baseDir := ".TestCollector_ApplyChanges/"
 
 	// Note: these are pre-canned serialized mutate logs w/ transactions
 	// with timestamp values in various years (6 timestamps per tx log)

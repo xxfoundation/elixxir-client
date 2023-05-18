@@ -95,11 +95,10 @@ type Client interface {
 
 // NotificationsManager contains the methods from [notifications.Manager] that
 // are required by the [Manager].
-// TODO: update doc link real API
 type NotificationsManager interface {
 	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
-		status clientNotif.NotificationStatus) error
-	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationStatus,
+		status clientNotif.NotificationState) error
+	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationState,
 		metadata []byte, group string, exists bool)
 	Delete(toBeNotifiedOn *id.ID)
 	GetGroup(group string) (clientNotif.Group, bool)
@@ -118,14 +117,14 @@ type NotificationInfo struct {
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	extensions []ExtensionBuilder, addService AddServiceFn,
-	nm NotificationsManager, cb FilterCallback) (Manager, error) {
+	nm NotificationsManager, uiCallbacks UiCallbacks) (Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return NewManager(
-		identity, kv, net, rng, model, extensions, addService, nm, cb)
+	return NewManager(identity, kv, net, rng, model, extensions, addService, nm,
+		uiCallbacks)
 }
 
 // NewManager creates a new channel [Manager] from a
@@ -140,7 +139,7 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn,
-	nm NotificationsManager, cb FilterCallback) (Manager, error) {
+	nm NotificationsManager, uiCallbacks UiCallbacks) (Manager, error) {
 
 	// Make a copy of the public key to prevent outside edits
 	// TODO: Convert this to DeepCopy() method
@@ -158,7 +157,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions, nm, cb)
+	m := setupManager(identity, kv, net, rng, model, extensions, nm, uiCallbacks)
 	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
@@ -168,7 +167,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
-	extensions []ExtensionBuilder, nm NotificationsManager, cb FilterCallback) (
+	extensions []ExtensionBuilder, nm NotificationsManager,
+	uiCallbacks UiCallbacks) (
 	Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
@@ -181,7 +181,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions, nm, cb)
+	m := setupManager(identity, kv, net, rng, model, extensions, nm, uiCallbacks)
 	m.loadDMTokens()
 
 	return m, nil
@@ -191,20 +191,20 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 // tag.
 func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder, nm NotificationsManager, cb FilterCallback) (
-	Manager, error) {
+	extensions []ExtensionBuilder, nm NotificationsManager,
+	uiCallbacks UiCallbacks) (Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return LoadManager(storageTag, kv, net, rng, model, extensions, nm, cb)
+	return LoadManager(storageTag, kv, net, rng, model, extensions, nm, uiCallbacks)
 }
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensionBuilders []ExtensionBuilder, nm NotificationsManager,
-	cb FilterCallback) *manager {
+	uiCallbacks UiCallbacks) *manager {
 
 	// Build the manager
 	m := &manager{
@@ -226,7 +226,8 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.nicknameManager = LoadOrNewNicknameManager(kv)
 
-	m.notifications = newNotifications(identity.PubKey, cb, m, nm)
+	m.notifications = newNotifications(
+		identity.PubKey, uiCallbacks.FilterCallback, m, nm)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler

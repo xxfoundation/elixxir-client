@@ -443,3 +443,14 @@ type ExtensionBuilder func(e EventModel, m Manager,
 //
 // This type must match [Client.AddService].
 type AddServiceFn func(sp xxdk.Service) error
+
+// UiCallbacks is an interface that a caller can adhere to in order to get
+// updates on when sync events occur that require the UI to be updated
+// and what those events are
+type UiCallbacks interface {
+	// FilterCallback is called every time there is a change to the notification
+	// filtering options. It returns services that are compared with
+	// notification data to determine which channel notifications belong to you
+	// using [GetNotificationReportsForMe].
+	FilterCallback(nfs []NotificationFilter)
+}

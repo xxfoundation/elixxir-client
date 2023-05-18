@@ -508,7 +508,7 @@ func newMockNM() *mockNM {
 }
 
 func (m *mockNM) Set(
-	toBeNotifiedOn *id.ID, group string, metadata []byte, status clientNotif.NotificationStatus) error {
+	toBeNotifiedOn *id.ID, group string, metadata []byte, status clientNotif.NotificationState) error {
 	if _, exists := m.channels[group]; !exists {
 		m.channels[group] = clientNotif.Group{}
 	}
@@ -520,7 +520,7 @@ func (m *mockNM) Set(
 	return nil
 }
 
-func (m *mockNM) Get(toBeNotifiedOn *id.ID) (clientNotif.NotificationStatus, []byte, string, bool) {
+func (m *mockNM) Get(toBeNotifiedOn *id.ID) (clientNotif.NotificationState, []byte, string, bool) {
 	for group, ids := range m.channels {
 		for chanID, ni := range ids {
 			if chanID.Cmp(toBeNotifiedOn) {

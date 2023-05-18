@@ -21,12 +21,12 @@ type Manger interface {
 	// of the same object do not interfere. Metadata will be synchronized,
 	// allowing more verbose notifications settings. Max 1KB.
 	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
-		status NotificationStatus) error
+		status NotificationState) error
 
 	// Get returns the status of the notifications for the given ID. Returns
 	// false if the ID is not registered.
 	Get(toBeNotifiedOn *id.ID) (
-		status NotificationStatus, metadata []byte, group string, exists bool)
+		status NotificationState, metadata []byte, group string, exists bool)
 
 	// Delete deletes the given ID, unregisters it if it is registered, and
 	// removes the reference from the local store.
@@ -62,16 +62,16 @@ type Update func(group Group, created, edits, deletions []*id.ID)
 type Group map[id.ID]State
 
 type State struct {
-	Metadata []byte             `json:"metadata"`
-	Status   NotificationStatus `json:"status"`
+	Metadata []byte            `json:"metadata"`
+	Status   NotificationState `json:"status"`
 }
 
 // NotificationStatus indicates the status of notifications for an ID.
-type NotificationStatus uint8
+type NotificationState uint8
 
 const (
 	// Mute shows no notifications for the ID
-	Mute NotificationStatus = iota
+	Mute NotificationState = iota
 
 	// WhenOpen shows notifications for this ID only when the app is running and
 	// open. No registration or privacy leaks occur in this state.
@@ -84,7 +84,7 @@ const (
 
 // String prints a human-readable version of the [NotificationStatus] for
 // logging and debugging. This function adheres to the [fmt.Stringer] interface.
-func (ns NotificationStatus) String() string {
+func (ns NotificationState) String() string {
 	switch ns {
 	case Mute:
 		return "mute"

@@ -10,6 +10,7 @@ package collective
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -38,6 +39,10 @@ const (
 	toDiskKeyName = "TransactionLog_"
 
 	defaultUploadPeriod = synchronizationEpoch
+
+	// FIXME: It should be: [name]-[deviceid]/[keyid]/txlog
+	// but we don't have access to a name, so: [deviceid]/[keyid]/txlog
+	txLogPathFmt = "%s/%s/state.xx"
 )
 
 // Error messages.
@@ -110,7 +115,8 @@ func newRemoteWriter(path string, deviceID InstanceID,
 
 	// Per spec, the path is: [path] + /[deviceID]/[txlog]
 	// we don't use path.join because we aren't relying on OS pathSep.
-	myPath := fmt.Sprintf("%s/%s/%s", path, deviceID, "mystate.xx")
+	keyID := encrypt.KeyID(deviceID)
+	myPath := getTxLogPath(path, keyID, deviceID)
 
 	connected := uint32(0)
 	// Construct a new mutate log
@@ -449,4 +455,9 @@ func expBackoff(timeout time.Duration) time.Duration {
 		return 5 * time.Minute
 	}
 	return timeout
+}
+
+func getTxLogPath(syncPath, keyID string, deviceID InstanceID) string {
+	return filepath.Join(syncPath,
+		fmt.Sprintf(txLogPathFmt, deviceID, keyID))
 }

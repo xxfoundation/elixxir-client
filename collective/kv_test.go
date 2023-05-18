@@ -16,10 +16,12 @@ import (
 	"testing"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -33,7 +35,8 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	remoteStore := newMockRemote()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "", remoteStore, t)
+	txLog := makeTransactionLog(kv, "", remoteStore,
+		NewCountingReader(), t)
 
 	// Create remote kv
 	received := newKV(txLog, kv)
@@ -63,7 +66,8 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	remoteStore := newMockRemote()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", remoteStore, t)
+	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", remoteStore,
+		NewCountingReader(), t)
 
 	// Create remote kv
 	rkv := newKV(txLog, kv)
@@ -76,6 +80,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
 // Unit test of KV.Set.
 func TestKV_Set(t *testing.T) {
+	jww.SetStdoutThreshold(jww.LevelInfo)
 	const numTests = 100
 
 	baseDir := ".workingDirSet"
@@ -83,7 +88,8 @@ func TestKV_Set(t *testing.T) {
 	remoteStore := newMockRemote()
 
 	kv := ekv.MakeMemstore()
-	txLog := makeTransactionLog(kv, baseDir, remoteStore, t)
+	txLog := makeTransactionLog(kv, baseDir, remoteStore,
+		csprng.NewSystemRNG(), t)
 	rkv := newKV(txLog, kv)
 
 	rkv.col = newCollector(txLog.header.DeviceID,
@@ -92,7 +98,8 @@ func TestKV_Set(t *testing.T) {
 	rkv.col.synchronizationEpoch = 50 * time.Millisecond
 
 	kv2 := ekv.MakeMemstore()
-	txLog2 := makeTransactionLog(kv2, baseDir, remoteStore, t)
+	txLog2 := makeTransactionLog(kv2, baseDir, remoteStore,
+		csprng.NewSystemRNG(), t)
 	rkv2 := newKV(txLog2, kv2)
 
 	rkv2.col = newCollector(txLog2.header.DeviceID,
@@ -141,7 +148,7 @@ func TestKV_Set(t *testing.T) {
 
 		select {
 		case <-time.After(5 * time.Second):
-			t.Fatalf("Failed to recieve from callback")
+			t.Fatalf("Failed to receive from callback")
 		case txKey := <-txChan:
 			require.Equal(t, txKey, key)
 		}
@@ -165,7 +172,8 @@ func TestKV_Get(t *testing.T) {
 	remoteStore := newMockRemote()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "workingDir", remoteStore, t)
+	txLog := makeTransactionLog(kv, "workingDir", remoteStore,
+		csprng.NewSystemRNG(), t)
 
 	// Create remote kv
 	rkv := newKV(txLog, kv)

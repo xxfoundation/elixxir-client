@@ -10,8 +10,6 @@ package collective
 
 import (
 	"encoding/json"
-	"fmt"
-	"path/filepath"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -37,10 +35,6 @@ const synchronizationEpoch = 5 * time.Second
 // Log constants.
 const (
 	collectorLogHeader = "COLLECTOR"
-
-	// FIXME: It should be: [name]-[deviceid]/[keyid]/txlog
-	// but we don't have access to a name, so: [deviceid]/[keyid]/txlog
-	txLogPathFmt = "%s/%s/txlog"
 )
 
 // Error messages.
@@ -255,7 +249,7 @@ func (c *collector) collectChanges(devices []InstanceID) (
 	wg := &sync.WaitGroup{}
 	connectionFailed := uint32(0)
 	// Iterate over devices
-	for _, deviceID := range devices {
+	for i := range devices {
 		wg.Add(1)
 		go func(deviceID InstanceID) {
 			defer wg.Done()
@@ -264,11 +258,10 @@ func (c *collector) collectChanges(devices []InstanceID) (
 				return
 			}
 
-			kid := c.encrypt.KeyID(c.myID)
+			kid := c.encrypt.KeyID(deviceID)
 
 			// Get the last time the device log was written on the remote
-			logPath := filepath.Join(c.syncPath,
-				fmt.Sprintf(txLogPathFmt, deviceID, kid))
+			logPath := getTxLogPath(c.syncPath, kid, deviceID)
 			lastRemoteUpdate, err := c.remote.GetLastModified(logPath)
 			if err != nil {
 				atomic.AddUint32(&connectionFailed, 1)
@@ -304,7 +297,7 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			// preallocated
 			c.devicePatchTracker[deviceID] = patch
 			newUpdates[deviceID] = lastRemoteUpdate
-		}(deviceID)
+		}(devices[i])
 	}
 	wg.Wait()
 
@@ -458,9 +451,10 @@ func (c *collector) initDevices(devicePaths []string) []InstanceID {
 
 	for i, deviceIDStr := range devicePaths {
 		deviceID, err := NewInstanceIDFromString(deviceIDStr)
-		if err == nil {
-			jww.WARN.Printf("Failed to decode device ID for "+
-				"index %d: %s, skipping", i, deviceIDStr)
+		if err != nil {
+			jww.WARN.Printf("cannot decode device ID "+
+				"index %d: %s, %v skipping", i, deviceIDStr,
+				err)
 			continue
 		}
 		devices = append(devices, deviceID)

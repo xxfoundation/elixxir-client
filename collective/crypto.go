@@ -88,5 +88,5 @@ func keyID(secret []byte, deviceID InstanceID) string {
 	h.Write(deviceID[:])
 	keyIDBytes := h.Sum(nil)
 
-	return base64.URLEncoding.EncodeToString(keyIDBytes)
+	return base64.RawURLEncoding.EncodeToString(keyIDBytes)
 }

@@ -199,15 +199,11 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				return
 			}
 			if !running {
-				jww.ERROR.Printf("[RW] reset runtimer")
-
 				timer.Reset(defaultUploadPeriod)
 				running = true
 			}
 
 		case <-timer.C:
-			jww.ERROR.Printf("[RW] Writing")
-
 			running = false
 			encrypted := rw.encrypt.Encrypt(serial)
 			file := buildFile(rw.header, encrypted)

@@ -8,6 +8,7 @@
 package collective
 
 import (
+	"encoding/base64"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -161,87 +162,68 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	require.Equal(t, txLog, newTxLog)
 }
 
-// // Unit test for Serialize. Ensures the that function returns the serialized
-// // internal state. Checks against a hardcoded base64 string.
-// func TestTransactionLog_Serialize(t *testing.T) {
-// 	// Construct mutate log
-// 	txLog := makeTransactionLog("baseDir", password, t)
+// Unit test for Serialize. Ensures the that function returns the serialized
+// internal state. Checks against a hardcoded base64 string.
+func TestTransactionLog_Serialize(t *testing.T) {
 
-// 	// Construct timestamps
-// 	mockTimestamps := constructTimestamps(t, 0)
+	kv := ekv.MakeMemstore()
+	txLog := makeTransactionLog(kv, ".baseDir", t)
 
-// 	// Insert mock data into mutate log
-// 	for cnt, curTs := range mockTimestamps {
-// 		// Construct mutate
-// 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-// 		newTx := NewMutate(curTs, key, []byte(val))
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(t, 0)
 
-// 		// Insert mutate
-// 		txLog.appendUsingInsertion(newTx)
-// 	}
+	// Insert mock data into mutate log
+	for cnt, curTs := range mockTimestamps {
+		// Construct mutate
+		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+		newTx := NewMutate(curTs, []byte(val), false)
 
-// 	// Serialize data
-// 	data, err := txLog.serialize()
-// 	require.NoError(t, err)
+		txLog.state.AddUnsafe(key, &newTx)
+	}
 
-// 	// Encode data to bas64
-// 	data64 := base64.RawStdEncoding.EncodeToString(data)
+	// Serialize data
+	data, err := txLog.state.Serialize()
+	require.NoError(t, err)
 
-// 	// Ensure encoded data using mock values matches hardcoded data.
-// 	require.Equal(t, expectedTransactionLogSerializedBase64, data64)
-// }
+	// Encode data to bas64
+	data64 := base64.RawStdEncoding.EncodeToString(data)
 
-// // Unit test for Deserialize. Ensures that deserialize will construct the same
-// // remoteWriter that was serialized using remoteWriter.serialize.
-// //
-// // Intentionally constructs remoteWriter manually for testing purposes.
-// func TestTransactionLog_Deserialize(t *testing.T) {
-// 	// Construct local store
-// 	baseDir := "testDir"
-// 	localStore := NewKVFilesystem(ekv.MakeMemstore())
+	expected := "eyJrZXkwIjp7IlRpbWVzdGFtcCI6MTQ1MDczNTcyMSwiVmFsdWUiOiJkbUZzTUE9PSIsIkRlbGV0aW9uIjpmYWxzZX0sImtleTEiOnsiVGltZXN0YW1wIjoxMzg3NjYzNzIxLCJWYWx1ZSI6ImRtRnNNUT09IiwiRGVsZXRpb24iOmZhbHNlfSwia2V5MiI6eyJUaW1lc3RhbXAiOjEwNzIwNDQ1MjEsIlZhbHVlIjoiZG1Gc01nPT0iLCJEZWxldGlvbiI6ZmFsc2V9LCJrZXkzIjp7IlRpbWVzdGFtcCI6MTM1NjEyNzcyMSwiVmFsdWUiOiJkbUZzTXc9PSIsIkRlbGV0aW9uIjpmYWxzZX0sImtleTQiOnsiVGltZXN0YW1wIjoxNDE5MTk5NzIxLCJWYWx1ZSI6ImRtRnNOQT09IiwiRGVsZXRpb24iOmZhbHNlfSwia2V5NSI6eyJUaW1lc3RhbXAiOjEwMDg5NzI1MjEsIlZhbHVlIjoiZG1Gc05RPT0iLCJEZWxldGlvbiI6ZmFsc2V9fQ"
 
-// 	// Construct remote store
-// 	remoteStore := &mockRemote{data: make(map[string][]byte)}
+	// Ensure encoded data using mock values matches hardcoded data.
+	require.Equal(t, expected, data64)
+}
 
-// 	// Construct device secret
-// 	deviceSecret := []byte("deviceSecret")
+// Unit test for Deserialize. Ensures that deserialize will construct the same
+// remoteWriter that was serialized using remoteWriter.serialize.
+//
+// Intentionally constructs remoteWriter manually for testing purposes.
+func TestTransactionLog_Deserialize(t *testing.T) {
+	kv := ekv.MakeMemstore()
+	txLog := makeTransactionLog(kv, ".baseDir", t)
 
-// 	rngGen := fastRNG.NewStreamGenerator(1, 1, NewCountingReader)
+	// Construct timestamps
+	mockTimestamps := constructTimestamps(t, 0)
 
-// 	// Construct mutate log
-// 	txLog, err := NewTransactionLog(baseDir, localStore, remoteStore,
-// 		deviceSecret, rngGen)
-// 	require.NoError(t, err)
+	// Insert mock data into mutate log
+	for cnt, curTs := range mockTimestamps {
+		// Construct mutate
+		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
+		newTx := NewMutate(curTs, []byte(val), false)
 
-// 	// Construct timestamps
-// 	mockTimestamps := constructTimestamps(t, 0)
+		txLog.state.AddUnsafe(key, &newTx)
+	}
 
-// 	// Insert mock data into mutate log
-// 	for cnt, curTs := range mockTimestamps {
-// 		// Construct mutate
-// 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-// 		newTx := NewMutate(curTs, key, []byte(val))
+	// Serialize data
+	data, err := txLog.state.Serialize()
+	require.NoError(t, err)
 
-// 		// Insert mutate
-// 		txLog.appendUsingInsertion(newTx)
-// 	}
+	kv2 := ekv.MakeMemstore()
+	newTxLog := makeTransactionLog(kv2, ".baseDir2", t)
 
-// 	// Serialize data
-// 	data, err := txLog.serialize()
-// 	require.NoError(t, err)
+	// Deserialize the mutate log
+	require.NoError(t, newTxLog.state.Deserialize(data))
 
-// 	// Construct a log w/o header and mutate list
-// 	newTxLog := &remoteWriter{
-// 		path:               baseDir,
-// 		local:              localStore,
-// 		remote:             remoteStore,
-// 		deviceSecret:       deviceSecret,
-// 		rngStreamGenerator: txLog.rngStreamGenerator,
-// 	}
-
-// 	// Deserialize the mutate log
-// 	require.NoError(t, newTxLog.deserialize(data))
-
-// 	// Ensure deserialized object matches original object
-// 	require.Equal(t, txLog, newTxLog)
-// }
+	// Ensure deserialized object matches original object
+	require.Equal(t, txLog.state, newTxLog.state)
+}

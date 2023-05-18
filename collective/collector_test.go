@@ -29,8 +29,9 @@ func TestNewCollector(t *testing.T) {
 	syncPath := baseDir + "collector/"
 	// Construct kv
 	kv := ekv.MakeMemstore()
+	remoteStore := newMockRemote()
 
-	txLog := makeTransactionLog(kv, syncPath, t)
+	txLog := makeTransactionLog(kv, syncPath, remoteStore, t)
 
 	// Create remote kv
 	remoteKv := newVersionedKV(txLog, kv, nil)
@@ -49,7 +50,7 @@ func TestNewCollector(t *testing.T) {
 		rngGen: rngGen,
 	}
 
-	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remoteKV,
+	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remote,
 		crypt, txLog)
 
 	zero := uint32(0)
@@ -61,7 +62,7 @@ func TestNewCollector(t *testing.T) {
 		synchronizationEpoch: synchronizationEpoch,
 		txLog:                txLog,
 		remote:               fsRemote,
-		kv:                   remoteKv.remoteKV,
+		kv:                   remoteKv.remote,
 		encrypt:              crypt,
 		keyID:                crypt.KeyID(myID),
 		devicePatchTracker:   make(map[InstanceID]*Patch),
@@ -93,9 +94,10 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 
 	// Construct kv
 	kv := ekv.MakeMemstore()
+	remoteStore := newMockRemote()
 
 	syncPath := baseDir + "collector/"
-	txLog := makeTransactionLog(kv, syncPath, t)
+	txLog := makeTransactionLog(kv, syncPath, remoteStore, t)
 
 	// Create remote kv
 	remoteKv := newVersionedKV(txLog, kv, nil)
@@ -117,7 +119,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	// Construct collector
 	myID, err := GetInstanceID(kv)
 	require.NoError(t, err)
-	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remoteKV,
+	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remote,
 		crypt, txLog)
 
 	// Write mock data to file (collectChanges will Read from file)
@@ -165,8 +167,9 @@ func TestCollector_ApplyChanges(t *testing.T) {
 
 	// Construct kv
 	kv := ekv.MakeMemstore()
+	remoteStore := newMockRemote()
 
-	txLog := makeTransactionLog(kv, syncPath, t)
+	txLog := makeTransactionLog(kv, syncPath, remoteStore, t)
 
 	// Create remote kv
 	remoteKv := newVersionedKV(txLog, kv, nil)
@@ -202,7 +205,7 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	}
 
 	// Construct collector
-	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remoteKV,
+	testcol := newCollector(myID, syncPath, fsRemote, remoteKv.remote,
 		crypt, txLog)
 	_, err = testcol.collectChanges(devices)
 	require.NoError(t, err)

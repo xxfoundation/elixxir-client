@@ -82,7 +82,8 @@ type collector struct {
 
 	// The local mutate log for this device
 	txLog *remoteWriter
-	// The connection to the remote storage system for reading other device data.
+	// The connection to the remote storage system for reading
+	// other device data.
 	remote RemoteStore
 
 	// The remote storage EKV wrapper

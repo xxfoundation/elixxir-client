@@ -8,11 +8,16 @@
 package collective
 
 import (
+	"fmt"
+	"os"
+	"runtime/pprof"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
@@ -25,12 +30,16 @@ import (
 func TestNewOrLoadRemoteKv(t *testing.T) {
 	// Construct kv
 	kv := ekv.MakeMemstore()
+	remoteStore := newMockRemote()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "", t)
+	txLog := makeTransactionLog(kv, "", remoteStore, t)
 
 	// Create remote kv
 	received := newKV(txLog, kv)
+
+	isSync := atomic.Bool{}
+	isSync.Store(false)
 
 	// Create expected remote kv
 	expected := &internalKV{
@@ -38,6 +47,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 		txLog:              txLog,
 		keyUpdateListeners: make(map[string]KeyUpdateCallback),
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
+		isSynchronizing:    &isSync,
 	}
 
 	// Check equality of created vs expected remote kv
@@ -50,9 +60,10 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
 	// Construct kv
 	kv := ekv.MakeMemstore()
+	remoteStore := newMockRemote()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", t)
+	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", remoteStore, t)
 
 	// Create remote kv
 	rkv := newKV(txLog, kv)
@@ -67,17 +78,35 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 func TestKV_Set(t *testing.T) {
 	const numTests = 100
 
+	baseDir := ".workingDirSet"
+
+	remoteStore := newMockRemote()
+
 	kv := ekv.MakeMemstore()
-	txLog := makeTransactionLog(kv, ".workingDirSet", t)
+	txLog := makeTransactionLog(kv, baseDir, remoteStore, t)
 	rkv := newKV(txLog, kv)
 
+	rkv.col = newCollector(txLog.header.DeviceID,
+		baseDir, remoteStore, rkv,
+		txLog.encrypt, txLog)
+	rkv.col.synchronizationEpoch = 50 * time.Millisecond
+
 	kv2 := ekv.MakeMemstore()
-	txLog2 := makeTransactionLog(kv2, ".workingDirSet", t)
+	txLog2 := makeTransactionLog(kv2, baseDir, remoteStore, t)
 	rkv2 := newKV(txLog2, kv2)
 
-	rkv.txLog.io = &mockRemote{
-		data: make(map[string][]byte, 0),
-	}
+	rkv2.col = newCollector(txLog2.header.DeviceID,
+		baseDir, remoteStore, rkv,
+		txLog2.encrypt, txLog2)
+	rkv2.col.synchronizationEpoch = 50 * time.Millisecond
+
+	mStopper := stoppable.NewMulti("SetTest")
+	stop1, err := rkv.StartProcesses()
+	require.NoError(t, err)
+	stop2, err := rkv2.StartProcesses()
+	require.NoError(t, err)
+	mStopper.Add(stop1)
+	mStopper.Add(stop2)
 
 	// Construct mock update callback
 	txChan := make(chan string, numTests)
@@ -87,19 +116,44 @@ func TestKV_Set(t *testing.T) {
 		txChan <- key
 	})
 
-	// Add intents to remote KV
 	for i := 0; i < numTests; i++ {
+		// NOTE: we're deliberately abusing the start/stop here
+		// to stress test it.
+		err = mStopper.Close()
+		require.NoError(t, err)
+		err = stoppable.WaitForStopped(mStopper, 5*time.Second)
+		if err != nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+		}
+		require.NoError(t, err, mStopper.GetStatus())
+
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
 		rkv2.ListenOnRemoteKey(key, updateCb)
+		mStopper = stoppable.NewMulti(fmt.Sprintf("SetTest %d", i))
+		stop1, err := rkv.StartProcesses()
+		require.NoError(t, err)
+		stop2, err := rkv2.StartProcesses()
+		require.NoError(t, err)
+		mStopper.Add(stop1)
+		mStopper.Add(stop2)
+
 		require.NoError(t, rkv.SetRemote(key, val))
 
 		select {
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(5 * time.Second):
 			t.Fatalf("Failed to recieve from callback")
 		case txKey := <-txChan:
 			require.Equal(t, txKey, key)
 		}
 	}
+
+	err = mStopper.Close()
+	require.NoError(t, err)
+	err = stoppable.WaitForStopped(mStopper, 5*time.Second)
+	if err != nil {
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+	}
+	require.NoError(t, err)
 }
 
 // Unit test of KV.Get.
@@ -108,17 +162,13 @@ func TestKV_Get(t *testing.T) {
 
 	// Construct kv
 	kv := ekv.MakeMemstore()
+	remoteStore := newMockRemote()
 
 	// Construct mutate log
-	txLog := makeTransactionLog(kv, "workingDir", t)
+	txLog := makeTransactionLog(kv, "workingDir", remoteStore, t)
 
 	// Create remote kv
 	rkv := newKV(txLog, kv)
-
-	// Overwrite remote w/ non file IO option
-	rkv.txLog.io = &mockRemote{
-		data: make(map[string][]byte, 0),
-	}
 
 	// Construct mock update callback
 	txChan := make(chan string, numTests)

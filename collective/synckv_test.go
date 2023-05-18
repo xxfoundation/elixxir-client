@@ -59,10 +59,11 @@ func TestVersionedKV(t *testing.T) {
 
 		})
 	memKV := ekv.MakeMemstore()
-	rkv, _ := testingKV(t, memKV, syncPrefixes)
+	remoteStore := newMockRemote()
+	rkv, _ := testingKV(t, memKV, syncPrefixes, remoteStore)
 
 	// Overwrite remote w/ non file IO option
-	rkv.remoteKV.txLog.io = &mockRemote{
+	rkv.remote.txLog.io = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 
@@ -92,14 +93,14 @@ func TestVersionedKV(t *testing.T) {
 			tkv.ListenOnRemoteKey(testKeys[j], 0, updateCb)
 			tkv.Set(testKeys[j], obj)
 
-			data, err := rkv.remoteKV.GetBytes(tkv.GetFullKey(testKeys[j],
+			data, err := rkv.remote.GetBytes(tkv.GetFullKey(testKeys[j],
 				obj.Version))
 			require.NoError(t, err)
 			require.Equal(t, obj.Marshal(), data)
 		}
 	}
 	require.Equal(t, 0, remoteCallCnt)
-	require.Equal(t, 0, len(rkv.remoteKV.txLog.state.keys))
+	require.Equal(t, 0, len(rkv.remote.txLog.state.keys))
 
 	// There should be 1 tx per synchronized key
 	txCnt := 0
@@ -129,7 +130,7 @@ func TestVersionedKV(t *testing.T) {
 
 			k := tkv.GetFullKey(testKeys[j], obj.Version)
 			v := obj.Marshal()
-			data, err := rkv.remoteKV.GetBytes(k)
+			data, err := rkv.remote.GetBytes(k)
 			require.NoError(t, err)
 			require.Equal(t, v, data)
 
@@ -187,10 +188,12 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 
 		})
 	memKV := ekv.MakeMemstore()
-	rkv, _ := testingKV(t, memKV, nil)
+	remoteStore := newMockRemote()
+
+	rkv, _ := testingKV(t, memKV, nil, remoteStore)
 
 	// Overwrite remote w/ non file IO option
-	rkv.remoteKV.txLog.io = &mockRemote{
+	rkv.remote.txLog.io = &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 

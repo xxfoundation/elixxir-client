@@ -1,6 +1,7 @@
 package collective
 
 import (
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // params used by the testing KV
@@ -22,7 +22,8 @@ var StandardPrefexs = []string{StandardRemoteSyncPrefix}
 
 // TestingKV returns a versioned ekv which can be used for testing. it does not do
 // remote writes but maintains the proper interface
-func TestingKV(t interface{}, kv ekv.KeyValue, syncPrefixes []string) versioned.KV {
+func TestingKV(t interface{}, kv ekv.KeyValue, syncPrefixes []string,
+	remoteStore RemoteStore) versioned.KV {
 	switch t.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -30,22 +31,23 @@ func TestingKV(t interface{}, kv ekv.KeyValue, syncPrefixes []string) versioned.
 		jww.FATAL.Panicf("TestingKV is restricted to "+
 			"testing only. Got %T", t)
 	}
-	rkv, _ := testingKV(t, kv, syncPrefixes)
+	rkv, _ := testingKV(t, kv, syncPrefixes, remoteStore)
 	return rkv
 }
 
 func testingKV(t interface{}, kv ekv.KeyValue,
-	syncPrefixes []string) (*versionedKV, *remoteWriter) {
+	syncPrefixes []string, remoteStore RemoteStore) (*versionedKV, *remoteWriter) {
 	if t == nil {
 		jww.FATAL.Printf("Cannot use testing KV in production")
 	}
-	txLog := makeTransactionLog(kv, TestingKVPath, t)
+	txLog := makeTransactionLog(kv, TestingKVPath, remoteStore, t)
 	return newVersionedKV(txLog, kv, syncPrefixes), txLog
 }
 
 // makeTransactionLog is a utility function which generates a remoteWriter for
 // testing purposes.
-func makeTransactionLog(kv ekv.KeyValue, baseDir string, x interface{}) *remoteWriter {
+func makeTransactionLog(kv ekv.KeyValue, baseDir string,
+	remoteStore RemoteStore, x interface{}) *remoteWriter {
 	switch x.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -55,9 +57,6 @@ func makeTransactionLog(kv ekv.KeyValue, baseDir string, x interface{}) *remoteW
 	}
 
 	t := x.(testing.TB)
-
-	// Construct remote store
-	remoteStore := &mockRemote{data: make(map[string][]byte)}
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
@@ -75,7 +74,7 @@ func makeTransactionLog(kv ekv.KeyValue, baseDir string, x interface{}) *remoteW
 	}
 
 	// Construct mutate log
-	txLog, err := newRemoteWriter(baseDir+"test.txt", deviceID,
+	txLog, err := newRemoteWriter(baseDir, deviceID,
 		remoteStore, crypt, kv)
 	if err != nil {
 		jww.FATAL.Panicf("Cannot continue when creation of remote writer "+
@@ -86,33 +85,65 @@ func makeTransactionLog(kv ekv.KeyValue, baseDir string, x interface{}) *remoteW
 }
 
 type mockRemote struct {
-	lck  sync.Mutex
-	data map[string][]byte
+	lck       sync.Mutex
+	data      map[string][]byte
+	lastMod   map[string]time.Time
+	lastWrite time.Time
+}
+
+func newMockRemote() *mockRemote {
+	return &mockRemote{
+		data:      make(map[string][]byte),
+		lastMod:   make(map[string]time.Time),
+		lastWrite: time.Unix(0, 0),
+	}
 }
 
 func (m *mockRemote) Read(path string) ([]byte, error) {
 	m.lck.Lock()
 	defer m.lck.Unlock()
+	jww.ERROR.Printf("Read: %s", path)
 	return m.data[path], nil
 }
 
 func (m *mockRemote) Write(path string, data []byte) error {
 	m.lck.Lock()
 	defer m.lck.Unlock()
-	m.data[path] = append(m.data[path], data...)
+	jww.ERROR.Printf("Write: %s", path)
+
+	m.lastWrite = time.Now()
+	m.data[path] = data
+	m.lastMod[path] = time.Now()
 	return nil
 }
 
 func (m *mockRemote) ReadDir(path string) ([]string, error) {
-	panic("unimplemented")
+	m.lck.Lock()
+	defer m.lck.Unlock()
+	jww.ERROR.Printf("ReadDir: %s", path)
+
+	paths := make([]string, 0)
+	for k := range m.data {
+		if strings.HasPrefix(k, path) {
+			paths = append(paths, k)
+		}
+	}
+	return paths, nil
 }
 
 func (m *mockRemote) GetLastModified(path string) (time.Time, error) {
-	return netTime.Now(), nil
+	m.lck.Lock()
+	defer m.lck.Unlock()
+	jww.ERROR.Printf("GetLastModified: %s", path)
+	lastMod, ok := m.lastMod[path]
+	if ok {
+		return lastMod, nil
+	}
+	return time.Unix(0, 0), nil
 }
 
 func (m *mockRemote) GetLastWrite() (time.Time, error) {
-	return netTime.Now(), nil
+	return m.lastWrite, nil
 }
 
 // CountingReader is a platform-independent deterministic RNG that adheres to

@@ -11,10 +11,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
@@ -74,6 +76,11 @@ type internalKV struct {
 
 	// txLog is the mutate log used to Write transactions.
 	txLog *remoteWriter
+	col   *collector
+
+	// is the synchronization thread active?
+	isSynchronizing *atomic.Bool
+	mux             sync.Mutex
 
 	// keyUpdateListeners holds callbacks called when a key is updated
 	// by a remote
@@ -86,11 +93,15 @@ type internalKV struct {
 // that context and handle it appropriately.
 func newKV(transactionLog *remoteWriter, kv ekv.KeyValue) *internalKV {
 
+	isSync := atomic.Bool{}
+	isSync.Store(false)
+
 	rkv := &internalKV{
 		local:              kv,
 		txLog:              transactionLog,
 		keyUpdateListeners: make(map[string]KeyUpdateCallback),
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
+		isSynchronizing:    &isSync,
 	}
 
 	// Panic if an instance ID doesn't exist
@@ -105,7 +116,7 @@ func newKV(transactionLog *remoteWriter, kv ekv.KeyValue) *internalKV {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Begin KV [ekv.KeyValue] interface implementation functions
+// KV [ekv.KeyValue] interface implementation functions
 ///////////////////////////////////////////////////////////////////////////////
 
 // Set implements [ekv.KeyValue.Set]. This is a LOCAL ONLY
@@ -213,6 +224,10 @@ func (r *internalKV) MutualTransaction(keys []string, op ekv.MutualTransactionOp
 
 	return r.local.MutualTransaction(keys, op)
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Collector API - collector uses these to update local
+///////////////////////////////////////////////////////////////////////////////
 
 // SetBytesFromRemote implements [ekv.KeyValue.SetBytes].
 // This is a LOCAL ONLY operation which will Write the Mutate
@@ -362,19 +377,35 @@ func (r *internalKV) DeleteFromRemote(key string) error {
 // ListenOnRemoteKey allows the caller to receive updates when
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
-func (r *internalKV) ListenOnRemoteKey(key string, callback KeyUpdateCallback) {
+// NOTE: It may make more sense to listen for updates via the collector directly
+func (r *internalKV) ListenOnRemoteKey(key string, cb KeyUpdateCallback) ([]byte,
+	error) {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
-	r.keyUpdateListeners[key] = callback
+
+	if r.IsSynchronizing() {
+		jww.FATAL.Panic("cannot add listener when synchronizing")
+	}
+
+	r.keyUpdateListeners[key] = cb
+	return r.GetBytes(key)
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // any element in the given map is updated by synching with another client.
 // Only one callback can be written per key.
-func (r *internalKV) ListenOnRemoteMap(mapName string, callback mapChangedByRemoteCallback) {
+// NOTE: It may make more sense to listen for updates via the collector directly
+func (r *internalKV) ListenOnRemoteMap(mapName string,
+	cb mapChangedByRemoteCallback) (map[string][]byte, error) {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
-	r.mapUpdateListeners[mapName] = callback
+
+	if r.IsSynchronizing() {
+		jww.FATAL.Panic("cannot add listener when synchronizing")
+	}
+
+	r.mapUpdateListeners[mapName] = cb
+	return r.GetMap(mapName)
 }
 
 type mapChangedByRemoteCallback func(mapName string, edits map[string]elementEdit)
@@ -385,7 +416,7 @@ type elementEdit struct {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// End KV [ekv.KeyValue] interface implementation functions
+// Remote functions -- writers to the txLog
 ///////////////////////////////////////////////////////////////////////////////
 
 // SetRemote will Write a mutate to the remote and write the key to the
@@ -432,4 +463,65 @@ func isRemoteKV(kv ekv.KeyValue) bool {
 		return true
 	}
 	return false
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Collector Wrappers -- FIXME, this should probably be put elsewhere on stack
+// but we don't have a good design solution for it yet.
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *internalKV) IsSynchronizing() bool {
+	return r.isSynchronizing.Load()
+}
+
+func (r *internalKV) StartProcesses() (stoppable.Stoppable, error) {
+
+	// Lock up while we start to prevent Listen functions from overlapping
+	// with this function.
+	r.UpdateListenerMux.Lock()
+	defer r.UpdateListenerMux.Unlock()
+
+	r.isSynchronizing.Store(true)
+
+	// Construct stoppables
+	multiStoppable := stoppable.NewMulti(syncStoppable)
+
+	if r.col != nil {
+		colStopper := stoppable.NewSingle(collectorRunnerStoppable)
+		multiStoppable.Add(colStopper)
+		go r.col.runner(colStopper)
+	}
+
+	writerStopper := stoppable.NewSingle(writerRunnerStoppable)
+	multiStoppable.Add(writerStopper)
+	go r.txLog.Runner(writerStopper)
+
+	// Switch my state back to not synchronizing when stopped
+	myStopper := stoppable.NewSingle(syncStoppable + "_synchronizing")
+	go func(s *stoppable.Single) {
+		<-s.Quit()
+		s.ToStopped()
+		r.isSynchronizing.Store(false)
+	}(myStopper)
+	multiStoppable.Add(myStopper)
+
+	return multiStoppable, nil
+}
+
+func (r *internalKV) RegisterConnectionTracker(nc NotifyCallback) {
+	r.col.Register(nc)
+	go nc(r.col.IsConnected())
+}
+
+func (r *internalKV) IsConnected() bool {
+	return r.col.IsConnected()
+}
+
+func (r *internalKV) IsSynched() bool {
+	return r.col.IsSynched()
+}
+
+// WaitForRemote block until timeout or remote operations complete
+func (r *internalKV) WaitForRemote(timeout time.Duration) bool {
+	return r.col.WaitUntilSynched(timeout)
 }

@@ -167,7 +167,9 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 func TestTransactionLog_Serialize(t *testing.T) {
 
 	kv := ekv.MakeMemstore()
-	txLog := makeTransactionLog(kv, ".baseDir", t)
+	remoteStore := newMockRemote()
+
+	txLog := makeTransactionLog(kv, ".baseDir", remoteStore, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -200,7 +202,9 @@ func TestTransactionLog_Serialize(t *testing.T) {
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestTransactionLog_Deserialize(t *testing.T) {
 	kv := ekv.MakeMemstore()
-	txLog := makeTransactionLog(kv, ".baseDir", t)
+	remoteStore := newMockRemote()
+
+	txLog := makeTransactionLog(kv, ".baseDir", remoteStore, t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -219,7 +223,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	require.NoError(t, err)
 
 	kv2 := ekv.MakeMemstore()
-	newTxLog := makeTransactionLog(kv2, ".baseDir2", t)
+	newTxLog := makeTransactionLog(kv2, ".baseDir2", remoteStore, t)
 
 	// Deserialize the mutate log
 	require.NoError(t, newTxLog.state.Deserialize(data))

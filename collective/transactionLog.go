@@ -9,6 +9,7 @@ package collective
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -107,10 +108,14 @@ type transaction struct {
 func newRemoteWriter(path string, deviceID InstanceID,
 	io FileIO, encrypt encryptor, kv ekv.KeyValue) (*remoteWriter, error) {
 
+	// Per spec, the path is: [path] + /[deviceID]/[txlog]
+	// we don't use path.join because we aren't relying on OS pathSep.
+	myPath := fmt.Sprintf("%s/%s/%s", path, deviceID, "mystate.xx")
+
 	connected := uint32(0)
 	// Construct a new mutate log
 	tx := &remoteWriter{
-		path:           path,
+		path:           myPath,
 		header:         newHeader(deviceID),
 		state:          newPatch(),
 		adds:           make(chan transaction, 1000),

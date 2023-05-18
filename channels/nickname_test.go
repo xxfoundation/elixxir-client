@@ -19,7 +19,7 @@ var dummyNicknameUpdate = func(channelId *id.ID, nickname string, exists bool) {
 // Unit test. Tests that once you set a nickname with SetNickname, you can
 // retrieve the nickname using GetNickname.
 func TestNicknameManager_SetGetNickname(t *testing.T) {
-	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -42,7 +42,7 @@ func TestNicknameManager_SetGetNickname(t *testing.T) {
 // Unit test. Tests that once you set a nickname with SetNickname, you can
 // retrieve the nickname using GetNickname after a reload.
 func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
-	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -73,7 +73,7 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 // Error case: Tests that nicknameManager.GetNickname returns a false boolean
 // if no nickname has been set with the channel ID.
 func TestNicknameManager_GetNickname_Error(t *testing.T) {
-	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	rkv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -88,7 +88,7 @@ func TestNicknameManager_GetNickname_Error(t *testing.T) {
 }
 
 func TestNicknameManager_DeleteNickname(t *testing.T) {
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 	nm := loadOrNewNicknameManager(kv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -142,7 +142,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 		wg.Done()
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 	nm := loadOrNewNicknameManager(kv, testingCB)
 
 	// build the input and output data

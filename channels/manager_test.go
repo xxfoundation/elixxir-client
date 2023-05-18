@@ -53,7 +53,7 @@ func TestManager_JoinChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
@@ -97,7 +97,7 @@ func TestManager_LeaveChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
@@ -242,7 +242,7 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
@@ -289,7 +289,7 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),

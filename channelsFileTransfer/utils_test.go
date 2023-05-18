@@ -187,7 +187,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
+func (m *mockCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte,
 	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
@@ -215,7 +215,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 		if exists {
 			go func(mp message.Processor, rid id.Round,
 				targetedMsg cmix.TargetedCmixMessage, msg format.Message) {
-				mp.Process(msg, receptionID.EphemeralIdentity{
+				mp.Process(msg, nil, nil, receptionID.EphemeralIdentity{
 					Source: targetedMsg.Recipient}, rounds.Round{ID: rid},
 				)
 			}(mp, rid, targetedMsg, msg)
@@ -244,7 +244,7 @@ func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Pr
 	p, exists := m.handler.messageList[fp]
 	if exists {
 		go mp.Process(
-			p.msg,
+			p.msg, nil, nil,
 			receptionID.EphemeralIdentity{Source: p.targetedMsg.Recipient},
 			rounds.Round{ID: p.rid},
 		)
@@ -265,7 +265,13 @@ func (m *mockCmix) DeleteClientFingerprints(*id.ID) {
 	m.handler.processorMap = make(map[format.Fingerprint]message.Processor)
 }
 
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    { panic("implement me") }
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor) { panic("implement me") }
+func (m *mockCmix) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {
+	panic("implement me")
+}
+func (m *mockCmix) DeleteCompressedService(*id.ID, message.CompressedService, message.Processor) {
+	panic("implement me")
+}
 func (m *mockCmix) PauseNodeRegistrations(time.Duration) error               { panic("implement me") }
 func (m *mockCmix) ChangeNumberOfNodeRegistrations(int, time.Duration) error { panic("implement me") }
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
@@ -571,10 +577,13 @@ func (m *mockChannelsManager) GetChannels() []*id.ID                      { pani
 func (m *mockChannelsManager) GetChannel(*id.ID) (*cryptoBroadcast.Channel, error) {
 	panic("implement me")
 }
+func (m *mockChannelsManager) SendSilent(channelID *id.ID, validUntil time.Duration, params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
 
 func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	messageType channels.MessageType, msg []byte, validUntil time.Duration,
-	_ bool, _ cmix.CMIXParams) (
+	_ bool, _ cmix.CMIXParams, _ []ed25519.PublicKey) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
 	msgID := cryptoMessage.DeriveChannelMessageID(channelID, 0, msg)
@@ -587,10 +596,10 @@ func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	return msgID, rounds.Round{}, ephemeral.Id{}, nil
 }
 
-func (m *mockChannelsManager) SendMessage(*id.ID, string, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+func (m *mockChannelsManager) SendMessage(*id.ID, string, time.Duration, cmix.CMIXParams, []ed25519.PublicKey) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
-func (m *mockChannelsManager) SendReply(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+func (m *mockChannelsManager) SendReply(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams, []ed25519.PublicKey) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 func (m *mockChannelsManager) SendReaction(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {

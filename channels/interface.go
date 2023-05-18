@@ -119,7 +119,8 @@ type Manager interface {
 	// messageType that corresponds to a handler that does not return a unique
 	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
-		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
+		validUntil time.Duration, tracked bool, params cmix.CMIXParams,
+		pings []ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
@@ -131,7 +132,7 @@ type Manager interface {
 	// The message will auto delete validUntil after the round it is sent in,
 	// lasting forever if ValidForever is used.
 	SendMessage(channelID *id.ID, msg string, validUntil time.Duration,
-		params cmix.CMIXParams) (
+		params cmix.CMIXParams, pings []ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendReply is used to send a formatted message over a channel.
@@ -146,7 +147,8 @@ type Manager interface {
 	// The message will auto delete validUntil after the round it is sent in,
 	// lasting forever if ValidForever is used.
 	SendReply(channelID *id.ID, msg string, replyTo message.ID,
-		validUntil time.Duration, params cmix.CMIXParams) (
+		validUntil time.Duration, params cmix.CMIXParams,
+		pings []ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendReaction is used to send a reaction to a message over a channel. The
@@ -161,6 +163,15 @@ type Manager interface {
 	SendReaction(channelID *id.ID, reaction string, reactTo message.ID,
 		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
+
+	// SendSilent is used to send to a channel a message with no notifications.
+	// Its primary purpose is to communicate new nicknames without calling
+	// SendMessage.
+	//
+	// It takes no payload intentionally as the message should be very
+	// lightweight.
+	SendSilent(channelID *id.ID, validUntil time.Duration,
+		params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //

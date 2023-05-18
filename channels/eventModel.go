@@ -407,7 +407,7 @@ func (e *events) RegisterReceiveHandler(
 
 // triggerEventFunc is triggered on normal message reception.
 type triggerEventFunc func(channelID *id.ID, umi *userMessageInternal,
-	encryptedPayload []byte, timestamp time.Time,
+	messageType MessageType, encryptedPayload []byte, timestamp time.Time,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	status SentStatus) (uint64, error)
 
@@ -418,12 +418,11 @@ type triggerEventFunc func(channelID *id.ID, umi *userMessageInternal,
 //
 // This function adheres to the triggerEventFunc type.
 func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
-	encryptedPayload []byte, timestamp time.Time,
+	messageType MessageType, encryptedPayload []byte, timestamp time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (
 	uint64, error) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()
-	messageType := MessageType(cm.PayloadType)
 
 	// Check if the user is muted on this channel
 	isMuted := e.mutedUsers.isMuted(channelID, um.ECCPublicKey)
@@ -470,9 +469,9 @@ func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
 
 // triggerAdminEventFunc is triggered on admin message reception.
 type triggerAdminEventFunc func(channelID *id.ID, cm *ChannelMessage,
-	encryptedPayload []byte, timestamp time.Time, messageID message.ID,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) (uint64, error)
+	messageType MessageType, encryptedPayload []byte, timestamp time.Time,
+	messageID message.ID, receptionID receptionID.EphemeralIdentity,
+	round rounds.Round, status SentStatus) (uint64, error)
 
 // triggerAdminEvent is an internal function that is used to trigger message
 // reception on a message received from the admin (asymmetric encryption).
@@ -481,10 +480,10 @@ type triggerAdminEventFunc func(channelID *id.ID, cm *ChannelMessage,
 //
 // This function adheres to the triggerAdminEventFunc type.
 func (e *events) triggerAdminEvent(channelID *id.ID, cm *ChannelMessage,
-	encryptedPayload []byte, timestamp time.Time, messageID message.ID,
-	_ receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (
+	messageType MessageType, encryptedPayload []byte, timestamp time.Time,
+	messageID message.ID, _ receptionID.EphemeralIdentity,
+	round rounds.Round, status SentStatus) (
 	uint64, error) {
-	messageType := MessageType(cm.PayloadType)
 
 	// Check if there are any saved actions for this message
 	updateFn, deleted := e.as.CheckSavedActions(channelID, messageID)
@@ -916,7 +915,8 @@ func (e *events) receiveAdminReplay(channelID *id.ID, messageID message.ID,
 		return 0
 	}
 
-	go p.ProcessAdminMessage(content, receptionID.EphemeralIdentity{}, round)
+	go p.ProcessAdminMessage(content, nil, uint16(messageType),
+		receptionID.EphemeralIdentity{}, round)
 	return 0
 }
 

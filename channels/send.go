@@ -31,6 +31,7 @@ import (
 const (
 	cmixChannelTextVersion     = 0
 	cmixChannelReactionVersion = 0
+	cmixChannelSilentVersion   = 0
 	cmixChannelDeleteVersion   = 0
 	cmixChannelPinVersion      = 0
 
@@ -45,6 +46,10 @@ const (
 	// SendReactionTag is the base tag used when generating a debug tag for
 	// sending a reaction.
 	SendReactionTag = "ChReaction"
+
+	// SendSilentTag is the base tag used when generating a debug tag for
+	// sending a silent message.
+	SendSilentTag = "ChSilent"
 
 	// SendDeleteTag is the base tag used when generating a debug tag for a
 	// delete message.
@@ -92,8 +97,12 @@ func timeNow() string { return netTime.Now().Format("15:04:05.9999999") }
 // should be tracked while all actions should not be. More technically, any
 // messageType that corresponds to a handler that does not return a unique
 // ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
+//
+// Pings are a list of ed25519 public keys that will receive notifications
+// for this message. They must be in the channel and have notifications enabled
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
-	msg []byte, validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
+	msg []byte, validUntil time.Duration, tracked bool, params cmix.CMIXParams,
+	pings []ed25519.PublicKey) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 
 	if hmac.Equal(channelID.Bytes(), emptyChannelID.Bytes()) {
@@ -144,7 +153,6 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
-		PayloadType:    uint32(messageType),
 		Payload:        msg,
 		Nickname:       nickname,
 		Nonce:          make([]byte, messageNonceSize),
@@ -226,7 +234,9 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	}
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
-	r, ephID, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
+	tags := makeUserPingTags(pings)
+	r, ephID, err := ch.broadcast.BroadcastWithAssembler(assemble, tags,
+		uint16(messageType), params)
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
@@ -260,8 +270,11 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 //
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if ValidForever is used.
+//
+// Pings are a list of ed25519 public keys that will receive notifications
+// for this message. They must be in the channel and have notifications enabled
 func (m *manager) SendMessage(channelID *id.ID, msg string,
-	validUntil time.Duration, params cmix.CMIXParams) (
+	validUntil time.Duration, params cmix.CMIXParams, pings []ed25519.PublicKey) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendMessageTag)
 	jww.INFO.Printf("[CH] [%s] SendMessage to channel %s", tag, channelID)
@@ -280,7 +293,7 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 	}
 
 	return m.SendGeneric(
-		channelID, Text, txtMarshaled, validUntil, true, params)
+		channelID, Text, txtMarshaled, validUntil, true, params, pings)
 }
 
 // SendReply is used to send a formatted message over a channel.
@@ -294,9 +307,12 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 //
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if ValidForever is used.
+//
+// Pings are a list of ed25519 public keys that will receive notifications
+// for this message. They must be in the channel and have notifications enabled
 func (m *manager) SendReply(channelID *id.ID, msg string,
 	replyTo message.ID, validUntil time.Duration,
-	params cmix.CMIXParams) (
+	params cmix.CMIXParams, pings []ed25519.PublicKey) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendReplyTag)
 	jww.INFO.Printf(
@@ -315,7 +331,7 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 	}
 
 	return m.SendGeneric(
-		channelID, Text, txtMarshaled, validUntil, true, params)
+		channelID, Text, txtMarshaled, validUntil, true, params, pings)
 }
 
 // SendReaction is used to send a reaction to a message over a channel. The
@@ -326,6 +342,9 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 //
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if ValidForever is used.
+//
+// Pings are a list of ed25519 public keys that will receive notifications
+// for this message. They must be in the channel and have notifications enabled
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	reactTo message.ID, validUntil time.Duration, params cmix.CMIXParams) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
@@ -352,7 +371,8 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	}
 
 	return m.SendGeneric(
-		channelID, Reaction, reactMarshaled, validUntil, true, params)
+		channelID, Reaction, reactMarshaled, validUntil, true, params,
+		nil)
 }
 
 // replayAdminMessage is used to rebroadcast an admin message asa a norma user.
@@ -367,7 +387,41 @@ func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
 	// Set validUntil to 0 since the replay message itself is not registered in
 	// the lease system (only the message its contains)
 	return m.SendGeneric(
-		channelID, AdminReplay, encryptedPayload, 0, false, params)
+		channelID, AdminReplay, encryptedPayload, 0,
+		false, params, nil)
+}
+
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very lightweight.
+func (m *manager) SendSilent(channelID *id.ID, validUntil time.Duration,
+	params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
+	// Formulate custom tag
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, nil, SendSilentTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf(
+		"[CH] [%s] SendSilent on channel %s", tag, channelID)
+
+	// Construct message
+	silent := &CMIXChannelSilentMessage{
+		Version: cmixChannelSilentVersion,
+	}
+
+	// Marshal message
+	silentMarshalled, err := proto.Marshal(silent)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Send silent message
+	return m.SendGeneric(channelID, Silent, silentMarshalled,
+		validUntil, true, params, nil)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -438,7 +492,6 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	var messageID message.ID
 	chMsg := &ChannelMessage{
 		Lease:          validUntil.Nanoseconds(),
-		PayloadType:    uint32(messageType),
 		Payload:        msg,
 		Nickname:       AdminUsername,
 		Nonce:          make([]byte, messageNonceSize),
@@ -492,7 +545,8 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
 	encryptedPayload, r, ephID, err := ch.broadcast.
-		BroadcastRSAToPublicWithAssembler(privKey, assemble, params)
+		BroadcastRSAToPublicWithAssembler(privKey, assemble, nil,
+			uint16(messageType), params)
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
@@ -577,7 +631,7 @@ func (m *manager) DeleteMessage(channelID *id.ID,
 			channelID, Delete, deleteMarshaled, ValidForever, false, params)
 	} else {
 		return m.SendGeneric(
-			channelID, Delete, deleteMarshaled, ValidForever, false, params)
+			channelID, Delete, deleteMarshaled, ValidForever, false, params, nil)
 	}
 }
 
@@ -669,4 +723,20 @@ func makeChaDebugTag(
 
 	tripCode := base64.RawStdEncoding.EncodeToString(h.Sum(nil))[:12]
 	return fmt.Sprintf("%s-%s", baseTag, tripCode)
+}
+
+func makeUserPingTags(users []ed25519.PublicKey) []string {
+	if users == nil || len(users) == 0 {
+		return nil
+	}
+	s := make([]string, len(users))
+	for i := 0; i < len(s); i++ {
+		s[i] = makeUserPingTag(users[i])
+	}
+	return s
+}
+
+func makeUserPingTag(user ed25519.PublicKey) string {
+	return fmt.Sprintf("%x-usrping", user)
+
 }

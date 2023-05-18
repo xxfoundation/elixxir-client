@@ -642,6 +642,9 @@ func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEve
 }
 func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
 func (m *mockBroadcastClient) RemoveHealthCallback(uint64)         {}
+func (m *mockBroadcastClient) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock EventModel                                                            //

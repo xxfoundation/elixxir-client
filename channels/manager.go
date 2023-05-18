@@ -85,6 +85,8 @@ type Client interface {
 		roundList ...id.Round)
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
+	UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+		response message.Processor)
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.

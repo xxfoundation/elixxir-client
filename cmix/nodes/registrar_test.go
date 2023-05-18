@@ -9,6 +9,7 @@ package nodes
 
 import (
 	"bytes"
+	"fmt"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/storage"
 	commNetwork "gitlab.com/elixxir/comms/network"
@@ -51,7 +52,7 @@ func TestLoadRegistrar_New(t *testing.T) {
 	if r.(*registrar).nodes == nil {
 		t.Errorf("Failed to initialize nodes")
 	}
-	if r.(*registrar).kv == nil {
+	if r.(*registrar).remote == nil {
 		t.Errorf("Failed to set store.kv")
 	}
 }
@@ -86,6 +87,7 @@ func TestLoadRegistrar_Load(t *testing.T) {
 
 	circuit := connect.NewCircuit([]*id.ID{nodeId})
 	keys, _ := r.GetNodeKeys(circuit)
+	fmt.Println(keys)
 	if keys.(*mixCypher).keys[0].validUntil != expectedValid {
 		t.Errorf("Unexpected valid until value loaded from store."+
 			"\nexpected: %v\nreceived: %v",

@@ -3,6 +3,7 @@ package notifications
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	notifCrypto "gitlab.com/elixxir/crypto/notifications"
@@ -19,6 +20,10 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 
 	currentReg, exists := m.notifications[*toBeNotifiedOn]
 	if exists {
+		if currentReg.Group != group {
+			return errors.New("cannot change the group of a notification " +
+				"registration")
+		}
 		if currentReg.Status == status &&
 			bytes.Equal(metadata, currentReg.Metadata) {
 			return nil

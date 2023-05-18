@@ -15,6 +15,27 @@ type Manager interface {
 	// Group is used to segment the notifications lists so different users of the same
 	// object do not interfere. Metadata will be synchronized, allowing more verbose
 	// notifications settings. Max 1KB.
+	//
+	// This function in general will not be called over the bindings, it will be
+	// used by intermediary structures like channels and DMs to provide
+	// notifications access on a per case basis
+	//
+	// Parameters //
+	//  toBeNotifiedOn - ID that you are tracking. You will receive notifications
+	// that need to be filtered every time a message is received on this ID.
+	//  group - The group this is categorized in. Used for callbacks and
+	// the GetGroup function to allow for automatic filtering of registered
+	// notifications for a specific submodule or use case. The group cannot be
+	// changed, if set is called on an id which is already registered at a
+	// different id, and error will be returned.
+	//  metadata - an extra field allowing storage and synchronization of use
+	// case specific notification data
+	// status - the notifications state the ID should be in. these are
+	//        Mute - show no notifications for the id
+	//        WhenOpen - show notifications only within the open app, no
+	//        registration or privacy leak will occur
+	//        Push - show notifications as push notification on applicable
+	//        devices, will have a minor privacy loss
 	Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error
 	// Get returns the status of the notifications for the given ID, or
 	// an error if not present

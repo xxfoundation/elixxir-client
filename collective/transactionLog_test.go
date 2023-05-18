@@ -161,42 +161,6 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	require.Equal(t, txLog, newTxLog)
 }
 
-// // Unit test for Append. Ensure that callback is called with every call
-// // to remoteWriter.Append.
-// func TestTransactionLog_Append_Callback(t *testing.T) {
-// 	// Construct mutate log
-// 	txLog := makeTransactionLog("baseDir", password, t)
-
-// 	// Construct timestamps
-// 	mockTimestamps := constructTimestamps(t, 0)
-
-// 	// Insert mutate
-// 	for cnt, curTs := range mockTimestamps {
-// 		curChan := make(chan Mutate, 1)
-// 		// Set append callback manually
-// 		appendCb := RemoteStoreCallback(func(newTx Mutate, err error) {
-// 			curChan <- newTx
-// 		})
-
-// 		// Construct mutate
-// 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-// 		newTx := NewMutate(curTs, key, []byte(val))
-
-// 		// Append mutate
-// 		require.NoError(t, txLog.Append(newTx, appendCb))
-
-// 		// Wait for signal sent in callback (or timeout)
-// 		select {
-// 		case <-time.After(50 * time.Millisecond):
-// 			t.Fatalf("Failed to receive from callback")
-// 		case receivedTx := <-curChan:
-// 			require.Equal(t, newTx, receivedTx)
-// 		}
-// 		close(curChan)
-// 	}
-
-// }
-
 // // Unit test for Save. Ensures that remoteWriter's saveLastMutationTime function writes to
 // // remote and local stores when they are set.
 // func TestTransactionLog_Save(t *testing.T) {

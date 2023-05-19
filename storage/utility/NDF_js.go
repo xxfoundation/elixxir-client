@@ -14,7 +14,7 @@ import (
 
 const ndfStorageKeyNamePrefix = "ndfStorageKey/"
 
-func LoadNDF(_ *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
+func LoadNDF(_ versioned.KV, key string) (*ndf.NetworkDefinition, error) {
 	value, err := StateKV.Get(ndfStorageKeyNamePrefix + key)
 	if err != nil {
 		return nil, err

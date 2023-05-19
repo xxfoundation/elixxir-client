@@ -98,11 +98,12 @@ var channelsFileTransferCmd = &cobra.Command{
 				"[FT] Failed to create new file transfer manager: %+v", err)
 		}
 
+
 		// Construct channels manager
-		cb := func([]channels.NotificationFilter) {}
+		cbs := &channelCbs{}
 		em.eventModel.api, err = channels.NewManager(chanID,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(), em,
-			extensions, user.AddService, nil, cb)
+			extensions, user.AddService, nil, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[FT] Failed to create channels manager: %+v", err)
 		}

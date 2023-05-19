@@ -255,7 +255,7 @@ type Manager interface {
 
 	// RegisterReceiveHandler registers a listener for non-default message types
 	// so that they can be processed by modules. It is important that such
-	// modules sync up with the event model implementation.
+	// modules collective up with the event model implementation.
 	//
 	// There can only be one handler per message type; the error
 	// MessageTypeAlreadyRegistered will be returned on multiple registrations
@@ -445,9 +445,11 @@ type ExtensionBuilder func(e EventModel, m Manager,
 type AddServiceFn func(sp xxdk.Service) error
 
 // UiCallbacks is an interface that a caller can adhere to in order to get
-// updates on when sync events occur that require the UI to be updated
-// and what those events are
+// updates on when sync events occur that require the UI to be updated and what
+// those events are.
 type UiCallbacks interface {
+	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
+
 	// FilterCallback is called every time there is a change to the notification
 	// filtering options. It returns services that are compared with
 	// notification data to determine which channel notifications belong to you

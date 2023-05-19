@@ -7,14 +7,7 @@
 
 package bindings
 
-import (
-	"encoding/json"
-	id2 "gitlab.com/xx_network/primitives/id"
-
-	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/primitives/notifications"
-)
-
+/*
 // NotificationReports is a list of [NotificationReport] objects. It is returned
 // via [GetNotificationsReport] as a JSON marshalled byte data.
 //
@@ -269,4 +262,4 @@ func getServicesReport(marshalledServices []byte,
 	}
 
 	return reportList, nil
-}
+}*/

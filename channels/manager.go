@@ -47,7 +47,7 @@ type manager struct {
 	mux      sync.RWMutex
 
 	// External references
-	kv  *versioned.KV
+	kv  versioned.KV
 	net Client
 	nm  NotificationsManager
 	rng *fastRNG.StreamGenerator
@@ -114,7 +114,7 @@ type NotificationInfo struct {
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
-func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	extensions []ExtensionBuilder, addService AddServiceFn,
 	nm NotificationsManager, uiCallbacks UiCallbacks) (Manager, error) {
@@ -131,12 +131,7 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // [cryptoChannel.PrivateIdentity]. It prefixes the KV with a tag derived from
 // the public key that can be retried for reloading using
 // [Manager.GetStorageTag].
-//
-// The [FilterCallback] returns services that are compared with notification
-// data to determine which channel notifications belong to you using
-// [GetNotificationReportsForMe]. It must be registered even if notifications
-// are not used.
-func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn,
 	nm NotificationsManager, uiCallbacks UiCallbacks) (Manager, error) {
@@ -151,7 +146,10 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
 		identity.Codename, identity.PubKey, storageTag)
-	kv = kv.Prefix(storageTag)
+	kv, err := kv.Prefix(storageTag)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := storeIdentity(kv, identity); err != nil {
 		return nil, err
@@ -165,15 +163,17 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 // LoadManager restores a channel Manager from disk stored at the given storage
 // tag.
-func LoadManager(storageTag string, kv *versioned.KV, net Client,
+func LoadManager(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, nm NotificationsManager,
-	uiCallbacks UiCallbacks) (
-	Manager, error) {
+	uiCallbacks UiCallbacks) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
-	kv = kv.Prefix(storageTag)
+	kv, err := kv.Prefix(storageTag)
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the identity
 	identity, err := loadIdentity(kv)
@@ -189,7 +189,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 
 // LoadManagerBuilder restores a channel Manager from disk stored at the given storage
 // tag.
-func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
+func LoadManagerBuilder(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	extensions []ExtensionBuilder, nm NotificationsManager,
 	uiCallbacks UiCallbacks) (Manager, error) {
@@ -201,10 +201,14 @@ func LoadManagerBuilder(storageTag string, kv *versioned.KV, net Client,
 	return LoadManager(storageTag, kv, net, rng, model, extensions, nm, uiCallbacks)
 }
 
-func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensionBuilders []ExtensionBuilder, nm NotificationsManager,
 	uiCallbacks UiCallbacks) *manager {
+
+	if uiCallbacks == nil {
+		uiCallbacks = &dummyUICallback{}
+	}
 
 	// Build the manager
 	m := &manager{
@@ -224,7 +228,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m.loadChannels()
 
-	m.nicknameManager = LoadOrNewNicknameManager(kv)
+	m.nicknameManager = loadOrNewNicknameManager(kv, uiCallbacks.NicknameUpdate)
 
 	m.notifications = newNotifications(
 		identity.PubKey, uiCallbacks.FilterCallback, m, nm)
@@ -470,4 +474,13 @@ func (m *manager) Muted(channelID *id.ID) bool {
 func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 	jww.INFO.Printf("[CH] GetMutedUsers in channel %s", channelID)
 	return m.mutedUsers.getMutedUsers(channelID)
+}
+
+// dummyUICallback is an implementation of UI callbacks that does nothing
+// it is used for tests and when nothing is passed in for UI callbacks
+type dummyUICallback struct{}
+
+func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
+	exists bool) {
+	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
 }

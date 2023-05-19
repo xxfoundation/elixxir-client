@@ -33,7 +33,7 @@ type Partitioner struct {
 	partition         *partition.Store
 }
 
-func NewPartitioner(kv *versioned.KV, messageSize int) *Partitioner {
+func NewPartitioner(kv versioned.KV, messageSize int) *Partitioner {
 	p := Partitioner{
 		baseMessageSize:   messageSize,
 		firstContentsSize: messageSize - firstHeaderLen,

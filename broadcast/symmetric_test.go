@@ -19,7 +19,7 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"reflect"
-	"sync"
+	"collective"
 	"testing"
 	"time"
 )
@@ -81,7 +81,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
 
 		// Start processes that waits for each client to receive broadcast
-		var wg sync.WaitGroup
+		var wg collective.WaitGroup
 		for j := range cbChans {
 			wg.Add(1)
 			go func(i, j int, cbChan chan []byte) {
@@ -119,7 +119,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	copy(payload, "This message should not get through.")
 
 	// Start waiting on channels and error if anything is received
-	var wg sync.WaitGroup
+	var wg collective.WaitGroup
 	for i := range cbChans {
 		wg.Add(1)
 		go func(i int, cbChan chan []byte) {

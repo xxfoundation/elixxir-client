@@ -9,14 +9,15 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.6.0
+	github.com/rivo/uniseg v0.4.3
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.2
 	gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8
-	gitlab.com/elixxir/comms v0.0.4-0.20230322130755-e59b16bce601
-	gitlab.com/elixxir/crypto v0.0.7-0.20230426165458-8efb601f9cc0
-	gitlab.com/elixxir/ekv v0.2.2
+	gitlab.com/elixxir/comms v0.0.4-0.20230511183231-e32b848c552d
+	gitlab.com/elixxir/crypto v0.0.7-0.20230427180955-9563c73f0fea
+	gitlab.com/elixxir/ekv v0.3.1-0.20230504190918-f5e96603c2e0
 	gitlab.com/elixxir/primitives v0.0.3-0.20230214180039-9a25e2d3969c
 	gitlab.com/xx_network/comms v0.0.4-0.20230214180029-5387fb85736d
 	gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd

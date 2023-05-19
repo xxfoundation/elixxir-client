@@ -33,7 +33,7 @@ type e2eMessage struct {
 
 // SaveMessage saves the e2eMessage as a versioned object at the specified key
 // in the key value store.
-func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
+func (emh *e2eMessageHandler) SaveMessage(kv versioned.KV, m interface{},
 	key string) error {
 	msg := m.(e2eMessage)
 
@@ -57,7 +57,7 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 // LoadMessage returns the e2eMessage with the specified key from the key value
 // store. An empty message and error are returned if the message could not be
 // retrieved.
-func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (
+func (emh *e2eMessageHandler) LoadMessage(kv versioned.KV, key string) (
 	interface{}, error) {
 	// Load the versioned object
 	vo, err := kv.Get(key, currentE2EMessageVersion)
@@ -77,7 +77,7 @@ func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (
 
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
-func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV,
+func (emh *e2eMessageHandler) DeleteMessage(kv versioned.KV,
 	key string) error {
 	return kv.Delete(key, currentE2EMessageVersion)
 }
@@ -106,7 +106,7 @@ type E2eMessageBuffer struct {
 	mb *utility.MessageBuffer
 }
 
-func NewOrLoadE2eMessageBuffer(kv *versioned.KV, key string) (
+func NewOrLoadE2eMessageBuffer(kv versioned.KV, key string) (
 	*E2eMessageBuffer, error) {
 	mb, err := LoadE2eMessageBuffer(kv, key)
 	if err == nil {
@@ -119,7 +119,7 @@ func NewOrLoadE2eMessageBuffer(kv *versioned.KV, key string) (
 	return &E2eMessageBuffer{mb: mbInt}, nil
 }
 
-func LoadE2eMessageBuffer(kv *versioned.KV, key string) (
+func LoadE2eMessageBuffer(kv versioned.KV, key string) (
 	*E2eMessageBuffer, error) {
 	mb, err := utility.LoadMessageBuffer(kv, &e2eMessageHandler{}, key)
 	if err != nil {

@@ -50,7 +50,7 @@ type ActionSaver struct {
 	// action.
 	triggerFn triggerActionEventFunc
 
-	kv  *versioned.KV
+	kv  versioned.KV
 	mux sync.RWMutex
 }
 
@@ -66,7 +66,7 @@ type savedAction struct {
 
 // NewActionSaver initialises a new empty ActionSaver.
 func NewActionSaver(
-	triggerFn triggerActionEventFunc, kv *versioned.KV) *ActionSaver {
+	triggerFn triggerActionEventFunc, kv versioned.KV) *ActionSaver {
 	as := &ActionSaver{
 		actions:   make(map[id.ID]map[messageIdKey]*savedAction),
 		triggerFn: triggerFn,

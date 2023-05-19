@@ -87,7 +87,7 @@ type session interface {
 	GetTransmissionID() *id.ID
 	IsPrecanned() bool
 	GetCmixGroup() *cyclic.Group
-	GetKV() *versioned.KV
+	GetKV() versioned.KV
 	GetTransmissionRSA() rsa.PrivateKey
 	GetRegistrationTimestamp() time.Time
 	GetTransmissionSalt() []byte

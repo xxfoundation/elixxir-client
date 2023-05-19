@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -36,7 +37,8 @@ func Test_newReceivedTransfer(t *testing.T) {
 	parts, _ := generateTestParts(16)
 	fileSize := uint32(len(parts) * len(parts[0]))
 	numParts := uint16(len(parts))
-	rtKv := kv.Prefix(makeReceivedTransferPrefix(fid))
+	rtKv, err := kv.Prefix(makeReceivedTransferPrefix(fid))
+	require.NoError(t, err)
 
 	cypherManager, err := cypher.NewManager(&key, numFps, false, rtKv)
 	if err != nil {
@@ -422,7 +424,7 @@ func TestReceivedTransfer_save(t *testing.T) {
 // newTestReceivedTransfer creates a new ReceivedTransfer for testing.
 func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 	rt *ReceivedTransfer, file []byte, key *ftCrypto.TransferKey,
-	numFps uint16, kv *versioned.KV) {
+	numFps uint16, kv versioned.KV) {
 	kv = versioned.NewKV(ekv.MakeMemstore())
 	recipient := id.NewIdFromString("ftRecipient", id.User, t)
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())

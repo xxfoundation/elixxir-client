@@ -34,7 +34,7 @@ func (sid *SessionID) Unmarshal(b []byte) error {
 	return nil
 }
 
-//underlying definition of session id
+// underlying definition of session id
 func GetSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 	// no lock is needed because this cannot be edited
 	sid := SessionID{}

@@ -43,7 +43,6 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 		return nil, errors.Errorf(
 			"Could not construct a mock client: %v", err)
 	}
-
 	c, err := OpenCmix(storageDir, password)
 	if err != nil {
 		return nil, errors.Errorf("Could not open a mock client: %v",

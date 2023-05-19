@@ -76,6 +76,44 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 	return cmixTrackerSingleton.make(net), nil
 }
 
+// LoadSynchronizedCmix will load an existing user storage from the
+// storageDir along with a remote store object. Writes to any keys
+// inside a synchronized prefix will be saved to a remote store
+// transaction log, and writes from other cMix instances will be
+// tracked by reading transaction logs written by other instances.
+//
+// The password is passed as a byte array so that it can be cleared from memory
+// and stored as securely as possible using the MemGuard library.
+//
+// LoadCmix does not block on network connection and instead loads and
+// starts subprocesses to perform network operations. This can take a
+// while if there are a lot of transactions to replay by other
+// instances.
+func LoadSynchronizedCmix(storageDir string, password []byte,
+	remote RemoteStore, cmixParamsJSON []byte) (*Cmix, error) {
+
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	synchedPrefixes := []string{
+		"channels",
+	}
+
+	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
+
+	net, err := xxdk.LoadSynchronizedCmix(storageDir, password,
+		wrappedRemote, synchedPrefixes, params)
+	if err != nil {
+		return nil, errors.Errorf("LoadSynchronizedCmix failed: %+v",
+			err)
+	}
+
+	return cmixTrackerSingleton.make(net), nil
+
+}
+
 // GetID returns the ID for this Cmix in the cmixTracker.
 func (c *Cmix) GetID() int {
 	return c.id
@@ -86,6 +124,15 @@ func (c *Cmix) GetID() int {
 func (c *Cmix) GetReceptionID() []byte {
 	rid := *c.api.GetStorage().GetReceptionID()
 	return rid.Bytes()
+}
+
+// GetRemoteKV returns the underlying [RemoteKV] storage so it can be
+// interacted with directly.
+// TODO: force this into a synchronized prefix?
+func (c *Cmix) GetRemoteKV() *RemoteKV {
+	return &RemoteKV{
+		rkv: c.api.GetStorage().GetKV(),
+	}
 }
 
 // EKVGet allows access to a value inside secure encrypted key value store

@@ -18,7 +18,7 @@ const NdfStorageKeyNamePrefix = "ndfStorageKey/"
 
 var localStorage = js.Global().Get("localStorage")
 
-func LoadNDF(_ *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
+func LoadNDF(_ versioned.KV, key string) (*ndf.NetworkDefinition, error) {
 	keyValue := localStorage.Call("getItem", NdfStorageKeyNamePrefix+key)
 	if keyValue.IsNull() {
 		return nil, os.ErrNotExist
@@ -27,7 +27,7 @@ func LoadNDF(_ *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
 	return ndf.Unmarshal([]byte(keyValue.String()))
 }
 
-func SaveNDF(_ *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
+func SaveNDF(_ versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 	marshaled, err := ndf.Marshal()
 	if err != nil {
 		return err

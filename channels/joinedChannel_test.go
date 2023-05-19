@@ -22,6 +22,7 @@ import (
 	clientCmix "gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -406,7 +407,10 @@ func Test_joinedChannel_delete(t *testing.T) {
 		t.Errorf("Error storing joinedChannel: %+v", err)
 	}
 
-	jc.delete(kv)
+	err = jc.delete(kv)
+	if err != nil {
+		t.Errorf("Error deleting joinedChannel: %+v", err)
+	}
 
 	_, err = kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
 	if ekv.Exists(err) {

@@ -259,78 +259,6 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 	return json.Marshal(&pi.Identity)
 }
 
-// MessageReceivedCallback is called any time a message is received or updated.
-//
-// update is true if the row is old and was edited.
-type MessageReceivedCallback interface {
-	Callback(uuid int64, channelID []byte, update bool)
-}
-
-// MuteCallback is a callback provided for the MuteUser method of the impl.
-type MuteCallback interface {
-	Callback(channelID []byte, pubKey []byte, unmute bool)
-}
-
-// DeletedMessageCallback is called any time a message is deleted.
-type DeletedMessageCallback interface {
-	Callback(messageId []byte)
-}
-
-// ChannelsFilterCallbackCallback is called any time a service is added or
-// removed or when a channel notification level changes.
-//
-// Parameters:
-//   - notificationFilterListJSON - JSON of a slice of
-//     [channels.NotificationFilter].
-//
-// Example JSON:
-//
-//  [
-//    {
-//      "identifier": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4DSWRlbnRpZmllcg==",
-//      "channelID": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4D",
-//      "tags": ["2b7d05b786952709105c194d6d486a59e264217bd03bacf0ed3c895d5fafed72-usrping"],
-//      "allowLists": {
-//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
-//        "allowWithoutTags": {"102":{}}
-//      }
-//    },
-//    {
-//      "identifier": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcDSWRlbnRpZmllcg==",
-//      "channelID": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcD",
-//      "tags": ["c01efa896876b4b5677295a80178efda5cb783706a3f087cfa4a5e8cf126da68-usrping"],
-//      "allowLists": {
-//        "allowWithTags": {},
-//        "allowWithoutTags": {"1":{}, "2":{}, "40000":{}}
-//      }
-//    },
-//    {
-//      "identifier": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wDSWRlbnRpZmllcg==",
-//      "channelID": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wD",
-//      "tags": ["5d07a3251048514c00c521d1d2f1c2778cb553113410b461b5fcc1390fecb5e2-usrping"],
-//      "allowLists": {
-//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
-//        "allowWithoutTags": {"102":{}}
-//      }
-//    }
-//  ]
-type ChannelsFilterCallbackCallback interface {
-	Callback(notificationFilterListJSON []byte)
-}
-
-// newChannelsFilterCallback translates the bindings-level
-// ChannelsFilterCallbackCallback to a channels.FilterCallback.
-func newChannelsFilterCallback(
-	cb ChannelsFilterCallbackCallback) channels.FilterCallback {
-	return func(nfs []channels.NotificationFilter) {
-		if data, err := json.Marshal(nfs); err != nil {
-			jww.FATAL.Panicf("failed to JSON unmarshal %T: %+v", nfs, err)
-		} else {
-			cb.Callback(data)
-		}
-	}
-}
-
 // NewChannelsManagerMobile creates a new [ChannelsManager] from a new private
 // identity [cryptoChannel.PrivateIdentity] backed with SqlLite for mobile use.
 //
@@ -351,17 +279,11 @@ func newChannelsFilterCallback(
 //     extension builders. Example: `[2,11,5]`.
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
-//   - msgCb - Callback that is invoked whenever channels message is received/
-//     updated.
-//   - deleteCb - Callback that is invoked whenever a message is deleted.
-//   - muteCb - Callback that is invoked whenever a sender is muted/unmuted.
-//   - filterCB - Is called everytime a service or channel log level is changed.
-//     It is used to determine which notifications are for you.
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, dbFilePath string, cipherID int,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback, filterCB ChannelsFilterCallbackCallback) (
-	*ChannelsManager, error) {
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -387,28 +309,24 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
 
-	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
-	}
-	newDeleteCb := func(messageID message.ID) {
-		deleteCb.Callback(messageID.Marshal())
-	}
-	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
-	}
-	newFilterCB := newChannelsFilterCallback(filterCB)
+	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
 	model, err := storage.NewEventModel(dbFilePath, cipher,
-		newMsgCb, newDeleteCb, newMuteCb)
+		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
+	if err != nil {
+		return nil, err
+	}
+
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct new channels manager
 	// TODO: Pass in notification manager instead of nil
-	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
-		user.api.GetCmix(), user.api.GetRng(), model, extensionBuilders,
-		user.api.AddService, nil, newFilterCB)
+	m, err := channels.NewManager(pi, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), model, extensionBuilders, user.api.AddService,
+		nil, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -432,16 +350,10 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
-//   - msgCb - Callback that is invoked whenever channels message is received/
-//     updated.
-//   - deleteCb - Callback that is invoked whenever a message is deleted.
-//   - muteCb - Callback that is invoked whenever a sender is muted/unmuted.
-//   - filterCB - Is called everytime a service or channel log level is changed.
-//     It is used to determine which notifications are for you.
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
-	cipherID int, msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback, filterCB ChannelsFilterCallbackCallback) (
-	*ChannelsManager, error) {
+	cipherID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -453,27 +365,22 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
-	newMsgCb := func(uuid uint64, channelID *id.ID, update bool) {
-		msgCb.Callback(int64(uuid), channelID.Marshal(), update)
-	}
-	newDeleteCb := func(messageID message.ID) {
-		deleteCb.Callback(messageID.Marshal())
-	}
-	newMuteCb := func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-		muteCb.Callback(channelID.Marshal(), pubKey, unmute)
-	}
-	newFilterCB := newChannelsFilterCallback(filterCB)
+	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
 	model, err := storage.NewEventModel(dbFilePath, cipher,
-		newMsgCb, newDeleteCb, newMuteCb)
+		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
+	if err != nil {
+		return nil, err
+	}
+
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct new channels manager
-	// TODO: Pass in notification manager instead of nil
-	m, err := channels.LoadManager(storageTag, user.api.GetStorage().GetKV(),
-		user.api.GetCmix(), user.api.GetRng(), model, nil, nil, newFilterCB)
+	m, err := channels.LoadManager(storageTag, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), model, nil, nil, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -502,11 +409,11 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //     extension builders. Example: `[2,11,5]`.
 //   - eventBuilder - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
-//   - filterCB - Is called everytime a service or channel log level is changed.
-//     It is used to determine which notifications are for you.
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManager(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, eventBuilder EventModelBuilder,
-	filterCB ChannelsFilterCallbackCallback) (*ChannelsManager, error) {
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -532,11 +439,17 @@ func NewChannelsManager(cmixID int, privateIdentity,
 		return NewEventModel(eventBuilder.Build(path)), nil
 	}
 
+	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
 	// TODO: Pass in notification manager instead of nil
-	m, err := channels.NewManagerBuilder(pi, user.api.GetStorage().GetKV(),
-		user.api.GetCmix(), user.api.GetRng(), eb, extensionBuilders,
-		user.api.AddService, nil, newChannelsFilterCallback(filterCB))
+	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), eb, extensionBuilders, user.api.AddService, nil, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -560,10 +473,10 @@ func NewChannelsManager(cmixID int, privateIdentity,
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - event - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
-//   - filterCB - Is called everytime a service or channel log level is changed.
-//     It is used to determine which notifications are for you.
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManager(cmixID int, storageTag string,
-	eventBuilder EventModelBuilder, filterCB ChannelsFilterCallbackCallback) (
+	eventBuilder EventModelBuilder, uiCallbacks ChannelUICallbacks) (
 	*ChannelsManager, error) {
 
 	// Get user from singleton
@@ -576,11 +489,17 @@ func LoadChannelsManager(cmixID int, storageTag string,
 		return NewEventModel(eventBuilder.Build(path)), nil
 	}
 
+	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
 	// TODO: Pass in notification manager instead of nil
-	m, err := channels.LoadManagerBuilder(storageTag,
-		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		eb, nil, nil, newChannelsFilterCallback(filterCB))
+	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
+		user.api.GetCmix(), user.api.GetRng(), eb, nil, nil, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -610,11 +529,12 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //     extension builders. Example: `[2,11,5]`.
 //   - goEventBuilder - A function that initialises and returns the event model
 //     that is not compatible with GoMobile bindings.
-//   - filterCB - Is called everytime a service or channel log level is changed.
-//     It is used to determine which notifications are for you.
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	filterCB ChannelsFilterCallbackCallback) (*ChannelsManager, error) {
+	callbacks ChannelUICallbacks) (
+	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -635,13 +555,18 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 		}
 		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
 	}
-	newFilterCB := newChannelsFilterCallback(filterCB)
+
+	cbs := newChannelUICallbacksWrapper(callbacks)
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct new channels manager
 	// TODO: Pass in notification manager instead of nil
-	m, err := channels.NewManagerBuilder(pi, user.api.GetStorage().GetKV(),
-		user.api.GetCmix(), user.api.GetRng(), goEventBuilder, extensionBuilders,
-		user.api.AddService, nil, newFilterCB)
+	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), goEventBuilder, extensionBuilders,
+		user.api.AddService, nil, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -664,12 +589,12 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //   - goEvent - A function that initialises and returns the event model that is
 //     not compatible with GoMobile bindings.
 //   - builders - A list of extensions that are to be included with channels.
-//   - filterCB - Is called everytime a service or channel log level is changed.
-//     It is used to determine which notifications are for you.
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder,
-	builders []channels.ExtensionBuilder,
-	filterCB ChannelsFilterCallbackCallback) (*ChannelsManager, error) {
+	builders []channels.ExtensionBuilder, uiCallbacks ChannelUICallbacks) (
+	*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -677,13 +602,17 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 		return nil, err
 	}
 
-	newFilterCB := newChannelsFilterCallback(filterCB)
+	cbs := newChannelUICallbacksWrapper(uiCallbacks)
+	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct new channels manager
 	// TODO: Pass in notification manager instead of nil
-	m, err := channels.LoadManagerBuilder(storageTag,
-		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		goEventBuilder, builders, nil, newFilterCB)
+	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
+		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
+		builders, nil, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -2055,8 +1984,8 @@ type ChannelMessageReceptionCallback interface {
 }
 
 // RegisterReceiveHandler registers a listener for non-default message types so
-// that they can be processed by modules. It is important that such modules sync
-// up with the event model implementation.
+// that they can be processed by modules. It is important that such modules
+// collective up with the event model implementation.
 //
 // There can only be one handler per [channels.MessageType]; the error
 // [channels.MessageTypeAlreadyRegistered] will be returned on multiple
@@ -2835,4 +2764,103 @@ func (c *ChannelDbCipher) MarshalJSON() ([]byte, error) {
 // NewCipherFromJSON to properly reconstruct a cipher from JSON.
 func (c *ChannelDbCipher) UnmarshalJSON(data []byte) error {
 	return c.api.UnmarshalJSON(data)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// UI Callbacks                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *channelUICallbacksWrapper {
+	if uicb == nil {
+		return nil
+	}
+	return &channelUICallbacksWrapper{cuic: uicb}
+}
+
+type ChannelUICallbacks interface {
+	// NicknameUpdate is called when your nickname changes due to a change on a
+	// remote.
+	NicknameUpdate(channelIdBytes []byte, nickname string, exists bool)
+
+	// FilterCallback is called any time a service is added or removed or when a
+	// channel notification level changes.
+	//
+	// Parameters:
+	//   - notificationFilterListJSON - JSON of a slice of
+	//     [channels.NotificationFilter].
+	//
+	// Example JSON:
+	//
+	//  [
+	//    {
+	//      "identifier": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4DSWRlbnRpZmllcg==",
+	//      "channelID": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4D",
+	//      "tags": ["2b7d05b786952709105c194d6d486a59e264217bd03bacf0ed3c895d5fafed72-usrping"],
+	//      "allowLists": {
+	//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
+	//        "allowWithoutTags": {"102":{}}
+	//      }
+	//    },
+	//    {
+	//      "identifier": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcDSWRlbnRpZmllcg==",
+	//      "channelID": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcD",
+	//      "tags": ["c01efa896876b4b5677295a80178efda5cb783706a3f087cfa4a5e8cf126da68-usrping"],
+	//      "allowLists": {
+	//        "allowWithTags": {},
+	//        "allowWithoutTags": {"1":{}, "2":{}, "40000":{}}
+	//      }
+	//    },
+	//    {
+	//      "identifier": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wDSWRlbnRpZmllcg==",
+	//      "channelID": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wD",
+	//      "tags": ["5d07a3251048514c00c521d1d2f1c2778cb553113410b461b5fcc1390fecb5e2-usrping"],
+	//      "allowLists": {
+	//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
+	//        "allowWithoutTags": {"102":{}}
+	//      }
+	//    }
+	//  ]
+	FilterCallback(notificationFilterListJSON []byte)
+
+	// MessageReceived is called any time a message is received or updated.
+	// Update is true if the row is old and was edited.
+	MessageReceived(uuid int64, channelID []byte, update bool)
+
+	// UserMuted is a callback provided for the MuteUser method of the impl.
+	UserMuted(channelID []byte, pubKey []byte, unmute bool)
+
+	// MessageDeleted is called any time a message is deleted.
+	MessageDeleted(messageId []byte)
+}
+
+type channelUICallbacksWrapper struct {
+	cuic ChannelUICallbacks
+}
+
+func (cuicbw *channelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
+	nickname string, exists bool) {
+	cuicbw.cuic.NicknameUpdate(channelId.Marshal(), nickname, exists)
+}
+
+func (cuicbw *channelUICallbacksWrapper) FilterCallback (nfs []channels.NotificationFilter) {
+	data, err := json.Marshal(nfs)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v", nfs, nfs)
+	} else {
+		cuicbw.cuic.FilterCallback(data)
+	}
+}
+
+func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid uint64,
+	channelID *id.ID, update bool) {
+	cuicbw.cuic.MessageReceived(int64(uuid), channelID.Marshal(), update)
+}
+
+func (cuicbw *channelUICallbacksWrapper) UserMuted(channelID *id.ID,
+	pubKey ed25519.PublicKey, unmute bool) {
+	cuicbw.cuic.UserMuted(channelID.Marshal(), pubKey, unmute)
+}
+
+func (cuicbw *channelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
+	cuicbw.cuic.MessageDeleted(messageID.Marshal())
 }

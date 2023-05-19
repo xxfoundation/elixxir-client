@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/fileMessage"
@@ -37,7 +38,8 @@ func Test_newSentTransfer(t *testing.T) {
 	fid := ftCrypto.NewID([]byte("fileData"))
 	numFps := uint16(24)
 	parts := [][]byte{[]byte("hello "), []byte("hello "), []byte("hello")}
-	stKv := kv.Prefix(makeSentTransferPrefix(fid))
+	stKv, err := kv.Prefix(makeSentTransferPrefix(fid))
+	require.NoError(t, err)
 	mac := ftCrypto.CreateTransferMAC([]byte("hello hello hello"), key)
 
 	cypherManager, err := cypher.NewManager(&key, numFps, false, stKv)
@@ -737,7 +739,7 @@ const numPrimeBytes = 512
 
 // newTestSentTransfer creates a new SentTransfer for testing.
 func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
-	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) {
+	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv versioned.KV) {
 	kv = versioned.NewKV(ekv.MakeMemstore())
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())

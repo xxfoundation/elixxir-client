@@ -53,16 +53,20 @@ type Manager struct {
 	fpVector *utility.StateVector
 
 	disableKV bool // Toggles use of KV storage
-	kv        *versioned.KV
+	kv        versioned.KV
 }
 
 // NewManager returns a new cypher Manager initialised with the given number of
 // fingerprints.
 func NewManager(key *ftCrypto.TransferKey, numFps uint16, disableKV bool,
-	kv *versioned.KV) (*Manager, error) {
+	kv versioned.KV) (*Manager, error) {
 
 	if !disableKV {
-		kv = kv.Prefix(cypherManagerPrefix)
+		var err error
+		kv, err = kv.Prefix(cypherManagerPrefix)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	fpVector, err := utility.NewStateVector(
@@ -130,8 +134,12 @@ func (m *Manager) GetKey() *ftCrypto.TransferKey {
 ////////////////////////////////////////////////////////////////////////////////
 
 // LoadManager loads the Manager from storage.
-func LoadManager(kv *versioned.KV) (*Manager, error) {
-	kv = kv.Prefix(cypherManagerPrefix)
+func LoadManager(kv versioned.KV) (*Manager, error) {
+	var err error
+	kv, err = kv.Prefix(cypherManagerPrefix)
+	if err != nil {
+		return nil, err
+	}
 	key, err := loadKey(kv)
 	if err != nil {
 		return nil, errors.Wrap(err, errLoadKey)
@@ -173,7 +181,7 @@ func (m *Manager) Delete() error {
 }
 
 // saveKey saves the transfer key to storage.
-func saveKey(key *ftCrypto.TransferKey, kv *versioned.KV) error {
+func saveKey(key *ftCrypto.TransferKey, kv versioned.KV) error {
 	obj := &versioned.Object{
 		Version:   cypherManagerKeyStoreVersion,
 		Timestamp: netTime.Now(),
@@ -184,7 +192,7 @@ func saveKey(key *ftCrypto.TransferKey, kv *versioned.KV) error {
 }
 
 // loadKey loads the transfer key from storage.
-func loadKey(kv *versioned.KV) (*ftCrypto.TransferKey, error) {
+func loadKey(kv versioned.KV) (*ftCrypto.TransferKey, error) {
 	obj, err := kv.Get(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
 	if err != nil {
 		return nil, err

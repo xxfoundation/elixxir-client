@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -64,7 +65,7 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsa, receptionRsa rsa.PrivateKey,
 	isPrecanned bool, e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int,
-	kv *versioned.KV) *CryptographicIdentity {
+	kv versioned.KV) *CryptographicIdentity {
 
 	ci := &CryptographicIdentity{
 		transmissionID:     transmissionID,
@@ -87,7 +88,7 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 }
 
 // loadOriginalCryptographicIdentity attempts to load the originalCryptographicIdentityVersion CryptographicIdentity
-func loadOriginalCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
+func loadOriginalCryptographicIdentity(kv versioned.KV) (*CryptographicIdentity, error) {
 	result := &CryptographicIdentity{}
 	obj, err := kv.Get(cryptographicIdentityKey, originalCryptographicIdentityVersion)
 	if err != nil {
@@ -116,7 +117,7 @@ func loadOriginalCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity
 	return result, nil
 }
 
-func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
+func loadCryptographicIdentity(kv versioned.KV) (*CryptographicIdentity, error) {
 	result := &CryptographicIdentity{}
 	obj, err := kv.Get(cryptographicIdentityKey,
 		currentCryptographicIdentityVersion)
@@ -165,13 +166,17 @@ func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error)
 // loadLegacyDHKeys attempts to load DH Keys from legacy storage. It
 // prints a warning to the log as users should be using ReceptionIdentity
 // instead of PortableUserInfo
-func loadLegacyDHKeys(kv *versioned.KV) (pub, priv *cyclic.Int) {
+func loadLegacyDHKeys(kv versioned.KV) (pub, priv *cyclic.Int) {
 	// Legacy package prefixes and keys, see e2e/ratchet/storage.go
 	packagePrefix := "e2eSession"
 	pubKeyKey := "DhPubKey"
 	privKeyKey := "DhPrivKey"
 
-	kvPrefix := kv.Prefix(packagePrefix)
+	kvPrefix, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		jww.ERROR.Printf("Failed to prefix KV with %s: %v", packagePrefix, err)
+		return nil, nil
+	}
 
 	privKey, err := utility.LoadCyclicKey(kvPrefix, privKeyKey)
 	if err != nil {
@@ -188,7 +193,7 @@ func loadLegacyDHKeys(kv *versioned.KV) (pub, priv *cyclic.Int) {
 	return pubKey, privKey
 }
 
-func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
+func (ci *CryptographicIdentity) save(kv versioned.KV) error {
 	dhPriv, err := ci.e2eDhPrivateKey.MarshalJSON()
 	if err != nil {
 		return err

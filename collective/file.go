@@ -111,10 +111,7 @@ func decodeFile(file []byte) (*header, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	ecrBody, _, err := read.ReadLine()
-	if err != nil {
-		return nil, nil, err
-	}
+	ecrBody := file[len(headerBytes)+1:]
 	bdy := make([]byte, base64.RawStdEncoding.DecodedLen(len(ecrBody)))
 	_, err = base64.RawStdEncoding.Decode(bdy, ecrBody)
 	if err != nil {

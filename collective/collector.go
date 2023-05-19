@@ -136,16 +136,17 @@ func newCollector(myID InstanceID, syncPath string,
 // runner is the long-running thread responsible for collecting changes and
 // synchronizing changes across devices.
 func (c *collector) runner(stop *stoppable.Single) {
-	t := time.NewTicker(c.synchronizationEpoch)
-	select {
-	case <-t.C:
-		c.collect()
-	case <-stop.Quit():
-		stop.ToStopped()
-		jww.DEBUG.Printf(
-			"[%s] Stopping collective collector: stoppable triggered.",
-			collectorLogHeader)
-		return
+	for {
+		t := time.NewTicker(c.synchronizationEpoch)
+		select {
+		case <-t.C:
+			c.collect()
+		case <-stop.Quit():
+			stop.ToStopped()
+			jww.DEBUG.Printf("[%s] Stopping collector",
+				collectorLogHeader)
+			return
+		}
 	}
 }
 
@@ -236,7 +237,9 @@ func (c *collector) collect() {
 	jww.INFO.Printf("[%s] Applied new updates took %d ms",
 		collectorLogHeader, elapsed)
 
-	c.lastUpdateRead = newUpdates
+	for k, v := range newUpdates {
+		c.lastUpdateRead[k] = v
+	}
 
 }
 
@@ -290,7 +293,8 @@ func (c *collector) collectChanges(devices []InstanceID) (
 				return
 			}
 
-			_, patch, err := handleIncomingFile(patchFile, c.encrypt)
+			_, patch, err := handleIncomingFile(deviceID,
+				patchFile, c.encrypt)
 			if err != nil {
 				jww.WARN.Printf("failed to handle incoming file for %s "+
 					"at %s: %+v", deviceID, logPath, err)
@@ -341,13 +345,17 @@ func (c *collector) applyChanges() error {
 	c.lastMutationRead[c.myID] = netTime.Now()
 
 	//prepare the data for the diff
-	devices, patches, ignoreBefore := prepareDiff(c.devicePatchTracker, c.lastMutationRead)
+	devices, patches, ignoreBefore := prepareDiff(c.devicePatchTracker,
+		c.lastMutationRead)
 
 	//execute the diff
 	updates, lastSeen := localPatch.Diff(patches, ignoreBefore)
 
 	// store the timestamps
 	for i, device := range devices {
+		if device == c.myID {
+			continue
+		}
 		c.lastMutationRead[device] = lastSeen[i]
 	}
 	c.saveLastMutationTime()
@@ -468,13 +476,14 @@ func (c *collector) initDevices(devicePaths []string) []InstanceID {
 		if _, exists := c.lastUpdateRead[deviceID]; !exists {
 			c.lastUpdateRead[deviceID] = time.Unix(0, 0).UTC()
 			c.lastMutationRead[deviceID] = time.Unix(0, 0).UTC()
-			c.devicePatchTracker[deviceID] = newPatch()
+			c.devicePatchTracker[deviceID] = newPatch(deviceID)
 		}
 	}
 	return devices
 }
 
-func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, error) {
+func handleIncomingFile(deviceID InstanceID, patchFile []byte,
+	decrypt encryptor) (*header, *Patch, error) {
 	h, ecrPatchBytes, err := decodeFile(patchFile)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to decode the file")
@@ -486,7 +495,7 @@ func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, e
 		err = errors.WithMessagef(err, "failed to decrypt the patch")
 		return h, nil, err
 	}
-	patch := newPatch()
+	patch := newPatch(deviceID)
 	err = patch.Deserialize(patchBytes)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to decode the patch from file")

@@ -86,6 +86,8 @@ type remoteWriter struct {
 	// while the collector is running
 	syncLock sync.RWMutex
 
+	uploadPeriod time.Duration
+
 	// tracks if as of the last interaction, we are connected to the
 	// remote
 	remoteUpToDate *uint32
@@ -123,7 +125,7 @@ func newRemoteWriter(path string, deviceID InstanceID,
 	tx := &remoteWriter{
 		path:           myPath,
 		header:         newHeader(deviceID),
-		state:          newPatch(),
+		state:          newPatch(deviceID),
 		adds:           make(chan transaction, 1000),
 		io:             io,
 		encrypt:        encrypt,
@@ -131,6 +133,7 @@ func newRemoteWriter(path string, deviceID InstanceID,
 		localWriteKey:  makeLocalWriteKey(path),
 		remoteUpToDate: &connected,
 		notifier:       &notifier{},
+		uploadPeriod:   defaultUploadPeriod,
 	}
 
 	// Attempt to Read stored mutate log
@@ -159,7 +162,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 	}
 	running := true
 	var ts time.Time
-	uploadPeriod := defaultUploadPeriod
+	uploadPeriod := rw.uploadPeriod
 	for {
 		select {
 		case t := <-rw.adds:
@@ -189,10 +192,6 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				}
 			}
 
-			// once all have been added, unlock allowing the collector
-			// to continue
-			rw.syncLock.RUnlock()
-
 			// Write to disk and queue the remote Write
 			serial, err = rw.state.Serialize()
 			if err != nil {
@@ -210,9 +209,12 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				return
 			}
 			if !running {
-				timer.Reset(defaultUploadPeriod)
+				timer.Reset(rw.uploadPeriod)
 				running = true
 			}
+			// once all have been added, unlock allowing the collector
+			// to continue
+			rw.syncLock.RUnlock()
 
 		case <-timer.C:
 			running = false

@@ -8,7 +8,6 @@
 package collective
 
 import (
-	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -16,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	jww "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -80,7 +78,8 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
 // Unit test of KV.Set.
 func TestKV_Set(t *testing.T) {
-	jww.SetStdoutThreshold(jww.LevelInfo)
+	// jww.SetStdoutThreshold(jww.LevelDebug)
+	// jww.SetLogThreshold(jww.LevelDebug)
 	const numTests = 100
 
 	baseDir := ".workingDirSet"
@@ -95,7 +94,8 @@ func TestKV_Set(t *testing.T) {
 	rkv.col = newCollector(txLog.header.DeviceID,
 		baseDir, remoteStore, rkv,
 		txLog.encrypt, txLog)
-	rkv.col.synchronizationEpoch = 50 * time.Millisecond
+	rkv.col.synchronizationEpoch = 500 * time.Millisecond
+	txLog.uploadPeriod = 500 * time.Millisecond
 
 	kv2 := ekv.MakeMemstore()
 	txLog2 := makeTransactionLog(kv2, baseDir, remoteStore,
@@ -103,9 +103,27 @@ func TestKV_Set(t *testing.T) {
 	rkv2 := newKV(txLog2, kv2)
 
 	rkv2.col = newCollector(txLog2.header.DeviceID,
-		baseDir, remoteStore, rkv,
+		baseDir, remoteStore, rkv2,
 		txLog2.encrypt, txLog2)
-	rkv2.col.synchronizationEpoch = 50 * time.Millisecond
+	rkv2.col.synchronizationEpoch = 500 * time.Millisecond
+	txLog2.uploadPeriod = 500 * time.Millisecond
+
+	// t.Logf("Device 1: %s, Device 2: %s", txLog.header.DeviceID,
+	// txLog2.header.DeviceID)
+
+	// Construct mock update callback
+	txChan := make(chan string, numTests)
+	updateCb := KeyUpdateCallback(func(key string, oldVal, newVal []byte,
+		op versioned.KeyOperation) {
+		// t.Logf("%s -> %s", string(oldVal), string(newVal))
+		require.Nil(t, oldVal)
+		txChan <- key
+	})
+
+	for i := 0; i < numTests; i++ {
+		key := "key" + strconv.Itoa(i)
+		rkv2.ListenOnRemoteKey(key, updateCb)
+	}
 
 	mStopper := stoppable.NewMulti("SetTest")
 	stop1, err := rkv.StartProcesses()
@@ -115,42 +133,19 @@ func TestKV_Set(t *testing.T) {
 	mStopper.Add(stop1)
 	mStopper.Add(stop2)
 
-	// Construct mock update callback
-	txChan := make(chan string, numTests)
-	updateCb := KeyUpdateCallback(func(key string, oldVal, newVal []byte,
-		op versioned.KeyOperation) {
-		require.Nil(t, oldVal)
-		txChan <- key
-	})
-
+	expectedKeys := make(map[string]struct{})
 	for i := 0; i < numTests; i++ {
-		// NOTE: we're deliberately abusing the start/stop here
-		// to stress test it.
-		err = mStopper.Close()
-		require.NoError(t, err)
-		err = stoppable.WaitForStopped(mStopper, 5*time.Second)
-		if err != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
-		}
-		require.NoError(t, err, mStopper.GetStatus())
-
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		rkv2.ListenOnRemoteKey(key, updateCb)
-		mStopper = stoppable.NewMulti(fmt.Sprintf("SetTest %d", i))
-		stop1, err := rkv.StartProcesses()
-		require.NoError(t, err)
-		stop2, err := rkv2.StartProcesses()
-		require.NoError(t, err)
-		mStopper.Add(stop1)
-		mStopper.Add(stop2)
-
+		expectedKeys[key] = struct{}{}
 		require.NoError(t, rkv.SetRemote(key, val))
-
+	}
+	for i := 0; i < numTests; i++ {
 		select {
 		case <-time.After(5 * time.Second):
-			t.Fatalf("Failed to receive from callback")
+			t.Fatalf("Failed to receive from callback %d", i)
 		case txKey := <-txChan:
-			require.Equal(t, txKey, key)
+			_, ok := expectedKeys[txKey]
+			require.True(t, ok, txKey)
 		}
 	}
 

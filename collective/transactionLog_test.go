@@ -62,7 +62,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	expected := &remoteWriter{
 		path:           logFile,
 		header:         newHeader(deviceID),
-		state:          newPatch(),
+		state:          newPatch(deviceID),
 		adds:           txLog.adds, // hack, but new chan won't work
 		io:             remoteStore,
 		encrypt:        crypt,

@@ -501,7 +501,9 @@ func (r *internalKV) StartProcesses() (stoppable.Stoppable, error) {
 	go func(s *stoppable.Single) {
 		<-s.Quit()
 		s.ToStopped()
-		r.isSynchronizing.Store(false)
+		// We explicitly do not do the following to prevent users
+		// from listening to keys after networking starts
+		// r.isSynchronizing.Store(false)
 	}(myStopper)
 	multiStoppable.Add(myStopper)
 

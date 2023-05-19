@@ -245,6 +245,7 @@ func (c *collector) collectChanges(devices []InstanceID) (
 	map[InstanceID]time.Time, error) {
 
 	newUpdates := make(map[InstanceID]time.Time, 0)
+	lck := sync.Mutex{}
 
 	wg := &sync.WaitGroup{}
 	connectionFailed := uint32(0)
@@ -273,8 +274,10 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			// determine the update timestamp we saw from the device
 			lastTrackedUpdate := c.lastUpdateRead[deviceID]
 
-			// If us, Read the local log, otherwise Read the remote log
 			if !lastRemoteUpdate.After(lastTrackedUpdate) {
+				jww.DEBUG.Printf("last remote after tracked: "+
+					"%s != %s", lastRemoteUpdate,
+					lastTrackedUpdate)
 				return
 			}
 
@@ -295,13 +298,15 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			}
 
 			// preallocated
+			lck.Lock()
 			c.devicePatchTracker[deviceID] = patch
 			newUpdates[deviceID] = lastRemoteUpdate
+			lck.Unlock()
 		}(devices[i])
 	}
 	wg.Wait()
 
-	if connectionFailed < 0 {
+	if connectionFailed > 0 {
 		err := errors.Errorf("failed to read %d logs, aborting "+
 			"collection", connectionFailed)
 		return nil, err
@@ -361,7 +366,7 @@ func (c *collector) applyChanges() error {
 			mapObj[key] = updates[key]
 		} else {
 			wg.Add(1)
-			func(key string, m *Mutate) {
+			go func(key string, m *Mutate) {
 				if m.Deletion {
 					err := c.kv.DeleteFromRemote(key)
 					if err != nil {
@@ -375,9 +380,11 @@ func (c *collector) applyChanges() error {
 							"%+v", key, err)
 					}
 				}
+				wg.Done()
 			}(key, updates[key])
 		}
 	}
+	wg.Wait()
 
 	//apply the map updates
 	for mapName := range mapUpdates {

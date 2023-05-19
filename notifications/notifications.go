@@ -15,6 +15,10 @@ import (
 
 func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 	status NotificationState) error {
+	if err := status.IsValid(); err != nil {
+		return err
+	}
+
 	m.mux.Lock()
 	defer m.mux.Unlock()
 

@@ -8,6 +8,7 @@
 package notifications
 
 import (
+	"errors"
 	"strconv"
 
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -15,6 +16,9 @@ import (
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/primitives/id"
 )
+
+var ErrInvalidNotificationsState = errors.New("the passed in " +
+	"notifications state is invalid")
 
 type Manager interface {
 	// Set turns notifications on or off for a given ID. It synchronizes the
@@ -24,6 +28,9 @@ type Manager interface {
 	// Group is used to segment the notification lists so that different users
 	// of the same object do not interfere. Metadata will be synchronized,
 	// allowing more verbose notifications settings. Max 1KB.
+	//
+	// It will return ErrInvalidNotificationsState if the passed in state
+	// is invalid
 	//
 	// This function, in general, will not be called over the bindings. It will
 	// be used by intermediary structures like channels and DMs to provide
@@ -71,7 +78,7 @@ type Manager interface {
 	SetMaxState(maxState NotificationState) error
 
 	// GetMaxState returns the current MaxState
-	GetMaxState(maxState NotificationState)
+	GetMaxState() NotificationState
 
 	// GetGroup returns the state of all registered notifications for the given
 	// group. If the group is not present, then it returns false.
@@ -146,6 +153,14 @@ func (ns NotificationState) String() string {
 	default:
 		return "Unknown notifications state: " + strconv.Itoa(int(ns))
 	}
+}
+
+// IsValid returns an error if the notifications state is not a valid one
+func (ns NotificationState) IsValid() error {
+	if ns >= Mute && ns <= Push {
+		return nil
+	}
+	return ErrInvalidNotificationsState
 }
 
 type Comms interface {

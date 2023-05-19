@@ -90,7 +90,10 @@ func Test_notifications_removeChannel(t *testing.T) {
 	}
 
 	for chanID := range channels {
-		n.removeChannel(&chanID)
+		err := n.removeChannel(&chanID)
+		if err != nil {
+			t.Errorf("Errored removing channel %s: %+v", &chanID, err)
+		}
 
 		if ni, exists := nm.channels[notificationGroup][chanID]; exists {
 			t.Errorf("Channel %s with level %s not deleted",
@@ -131,7 +134,7 @@ func TestNotifications_GetNotificationLevel(t *testing.T) {
 
 	_, err := n.GetNotificationLevel(id.NewIdFromString("chan", id.User, t))
 	if err == nil {
-		t.Errorf("Did not get error when getting level for channel that " +
+		t.Errorf("Did not get error when getting level for a channel that " +
 			"does not exist.")
 	}
 }
@@ -471,8 +474,8 @@ func TestNotificationLevel_String(t *testing.T) {
 	}
 }
 
-// Tests that a NotificationLevel marshalled via NotificationLevel and
-// unmarshalled via UnmarshalNotificationLevel matches the original.
+// Tests that a NotificationLevel marshaled via NotificationLevel and
+// unmarshalled via UnmarshalNotificationLevel match the original.
 func TestNotificationLevel_Marshal_UnmarshalMessageType(t *testing.T) {
 	tests := []NotificationLevel{NotifyNone, NotifyPing, NotifyAll}
 
@@ -532,29 +535,18 @@ func (m *mockNM) Get(toBeNotifiedOn *id.ID) (clientNotif.NotificationState, []by
 	return clientNotif.Mute, nil, "", false
 }
 
-func (m *mockNM) Delete(toBeNotifiedOn *id.ID) {
+func (m *mockNM) Delete(toBeNotifiedOn *id.ID) error {
 	for group, ids := range m.channels {
 		if _, exists := ids[*toBeNotifiedOn]; exists {
 			delete(m.channels[group], *toBeNotifiedOn)
 			if _, exists = m.cbs[group]; exists {
 				go m.cbs[group](m.channels[group], nil, nil, nil)
 			}
-			return
+			return nil
 		}
 	}
+	return nil
 }
-
-func (m *mockNM) GetGroup(group string) (clientNotif.Group, bool) {
-	g, exists := m.channels[group]
-	if !exists {
-		return clientNotif.Group{}, false
-	}
-
-	return g, true
-}
-
-func (m *mockNM) AddToken(string, string) error { panic("implement me") }
-func (m *mockNM) RemoveToken() error            { panic("implement me") }
 
 func (m *mockNM) RegisterUpdateCallback(group string, nu clientNotif.Update) {
 	m.cbs[group] = nu

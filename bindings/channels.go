@@ -246,7 +246,7 @@ func GetPublicChannelIdentity(marshaledPublic []byte) ([]byte, error) {
 // ([channel.PrivateIdentity]).
 //
 // Parameters:
-//   - marshaledPrivate - Marshalled bytes of the private identity
+//   - marshaledPrivate - Marshaled bytes of the private identity
 //     ([channel.PrivateIdentity]).
 //
 // Returns:
@@ -279,22 +279,28 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     extension builders. Example: `[2,11,5]`.
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity,
-	extensionBuilderIDsJSON []byte, dbFilePath string, cipherID int,
-	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	extensionBuilderIDsJSON []byte, dbFilePath string, cipherID,
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
 	if err != nil {
 		return nil, err
 	}
 	cipher, err := channelDbCipherTrackerSingleton.get(cipherID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -323,10 +329,9 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	}
 
 	// Construct new channels manager
-	// TODO: Pass in notification manager instead of nil
 	m, err := channels.NewManager(pi, channelsKV, user.api.GetCmix(),
 		user.api.GetRng(), model, extensionBuilders, user.api.AddService,
-		nil, wrap)
+		notif, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -409,18 +414,24 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //     extension builders. Example: `[2,11,5]`.
 //   - eventBuilder - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManager(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, eventBuilder EventModelBuilder,
-	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -447,9 +458,9 @@ func NewChannelsManager(cmixID int, privateIdentity,
 	}
 
 	// Construct new channels manager
-	// TODO: Pass in notification manager instead of nil
 	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), eb, extensionBuilders, user.api.AddService, nil, wrap)
+		user.api.GetRng(), eb, extensionBuilders, user.api.AddService, notif,
+		wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -471,16 +482,22 @@ func NewChannelsManager(cmixID int, privateIdentity,
 //     [Cmix.GetID].
 //   - storageTag - The storage tag associated with the previously created
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
-//   - event - An interface that contains a function that initialises and
+//   - event - An interface that contains a function that initializes and
 //     returns the event model that is bindings-compatible.
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManager(cmixID int, storageTag string,
-	eventBuilder EventModelBuilder, uiCallbacks ChannelUICallbacks) (
-	*ChannelsManager, error) {
+	eventBuilder EventModelBuilder, notificationsID int,
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -497,9 +514,8 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	}
 
 	// Construct new channels manager
-	// TODO: Pass in notification manager instead of nil
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(), eb, nil, nil, wrap)
+		user.api.GetCmix(), user.api.GetRng(), eb, nil, notif, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -527,21 +543,27 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //     with an extension builder (e.g.,
 //     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
-//   - goEventBuilder - A function that initialises and returns the event model
+//   - goEventBuilder - A function that initializes and returns the event model
 //     that is not compatible with GoMobile bindings.
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	callbacks ChannelUICallbacks) (
+	notificationsID int, callbacks ChannelUICallbacks) (
 	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -563,10 +585,9 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	}
 
 	// Construct new channels manager
-	// TODO: Pass in notification manager instead of nil
 	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
 		user.api.GetRng(), goEventBuilder, extensionBuilders,
-		user.api.AddService, nil, cbs)
+		user.api.AddService, notif, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -586,18 +607,24 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //   - cmixID - ID of [Cmix] object in tracker. This can be retrieved using
 //     [Cmix.GetID].
 //   - storageTag - retrieved with ChannelsManager.GetStorageTag
-//   - goEvent - A function that initialises and returns the event model that is
+//   - goEvent - A function that initializes and returns the event model that is
 //     not compatible with GoMobile bindings.
 //   - builders - A list of extensions that are to be included with channels.
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder,
-	builders []channels.ExtensionBuilder, uiCallbacks ChannelUICallbacks) (
-	*ChannelsManager, error) {
+	builders []channels.ExtensionBuilder, notificationsID int,
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -609,10 +636,9 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	}
 
 	// Construct new channels manager
-	// TODO: Pass in notification manager instead of nil
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
-		builders, nil, cbs)
+		builders, notif, cbs)
 	if err != nil {
 		return nil, err
 	}

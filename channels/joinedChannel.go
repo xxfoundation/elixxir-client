@@ -160,10 +160,16 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 	}
 
 	// Delete channel from storage
-	ch.delete(m.kv)
+	err = ch.delete(m.kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete channel from storage: %+v", err)
+	}
 
 	// Disable notifications
-	m.notifications.removeChannel(channelID)
+	err = m.notifications.removeChannel(channelID)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete channel from notifications: %+v", err)
+	}
 
 	return nil
 }

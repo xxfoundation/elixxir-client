@@ -49,7 +49,7 @@ type channelGetter interface {
 	getChannel(channelID *id.ID) (*joinedChannel, error)
 }
 
-// newNotifications initialises a new channels notifications manager.
+// newNotifications initializes a new channels notifications manager.
 func newNotifications(pubKey ed25519.PublicKey, cb FilterCallback,
 	cg channelGetter, nm NotificationsManager) *notifications {
 	n := &notifications{
@@ -73,8 +73,8 @@ func (n *notifications) addChannel(channelID *id.ID) error {
 
 // addChannel inserts the channel into the notification list with the given
 // level.
-func (n *notifications) removeChannel(channelID *id.ID) {
-	n.nm.Delete(channelID)
+func (n *notifications) removeChannel(channelID *id.ID) error {
+	return n.nm.Delete(channelID)
 }
 
 // GetNotificationLevel returns the notification level for the given channel.
@@ -181,7 +181,7 @@ type NotificationReport struct {
 
 // GetNotificationReportsForMe checks the notification data against the filter
 // list to determine which notifications belong to the user. A list of
-// notifications reports is returned detailing all notifications for the user.
+// notification reports is returned detailing all notifications for the user.
 func GetNotificationReportsForMe(nfs []NotificationFilter,
 	notificationData []*primNotif.Data) []NotificationReport {
 
@@ -267,8 +267,8 @@ func (nf NotificationFilter) match(
 	// Check if any filter tags match the matched tags
 	for _, tag := range nf.Tags {
 
-		// If a tag matches, then check if the message type is in the allow with
-		// tags list
+		// If a tag matches, then check if the message type is in the allowed
+		// with tags list
 		if _, exists := matchedTags[tag]; exists {
 			if _, exists = nf.AllowWithTags[mt]; exists {
 				return true
@@ -277,8 +277,8 @@ func (nf NotificationFilter) match(
 		}
 	}
 
-	// If no tag matches, then check if the message type is in the allow without
-	// tags list
+	// If no tag matches, then check if the message type is in the allowed
+	// without tags list
 	if _, exists := nf.AllowWithoutTags[mt]; exists {
 		return true
 	}

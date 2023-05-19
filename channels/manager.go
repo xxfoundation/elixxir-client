@@ -100,10 +100,7 @@ type NotificationsManager interface {
 		status clientNotif.NotificationState) error
 	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationState,
 		metadata []byte, group string, exists bool)
-	Delete(toBeNotifiedOn *id.ID)
-	GetGroup(group string) (clientNotif.Group, bool)
-	AddToken(newToken, app string) error
-	RemoveToken() error
+	Delete(toBeNotifiedOn *id.ID) error
 	RegisterUpdateCallback(group string, nu clientNotif.Update)
 }
 

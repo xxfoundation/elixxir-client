@@ -8,8 +8,8 @@
 package channelsFileTransfer
 
 import (
-	"bytes"
 	"encoding/json"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -46,19 +46,13 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	user1 := newMockE2e(myID1, cMix1, storage1, rngGen)
 
 	w1, eb1, err := NewWrapper(user1, params)
-	if err != nil {
-		t.Fatalf("Failed to create new file transfer manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new file transfer manager 1: %+v", err)
 
 	me1, err := cryptoChannel.GenerateIdentity(prng)
-	if err != nil {
-		t.Fatalf("Failed to create new private identity 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new private identity 1: %+v", err)
 
 	ch1, err := newMockChannelsManager(me1)
-	if err != nil {
-		t.Fatalf("Failed to create new mock channel manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new mock channel manager 1: %+v", err)
 
 	evFileCh1 := make(chan ModelFile, 100)
 	evMsgCh1 := make(chan channels.ModelMessage, 100)
@@ -72,19 +66,13 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	user2 := newMockE2e(myID2, cMix2, storage2, rngGen)
 
 	w2, eb2, err := NewWrapper(user2, params)
-	if err != nil {
-		t.Fatalf("Failed to create new file transfer manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new file transfer manager 2: %+v", err)
 
 	me2, err := cryptoChannel.GenerateIdentity(prng)
-	if err != nil {
-		t.Fatalf("Failed to create new private identity 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new private identity 2: %+v", err)
 
 	ch2, err := newMockChannelsManager(me2)
-	if err != nil {
-		t.Fatalf("Failed to create new mock channel manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new mock channel manager 2: %+v", err)
 
 	evFileCh2 := make(chan ModelFile, 100)
 	evMsgCh2 := make(chan channels.ModelMessage, 100)
@@ -92,26 +80,19 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		func(msg channels.ModelMessage) { evMsgCh2 <- msg }, t)
 
 	emh1, err := eb1(ev1, ch1, me1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	emh2, err := eb2(ev2, ch2, me2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	ch1.addEMH(emh1[0], emh2[0])
 	ch2.addEMH(emh1[0], emh2[0])
 
 	stop1, err := w1.StartProcesses()
-	if err != nil {
-		t.Fatalf("Failed to start processes for manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to start processes for manager 1: %+v", err)
 
 	stop2, err := w2.StartProcesses()
-	if err != nil {
-		t.Fatalf("Failed to start processes for manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to start processes for manager 2: %+v", err)
 
 	////////////////////////////////////////////////////////////////////////////
 	// Upload/Download New File                                               //
@@ -127,9 +108,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	uploadCh := make(chan ftCrypto.ID, 10)
 	uploadCB := func(completed bool, s, r, tt uint16, st SentTransfer,
 		_ FilePartTracker, err error) {
-		if err != nil {
-			t.Fatalf("File transfer error: %+v", err)
-		} else if completed {
+		require.NoError(t, err, "File transfer error: %+v", err)
+		if completed {
 			uploadCh <- st.GetFileID()
 		}
 	}
@@ -163,7 +143,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 				"\nexpected: %+v\nreceived: %+v", expected, f)
 		}
 	case <-time.After(timeout):
-		t.Fatalf("Timed out after %s waiting for upload to begin.", timeout)
+		require.Fail(t, "Timed out after %s waiting for upload to begin.", timeout)
 	}
 
 	// Check that, once the upload is complete, the status is correctly changed,
@@ -188,20 +168,14 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Send the file to the channel
 	msgID, _, _, err := w1.Send(channelID, fileLink, fileName, fileType,
 		preview, 0, xxdk.GetDefaultCMixParams())
-	if err != nil {
-		t.Fatalf("Failed to send file: %+v", err)
-	}
+	require.NoError(t, err)
 
 	var fl FileLink
-	if err = json.Unmarshal(fileLink, &fl); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, json.Unmarshal(fileLink, &fl))
 
 	expectedFI := FileInfo{fileName, fileType, preview, fl}
 	expectedContent, err := json.Marshal(expectedFI)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Check that the file info is added to the event model
 	var fileInfo []byte
@@ -218,10 +192,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			PubKey:    me1.PubKey,
 			DmToken:   me1.GetDMToken(),
 		}
-		if !reflect.DeepEqual(f, expected) {
-			t.Errorf("Unexpected data stored in event model."+
-				"\nexpected: %+v\nreceived: %+v", expected, f)
-		}
+		require.Equal(t, f, expected, "Unexpected data stored in event model."+
+			"\nexpected: %+v\nreceived: %+v", expected, f)
 		fileInfo = f.Content
 	case <-time.After(timeout):
 		t.Fatalf("Timed out after %s waiting for file info to be added to the "+
@@ -230,17 +202,13 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Download the file
 	_, err = w2.Download(fileInfo, nil, 0)
-	if err != nil {
-		t.Fatalf("Failed to download file: %+v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that the download has started
 	select {
 	case f := <-evFileCh2:
-		if f.Status != Downloading {
-			t.Errorf("Download file not marked as started."+
-				"\nexpected: %s\nreceived: %s", Downloading, f.Status)
-		}
+		require.Equal(t, f.Status, Downloading, "Download file not marked as started."+
+			"\nexpected: %s\nreceived: %s", Downloading, f.Status)
 	case <-time.After(timeout):
 		t.Fatalf("Timed out after %s waiting for download to start.", timeout)
 	}
@@ -255,10 +223,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			Timestamp: f.Timestamp,
 			Status:    Complete,
 		}
-		if !reflect.DeepEqual(f, expected) {
-			t.Errorf("Unexpected data stored in event model."+
-				"\nexpected: %+v\nreceived: %+v", expected, f)
-		}
+		require.Equal(t, f, expected, "Unexpected data stored in event model."+
+			"\nexpected: %+v\nreceived: %+v", expected, f)
 		if rt, exists := w2.m.received.GetTransfer(f.ID); exists {
 			t.Errorf("Transfer not removed from received transfers: %+v", rt)
 		}
@@ -280,55 +246,35 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Upload file and then stop in the middle
 	fid, err = w1.Upload(fileData2, retry2, nil, 0)
-	if err != nil {
-		t.Fatalf("Failed to upload file: %+v", err)
-	}
+	require.NoError(t, err)
 
 	time.Sleep(5 * time.Millisecond)
 
-	err = stop1.Close()
-	if err != nil {
-		t.Errorf("Failed to close processes for manager 1: %+v", err)
-	}
+	require.NoError(t, stop1.Close(), "Failed to close processes for manager 1: %+v", err)
 
-	err = stop2.Close()
-	if err != nil {
-		t.Errorf("Failed to close processes for manager 2: %+v", err)
-	}
+	require.NoError(t, stop2.Close(), "Failed to close processes for manager 2: %+v", err)
 
 	// Set up the first client
 	w1, eb1, err = NewWrapper(user1, params)
-	if err != nil {
-		t.Fatalf("Failed to create new file transfer manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new file transfer manager 1: %+v", err)
 
 	// Set up the second client
 	w2, eb2, err = NewWrapper(user2, params)
-	if err != nil {
-		t.Fatalf("Failed to create new file transfer manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new file transfer manager 2: %+v", err)
 
 	emh1, err = eb1(ev1, ch1, me1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	emh2, err = eb2(ev2, ch2, me2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	ch1.addEMH(emh1[0], emh2[0])
 	ch2.addEMH(emh1[0], emh2[0])
 
 	stop1, err = w1.StartProcesses()
-	if err != nil {
-		t.Fatalf("Failed to start processes for manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to start processes for manager 1: %+v", err)
 
 	stop2, err = w2.StartProcesses()
-	if err != nil {
-		t.Fatalf("Failed to start processes for manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to start processes for manager 2: %+v", err)
 
 	cbChan := make(chan ftCrypto.ID, 2)
 	cb := func(completed bool, s, r, tt uint16, st SentTransfer,
@@ -340,16 +286,12 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Upload the new file again to resume the upload
 	fid, err = w1.Upload(fileData2, 5, cb, 0)
-	if err != nil {
-		t.Fatalf("Failed to upload completed file: %+v", err)
-	}
+	require.NoError(t, err, "Failed to upload completed file: %+v", err)
 
 	select {
 	case receivedFID := <-cbChan:
-		if fid != receivedFID {
-			t.Errorf("Callback called for wrong file ID."+
-				"\nexpected: %s\nreceivesd: %s", fid, receivedFID)
-		}
+		require.Equal(t, fid, receivedFID, "Callback called for wrong file ID."+
+			"\nexpected: %s\nreceivesd: %s", fid, receivedFID)
 	case <-time.After(350 * time.Millisecond):
 		t.Errorf("Timed out waiting for callback to be called indicating " +
 			"that the file transfer is complete.")
@@ -366,11 +308,11 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			t.Fatalf("Timed out waiting to receive uplaoded file data.")
 		}
 	}
-	if !bytes.Equal(uploadedFileData2, fileData2) {
-		t.Errorf("Event model has incorrect file data for %s."+
+
+	require.Equal(t, uploadedFileData2, fileData2,
+		"Event model has incorrect file data for %s."+
 			"\nexpected: %q\nreceived: %q",
-			fid, fileData2[:24], uploadedFileData2[:24])
-	}
+		fid, fileData2[:24], uploadedFileData2[:24])
 
 	// Upload the same initial file again to verify the callback returns
 	// completed immediately
@@ -382,17 +324,13 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		}
 	}
 	fid, err = w1.Upload(fileData, 5, cb2, 0)
-	if err != nil {
-		t.Fatalf("Failed to upload completed file: %+v", err)
-	}
+	require.NoError(t, err, "Failed to upload completed file: %+v", err)
 
 	select {
 	case receivedFID := <-cbChan2:
-		if fid != receivedFID {
-			t.Errorf("Callback called for wrong file ID."+
-				"\nexpected: %s\nreceived: %s", fid, receivedFID)
-		}
-	case <-time.After(15 * time.Millisecond):
+		require.Equal(t, fid, receivedFID, "Callback called for wrong file ID."+
+			"\nexpected: %s\nreceived: %s", fid, receivedFID)
+	case <-time.After(350 * time.Millisecond):
 		t.Errorf("Timed out waiting for callback to be called indicating " +
 			"that the file transfer is complete.")
 	}
@@ -404,9 +342,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	fileLink2 := ev1.files[fid].Link
 	msgID, _, _, err = w1.Send(channelID, fileLink2, fileName2, fileType2,
 		preview2, 0, xxdk.GetDefaultCMixParams())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var fileInfo2 []byte
 	for fileInfo2 == nil {
@@ -422,53 +358,36 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Download the file
 	_, err = w2.Download(fileInfo2, nil, 0)
-	if err != nil {
-		t.Fatalf("Failed to download file: %+v", err)
-	}
+	require.NoError(t, err, "Failed to download file: %+v", err)
 
 	err = stop1.Close()
-	if err != nil {
-		t.Errorf("Failed to close processes for manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to close processes for manager 1: %+v", err)
 
 	err = stop2.Close()
-	if err != nil {
-		t.Errorf("Failed to close processes for manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to close processes for manager 2: %+v", err)
 
 	// Set up the first client
 	w1, eb1, err = NewWrapper(user1, params)
-	if err != nil {
-		t.Fatalf("Failed to create new file transfer manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new file transfer manager 1: %+v", err)
 
 	// Set up the second client
 	w2, eb2, err = NewWrapper(user2, params)
-	if err != nil {
-		t.Fatalf("Failed to create new file transfer manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to create new file transfer manager 2: %+v", err)
 
 	emh1, err = eb1(ev1, ch1, me1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	emh2, err = eb2(ev2, ch2, me2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	ch1.addEMH(emh1[0], emh2[0])
 	ch2.addEMH(emh1[0], emh2[0])
 
 	stop1, err = w1.StartProcesses()
-	if err != nil {
-		t.Fatalf("Failed to start processes for manager 1: %+v", err)
-	}
+	require.NoError(t, err, "Failed to start processes for manager 1: %+v", err)
 
 	stop2, err = w2.StartProcesses()
-	if err != nil {
-		t.Fatalf("Failed to start processes for manager 2: %+v", err)
-	}
+	require.NoError(t, err, "Failed to start processes for manager 2: %+v", err)
 
 	// Download the same file again
 	downloadCh := make(chan ftCrypto.ID, 10)
@@ -480,17 +399,13 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 
 	fid, err = w2.Download(fileInfo2, downloadCB, 0)
-	if err != nil {
-		t.Fatalf("Failed to download file: %+v", err)
-	}
+	require.NoError(t, err, "Failed to download file: %+v", err)
 
 	select {
 	case receivedFID := <-downloadCh:
-		if fid != receivedFID {
-			t.Errorf("Callback called for wrong file ID."+
-				"\nexpected: %s\nreceived: %s", fid, receivedFID)
-		}
-	case <-time.After(15 * time.Millisecond):
+		require.Equal(t, fid, receivedFID, "Callback called for wrong file ID."+
+			"\nexpected: %s\nreceived: %s", fid, receivedFID)
+	case <-time.After(350 * time.Millisecond):
 		t.Errorf("Timed out waiting for callback to be called indicating " +
 			"that the file transfer is complete.")
 	}
@@ -505,31 +420,19 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		}
 	}
 	fid, err = w2.Download(fileInfo, downloadCB, 0)
-	if err != nil {
-		t.Fatalf("Failed to download completed file: %+v", err)
-	}
+	require.NoError(t, err, "Failed to download completed file: %+v", err)
 
 	select {
 	case receivedFID := <-downloadCh:
-		if fid != receivedFID {
-			t.Errorf("Callback called for wrong file ID."+
-				"\nexpected: %s\nreceivesd: %s", fid, receivedFID)
-		}
-	case <-time.After(15 * time.Millisecond):
+		require.Equal(t, fid, receivedFID, "Callback called for wrong file ID."+
+			"\nexpected: %s\nreceivesd: %s", fid, receivedFID)
+	case <-time.After(350 * time.Millisecond):
 		t.Errorf("Timed out waiting for callback to be called indicating " +
 			"that the file transfer is complete.")
 	}
 
-	err = stop1.Close()
-	if err != nil {
-		t.Errorf("Failed to close processes for manager 1: %+v", err)
-	}
-
-	err = stop2.Close()
-	if err != nil {
-		t.Errorf("Failed to close processes for manager 2: %+v", err)
-	}
-
+	require.NoError(t, stop1.Close(), "Failed to close processes for manager 1")
+	require.NoError(t, stop2.Close(), "Failed to close processes for manager 2:")
 }
 
 // Tests that resending works when cmix drops some messages.

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Message defines the IndexedDb representation of a single Message.
+// Message defines the SQL representation of a single Message.
 //
 // A Message belongs to one Channel.
 //
@@ -19,7 +19,7 @@ import (
 // The user's nickname can change each message, but the rest does not. We
 // still duplicate all of it for each entry to simplify code for now.
 type Message struct {
-	Id              uint64        `gorm:"primaryKey;autoIncrement:true"`
+	Id              int64         `gorm:"primaryKey;autoIncrement:true"`
 	Nickname        string        `gorm:"not null"`
 	MessageId       []byte        `gorm:"uniqueIndex;not null"`
 	ChannelId       []byte        `gorm:"index;not null"`
@@ -29,7 +29,7 @@ type Message struct {
 	Status          uint8         `gorm:"not null"`
 	Text            []byte        `gorm:"not null"`
 	Type            uint16        `gorm:"not null"`
-	Round           uint64        `gorm:"not null"`
+	Round           int64         `gorm:"not null"`
 
 	// Pointer to enforce zero-value reading in ORM.
 	Hidden *bool `gorm:"not null"`
@@ -41,7 +41,7 @@ type Message struct {
 	CodesetVersion uint8  `gorm:"not null"`
 }
 
-// Channel defines the IndexedDb representation of a single Channel.
+// Channel defines the SQL representation of a single Channel.
 //
 // A Channel has many Message.
 type Channel struct {
@@ -50,4 +50,22 @@ type Channel struct {
 	Description string `gorm:"not null"`
 
 	Messages []Message `gorm:"constraint:OnDelete:CASCADE"`
+}
+
+// File defines the SQL representation of a single File.
+type File struct {
+	// Id is a unique identifier for a given File.
+	Id []byte `gorm:"primaryKey;not null;autoIncrement:false"`
+
+	// Data stores the actual contents of the File.
+	Data []byte
+
+	// Link contains all the information needed to download the file data.
+	Link []byte
+
+	// Timestamp is the last time the file data, link, or status was modified.
+	Timestamp time.Time `gorm:"not null"`
+
+	// Status of the file in the event model.
+	Status uint8 `gorm:"not null"`
 }

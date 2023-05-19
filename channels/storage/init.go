@@ -25,7 +25,7 @@ import (
 // MessageReceivedCallback is called any time a message is received or updated.
 //
 // update is true if the row is old and was edited.
-type MessageReceivedCallback func(uuid uint64, channelID *id.ID, update bool)
+type MessageReceivedCallback func(uuid int64, channelID *id.ID, update bool)
 
 // MuteCallback is a callback provided for the MuteUser method of the impl.
 type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
@@ -98,7 +98,7 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 
 	// Initialize the database schema
 	// WARNING: Order is important. Do not change without database testing
-	err = db.AutoMigrate(&Channel{}, &Message{})
+	err = db.AutoMigrate(&Channel{}, &Message{}, File{})
 	if err != nil {
 		return nil, err
 	}

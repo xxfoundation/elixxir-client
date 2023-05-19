@@ -356,7 +356,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 
 	select {
 	case <-time.After(2 * time.Second):
-		t.Fatalf("Did not run filter before timeout")
+		require.Fail(t, "Did not run filter before timeout")
 	case <-doneCh:
 	}
 
@@ -365,7 +365,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 
 	select {
 	case <-time.After(5 * time.Second):
-		t.Fatalf("Did not run filter before timeout")
+		require.Fail(t, "Did not run filter before timeout")
 	case <-doneCh:
 	}
 
@@ -381,9 +381,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	require.Equal(t, allowedIds.Len(), len(testPool.ndfMap))
 
 	for gwID := range testPool.ndfMap {
-		if !allowedIds.Has(gwID.String()) {
-			t.Fatalf("id in NDF map not in allowed IDs")
-		}
+		require.True(t, allowedIds.Has(gwID.String()), "id in NDF map not in allowed IDs")
 	}
 
 	lck.Lock()

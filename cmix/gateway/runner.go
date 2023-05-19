@@ -8,6 +8,8 @@
 package gateway
 
 import (
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -15,7 +17,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 // runner is the primary long-running thread for handling events. It will
@@ -168,7 +169,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 		}
 
 		// Handle updates by writing host pool into storage
-		if update == true {
+		if update {
 			poolCopy := hp.writePool.deepCopy()
 			hp.readPool.Store(poolCopy)
 

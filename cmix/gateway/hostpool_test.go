@@ -8,13 +8,16 @@
 package gateway
 
 import (
-	"github.com/stretchr/testify/require"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"encoding/json"
+
 	"github.com/golang-collections/collections/set"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -313,22 +316,28 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	whitelist := []string{allowedId.String()}
 
 	f := GatewayWhitelistFilter(whitelist)
-	params.GatewayFilter = func(unfiltered map[id.ID]int, ndf *ndf.NetworkDefinition) map[id.ID]int {
+	params.GatewayFilter = func(unfiltered map[id.ID]int,
+		ndf *ndf.NetworkDefinition) map[id.ID]int {
 		doneCh <- true
 		filtered := f(unfiltered, ndf)
 		return filtered
 	}
-	testPool, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan, mccc)
+	testPool, err := newHostPool(params, rng, testNdf,
+		manager, testStorage, addGwChan, mccc)
 	if err != nil {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
 	stop := stoppable.NewSingle("tester")
 	go testPool.runner(stop)
-	defer func() {
-		if err = stop.Close(); err != nil {
-			t.Fatalf("Failed to close stoppable: %+v", err)
-		}
+
+	testCount := 0
+	lck := sync.Mutex{}
+	go func() {
+		<-testPool.testNodes
+		lck.Lock()
+		defer lck.Unlock()
+		testCount++
 	}()
 
 	// Construct a new Ndf different from original one above
@@ -359,7 +368,12 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		t.Fatalf("Did not run filter before timeout")
 	case <-doneCh:
 	}
-	time.Sleep(time.Second)
+
+	err = stop.Close()
+	require.NoError(t, err)
+	err = stoppable.WaitForStopped(stop, 5*time.Second)
+	require.NoError(t, err)
+	require.True(t, stop.IsStopped())
 
 	// Check that the host pool's NDF has been modified properly
 	require.Equal(t, len(newNdf.Nodes), len(testPool.ndf.Nodes))
@@ -372,20 +386,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		}
 	}
 
-	done := false
-	testCount := 0
-	for !done {
-		select {
-		case <-testPool.testNodes:
-			testCount++
-		case <-time.After(2 * time.Second):
-			done = true
-		}
-	}
-	if testCount != 1 {
-		t.Fatalf("Did not receive expected test count."+
-			"\nexpected: %d\nreceived: %d", 1, testCount)
-	}
+	lck.Lock()
+	defer lck.Unlock()
+	require.Equal(t, 1, testCount)
 }
 
 type mockCertCheckerComm struct{}

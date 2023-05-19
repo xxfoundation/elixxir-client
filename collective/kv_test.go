@@ -76,8 +76,9 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	require.NotEmpty(t, instance.String())
 }
 
-// Unit test of KV.Set.
-func TestKV_Set(t *testing.T) {
+// TestKV_SetGet tests setting and getting between two synchronized
+// KVs communicating through a memory-based remote store.
+func TestKV_SetGet(t *testing.T) {
 	// jww.SetStdoutThreshold(jww.LevelDebug)
 	// jww.SetLogThreshold(jww.LevelDebug)
 	const numTests = 100
@@ -115,7 +116,7 @@ func TestKV_Set(t *testing.T) {
 	txChan := make(chan string, numTests)
 	updateCb := KeyUpdateCallback(func(key string, oldVal, newVal []byte,
 		op versioned.KeyOperation) {
-		// t.Logf("%s -> %s", string(oldVal), string(newVal))
+		// t.Logf("%s: %s -> %s", key, string(oldVal), string(newVal))
 		require.Nil(t, oldVal)
 		txChan <- key
 	})
@@ -133,70 +134,38 @@ func TestKV_Set(t *testing.T) {
 	mStopper.Add(stop1)
 	mStopper.Add(stop2)
 
-	expectedKeys := make(map[string]struct{})
+	expected := make(map[string][]byte)
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		expectedKeys[key] = struct{}{}
+		expected[key] = val
+		// t.Logf("SetRemote: %s: %s", key, string(val))
 		require.NoError(t, rkv.SetRemote(key, val))
 	}
 	for i := 0; i < numTests; i++ {
 		select {
-		case <-time.After(5 * time.Second):
+		case <-time.After(1 * time.Second):
 			t.Fatalf("Failed to receive from callback %d", i)
 		case txKey := <-txChan:
-			_, ok := expectedKeys[txKey]
+			_, ok := expected[txKey]
 			require.True(t, ok, txKey)
 		}
 	}
 
 	err = mStopper.Close()
 	require.NoError(t, err)
-	err = stoppable.WaitForStopped(mStopper, 5*time.Second)
+	err = stoppable.WaitForStopped(mStopper, 1*time.Second)
 	if err != nil {
 		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 	}
 	require.NoError(t, err)
-}
 
-// Unit test of KV.Get.
-func TestKV_Get(t *testing.T) {
-	const numTests = 100
-
-	// Construct kv
-	kv := ekv.MakeMemstore()
-	remoteStore := newMockRemote()
-
-	// Construct mutate log
-	txLog := makeTransactionLog(kv, "workingDir", remoteStore,
-		csprng.NewSystemRNG(), t)
-
-	// Create remote kv
-	rkv := newKV(txLog, kv)
-
-	// Construct mock update callback
-	txChan := make(chan string, numTests)
-	updateCb := KeyUpdateCallback(func(key string, oldVal, newVal []byte,
-		op versioned.KeyOperation) {
-		require.Nil(t, oldVal)
-		txChan <- key
-	})
-
-	// Add intents to remote KV
-	for i := 0; i < numTests; i++ {
-		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		rkv.ListenOnRemoteKey(key, updateCb)
-		require.NoError(t, rkv.SetRemote(key, val))
-
-		// Ensure Write has completed
-		select {
-		case <-time.After(500 * time.Millisecond):
-			t.Fatalf("Failed to recieve from callback")
-		case <-txChan:
-		}
-
-		received, err := rkv.GetBytes(key)
+	// Verify everything is synchronized between both instances
+	for k, v := range expected {
+		v1, err := rkv.GetBytes(k)
 		require.NoError(t, err)
-
-		require.Equal(t, val, received)
+		require.Equal(t, v, v1, k)
+		v2, err := rkv2.GetBytes(k)
+		require.NoError(t, err)
+		require.Equal(t, v, v2, k)
 	}
 }

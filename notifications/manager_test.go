@@ -40,7 +40,7 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	wg.Add(numGroups)
 	for i := 0; i < numGroups; i++ {
 		localI := i
-		update := func(group Group, created, edits, deletions []*id.ID) {
+		update := func(group Group, created, edits, deletions []*id.ID, max NotificationState) {
 			update1Response[localI] = true
 		}
 		go func() {
@@ -61,7 +61,7 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	// bool was set
 	for gKey := range mInternal.callbacks {
 		update := mInternal.callbacks[gKey]
-		update(nil, nil, nil, nil)
+		update(nil, nil, nil, nil, Push)
 	}
 
 	for idx, wasSet := range update1Response {
@@ -78,7 +78,8 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	wg3.Add(numGroups / 2)
 	for i := 0; i < numGroups; i = i + 2 {
 		localI := i
-		update := func(group Group, created, edits, deletions []*id.ID) {
+		update := func(group Group, created, edits, deletions []*id.ID,
+			max NotificationState) {
 			update2Response[localI] = true
 		}
 		go func() {
@@ -99,7 +100,7 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	// bool was set
 	for gKey := range mInternal.callbacks {
 		update := mInternal.callbacks[gKey]
-		update(nil, nil, nil, nil)
+		update(nil, nil, nil, nil, Push)
 	}
 
 	for idx, wasSet := range update2Response {
@@ -139,7 +140,8 @@ func TestManager_mapUpdate(t *testing.T) {
 		localI := i
 		if i%2 == 0 {
 			wg.Add(1)
-			cb := func(group Group, created, edits, deletions []*id.ID) {
+			cb := func(group Group, created, edits, deletions []*id.ID,
+				max NotificationState) {
 				received := expectedCallback{
 					group:     group,
 					created:   created,

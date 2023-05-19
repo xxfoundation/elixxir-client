@@ -58,6 +58,22 @@ type Manager interface {
 	// removes the reference from the local store.
 	Delete(toBeNotifiedOn *id.ID) error
 
+	// SetMaxState sets the maximum functional state of any identity downstream.
+	// Modules will be told to clamp any state greater than maxState to
+	// maxState.
+	//
+	// Depending on UX requirements, they may still show the state in an altered
+	// manner. For example, greying out a description. This is designed so that
+	// when the state is raised, the old configs are maintained.
+	//
+	// This will unregister/re-register with the push server when leaving or
+	// entering the Push maxState. The default maxState Push will return an
+	// error if the maxState is not a valid state.
+	SetMaxState(maxState NotificationState) error
+
+	// GetMaxState returns the current MaxState.
+	GetMaxState(maxState NotificationState)
+
 	// GetGroup returns the state of all registered notifications for the given
 	// group. If the group is not present, then it returns false.
 	GetGroup(group string) (Group, bool)
@@ -83,7 +99,9 @@ type Manager interface {
 }
 
 // Update is called every time there is a change to notifications.
-type Update func(group Group, created, edits, deletions []*id.ID)
+// Functionally clamps any state greater than the maxState to maxState.
+type Update func(group Group, created, edits, deletions []*id.ID,
+	maxState NotificationState)
 
 type Group map[id.ID]State
 
@@ -101,7 +119,7 @@ type State struct {
 }
 
 // NotificationState indicates the status of notifications for an ID.
-type NotificationState uint8
+type NotificationState int64
 
 const (
 	// Mute shows no notifications for the ID.

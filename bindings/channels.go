@@ -2645,7 +2645,7 @@ func (cuicbw *channelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
 	cuicbw.cuic.NicknameUpdate(channelId.Marshal(), nickname, exists)
 }
 
-func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid uint64,
+func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid int64,
 	channelID *id.ID, update bool) {
 	cuicbw.cuic.MessageReceived(int64(uuid), channelID.Marshal(), update)
 }

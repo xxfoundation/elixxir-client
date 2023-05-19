@@ -458,6 +458,8 @@ func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
 		nickname, exists)
 }
 
+func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
+
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",
 		"The name of the new channel to create.")

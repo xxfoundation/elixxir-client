@@ -484,3 +484,5 @@ func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 	exists bool) {
 	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
 }
+
+func (duic *dummyUICallback) FilterCallback([]NotificationFilter) {}

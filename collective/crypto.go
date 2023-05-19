@@ -5,37 +5,47 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package sync
+package collective
 
 import (
 	"crypto/cipher"
+	"encoding/base64"
 	"fmt"
+	"io"
+
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/hash"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20poly1305"
-	"io"
 )
 
-// Used for keyed hashes for, e.g., the "key" in the KV store
-func deriveKeyName(key, secret string) []byte {
-	dHash := blake2b.Sum256([]byte(key))
-	pHash := blake2b.Sum256([]byte(secret))
-	s := append(pHash[:], dHash[:]...)
-	h := blake2b.Sum256(s)
-	return h[:]
+type encryptor interface {
+	Encrypt(data []byte) []byte
+	Decrypt(data []byte) ([]byte, error)
+	KeyID(deviceID InstanceID) string
 }
 
-func initChaCha20Poly1305(secret string) cipher.AEAD {
-	pwHash := blake2b.Sum256([]byte(secret))
-	chaCipher, err := chacha20poly1305.NewX(pwHash[:])
-	if err != nil {
-		panic(fmt.Sprintf("Could not init XChaCha20Poly1305 mode: %s",
-			err.Error()))
-	}
-	return chaCipher
+type deviceCrypto struct {
+	secret []byte
+	rngGen *fastRNG.StreamGenerator
 }
 
-func encrypt(data []byte, secret string, csprng io.Reader) []byte {
+func (dc *deviceCrypto) Encrypt(data []byte) []byte {
+	stream := dc.rngGen.GetStream()
+	defer stream.Close()
+	return encrypt(data, dc.secret, stream)
+}
+
+func (dc *deviceCrypto) Decrypt(data []byte) ([]byte, error) {
+	return decrypt(data, dc.secret)
+}
+
+func (dc *deviceCrypto) KeyID(deviceID InstanceID) string {
+	return keyID(dc.secret, deviceID)
+}
+
+func encrypt(data, secret []byte, csprng io.Reader) []byte {
 	chaCipher := initChaCha20Poly1305(secret)
 	nonce := make([]byte, chaCipher.NonceSize())
 	if _, err := io.ReadFull(csprng, nonce); err != nil {
@@ -45,7 +55,7 @@ func encrypt(data []byte, secret string, csprng io.Reader) []byte {
 	return ciphertext
 }
 
-func decrypt(data []byte, secret string) ([]byte, error) {
+func decrypt(data, secret []byte) ([]byte, error) {
 	chaCipher := initChaCha20Poly1305(secret)
 	nonceLen := chaCipher.NonceSize()
 	if (len(data) - nonceLen) <= 0 {
@@ -59,4 +69,24 @@ func decrypt(data []byte, secret string) ([]byte, error) {
 		return nil, errors.Wrap(err, "Cannot decrypt with secret!")
 	}
 	return plaintext, nil
+}
+
+func initChaCha20Poly1305(secret []byte) cipher.AEAD {
+	pwHash := blake2b.Sum256(secret)
+	chaCipher, err := chacha20poly1305.NewX(pwHash[:])
+	if err != nil {
+		panic(fmt.Sprintf("Could not init XChaCha20Poly1305 mode: %s",
+			err.Error()))
+	}
+	return chaCipher
+}
+
+func keyID(secret []byte, deviceID InstanceID) string {
+	// this will panic on error, intentional
+	h, _ := hash.NewCMixHash()
+	h.Write(secret)
+	h.Write(deviceID[:])
+	keyIDBytes := h.Sum(nil)
+
+	return base64.RawURLEncoding.EncodeToString(keyIDBytes)
 }

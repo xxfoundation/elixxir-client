@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/event"
 	"gitlab.com/elixxir/client/v4/interfaces"
 	"gitlab.com/elixxir/client/v4/registration"
@@ -23,7 +24,6 @@ import (
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -146,15 +146,13 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	return openCmix(storageKV, rngStreamGen)
 }
 
-func OpenSynchronizedCmix(storageDir string, password []byte, remote sync.RemoteStore,
-	synchedPrefixes []string,
-	eventCb sync.KeyUpdateCallback,
-	updateCb sync.RemoteStoreCallback) (*Cmix, error) {
+func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
+	synchedPrefixes []string) (*Cmix, error) {
 
 	jww.INFO.Printf("OpenSynchronizedCmix()")
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	storageKV, err := SynchronizedKV(storageDir, password,
-		remote, synchedPrefixes, eventCb, updateCb, rngStreamGen)
+		remote, synchedPrefixes, rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
@@ -252,15 +250,12 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 
 // LoadSynchronizedCmix initializes a Cmix object from existing storage using
 // a remote synchronization storage object and starts the network.
-func LoadSynchronizedCmix(storageDir string, password []byte, remote sync.RemoteStore,
-	synchedPrefixes []string,
-	eventCb sync.KeyUpdateCallback,
-	updateCb sync.RemoteStoreCallback,
-	parameters CMIXParams) (*Cmix, error) {
+func LoadSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
+	synchedPrefixes []string, parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("LoadSynchronizedCmix()")
 
 	c, err := OpenSynchronizedCmix(storageDir, password, remote,
-		synchedPrefixes, eventCb, updateCb)
+		synchedPrefixes)
 	if err != nil {
 		return nil, err
 	}
@@ -692,16 +687,6 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
 
 	rngStream := rng.GetStream()
 	defer rngStream.Close()
-
-	// Create and store an instance ID
-	instanceID, err := cmix.NewRandomInstanceID(rngStream)
-	if err != nil {
-		return nil, err
-	}
-	err = cmix.StoreInstanceID(instanceID, storageSess.GetKV())
-	if err != nil {
-		return nil, err
-	}
 
 	// Move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)

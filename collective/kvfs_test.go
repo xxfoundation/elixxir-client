@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package sync
+package collective
 
 import (
 	"strconv"
@@ -40,7 +40,7 @@ func TestEkvLocalStore_Smoke(t *testing.T) {
 	read, err := localStore.Read(path)
 	require.NoError(t, err)
 
-	// Ensure read data matches originally written data
+	// Ensure Read data matches originally written data
 	require.Equal(t, data, read)
 }
 

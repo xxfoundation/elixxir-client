@@ -10,19 +10,16 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"math/rand"
-	"testing"
-	"time"
-
-	"gitlab.com/xx_network/primitives/netTime"
-
-	"github.com/golang/protobuf/proto"
-
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/protobuf/proto"
+	"math/rand"
+	"testing"
+	"time"
 )
 
 type triggerEventDummy struct {

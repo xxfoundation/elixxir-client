@@ -5,97 +5,84 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package sync
+package collective
 
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
-// Hard-coded constants for testing purposes.
-const (
-
-	// expectedTransactionJson is the expected result for calling json.Marshal
-	// on a Transaction object with example data.
-	expectedTransactionJson = `{"Timestamp":"2012-12-21T22:08:41Z","Key":"key","Value":"dmFsdWU="}`
-
-	// expectedTransactionZeroTimeJson is the expected result for calling
-	// json.Marshal on a Transaction object with example data, specifically
-	// with a zero time.Time.
-	expectedTransactionZeroTimeJson = `{"Timestamp":"0001-01-01T00:00:00Z","Key":"key","Value":"dmFsdWU="}`
-
-	// expectedSerializedTransaction is the expected result after calling
-	// Transaction.serialize with example data.
-	expectedSerializedTransaction = `MCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWXBEZURxZjlNY0sya1VIcWpmVW50SHZIVW9Od2lnYjd6WTBDQW9MZzMyMVgyYlREUUNSaXlPMkhCWG1hS3hLWEk0TDFiLW9Hb1duMDc4Tk5IYTZMbDZNZHMycmtJQ2JieFE2RTk3MDlIM25ENTk3QT0=`
-)
-
-// Smoke test for NewTransaction.
+// Smoke test for NewMutate.
 func TestNewTransaction(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)
 	testTime, err := time.Parse(time.RFC3339,
 		"2012-12-21T22:08:41+00:00")
 	require.NoError(t, err)
 
-	// Construct expected Transaction object
-	key, val := "key", []byte("value")
-	expectedTx := Transaction{
-		Timestamp: testTime.UTC(),
-		Key:       key,
+	// Construct expected Mutate object
+	_, val := "key", []byte("value")
+	expectedTx := Mutate{
+		Timestamp: testTime.UTC().Unix(),
 		Value:     val,
 	}
 
-	require.Equal(t, expectedTx, NewTransaction(testTime, key, val))
+	require.Equal(t, expectedTx, NewMutate(testTime, val, false))
 }
 
-// Smoke & unit test for Transaction.MarshalJSON.
+// Smoke & unit test for Mutate.MarshalJSON.
 func TestTransaction_MarshalJSON(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)
 	testTime, err := time.Parse(time.RFC3339,
 		"2012-12-21T22:08:41+00:00")
 	require.NoError(t, err)
 
-	// Construct a Transaction object
-	key, val := "key", []byte("value")
-	tx := NewTransaction(testTime, key, val)
+	// Construct a Mutate object
+	_, val := "key", []byte("value")
+	tx := NewMutate(testTime, val, false)
 
-	// Marshal Transaction into JSON data
+	// Marshal Mutate into JSON data
 	marshalledData, err := json.Marshal(tx)
 	require.NoError(t, err)
+
+	expectedTransactionJson := `{"Timestamp":1356127721,"Value":"dmFsdWU=","Deletion":false}`
 
 	// Check that marshaled data matches expected value
 	require.Equal(t, expectedTransactionJson, string(marshalledData))
 
 }
 
-// Smoke & unit test for Transaction.UnmarshalJSON.
+// Smoke & unit test for Mutate.UnmarshalJSON.
 func TestTransaction_UnmarshalJSON(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)
 	testTime, err := time.Parse(time.RFC3339,
 		"2012-12-21T22:08:41+00:00")
 	require.NoError(t, err)
 
-	// Construct a Transaction object
-	key, val := "key", []byte("value")
-	oldTx := NewTransaction(testTime, key, val)
+	// Construct a Mutate object
+	_, val := "key", []byte("value")
+	oldTx := NewMutate(testTime, val, false)
 
-	// Marshal transaction into JSON data
+	// Marshal mutate into JSON data
 	oldTxData, err := json.Marshal(oldTx)
 	require.NoError(t, err)
 
-	// Construct a new transaction and unmarshal the old transaction into it
-	newTx := NewTransaction(time.Time{}, "", make([]byte, 0))
+	// Construct a new mutate and unmarshal the old mutate into it
+	newTx := NewMutate(time.Time{}, make([]byte, 0), false)
 	require.NoError(t, json.Unmarshal(oldTxData, &newTx))
 
 	// Ensure that the newTx.UnmarshalJSON call places
-	// oldTx's data into the new transaction object.
+	// oldTx's data into the new mutate object.
 	require.Equal(t, oldTx, newTx)
 
 	// Marshal the newTx into JSON
 	newTxData, err := json.Marshal(newTx)
 	require.NoError(t, err)
+
+	expectedTransactionJson := `{"Timestamp":1356127721,"Value":"dmFsdWU=","Deletion":false}`
 
 	// Ensure that newTx's marshalled data matches the expected JSON
 	// output (if no data has been lost, this should be the case)
@@ -106,40 +93,43 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 // Edge check: check that a zero value time.Time object gets marshalled
 // and unmarshalled properly.
 func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
-	testTime := time.Time{}
+	testTime := time.Unix(0, 0)
 
-	// Construct a Transaction object
-	key, val := "key", []byte("value")
-	oldTx := NewTransaction(testTime, key, val)
+	// Construct a Mutate object
+	_, val := "key", []byte("value")
+	oldTx := NewMutate(testTime, val, false)
 
-	// Marshal transaction into JSON data
+	// Marshal mutate into JSON data
 	oldTxData, err := json.Marshal(oldTx)
 	require.NoError(t, err)
 
+	expectedTransactionZeroTimeJson := `{"Timestamp":0,"Value":"dmFsdWU=","Deletion":false}`
+
 	require.Equal(t, expectedTransactionZeroTimeJson, string(oldTxData))
 
-	// Construct a new transaction and unmarshal the old transaction into it
-	newTx := NewTransaction(time.Time{}, "", make([]byte, 0))
+	// Construct a new mutate and unmarshal the old mutate into it
+	newTx := NewMutate(time.Unix(0, 0), make([]byte, 0), false)
 	require.NoError(t, json.Unmarshal(oldTxData, &newTx))
 
-	require.True(t, newTx.Timestamp.Equal(testTime))
+	require.Equal(t, newTx.Timestamp, testTime.Unix())
 }
 
-// Smoke test of Transaction.serialize.
+// Smoke test of Mutate.serialize.
 func TestTransaction_Serialize(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)
 	testTime, err := time.Parse(time.RFC3339,
 		"2012-12-21T22:08:41+00:00")
 	require.NoError(t, err)
 
-	// Construct a Transaction object
-	key, val := "key", []byte("value")
-	tx := NewTransaction(testTime, key, val)
+	// Construct a Mutate object
+	_, val := "key", []byte("value")
+	tx := NewMutate(testTime, val, false)
 
-	// Serialize transaction
-	secret, mockRng := []byte("secret"), &CountingReader{count: 0}
-	txSerial, err := tx.serialize(secret, 0, mockRng)
+	// Serialize mutate
+	txSerial, err := json.Marshal(tx)
 	require.NoError(t, err)
+
+	expectedSerializedTransaction := "eyJUaW1lc3RhbXAiOjEzNTYxMjc3MjEsIlZhbHVlIjoiZG1Gc2RXVT0iLCJEZWxldGlvbiI6ZmFsc2V9"
 
 	// Ensure serialization is consistent
 	require.Equal(t, expectedSerializedTransaction,
@@ -147,26 +137,26 @@ func TestTransaction_Serialize(t *testing.T) {
 }
 
 // Unit test of DeserializeTransaction. Ensures that deserialize will construct
-// the same Transaction that was serialized using Transaction.serialize.
+// the same Mutate that was serialized using Mutate.serialize.
 func TestTransaction_Deserialize(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)
 	testTime, err := time.Parse(time.RFC3339,
 		"2012-12-21T22:08:41+00:00")
 	require.NoError(t, err)
 
-	// Construct a Transaction object
-	key, val := "key", []byte("value")
-	tx := NewTransaction(testTime, key, val)
+	// Construct a Mutate object
+	_, val := "key", []byte("value")
+	tx := NewMutate(testTime, val, false)
 
-	// Serialize transaction
-	secret, mockRng := []byte("secret"), &CountingReader{count: 0}
-	txSerial, err := tx.serialize(secret, 0, mockRng)
+	// Serialize mutate
+	txSerial, err := json.Marshal(tx)
 	require.NoError(t, err)
 
-	// Deserialize transaction
-	txDeserialize, err := deserializeTransaction(txSerial, secret)
+	// Deserialize mutate
+	txDeserialize := &Mutate{}
+	err = json.Unmarshal(txSerial, txDeserialize)
 	require.NoError(t, err)
 
 	// Ensure deserialized object matches original object
-	require.Equal(t, tx, txDeserialize)
+	require.Equal(t, tx, *txDeserialize)
 }

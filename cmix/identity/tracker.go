@@ -209,7 +209,7 @@ func (t *manager) track(stop *stoppable.Single) {
 
 		if waitPeriod > validityGracePeriod {
 			// Trigger events early. This will cause generations to happen early as
-			// well as message pickup. As a result, if there are time sync issues
+			// well as message pickup. As a result, if there are time collective issues
 			// between clients, and they begin sending to ephemeral IDs early, then
 			// messages will still be picked up.
 			waitPeriod = waitPeriod - validityGracePeriod

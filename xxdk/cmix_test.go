@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	remoteSync "gitlab.com/elixxir/client/v4/sync"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -36,22 +35,17 @@ func TestSynchronized(t *testing.T) {
 	require.NoError(t, err)
 
 	//Now upgrade using Synchronized
-	syncPrefixes := []string{"sync", "a", "abcdefghijklmnop", "b", "c"}
-	remoteCallCnt := 0
-	updateCb := func(newTx remoteSync.Transaction, err error) {
-		t.Logf("KEY: %s, VAL: %s", newTx.Key, newTx.Value)
-		remoteCallCnt += 1
-	}
+	syncPrefixes := []string{"collective", "a", "abcdefghijklmnop", "b", "c"}
 	remote := &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
 	_, err = OpenSynchronizedCmix(storageDir, password, remote,
-		syncPrefixes, nil, updateCb)
+		syncPrefixes)
 	require.NoError(t, err)
 
 	// Initialize once more to show that it can init more than once
 	_, err = OpenSynchronizedCmix(storageDir, password, remote,
-		syncPrefixes, nil, updateCb)
+		syncPrefixes)
 	require.NoError(t, err)
 
 	// Now ensure re-opening the old way causes a panic

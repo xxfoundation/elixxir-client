@@ -4,7 +4,7 @@
 
 package xxdk
 
-const GITVERSION = `0dfd5e71 Merge branch 'release' into xx-4591/enable-noreg`
+const GITVERSION = `0dfd5e71 Diff branch 'release' into xx-4591/enable-noreg`
 const SEMVER = "4.6.2"
 const DEPENDENCIES = `module gitlab.com/elixxir/client/v4
 

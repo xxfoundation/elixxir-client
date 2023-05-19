@@ -10,6 +10,9 @@ package cmd
 import (
 	"crypto/ed25519"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -23,8 +26,6 @@ import (
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
-	"os"
-	"time"
 )
 
 const channelsPrintHeader = "CHANNELS"
@@ -116,10 +117,11 @@ var channelsCmd = &cobra.Command{
 			}
 		}
 
+		cbs := &channelCbs{}
 		// Construct channels manager
 		chanManager, err := channels.NewManagerBuilder(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder, nil, user.AddService)
+			mockEventModelBuilder, nil, user.AddService, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)
@@ -446,6 +448,14 @@ func (m *eventModel) DeleteMessage(message.ID) error {
 
 func (m *eventModel) MuteUser(*id.ID, ed25519.PublicKey, bool) {
 	jww.WARN.Printf("MuteUser is unimplemented in the CLI event model!")
+}
+
+type channelCbs struct{}
+
+func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
+	exists bool) {
+	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,
+		nickname, exists)
 }
 
 func init() {

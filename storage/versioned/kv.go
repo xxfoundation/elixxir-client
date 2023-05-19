@@ -9,6 +9,7 @@ package versioned
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -25,10 +26,11 @@ import (
 // value (see base64.StdEncoding].
 const PrefixSeparator = `\`
 
-const (
-	EmptyPrefixErr               = "empty prefix"
-	PrefixContainingSeparatorErr = "cannot accept prefix with the default separator"
-	DuplicatePrefixErr           = "prefix has already been added, cannot overwrite"
+var (
+	EmptyPrefixErr               = errors.New("empty prefix")
+	PrefixContainingSeparatorErr = errors.New("cannot accept prefix with the default separator")
+	DuplicatePrefixErr           = errors.New("prefix has already been added, cannot overwrite")
+	UnimplementedErr             = errors.New("not implemented")
 )
 
 // KV is a key value store interface that supports versioned and
@@ -52,6 +54,62 @@ type KV interface {
 	// maintaining such a functionality.
 	Set(key string, object *Object) error
 
+	// StoreMapElement stores a versioned map element into the KV. This relies
+	// on the underlying remote [KV.StoreMapElement] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	// The version of the value must match the version of the map.
+	// All Map storage functions update the remote.
+	StoreMapElement(mapName, elementName string, value *Object,
+		mapVersion uint64) error
+
+	// StoreMap saves a versioned map element into the KV. This relies
+	// on the underlying remote [KV.StoreMap] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	// the version of values must match the version of the map
+	// All Map storage functions update the remote.
+	StoreMap(mapName string, values map[string]*Object, mapVersion uint64) error
+
+	// GetMap loads a versioned map from the KV. This relies
+	// on the underlying remote [KV.GetMap] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	GetMap(mapName string, mapVersion uint64) (map[string]*Object, error)
+
+	// GetMapElement loads a versioned map element from the KV. This relies
+	// on the underlying remote [KV.GetMapElement] function to lock and control
+	// updates, but it uses [versioned.Object] values.
+	GetMapElement(mapName, elementName string, mapVersion uint64) (
+		*Object, error)
+
+	// DeleteMapElement removes a map element from the list. It
+	// returns the element that was deleted and any errors if they occur.
+	DeleteMapElement(mapName, elementName string, mapVersion uint64) (
+		*Object, error)
+
+	// Transaction locks a key while it is being mutated then stores the result
+	// and returns the old value if it existed.
+	// If the op returns an error, the operation will be aborted.
+	Transaction(key string, op TransactionOperation, version uint64) (
+		old *Object, existed bool, err error)
+
+	// ListenOnRemoteKey allows the caller to receive updates when
+	// a key is updated by synching with another client.
+	// Only one callback can be written per key.
+	// returns the object for the key such that callbacks will be updates on
+	// that state. The object will be nil if it doesn't exist yet.
+	// You cannot add listeners when network processor for
+	// synchronization is active.
+	ListenOnRemoteKey(key string, version uint64,
+		callback KeyChangedByRemoteCallback) (*Object, error)
+
+	// ListenOnRemoteMap allows the caller to receive updates when
+	// the map or map elements are updated
+	// returns the map such that callbacks will be updates on
+	// that state. The Map will be nil if it doesn't exist yet.
+	// You cannot add listeners when network processor for
+	// synchronization is active.
+	ListenOnRemoteMap(mapName string, version uint64,
+		callback MapChangedByRemoteCallback) (map[string]*Object, error)
+
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
 
@@ -73,6 +131,51 @@ type KV interface {
 	// Exists returns if the error indicates a KV error showing
 	// the key exists.
 	Exists(err error) bool
+}
+
+// KeyChangedByRemoteCallback is the callback used to report local updates caused
+// by a remote client editing their EKV
+type KeyChangedByRemoteCallback func(key string, old, new *Object, op KeyOperation)
+
+// MapChangedByRemoteCallback is the callback used to report local updates caused
+// by a remote client editing their EKV
+type MapChangedByRemoteCallback func(mapName string, edits map[string]ElementEdit)
+type ElementEdit struct {
+	OldElement *Object
+	NewElement *Object
+	Operation  KeyOperation
+}
+
+type KeyOperation uint8
+
+const (
+	Created KeyOperation = iota
+	Updated
+	Deleted
+)
+
+func (ko KeyOperation) String() string {
+	switch ko {
+	case Created:
+		return "Created"
+	case Updated:
+		return "Updated"
+	case Deleted:
+		return "Deleted"
+	default:
+		return "Unknown Key Operation: " + strconv.Itoa(int(ko))
+	}
+}
+
+type TransactionOperation func(old *Object, existed bool) (data *Object,
+	err error)
+
+type MutualTransactionOperation func(map[string]Value) (
+	updates map[string]Value, err error)
+
+type Value struct {
+	Obj    *Object
+	Exists bool
 }
 
 // MakePartnerPrefix creates a string prefix
@@ -114,6 +217,9 @@ func NewKV(data ekv.KeyValue) KV {
 	root.data = data
 
 	newkv.r = &root
+
+	jww.WARN.Printf("storage/versioned.KV is deprecated. " +
+		"Please use collective.VersionedKV")
 
 	return &newkv
 }
@@ -218,17 +324,17 @@ func (v *kv) HasPrefix(prefix string) bool {
 // [KV.Prefix].
 func (v *kv) Prefix(prefix string) (KV, error) {
 	if prefix == "" {
-		return nil, errors.Errorf(EmptyPrefixErr)
+		return nil, EmptyPrefixErr
 	}
 
 	//// Reject invalid prefixes
 	if strings.Contains(prefix, PrefixSeparator) {
-		return nil, errors.Errorf(PrefixContainingSeparatorErr)
+		return nil, PrefixContainingSeparatorErr
 	}
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {
-		return nil, errors.Errorf(DuplicatePrefixErr)
+		return nil, DuplicatePrefixErr
 	}
 
 	newPrefixMap := make(map[string]int)
@@ -264,17 +370,67 @@ func (v *kv) IsMemStore() bool {
 	return success
 }
 
-// Returns the key with all prefixes appended
+// GetFullKey returns the key with all prefixes appended
 func (v *kv) GetFullKey(key string, version uint64) string {
 	return v.makeKey(key, version)
 }
 
 func (v *kv) makeKey(key string, version uint64) string {
-	return fmt.Sprintf("%s%s_%d", v.prefix, key, version)
+	return v.prefix + key + "_" + strconv.Itoa(int(version))
 }
 
 // Exists returns false if the error indicates the element doesn't
 // exist.
 func (v *kv) Exists(err error) bool {
 	return ekv.Exists(err)
+}
+
+// StoreMapElement is not implemented for local KVs
+func (v *kv) StoreMapElement(mapName, elementName string, value *Object,
+	mapVersion uint64) error {
+	return UnimplementedErr
+}
+
+// StoreMap is not implemented for local KVs
+func (v *kv) StoreMap(mapName string,
+	values map[string]*Object, mapVersion uint64) error {
+	return UnimplementedErr
+}
+
+// GetMap is not implemented for local KVs
+func (v *kv) GetMap(mapName string, version uint64) (
+	map[string]*Object, error) {
+	return nil, UnimplementedErr
+}
+
+// GetMapElement is not implemented for local KVs
+func (v *kv) GetMapElement(mapName, element string, version uint64) (
+	*Object, error) {
+	return nil, UnimplementedErr
+}
+
+// DeleteMapElement is not implemented for local KVs
+func (v *kv) DeleteMapElement(mapName, element string, version uint64) (
+	*Object, error) {
+	return nil, UnimplementedErr
+}
+
+// Transaction is not implemented for local KVs
+func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
+	old *Object, existed bool, err error) {
+	return nil, false, UnimplementedErr
+}
+
+// ListenOnRemoteKey is not implemented for local KVs
+func (v *kv) ListenOnRemoteKey(key string, version uint64,
+	callback KeyChangedByRemoteCallback) (*Object, error) {
+	return nil, errors.Wrapf(UnimplementedErr,
+		"ListenOnRemoteMap")
+}
+
+// ListenOnRemoteMap is not implemented for local KVs
+func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
+	callback MapChangedByRemoteCallback) (map[string]*Object, error) {
+	return nil, errors.Wrapf(UnimplementedErr,
+		"ListenOnRemoteMap")
 }

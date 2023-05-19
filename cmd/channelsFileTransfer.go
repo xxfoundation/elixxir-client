@@ -11,16 +11,17 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
-	"os"
-	"sync"
-	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -98,10 +99,12 @@ var channelsFileTransferCmd = &cobra.Command{
 				"[FT] Failed to create new file transfer manager: %+v", err)
 		}
 
+		cbs := &channelCbs{}
+
 		// Construct channels manager
 		em.eventModel.api, err = channels.NewManager(chanID,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(), em,
-			extensions, user.AddService)
+			extensions, user.AddService, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[FT] Failed to create channels manager: %+v", err)
 		}

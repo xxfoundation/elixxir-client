@@ -83,7 +83,8 @@ func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Tim
 	res := []time.Time{
 		timestamp0, timestamp1, timestamp2, timestamp3, timestamp4, timestamp5,
 	}
-	curTime := time.Now()
+	curTime, err := time.Parse(time.RFC3339, "2023-05-19T22:08:41+00:00")
+	require.NoError(t, err)
 	for i := 0; i < numRandomTimestamps; i++ {
 		curTime = curTime.Add(1 * time.Second)
 		for f := rand.Float32(); f < 0.5; f = rng.Float32() {

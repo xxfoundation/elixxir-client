@@ -203,7 +203,7 @@ func TestCollector_ApplyChanges(t *testing.T) {
 
 	// These are generated from a previous run, they're always the same due
 	// to the entropy source
-	expectedVals := []int{20, 41, 42, 33, 14, 15}
+	expectedVals := []int{20, 11, 12, 33, 14, 15}
 	for i := 0; i < 6; i++ {
 		key := fmt.Sprintf("Key%d", i)
 		val, err := remoteKv.remote.GetBytes(key)

@@ -35,6 +35,13 @@ type testNetworkManager struct {
 	responseProcessor message.Processor
 }
 
+func (m *testNetworkManager) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+}
+func (m *testNetworkManager) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+
 func (tnm *testNetworkManager) SetTrackNetworkPeriod(d time.Duration) {
 	//TODO implement me
 	panic("implement me")
@@ -57,45 +64,53 @@ func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmi
 	msg.SetKeyFP(fingerprint)
 	msg.SetContents(payload)
 	msg.SetMac(mac)
-	msg.SetSIH(service.Hash(msg.GetContents()))
+	SIH, err := service.Hash(nil, msg.GetContents())
+	if err != nil {
+		panic(err)
+	}
+	msg.SetSIH(SIH)
 	// If the recipient for a call to Send is UD, then this
 	// is the request pathway. Call the UD processor to simulate
 	// the UD picking up the request
 	if bytes.Equal(tnm.instance.GetFullNdf().
 		Get().UDB.ID,
 		recipient.Bytes()) {
-		tnm.responseProcessor.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.responseProcessor.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 
 	} else {
 		// This should happen when the mock UD service Sends back a response.
 		// Calling process mocks up the requester picking up the response.
-		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.requestProcess.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
-	service message.Service,
+	service cmix.Service,
 	payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(tnm.instance.GetE2EGroup().GetP().ByteLen())
 	// Build message. Will panic if inputs are not correct.
 	msg.SetKeyFP(fingerprint)
 	msg.SetContents(payload)
 	msg.SetMac(mac)
-	msg.SetSIH(service.Hash(msg.GetContents()))
+	SIH, err := service.Hash(nil, msg.GetContents())
+	if err != nil {
+		panic(err)
+	}
+	msg.SetSIH(SIH)
 	// If the recipient for a call to Send is UD, then this
 	// is the request pathway. Call the UD processor to simulate
 	// the UD picking up the request
 	if bytes.Equal(tnm.instance.GetFullNdf().
 		Get().UDB.ID,
 		recipient.Bytes()) {
-		tnm.responseProcessor.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.responseProcessor.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 
 	} else {
 		// This should happen when the mock UD service Sends back a response.
 		// Calling process mocks up the requester picking up the response.
-		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+		tnm.requestProcess.Process(msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
 	return rounds.Round{}, ephemeral.Id{}, nil
@@ -207,22 +222,27 @@ func (tnm *testNetworkManager) DeleteFingerprint(identity *id.ID, fingerprint fo
 }
 
 func (tnm *testNetworkManager) DeleteClientService(clientID *id.ID) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) TrackServices(tracker message.ServicesTracker) {
-	//TODO implement me
+	// TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) WasHealthy() bool {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) AddHealthCallback(f func(bool)) uint64 {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

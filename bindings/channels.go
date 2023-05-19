@@ -10,12 +10,12 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
+	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/channels/storage"
@@ -26,6 +26,9 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
+	"gitlab.com/elixxir/primitives/notifications"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -244,7 +247,7 @@ func GetPublicChannelIdentity(marshaledPublic []byte) ([]byte, error) {
 // ([channel.PrivateIdentity]).
 //
 // Parameters:
-//   - marshaledPrivate - Marshalled bytes of the private identity
+//   - marshaledPrivate - Marshaled bytes of the private identity
 //     ([channel.PrivateIdentity]).
 //
 // Returns:
@@ -277,22 +280,28 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     extension builders. Example: `[2,11,5]`.
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
-//   - uiCallbacks - callbacks to inform the ui about various events, can be nil
-
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity,
-	extensionBuilderIDsJSON []byte, dbFilePath string, cipherID int,
-	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	extensionBuilderIDsJSON []byte, dbFilePath string, cipherID,
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
 	if err != nil {
 		return nil, err
 	}
 	cipher, err := channelDbCipherTrackerSingleton.get(cipherID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -321,9 +330,9 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManager(pi, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(), model, extensionBuilders,
-		user.api.AddService, wrap)
+	m, err := channels.NewManager(pi, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), model, extensionBuilders, user.api.AddService,
+		notif, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +356,8 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
-//   - uiCallbacks - callbacks to inform the ui about various events, cannot be nil
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	cipherID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
@@ -375,8 +385,8 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	}
 
 	// Construct new channels manager
-	m, err := channels.LoadManager(storageTag, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(), model, nil, wrap)
+	m, err := channels.LoadManager(storageTag, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), model, nil, nil, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -405,17 +415,24 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //     extension builders. Example: `[2,11,5]`.
 //   - eventBuilder - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
-//   - uiCallbacks - callbacks to inform the ui about various events, can be nil
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManager(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, eventBuilder EventModelBuilder,
-	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -442,9 +459,9 @@ func NewChannelsManager(cmixID int, privateIdentity,
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(pi, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(), eb, extensionBuilders,
-		user.api.AddService, wrap)
+	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), eb, extensionBuilders, user.api.AddService, notif,
+		wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -466,15 +483,22 @@ func NewChannelsManager(cmixID int, privateIdentity,
 //     [Cmix.GetID].
 //   - storageTag - The storage tag associated with the previously created
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
-//   - event - An interface that contains a function that initialises and
+//   - event - An interface that contains a function that initializes and
 //     returns the event model that is bindings-compatible.
-//   - uiCallbacks - callbacks to inform the ui about various events, can be nil
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManager(cmixID int, storageTag string,
-	eventBuilder EventModelBuilder, uiCallbacks ChannelUICallbacks) (
-	*ChannelsManager, error) {
+	eventBuilder EventModelBuilder, notificationsID int,
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -492,8 +516,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(),
-		eb, nil, wrap)
+		user.api.GetCmix(), user.api.GetRng(), eb, nil, notif, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -521,20 +544,27 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //     with an extension builder (e.g.,
 //     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
-//   - goEventBuilder - A function that initialises and returns the event model
+//   - goEventBuilder - A function that initializes and returns the event model
 //     that is not compatible with GoMobile bindings.
-//   - uiCallbacks - callbacks to inform the ui about various events, can be nil) (
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	callbacks ChannelUICallbacks) (
+	notificationsID int, callbacks ChannelUICallbacks) (
 	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -556,9 +586,9 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(pi, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(),
-		goEventBuilder, extensionBuilders, user.api.AddService, cbs)
+	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
+		user.api.GetRng(), goEventBuilder, extensionBuilders,
+		user.api.AddService, notif, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -578,16 +608,24 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //   - cmixID - ID of [Cmix] object in tracker. This can be retrieved using
 //     [Cmix.GetID].
 //   - storageTag - retrieved with ChannelsManager.GetStorageTag
-//   - goEvent - A function that initialises and returns the event model that is
+//   - goEvent - A function that initializes and returns the event model that is
 //     not compatible with GoMobile bindings.
 //   - builders - A list of extensions that are to be included with channels.
-//   - uiCallbacks - callbacks to inform the ui about various events, can be nil
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
+//   - uiCallbacks - Callbacks to inform the UI about various events. The entire
+//     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder,
-	builders []channels.ExtensionBuilder, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	builders []channels.ExtensionBuilder, notificationsID int,
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
-	// Get user from singleton
+	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +639,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
-		builders, cbs)
+		builders, notif, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -1069,11 +1107,13 @@ func ValidForever() int {
 //     to the user should be tracked while all actions should not be.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
-	message []byte, validUntilMS int64, tracked bool, cmixParamsJSON []byte) (
+	message []byte, validUntilMS int64, tracked bool, cmixParamsJSON []byte, pingBytes [][]byte) (
 	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
@@ -1091,9 +1131,14 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 		lease = channels.ValidForever
 	}
 
+	pings := make([]ed25519.PublicKey, len(pingBytes))
+	for i := range pingBytes {
+		pings[i] = pingBytes[i][:]
+	}
+
 	// Send message
 	messageID, rnd, ephID, err := cm.api.SendGeneric(
-		channelID, msgType, message, lease, tracked, params.CMIX)
+		channelID, msgType, message, lease, tracked, params.CMIX, pings)
 	if err != nil {
 		return nil, err
 	}
@@ -1124,11 +1169,13 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 //     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //     empty, and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
-	validUntilMS int64, cmixParamsJSON []byte) ([]byte, error) {
+	validUntilMS int64, cmixParamsJSON []byte, pingBytes [][]byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err :=
@@ -1143,9 +1190,14 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
+	pings := make([]ed25519.PublicKey, len(pingBytes))
+	for i := range pingBytes {
+		pings[i] = pingBytes[i][:]
+	}
+
 	// Send message
 	messageID, rnd, ephID, err :=
-		cm.api.SendMessage(channelID, message, lease, params.CMIX)
+		cm.api.SendMessage(channelID, message, lease, params.CMIX, pings)
 	if err != nil {
 		return nil, err
 	}
@@ -1181,11 +1233,13 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 //     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and [GetDefaultCMixParams] will be used internally.
+//   - pingBytes - A byte slice containing public keys of users that
+//     should receive mobile notifications for the message
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
-	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte) (
+	messageToReactTo []byte, validUntilMS int64, cmixParamsJSON []byte, pingBytes [][]byte) (
 	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
@@ -1205,9 +1259,14 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
+	pings := make([]ed25519.PublicKey, len(pingBytes))
+	for i := range pingBytes {
+		pings[i] = pingBytes[i][:]
+	}
+
 	// Send Reply
 	messageID, rnd, ephID, err :=
-		cm.api.SendReply(channelID, message, messageID, lease, params.CMIX)
+		cm.api.SendReply(channelID, message, messageID, lease, params.CMIX, pings)
 	if err != nil {
 		return nil, err
 	}
@@ -1272,6 +1331,50 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 
 	// Construct send report
 	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
+}
+
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very
+// lightweight.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
+//   - validUntilMS - The lease of the message. This will be how long the
+//     message is available from the network, in milliseconds. As per the
+//     [channels.Manager] documentation, this has different meanings depending
+//     on the use case. These use cases may be generic enough that they will not
+//     be enumerated here. Use [channels.ValidForever] to last the max message
+//     life.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+//
+// Returns:
+//   - []byte - JSON of [ChannelSendReport].
+func (cm *ChannelsManager) SendSilent(channelIdBytes []byte, validUntilMS int64,
+	cmixParamsJSON []byte) ([]byte, error) {
+	// Unmarshal channel ID and parameters
+	channelID, params, err := parseChannelsParameters(
+		channelIdBytes, cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate lease
+	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	// Send invite
+	messageID, rnd, ephID, err := cm.api.SendSilent(
+		channelID, lease, params.CMIX)
+
+	// Construct send report
+	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1662,6 +1765,85 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Notifications                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
+// GetNotificationLevel returns the [channels.NotificationLevel] for the given
+// channel.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//   - level - The [channels.NotificationLevel] to set for the channel.
+//
+// Returns:
+//   - int - The [channels.NotificationLevel] for the channel.
+func (cm *ChannelsManager) GetNotificationLevel(
+	channelIDBytes []byte) (int, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return 0, err
+	}
+
+	level, err := cm.api.GetNotificationLevel(channelID)
+	return int(level), err
+}
+
+// SetMobileNotificationsLevel sets the notification level for the given
+// channel. The [channels.NotificationLevel] dictates the type of notifications
+// received and the status controls weather the notification is push or in-app.
+// If muted, both the level and status must be set to mute.
+//
+// To use push notifications, a token must be registered with the notification
+// manager. Note, when enabling push notifications, information may be shared
+// with third parties (i.e., Firebase and Google's Palantir) and may represent a
+// security risk to the user.
+//
+// Parameters:
+//   - channelIDBytes - The marshaled bytes of the channel's [id.ID].
+//   - level - The [channels.NotificationLevel] to set for the channel.
+//   - status - The [notifications.NotificationState] to set for the channel.
+//   - push - True to enable push notifications and false to only have in-app
+//     notifications.
+func (cm *ChannelsManager) SetMobileNotificationsLevel(
+	channelIDBytes []byte, level, status int, push bool) error {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return err
+	}
+
+	return cm.api.SetMobileNotificationsLevel(
+		channelID, channels.NotificationLevel(level),
+		clientNotif.NotificationState(status))
+}
+
+// GetNotificationReportsForMe checks the notification data against the filter
+// list to determine which notifications belong to the user. A list of
+// notifications reports is returned detailing all notifications for the user.
+//
+// Parameters:
+//   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
+//   - notificationDataJSON - JSON of a slice of [notifications.Data].
+//
+// Returns:
+//   - []byte - JSON of a slice of [channels.NotificationReport].
+func GetNotificationReportsForMe(notificationFilterJSON,
+	notificationDataJSON []byte) ([]byte, error) {
+	var nfs []channels.NotificationFilter
+	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
+		return nil, err
+	}
+
+	var notifData []*notifications.Data
+	if err := json.Unmarshal(notificationDataJSON, &notifData); err != nil {
+		return nil, err
+	}
+
+	nrs := channels.GetNotificationReportsForMe(nfs, notifData)
+
+	return json.Marshal(nrs)
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Admin Management                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1830,8 +2012,8 @@ type ChannelMessageReceptionCallback interface {
 }
 
 // RegisterReceiveHandler registers a listener for non-default message types so
-// that they can be processed by modules. It is important that such modules collective
-// up with the event model implementation.
+// that they can be processed by modules. It is important that such modules
+// collective up with the event model implementation.
 //
 // There can only be one handler per [channels.MessageType]; the error
 // [channels.MessageTypeAlreadyRegistered] will be returned on multiple
@@ -2624,16 +2806,42 @@ func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *channelUICallbacksWr
 }
 
 type ChannelUICallbacks interface {
-	// MessageReceived is called any time a message is received or updated
-	// update is true if the row is old and was edited.
+	// NicknameUpdate is called when your nickname changes due to a change on a
+	// remote.
+	NicknameUpdate(channelIdBytes []byte, nickname string, exists bool)
+
+	// NotificationUpdate is a callback that is called any time a notification
+	// level changes.
+	//
+	// It returns a slice of [NotificationFilter] for all channels with
+	// notifications enabled. The [NotificationFilter] is used to determine
+	// which notifications from the notification server belong to the caller.
+	//
+	// It also returns a map of all channel notification states that have
+	// changed and all that have been deleted. The maxState is the global state
+	// set for notifications.
+	//
+	// Parameters:
+	//   - notificationFilterListJSON - JSON of a slice of
+	//     [channels.NotificationFilter].
+	//   - changedNotificationStatesJSON - JSON of a slice of
+	//     [channels.NotificationState] of added or changed channel notification
+	//     statuses.
+	//   - deletedNotificationStatesJSON - JSON of a slice of [id.ID] of deleted
+	//     channel notification statuses.
+	//   - maxState - The global notification state.
+	NotificationUpdate(notificationFilterListJSON, changedNotificationStatesJSON,
+		deletedNotificationStatesJSON []byte, maxState int)
+
+	// MessageReceived is called any time a message is received or updated.
+	// Update is true if the row is old and was edited.
 	MessageReceived(uuid int64, channelID []byte, update bool)
+
 	// UserMuted is a callback provided for the MuteUser method of the impl.
 	UserMuted(channelID []byte, pubKey []byte, unmute bool)
+
 	// MessageDeleted is called any time a message is deleted.
 	MessageDeleted(messageId []byte)
-	// NicknameUpdate is called when your nickname changes due to a
-	// change on a remote
-	NicknameUpdate(channelIdBytes []byte, nickname string, exists bool)
 }
 
 type channelUICallbacksWrapper struct {
@@ -2645,9 +2853,32 @@ func (cuicbw *channelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
 	cuicbw.cuic.NicknameUpdate(channelId.Marshal(), nickname, exists)
 }
 
+func (cuicbw *channelUICallbacksWrapper) NotificationUpdate(
+	nfs []channels.NotificationFilter,
+	changedNotificationStates []channels.NotificationState,
+	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
+	nfsData, err := json.Marshal(nfs)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v", nfs, err)
+	}
+	changedNotificationStatesData, err := json.Marshal(changedNotificationStates)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v",
+			changedNotificationStates, err)
+	}
+	deletedNotificationStatesData, err := json.Marshal(deletedNotificationStates)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v",
+			deletedNotificationStates, err)
+	}
+
+	cuicbw.cuic.NotificationUpdate(nfsData, changedNotificationStatesData,
+		deletedNotificationStatesData, int(maxState))
+}
+
 func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid int64,
 	channelID *id.ID, update bool) {
-	cuicbw.cuic.MessageReceived(int64(uuid), channelID.Marshal(), update)
+	cuicbw.cuic.MessageReceived(uuid, channelID.Marshal(), update)
 }
 
 func (cuicbw *channelUICallbacksWrapper) UserMuted(channelID *id.ID,

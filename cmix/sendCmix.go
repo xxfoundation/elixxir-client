@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
-	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/nodes"
 	"gitlab.com/elixxir/client/v4/event"
 	"gitlab.com/elixxir/client/v4/stoppable"
@@ -61,10 +60,10 @@ import (
 // (along with the reason). Blocks until successful sends or errors.
 // WARNING: Do not roll your own crypto.
 func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
-	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
+	service Service, payload, mac []byte, cmixParams CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	// create an internal assembler function to pass to sendWithAssembler
-	assembler := func(rid id.Round) (format.Fingerprint, message.Service,
+	assembler := func(rid id.Round) (format.Fingerprint, Service,
 		[]byte, []byte, error) {
 		return fingerprint, service, payload, mac, nil
 	}
@@ -126,7 +125,11 @@ func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 		msg := format.NewMessage(c.session.GetCmixGroup().GetP().ByteLen())
 		msg.SetContents(payload)
 		msg.SetKeyFP(fingerprint)
-		msg.SetSIH(service.Hash(msg.GetContents()))
+		sih, err := service.Hash(recipient, msg.GetContents())
+		if err != nil {
+			return format.Message{}, err
+		}
+		msg.SetSIH(sih)
 		msg.SetMac(mac)
 
 		jww.TRACE.Printf("sendCmix Contents: %v, KeyFP: %v, MAC: %v, SIH: %v",

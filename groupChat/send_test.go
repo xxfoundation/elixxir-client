@@ -53,7 +53,7 @@ func Test_manager_Send(t *testing.T) {
 	timestamps := make(map[states.Round]time.Time)
 	timestamps[states.PRECOMPUTING] = netTime.Now().Round(0)
 	for _, msg := range messages {
-		reception.Process(msg, receptionID.EphemeralIdentity{
+		reception.Process(msg, []string{}, nil, receptionID.EphemeralIdentity{
 			EphId: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},
 		},
 			rounds.Round{ID: roundId.ID, Timestamps: timestamps})
@@ -244,7 +244,7 @@ type testProcessor struct {
 	msgChan chan MessageReceive
 }
 
-func (tp *testProcessor) Process(decryptedMsg MessageReceive, _ format.Message,
+func (tp *testProcessor) Process(decryptedMsg MessageReceive, _ format.Message, _ []string, _ []byte,
 	_ receptionID.EphemeralIdentity, _ rounds.Round) {
 	tp.msgChan <- decryptedMsg
 }

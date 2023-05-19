@@ -44,7 +44,7 @@ type Listener interface {
 type RequestCmix interface {
 	GetMaxMessageLength() int
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service cMixMsg.Service, payload, mac []byte,
+		service cmix.Service, payload, mac []byte,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	GetInstance() *network.Instance
 }
@@ -73,7 +73,7 @@ type Cmix interface {
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
 		fallthroughProcessor message.Processor)
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
+		service cmix.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
 		rounds.Round, ephemeral.Id, error)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)

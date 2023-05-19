@@ -10,6 +10,7 @@ package cmd
 import (
 	"crypto/ed25519"
 	"fmt"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"os"
 	"time"
 
@@ -117,11 +118,11 @@ var channelsCmd = &cobra.Command{
 			}
 		}
 
-		cbs := &channelCbs{}
 		// Construct channels manager
+		cbs := &channelCbs{}
 		chanManager, err := channels.NewManagerBuilder(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder, nil, user.AddService, cbs)
+			mockEventModelBuilder, nil, user.AddService, nil, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)
@@ -318,7 +319,7 @@ func sendMessageToChannel(chanManager channels.Manager,
 		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
 		channel.ReceptionID, integrationChannelMessage, msgBody, 5*time.Second,
-		true, cmix.GetDefaultCMIXParams())
+		true, cmix.GetDefaultCMIXParams(), nil)
 	if err != nil {
 		return errors.Errorf("%+v", err)
 	}
@@ -457,6 +458,13 @@ func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
 	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,
 		nickname, exists)
 }
+
+func (c *channelCbs) NotificationUpdate(nfs []channels.NotificationFilter,
+	changedNotificationStates []channels.NotificationState,
+	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
+}
+
+func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
 
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",

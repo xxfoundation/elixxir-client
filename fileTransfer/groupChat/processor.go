@@ -32,7 +32,7 @@ type processor struct {
 // reception callback. It is the responsibility of the caller to register a
 // progress callback.
 func (p *processor) Process(decryptedMsg groupChat.MessageReceive,
-	_ format.Message, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+	_ format.Message, _ []string, _ []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	// Add new transfer to start receiving parts
 	tid, info, err := p.ft.HandleIncomingTransfer(decryptedMsg.Payload, nil, 0)
 	if err != nil {

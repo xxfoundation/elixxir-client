@@ -115,6 +115,14 @@ func newMockCmix(myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *m
 	}
 }
 
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { panic("implement me") }
 
 func (m *mockCmix) GetMaxMessageLength() int {
@@ -122,7 +130,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
+func (m *mockCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte,
 	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
@@ -134,7 +142,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 		msg.SetContents(targetedMsg.Payload)
 		msg.SetMac(targetedMsg.Mac)
 		msg.SetKeyFP(targetedMsg.Fingerprint)
-		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg,
+		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg, []string{}, nil,
 			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
 			rounds.Round{ID: 42})
 	}
@@ -180,6 +188,9 @@ func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stopp
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
+func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	panic("implement me")
+}
 func (m *mockCmix) CheckInProgressMessages()                                 {}
 func (m *mockCmix) IsHealthy() bool                                          { return m.health }
 func (m *mockCmix) WasHealthy() bool                                         { return true }

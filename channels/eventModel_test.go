@@ -297,12 +297,12 @@ func Test_events_triggerEvents(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	umi, _, _ := builtTestUMI(t, mt)
+	umi, _, _ := builtTestUMI(t)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// Call the trigger
-	_, err = e.triggerEvent(chID, umi, nil, netTime.Now(),
+	_, err = e.triggerEvent(chID, umi, 42, nil, netTime.Now(),
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -337,13 +337,13 @@ func Test_events_triggerEvents_noChannel(t *testing.T) {
 	// Craft the input for the event
 	chID := &id.ID{1}
 
-	umi, _, _ := builtTestUMI(t, mt)
+	umi, _, _ := builtTestUMI(t)
 
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// call the trigger
-	_, err := e.triggerEvent(chID, umi, nil, netTime.Now(),
+	_, err := e.triggerEvent(chID, umi, mt, nil, netTime.Now(),
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -371,14 +371,14 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	u, _, cm := builtTestUMI(t, mt)
+	u, _, cm := builtTestUMI(t)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := message.
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
+	_, err = e.triggerAdminEvent(chID, cm, mt, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -407,14 +407,14 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	u, _, cm := builtTestUMI(t, mt)
+	u, _, cm := builtTestUMI(t)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := message.
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err := e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
+	_, err := e.triggerAdminEvent(chID, cm, mt, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -440,14 +440,14 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	u, _, cm := builtTestUMI(t, mt)
+	u, _, cm := builtTestUMI(t)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := message.
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err = e.triggerActionEvent(chID, msgID, MessageType(cm.PayloadType),
+	_, err = e.triggerActionEvent(chID, msgID, mt,
 		cm.Nickname, cm.Payload, nil, netTime.Now(), netTime.Now(),
 		time.Duration(cm.Lease), r.ID, r, Delivered, true)
 	if err != nil {

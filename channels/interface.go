@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"math"
 	"time"
 
@@ -119,7 +120,8 @@ type Manager interface {
 	// messageType that corresponds to a handler that does not return a unique
 	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
-		validUntil time.Duration, tracked bool, params cmix.CMIXParams) (
+		validUntil time.Duration, tracked bool, params cmix.CMIXParams,
+		pings []ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
@@ -131,7 +133,7 @@ type Manager interface {
 	// The message will auto delete validUntil after the round it is sent in,
 	// lasting forever if ValidForever is used.
 	SendMessage(channelID *id.ID, msg string, validUntil time.Duration,
-		params cmix.CMIXParams) (
+		params cmix.CMIXParams, pings []ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendReply is used to send a formatted message over a channel.
@@ -146,7 +148,8 @@ type Manager interface {
 	// The message will auto delete validUntil after the round it is sent in,
 	// lasting forever if ValidForever is used.
 	SendReply(channelID *id.ID, msg string, replyTo message.ID,
-		validUntil time.Duration, params cmix.CMIXParams) (
+		validUntil time.Duration, params cmix.CMIXParams,
+		pings []ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendReaction is used to send a reaction to a message over a channel. The
@@ -161,6 +164,15 @@ type Manager interface {
 	SendReaction(channelID *id.ID, reaction string, reactTo message.ID,
 		validUntil time.Duration, params cmix.CMIXParams) (
 		message.ID, rounds.Round, ephemeral.Id, error)
+
+	// SendSilent is used to send to a channel a message with no notifications.
+	// Its primary purpose is to communicate new nicknames without calling
+	// SendMessage.
+	//
+	// It takes no payload intentionally as the message should be very
+	// lightweight.
+	SendSilent(channelID *id.ID, validUntil time.Duration,
+		params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //
@@ -272,6 +284,24 @@ type Manager interface {
 	// the channel. If there are no muted user or if the channel does not exist,
 	// an empty list is returned.
 	GetMutedUsers(channelID *id.ID) []ed25519.PublicKey
+
+	// GetNotificationLevel returns the notification level for the given channel.
+	GetNotificationLevel(channelID *id.ID) (NotificationLevel, error)
+
+	// GetNotificationStatus returns the notification status for the given channel.
+	GetNotificationStatus(channelID *id.ID) (clientNotif.NotificationState, error)
+
+	// SetMobileNotificationsLevel sets the notification level for the given
+	// channel. The [NotificationLevel] dictates the type of notifications
+	// received and the status controls weather the notification is push or
+	// in-app. If muted, both the level and status must be set to mute.
+	//
+	// To use push notifications, a token must be registered with the
+	// notification manager. Note, when enabling push notifications, information
+	// may be shared with third parties (i.e., Firebase and Google's Palantir)
+	// and may represent a security risk to the user.
+	SetMobileNotificationsLevel(channelID *id.ID, level NotificationLevel,
+		status clientNotif.NotificationState) error
 
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Management                                                       //
@@ -418,8 +448,22 @@ type ExtensionBuilder func(e EventModel, m Manager,
 type AddServiceFn func(sp xxdk.Service) error
 
 // UiCallbacks is an interface that a caller can adhere to in order to get
-// updates on when sync events occur that require the UI to be updated
-// and what those events are
+// updates on when sync events occur that require the UI to be updated and what
+// those events are.
 type UiCallbacks interface {
 	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
+
+	// NotificationUpdate is a callback that is called any time a notification
+	// level changes.
+	//
+	// It returns a slice of [NotificationFilter] for all channels with
+	// notifications enabled. The [NotificationFilter] is used to determine
+	// which notifications from the notification server belong to the caller.
+	//
+	// It also returns a map of all channel notification states that have
+	// changed and all that have been deleted. The maxState is the global state
+	// set for notifications.
+	NotificationUpdate(nfs []NotificationFilter,
+		changedNotificationStates []NotificationState,
+		deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState)
 }

@@ -22,8 +22,9 @@ import (
 
 // ListenerFunc is registered when creating a new broadcasting channel and
 // receives all new broadcast messages for the channel.
-type ListenerFunc func(payload, encryptedPayload []byte,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round)
+type ListenerFunc func(payload, encryptedPayload []byte, tags []string,
+	messageType uint16, receptionID receptionID.EphemeralIdentity,
+	round rounds.Round)
 
 // Channel is the public-facing interface to interact with broadcast channels.
 type Channel interface {
@@ -42,8 +43,8 @@ type Channel interface {
 	// size Channel.MaxPayloadSize or smaller.
 	//
 	// The network must be healthy to send.
-	Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
-		rounds.Round, ephemeral.Id, error)
+	Broadcast(payload []byte, tags []string, metadata [2]byte,
+		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	// BroadcastWithAssembler broadcasts a payload over a channel with a payload
 	// assembled after the round is selected, allowing the round info to be
@@ -52,8 +53,8 @@ type Channel interface {
 	// The payload must be of the size Channel.MaxPayloadSize or smaller.
 	//
 	// The network must be healthy to send.
-	BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
-		rounds.Round, ephemeral.Id, error)
+	BroadcastWithAssembler(assembler Assembler, tags []string, metadata [2]byte,
+		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	// BroadcastRSAtoPublic broadcasts the payload to the channel.
 	//
@@ -61,8 +62,9 @@ type Channel interface {
 	// smaller and the channel rsa.PrivateKey must be passed in.
 	//
 	// The network must be healthy to send.
-	BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte,
-		cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error)
+	BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte, tags []string,
+		metadata [2]byte, cMixParams cmix.CMIXParams) (
+		[]byte, rounds.Round, ephemeral.Id, error)
 
 	// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel
 	// with a function that builds the payload based upon the ID of the selected
@@ -73,14 +75,30 @@ type Channel interface {
 	//
 	// The network must be healthy to send.
 	BroadcastRSAToPublicWithAssembler(pk rsa.PrivateKey, assembler Assembler,
-		cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error)
+		tags []string, metadata [2]byte, cMixParams cmix.CMIXParams) (
+		[]byte, rounds.Round, ephemeral.Id, error)
 
-	// RegisterListener registers a listener for broadcast messages.
-	RegisterListener(listenerCb ListenerFunc, method Method) (Processor, error)
+	// RegisterRSAtoPublicListener registers a listener for asymmetric broadcast messages.
+	// Note: only one Asymmetric Listener can be registered at a time.
+	// Registering a new one will overwrite the old one
+	RegisterRSAtoPublicListener(listenerCb ListenerFunc, tags []string) (
+		Processor, error)
+
+	// RegisterSymmetricListener registers a listener for asymmetric broadcast messages.
+	// Note: only one Asymmetric Listener can be registered at a time.
+	// Registering a new one will overwrite the old one
+	RegisterSymmetricListener(listenerCb ListenerFunc, tags []string) (
+		Processor, error)
 
 	// Stop unregisters the listener callback and stops the channel's identity
 	// from being tracked.
 	Stop()
+
+	// AsymmetricIdentifier returns a copy of the asymmetric identifier.
+	AsymmetricIdentifier() []byte
+
+	// SymmetricIdentifier returns a copy of the symmetric identifier.
+	SymmetricIdentifier() []byte
 }
 
 // Processor handles channel message decryption and handling.
@@ -89,7 +107,7 @@ type Processor interface {
 
 	// ProcessAdminMessage decrypts an admin message and sends the results on
 	// the callback.
-	ProcessAdminMessage(innerCiphertext []byte,
+	ProcessAdminMessage(innerCiphertext []byte, tags []string, messageType uint16,
 		receptionID receptionID.EphemeralIdentity, round rounds.Round)
 }
 
@@ -105,8 +123,8 @@ type Client interface {
 	AddIdentityWithHistory(
 		id *id.ID, validUntil, beginning time.Time, persistent bool,
 		fallthroughProcessor message.Processor)
-	AddService(
-		clientID *id.ID, newService message.Service, response message.Processor)
+	UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+		response message.Processor)
 	DeleteClientService(clientID *id.ID)
 	RemoveIdentity(id *id.ID)
 	GetMaxMessageLength() int

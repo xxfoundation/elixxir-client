@@ -2,7 +2,7 @@
 // Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package notifications
@@ -17,8 +17,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-var ErrInvalidNotificationsState = errors.New("the passed in " +
-	"notifications state is invalid")
+var ErrInvalidNotificationsState = errors.New("invalid notifications state")
 
 type Manager interface {
 	// Set turns notifications on or off for a given ID. It synchronizes the
@@ -29,8 +28,8 @@ type Manager interface {
 	// of the same object do not interfere. Metadata will be synchronized,
 	// allowing more verbose notifications settings. Max 1KB.
 	//
-	// It will return ErrInvalidNotificationsState if the passed in state
-	// is invalid
+	// It returns [ErrInvalidNotificationsState] if the passed in state is
+	// invalid.
 	//
 	// This function, in general, will not be called over the bindings. It will
 	// be used by intermediary structures like channels and DMs to provide
@@ -65,19 +64,20 @@ type Manager interface {
 	// removes the reference from the local store.
 	Delete(toBeNotifiedOn *id.ID) error
 
-	// SetMaxState sets the maximum functional state of any identity
-	// downstream moduals will be told to clamp any state greater than maxState
-	// down to maxState. Depending on UX requirements, they may still show the
-	// state in an altered manner, for example greying out a description.
-	// This is designed so when the state is raised, the old configs are
-	// maintained.
-	// This will unregister / re-register with the push server when leaving or
-	// entering the Push maxState.
-	// The default maxState is Push
-	// will return an error if the maxState isnt a valid state
+	// SetMaxState sets the maximum functional state of any identity downstream.
+	// Modules will be told to clamp any state greater than maxState to
+	// maxState.
+	//
+	// Depending on UX requirements, they may still show the state in an altered
+	// manner. For example, greying out a description. This is designed so that
+	// when the state is raised, the old configs are maintained.
+	//
+	// This will unregister/re-register with the push server when leaving or
+	// entering the Push maxState. The default maxState Push will return an
+	// error if the maxState is not a valid state.
 	SetMaxState(maxState NotificationState) error
 
-	// GetMaxState returns the current MaxState
+	// GetMaxState returns the current MaxState.
 	GetMaxState() NotificationState
 
 	// GetGroup returns the state of all registered notifications for the given
@@ -105,7 +105,7 @@ type Manager interface {
 }
 
 // Update is called every time there is a change to notifications.
-// Functionally clamp any state greater than the maxState to maxState
+// Functionally clamps any state greater than the maxState to maxState.
 type Update func(group Group, created, edits, deletions []*id.ID,
 	maxState NotificationState)
 
@@ -155,7 +155,7 @@ func (ns NotificationState) String() string {
 	}
 }
 
-// IsValid returns an error if the notifications state is not a valid one
+// IsValid returns an error if the notification state is not valid.
 func (ns NotificationState) IsValid() error {
 	if ns >= Mute && ns <= Push {
 		return nil

@@ -89,9 +89,21 @@ func (mt MessageType) String() string {
 	}
 }
 
-// Bytes returns the MessageType as a 4-bit byte slice.
+// Bytes returns the [MessageType] as a 4-bit byte slice.
 func (mt MessageType) Bytes() []byte {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, uint32(mt))
 	return b
+}
+
+// Marshal returns the byte representation of the [MessageType].
+func (mt MessageType) Marshal() []byte {
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, uint16(mt))
+	return b
+}
+
+// UnmarshalMessageType unmarshalls the byte slice into a [MessageType].
+func UnmarshalMessageType(b []byte) MessageType {
+	return MessageType(binary.LittleEndian.Uint16(b))
 }

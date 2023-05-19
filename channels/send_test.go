@@ -723,7 +723,7 @@ func (m *mockBroadcastChannel) MaxPayloadSize() int            { return 1024 }
 func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int { return 512 }
 func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel  { return m.crypto }
 
-func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ uint16,
+func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -732,7 +732,7 @@ func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ uint16,
 }
 
 func (m *mockBroadcastChannel) BroadcastWithAssembler(
-	assembler broadcast.Assembler, _ []string, _ uint16,
+	assembler broadcast.Assembler, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -742,7 +742,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
-	payload []byte, _ []string, _ uint16, cMixParams cmix.CMIXParams) (
+	payload []byte, _ []string, _ [2]byte, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -752,7 +752,7 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
-	pk rsa.PrivateKey, assembler broadcast.Assembler, _ []string, _ uint16,
+	pk rsa.PrivateKey, assembler broadcast.Assembler, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -773,6 +773,9 @@ func (m *mockBroadcastChannel) RegisterSymmetricListener(
 }
 
 func (m *mockBroadcastChannel) Stop() {}
+
+func (m *mockBroadcastChannel) AsymmetricIdentifier() []byte { panic("implement me") }
+func (m *mockBroadcastChannel) SymmetricIdentifier() []byte  { panic("implement me") }
 
 // mockNameService adheres to the NameService interface and is used for testing.
 type mockNameService struct {

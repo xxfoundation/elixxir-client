@@ -117,11 +117,11 @@ var channelsCmd = &cobra.Command{
 			}
 		}
 
-		cbs := &channelCbs{}
 		// Construct channels manager
+		cbs := &channelCbs{}
 		chanManager, err := channels.NewManagerBuilder(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder, nil, user.AddService, cbs)
+			mockEventModelBuilder, nil, user.AddService, nil, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)
@@ -457,6 +457,8 @@ func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
 	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,
 		nickname, exists)
 }
+
+func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
 
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",

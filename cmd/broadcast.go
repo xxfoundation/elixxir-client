@@ -9,7 +9,6 @@ package cmd
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"time"
 
@@ -212,7 +211,8 @@ var broadcastCmd = &cobra.Command{
 
 					/* Send symmetric broadcast */
 					if symmetric != "" {
-						rid, eid, err := bcl.Broadcast([]byte(symmetric), []string{}, math.MaxUint16, cmix.GetDefaultCMIXParams())
+						rid, eid, err := bcl.Broadcast([]byte(symmetric),
+							[]string{}, [2]byte{1, 2}, cmix.GetDefaultCMIXParams())
 						if err != nil {
 							jww.ERROR.Printf("Failed to send symmetric broadcast message: %+v", err)
 							retries++
@@ -228,7 +228,9 @@ var broadcastCmd = &cobra.Command{
 						if pk == nil {
 							jww.FATAL.Panicf("CANNOT SEND ASYMMETRIC BROADCAST WITHOUT PRIVATE KEY")
 						}
-						_, rid, eid, err := bcl.BroadcastRSAtoPublic(pk, []byte(asymmetric), []string{}, math.MaxUint16, cmix.GetDefaultCMIXParams())
+						_, rid, eid, err := bcl.BroadcastRSAtoPublic(pk,
+							[]byte(asymmetric), []string{}, [2]byte{1, 2},
+							cmix.GetDefaultCMIXParams())
 						if err != nil {
 							jww.ERROR.Printf("Failed to send asymmetric broadcast message: %+v", err)
 							retries++

@@ -21,27 +21,21 @@ import (
 
 type mockClient struct{}
 
-func (mc *mockClient) GetMaxMessageLength() int {
-	return 2048
-}
+func (mc *mockClient) GetMaxMessageLength() int { return 2048 }
 func (mc *mockClient) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (mc *mockClient) IsHealthy() bool {
-	return true
-}
 func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool, message.Processor)                       {}
 func (mc *mockClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {}
-func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
-func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
 func (mc *mockClient) RemoveIdentity(*id.ID)                                                        {}
-func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
+func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
+func (mc *mockClient) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {}
+func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
+func (mc *mockClient) IsHealthy() bool                                                              { return true }
 func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                          { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)                                                  {}
-func (mc *mockClient) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
-	response message.Processor) {
-}
+func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
 
 // Test MessageReceive basic logic.
 func TestSendTracker_MessageReceive(t *testing.T) {

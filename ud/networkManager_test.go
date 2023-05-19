@@ -222,22 +222,27 @@ func (tnm *testNetworkManager) DeleteFingerprint(identity *id.ID, fingerprint fo
 }
 
 func (tnm *testNetworkManager) DeleteClientService(clientID *id.ID) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) TrackServices(tracker message.ServicesTracker) {
-	//TODO implement me
+	// TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) WasHealthy() bool {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (tnm *testNetworkManager) AddHealthCallback(f func(bool)) uint64 {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

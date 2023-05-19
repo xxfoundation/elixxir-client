@@ -10,6 +10,10 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"math/rand"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -27,15 +31,13 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/protobuf/proto"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func Test_manager_SendGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -190,7 +192,8 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 func Test_manager_SendMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -278,7 +281,8 @@ func Test_manager_SendMessage(t *testing.T) {
 func Test_manager_SendReply(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -368,7 +372,8 @@ func Test_manager_SendReply(t *testing.T) {
 func Test_manager_SendReaction(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)

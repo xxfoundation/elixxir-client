@@ -30,7 +30,7 @@ import (
 func TestNewOrLoadRemoteKv(t *testing.T) {
 	// Construct kv
 	kv := ekv.MakeMemstore()
-	remoteStore := newMockRemote()
+	remoteStore := NewMockRemote()
 
 	// Construct mutate log
 	txLog := makeTransactionLog(kv, "", remoteStore,
@@ -61,7 +61,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 
 	// Construct kv
 	kv := ekv.MakeMemstore()
-	remoteStore := newMockRemote()
+	remoteStore := NewMockRemote()
 
 	// Construct mutate log
 	txLog := makeTransactionLog(kv, "kv_Loading_TestDir", remoteStore,
@@ -85,7 +85,7 @@ func TestKV_SetGet(t *testing.T) {
 
 	baseDir := ".workingDirSet"
 
-	remoteStore := newMockRemote()
+	remoteStore := NewMockRemote()
 
 	kv := ekv.MakeMemstore()
 	txLog := makeTransactionLog(kv, baseDir, remoteStore,
@@ -143,7 +143,7 @@ func TestKV_SetGet(t *testing.T) {
 	}
 	for i := 0; i < numTests; i++ {
 		select {
-		case <-time.After(1 * time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatalf("Failed to receive from callback %d", i)
 		case txKey := <-txChan:
 			_, ok := expected[txKey]

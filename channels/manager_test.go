@@ -9,13 +9,14 @@ package channels
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/collective"
 	"math/rand"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/collective"
 
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/xxdk"
@@ -53,7 +54,8 @@ func TestManager_JoinChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
@@ -97,7 +99,8 @@ func TestManager_LeaveChannel(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
@@ -242,7 +245,8 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
@@ -289,7 +293,8 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),

@@ -206,6 +206,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 
 			if quit {
 				s.ToStopped()
+				rw.syncLock.RUnlock()
 				return
 			}
 			if !running {

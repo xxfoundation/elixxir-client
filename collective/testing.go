@@ -94,7 +94,7 @@ type mockRemote struct {
 	lastWrite time.Time
 }
 
-func newMockRemote() *mockRemote {
+func NewMockRemote() *mockRemote {
 	return &mockRemote{
 		data:      make(map[string][]byte),
 		lastMod:   make(map[string]time.Time),

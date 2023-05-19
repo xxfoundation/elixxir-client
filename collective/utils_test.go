@@ -52,7 +52,7 @@ func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Tim
 		err error
 	)
 
-	res := make([]time.Time, 0)
+	rng := rand.New(rand.NewSource(8675309))
 
 	// Construct timestamps. All of these are the same date but with different
 	// years.
@@ -80,13 +80,13 @@ func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Tim
 		"2001-12-21T22:08:41+00:00")
 	require.NoError(t, err)
 
-	res = []time.Time{
+	res := []time.Time{
 		timestamp0, timestamp1, timestamp2, timestamp3, timestamp4, timestamp5,
 	}
 	curTime := time.Now()
 	for i := 0; i < numRandomTimestamps; i++ {
 		curTime = curTime.Add(1 * time.Second)
-		for f := rand.Float32(); f < 0.5; f = rand.Float32() {
+		for f := rand.Float32(); f < 0.5; f = rng.Float32() {
 			curTime = curTime.Add(-900 * time.Millisecond)
 		}
 		res = append(res, curTime)

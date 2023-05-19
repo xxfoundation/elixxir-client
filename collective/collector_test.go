@@ -78,7 +78,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	baseDir := ".TestNewCollector_CollectChanges/"
-	remoteStore := newMockRemote()
+	remoteStore := NewMockRemote()
 	syncPath := baseDir + "collector/"
 	devices := make([]InstanceID, 0)
 
@@ -157,9 +157,11 @@ func TestCollector_ApplyChanges(t *testing.T) {
 		for j := 0; j < 6; j++ {
 			tsIdx := i*5 + j
 			key := fmt.Sprintf("Key%d", j)
-			value := []byte(fmt.Sprintf("Value%d", i*j))
+			value := []byte(fmt.Sprintf("Value%d%d", i, j))
 			mutation := NewMutate(timestamps[tsIdx],
 				value, false)
+			// t.Logf("%s: %s -> %s @ ts: %s", txLog.state.myID,
+			// 	key, string(value), timestamps[tsIdx])
 			txLog.state.AddUnsafe(key, &mutation)
 		}
 		serial, err := txLog.state.Serialize()
@@ -201,7 +203,7 @@ func TestCollector_ApplyChanges(t *testing.T) {
 
 	// These are generated from a previous run, they're always the same due
 	// to the entropy source
-	expectedVals := []int{0, 4, 8, 12, 16, 15}
+	expectedVals := []int{20, 41, 42, 33, 14, 15}
 	for i := 0; i < 6; i++ {
 		key := fmt.Sprintf("Key%d", i)
 		val, err := remoteKv.remote.GetBytes(key)

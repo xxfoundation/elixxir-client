@@ -189,7 +189,7 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 			// can be nil if the last element was deleted
 			group, _ := m.group[groupName]
 			go cb(group.DeepCopy(), update.created, update.edit,
-				update.deletion)
+				update.deletion, Push)
 		}
 	}
 }

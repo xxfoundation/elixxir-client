@@ -1,68 +1,106 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 package notifications
 
 import (
+	"strconv"
+
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/primitives/id"
-	"strconv"
 )
 
 type Manager interface {
-	// Set can be used to turn on or off notifications for a given ID.
-	// Will synchronize the state with all clients and register with the notifications
-	// server if status == true and a Token is set
-	// Group is used to segment the notifications lists so different users of the same
-	// object do not interfere. Metadata will be synchronized, allowing more verbose
-	// notifications settings. Max 1KB.
+	// Set turns notifications on or off for a given ID. It synchronizes the
+	// state with all clients and registers with the notification server if
+	// status != Mute and a token is set.
 	//
-	// This function in general will not be called over the bindings, it will be
-	// used by intermediary structures like channels and DMs to provide
-	// notifications access on a per case basis
+	// Group is used to segment the notification lists so that different users
+	// of the same object do not interfere. Metadata will be synchronized,
+	// allowing more verbose notifications settings. Max 1KB.
 	//
-	// Parameters //
-	//  toBeNotifiedOn - ID that you are tracking. You will receive notifications
-	// that need to be filtered every time a message is received on this ID.
-	//  group - The group this is categorized in. Used for callbacks and
-	// the GetGroup function to allow for automatic filtering of registered
-	// notifications for a specific submodule or use case. The group cannot be
-	// changed, if set is called on an id which is already registered at a
-	// different id, and error will be returned.
-	//  metadata - an extra field allowing storage and synchronization of use
-	// case specific notification data
-	// status - the notifications state the ID should be in. these are
+	// This function, in general, will not be called over the bindings. It will
+	// be used by intermediary structures like channels and DMs to provide
+	// notification access on a per-case basis.
+	//
+	// Parameters:
+	//   - toBeNotifiedOn - ID that you are tracking. You will receive
+	//     notifications that need to be filtered every time a message is
+	//     received on this ID.
+	//   - group - The group this is categorized in. Used for callbacks and the
+	//     GetGroup function to allow for automatic filtering of registered
+	//     notifications for a specific submodule or use case. An error is
+	//     returned if Set is called on an ID that is already registered at a
+	//     different ID.
+	//   - metadata - An extra field allowing storage and synchronization of
+	//     specific use-case notification data.
+	//   - status - The notifications state the ID should be in. These are
 	//        Mute - show no notifications for the id
 	//        WhenOpen - show notifications only within the open app, no
 	//        registration or privacy leak will occur
 	//        Push - show notifications as push notification on applicable
 	//        devices, will have a minor privacy loss
-	Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error
-	// Get returns the status of the notifications for the given ID, or
-	// an error if not present
-	Get(toBeNotifiedOn *id.ID) (status NotificationState, metadata []byte, group string, exists bool)
-	// Delete deletes the given notification, unregistering it if it is registered
-	// and removing the reference from the local store
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
+		status NotificationState) error
+
+	// Get returns the status of the notifications for the given ID. Returns
+	// false if the ID is not registered.
+	Get(toBeNotifiedOn *id.ID) (
+		status NotificationState, metadata []byte, group string, exists bool)
+
+	// Delete deletes the given ID, unregisters it if it is registered, and
+	// removes the reference from the local store.
 	Delete(toBeNotifiedOn *id.ID) error
-	// GetGroup the status of all registered notifications for
-	// the given group. If the group isn't present, an empty map will be returned.
+
+	// SetMaxState sets the maximum functional state of any identity
+	// downstream moduals will be told to clamp any state greater than maxState
+	// down to maxState. Depending on UX requirements, they may still show the
+	// state in an altered manner, for example greying out a description.
+	// This is designed so when the state is raised, the old configs are
+	// maintained.
+	// This will unregister / re-register with the push server when leaving or
+	// entering the Push maxState.
+	// The default maxState is Push
+	// will return an error if the maxState isnt a valid state
+	SetMaxState(maxState NotificationState) error
+
+	// GetMaxState returns the current MaxState
+	GetMaxState(maxState NotificationState)
+
+	// GetGroup returns the state of all registered notifications for the given
+	// group. If the group is not present, then it returns false.
 	GetGroup(group string) (Group, bool)
-	// AddToken registers the Token with the remote server if this manager is
-	// in set to register, otherwise it will return ErrRemoteRegistrationDisabled
-	// This will add the token to the list of tokens which are forwarded the messages
-	// for connected IDs.
-	// the App will tell the server what App to forward the notifications to.
+
+	// AddToken registers the token with the remote server if this manager is
+	// in set to register, otherwise it will return ErrRemoteRegistrationDisabled.
+	//
+	// This will add the token to the list of tokens that are forwarded the
+	// messages for connected IDs. The App will tell the server what app to
+	// forward the notifications to.
 	AddToken(newToken, app string) error
-	// RemoveToken removes the given Token from the server
-	// It will remove all registered identities if it is the last Token
+
+	// RemoveToken removes the given token from the notification server.
+	// It will remove all registered identities if it is the last Token.
 	RemoveToken() error
-	// RegisterUpdateCallback registers a callback to be used to receive notifications
-	// of changes in notifications. Because this is being called after initialization,
-	// a poll of state via the get function will be necessary because notifications can be missed
-	// You must rely on the data in the callback for the update, do not poll
-	// the interface
+
+	// RegisterUpdateCallback registers a callback to be used to receive updates
+	// to changes in notifications. Because this is being called after
+	// initialization, a poll of state via the get function will be necessary
+	// because notifications can be missed. You must rely on the data in the
+	// callback for the update and not poll the interface.
 	RegisterUpdateCallback(group string, nu Update)
 }
-type Update func(group Group, created, edits, deletions []*id.ID)
+
+// Update is called every time there is a change to notifications.
+// Functionally clamp any state greater than the maxState to maxState
+type Update func(group Group, created, edits, deletions []*id.ID,
+	maxState NotificationState)
 
 type Group map[id.ID]State
 
@@ -75,23 +113,28 @@ func (g Group) DeepCopy() Group {
 }
 
 type State struct {
-	Metadata []byte
-	Status   NotificationState
+	Metadata []byte            `json:"metadata"`
+	Status   NotificationState `json:"status"`
 }
 
-type NotificationState uint8
+// NotificationState indicates the status of notifications for an ID.
+type NotificationState int64
 
 const (
-	// Mute - show no notifications for the id
+	// Mute shows no notifications for the ID.
 	Mute NotificationState = iota
-	// WhenOpen - show notifications only within the open app, no registration
-	// or privacy leak will occur
+
+	// WhenOpen shows notifications for this ID only when the app is running and
+	// open. No registration or privacy leaks occur in this state.
 	WhenOpen
-	// Push - show notifications as push notification on applicable devices,
-	// will have a minor privacy loss
+
+	// Push shows notifications for this ID as push notification on applicable
+	// devices. This state has a minor privacy loss.
 	Push
 )
 
+// String prints a human-readable version of the [NotificationStatus] for
+// logging and debugging. This function adheres to the [fmt.Stringer] interface.
 func (ns NotificationState) String() string {
 	switch ns {
 	case Mute:

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"io"
 	"math/rand"
 	"sync"
@@ -584,6 +585,10 @@ func (m *mockChannelsManager) SendSilent(channelID *id.ID, validUntil time.Durat
 	panic("implement me")
 }
 
+func (m *mockChannelsManager) GetNotificationStatus(channelID *id.ID) (clientNotif.NotificationState, error) {
+	panic("implement me")
+}
+
 func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	messageType channels.MessageType, msg []byte, validUntil time.Duration,
 	_ bool, _ cmix.CMIXParams, _ []ed25519.PublicKey) (
@@ -638,7 +643,8 @@ func (m *mockChannelsManager) GetMutedUsers(*id.ID) []ed25519.PublicKey { panic(
 func (m *mockChannelsManager) GetNotificationLevel(channelID *id.ID) (channels.NotificationLevel, error) {
 	panic("implement me")
 }
-func (m *mockChannelsManager) SetMobileNotificationsLevel(*id.ID, channels.NotificationLevel, bool) error {
+func (m *mockChannelsManager) SetMobileNotificationsLevel(channelID *id.ID, level channels.NotificationLevel,
+	status clientNotif.NotificationState) error {
 	panic("implement me")
 }
 func (m *mockChannelsManager) IsChannelAdmin(*id.ID) bool { panic("implement me") }

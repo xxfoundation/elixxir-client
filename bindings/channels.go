@@ -2878,7 +2878,7 @@ func (cuicbw *channelUICallbacksWrapper) NotificationUpdate(
 
 func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid int64,
 	channelID *id.ID, update bool) {
-	cuicbw.cuic.MessageReceived(int64(uuid), channelID.Marshal(), update)
+	cuicbw.cuic.MessageReceived(uuid, channelID.Marshal(), update)
 }
 
 func (cuicbw *channelUICallbacksWrapper) UserMuted(channelID *id.ID,

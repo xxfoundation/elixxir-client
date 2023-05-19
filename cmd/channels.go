@@ -10,6 +10,7 @@ package cmd
 import (
 	"crypto/ed25519"
 	"fmt"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"os"
 	"time"
 
@@ -456,6 +457,11 @@ func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
 	exists bool) {
 	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,
 		nickname, exists)
+}
+
+func (c *channelCbs) NotificationUpdate(nfs []channels.NotificationFilter,
+	changedNotificationStates []channels.NotificationState,
+	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
 }
 
 func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}

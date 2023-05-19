@@ -385,17 +385,17 @@ func TestManager_registerNotification(t *testing.T) {
 		t.Fatalf("Failed to get IID: %+v", err)
 	}
 
-	if err = mInternal.registerNotification(nid); err != nil {
+	if err = mInternal.registerNotification([]*id.ID{nid}); err != nil {
 		t.Fatalf("Failed to register notification: %+v", err)
 	}
 
 	// check the message
 	message := comms.receivedMessage.(*pb.RegisterTrackedIdRequest).Request
-	if !bytes.Equal(message.TrackedIntermediaryID, expectedIID[:]) {
+	if !bytes.Equal(message.TrackedIntermediaryID[0], expectedIID[:]) {
 		t.Errorf("IIDs do not match")
 	}
 
-	err = notifCrypto.VerifyIdentity(mInternal.transmissionRSA.Public(), expectedIID,
+	err = notifCrypto.VerifyIdentity(mInternal.transmissionRSA.Public(), [][]byte{expectedIID},
 		time.Unix(0, message.RequestTimestamp), notifCrypto.RegisterTrackedIDTag,
 		message.Signature)
 	if err != nil {
@@ -415,17 +415,17 @@ func TestManager_UnregisterNotification(t *testing.T) {
 		t.Fatalf("Failed to get IID: %+v", err)
 	}
 
-	if err = mInternal.unregisterNotification(nid); err != nil {
+	if err = mInternal.unregisterNotification([]*id.ID{nid}); err != nil {
 		t.Fatalf("Failed to register notification: %+v", err)
 	}
 
 	// check the message
 	message := comms.receivedMessage.(*pb.UnregisterTrackedIdRequest).Request
-	if !bytes.Equal(message.TrackedIntermediaryID, expectedIID[:]) {
+	if !bytes.Equal(message.TrackedIntermediaryID[0], expectedIID[:]) {
 		t.Errorf("IIDs do not match")
 	}
 
-	err = notifCrypto.VerifyIdentity(mInternal.transmissionRSA.Public(), expectedIID,
+	err = notifCrypto.VerifyIdentity(mInternal.transmissionRSA.Public(), [][]byte{expectedIID},
 		time.Unix(0, message.RequestTimestamp), notifCrypto.UnregisterTrackedIDTag,
 		message.Signature)
 	if err != nil {

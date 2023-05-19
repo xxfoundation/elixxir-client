@@ -17,13 +17,33 @@ type Manager interface {
 	// Group is used to segment the notifications lists so that different users
 	// of the same object do not interfere. Metadata will be synchronized,
 	// allowing more verbose notifications settings. Max 1KB.
-	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
-		status NotificationState) error
+	//
+	// This function, in general, will not be called over the bindings. It will
+	// be used by intermediary structures like channels and DMs to provide
+	// notifications access on a per-case basis.
+	//
+	// Parameters:
+	//   - toBeNotifiedOn - ID that you are tracking. You will receive
+	//     notifications that need to be filtered every time a message is
+	//     received on this ID.
+	//   - group - The group this is categorized in. Used for callbacks and the
+	//     GetGroup function to allow for automatic filtering of registered
+	//     notifications for a specific submodule or use case. An error is
+	//     returned if Set is called on an ID that is already registered at a
+	//     different ID.
+	//   - metadata - An extra field allowing storage and synchronization of
+	//     use case specific notification data.
+	//   - status - The notifications state the ID should be in. These are
+	//        Mute - show no notifications for the id
+	//        WhenOpen - show notifications only within the open app, no
+	//        registration or privacy leak will occur
+	//        Push - show notifications as push notification on applicable
+	//        devices, will have a minor privacy loss
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error
 
 	// Get returns the status of the notifications for the given ID. Returns
 	// false if the ID is not registered.
-	Get(toBeNotifiedOn *id.ID) (
-		status NotificationState, metadata []byte, group string, exists bool)
+	Get(toBeNotifiedOn *id.ID) (status NotificationState, metadata []byte, group string, exists bool)
 
 	// Delete deletes the given ID, unregisters it if it is registered, and
 	// removes the reference from the local store.

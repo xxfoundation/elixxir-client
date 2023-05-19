@@ -25,10 +25,9 @@ import (
 func TestNewCollector(t *testing.T) {
 	baseDir := ".TestNewCollector/"
 	syncPath := "collector/"
-	workingDir := baseDir + "remoteFsSmoke/"
 	os.RemoveAll(baseDir)
 
-	remoteStore := NewFileSystemRemoteStorage(workingDir)
+	remoteStore := NewMockRemote()
 
 	// Construct kv
 	kv := ekv.MakeMemstore()
@@ -142,8 +141,9 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	baseDir := ".TestCollector_ApplyChanges/"
 	os.RemoveAll(baseDir)
 
-	workingDir := baseDir + "remoteFsSmoke/"
-	remoteStore := NewFileSystemRemoteStorage(workingDir)
+	// workingDir := baseDir + "remoteFsSmoke/"
+	remoteStore := NewMockRemote()
+	// remoteStore := NewFileSystemRemoteStorage(workingDir)
 	syncPath := "collector/"
 
 	devices := make([]InstanceID, 0)

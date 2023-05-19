@@ -34,7 +34,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
+	remoteStore := NewMockRemote()
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
@@ -92,7 +92,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
+	remoteStore := NewMockRemote()
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")

@@ -112,7 +112,7 @@ func (m *mockRemote) Read(path string) ([]byte, error) {
 func (m *mockRemote) Write(path string, data []byte) error {
 	m.lck.Lock()
 	defer m.lck.Unlock()
-	jww.INFO.Printf("Write: %s, %s", path, string(data))
+	jww.INFO.Printf("Write: %s", path)
 
 	m.lastWrite = time.Now()
 	m.data[path] = data

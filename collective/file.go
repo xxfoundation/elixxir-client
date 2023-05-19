@@ -98,12 +98,10 @@ func buildFile(h *header, ecrBody []byte) []byte {
 	copy(buf, hSerial)
 	copy(buf[len(hSerial):], delimiterBytes)
 	copy(buf[len(hSerial)+1:], bdy)
-	jww.ERROR.Printf("Encoding...: %s", string(buf))
 	return buf
 }
 
 func decodeFile(file []byte) (*header, []byte, error) {
-	jww.ERROR.Printf("Decoding...: %s", string(file))
 	read := bufio.NewReader(bytes.NewReader(file))
 	headerBytes, _, err := read.ReadLine()
 	if err != nil {

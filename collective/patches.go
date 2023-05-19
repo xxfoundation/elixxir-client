@@ -70,7 +70,7 @@ func (p *Patch) findKeysWithUpdates(remotePatches []*Patch, lastSeen []time.Time
 		last := lastSeen[idx].UnixNano()
 		newLast := last
 		for key, m := range patch.keys {
-			if !(m.Timestamp > last) {
+			if m.Timestamp > last {
 				keys[key] = struct{}{}
 				if m.Timestamp > newLast {
 					newLast = m.Timestamp

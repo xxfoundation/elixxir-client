@@ -24,6 +24,8 @@ const (
 	notificationsMapVersion = 0
 	tokenStorageKey         = "tokenStorageKey"
 	tokenStorageVersion     = 0
+	maxStateKey             = "maxStateKey"
+	maxStateKetVersion      = 0
 )
 
 type manager struct {
@@ -52,6 +54,8 @@ type manager struct {
 
 	local  versioned.KV
 	remote versioned.KV
+
+	maxState NotificationState
 }
 
 type registration struct {
@@ -105,6 +109,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		callbacks:                                   make(map[string]Update),
 		notifications:                               make(map[id.ID]registration),
 		group:                                       make(map[string]Group),
+		maxState:                                    Push,
 	}
 
 	// lock so that an update cannot run while we are loading the basic
@@ -116,6 +121,9 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
 	}
 	m.loadNotificationsUnsafe(loadedMap)
+	loadedMaxState, err := m.remote.ListenOnRemoteKey(maxStateKey,
+		maxStateKetVersion, m.maxStateUpdate)
+	m.loadMaxStateUnsafe(loadedMaxState)
 	m.loadTokenUnsafe()
 	m.mux.Unlock()
 
@@ -189,7 +197,7 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 			// can be nil if the last element was deleted
 			group, _ := m.group[groupName]
 			go cb(group.DeepCopy(), update.created, update.edit,
-				update.deletion, Push)
+				update.deletion, m.maxState)
 		}
 	}
 }
@@ -216,6 +224,59 @@ func (m *manager) loadNotificationsUnsafe(mapObj map[string]*versioned.Object) {
 
 		m.upsertNotificationUnsafeRAM(nID, reg)
 	}
+}
+
+func (m *manager) maxStateUpdate(key string, old, new *versioned.Object, op versioned.KeyOperation) {
+	if key != maxStateKey {
+		jww.ERROR.Printf("Got an update for the wrong key, "+
+			"expected: %s, got: %s", maxStateKey, key)
+	}
+
+	if op == versioned.Deleted {
+		jww.FATAL.Panicf("Notifications max state key cannot be deleted")
+	}
+
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	if err := json.Unmarshal(new.Data, &m.maxState); err != nil {
+		jww.WARN.Printf("failed to unmarshal %s, ignoring: %+v",
+			maxStateKey, err)
+	}
+
+	for g := range m.callbacks {
+		cb := m.callbacks[g]
+		go cb(m.group[g].DeepCopy(), nil, nil, nil, m.maxState)
+	}
+}
+
+func (m *manager) loadMaxStateUnsafe(obj *versioned.Object) {
+	err := json.Unmarshal(obj.Data, &m.maxState)
+	if err != nil {
+		jww.WARN.Printf("failed to unmarshal %s, defaulting to %s: %+v",
+			maxStateKey, Push, err)
+	}
+}
+
+func (m *manager) setMaxStateUnsafe(max NotificationState) {
+
+	b, err := json.Marshal(&m.maxState)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to set max notifications sate to %s:"+
+			" %+v", max, err)
+	}
+
+	err = m.remote.Set(maxStateKey, &versioned.Object{
+		Version:   maxStateKetVersion,
+		Timestamp: netTime.Now(),
+		Data:      b,
+	})
+	if err != nil {
+		jww.FATAL.Panicf("Failed to set max notifications sate to %s:"+
+			" %+v", max, err)
+	}
+
+	m.maxState = max
 }
 
 // upsertNotificationUnsafeRAM adds the given notification registration to the

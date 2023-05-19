@@ -10,6 +10,7 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"sync"
 	"time"
 
@@ -1789,9 +1790,8 @@ func (cm *ChannelsManager) GetNotificationLevel(
 
 // SetMobileNotificationsLevel sets the notification level for the given
 // channel. The [channels.NotificationLevel] dictates the type of notifications
-// received. If push is set to true, then push notifications will be received
-// when the app is closed. Otherwise, notifications will only appear when the
-// app is open.
+// received and the status controls weather the notification is push or in-app.
+// If muted, both the level and status must be set to mute.
 //
 // To use push notifications, a token must be registered with the notification
 // manager. Note, when enabling push notifications, information may be shared
@@ -1799,19 +1799,21 @@ func (cm *ChannelsManager) GetNotificationLevel(
 // security risk to the user.
 //
 // Parameters:
-//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//   - channelIDBytes - The marshaled bytes of the channel's [id.ID].
 //   - level - The [channels.NotificationLevel] to set for the channel.
+//   - status - The [notifications.NotificationState] to set for the channel.
 //   - push - True to enable push notifications and false to only have in-app
 //     notifications.
 func (cm *ChannelsManager) SetMobileNotificationsLevel(
-	channelIDBytes []byte, level int, push bool) error {
+	channelIDBytes []byte, level, status int, push bool) error {
 	channelID, err := id.Unmarshal(channelIDBytes)
 	if err != nil {
 		return err
 	}
 
 	return cm.api.SetMobileNotificationsLevel(
-		channelID, channels.NotificationLevel(level), push)
+		channelID, channels.NotificationLevel(level),
+		clientNotif.NotificationState(status))
 }
 
 // GetNotificationReportsForMe checks the notification data against the filter
@@ -2808,45 +2810,28 @@ type ChannelUICallbacks interface {
 	// remote.
 	NicknameUpdate(channelIdBytes []byte, nickname string, exists bool)
 
-	// FilterCallback is called any time a service is added or removed or when a
-	// channel notification level changes.
+	// NotificationUpdate is a callback that is called any time a notification
+	// level changes.
+	//
+	// It returns a slice of [NotificationFilter] for all channels with
+	// notifications enabled. The [NotificationFilter] is used to determine
+	// which notifications from the notification server belong to the caller.
+	//
+	// It also returns a map of all channel notification states that have
+	// changed and all that have been deleted. The maxState is the global state
+	// set for notifications.
 	//
 	// Parameters:
 	//   - notificationFilterListJSON - JSON of a slice of
 	//     [channels.NotificationFilter].
-	//
-	// Example JSON:
-	//
-	//  [
-	//    {
-	//      "identifier": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4DSWRlbnRpZmllcg==",
-	//      "channelID": "CTCZNOdoxdOKGXnNWs2OBJkgPyn3iBxHDdEiHNz86p4D",
-	//      "tags": ["2b7d05b786952709105c194d6d486a59e264217bd03bacf0ed3c895d5fafed72-usrping"],
-	//      "allowLists": {
-	//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
-	//        "allowWithoutTags": {"102":{}}
-	//      }
-	//    },
-	//    {
-	//      "identifier": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcDSWRlbnRpZmllcg==",
-	//      "channelID": "rXzbFF6hUhfHWN6wKTjMTY6g/gLWaACwAvJ95uP/FbcD",
-	//      "tags": ["c01efa896876b4b5677295a80178efda5cb783706a3f087cfa4a5e8cf126da68-usrping"],
-	//      "allowLists": {
-	//        "allowWithTags": {},
-	//        "allowWithoutTags": {"1":{}, "2":{}, "40000":{}}
-	//      }
-	//    },
-	//    {
-	//      "identifier": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wDSWRlbnRpZmllcg==",
-	//      "channelID": "JDfDh0wtH694g2ZS9XJpLY8/UaP6B1q4LktsKMkyQ/wD",
-	//      "tags": ["5d07a3251048514c00c521d1d2f1c2778cb553113410b461b5fcc1390fecb5e2-usrping"],
-	//      "allowLists": {
-	//        "allowWithTags": {"1":{}, "2":{}, "40000":{}},
-	//        "allowWithoutTags": {"102":{}}
-	//      }
-	//    }
-	//  ]
-	FilterCallback(notificationFilterListJSON []byte)
+	//   - changedNotificationStatesJSON - JSON of a slice of
+	//     [channels.NotificationState] of added or changed channel notification
+	//     statuses.
+	//   - deletedNotificationStatesJSON - JSON of a slice of [id.ID] of deleted
+	//     channel notification statuses.
+	//   - maxState - The global notification state.
+	NotificationUpdate(notificationFilterListJSON, changedNotificationStatesJSON,
+		deletedNotificationStatesJSON []byte, maxState int)
 
 	// MessageReceived is called any time a message is received or updated.
 	// Update is true if the row is old and was edited.
@@ -2868,13 +2853,27 @@ func (cuicbw *channelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
 	cuicbw.cuic.NicknameUpdate(channelId.Marshal(), nickname, exists)
 }
 
-func (cuicbw *channelUICallbacksWrapper) FilterCallback (nfs []channels.NotificationFilter) {
-	data, err := json.Marshal(nfs)
+func (cuicbw *channelUICallbacksWrapper) NotificationUpdate(
+	nfs []channels.NotificationFilter,
+	changedNotificationStates []channels.NotificationState,
+	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
+	nfsData, err := json.Marshal(nfs)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v", nfs, nfs)
-	} else {
-		cuicbw.cuic.FilterCallback(data)
+		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v", nfs, err)
 	}
+	changedNotificationStatesData, err := json.Marshal(changedNotificationStates)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v",
+			changedNotificationStates, err)
+	}
+	deletedNotificationStatesData, err := json.Marshal(deletedNotificationStates)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v",
+			deletedNotificationStates, err)
+	}
+
+	cuicbw.cuic.NotificationUpdate(nfsData, changedNotificationStatesData,
+		deletedNotificationStatesData, int(maxState))
 }
 
 func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid uint64,

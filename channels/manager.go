@@ -228,7 +228,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	m.nicknameManager = loadOrNewNicknameManager(kv, uiCallbacks.NicknameUpdate)
 
 	m.notifications = newNotifications(
-		identity.PubKey, uiCallbacks.FilterCallback, m, nm)
+		identity.PubKey, uiCallbacks.NotificationUpdate, m, nm)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
@@ -482,4 +482,6 @@ func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
 }
 
-func (duic *dummyUICallback) FilterCallback([]NotificationFilter) {}
+func (duic *dummyUICallback) NotificationUpdate([]NotificationFilter,
+	[]NotificationState, []*id.ID, clientNotif.NotificationState) {
+}

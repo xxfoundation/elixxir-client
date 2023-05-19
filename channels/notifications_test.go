@@ -108,27 +108,38 @@ func TestNotifications_GetNotificationLevel(t *testing.T) {
 	nm := newMockNM()
 	n := notifications{nil, nil, nil, nm}
 
-	expected := map[id.ID]NotificationLevel{
-		*id.NewIdFromString("channel1", id.User, t): NotifyNone,
-		*id.NewIdFromString("channel2", id.User, t): NotifyPing,
-		*id.NewIdFromString("channel3", id.User, t): NotifyAll,
+	expected := map[id.ID]NotificationState{
+		*id.NewIdFromString("channel1", id.User, t): {nil, NotifyNone, clientNotif.Mute},
+		*id.NewIdFromString("channel2", id.User, t): {nil, NotifyPing, clientNotif.Push},
+		*id.NewIdFromString("channel3", id.User, t): {nil, NotifyAll, clientNotif.WhenOpen},
 	}
 
-	for chanID, level := range expected {
-		if err := n.SetMobileNotificationsLevel(&chanID, level, true); err != nil {
-			t.Errorf("Failed to set level for channel %s: %+v", chanID, err)
+	for chanID, state := range expected {
+		err := n.SetMobileNotificationsLevel(&chanID, state.Level, state.Status)
+		if err != nil {
+			t.Errorf("Failed to set level for channel %s: %+v", &chanID, err)
 		}
 	}
 
-	for chanID, level := range expected {
+	for chanID, state := range expected {
 		l, err := n.GetNotificationLevel(&chanID)
 		if err != nil {
 			t.Errorf("Failed to get notification level for %s: %+v", &chanID, err)
 		}
 
-		if level != l {
+		if state.Level != l {
 			t.Errorf("Incorrect level for %s.\nexpected: %s\nreceived: %s",
-				&chanID, level, l)
+				&chanID, state.Level, l)
+		}
+
+		s, err := n.GetNotificationStatus(&chanID)
+		if err != nil {
+			t.Errorf("Failed to get notification level for %s: %+v", &chanID, err)
+		}
+
+		if state.Status != s {
+			t.Errorf("Incorrect status for %s.\nexpected: %s\nreceived: %s",
+				&chanID, state.Status, s)
 		}
 	}
 
@@ -158,12 +169,7 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	}
 
 	for chanID, ni := range expected {
-		var push bool
-		if ni.Status == clientNotif.Push {
-			push = true
-		}
-		err := n.SetMobileNotificationsLevel(
-			&chanID, UnmarshalNotificationLevel(ni.Metadata), push)
+		err := n.SetMobileNotificationsLevel(&chanID, UnmarshalNotificationLevel(ni.Metadata), ni.Status)
 		if err != nil {
 			t.Errorf("Failed to add channel %s: %+v", chanID, err)
 		}
@@ -176,14 +182,68 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	}
 }
 
-// Tests that notifications.createFilterList creates the expected filter list
-// from the generated map of notification info.
-func Test_notifications_createFilterList(t *testing.T) {
+// Tests that notifications.getChannelStatuses properly processes the changed
+// and edited channels into the NotificationState list.
+func Test_notifications_getChannelStatuses(t *testing.T) {
 	rng := rand.New(rand.NewSource(2323))
 	cg, nm := newMockCG(5, t), newMockNM()
 	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nm}
 
 	nim := make(clientNotif.Group, len(cg.channels))
+	var created []*id.ID
+	var expectedChanged []NotificationState
+	levels := []NotificationLevel{NotifyNone, NotifyPing, NotifyAll}
+	for chanId := range cg.channels {
+		channelID := chanId.DeepCopy()
+		level := levels[rng.Intn(len(levels))]
+		state := clientNotif.Mute
+		if level != NotifyNone {
+			state = clientNotif.Push
+		}
+		nim[*channelID] = clientNotif.State{
+			Metadata: level.Marshal(),
+			Status:   state,
+		}
+		created = append(created, channelID)
+		expectedChanged = append(expectedChanged, NotificationState{
+			ChannelID: channelID,
+			Level:     level,
+			Status:    state,
+		})
+	}
+
+	// Add some channels that are not in the manager
+	for i := 0; i < 2; i++ {
+		channelID, _ := id.NewRandomID(rng, id.User)
+		level := levels[rng.Intn(len(levels))]
+		state := clientNotif.Mute
+		if level != NotifyNone {
+			state = clientNotif.Push
+		}
+		nim[*channelID] = clientNotif.State{
+			Metadata: level.Marshal(),
+			Status:   state,
+		}
+	}
+
+	changed := n.getChannelStatuses(nim, created, nil)
+
+	if !reflect.DeepEqual(expectedChanged, changed) {
+		t.Errorf("Unexpected changed list."+
+			"\nexpected: %+v\nreceived: %+v", expectedChanged, changed)
+	}
+}
+
+// Tests that notifications.processesNotificationUpdates creates the expected
+// filter list from the generated map of notification info.
+func Test_notifications_processesNotificationUpdates(t *testing.T) {
+	rng := rand.New(rand.NewSource(2323))
+	cg, nm := newMockCG(5, t), newMockNM()
+	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nm}
+
+	nim := make(clientNotif.Group, len(cg.channels))
+	created := map[id.ID]struct{}{}
+	var expectedChanged []NotificationState
 	ex := make([]NotificationFilter, 0, len(cg.channels))
 	levels := []NotificationLevel{NotifyNone, NotifyPing, NotifyAll}
 	for chanId, ch := range cg.channels {
@@ -197,6 +257,12 @@ func Test_notifications_createFilterList(t *testing.T) {
 			Metadata: level.Marshal(),
 			Status:   state,
 		}
+		created[*channelID] = struct{}{}
+		expectedChanged = append(expectedChanged, NotificationState{
+			ChannelID: channelID,
+			Level:     level,
+			Status:    state,
+		})
 
 		if level != NotifyNone {
 			ex = append(ex,
@@ -229,7 +295,7 @@ func Test_notifications_createFilterList(t *testing.T) {
 		}
 	}
 
-	nf := n.createFilterList(nim)
+	nf, changed := n.processesNotificationUpdates(nim, created, nil)
 
 	sort.Slice(ex, func(i, j int) bool {
 		return bytes.Compare(ex[i].Identifier, ex[j].Identifier) == -1
@@ -241,6 +307,18 @@ func Test_notifications_createFilterList(t *testing.T) {
 	if !reflect.DeepEqual(ex, nf) {
 		t.Errorf("Unexpected filter list."+
 			"\nexpected: %+v\nreceived: %+v", ex, nf)
+	}
+
+	sort.Slice(expectedChanged, func(i, j int) bool {
+		return bytes.Compare(expectedChanged[i].ChannelID[:], expectedChanged[j].ChannelID[:]) == -1
+	})
+	sort.Slice(changed, func(i, j int) bool {
+		return bytes.Compare(changed[i].ChannelID[:], changed[j].ChannelID[:]) == -1
+	})
+
+	if !reflect.DeepEqual(expectedChanged, changed) {
+		t.Errorf("Unexpected changed list."+
+			"\nexpected: %+v\nreceived: %+v", expectedChanged, changed)
 	}
 }
 
@@ -518,7 +596,7 @@ func (m *mockNM) Set(
 	m.channels[group][*toBeNotifiedOn] = clientNotif.State{Metadata: metadata, Status: status}
 
 	if _, exists := m.cbs[group]; exists {
-		go m.cbs[group](m.channels[group], nil, nil, nil)
+		go m.cbs[group](m.channels[group], nil, nil, nil, clientNotif.Push)
 	}
 	return nil
 }
@@ -540,7 +618,7 @@ func (m *mockNM) Delete(toBeNotifiedOn *id.ID) error {
 		if _, exists := ids[*toBeNotifiedOn]; exists {
 			delete(m.channels[group], *toBeNotifiedOn)
 			if _, exists = m.cbs[group]; exists {
-				go m.cbs[group](m.channels[group], nil, nil, nil)
+				go m.cbs[group](m.channels[group], nil, nil, nil, clientNotif.Push)
 			}
 			return nil
 		}

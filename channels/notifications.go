@@ -20,12 +20,26 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// FilterCallback is a callback that returns a slice of [NotificationFilter] of
-// all channels with notifications enabled any time a service is added or
-// removed or the notification level changes. The [NotificationFilter] is used
-// to determine which notifications from the notification server belong to the
-// caller.
-type FilterCallback func(nfs []NotificationFilter)
+// NotificationUpdate is a callback that is called any time a notification
+// level changes.
+//
+// It returns a slice of [NotificationFilter] for all channels with
+// notifications enabled. The [NotificationFilter] is used to determine which
+// notifications from the notification server belong to the caller.
+//
+// It also returns a map of all channel notification states that have changed
+// and all that have been deleted. The maxState is the global state set for
+// notifications.
+type NotificationUpdate func(nfs []NotificationFilter,
+	changedNotificationStates []NotificationState,
+	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState)
+
+// NotificationState contains information about the notifications for a channel.
+type NotificationState struct {
+	ChannelID *id.ID                        `json:"channelID"`
+	Level     NotificationLevel             `json:"level"`
+	Status    clientNotif.NotificationState `json:"status"`
+}
 
 // notificationGroup is the name used for to denote channel notifications in the
 // notification manager.
@@ -36,8 +50,9 @@ type notifications struct {
 	// User's public key
 	pubKey ed25519.PublicKey
 
-	// User supplied callback to return updated NotificationFilter objects to.
-	cb FilterCallback
+	// User supplied callback to return updated NotificationFilter and channel
+	// notification statuses to.
+	cb NotificationUpdate
 
 	channelGetter
 	nm NotificationsManager
@@ -50,7 +65,7 @@ type channelGetter interface {
 }
 
 // newNotifications initializes a new channels notifications manager.
-func newNotifications(pubKey ed25519.PublicKey, cb FilterCallback,
+func newNotifications(pubKey ed25519.PublicKey, cb NotificationUpdate,
 	cg channelGetter, nm NotificationsManager) *notifications {
 	n := &notifications{
 		pubKey:        pubKey,
@@ -90,47 +105,107 @@ func (n *notifications) GetNotificationLevel(
 	return UnmarshalNotificationLevel(metadata), nil
 }
 
+// GetNotificationStatus returns the notification status for the given channel.
+func (n *notifications) GetNotificationStatus(
+	channelID *id.ID) (clientNotif.NotificationState, error) {
+
+	status, _, _, exists := n.nm.Get(channelID)
+	if !exists {
+		return 0,
+			errors.Errorf("channel %s not found in notifications", channelID)
+	}
+
+	return status, nil
+}
+
 // SetMobileNotificationsLevel sets the notification level for the given
-// channel. The [NotificationLevel] dictates the type of notifications received.
-// If push is set to true, then push notifications will be received when the app
-// is closed. Otherwise, notifications will only appear when the app is open.
+// channel. The [NotificationLevel] dictates the type of notifications received
+// and the status controls weather the notification is push or in-app. If muted,
+// both the level and status must be set to mute.
 //
 // To use push notifications, a token must be registered with the notification
 // manager. Note, when enabling push notifications, information may be shared
 // with third parties (i.e., Firebase and Google's Palantir) and may represent a
 // security risk to the user.
 func (n *notifications) SetMobileNotificationsLevel(channelID *id.ID,
-	level NotificationLevel, push bool) error {
+	level NotificationLevel, status clientNotif.NotificationState) error {
 	jww.INFO.Printf("[CH] Set notification level for channel %s to %s",
 		channelID, level)
 
-	status := clientNotif.Mute
-	if level != NotifyNone {
-		if push {
-			status = clientNotif.Push
-		} else {
-			status = clientNotif.WhenOpen
-		}
+	if level == NotifyNone && status != clientNotif.Mute ||
+		level != NotifyNone && status == clientNotif.Mute {
+		return errors.New("NotificationLevel and NotificationState must be " +
+			"muted together")
 	}
+
 	return n.nm.Set(channelID, notificationGroup, level.Marshal(), status)
 }
 
 // notificationsUpdateCB gets the list of all services and assembles a list of
 // NotificationFilter for each channel that exists in the compressed service
-// list. The results are called on the user-registered FilterCallback.
+// list. The results are called on the user-registered NotificationUpdate.
 func (n *notifications) notificationsUpdateCB(
-	group clientNotif.Group, _, _, _ []*id.ID) {
-	nfs := n.createFilterList(group)
+	group clientNotif.Group, created, edits, deletions []*id.ID,
+	maxState clientNotif.NotificationState) {
+	var nfs []NotificationFilter
+	var changed []NotificationState
+	if maxState == clientNotif.Push {
+		nfs, changed = n.processesNotificationUpdates(
+			group, idSliceToMap(created), idSliceToMap(edits))
+	} else {
+		changed = n.getChannelStatuses(group, created, edits)
+	}
 
-	n.cb(nfs)
+	n.cb(nfs, changed, deletions, maxState)
 }
 
-// createFilterList generates two NotificationFilter objects for each channel ID
-// in the provided map; one for asymmetric messages and one for symmetric.
-// The filter generated is based on its message type and NotificationLevel
-// embedded in the Metadata.
-func (n *notifications) createFilterList(group clientNotif.Group) []NotificationFilter {
-	var nfs []NotificationFilter
+// idSliceToMap converts the slice of id.ID to a map.
+func idSliceToMap(s []*id.ID) map[id.ID]struct{} {
+	m := make(map[id.ID]struct{}, len(s))
+	for i := range s {
+		m[*s[i]] = struct{}{}
+	}
+	return m
+}
+
+// getChannelStatuses returns a list of all channels with added or changed
+// notification statuses.
+func (n *notifications) getChannelStatuses(group clientNotif.Group, created,
+	edits []*id.ID) []NotificationState {
+	changed := make([]NotificationState, 0, len(created)+len(edits))
+	for _, chanID := range created {
+		channelID := chanID.DeepCopy()
+		changed = append(changed,
+			NotificationState{
+				ChannelID: channelID,
+				Level:     UnmarshalNotificationLevel(group[*channelID].Metadata),
+				Status:    group[*channelID].Status,
+			})
+	}
+	for _, chanID := range edits {
+		channelID := chanID.DeepCopy()
+		changed = append(changed,
+			NotificationState{
+				ChannelID: channelID,
+				Level:     UnmarshalNotificationLevel(group[*channelID].Metadata),
+				Status:    group[*channelID].Status,
+			})
+	}
+
+	return changed
+}
+
+// processesNotificationUpdates generates two NotificationFilter objects for
+// each channel ID in the provided map; one for asymmetric messages and one for
+// symmetric. The filter generated is based on its message type and
+// NotificationLevel embedded in the Metadata. Also returns a list of all
+// channels with added or changed notification statuses.
+func (n *notifications) processesNotificationUpdates(group clientNotif.Group,
+	created, edits map[id.ID]struct{}) ([]NotificationFilter,
+	[]NotificationState) {
+	changed := make([]NotificationState, 0, len(created)+len(edits))
+
+	nfs := make([]NotificationFilter, 0, len(group))
 	tags := makeUserPingTags(n.pubKey)
 	for chanID, notif := range group {
 		channelID := chanID.DeepCopy()
@@ -143,7 +218,18 @@ func (n *notifications) createFilterList(group clientNotif.Group) []Notification
 		}
 
 		level := UnmarshalNotificationLevel(notif.Metadata)
-		if level == NotifyNone {
+
+		_, createdExists := created[*channelID]
+		_, editExists := edits[*channelID]
+		if createdExists || editExists {
+			changed = append(changed, NotificationState{
+				ChannelID: channelID,
+				Level:     level,
+				Status:    notif.Status,
+			})
+		}
+
+		if level == NotifyNone || notif.Status != clientNotif.Push {
 			continue
 		}
 
@@ -162,7 +248,7 @@ func (n *notifications) createFilterList(group clientNotif.Group) []Notification
 			})
 	}
 
-	return nfs
+	return nfs, changed
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -15,6 +15,7 @@ func TestManager_SetMaxState(t *testing.T) {
 
 	comms.reset()
 
+	// add notification registrations
 	for i := Mute; i <= Push; i++ {
 		for x := 0; x < int(i)+1; x++ {
 			nid := id.NewIdFromUInt(uint64(int(i)*100+x), id.User, t)
@@ -24,15 +25,18 @@ func TestManager_SetMaxState(t *testing.T) {
 		}
 	}
 
+	// test Push -> Mute
 	if err := m.SetMaxState(Mute); err != nil {
 		t.Fatalf("errored in setMaxState: %+v", err)
 	}
 
+	// should unregister all 3 push registrations
 	unReg := comms.receivedMessage.(*pb.UnregisterTrackedIdRequest)
 	if len(unReg.Request.TrackedIntermediaryID) != expectedLen {
 		t.Errorf("wrong number of ids unregistered")
 	}
 
+	// check that the internal data is at the right values
 	if mInternal.maxState != Mute {
 		t.Errorf("max state at wrong state internally")
 	}
@@ -41,13 +45,19 @@ func TestManager_SetMaxState(t *testing.T) {
 		t.Errorf("max state at wrong state in ekv")
 	}
 
+	// test push -> whenOpen
 	comms.reset()
 	if err := m.SetMaxState(WhenOpen); err != nil {
 		t.Fatalf("errored in setMaxState: %+v", err)
 	}
+
+	// no messages should have been sent because we were not
+	// moving into or out of the push state
 	if comms.receivedMessage != nil {
 		t.Errorf("message sent when it shouldnt be!")
 	}
+
+	// check that the internal data is at the right values
 	if mInternal.maxState != WhenOpen {
 		t.Errorf("max state at wrong state internally")
 	}
@@ -55,16 +65,21 @@ func TestManager_SetMaxState(t *testing.T) {
 	if loadMaxState(mInternal, t) != WhenOpen {
 		t.Errorf("max state at wrong state in ekv")
 	}
+
+	// test WhenOpen -> Push
 	comms.reset()
 	if err := m.SetMaxState(Push); err != nil {
 		t.Fatalf("errored in setMaxState: %+v", err)
 	}
 
+	// test that the correct comm was sent, registration of
+	// 3 push notifications
 	reg := comms.receivedMessage.(*pb.RegisterTrackedIdRequest)
 	if len(reg.Request.TrackedIntermediaryID) != expectedLen {
 		t.Errorf("wrong number of ids unregistered")
 	}
 
+	// check that the internal data is at the right values
 	if mInternal.maxState != Push {
 		t.Errorf("max state at wrong state internally")
 	}
@@ -78,6 +93,8 @@ func TestManager_GetMaxState(t *testing.T) {
 	m, _, _ := buildTestingManager(t)
 	mInternal := m.(*manager)
 
+	// set to every value and get that value and see if the
+	// correct result returns
 	for i := Mute; i <= Push; i++ {
 		mInternal.maxState = i
 		got := m.GetMaxState()
@@ -87,6 +104,7 @@ func TestManager_GetMaxState(t *testing.T) {
 	}
 }
 
+// gets the max state from the ekv and unmarshals it for testing
 func loadMaxState(m *manager, t *testing.T) NotificationState {
 	obj, err := m.remote.Get(maxStateKey, maxStateKetVersion)
 	if err != nil {

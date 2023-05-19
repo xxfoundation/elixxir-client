@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"io"
 	"math/rand"
 	"sync"
@@ -187,7 +188,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
+func (m *mockCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte,
 	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
@@ -215,7 +216,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 		if exists {
 			go func(mp message.Processor, rid id.Round,
 				targetedMsg cmix.TargetedCmixMessage, msg format.Message) {
-				mp.Process(msg, receptionID.EphemeralIdentity{
+				mp.Process(msg, nil, nil, receptionID.EphemeralIdentity{
 					Source: targetedMsg.Recipient}, rounds.Round{ID: rid},
 				)
 			}(mp, rid, targetedMsg, msg)
@@ -244,7 +245,7 @@ func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Pr
 	p, exists := m.handler.messageList[fp]
 	if exists {
 		go mp.Process(
-			p.msg,
+			p.msg, nil, nil,
 			receptionID.EphemeralIdentity{Source: p.targetedMsg.Recipient},
 			rounds.Round{ID: p.rid},
 		)
@@ -265,15 +266,24 @@ func (m *mockCmix) DeleteClientFingerprints(*id.ID) {
 	m.handler.processorMap = make(map[format.Fingerprint]message.Processor)
 }
 
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    { panic("implement me") }
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor) { panic("implement me") }
+func (m *mockCmix) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {
+	panic("implement me")
+}
+func (m *mockCmix) DeleteCompressedService(*id.ID, message.CompressedService, message.Processor) {
+	panic("implement me")
+}
 func (m *mockCmix) PauseNodeRegistrations(time.Duration) error               { panic("implement me") }
 func (m *mockCmix) ChangeNumberOfNodeRegistrations(int, time.Duration) error { panic("implement me") }
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
-func (m *mockCmix) CheckInProgressMessages()                                 {}
-func (m *mockCmix) IsHealthy() bool                                          { return m.health }
-func (m *mockCmix) WasHealthy() bool                                         { return true }
+func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	panic("implement me")
+}
+func (m *mockCmix) CheckInProgressMessages() {}
+func (m *mockCmix) IsHealthy() bool          { return m.health }
+func (m *mockCmix) WasHealthy() bool         { return true }
 
 func (m *mockCmix) AddHealthCallback(f func(bool)) uint64 {
 	m.Lock()
@@ -335,7 +345,7 @@ func (m *mockCmix) GetVerboseRounds() string                  { panic("implement
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockStorage struct {
-	kv        *versioned.KV
+	kv        versioned.KV
 	cmixGroup *cyclic.Group
 }
 
@@ -355,7 +365,7 @@ func (m *mockStorage) GetClientVersion() version.Version     { panic("implement 
 func (m *mockStorage) Get(string) (*versioned.Object, error) { panic("implement me") }
 func (m *mockStorage) Set(string, *versioned.Object) error   { panic("implement me") }
 func (m *mockStorage) Delete(string) error                   { panic("implement me") }
-func (m *mockStorage) GetKV() *versioned.KV                  { return m.kv }
+func (m *mockStorage) GetKV() versioned.KV                   { return m.kv }
 func (m *mockStorage) GetCmixGroup() *cyclic.Group           { return m.cmixGroup }
 func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement me") }
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {
@@ -571,10 +581,17 @@ func (m *mockChannelsManager) GetChannels() []*id.ID                      { pani
 func (m *mockChannelsManager) GetChannel(*id.ID) (*cryptoBroadcast.Channel, error) {
 	panic("implement me")
 }
+func (m *mockChannelsManager) SendSilent(channelID *id.ID, validUntil time.Duration, params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
+func (m *mockChannelsManager) GetNotificationStatus(channelID *id.ID) (clientNotif.NotificationState, error) {
+	panic("implement me")
+}
 
 func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	messageType channels.MessageType, msg []byte, validUntil time.Duration,
-	_ bool, _ cmix.CMIXParams) (
+	_ bool, _ cmix.CMIXParams, _ []ed25519.PublicKey) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
 	msgID := cryptoMessage.DeriveChannelMessageID(channelID, 0, msg)
@@ -587,10 +604,10 @@ func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	return msgID, rounds.Round{}, ephemeral.Id{}, nil
 }
 
-func (m *mockChannelsManager) SendMessage(*id.ID, string, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+func (m *mockChannelsManager) SendMessage(*id.ID, string, time.Duration, cmix.CMIXParams, []ed25519.PublicKey) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
-func (m *mockChannelsManager) SendReply(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+func (m *mockChannelsManager) SendReply(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams, []ed25519.PublicKey) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 func (m *mockChannelsManager) SendReaction(*id.ID, string, cryptoMessage.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
@@ -623,7 +640,14 @@ func (m *mockChannelsManager) GetNickname(*id.ID) (nickname string, exists bool)
 
 func (m *mockChannelsManager) Muted(*id.ID) bool                        { panic("implement me") }
 func (m *mockChannelsManager) GetMutedUsers(*id.ID) []ed25519.PublicKey { panic("implement me") }
-func (m *mockChannelsManager) IsChannelAdmin(*id.ID) bool               { panic("implement me") }
+func (m *mockChannelsManager) GetNotificationLevel(channelID *id.ID) (channels.NotificationLevel, error) {
+	panic("implement me")
+}
+func (m *mockChannelsManager) SetMobileNotificationsLevel(channelID *id.ID, level channels.NotificationLevel,
+	status clientNotif.NotificationState) error {
+	panic("implement me")
+}
+func (m *mockChannelsManager) IsChannelAdmin(*id.ID) bool { panic("implement me") }
 func (m *mockChannelsManager) ExportChannelAdminKey(*id.ID, string) ([]byte, error) {
 	panic("implement me")
 }

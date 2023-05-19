@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/xx_network/crypto/csprng"
 
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -26,12 +27,14 @@ import (
 func TestNewManager(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	numFps := uint16(64)
+	cmkv, err := kv.Prefix(cypherManagerPrefix)
+	require.NoError(t, err)
 	fpv, _ := utility.NewStateVector(uint32(numFps), false,
-		cypherManagerFpVectorKey, kv.Prefix(cypherManagerPrefix))
+		cypherManagerFpVectorKey, cmkv)
 	expected := &Manager{
 		key:      &ftCrypto.TransferKey{1, 2, 3},
 		fpVector: fpv,
-		kv:       kv.Prefix(cypherManagerPrefix),
+		kv:       cmkv,
 	}
 
 	manager, err := NewManager(expected.key, numFps, false, kv)
@@ -202,7 +205,7 @@ func Test_saveKey_loadKey(t *testing.T) {
 }
 
 // newTestManager creates a new Manager for testing.
-func newTestManager(numFps uint16, t *testing.T) (*Manager, *versioned.KV) {
+func newTestManager(numFps uint16, t *testing.T) (*Manager, versioned.KV) {
 	key, err := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	if err != nil {
 		t.Errorf("Failed to generate transfer key: %+v", err)

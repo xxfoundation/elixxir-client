@@ -172,7 +172,7 @@ func (m mockSession) GetCmixGroup() *cyclic.Group {
 	return nil
 }
 
-func (m mockSession) GetKV() *versioned.KV {
+func (m mockSession) GetKV() versioned.KV {
 	return nil
 }
 

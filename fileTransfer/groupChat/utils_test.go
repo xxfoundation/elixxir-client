@@ -94,7 +94,7 @@ type mockCmix struct {
 }
 
 func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -110,6 +110,14 @@ func newMockCmix(
 	}
 }
 
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { panic("implement me") }
 
 func (m *mockCmix) GetMaxMessageLength() int {
@@ -117,7 +125,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
+func (m *mockCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte,
 	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
@@ -129,7 +137,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 		msg.SetContents(targetedMsg.Payload)
 		msg.SetMac(targetedMsg.Mac)
 		msg.SetKeyFP(targetedMsg.Fingerprint)
-		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg,
+		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg, []string{}, nil,
 			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
 			rounds.Round{ID: 42})
 	}
@@ -138,7 +146,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 }
 
 func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -175,9 +183,12 @@ func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stopp
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
-func (m *mockCmix) CheckInProgressMessages()                                 {}
-func (m *mockCmix) IsHealthy() bool                                          { return m.health }
-func (m *mockCmix) WasHealthy() bool                                         { return true }
+func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	panic("implement me")
+}
+func (m *mockCmix) CheckInProgressMessages() {}
+func (m *mockCmix) IsHealthy() bool          { return m.health }
+func (m *mockCmix) WasHealthy() bool         { return true }
 
 func (m *mockCmix) AddHealthCallback(f func(bool)) uint64 {
 	m.Lock()
@@ -263,7 +274,7 @@ func (m *mockGC) Send(groupID *id.ID, tag string, message []byte) (
 	m.handler.services[tag].Process(groupChat.MessageReceive{
 		GroupID: groupID,
 		Payload: message,
-	}, format.Message{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+	}, format.Message{}, nil, nil, receptionID.EphemeralIdentity{}, rounds.Round{})
 	return rounds.Round{}, time.Time{}, group.MessageID{}, nil
 }
 
@@ -279,7 +290,7 @@ func (m *mockGC) AddService(tag string, p groupChat.Processor) error {
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockStorage struct {
-	kv        *versioned.KV
+	kv        versioned.KV
 	cmixGroup *cyclic.Group
 }
 
@@ -299,7 +310,7 @@ func (m *mockStorage) GetClientVersion() version.Version     { panic("implement 
 func (m *mockStorage) Get(string) (*versioned.Object, error) { panic("implement me") }
 func (m *mockStorage) Set(string, *versioned.Object) error   { panic("implement me") }
 func (m *mockStorage) Delete(string) error                   { panic("implement me") }
-func (m *mockStorage) GetKV() *versioned.KV                  { return m.kv }
+func (m *mockStorage) GetKV() versioned.KV                  { return m.kv }
 func (m *mockStorage) GetCmixGroup() *cyclic.Group           { return m.cmixGroup }
 func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement me") }
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {

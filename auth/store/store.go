@@ -29,7 +29,7 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
-	kv           *versioned.KV
+	kv           versioned.KV
 	grp          *cyclic.Group
 	receivedByID map[id.ID]*ReceivedRequest
 	sentByID     map[id.ID]*SentRequest
@@ -44,8 +44,11 @@ type Store struct {
 // NewOrLoadStore loads an extant new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
 // If no store can be found, it creates a new one
-func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
-	kv = kv.Prefix(storePrefix)
+func NewOrLoadStore(kv versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
+	kv, err := kv.Prefix(storePrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	s := &Store{
 		kv:                   kv,
@@ -152,7 +155,7 @@ func (s *Store) save() error {
 
 // NewStore creates a new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
-func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
+func newStore(kv versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
 	*Store, error) {
 	s := &Store{
 		kv:                   kv,

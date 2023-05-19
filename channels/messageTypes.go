@@ -13,7 +13,7 @@ import (
 )
 
 // MessageType is the type of message being sent to a channel.
-type MessageType uint32
+type MessageType uint16
 
 const (
 	////////////////////////////////////////////////////////////////////////////
@@ -30,6 +30,10 @@ const (
 
 	// Reaction denotes that the message is a reaction to another message.
 	Reaction MessageType = 3
+
+	// Silent denotes that the message is a silent message which should not
+	// notify the user in any way.
+	Silent MessageType = 4
 
 	////////////////////////////////////////////////////////////////////////////
 	// Message Actions                                                        //
@@ -68,6 +72,8 @@ func (mt MessageType) String() string {
 		return "AdminText"
 	case Reaction:
 		return "Reaction"
+	case Silent:
+		return "Silent"
 	case Delete:
 		return "Delete"
 	case Pinned:
@@ -83,9 +89,21 @@ func (mt MessageType) String() string {
 	}
 }
 
-// Bytes returns the MessageType as a 4-bit byte slice.
+// Bytes returns the [MessageType] as a 4-bit byte slice.
 func (mt MessageType) Bytes() []byte {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, uint32(mt))
 	return b
+}
+
+// Marshal returns the byte representation of the [MessageType].
+func (mt MessageType) Marshal() []byte {
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, uint16(mt))
+	return b
+}
+
+// UnmarshalMessageType unmarshalls the byte slice into a [MessageType].
+func UnmarshalMessageType(b []byte) MessageType {
+	return MessageType(binary.LittleEndian.Uint16(b))
 }

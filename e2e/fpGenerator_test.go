@@ -124,7 +124,7 @@ func newMockFpgCmix() *mockFpgCmix {
 
 func (m *mockFpgCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 func (m *mockFpgCmix) GetMaxMessageLength() int                                   { return 0 }
-func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 func (m *mockFpgCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
@@ -169,6 +169,14 @@ func (m *mockFpgCmix) DeleteFingerprint(uid *id.ID, fp format.Fingerprint) {
 	}
 }
 
+func (m *mockFpgCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockFpgCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (m *mockFpgCmix) DeleteClientFingerprints(*id.ID)                       {}
 func (m *mockFpgCmix) AddService(*id.ID, message.Service, message.Processor) {}
 func (m *mockFpgCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stoppable, error) {
@@ -177,6 +185,9 @@ func (m *mockFpgCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.St
 func (m *mockFpgCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockFpgCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockFpgCmix) TrackServices(message.ServicesTracker)                    {}
+func (m *mockFpgCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
 func (m *mockFpgCmix) CheckInProgressMessages()                                 {}
 func (m *mockFpgCmix) IsHealthy() bool                                          { return false }
 func (m *mockFpgCmix) WasHealthy() bool                                         { return false }

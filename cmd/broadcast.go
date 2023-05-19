@@ -166,24 +166,26 @@ var broadcastCmd = &cobra.Command{
 
 		// Create & register symmetric receiver callback
 		receiveChan := make(chan []byte, 100)
-		scb := func(payload, _ []byte,
-			receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+		scb := func(payload, _ []byte, _ []string,
+			_ uint16, receptionID receptionID.EphemeralIdentity,
+			round rounds.Round) {
 			jww.INFO.Printf("Received symmetric message from %s over round %d", receptionID, round.ID)
 			receiveChan <- payload
 		}
-		_, err = bcl.RegisterListener(scb, broadcast.Symmetric)
+		_, err = bcl.RegisterSymmetricListener(scb, []string{})
 		if err != nil {
 			jww.FATAL.Panicf("Failed to register asymmetric listener: %+v", err)
 		}
 
 		// Create & register asymmetric receiver callback
 		asymmetricReceiveChan := make(chan []byte, 100)
-		acb := func(payload, _ []byte,
-			receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+		acb := func(payload, _ []byte, _ []string,
+			_ uint16, receptionID receptionID.EphemeralIdentity,
+			round rounds.Round) {
 			jww.INFO.Printf("Received asymmetric message from %s over round %d", receptionID, round.ID)
 			asymmetricReceiveChan <- payload
 		}
-		_, err = bcl.RegisterListener(acb, broadcast.RSAToPublic)
+		_, err = bcl.RegisterSymmetricListener(acb, []string{})
 		if err != nil {
 			jww.FATAL.Panicf("Failed to register asymmetric listener: %+v", err)
 		}
@@ -209,7 +211,8 @@ var broadcastCmd = &cobra.Command{
 
 					/* Send symmetric broadcast */
 					if symmetric != "" {
-						rid, eid, err := bcl.Broadcast([]byte(symmetric), cmix.GetDefaultCMIXParams())
+						rid, eid, err := bcl.Broadcast([]byte(symmetric),
+							[]string{}, [2]byte{1, 2}, cmix.GetDefaultCMIXParams())
 						if err != nil {
 							jww.ERROR.Printf("Failed to send symmetric broadcast message: %+v", err)
 							retries++
@@ -225,7 +228,9 @@ var broadcastCmd = &cobra.Command{
 						if pk == nil {
 							jww.FATAL.Panicf("CANNOT SEND ASYMMETRIC BROADCAST WITHOUT PRIVATE KEY")
 						}
-						_, rid, eid, err := bcl.BroadcastRSAtoPublic(pk, []byte(asymmetric), cmix.GetDefaultCMIXParams())
+						_, rid, eid, err := bcl.BroadcastRSAtoPublic(pk,
+							[]byte(asymmetric), []string{}, [2]byte{1, 2},
+							cmix.GetDefaultCMIXParams())
 						if err != nil {
 							jww.ERROR.Printf("Failed to send asymmetric broadcast message: %+v", err)
 							retries++

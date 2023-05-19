@@ -59,7 +59,7 @@ type mockCmix struct {
 type send struct {
 	myID      *id.ID
 	recipient *id.ID
-	ms        message.Service
+	ms        cmix.Service
 	msg       format.Message
 }
 
@@ -81,6 +81,14 @@ func newMockCmix(myID *id.ID, handler *mockCmixHandler, t testing.TB) *mockCmix 
 		handler:          handler,
 		t:                t,
 	}
+}
+
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
 }
 
 func (m *mockCmix) IsHealthy() bool {
@@ -118,7 +126,7 @@ func (m *mockCmix) AddFingerprint(
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
 
 func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
-	ms message.Service, payload, mac []byte, _ cmix.CMIXParams) (
+	ms cmix.Service, payload, mac []byte, _ cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 
 	msg := format.NewMessage(m.numPrimeBytes)
@@ -135,7 +143,7 @@ func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 		if mp, exists := m.handler.fingerprints[*recipient][fp]; exists {
 			sent = true
 			go mp.Process(
-				msg, receptionID.EphemeralIdentity{Source: m.myID}, rounds.Round{})
+				msg, []string{}, []byte{}, receptionID.EphemeralIdentity{Source: m.myID}, rounds.Round{})
 		}
 	}
 
@@ -143,7 +151,8 @@ func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 		if mp, exists := m.handler.services[*recipient][serviceKey(ms)]; exists {
 			sent = true
 			go mp.Process(
-				msg, receptionID.EphemeralIdentity{Source: m.myID}, rounds.Round{})
+				msg, []string{}, []byte{}, receptionID.EphemeralIdentity{Source: m.myID},
+				rounds.Round{})
 		}
 	}
 
@@ -159,8 +168,9 @@ func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
-func serviceKey(ms message.Service) string {
-	return string(append(ms.Identifier, []byte(ms.Tag)...))
+func serviceKey(ms cmix.Service) string {
+	cms := ms.(message.Service)
+	return string(append(cms.Identifier, []byte(cms.Tag)...))
 }
 
 func (m *mockCmix) AddService(clientID *id.ID, ms message.Service, mp message.Processor) {
@@ -201,7 +211,8 @@ func (m *mockCmix) CheckInProgressMessages() {
 			if mp, exists := m.handler.fingerprints[*s.recipient][s.msg.GetKeyFP()]; exists {
 				sent = true
 				go mp.Process(
-					s.msg, receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
+					s.msg, []string{}, []byte{},
+					receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
 			}
 		}
 
@@ -209,7 +220,8 @@ func (m *mockCmix) CheckInProgressMessages() {
 			if mp, exists := m.handler.services[*s.recipient][serviceKey(s.ms)]; exists {
 				sent = true
 				go mp.Process(
-					s.msg, receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
+					s.msg, []string{}, []byte{},
+					receptionID.EphemeralIdentity{Source: s.myID}, rounds.Round{})
 			}
 		}
 

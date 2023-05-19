@@ -27,7 +27,7 @@ import (
 const currentSentRequestVersion = 1
 
 type SentRequest struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	partner                 *id.ID
 	partnerHistoricalPubKey *cyclic.Int
@@ -51,7 +51,7 @@ type sentRequestDisk struct {
 	Reset                   bool
 }
 
-func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
+func newSentRequest(kv versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 	myPrivKey, myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
 	sidHPubA *sidh.PublicKey, fp format.Fingerprint, reset bool) (*SentRequest, error) {
 
@@ -70,7 +70,7 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 	return sr, sr.save()
 }
 
-func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
+func loadSentRequest(kv versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
 
 	srKey := makeSentRequestKey(partner)
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
@@ -283,7 +283,7 @@ func makeSentRequestKeyV0(partner *id.ID) string {
 
 // upgradeSentRequestKeyV0 upgrads the srKey from version 0 to 1 by
 // changing the version number.
-func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
+func upgradeSentRequestKeyV0(kv versioned.KV, partner *id.ID) error {
 	oldKey := makeSentRequestKeyV0(partner)
 	obj, err := kv.Get(oldKey, 0)
 	if err != nil {

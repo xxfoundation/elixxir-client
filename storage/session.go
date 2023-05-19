@@ -46,7 +46,7 @@ type Session interface {
 	Get(key string) (*versioned.Object, error)
 	Set(key string, object *versioned.Object) error
 	Delete(key string) error
-	GetKV() *versioned.KV
+	GetKV() versioned.KV
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	ForwardRegistrationStatus(regStatus RegistrationStatus) error
@@ -74,7 +74,7 @@ type Session interface {
 }
 
 type session struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	// memoized data
 	mux       sync.RWMutex
@@ -90,40 +90,25 @@ type session struct {
 	clientVersion *clientVersion.Store
 }
 
-// initStore initializes a new Session object
-func initStore(baseDir, password string) (*session, error) {
-	fs, err := ekv.NewFilestore(baseDir, password)
-	var s *session
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to create storage session")
-	}
-
-	s = &session{
-		kv: versioned.NewKV(fs),
-	}
-
-	return s, nil
-}
-
 // New UserData in the session
-func New(baseDir, password string, u user.Info,
+func New(storage versioned.KV, u user.Info,
 	currentVersion version.Version,
 	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
 
-	s, err := initStore(baseDir, password)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to create session for %s", baseDir)
+	s := &session{
+		kv: storage,
 	}
 
-	err = s.newRegStatus()
+	err := s.newRegStatus()
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Create new session")
 	}
 
-	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt,
-		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey, u.E2eDhPublicKey)
+	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID,
+		u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA,
+		u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey,
+		u.E2eDhPublicKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
@@ -144,27 +129,29 @@ func New(baseDir, password string, u user.Info,
 }
 
 // Load existing user data into the session
-func Load(baseDir, password string, currentVersion version.Version) (Session, error) {
+func Load(storage versioned.KV,
+	currentVersion version.Version) (Session, error) {
 
-	s, err := initStore(baseDir, password)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+	s := &session{
+		kv: storage,
 	}
 
-	err = s.loadRegStatus()
+	err := s.loadRegStatus()
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
 	s.clientVersion, err = clientVersion.LoadStore(s.kv)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load client version store.")
+		return nil, errors.WithMessage(err,
+			"Failed to load client version store.")
 	}
 
 	// Determine if the storage needs to be updated to the current version
 	_, _, err = s.clientVersion.CheckUpdateRequired(currentVersion)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load client version store.")
+		return nil, errors.WithMessage(err,
+			"Failed to load client version store.")
 	}
 
 	s.User, err = user.LoadUser(s.kv)
@@ -207,7 +194,7 @@ func (s *session) Delete(key string) error {
 }
 
 // GetKV returns the Session versioned.KV.
-func (s *session) GetKV() *versioned.KV {
+func (s *session) GetKV() versioned.KV {
 	return s.kv
 }
 

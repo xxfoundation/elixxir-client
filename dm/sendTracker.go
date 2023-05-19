@@ -85,14 +85,14 @@ type sendTracker struct {
 
 	net cMixClient
 
-	kv *versioned.KV
+	kv versioned.KV
 
 	rngSrc *fastRNG.StreamGenerator
 }
 
 // NewSendTracker returns an uninitialized SendTracker object. The DM
 // Client will call Init to initialize it.
-func NewSendTracker(kv *versioned.KV) SendTracker {
+func NewSendTracker(kv versioned.KV) SendTracker {
 	return &sendTracker{kv: kv}
 }
 

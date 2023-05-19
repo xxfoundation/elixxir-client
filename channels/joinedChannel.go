@@ -9,7 +9,10 @@ package channels
 
 import (
 	"encoding/json"
+
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
@@ -107,10 +110,17 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 		return err
 	}
 
+	// Enable notifications
+	err = m.notifications.addChannel(channel.ReceptionID)
+	if err != nil {
+		return errors.WithMessage(err,
+			"failed to add channel to notification manager")
+	}
+
 	// Connect to listeners
 	_, err = m.registerListeners(b, channel)
 
-	return nil
+	return err
 }
 
 // removeChannel deletes the channel with the given ID from the channel list and
@@ -143,12 +153,25 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 
 	delete(m.channels, *channelID)
 
+	// Delete channel from channel list
 	err = m.storeUnsafe()
 	if err != nil {
 		return err
 	}
 
-	return ch.delete(m.kv)
+	// Delete channel from storage
+	err = ch.delete(m.kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete channel from storage: %+v", err)
+	}
+
+	// Disable notifications
+	err = m.notifications.removeChannel(channelID)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete channel from notifications: %+v", err)
+	}
+
+	return nil
 }
 
 // getChannel returns the given channel. Returns ChannelDoesNotExistsErr error
@@ -188,7 +211,7 @@ type joinedChannelDisk struct {
 }
 
 // Store writes the given channel to a unique storage location within the EKV.
-func (jc *joinedChannel) Store(kv *versioned.KV) error {
+func (jc *joinedChannel) Store(kv versioned.KV) error {
 	jcd := joinedChannelDisk{jc.broadcast.Get()}
 	data, err := json.Marshal(&jcd)
 	if err != nil {
@@ -227,7 +250,7 @@ func (m *manager) loadJoinedChannel(channelID *id.ID) (*joinedChannel, error) {
 }
 
 // delete removes the channel from the kv.
-func (jc *joinedChannel) delete(kv *versioned.KV) error {
+func (jc *joinedChannel) delete(kv versioned.KV) error {
 	return kv.Delete(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
 		joinedChannelVersion)
 }
@@ -250,23 +273,21 @@ func (m *manager) initBroadcast(
 func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
 	// User message listener
-	ul := userListener{
+	p, err := broadcastChan.RegisterSymmetricListener((&userListener{
 		chID:      channel.ReceptionID,
 		trigger:   m.events.triggerEvent,
 		checkSent: m.st.MessageReceive,
-	}
-	p, err := broadcastChan.RegisterListener(ul.Listen, broadcast.Symmetric)
+	}).Listen, nil)
 	if err != nil {
 		return nil, err
 	}
 	m.broadcast.addProcessor(channel.ReceptionID, userProcessor, p)
 
 	// Admin message listener
-	al := adminListener{
+	p, err = broadcastChan.RegisterRSAtoPublicListener((&adminListener{
 		chID:    channel.ReceptionID,
 		trigger: m.events.triggerAdminEvent,
-	}
-	p, err = broadcastChan.RegisterListener(al.Listen, broadcast.RSAToPublic)
+	}).Listen, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -28,8 +28,8 @@ type receivedConfirmService struct {
 	notificationsService message.Service
 }
 
-func (rcs *receivedConfirmService) Process(msg format.Message,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+func (rcs *receivedConfirmService) Process(msg format.Message, tags []string,
+	_ []byte, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	authState := rcs.s
 

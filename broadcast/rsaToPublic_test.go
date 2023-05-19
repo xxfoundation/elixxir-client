@@ -45,8 +45,8 @@ func newMockProcessor() *mockProcessor {
 	m.messages = make([]format.Message, 0)
 	return m
 }
-func (p *mockProcessor) Process(message format.Message,
-	_ receptionID.EphemeralIdentity, _ rounds.Round) {
+func (p *mockProcessor) Process(message format.Message, _ []string,
+	_ []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	p.messages = append(p.messages, message)
 }
 func (p *mockProcessor) String() string { return "hello" }
@@ -74,7 +74,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	for i := range clients {
 		cbChan := make(chan []byte, 10)
 		cb := func(
-			payload, _ []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+			payload, _ []byte, _ []string, _ uint16, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 			cbChan <- payload
 		}
 
@@ -84,7 +84,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 			t.Errorf("Failed to create broadcast channel: %+v", err)
 		}
 
-		_, err = s.RegisterListener(cb, RSAToPublic)
+		_, err = s.RegisterRSAtoPublicListener(cb, []string{})
 		if err != nil {
 			t.Errorf("Failed to register listener: %+v", err)
 		}
@@ -126,8 +126,8 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		}
 
 		// Broadcast payload
-		_, _, _, err := clients[i].
-			BroadcastRSAtoPublic(pk, payload, cmix.GetDefaultCMIXParams())
+		_, _, _, err := clients[i].BroadcastRSAtoPublic(
+			pk, payload, []string{}, dummyMessageType, cmix.GetDefaultCMIXParams())
 		if err != nil {
 			t.Errorf("Cmix %d failed to send broadcast: %+v", i, err)
 		}
@@ -160,7 +160,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 
 	// Broadcast payload
 	_, _, _, err := clients[0].
-		BroadcastRSAtoPublic(pk, payload, cmix.GetDefaultCMIXParams())
+		BroadcastRSAtoPublic(pk, payload, []string{}, dummyMessageType, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Errorf("Cmix 0 failed to send broadcast: %+v", err)
 	}

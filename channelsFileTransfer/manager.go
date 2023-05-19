@@ -139,7 +139,7 @@ type manager struct {
 	myID      *id.ID
 	cmix      Cmix
 	cmixGroup *cyclic.Group
-	kv        *versioned.KV
+	kv        versioned.KV
 	rng       *fastRNG.StreamGenerator
 }
 

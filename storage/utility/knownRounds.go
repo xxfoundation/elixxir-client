@@ -19,15 +19,15 @@ const currentKnownRoundsVersion = 0
 // the values can be recovered if something happens to the buffer in memory.
 type KnownRounds struct {
 	rounds *knownRounds.KnownRounds
-	kv     *versioned.KV
+	kv     versioned.KV
 	key    string
-	mux    sync.RWMutex
+	mux    collective.RWMutex
 }
 
 // NewKnownRounds creates a new empty KnownRounds and saves it to the passed
 // in key value store at the specified key. An error is returned on an
 // unsuccessful save.
-func NewKnownRounds(kv *versioned.KV, key string, known *knownRounds.KnownRounds) (*KnownRounds, error) {
+func NewKnownRounds(kv versioned.KV, key string, known *knownRounds.KnownRounds) (*KnownRounds, error) {
 	// Create new empty struct
 	kr := &KnownRounds{
 		rounds: known,
@@ -44,7 +44,7 @@ func NewKnownRounds(kv *versioned.KV, key string, known *knownRounds.KnownRounds
 
 // LoadKnownRounds loads and existing KnownRounds from the key value store
 // into memory at the given key. Returns an error if it cannot be loaded.
-func LoadKnownRounds(kv *versioned.KV, key string, size int) (*KnownRounds, error) {
+func LoadKnownRounds(kv versioned.KV, key string, size int) (*KnownRounds, error) {
 	// Create new empty struct
 	kr := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),

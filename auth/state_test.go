@@ -68,7 +68,7 @@ func (mnm *mockNetManager) AddFingerprint(identity *id.ID, fingerprint format.Fi
 }
 func (mnm *mockNetManager) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {}
 func (mnm *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
-	service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
+	service cmix.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{ID: 5}, ephemeral.Id{}, nil
 }
@@ -194,7 +194,7 @@ loop:
 	}
 }
 
-func makeTestStore(t *testing.T) (*store.Store, *versioned.KV, []*cyclic.Int) {
+func makeTestStore(t *testing.T) (*store.Store, versioned.KV, []*cyclic.Int) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 	privKeys := make([]*cyclic.Int, 10)

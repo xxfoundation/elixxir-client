@@ -86,6 +86,14 @@ type testNetworkManagerGeneric struct {
 	sender   gateway.Sender
 }
 
+func (m *testNetworkManagerGeneric) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *testNetworkManagerGeneric) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (t *testNetworkManagerGeneric) SetTrackNetworkPeriod(d time.Duration) {
 	//TODO implement me
 	panic("implement me")
@@ -115,7 +123,7 @@ func (t *testNetworkManagerGeneric) AddFingerprint(identity *id.ID, fingerprint 
 }
 
 func (t *testNetworkManagerGeneric) Send(*id.ID, format.Fingerprint,
-	message.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round,
+	cmix.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round,
 	ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
@@ -226,6 +234,9 @@ func (t *testNetworkManagerGeneric) SendToPreferred(targets []*id.ID,
 func (t *testNetworkManagerGeneric) SetGatewayFilter(f gateway.Filter) {}
 func (t *testNetworkManagerGeneric) TrackServices(
 	tracker message.ServicesTracker) {
+}
+func (t *testNetworkManagerGeneric) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
 }
 func (t *testNetworkManagerGeneric) TriggerNodeRegistration(nid *id.ID) {}
 func (t *testNetworkManagerGeneric) UnregisterAddressSpaceNotification(

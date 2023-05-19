@@ -36,7 +36,7 @@ var _ groupE2eHandler = (e2eImport.Handler)(nil)
 
 type mockProcessor struct{ receiveChan chan MessageReceive }
 
-func (m mockProcessor) Process(msg MessageReceive, _ format.Message,
+func (m mockProcessor) Process(msg MessageReceive, _ format.Message, _ []string, _ []byte,
 	_ receptionID.EphemeralIdentity, _ rounds.Round) {
 	m.receiveChan <- msg
 }
@@ -140,8 +140,8 @@ func TestNewManager_LoadError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to add group: %+v", err)
 	}
-	_ = kv.Prefix("GroupChatListStore").Delete("GroupChat/"+g.ID.String(), 0)
-
+	deleteKv, _ := kv.Prefix("GroupChatListStore")
+	_ = deleteKv.Delete("GroupChat/"+g.ID.String(), 0)
 	expectedErr := strings.SplitN(newGroupStoreErr, "%", 2)[0]
 
 	mockMess := newMockE2e(t, kv)

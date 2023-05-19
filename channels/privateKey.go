@@ -150,7 +150,7 @@ const (
 //
 // The private key can retrieved from storage via loadChannelPrivateKey.
 func saveChannelPrivateKey(
-	channelID *id.ID, pk rsa.PrivateKey, kv *versioned.KV) error {
+	channelID *id.ID, pk rsa.PrivateKey, kv versioned.KV) error {
 	return kv.Set(makeChannelPrivateKeyStoreKey(channelID),
 		&versioned.Object{
 			Version:   channelPrivateKeyStoreVersion,
@@ -165,7 +165,7 @@ func saveChannelPrivateKey(
 //
 // The private key is saved to storage via saveChannelPrivateKey.
 func loadChannelPrivateKey(
-	channelID *id.ID, kv *versioned.KV) (rsa.PrivateKey, error) {
+	channelID *id.ID, kv versioned.KV) (rsa.PrivateKey, error) {
 	obj, err := kv.Get(
 		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
 	if err != nil {
@@ -177,7 +177,7 @@ func loadChannelPrivateKey(
 
 // deleteChannelPrivateKey deletes the private key from storage for the given
 // channel ID.
-func deleteChannelPrivateKey(channelID *id.ID, kv *versioned.KV) error {
+func deleteChannelPrivateKey(channelID *id.ID, kv versioned.KV) error {
 	return kv.Delete(
 		makeChannelPrivateKeyStoreKey(channelID), channelPrivateKeyStoreVersion)
 }

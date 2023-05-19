@@ -9,6 +9,7 @@ package ratchet
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -31,12 +32,14 @@ func TestNewStore(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := kv.Prefix(packagePrefix)
+	require.NoError(t, err)
 	expectedStore := &Ratchet{
 		managers:               make(map[id.ID]partner.Manager),
 		advertisedDHPrivateKey: privKey,
 		advertisedDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
 		grp:                    grp,
-		kv:                     kv.Prefix(packagePrefix),
+		kv:                     expectedKv,
 	}
 	expectedData, err := expectedStore.marshal()
 	if err != nil {

@@ -178,6 +178,13 @@ func newMockCmix(myID *id.ID, handler *mockCmixHandler, t testing.TB) *mockCmix 
 		instance:      instance,
 	}
 }
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
 
 func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 
@@ -186,7 +193,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
+func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv cmix.Service,
 	payload, mac []byte, _ cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
@@ -196,13 +203,15 @@ func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
 	msg.SetMac(mac)
 	msg.SetKeyFP(fp)
 
+	srvc := srv.(message.Service)
+
 	if m.handler.processorMap[fp] != nil {
 		m.handler.processorMap[fp].Process(
-			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+			msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 		return rounds.Round{}, ephemeral.Id{}, nil
-	} else if m.handler.serviceMap[srv.Tag] != nil {
-		m.handler.serviceMap[srv.Tag].Process(
-			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	} else if m.handler.serviceMap[srvc.Tag] != nil {
+		m.handler.serviceMap[srvc.Tag].Process(
+			msg, []string{}, []byte{}, receptionID.EphemeralIdentity{}, rounds.Round{})
 		return rounds.Round{}, ephemeral.Id{}, nil
 	}
 
@@ -254,6 +263,9 @@ func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          {}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    {}
+func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
 func (m *mockCmix) CheckInProgressMessages()                                 {}
 func (m *mockCmix) IsHealthy() bool                                          { return m.health }
 func (m *mockCmix) WasHealthy() bool                                         { return true }

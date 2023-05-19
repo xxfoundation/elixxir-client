@@ -42,7 +42,7 @@ func (dp *dmProcessor) String() string {
 	return "directMessage-"
 }
 
-func (dp *dmProcessor) Process(msg format.Message,
+func (dp *dmProcessor) Process(msg format.Message, _ []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	ciphertext := reconstructCiphertext(msg)
@@ -143,7 +143,7 @@ func (sp *selfProcessor) String() string {
 	return "directMessageSelf-"
 }
 
-func (sp *selfProcessor) Process(msg format.Message,
+func (sp *selfProcessor) Process(msg format.Message, _ []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	ciphertext := reconstructCiphertext(msg)

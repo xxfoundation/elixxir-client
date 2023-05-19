@@ -9,6 +9,7 @@ package channels
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -26,7 +27,9 @@ import (
 // Tests that NewCommandStore returns the expected CommandStore.
 func TestNewCommandStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	expected := &CommandStore{kv.Prefix(commandStorePrefix)}
+	expectedKv, err := kv.Prefix(commandStorePrefix)
+	require.NoError(t, err)
+	expected := &CommandStore{kv: expectedKv}
 
 	cs := NewCommandStore(kv)
 

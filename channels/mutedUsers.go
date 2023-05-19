@@ -43,12 +43,12 @@ type mutedUserManager struct {
 	list map[id.ID]map[mutedUserKey]struct{}
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  versioned.KV
 }
 
 // newOrLoadMutedUserManager loads an existing mutedUserManager from storage, if
 // it exists. Otherwise, it initialises a new empty mutedUserManager.
-func newOrLoadMutedUserManager(kv *versioned.KV) (*mutedUserManager, error) {
+func newOrLoadMutedUserManager(kv versioned.KV) (*mutedUserManager, error) {
 	mum := newMutedUserManager(kv)
 
 	err := mum.load()
@@ -60,7 +60,7 @@ func newOrLoadMutedUserManager(kv *versioned.KV) (*mutedUserManager, error) {
 }
 
 // newMutedUserManager initializes a new and empty mutedUserManager.
-func newMutedUserManager(kv *versioned.KV) *mutedUserManager {
+func newMutedUserManager(kv versioned.KV) *mutedUserManager {
 	return &mutedUserManager{
 		list: make(map[id.ID]map[mutedUserKey]struct{}),
 		kv:   kv,

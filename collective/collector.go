@@ -10,8 +10,6 @@ package collective
 
 import (
 	"encoding/json"
-	"fmt"
-	"path/filepath"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -37,10 +35,6 @@ const synchronizationEpoch = 5 * time.Second
 // Log constants.
 const (
 	collectorLogHeader = "COLLECTOR"
-
-	// FIXME: It should be: [name]-[deviceid]/[keyid]/txlog
-	// but we don't have access to a name, so: [deviceid]/[keyid]/txlog
-	txLogPathFmt = "%s/%s/txlog"
 )
 
 // Error messages.
@@ -142,16 +136,17 @@ func newCollector(myID InstanceID, syncPath string,
 // runner is the long-running thread responsible for collecting changes and
 // synchronizing changes across devices.
 func (c *collector) runner(stop *stoppable.Single) {
-	t := time.NewTicker(c.synchronizationEpoch)
-	select {
-	case <-t.C:
-		c.collect()
-	case <-stop.Quit():
-		stop.ToStopped()
-		jww.DEBUG.Printf(
-			"[%s] Stopping collective collector: stoppable triggered.",
-			collectorLogHeader)
-		return
+	for {
+		t := time.NewTicker(c.synchronizationEpoch)
+		select {
+		case <-t.C:
+			c.collect()
+		case <-stop.Quit():
+			stop.ToStopped()
+			jww.DEBUG.Printf("[%s] Stopping collector",
+				collectorLogHeader)
+			return
+		}
 	}
 }
 
@@ -242,7 +237,9 @@ func (c *collector) collect() {
 	jww.INFO.Printf("[%s] Applied new updates took %d ms",
 		collectorLogHeader, elapsed)
 
-	c.lastUpdateRead = newUpdates
+	for k, v := range newUpdates {
+		c.lastUpdateRead[k] = v
+	}
 
 }
 
@@ -251,11 +248,12 @@ func (c *collector) collectChanges(devices []InstanceID) (
 	map[InstanceID]time.Time, error) {
 
 	newUpdates := make(map[InstanceID]time.Time, 0)
+	lck := sync.Mutex{}
 
 	wg := &sync.WaitGroup{}
 	connectionFailed := uint32(0)
 	// Iterate over devices
-	for _, deviceID := range devices {
+	for i := range devices {
 		wg.Add(1)
 		go func(deviceID InstanceID) {
 			defer wg.Done()
@@ -264,11 +262,10 @@ func (c *collector) collectChanges(devices []InstanceID) (
 				return
 			}
 
-			kid := c.encrypt.KeyID(c.myID)
+			kid := c.encrypt.KeyID(deviceID)
 
 			// Get the last time the device log was written on the remote
-			logPath := filepath.Join(c.syncPath,
-				fmt.Sprintf(txLogPathFmt, deviceID, kid))
+			logPath := getTxLogPath(c.syncPath, kid, deviceID)
 			lastRemoteUpdate, err := c.remote.GetLastModified(logPath)
 			if err != nil {
 				atomic.AddUint32(&connectionFailed, 1)
@@ -280,8 +277,10 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			// determine the update timestamp we saw from the device
 			lastTrackedUpdate := c.lastUpdateRead[deviceID]
 
-			// If us, Read the local log, otherwise Read the remote log
 			if !lastRemoteUpdate.After(lastTrackedUpdate) {
+				jww.DEBUG.Printf("last remote after tracked: "+
+					"%s != %s", lastRemoteUpdate,
+					lastTrackedUpdate)
 				return
 			}
 
@@ -294,7 +293,8 @@ func (c *collector) collectChanges(devices []InstanceID) (
 				return
 			}
 
-			_, patch, err := handleIncomingFile(patchFile, c.encrypt)
+			_, patch, err := handleIncomingFile(deviceID,
+				patchFile, c.encrypt)
 			if err != nil {
 				jww.WARN.Printf("failed to handle incoming file for %s "+
 					"at %s: %+v", deviceID, logPath, err)
@@ -302,13 +302,15 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			}
 
 			// preallocated
+			lck.Lock()
 			c.devicePatchTracker[deviceID] = patch
 			newUpdates[deviceID] = lastRemoteUpdate
-		}(deviceID)
+			lck.Unlock()
+		}(devices[i])
 	}
 	wg.Wait()
 
-	if connectionFailed < 0 {
+	if connectionFailed > 0 {
 		err := errors.Errorf("failed to read %d logs, aborting "+
 			"collection", connectionFailed)
 		return nil, err
@@ -343,13 +345,17 @@ func (c *collector) applyChanges() error {
 	c.lastMutationRead[c.myID] = netTime.Now()
 
 	//prepare the data for the diff
-	devices, patches, ignoreBefore := prepareDiff(c.devicePatchTracker, c.lastMutationRead)
+	devices, patches, ignoreBefore := prepareDiff(c.devicePatchTracker,
+		c.lastMutationRead)
 
 	//execute the diff
 	updates, lastSeen := localPatch.Diff(patches, ignoreBefore)
 
 	// store the timestamps
 	for i, device := range devices {
+		if device == c.myID {
+			continue
+		}
 		c.lastMutationRead[device] = lastSeen[i]
 	}
 	c.saveLastMutationTime()
@@ -368,7 +374,7 @@ func (c *collector) applyChanges() error {
 			mapObj[key] = updates[key]
 		} else {
 			wg.Add(1)
-			func(key string, m *Mutate) {
+			go func(key string, m *Mutate) {
 				if m.Deletion {
 					err := c.kv.DeleteFromRemote(key)
 					if err != nil {
@@ -382,9 +388,11 @@ func (c *collector) applyChanges() error {
 							"%+v", key, err)
 					}
 				}
+				wg.Done()
 			}(key, updates[key])
 		}
 	}
+	wg.Wait()
 
 	//apply the map updates
 	for mapName := range mapUpdates {
@@ -458,22 +466,24 @@ func (c *collector) initDevices(devicePaths []string) []InstanceID {
 
 	for i, deviceIDStr := range devicePaths {
 		deviceID, err := NewInstanceIDFromString(deviceIDStr)
-		if err == nil {
-			jww.WARN.Printf("Failed to decode device ID for "+
-				"index %d: %s, skipping", i, deviceIDStr)
+		if err != nil {
+			jww.WARN.Printf("cannot decode device ID "+
+				"index %d: %s, %v skipping", i, deviceIDStr,
+				err)
 			continue
 		}
 		devices = append(devices, deviceID)
 		if _, exists := c.lastUpdateRead[deviceID]; !exists {
 			c.lastUpdateRead[deviceID] = time.Unix(0, 0).UTC()
 			c.lastMutationRead[deviceID] = time.Unix(0, 0).UTC()
-			c.devicePatchTracker[deviceID] = newPatch()
+			c.devicePatchTracker[deviceID] = newPatch(deviceID)
 		}
 	}
 	return devices
 }
 
-func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, error) {
+func handleIncomingFile(deviceID InstanceID, patchFile []byte,
+	decrypt encryptor) (*header, *Patch, error) {
 	h, ecrPatchBytes, err := decodeFile(patchFile)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to decode the file")
@@ -485,7 +495,7 @@ func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, e
 		err = errors.WithMessagef(err, "failed to decrypt the patch")
 		return h, nil, err
 	}
-	patch := newPatch()
+	patch := newPatch(deviceID)
 	err = patch.Deserialize(patchBytes)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to decode the patch from file")

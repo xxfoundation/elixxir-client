@@ -9,6 +9,7 @@ package dummy
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -248,19 +249,14 @@ func TestManager_Pause_ChannelError(t *testing.T) {
 // Tests that Manager.GetStatus gets the correct status before the send thread
 // starts, while sending, while paused, and after it is stopped.
 func TestManager_GetStatus(t *testing.T) {
-	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
+	m := newTestManager(10, 250*time.Millisecond, 10*time.Millisecond, t)
 
-	err := m.Pause()
-	if err != nil {
-		t.Errorf("Pause returned an error: %+v", err)
-	}
+	require.NoError(t, m.Pause())
 
 	stop := stoppable.NewSingle("sendThreadTest")
 	go m.sendThread(stop)
 
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
 
 	msgChan := make(chan bool, 10)
 	go func() {
@@ -275,13 +271,9 @@ func TestManager_GetStatus(t *testing.T) {
 	}()
 
 	// Setting status to false should cause the messages to not send
-	err = m.Pause()
-	if err != nil {
-		t.Errorf("Pause returned an error: %+v", err)
-	}
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.NoError(t, m.Pause())
+
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
 
 	var numReceived int
 	select {
@@ -290,14 +282,10 @@ func TestManager_GetStatus(t *testing.T) {
 		t.Errorf("Should not have received messages when thread was pasued.")
 	}
 
-	err = m.Start()
-	if err != nil {
-		t.Errorf("Resume returned an error: %+v", err)
-	}
+	require.NoError(t, m.Start())
+
 	time.Sleep(3 * time.Millisecond)
-	if !m.GetStatus() {
-		t.Errorf("GetStatus reported thread as paused.")
-	}
+	require.True(t, m.GetStatus(), "GetStatus reported thread as paused.")
 
 	select {
 	case <-time.NewTimer(3 * m.avgSendDelta).C:
@@ -309,14 +297,10 @@ func TestManager_GetStatus(t *testing.T) {
 
 	// Setting status to true multiple times does not interrupt sending
 	for i := 0; i < 3; i++ {
-		err = m.Start()
-		if err != nil {
-			t.Errorf("Resume returned an error (%d): %+v", i, err)
-		}
+		require.NoError(t, m.Start())
 	}
-	if !m.GetStatus() {
-		t.Errorf("GetStatus reported thread as paused.")
-	}
+
+	require.False(t, !m.GetStatus(), "GetStatus reported thread as paused.")
 
 	select {
 	case <-time.NewTimer(3 * m.avgSendDelta).C:
@@ -331,25 +315,15 @@ func TestManager_GetStatus(t *testing.T) {
 	}
 
 	// Shows that the stoppable still stops when the thread is paused
-	err = m.Pause()
-	if err != nil {
-		t.Errorf("Pause returned an error: %+v", err)
-	}
-	time.Sleep(3 * time.Millisecond)
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.NoError(t, m.Pause())
 
-	err = stop.Close()
-	if err != nil {
-		t.Errorf("Failed to close stoppable: %+v", err)
-	}
+	time.Sleep(3 * time.Millisecond)
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
+
+	require.NoError(t, stop.Close())
 
 	time.Sleep(10 * time.Millisecond)
-	if !stop.IsStopped() {
-		t.Error("Stoppable never stopped.")
-	}
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.True(t, stop.IsStopped(), "Stoppable never stopped.")
+
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
 }

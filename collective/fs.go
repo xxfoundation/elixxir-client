@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
@@ -52,6 +53,7 @@ func (f *FileSystemStorage) Read(path string) ([]byte, error) {
 // This utilizes utils.WriteFileDef under the hood.
 func (f *FileSystemStorage) Write(path string, data []byte) error {
 	p := filepath.Join(f.baseDir, path)
+	jww.INFO.Printf("Writing: %s", p)
 	err := utils.WriteFileDef(p, data)
 	if err != nil {
 		return err

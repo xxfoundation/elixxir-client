@@ -21,6 +21,8 @@ import (
 // GetDefaultCMixParams returns a JSON serialized object with all of the cMix
 // parameters and their default values. Call this function and modify the JSON
 // to change cMix settings.
+//
+// See [xxdk.CMIXParams] for example JSON.
 func GetDefaultCMixParams() []byte {
 	defaultParams := xxdk.GetDefaultCMixParams()
 	data, err := defaultParams.Marshal()

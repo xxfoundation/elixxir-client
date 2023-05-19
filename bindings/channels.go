@@ -2876,7 +2876,7 @@ func (cuicbw *channelUICallbacksWrapper) NotificationUpdate(
 		deletedNotificationStatesData, int(maxState))
 }
 
-func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid uint64,
+func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid int64,
 	channelID *id.ID, update bool) {
 	cuicbw.cuic.MessageReceived(int64(uuid), channelID.Marshal(), update)
 }

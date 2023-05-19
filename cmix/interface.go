@@ -31,6 +31,13 @@ type Client interface {
 
 	// SetTrackNetworkPeriod allows changing the frequency that follower threads
 	// are started.
+	//
+	// Note that the frequency of the follower threads affect the power usage
+	// of the device following the network.
+	//   - Low period -> Higher frequency of polling -> Higher battery usage
+	//   - High period -> Lower frequency of polling -> Lower battery usage
+	// This may be used to enable a low power (or battery optimization) mode
+	// for the end user.
 	SetTrackNetworkPeriod(d time.Duration)
 
 	/* === Sending ========================================================== */

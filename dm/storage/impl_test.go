@@ -26,7 +26,7 @@ import (
 func dummyReceivedMessageCB(uint64, ed25519.PublicKey, bool, bool) {}
 
 func TestMain(m *testing.M) {
-	jww.SetStdoutThreshold(jww.LevelDebug)
+	jww.SetStdoutThreshold(jww.LevelTrace)
 	os.Exit(m.Run())
 }
 
@@ -67,7 +67,7 @@ func TestImpl_Receive(t *testing.T) {
 	}
 
 	// Next, we expect the message to be created
-	testMessage := &Message{Id: uuid}
+	testMessage := &Message{Id: int64(uuid)}
 	err = m.db.Take(testMessage).Error
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -93,7 +93,7 @@ func TestImpl_GetConversations(t *testing.T) {
 		testBytes := []byte(fmt.Sprintf("%d", i))
 		testPubKey := ed25519.PublicKey(testBytes)
 		err = m.upsertConversation("test", testPubKey,
-			uint32(i), uint8(i), false)
+			uint32(i), uint8(i), &time.Time{})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -126,28 +126,28 @@ func TestImpl_BlockSender(t *testing.T) {
 	// Insert a test convo
 	testBytes := []byte("test")
 	testPubKey := ed25519.PublicKey(testBytes)
-	err = m.upsertConversation("test", testPubKey, 0, 0, false)
+	err = m.upsertConversation("test", testPubKey, 0, 0, nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	// Default to unblocked
 	result := m.GetConversation(testPubKey)
-	if result.Blocked {
-		t.Fatal("Expected blocked to be false")
+	if result.BlockedTimestamp != nil {
+		t.Fatal("Expected blocked to be nil")
 	}
 
 	// Now toggle blocked
 	m.BlockSender(testPubKey)
 	result = m.GetConversation(testPubKey)
-	if !result.Blocked {
-		t.Fatal("Expected blocked to be true")
+	if result.BlockedTimestamp == nil {
+		t.Fatal("Expected blocked to be non-nil")
 	}
 
 	// Now toggle blocked again
 	m.UnblockSender(testPubKey)
 	result = m.GetConversation(testPubKey)
-	if result.Blocked {
-		t.Fatalf("Expected blocked to be false, got %+v", result)
+	if result.BlockedTimestamp != nil {
+		t.Fatalf("Expected blocked to be nil, got %+v", result)
 	}
 }

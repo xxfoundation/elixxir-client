@@ -34,7 +34,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 	require.NoError(t, err)
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
+	remoteStore := NewMockRemote()
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
@@ -58,11 +58,12 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 
 	zero := uint32(0)
 
+	logPath := getTxLogPath(logFile, crypt.KeyID(deviceID), deviceID)
 	// Construct expected mutate log object
 	expected := &remoteWriter{
-		path:           logFile,
+		path:           logPath,
 		header:         newHeader(deviceID),
-		state:          newPatch(),
+		state:          newPatch(deviceID),
 		adds:           txLog.adds, // hack, but new chan won't work
 		io:             remoteStore,
 		encrypt:        crypt,
@@ -70,6 +71,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 		localWriteKey:  makeLocalWriteKey(logFile),
 		remoteUpToDate: &zero,
 		notifier:       &notifier{},
+		uploadPeriod:   defaultUploadPeriod,
 	}
 
 	// Ensure constructor generates expected object
@@ -82,15 +84,15 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 //
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
-	baseDir := ".testDir"
-	logFile := baseDir + "/test.txt"
+	baseDir := ".testDir_TransactionLog_Loading"
 	os.RemoveAll(baseDir)
+	logFile := baseDir + "/test.txt"
 	password := "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
 
 	// Construct remote store
-	remoteStore := NewFileSystemRemoteStorage(baseDir)
+	remoteStore := NewMockRemote()
 
 	// Construct device secret
 	deviceSecret := []byte("deviceSecret")
@@ -110,6 +112,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	// Construct mutate log
 	txLog, err := newRemoteWriter(logFile, deviceID,
 		remoteStore, crypt, fs)
+	txLog.uploadPeriod = 250 * time.Millisecond
 	require.NoError(t, err)
 
 	ntfyCh := make(chan bool)
@@ -157,6 +160,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	newTxLog.adds = txLog.adds
 	newTxLog.notifier = txLog.notifier
 	newTxLog.remoteUpToDate = txLog.remoteUpToDate
+	newTxLog.uploadPeriod = txLog.uploadPeriod
 
 	// Ensure loaded log matches original log
 	require.Equal(t, txLog, newTxLog)
@@ -167,9 +171,10 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 func TestTransactionLog_Serialize(t *testing.T) {
 
 	kv := ekv.MakeMemstore()
-	remoteStore := newMockRemote()
+	remoteStore := NewMockRemote()
 
-	txLog := makeTransactionLog(kv, ".baseDir", remoteStore, t)
+	txLog := makeTransactionLog(kv, ".baseDir", remoteStore,
+		NewCountingReader(), t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -202,9 +207,10 @@ func TestTransactionLog_Serialize(t *testing.T) {
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestTransactionLog_Deserialize(t *testing.T) {
 	kv := ekv.MakeMemstore()
-	remoteStore := newMockRemote()
+	remoteStore := NewMockRemote()
 
-	txLog := makeTransactionLog(kv, ".baseDir", remoteStore, t)
+	txLog := makeTransactionLog(kv, ".baseDir", remoteStore,
+		NewCountingReader(), t)
 
 	// Construct timestamps
 	mockTimestamps := constructTimestamps(t, 0)
@@ -223,7 +229,8 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 	require.NoError(t, err)
 
 	kv2 := ekv.MakeMemstore()
-	newTxLog := makeTransactionLog(kv2, ".baseDir2", remoteStore, t)
+	newTxLog := makeTransactionLog(kv2, ".baseDir2", remoteStore,
+		NewCountingReader(), t)
 
 	// Deserialize the mutate log
 	require.NoError(t, newTxLog.state.Deserialize(data))

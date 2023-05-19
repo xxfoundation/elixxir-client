@@ -273,7 +273,7 @@ func newTestManager(t testing.TB) *manager {
 	}
 
 	kv := collective.TestingKV(
-		t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+		t, ekv.MakeMemstore(), collective.StandardPrefexs, collective.NewMockRemote())
 
 	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),

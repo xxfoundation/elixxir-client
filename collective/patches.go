@@ -12,11 +12,15 @@ import (
 // they are ordered by timestamp, so they can be quickly iterated over to
 // determine which mutations have been processed by a given receiver.
 type Patch struct {
+	myID InstanceID
 	keys map[string]*Mutate
 }
 
-func newPatch() *Patch {
-	return &Patch{keys: make(map[string]*Mutate)}
+func newPatch(patchID InstanceID) *Patch {
+	return &Patch{
+		myID: patchID,
+		keys: make(map[string]*Mutate),
+	}
 }
 
 // AddUnsafe adds a given mutation to the Patch.
@@ -64,20 +68,20 @@ func (p *Patch) findKeysWithUpdates(remotePatches []*Patch, lastSeen []time.Time
 
 	// iterate through all patches except yours
 	for idx, patch := range remotePatches {
-		if patch == p {
+		if patch.myID == p.myID {
 			continue
 		}
 		last := lastSeen[idx].UnixNano()
 		newLast := last
 		for key, m := range patch.keys {
-			if !(m.Timestamp > last) {
+			if m.Timestamp > last {
 				keys[key] = struct{}{}
 				if m.Timestamp > newLast {
 					newLast = m.Timestamp
 				}
 			}
 		}
-		newLastSeen[idx] = time.Unix(0, newLast).UTC()
+		newLastSeen[idx] = time.Unix(0, newLast)
 	}
 
 	return keys, newLastSeen

@@ -318,13 +318,9 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 	}
 
 	// Load extension builders from singleton
-	var extensionBuilders []channels.ExtensionBuilder
-	if len(extensionBuilderIDsJSON) != 0 {
-		var ebIDS []int
-		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
-			return nil, err
-		}
-		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
+	extensionBuilders, err := loadExtensionBuilders(extensionBuilderIDsJSON)
+	if err != nil {
+		return nil, err
 	}
 
 	newMsgCb := func(uuid int64, channelID *id.ID, update bool) {
@@ -368,14 +364,20 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 //     [Cmix.GetID].
 //   - storageTag - The storage tag associated with the previously created
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
+//   - extensionBuilderIDsJSON - JSON of an array of integers of
+//     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
+//     with an extension builder (e.g.,
+//     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
+//     extension builders. Example: `[2,11,5]`.
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
 //   - msgCb - Callback that is invoked whenever channels message is received/
 //     updated.
 //   - deleteCb - Callback that is invoked whenever a message is deleted.
 //   - muteCb - Callback that is invoked whenever a sender is muted/unmuted.
-func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
-	cipherID int, msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
+func LoadChannelsManagerMobile(cmixID int, storageTag string,
+	extensionBuilderIDsJSON []byte, dbFilePath string, cipherID int,
+	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
 	muteCb MuteCallback) (*ChannelsManager, error) {
 
 	// Get user from singleton
@@ -404,9 +406,15 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
+	// Load extension builders from singleton
+	extensionBuilders, err := loadExtensionBuilders(extensionBuilderIDsJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
 	m, err := channels.LoadManager(storageTag, user.api.GetStorage().GetKV(),
-		user.api.GetCmix(), user.api.GetRng(), model, nil)
+		user.api.GetCmix(), user.api.GetRng(), model, extensionBuilders)
 	if err != nil {
 		return nil, err
 	}
@@ -450,13 +458,9 @@ func NewChannelsManager(cmixID int, privateIdentity,
 	}
 
 	// Load extension builders from singleton
-	var extensionBuilders []channels.ExtensionBuilder
-	if len(extensionBuilderIDsJSON) != 0 {
-		var ebIDS []int
-		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
-			return nil, err
-		}
-		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
+	extensionBuilders, err := loadExtensionBuilders(extensionBuilderIDsJSON)
+	if err != nil {
+		return nil, err
 	}
 
 	eb := func(path string) (channels.EventModel, error) {
@@ -488,10 +492,16 @@ func NewChannelsManager(cmixID int, privateIdentity,
 //     [Cmix.GetID].
 //   - storageTag - The storage tag associated with the previously created
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
+//   - extensionBuilderIDsJSON - JSON of an array of integers of
+//     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
+//     with an extension builder (e.g.,
+//     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
+//     extension builders. Example: `[2,11,5]`.
 //   - event - An interface that contains a function that initialises and
 //     returns the event model that is bindings-compatible.
 func LoadChannelsManager(cmixID int, storageTag string,
-	eventBuilder EventModelBuilder) (*ChannelsManager, error) {
+	extensionBuilderIDsJSON []byte, eventBuilder EventModelBuilder) (
+	*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -503,10 +513,16 @@ func LoadChannelsManager(cmixID int, storageTag string,
 		return NewEventModel(eventBuilder.Build(path)), nil
 	}
 
+	// Load extension builders from singleton
+	extensionBuilders, err := loadExtensionBuilders(extensionBuilderIDsJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag,
 		user.api.GetStorage().GetKV(), user.api.GetCmix(), user.api.GetRng(),
-		eb, nil)
+		eb, extensionBuilders)
 	if err != nil {
 		return nil, err
 	}
@@ -551,13 +567,9 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	}
 
 	// Load extension builders from singleton
-	var extensionBuilders []channels.ExtensionBuilder
-	if len(extensionBuilderIDsJSON) != 0 {
-		var ebIDS []int
-		if err = json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
-			return nil, err
-		}
-		extensionBuilders = channelExtensionBuilderTrackerSingleton.get(ebIDS...)
+	extensionBuilders, err := loadExtensionBuilders(extensionBuilderIDsJSON)
+	if err != nil {
+		return nil, err
 	}
 
 	// Construct new channels manager
@@ -606,6 +618,20 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 
 	// Add channel to singleton and return
 	return channelManagerTrackerSingleton.make(m), nil
+}
+
+// loadExtensionBuilders unmarshalls the list of extension builder IDs and
+// loads them from the singleton.
+func loadExtensionBuilders(
+	extensionBuilderIDsJSON []byte) ([]channels.ExtensionBuilder, error) {
+	if len(extensionBuilderIDsJSON) != 0 {
+		var ebIDS []int
+		if err := json.Unmarshal(extensionBuilderIDsJSON, &ebIDS); err != nil {
+			return nil, err
+		}
+		return channelExtensionBuilderTrackerSingleton.get(ebIDS...), nil
+	}
+	return []channels.ExtensionBuilder{}, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

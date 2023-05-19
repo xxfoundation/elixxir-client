@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"gitlab.com/xx_network/primitives/id"
+	"math"
 	"testing"
 )
 
@@ -58,6 +59,21 @@ func TestNotificationState_String(t *testing.T) {
 		if ns.String() != outputs[idx] {
 			t.Errorf("wrong string produced for %d; expected: %s, "+
 				"received: %s", ns, ns, outputs[idx])
+		}
+	}
+}
+
+func TestNotificationState_IsValid(t *testing.T) {
+	inputs := []NotificationState{Mute, WhenOpen, Push, -100, 14, Mute - 1,
+		Push + 1, 1000, math.MaxInt64, math.MinInt64}
+	outputs := []bool{true, true, true, false, false, false, false, false,
+		false, false}
+
+	for idx, ns := range inputs {
+		result := ns.IsValid() == nil
+		if outputs[idx] != result {
+			t.Errorf("on test %d output did not match expected, "+
+				"expected: %t, received: %t", idx, outputs[idx], result)
 		}
 	}
 }

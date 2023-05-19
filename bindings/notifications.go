@@ -29,7 +29,23 @@ type Notifications interface {
 	AddToken(newToken, app string) error
 	// RemoveToken removes the given Token from the server
 	// It will remove all registered identities if it is the last Token
+
 	RemoveToken() error
+	// SetMaxState sets the maximum functional state of any identity
+	// downstream moduals will be told to clamp any state greater than maxState
+	// down to maxState. Depending on UX requirements, they may still show the
+	// state in an altered manner, for example greying out a description.
+	// This is designed so when the state is raised, the old configs are
+	// maintained.
+	// This will unregister / re-register with the push server when leaving or
+	// entering the Push maxState.
+	// The default maxState is Push
+	// will return an error if the maxState isnt a valid state
+	SetMaxState(maxState notifications.NotificationState) error
+
+	// GetMaxState returns the current MaxState
+	GetMaxState() notifications.NotificationState
+
 	// GetID returns the ID of the notifications object
 	GetID() int
 }

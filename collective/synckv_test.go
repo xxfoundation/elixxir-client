@@ -121,6 +121,8 @@ func TestVersionedKV(t *testing.T) {
 		}
 	}
 
+	time.Sleep(1 * time.Second)
+
 	err = stop2.Close()
 	require.NoError(t, err)
 	err = stoppable.WaitForStopped(stop2, 2*time.Second)

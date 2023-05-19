@@ -203,19 +203,16 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				jww.FATAL.Panicf("failed to Write transaction "+
 					"log to disk: %+v", err)
 			}
+			rw.syncLock.RUnlock()
 
 			if quit {
 				s.ToStopped()
-				rw.syncLock.RUnlock()
 				return
 			}
 			if !running {
 				timer.Reset(rw.uploadPeriod)
 				running = true
 			}
-			// once all have been added, unlock allowing the collector
-			// to continue
-			rw.syncLock.RUnlock()
 
 		case <-timer.C:
 			running = false

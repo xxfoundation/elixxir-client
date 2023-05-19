@@ -84,9 +84,9 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 //
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
-	baseDir := ".testDir"
-	logFile := baseDir + "/test.txt"
+	baseDir := ".testDir_TransactionLog_Loading"
 	os.RemoveAll(baseDir)
+	logFile := baseDir + "/test.txt"
 	password := "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)

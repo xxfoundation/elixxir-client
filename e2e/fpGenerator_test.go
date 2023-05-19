@@ -185,6 +185,9 @@ func (m *mockFpgCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.St
 func (m *mockFpgCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockFpgCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockFpgCmix) TrackServices(message.ServicesTracker)                    {}
+func (m *mockFpgCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
 func (m *mockFpgCmix) CheckInProgressMessages()                                 {}
 func (m *mockFpgCmix) IsHealthy() bool                                          { return false }
 func (m *mockFpgCmix) WasHealthy() bool                                         { return false }

@@ -188,6 +188,9 @@ func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stopp
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
+func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	panic("implement me")
+}
 func (m *mockCmix) CheckInProgressMessages()                                 {}
 func (m *mockCmix) IsHealthy() bool                                          { return m.health }
 func (m *mockCmix) WasHealthy() bool                                         { return true }

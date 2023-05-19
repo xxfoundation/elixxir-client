@@ -47,6 +47,7 @@ type Handler interface {
 		processor Processor)
 	DeleteClientService(clientID *id.ID)
 	TrackServices(triggerTracker ServicesTracker)
+	GetServices() (ServiceList, CompressedServiceList)
 
 	//Fallthrough
 	AddFallthrough(c *id.ID, p Processor)

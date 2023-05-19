@@ -44,6 +44,14 @@ type ServicesManager struct {
 	compressedServices map[id.ID]map[sih.Preimage]compressedService
 	trackers           []ServicesTracker
 	numServices        uint
+
+	// sl and csl contain the Service and CompressedService in the services and
+	// compressedServices maps in list form. They are updated everytime
+	// triggerServiceTracking is called. They are used to serve the most recent
+	// service lists without needing to regenerate them from the maps.
+	sl  ServiceList
+	csl CompressedServiceList
+
 	sync.Mutex
 }
 
@@ -88,7 +96,7 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 			// Check if the SIH matches this service
 			if s.ForMe(ecrMsgContents, receivedSIH) {
 				if s.defaultList == nil && s.Tag != sih.Default {
-					//skip if the processor is nil
+					// Skip if the processor is nil
 					if s.Processor == nil {
 						jww.ERROR.Printf("<nil> processor: %s",
 							s.Tag)
@@ -117,7 +125,7 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 
 	if compressed, exists := sm.compressedServices[cid]; exists {
 		for _, c := range compressed {
-			if forMe, tags, metadata := c.ForMe(clientID, ecrMsgContents, receivedSIH); forMe {
+			if tags, forMe, metadata := c.ForMe(clientID, ecrMsgContents, receivedSIH); forMe {
 				return []Processor{c.Processor}, tags, metadata, true
 			}
 		}
@@ -226,12 +234,12 @@ func (sm *ServicesManager) DeleteService(clientID *id.ID, toDelete Service,
 	defer sm.Unlock()
 	cid := *clientID
 
-	idTmap, exists := sm.services[cid]
+	idSMap, exists := sm.services[cid]
 	if !exists {
 		return
 	}
 
-	services, exists := idTmap[toDelete.preimage()]
+	services, exists := idSMap[toDelete.preimage()]
 	if !exists {
 		return
 	}
@@ -243,13 +251,13 @@ func (sm *ServicesManager) DeleteService(clientID *id.ID, toDelete Service,
 			if p == processor {
 				services.defaultList = append(
 					services.defaultList[:i], services.defaultList[i+1:]...)
-				idTmap[toDelete.preimage()] = services
+				idSMap[toDelete.preimage()] = services
 				return
 			}
 		}
 	}
 
-	delete(idTmap, toDelete.preimage())
+	delete(idSMap, toDelete.preimage())
 	sm.numServices--
 	sm.triggerServiceTracking()
 	return
@@ -265,17 +273,17 @@ func (sm *ServicesManager) DeleteCompressedService(clientID *id.ID, toDelete Com
 	defer sm.Unlock()
 	cid := *clientID
 
-	idTmap, exists := sm.compressedServices[cid]
+	idSMap, exists := sm.compressedServices[cid]
 	if !exists {
 		return
 	}
 
-	_, exists = idTmap[toDelete.preimage()]
+	_, exists = idSMap[toDelete.preimage()]
 	if !exists {
 		return
 	}
 
-	delete(idTmap, toDelete.preimage())
+	delete(idSMap, toDelete.preimage())
 	sm.numServices--
 	sm.triggerServiceTracking()
 	return

@@ -501,8 +501,8 @@ gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8 h1:uAFCyBkXprQ
 gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8/go.mod h1:1X8gRIAPDisS3W6Vtr/ymiUmZMJUIwDV1o5DEOo/pzw=
 gitlab.com/elixxir/comms v0.0.4-0.20230511183231-e32b848c552d h1:ETddsZpWYYYqlv5NCCx+5nCauyyi0vbgP7+LCIcX7tE=
 gitlab.com/elixxir/comms v0.0.4-0.20230511183231-e32b848c552d/go.mod h1:z+qW0D9VpY5QKTd7wRlb5SK4kBNqLYsa4DXBcUXue9Q=
-gitlab.com/elixxir/crypto v0.0.7-0.20230518213647-19a8135a6a56 h1:4ZXg6/8+Gd1LOdD0YrQBiR21mR6kNnu4s44hMb17UiU=
-gitlab.com/elixxir/crypto v0.0.7-0.20230518213647-19a8135a6a56/go.mod h1:qjjn0Ihe6WMLPjJSHbbLloZQD2EGsvlwOGXJ1L/Atzw=
+gitlab.com/elixxir/crypto v0.0.7-0.20230519180130-0cf0467315a2 h1:Vy8wCspslc4mGgs2LqpQZxcrMm2GkTBHhCjAjcpELNA=
+gitlab.com/elixxir/crypto v0.0.7-0.20230519180130-0cf0467315a2/go.mod h1:qjjn0Ihe6WMLPjJSHbbLloZQD2EGsvlwOGXJ1L/Atzw=
 gitlab.com/elixxir/ekv v0.3.1-0.20230504190918-f5e96603c2e0 h1:4d2vg4Sh3N5mR1ta152cg6ybPWHYqsPtkEyJKaDYGnw=
 gitlab.com/elixxir/ekv v0.3.1-0.20230504190918-f5e96603c2e0/go.mod h1:EMaUQrsOxvEPQ0/8V/PSkGqFmEC2axBG/uqY0oW2uJM=
 gitlab.com/elixxir/primitives v0.0.3-0.20230214180039-9a25e2d3969c h1:muG8ff95woeVVwQoJHCEclxBFB22lc7EixPylEkYDRU=

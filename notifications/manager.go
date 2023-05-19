@@ -230,6 +230,7 @@ func (m *manager) maxStateUpdate(key string, old, new *versioned.Object, op vers
 	if key != maxStateKey {
 		jww.ERROR.Printf("Got an update for the wrong key, "+
 			"expected: %s, got: %s", maxStateKey, key)
+		return
 	}
 
 	if op == versioned.Deleted {
@@ -242,6 +243,7 @@ func (m *manager) maxStateUpdate(key string, old, new *versioned.Object, op vers
 	if err := json.Unmarshal(new.Data, &m.maxState); err != nil {
 		jww.WARN.Printf("failed to unmarshal %s, ignoring: %+v",
 			maxStateKey, err)
+		return
 	}
 
 	for g := range m.callbacks {
@@ -260,7 +262,7 @@ func (m *manager) loadMaxStateUnsafe(obj *versioned.Object) {
 
 func (m *manager) setMaxStateUnsafe(max NotificationState) {
 
-	b, err := json.Marshal(&m.maxState)
+	b, err := json.Marshal(&max)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to set max notifications sate to %s:"+
 			" %+v", max, err)

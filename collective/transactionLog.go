@@ -95,8 +95,8 @@ type remoteWriter struct {
 }
 
 type transaction struct {
-	Mutate
-	Key string
+	Mutate *Mutate
+	Key    string
 }
 
 // newRemoteWriter constructs a remoteWriter object that does
@@ -166,7 +166,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 	for {
 		select {
 		case t := <-rw.adds:
-			rw.state.AddUnsafe(t.Key, &t.Mutate)
+			rw.state.AddUnsafe(t.Key, t.Mutate)
 
 			// batch writes
 			counter := 100 * time.Millisecond
@@ -176,7 +176,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 			for !done {
 				select {
 				case t = <-rw.adds:
-					rw.state.AddUnsafe(t.Key, &t.Mutate)
+					rw.state.AddUnsafe(t.Key, t.Mutate)
 					rw.syncLock.RUnlock()
 					counter -= 100 * time.Microsecond
 					if counter <= 0 {
@@ -266,12 +266,12 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 	}
 
 	rw.adds <- transaction{
-		Mutate{
+		Mutate: &Mutate{
 			Timestamp: ts.UTC().UnixNano(),
 			Value:     value,
 			Deletion:  false,
 		},
-		key,
+		Key: key,
 	}
 	return nil
 }
@@ -293,7 +293,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	mapKey := versioned.MakeMapKey(mapName)
 	keys := make([]string, 0, len(elements)+1)
 	updates := make(map[string]ekv.Value, len(elements)+len(toDelete)+1)
-	mutates := make(map[string]Mutate, len(elements)+len(toDelete))
+	mutates := make(map[string]*Mutate, len(elements)+len(toDelete))
 	oldE = make(map[string][]byte, len(elements))
 	deletedE = make(map[string][]byte)
 
@@ -308,7 +308,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 			Data:   v,
 			Exists: true,
 		}
-		mutates[key] = Mutate{
+		mutates[key] = &Mutate{
 			Timestamp: tsInt,
 			Value:     v,
 			Deletion:  false,
@@ -322,7 +322,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		updates[key] = ekv.Value{
 			Exists: false,
 		}
-		mutates[key] = Mutate{
+		mutates[key] = &Mutate{
 			Timestamp: tsInt,
 			Value:     nil,
 			Deletion:  true,
@@ -411,12 +411,12 @@ func (rw *remoteWriter) Delete(key string) error {
 	}
 
 	rw.adds <- transaction{
-		Mutate{
+		Mutate: &Mutate{
 			Timestamp: ts.UTC().UnixNano(),
 			Value:     nil,
 			Deletion:  true,
 		},
-		key,
+		Key: key,
 	}
 	return nil
 }

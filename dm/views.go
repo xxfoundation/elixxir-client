@@ -14,5 +14,6 @@ type ModelConversation struct {
 	Nickname         string     `json:"nickname"`
 	Token            uint32     `json:"token"`
 	CodesetVersion   uint8      `json:"codeset_version"`
+	Blocked          bool       `json:"blocked"`
 	BlockedTimestamp *time.Time `json:"blocked_timestamp"`
 }

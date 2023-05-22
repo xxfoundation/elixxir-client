@@ -123,7 +123,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	m.loadNotificationsUnsafe(loadedMap)
 	loadedMaxState, err := m.remote.ListenOnRemoteKey(maxStateKey,
 		maxStateKetVersion, m.maxStateUpdate)
-	if err != nil {
+	if err != nil && ekv.Exists(err) {
 		jww.FATAL.Panicf("Could not load notifications state key: %+v", err)
 	}
 	m.loadMaxStateUnsafe(loadedMaxState)

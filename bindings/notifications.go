@@ -76,6 +76,23 @@ func LoadNotifications(cmixId int) (Notifications, error) {
 	return notifTrackerSingleton.make(notif), nil
 }
 
+func LoadNotificationsDummy(cmixId int) (Notifications, error) {
+	mixBind, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+	mix := mixBind.api
+	identity := mix.GetTransmissionIdentity()
+	sig := mix.GetStorage().GetReceptionRegistrationValidationSignature()
+	kv := mix.GetStorage().GetKV()
+	comms := &notifications.MockComms{}
+	rng := mix.GetRng()
+
+	notif := notifications.NewOrLoadManager(identity, sig, kv, comms, rng)
+
+	return notifTrackerSingleton.make(notif), nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Notifications Tracker                                                      //
 ////////////////////////////////////////////////////////////////////////////////

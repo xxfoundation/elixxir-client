@@ -9,6 +9,7 @@ package notifications
 
 import (
 	"errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"strconv"
 
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -173,4 +174,42 @@ type Comms interface {
 	UnregisterTrackedID(host *connect.Host,
 		message *pb.UnregisterTrackedIdRequest) (*messages.Ack, error)
 	GetHost(id *id.ID) (*connect.Host, bool)
+}
+
+// MockComms are used when instantiating notification manager without
+// a remote bot. They return success on operations when they do not occur
+type MockComms struct{}
+
+func (mc *MockComms) RegisterToken(host *connect.Host,
+	message *pb.RegisterTokenRequest) (*messages.Ack, error) {
+	jww.DEBUG.Printf("Notifications dummy RegisterToken comm called, " +
+		"success returned")
+	return &messages.Ack{}, nil
+}
+
+func (mc *MockComms) UnregisterToken(host *connect.Host,
+	message *pb.UnregisterTokenRequest) (*messages.Ack, error) {
+	jww.DEBUG.Printf("Notifications dummy UnregisterToken comm called, " +
+		"success returned")
+	return &messages.Ack{}, nil
+}
+
+func (mc *MockComms) RegisterTrackedID(host *connect.Host,
+	message *pb.RegisterTrackedIdRequest) (*messages.Ack, error) {
+	jww.DEBUG.Printf("Notifications dummy RegisterTrackedID comm called, " +
+		"success returned")
+	return &messages.Ack{}, nil
+}
+
+func (mc *MockComms) UnregisterTrackedID(host *connect.Host,
+	message *pb.UnregisterTrackedIdRequest) (*messages.Ack, error) {
+	jww.DEBUG.Printf("Notifications dummy UnregisterTrackedID comm called, " +
+		"success returned")
+	return &messages.Ack{}, nil
+}
+
+func (mc *MockComms) GetHost(id *id.ID) (*connect.Host, bool) {
+	jww.DEBUG.Printf("Notifications dummy GetHost comm called, " +
+		"success returned")
+	return &connect.Host{}, true
 }

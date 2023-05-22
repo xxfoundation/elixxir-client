@@ -356,10 +356,13 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity,
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - dbFilePath - absolute string path to the SqlLite database file
 //   - cipherID - ID of [ChannelDbCipher] object in tracker.
+//   - notificationsID - ID of [Notifications] object in tracker. This can be
+//     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
-	cipherID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	cipherID, notificationsID int, uiCallbacks ChannelUICallbacks) (
+	*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -367,6 +370,10 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 	cipher, err := channelDbCipherTrackerSingleton.get(cipherID)
+	if err != nil {
+		return nil, err
+	}
+	notif, err := notifTrackerSingleton.get(notificationsID)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +393,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 
 	// Construct new channels manager
 	m, err := channels.LoadManager(storageTag, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), model, nil, nil, wrap)
+		user.api.GetRng(), model, nil, notif, wrap)
 	if err != nil {
 		return nil, err
 	}

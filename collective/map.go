@@ -108,7 +108,7 @@ func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 	}
 
 	old, _, err := r.local.MutualTransaction(keys, op)
-	if err != nil && !strings.Contains("dummy", err.Error()) {
+	if err != nil && !strings.Contains(err.Error(), "dummy") {
 		return nil, err
 	}
 

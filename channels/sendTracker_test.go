@@ -48,7 +48,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		Timestamps: make(map[states.Round]time.Time),
 	}
 	r.Timestamps[states.QUEUED] = netTime.Now()
-	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		oldUUID := uuidNum
 		uuidNum++
@@ -79,7 +79,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Lease:   netTime.Now().UnixNano(),
 			RoundID: uint64(rid),
 			Payload: []byte("hello"),
-		}})
+		}}, 42)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Lease:   netTime.Now().UnixNano(),
 			RoundID: uint64(rid),
 			Payload: []byte("hello again"),
-		}})
+		}}, 42)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestSendTracker_send(t *testing.T) {
 	triggerCh := make(chan bool)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
@@ -222,7 +222,7 @@ func TestSendTracker_send(t *testing.T) {
 			Payload: []byte("hello"),
 		},
 		messageID: mid,
-	})
+	}, 42)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +296,7 @@ func TestRoundResult_callback(t *testing.T) {
 		triggerCh <- true
 		return nil
 	}
-	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
@@ -316,7 +316,7 @@ func TestRoundResult_callback(t *testing.T) {
 			Payload: []byte("hello"),
 		},
 		messageID: mid,
-	})
+	}, 42)
 	if err != nil {
 		t.Fatal(err)
 	}

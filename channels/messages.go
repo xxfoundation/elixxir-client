@@ -19,10 +19,11 @@ type userMessageInternal struct {
 	userMessage    *UserMessage
 	channelMessage *ChannelMessage
 	messageID      message.ID
+	messageType    MessageType
 }
 
 func newUserMessageInternal(
-	ursMsg *UserMessage, chID *id.ID) (*userMessageInternal, error) {
+	ursMsg *UserMessage, chID *id.ID, messageType MessageType) (*userMessageInternal, error) {
 	chanMessage := &ChannelMessage{}
 	err := proto.Unmarshal(ursMsg.Message, chanMessage)
 	if err != nil {
@@ -36,11 +37,12 @@ func newUserMessageInternal(
 		messageID: message.DeriveChannelMessageID(chID,
 			chanMessage.RoundID,
 			ursMsg.Message),
+		messageType: messageType,
 	}, nil
 }
 
-func unmarshalUserMessageInternal(
-	usrMsg []byte, channelID *id.ID) (*userMessageInternal, error) {
+func unmarshalUserMessageInternal(usrMsg []byte, channelID *id.ID,
+	messageType MessageType) (*userMessageInternal, error) {
 
 	um := &UserMessage{}
 	if err := proto.Unmarshal(usrMsg, um); err != nil {
@@ -58,6 +60,7 @@ func unmarshalUserMessageInternal(
 		channelMessage: channelMessage,
 		messageID: message.DeriveChannelMessageID(channelID,
 			channelMessage.RoundID, um.Message),
+		messageType: messageType,
 	}, nil
 }
 
@@ -76,12 +79,18 @@ func (umi *userMessageInternal) GetMessageID() message.ID {
 	return umi.messageID
 }
 
+// GetMessageType retrieves the messageType for the message.
+func (umi *userMessageInternal) GetMessageType() MessageType {
+	return umi.messageType
+}
+
 // String adheres to the fmt.Stringer interface.
 func (umi *userMessageInternal) String() string {
 	fields := []string{
 		"userMessage:{" + umi.userMessage.String() + "}",
 		"channelMessage:{" + umi.channelMessage.String() + "}",
 		"messageID:" + umi.messageID.String(),
+		"messageType:" + umi.messageType.String(),
 	}
 
 	return "{" + strings.Join(fields, " ") + "}"

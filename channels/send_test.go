@@ -54,7 +54,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -87,7 +87,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, messageType)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -125,7 +125,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 		rng:             crng,
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string)},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -200,7 +200,7 @@ func Test_manager_SendMessage(t *testing.T) {
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -231,7 +231,7 @@ func Test_manager_SendMessage(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Text)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -283,7 +283,7 @@ func Test_manager_SendReply(t *testing.T) {
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -316,7 +316,7 @@ func Test_manager_SendReply(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Text)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -368,7 +368,7 @@ func Test_manager_SendReaction(t *testing.T) {
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -400,7 +400,7 @@ func Test_manager_SendReaction(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Reaction)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -449,7 +449,7 @@ func Test_manager_SendSilent(t *testing.T) {
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -483,7 +483,7 @@ func Test_manager_SendSilent(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, ch.ReceptionID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, ch.ReceptionID, Silent)
 	require.NoError(t, err)
 
 	// Do checks of the data
@@ -505,7 +505,7 @@ func Test_manager_DeleteMessage(t *testing.T) {
 		kv:       kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv,
-			func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+			func(*id.ID, *userMessageInternal, []byte, time.Time,
 				receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 				uint64, error) {
 				return 0, nil
@@ -574,7 +574,7 @@ func Test_manager_PinMessage(t *testing.T) {
 		kv:       kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -648,7 +648,7 @@ func Test_manager_MuteUser(t *testing.T) {
 		kv:       kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil

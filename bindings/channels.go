@@ -2805,94 +2805,167 @@ func (c *ChannelDbCipher) UnmarshalJSON(data []byte) error {
 // UI Callbacks                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *channelUICallbacksWrapper {
+func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *ChannelUICallbacksWrapper {
 	if uicb == nil {
 		return nil
 	}
-	return &channelUICallbacksWrapper{cuic: uicb}
+	return &ChannelUICallbacksWrapper{Cuic: uicb}
+}
+
+// Event Type
+const (
+	NickNameUpdate int64 = iota
+	NotificationUpdate
+	MessageReceived
+	UserMuted
+	MessageDeleted
+)
+
+// NickNameUpdateJson is describes when your nickname changes due to a change on a
+// remote.
+type NickNameUpdateJson struct {
+	ChannelIdBytes *id.ID `json:"channelID"`
+	Nickname       string `json:"nickname"`
+	Exists         bool   `json:"exists"`
+}
+
+// NotificationUpdateJson describes any time a notification
+// level changes.
+//
+// It returns a slice of [NotificationFilter] for all channels with
+// notifications enabled. The [NotificationFilter] is used to determine
+// which notifications from the notification server belong to the caller.
+//
+// It also returns a map of all channel notification states that have
+// changed and all that have been deleted. The maxState is the global state
+// set for notifications.
+//
+// Parameters:
+//   - notificationFilterListJSON - JSON of a slice of
+//     [channels.NotificationFilter].
+//   - changedNotificationStatesJSON - JSON of a slice of
+//     [channels.NotificationState] of added or changed channel notification
+//     statuses.
+//   - deletedNotificationStatesJSON - JSON of a slice of [id.ID] of deleted
+//     channel notification statuses.
+//   - maxState - The global notification state.
+type NotificationUpdateJson struct {
+	NotificationFilters       []channels.NotificationFilter `json:"notificationFilters"`
+	ChangedNotificationStates []channels.NotificationState  `json:"changedNotificationStates"`
+	DeletedNotificationStates []*id.ID                      `json:"deletedNotificationStates"`
+	MaxState                  clientNotif.NotificationState `json:"maxState"`
+}
+
+// MessageReceivedJson is returned any time a message is received or updated.
+// Update is true if the row is old and was edited.
+type MessageReceivedJson struct {
+	Uuid      int64  `json:"uuid"`
+	ChannelID *id.ID `json:"channelID"`
+	Update    bool   `json:"update"`
+}
+
+// UserMutedJson is returned for the MuteUser method of the impl.
+type UserMutedJson struct {
+	ChannelID *id.ID            `json:"channelID"`
+	PubKey    ed25519.PublicKey `json:"pubKey"`
+	Unmute    bool              `json:"unmute"`
+}
+
+// MessageDeletedJson is returned any time a message is deleted.
+type MessageDeletedJson struct {
+	MessageID message.ID `json:"messageID"`
 }
 
 type ChannelUICallbacks interface {
-	// NicknameUpdate is called when your nickname changes due to a change on a
-	// remote.
-	NicknameUpdate(channelIdBytes []byte, nickname string, exists bool)
-
-	// NotificationUpdate is a callback that is called any time a notification
-	// level changes.
-	//
-	// It returns a slice of [NotificationFilter] for all channels with
-	// notifications enabled. The [NotificationFilter] is used to determine
-	// which notifications from the notification server belong to the caller.
-	//
-	// It also returns a map of all channel notification states that have
-	// changed and all that have been deleted. The maxState is the global state
-	// set for notifications.
-	//
-	// Parameters:
-	//   - notificationFilterListJSON - JSON of a slice of
-	//     [channels.NotificationFilter].
-	//   - changedNotificationStatesJSON - JSON of a slice of
-	//     [channels.NotificationState] of added or changed channel notification
-	//     statuses.
-	//   - deletedNotificationStatesJSON - JSON of a slice of [id.ID] of deleted
-	//     channel notification statuses.
-	//   - maxState - The global notification state.
-	NotificationUpdate(notificationFilterListJSON, changedNotificationStatesJSON,
-		deletedNotificationStatesJSON []byte, maxState int)
-
-	// MessageReceived is called any time a message is received or updated.
-	// Update is true if the row is old and was edited.
-	MessageReceived(uuid int64, channelID []byte, update bool)
-
-	// UserMuted is a callback provided for the MuteUser method of the impl.
-	UserMuted(channelID []byte, pubKey []byte, unmute bool)
-
-	// MessageDeleted is called any time a message is deleted.
-	MessageDeleted(messageId []byte)
+	EventUpdate(eventType int64, jsonData []byte)
 }
 
-type channelUICallbacksWrapper struct {
-	cuic ChannelUICallbacks
+type ChannelUICallbacksWrapper struct {
+	Cuic ChannelUICallbacks
 }
 
-func (cuicbw *channelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
+func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
 	nickname string, exists bool) {
-	cuicbw.cuic.NicknameUpdate(channelId.Marshal(), nickname, exists)
+
+	jsonable := NickNameUpdateJson{
+		ChannelIdBytes: channelId,
+		Nickname:       nickname,
+		Exists:         exists,
+	}
+
+	jsonBytes, err := json.Marshal(&jsonable)
+
+	if err != nil {
+		jww.ERROR.Printf("Failed to json nickname update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(NickNameUpdate, jsonBytes)
 }
 
-func (cuicbw *channelUICallbacksWrapper) NotificationUpdate(
+func (cuicbw *ChannelUICallbacksWrapper) NotificationUpdate(
 	nfs []channels.NotificationFilter,
 	changedNotificationStates []channels.NotificationState,
 	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
-	nfsData, err := json.Marshal(nfs)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v", nfs, err)
-	}
-	changedNotificationStatesData, err := json.Marshal(changedNotificationStates)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v",
-			changedNotificationStates, err)
-	}
-	deletedNotificationStatesData, err := json.Marshal(deletedNotificationStates)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal %T: %+v",
-			deletedNotificationStates, err)
+
+	jsonable := NotificationUpdateJson{
+		NotificationFilters:       nfs,
+		ChangedNotificationStates: changedNotificationStates,
+		DeletedNotificationStates: deletedNotificationStates,
+		MaxState:                  maxState,
 	}
 
-	cuicbw.cuic.NotificationUpdate(nfsData, changedNotificationStatesData,
-		deletedNotificationStatesData, int(maxState))
+	jsonBytes, err := json.Marshal(&jsonable)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json notifications update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(NotificationUpdate, jsonBytes)
 }
 
-func (cuicbw *channelUICallbacksWrapper) MessageReceived(uuid int64,
+func (cuicbw *ChannelUICallbacksWrapper) MessageReceived(uuid int64,
 	channelID *id.ID, update bool) {
-	cuicbw.cuic.MessageReceived(uuid, channelID.Marshal(), update)
+
+	jsonable := MessageReceivedJson{
+		Uuid:      uuid,
+		ChannelID: channelID,
+		Update:    update,
+	}
+
+	jsonBytes, err := json.Marshal(&jsonable)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json MessageReceived "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(MessageReceived, jsonBytes)
 }
 
-func (cuicbw *channelUICallbacksWrapper) UserMuted(channelID *id.ID,
+func (cuicbw *ChannelUICallbacksWrapper) UserMuted(channelID *id.ID,
 	pubKey ed25519.PublicKey, unmute bool) {
-	cuicbw.cuic.UserMuted(channelID.Marshal(), pubKey, unmute)
+	jsonable := UserMutedJson{
+		ChannelID: channelID,
+		PubKey:    pubKey,
+		Unmute:    unmute,
+	}
+
+	jsonBytes, err := json.Marshal(&jsonable)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json UserMuted "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(UserMuted, jsonBytes)
 }
 
-func (cuicbw *channelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
-	cuicbw.cuic.MessageDeleted(messageID.Marshal())
+func (cuicbw *ChannelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
+	jsonable := MessageDeletedJson{MessageID: messageID}
+	jsonBytes, err := json.Marshal(&jsonable)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json MessageDeleted "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(MessageDeleted, jsonBytes)
 }

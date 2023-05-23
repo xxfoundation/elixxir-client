@@ -12,10 +12,11 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-const ndfStorageKeyNamePrefix = "ndfStorageKey/"
+// NdfStorageKeyNamePrefix is the key prefix for NDF storage. Used in WASM repo.
+const NdfStorageKeyNamePrefix = "ndfStorageKey/"
 
 func LoadNDF(_ versioned.KV, key string) (*ndf.NetworkDefinition, error) {
-	value, err := StateKV.Get(ndfStorageKeyNamePrefix + key)
+	value, err := StateKV.Get(NdfStorageKeyNamePrefix + key)
 	if err != nil {
 		return nil, err
 	}
@@ -29,5 +30,5 @@ func SaveNDF(_ versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 		return err
 	}
 
-	return StateKV.Set(ndfStorageKeyNamePrefix+key, marshaled)
+	return StateKV.Set(NdfStorageKeyNamePrefix+key, marshaled)
 }

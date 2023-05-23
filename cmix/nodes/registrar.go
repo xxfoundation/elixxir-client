@@ -103,7 +103,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 	} else {
 		err = r.unmarshal(obj.Data)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 	}
 

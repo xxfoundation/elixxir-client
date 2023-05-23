@@ -243,7 +243,7 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 
 	c, err := OpenCmix(storageDir, password)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	return loadCmix(c, parameters)
 }
@@ -450,6 +450,7 @@ func (c *Cmix) StopNetworkFollower() error {
 // of the device following the network.
 //   - Low period -> Higher frequency of polling -> Higher battery usage
 //   - High period -> Lower frequency of polling -> Lower battery usage
+//
 // This may be used to enable a low power (or battery optimization) mode
 // for the end user.
 func (c *Cmix) SetTrackNetworkPeriod(d time.Duration) {

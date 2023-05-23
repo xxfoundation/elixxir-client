@@ -564,8 +564,8 @@ func getOrInitDeviceID(kv ekv.KeyValue, rng io.Reader) (InstanceID, error) {
 			deviceID, err = InitInstanceID(kv, rng)
 		}
 		if err != nil {
-			return InstanceID{}, err
+			return InstanceID{}, errors.WithStack(err)
 		}
 	}
-	return deviceID, err
+	return deviceID, errors.WithStack(err)
 }

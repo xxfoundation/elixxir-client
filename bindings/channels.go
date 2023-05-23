@@ -285,7 +285,7 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
-	dbFilePath string, extensionBuilderIDsJSON []byte,  cipherID,
+	dbFilePath string, extensionBuilderIDsJSON []byte, cipherID,
 	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
@@ -1151,11 +1151,12 @@ func ValidForever() int {
 //     mobile notifications for the message.
 //
 // Example pingsJSON:
-//  [
-//    "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
-//    "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
-//    "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
-//  ]
+//
+//	[
+//	  "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
+//	  "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
+//	  "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
+//	]
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -1220,11 +1221,12 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 //     mobile notifications for the message.
 //
 // Example pingsJSON:
-//  [
-//    "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
-//    "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
-//    "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
-//  ]
+//
+//	[
+//	  "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
+//	  "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
+//	  "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
+//	]
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -1291,11 +1293,12 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 //     mobile notifications for the message.
 //
 // Example pingsJSON:
-//  [
-//    "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
-//    "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
-//    "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
-//  ]
+//
+//	[
+//	  "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
+//	  "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
+//	  "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
+//	]
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -1396,10 +1399,9 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 
 // SendSilent is used to send to a channel a message with no notifications.
 // Its primary purpose is to communicate new nicknames without calling
-// SendMessage.
+// [SendMessage].
 //
-// It takes no payload intentionally as the message should be very
-// lightweight.
+// It takes no payload intentionally as the message should be very lightweight.
 //
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
@@ -1410,7 +1412,7 @@ func (cm *ChannelsManager) SendReaction(channelIdBytes []byte, reaction string,
 //     be enumerated here. Use [channels.ValidForever] to last the max message
 //     life.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
-//     and GetDefaultCMixParams will be used internally.
+//     and [GetDefaultCMixParams] will be used internally.
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -1834,7 +1836,6 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 //
 // Parameters:
 //   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
-//   - level - The [channels.NotificationLevel] to set for the channel.
 //
 // Returns:
 //   - int - The [channels.NotificationLevel] for the channel.
@@ -1863,10 +1864,8 @@ func (cm *ChannelsManager) GetNotificationLevel(
 //   - channelIDBytes - The marshaled bytes of the channel's [id.ID].
 //   - level - The [channels.NotificationLevel] to set for the channel.
 //   - status - The [notifications.NotificationState] to set for the channel.
-//   - push - True to enable push notifications and false to only have in-app
-//     notifications.
 func (cm *ChannelsManager) SetMobileNotificationsLevel(
-	channelIDBytes []byte, level, status int, push bool) error {
+	channelIDBytes []byte, level, status int) error {
 	channelID, err := id.Unmarshal(channelIDBytes)
 	if err != nil {
 		return err
@@ -1879,11 +1878,66 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 
 // GetNotificationReportsForMe checks the notification data against the filter
 // list to determine which notifications belong to the user. A list of
-// notifications reports is returned detailing all notifications for the user.
+// notification reports is returned detailing all notifications for the user.
 //
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
 //   - notificationDataJSON - JSON of a slice of [notifications.Data].
+//
+// Example JSON of a slice of [channels.NotificationFilter]:
+// [
+//
+//	  {
+//	    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
+//	    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": {},
+//	      "allowWithoutTags": {"102":{}, "2":{}}
+//	    }
+//	  },
+//	  {
+//	    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDc3ltSWRlbnRpZmllcg==",
+//	    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": {},
+//	      "allowWithoutTags": {"1":{}, "40000":{}}
+//	    }
+//	  },
+//	  {
+//	    "identifier": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQDYXN5bUlkZW50aWZpZXI=",
+//	    "channelID": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQD",
+//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": {},
+//	      "allowWithoutTags": {"102":{}, "2":{}}
+//	    }
+//	  }
+//	]
+//
+// Example JSON of a slice of [notifications.Data]:
+//
+//	[
+//	  {
+//	    "EphemeralID": -6475,
+//	    "RoundID": 875,
+//	    "IdentityFP": "jWG/UuxRjD80HEo0WX3KYIag5LCfgaWKAg==",
+//	    "MessageHash": "hDGE46QWa3d70y5nJTLbEaVmrFJHOyp2"
+//	  },
+//	  {
+//	    "EphemeralID": -2563,
+//	    "RoundID": 875,
+//	    "IdentityFP": "gL4nhCGKPNBm6YZ7KC0v4JThw65N9bRLTQ==",
+//	    "MessageHash": "WcS4vGrSWDK8Kj7JYOkMo8kSh1Xti94V"
+//	  },
+//	  {
+//	    "EphemeralID": -13247,
+//	    "RoundID": 875,
+//	    "IdentityFP": "qV3uD++VWPhD2rRMmvrP9j8hp+jpFSsUHg==",
+//	    "MessageHash": "VX6Tw7N48j7U2rRXYle20mFZi0If4CB1"
+//	  }
+//	]
 //
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].

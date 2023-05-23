@@ -7,9 +7,30 @@
 
 package bindings
 
+import (
+	"crypto/ed25519"
+	"encoding/json"
+	"fmt"
+	"math/rand"
+	"testing"
+)
+
 const (
 	password = "password"
 )
+
+func TestGetChannelInfo(t *testing.T) {
+
+	pings := make([]ed25519.PublicKey, 3)
+	rng := rand.New(rand.NewSource(43535))
+
+	for i := range pings {
+		pings[i], _, _ = ed25519.GenerateKey(rng)
+	}
+
+	data, _ := json.MarshalIndent(pings, "", "  ")
+	fmt.Printf("%s\n", data)
+}
 
 // TestRemoteKV uses a RemoteKV and shows that several
 // different prefixes that are synched will collective all the keys and any

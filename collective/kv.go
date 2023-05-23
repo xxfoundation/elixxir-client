@@ -388,7 +388,11 @@ func (r *internalKV) ListenOnRemoteKey(key string, cb KeyUpdateCallback) ([]byte
 	}
 
 	r.keyUpdateListeners[key] = cb
-	return r.GetBytes(key)
+	curData, err := r.GetBytes(key)
+	if err != nil && ekv.Exists(err) {
+		return nil, err
+	}
+	return curData, nil
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
@@ -405,7 +409,11 @@ func (r *internalKV) ListenOnRemoteMap(mapName string,
 	}
 
 	r.mapUpdateListeners[mapName] = cb
-	return r.GetMap(mapName)
+	curMap, err := r.GetMap(mapName)
+	if err != nil && ekv.Exists(err) {
+		return nil, err
+	}
+	return curMap, nil
 }
 
 type mapChangedByRemoteCallback func(mapName string, edits map[string]elementEdit)

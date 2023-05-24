@@ -377,7 +377,7 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 
 	cur := &versioned.Object{}
 	val, err := r.remote.ListenOnRemoteKey(versionedKey, wrap)
-	if err == nil {
+	if err == nil && val != nil {
 		err = cur.Unmarshal(val)
 	}
 	return cur, err

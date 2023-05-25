@@ -33,7 +33,7 @@ func TestMessageType_String_Consistency(t *testing.T) {
 
 // Consistency test of MessageType.Bytes.
 func TestMessageType_Bytes_Consistency(t *testing.T) {
-	expectedBytes := [][]byte{{1, 0, 0, 0}, {2, 0, 0, 0}, {3, 0, 0, 0}}
+	expectedBytes := [][]byte{{1, 0}, {2, 0}, {3, 0}}
 
 	for i, expected := range expectedBytes {
 		mt := MessageType(i + 1)

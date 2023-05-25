@@ -103,7 +103,9 @@ func Test_userListener_Listen(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -188,7 +190,8 @@ func Test_userListener_Listen_BadUserSig(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(), receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -250,7 +253,9 @@ func Test_userListener_Listen_BadRound(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -284,7 +289,9 @@ func Test_userListener_Listen_BadMessage(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -348,7 +355,9 @@ func Test_userListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {

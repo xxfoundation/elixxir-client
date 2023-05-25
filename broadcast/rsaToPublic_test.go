@@ -74,7 +74,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	for i := range clients {
 		cbChan := make(chan []byte, 10)
 		cb := func(
-			payload, _ []byte, _ []string, _ uint16, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+			payload, _ []byte, _ []string, _ [2]byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 			cbChan <- payload
 		}
 

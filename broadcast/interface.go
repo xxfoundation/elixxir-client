@@ -23,7 +23,7 @@ import (
 // ListenerFunc is registered when creating a new broadcasting channel and
 // receives all new broadcast messages for the channel.
 type ListenerFunc func(payload, encryptedPayload []byte, tags []string,
-	messageType uint16, receptionID receptionID.EphemeralIdentity,
+	metadata [2]byte, receptionID receptionID.EphemeralIdentity,
 	round rounds.Round)
 
 // Channel is the public-facing interface to interact with broadcast channels.
@@ -107,7 +107,7 @@ type Processor interface {
 
 	// ProcessAdminMessage decrypts an admin message and sends the results on
 	// the callback.
-	ProcessAdminMessage(innerCiphertext []byte, tags []string, messageType uint16,
+	ProcessAdminMessage(innerCiphertext []byte, tags []string, metadata [2]byte,
 		receptionID receptionID.EphemeralIdentity, round rounds.Round)
 }
 

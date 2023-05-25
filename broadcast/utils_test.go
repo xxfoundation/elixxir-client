@@ -63,8 +63,8 @@ func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.C
 		return
 	}
 
-	m.handler.processorMap[*clientID][newService.String()] =
-		append(m.handler.processorMap[*clientID][strings.Join(newService.Tags, ",")], response)
+	m.handler.processorMap[*clientID][key] =
+		append(m.handler.processorMap[*clientID][key], response)
 }
 
 func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
@@ -87,7 +87,7 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID,
 
 	fingerprint, service, payload, mac, err := assembler(42)
 	if err != nil {
-		panic(err)
+		return rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	msg := format.NewMessage(m.numPrimeBytes)

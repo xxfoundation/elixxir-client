@@ -79,7 +79,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Lease:   netTime.Now().UnixNano(),
 			RoundID: uint64(rid),
 			Payload: []byte("hello"),
-		}}, 42)
+		},
+		messageType: 42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +104,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Lease:   netTime.Now().UnixNano(),
 			RoundID: uint64(rid),
 			Payload: []byte("hello again"),
-		}}, 42)
+		},
+		messageType: 42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,8 +223,9 @@ func TestSendTracker_send(t *testing.T) {
 			RoundID: uint64(rid),
 			Payload: []byte("hello"),
 		},
-		messageID: mid,
-	}, 42)
+		messageID:   mid,
+		messageType: 42,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,8 +318,9 @@ func TestRoundResult_callback(t *testing.T) {
 			RoundID: uint64(rid),
 			Payload: []byte("hello"),
 		},
-		messageID: mid,
-	}, 42)
+		messageID:   mid,
+		messageType: 42,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

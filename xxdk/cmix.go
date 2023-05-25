@@ -103,7 +103,7 @@ func NewCmix(
 // information at a later date.
 func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	registrationCode string, userIdPrefix string) error {
-	jww.INFO.Printf("NewVanityCmix()")
+	jww.INFO.Printf("NewVanityCmix(%s)", storageDir)
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -136,7 +136,7 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 // used on its own. Consider using LoadCmix instead, which calls this function
 // for you.
 func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
-	jww.INFO.Printf("OpenCmix()")
+	jww.INFO.Printf("OpenCmix(%s)", storageDir)
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	storageKV, err := LocalKV(storageDir, password, rngStreamGen)
@@ -149,7 +149,7 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
 	synchedPrefixes []string) (*Cmix, error) {
 
-	jww.INFO.Printf("OpenSynchronizedCmix()")
+	jww.INFO.Printf("OpenSynchronizedCmix(%s)", storageDir)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	storageKV, err := SynchronizedKV(storageDir, password,
 		remote, synchedPrefixes, rngStreamGen)
@@ -239,7 +239,7 @@ func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 // network.
 func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 	*Cmix, error) {
-	jww.INFO.Printf("LoadCmix()")
+	jww.INFO.Printf("LoadCmix(%s)", storageDir)
 
 	c, err := OpenCmix(storageDir, password)
 	if err != nil {

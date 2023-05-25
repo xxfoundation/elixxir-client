@@ -458,6 +458,11 @@ func (m *eventModel) MuteUser(*id.ID, ed25519.PublicKey, bool) {
 
 type channelCbs struct{}
 
+func (c *channelCbs) UpdateAdminKeys(chID *id.ID, isAdmin bool) {
+	jww.INFO.Printf("NickNameUpdate(%s, %s)", chID,
+		isAdmin)
+}
+
 func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
 	exists bool) {
 	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,

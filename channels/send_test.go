@@ -49,7 +49,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -121,7 +121,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string)},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
@@ -195,7 +195,7 @@ func Test_manager_SendMessage(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -278,7 +278,7 @@ func Test_manager_SendReply(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -363,7 +363,7 @@ func Test_manager_SendReaction(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -444,7 +444,7 @@ func Test_manager_SendSilent(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -502,7 +502,7 @@ func Test_manager_DeleteMessage(t *testing.T) {
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv,
 			func(*id.ID, *userMessageInternal, []byte, time.Time,
@@ -571,7 +571,7 @@ func Test_manager_PinMessage(t *testing.T) {
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
@@ -645,7 +645,7 @@ func Test_manager_MuteUser(t *testing.T) {
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,

@@ -72,7 +72,7 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 	b, err := broadcast.NewBroadcastChannel(c, new(mockBroadcastClient), m2.rng)
 	require.NoError(t, err, "Failed to create new broadcast channel: %+v", err)
 
-	m2.channels[*c.ReceptionID] = &joinedChannel{b}
+	m2.channels[*c.ReceptionID] = &joinedChannel{b, true}
 
 	valid, err := m2.VerifyChannelAdminKey(c.ReceptionID, password, pkPacket)
 	require.NoError(t, err, "Failed to verify channel admin key: %+v", err)
@@ -101,7 +101,7 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 
 // Error path: Tests that when no private key exists for the channel ID,
 // manager.ExportChannelAdminKey returns an error that the private key does not
-// exist in storage, as determined by kv.Exists.
+// exist in storage, as determined by local.Exists.
 func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
@@ -111,13 +111,18 @@ func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		//local:            versioned.NewKV(ekv.MakeMemstore()),
 		adminKeysManager: akm,
+		rng:   fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		local: versioned.NewKV(ekv.MakeMemstore()),
 	}
 
 	invalidChannelID := id.NewIdFromString("someID", id.User, t)
 	_, err := m.ExportChannelAdminKey(invalidChannelID, "password")
 	require.Error(t, err,
 		"Unexpected error when no private key exist."+
+	if err == nil || m.local.Exists(err) {
+		t.Errorf("Unexpected error when no private key exist."+
 			"\nexpected: %s\nreceived: %+v", "object not found", err)
+	}
 }
 
 // Error path: Tests that when the password is invalid,

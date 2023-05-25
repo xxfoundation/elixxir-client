@@ -14,6 +14,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/collective"
 	"sync"
 	"time"
 
@@ -47,10 +48,11 @@ type manager struct {
 	mux      sync.RWMutex
 
 	// External references
-	kv  versioned.KV
-	net Client
-	nm  NotificationsManager
-	rng *fastRNG.StreamGenerator
+	local  versioned.KV
+	remote versioned.KV
+	net    Client
+	nm     NotificationsManager
+	rng    *fastRNG.StreamGenerator
 
 	// Events model
 	*events
@@ -142,20 +144,26 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	copy(pubKey, identity.PubKey)
 	identity.PubKey = pubKey
 
-	// Prefix the kv with the username so multiple can be run
+	// Prefix the local with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
 		identity.Codename, identity.PubKey, storageTag)
-	kv, err := kv.Prefix(storageTag)
+	local, err := kv.Prefix(storageTag)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := storeIdentity(kv, identity); err != nil {
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions, nm, uiCallbacks)
+	if err2 := storeIdentity(remote, identity); err2 != nil {
+		return nil, err2
+	}
+
+	m := setupManager(identity, local, remote, net, rng, model, extensions,
+		nm, uiCallbacks)
 	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
@@ -169,20 +177,25 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 	uiCallbacks UiCallbacks) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
-	// Prefix the kv with the username so multiple can be run
-	kv, err := kv.Prefix(storageTag)
+	// Prefix the local with the username so multiple can be run
+	local, err := kv.Prefix(storageTag)
+	if err != nil {
+		return nil, err
+	}
+
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		return nil, err
 	}
 
 	// Load the identity
-	identity, err := loadIdentity(kv)
+	identity, err := loadIdentity(remote)
 	if err != nil {
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions, nm, uiCallbacks)
-	m.loadDMTokens()
+	m := setupManager(identity, local, remote, net, rng, model, extensions, nm,
+		uiCallbacks)
 
 	return m, nil
 }
@@ -201,7 +214,7 @@ func LoadManagerBuilder(storageTag string, kv versioned.KV, net Client,
 	return LoadManager(storageTag, kv, net, rng, model, extensions, nm, uiCallbacks)
 }
 
-func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
+func setupManager(identity cryptoChannel.PrivateIdentity, local, remote versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensionBuilders []ExtensionBuilder, nm NotificationsManager,
 	uiCallbacks UiCallbacks) *manager {
@@ -213,22 +226,23 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	// Build the manager
 	m := &manager{
 		me:             identity,
-		kv:             kv,
+		local:          local,
+		remote:         remote,
 		net:            net,
 		nm:             nm,
 		rng:            rng,
-		events:         initEvents(model, 512, kv, rng),
+		events:         initEvents(model, 512, local, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
 
-	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
+	m.st = loadSendTracker(net, local, m.events.triggerEvent,
 		m.events.triggerAdminEvent, model.UpdateFromUUID, rng)
 
 	m.loadChannels()
 
-	m.nicknameManager = loadOrNewNicknameManager(kv, uiCallbacks.NicknameUpdate)
+	m.nicknameManager = loadOrNewNicknameManager(remote, uiCallbacks.NicknameUpdate)
 
 	m.notifications = newNotifications(
 		identity.PubKey, uiCallbacks.NotificationUpdate, m, nm)
@@ -318,12 +332,7 @@ func (m *manager) generateChannel(name, description string,
 func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 	jww.INFO.Printf(
 		"[CH] JoinChannel %q with ID %s", channel.Name, channel.ReceptionID)
-	err := m.addChannel(channel)
-	if err != nil {
-		return err
-	}
-
-	err = m.EnableDirectMessages(channel.ReceptionID)
+	err := m.addChannel(channel, true)
 	if err != nil {
 		return err
 	}
@@ -354,7 +363,15 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 func (m *manager) EnableDirectMessages(chId *id.ID) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
-	return m.enableDirectMessageToken(chId)
+	jc, err := m.getChannelUnsafe(chId)
+	if err != nil {
+		return err
+	}
+	if jc.dmEnabled == true {
+		return nil
+	}
+	jc.dmEnabled = true
+	return m.saveChannel(jc)
 }
 
 // DisableDirectMessages removes the token for direct messaging for a given
@@ -362,15 +379,32 @@ func (m *manager) EnableDirectMessages(chId *id.ID) error {
 func (m *manager) DisableDirectMessages(chId *id.ID) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
-	return m.disableDirectMessageToken(chId)
+	jc, err := m.getChannelUnsafe(chId)
+	if err != nil {
+		return err
+	}
+	if jc.dmEnabled == false {
+		return nil
+	}
+	jc.dmEnabled = false
+	return m.saveChannel(jc)
 }
 
 // AreDMsEnabled returns status of DMs for a given channel ID (true if enabled)
 func (m *manager) AreDMsEnabled(chId *id.ID) bool {
-	m.mux.RLock()
-	defer m.mux.RUnlock()
-	_, ok := m.dmTokens[*chId]
-	return ok
+	jc, err := m.getChannel(chId)
+	if err != nil {
+		return false
+	}
+	return jc.dmEnabled
+}
+
+// getDmToken returns the dm token if DMs are enabled for the given channel
+func (m *manager) getDmToken(chId *id.ID) uint32 {
+	if enabled := m.AreDMsEnabled(chId); enabled {
+		return m.me.GetDMToken()
+	}
+	return 0
 }
 
 // ReplayChannel replays all messages from the channel within the network's

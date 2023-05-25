@@ -657,7 +657,7 @@ func newMockCG(n int, t testing.TB) *mockCG {
 			channelID:      chanID,
 			asymIdentifier: append(chanID.Bytes(), []byte("asymIdentifier")...),
 			symIdentifier:  append(chanID.Bytes(), []byte("symIdentifier")...),
-		}}
+		}, true}
 	}
 	return cg
 }

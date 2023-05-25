@@ -209,7 +209,7 @@ func (st *sendTracker) load() error {
 // denotePendingSend is called before the pending send. It tracks the send
 // internally and notifies the UI of the send.
 func (st *sendTracker) denotePendingSend(channelID *id.ID,
-	umi *userMessageInternal, messageType MessageType) (uint64, error) {
+	umi *userMessageInternal) (uint64, error) {
 	// For the message timestamp, use 1 second from now to approximate the lag
 	// due to round submission
 	ts := netTime.Now().Add(oneSecond)

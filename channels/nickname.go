@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -15,6 +14,8 @@ import (
 const (
 	nicknameStoreStorageKey     = "nicknameStoreStorageKey"
 	nicknameStoreStorageVersion = 0
+
+	nicknamePrefix = "nickname"
 
 	nicknameMapName    = "nicknameMap"
 	nicknameMapVersion = 0
@@ -29,9 +30,9 @@ type nicknameManager struct {
 
 // loadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
-func loadOrNewNicknameManager(kv versioned.KV, callback func(channelId *id.ID,
+func loadOrNewNicknameManager(remote versioned.KV, callback func(channelId *id.ID,
 	nickname string, exists bool)) *nicknameManager {
-	kvRemote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	kvRemote, err := remote.Prefix(nicknamePrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Nicknames failed to prefix KV (remote)")
 	}
@@ -225,7 +226,7 @@ func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
 	return nil
 }
 
-// deleteNicknameUnsafe will remote the nickname into the remote kv and into the
+// deleteNicknameUnsafe will remote the nickname into the remote local and into the
 // memoized map.
 func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 	if err := nm.remote.Delete(
@@ -236,7 +237,7 @@ func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 	return nil
 }
 
-// setNicknameUnsafe will save the nickname into the remote kv and into the
+// setNicknameUnsafe will save the nickname into the remote local and into the
 // memoized map.
 func (nm *nicknameManager) setNicknameUnsafe(
 	nickname string, channelID *id.ID) error {

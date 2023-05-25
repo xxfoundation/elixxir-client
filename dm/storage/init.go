@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/dm"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/database"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -33,12 +33,12 @@ type MessageReceivedCallback func(
 // caller to ensure that its methods are called sequentially.
 type impl struct {
 	db                *gorm.DB // Stored database connection
-	cipher            cryptoChannel.Cipher
+	cipher            database.Cipher
 	receivedMessageCB MessageReceivedCallback
 }
 
 // NewEventModel initializes the [dm.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
+func NewEventModel(dbFilePath string, encryption database.Cipher,
 	msgCb MessageReceivedCallback) (dm.EventModel, error) {
 	useTemporary := len(dbFilePath) == 0
 	model, err := newImpl(dbFilePath, encryption, msgCb, useTemporary)
@@ -46,7 +46,7 @@ func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
 }
 
 // If useTemporary is set to true, this will use an in-RAM database.
-func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
+func newImpl(dbFilePath string, encryption database.Cipher,
 	msgCb MessageReceivedCallback, useTemporary bool) (*impl, error) {
 
 	if useTemporary {

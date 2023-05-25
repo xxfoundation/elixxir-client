@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
+	"gitlab.com/elixxir/crypto/database"
 	"sync"
 	"time"
 
@@ -279,7 +280,7 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     with an extension builder (e.g.,
 //     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
-//   - cipherID - ID of [ChannelDbCipher] object in tracker.
+//   - cipherID - ID of [DbCipher] object in tracker.
 //   - notificationsID - ID of [Notifications] object in tracker. This can be
 //     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
@@ -297,7 +298,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	if err != nil {
 		return nil, err
 	}
-	cipher, err := channelDbCipherTrackerSingleton.get(cipherID)
+	cipher, err := dbCipherTrackerSingleton.get(cipherID)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +352,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //   - storageTag - The storage tag associated with the previously created
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - dbFilePath - absolute string path to the SqlLite database file
-//   - cipherID - ID of [ChannelDbCipher] object in tracker.
+//   - cipherID - ID of [DbCipher] object in tracker.
 //   - extensionBuilderIDsJSON - JSON of an array of integers of
 //     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
 //     with an extension builder (e.g.,
@@ -370,7 +371,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	if err != nil {
 		return nil, err
 	}
-	cipher, err := channelDbCipherTrackerSingleton.get(cipherID)
+	cipher, err := dbCipherTrackerSingleton.get(cipherID)
 	if err != nil {
 		return nil, err
 	}
@@ -2759,42 +2760,42 @@ func (ebt *channelsExtensionBuilderTracker) delete(id int) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Channel ChannelDbCipher                                                    //
+// Channel DbCipher                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 
-// ChannelDbCipher is the bindings layer representation of the [channel.Cipher].
-type ChannelDbCipher struct {
-	api  cryptoChannel.Cipher
+// DbCipher is the bindings layer representation of the [channel.Cipher].
+type DbCipher struct {
+	api  database.Cipher
 	salt []byte
 	id   int
 }
 
-// channelDbCipherTrackerSingleton is used to track ChannelDbCipher objects
+// dbCipherTrackerSingleton is used to track DbCipher objects
 // so that they can be referenced by ID back over the bindings.
-var channelDbCipherTrackerSingleton = &channelDbCipherTracker{
-	tracked: make(map[int]*ChannelDbCipher),
+var dbCipherTrackerSingleton = &dbCipherTracker{
+	tracked: make(map[int]*DbCipher),
 	count:   0,
 }
 
-// channelDbCipherTracker is a singleton used to keep track of extant
-// ChannelDbCipher objects, preventing race conditions created by passing it
+// dbCipherTracker is a singleton used to keep track of extant
+// DbCipher objects, preventing race conditions created by passing it
 // over the bindings.
-type channelDbCipherTracker struct {
-	tracked map[int]*ChannelDbCipher
+type dbCipherTracker struct {
+	tracked map[int]*DbCipher
 	count   int
 	mux     sync.RWMutex
 }
 
-// create creates a ChannelDbCipher from a [channel.Cipher], assigns it a unique
-// ID, and adds it to the channelDbCipherTracker.
-func (ct *channelDbCipherTracker) create(c cryptoChannel.Cipher) *ChannelDbCipher {
+// create creates a DbCipher from a [channel.Cipher], assigns it a unique
+// ID, and adds it to the dbCipherTracker.
+func (ct *dbCipherTracker) create(c database.Cipher) *DbCipher {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
 	chID := ct.count
 	ct.count++
 
-	ct.tracked[chID] = &ChannelDbCipher{
+	ct.tracked[chID] = &DbCipher{
 		api: c,
 		id:  chID,
 	}
@@ -2802,45 +2803,45 @@ func (ct *channelDbCipherTracker) create(c cryptoChannel.Cipher) *ChannelDbCiphe
 	return ct.tracked[chID]
 }
 
-// get an ChannelDbCipher from the channelDbCipherTracker given its ID.
-func (ct *channelDbCipherTracker) get(id int) (*ChannelDbCipher, error) {
+// get an DbCipher from the dbCipherTracker given its ID.
+func (ct *dbCipherTracker) get(id int) (*DbCipher, error) {
 	ct.mux.RLock()
 	defer ct.mux.RUnlock()
 
 	c, exist := ct.tracked[id]
 	if !exist {
 		return nil, errors.Errorf(
-			"Cannot get ChannelDbCipher for ID %d, does not exist", id)
+			"Cannot get DbCipher for ID %d, does not exist", id)
 	}
 
 	return c, nil
 }
 
-// delete removes a ChannelDbCipher from the channelDbCipherTracker.
-func (ct *channelDbCipherTracker) delete(id int) {
+// delete removes a DbCipher from the dbCipherTracker.
+func (ct *dbCipherTracker) delete(id int) {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
 	delete(ct.tracked, id)
 }
 
-// GetChannelDbCipherTrackerFromID returns the ChannelDbCipher with the
+// GetChannelDbCipherTrackerFromID returns the DbCipher with the
 // corresponding ID in the tracker.
-func GetChannelDbCipherTrackerFromID(id int) (*ChannelDbCipher, error) {
-	return channelDbCipherTrackerSingleton.get(id)
+func GetChannelDbCipherTrackerFromID(id int) (*DbCipher, error) {
+	return dbCipherTrackerSingleton.get(id)
 }
 
-// NewChannelsDatabaseCipher constructs a ChannelDbCipher object.
+// NewChannelsDatabaseCipher constructs a DbCipher object.
 //
 // Parameters:
 //   - cmixID - The tracked [Cmix] object ID.
 //   - password - The password for storage. This should be the same password
 //     passed into [NewCmix].
 //   - plaintTextBlockSize - The maximum size of a payload to be encrypted.
-//     A payload passed into [ChannelDbCipher.Encrypt] that is larger than
+//     A payload passed into [DbCipher.Encrypt] that is larger than
 //     plaintTextBlockSize will result in an error.
 func NewChannelsDatabaseCipher(cmixID int, password []byte,
-	plaintTextBlockSize int) (*ChannelDbCipher, error) {
+	plaintTextBlockSize int) (*DbCipher, error) {
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
 	if err != nil {
@@ -2858,18 +2859,18 @@ func NewChannelsDatabaseCipher(cmixID int, password []byte,
 	}
 
 	// Construct a cipher
-	c, err := cryptoChannel.NewCipher(
+	c, err := database.NewCipher(
 		password, salt, plaintTextBlockSize, stream)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return a cipher
-	return channelDbCipherTrackerSingleton.create(c), nil
+	return dbCipherTrackerSingleton.create(c), nil
 }
 
-// GetID returns the ID for this ChannelDbCipher in the channelDbCipherTracker.
-func (c *ChannelDbCipher) GetID() int {
+// GetID returns the ID for this DbCipher in the dbCipherTracker.
+func (c *DbCipher) GetID() int {
 	return c.id
 }
 
@@ -2880,7 +2881,7 @@ func (c *ChannelDbCipher) GetID() int {
 //   - plaintext - The data to be encrypted. This must be smaller than the block
 //     size passed into [NewChannelsDatabaseCipher]. If it is larger, this will
 //     return an error.
-func (c *ChannelDbCipher) Encrypt(plaintext []byte) ([]byte, error) {
+func (c *DbCipher) Encrypt(plaintext []byte) ([]byte, error) {
 	return c.api.Encrypt(plaintext)
 }
 
@@ -2889,14 +2890,14 @@ func (c *ChannelDbCipher) Encrypt(plaintext []byte) ([]byte, error) {
 // this function.
 //
 // Parameters:
-//   - ciphertext - the encrypted data returned by [ChannelDbCipher.Encrypt].
-func (c *ChannelDbCipher) Decrypt(ciphertext []byte) ([]byte, error) {
+//   - ciphertext - the encrypted data returned by [DbCipher.Encrypt].
+func (c *DbCipher) Decrypt(ciphertext []byte) ([]byte, error) {
 	return c.api.Decrypt(ciphertext)
 }
 
 // MarshalJSON marshals the cipher into valid JSON. This function adheres to the
 // json.Marshaler interface.
-func (c *ChannelDbCipher) MarshalJSON() ([]byte, error) {
+func (c *DbCipher) MarshalJSON() ([]byte, error) {
 	return c.api.MarshalJSON()
 }
 
@@ -2905,7 +2906,7 @@ func (c *ChannelDbCipher) MarshalJSON() ([]byte, error) {
 //
 // Note that this function does not transfer the internal RNG. Use
 // NewCipherFromJSON to properly reconstruct a cipher from JSON.
-func (c *ChannelDbCipher) UnmarshalJSON(data []byte) error {
+func (c *DbCipher) UnmarshalJSON(data []byte) error {
 	return c.api.UnmarshalJSON(data)
 }
 

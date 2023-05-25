@@ -2928,6 +2928,7 @@ const (
 	MessageReceived
 	UserMuted
 	MessageDeleted
+	AdminKeyUpdate
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a
@@ -3266,6 +3267,16 @@ type ChannelUICallbacks interface {
 
 type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks
+}
+
+func (cuicbw *ChannelUICallbacksWrapper) UpdateAdminKeys(updates []channels.AdminKeyUpdate) {
+	jsonBytes, err := json.Marshal(updates)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json admin keys update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(AdminKeyUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,

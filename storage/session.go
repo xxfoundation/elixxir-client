@@ -138,6 +138,10 @@ func Load(storage versioned.KV,
 
 	err := s.loadRegStatus()
 	if err != nil {
+		if !ekv.Exists(err) {
+			return nil, errors.Errorf(
+				"uninitialized cMix, call 'NewCmix' first")
+		}
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 

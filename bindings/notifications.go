@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/notifications"
 	"sync"
 )
@@ -57,7 +58,7 @@ func (n *Notifications) RemoveToken() error {
 //		- Mute = 0
 //		WhenOpen shows notifications for this ID only when the app is running and
 //		open. No registration or privacy leaks occur in this state.
-//	 - WhenOpen = 1
+//	    - WhenOpen = 1
 //		Push shows notifications for this ID as push notification on applicable
 //		devices. This state has a minor privacy loss.
 //		- Push = 2
@@ -122,8 +123,8 @@ type notificationsTracker struct {
 	mux     sync.RWMutex
 }
 
-// make create an E2e from a xxdk.E2e, assigns it a unique ID, and adds it to
-// the e2eTracker.
+// make create a Notifications from a notifications.Manager, assigns it a unique
+// ID, and adds it to the notificationsTracker.
 func (nt *notificationsTracker) make(nm notifications.Manager) *Notifications {
 	nt.mux.Lock()
 	defer nt.mux.Unlock()
@@ -138,13 +139,17 @@ func (nt *notificationsTracker) make(nm notifications.Manager) *Notifications {
 
 	nt.tracked[notifID] = nw
 
+	jww.INFO.Printf("[NOTIFTRACK] make - map: %+v, count: %d, id: %+v", nt.tracked, nt.count, notifID)
+
 	return nw
 }
 
-// get a notifWrapper from the notificationsTracker given its ID.
+// get a *Notifications from the notificationsTracker given its ID.
 func (nt *notificationsTracker) get(id int) (*Notifications, error) {
 	nt.mux.RLock()
 	defer nt.mux.RUnlock()
+
+	jww.INFO.Printf("[NOTIFTRACK] get - map: %+v, count: %d, id: %+v", nt.tracked, nt.count, id)
 
 	c, exist := nt.tracked[id]
 	if !exist {
@@ -155,7 +160,7 @@ func (nt *notificationsTracker) get(id int) (*Notifications, error) {
 	return c, nil
 }
 
-// delete a notifWrapper from the notificationsTracker.
+// delete a *Notifications from the notificationsTracker.
 func (nt *notificationsTracker) delete(id int) {
 	nt.mux.Lock()
 	defer nt.mux.Unlock()

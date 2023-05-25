@@ -167,7 +167,7 @@ var broadcastCmd = &cobra.Command{
 		// Create & register symmetric receiver callback
 		receiveChan := make(chan []byte, 100)
 		scb := func(payload, _ []byte, _ []string,
-			_ uint16, receptionID receptionID.EphemeralIdentity,
+			_ [2]byte, receptionID receptionID.EphemeralIdentity,
 			round rounds.Round) {
 			jww.INFO.Printf("Received symmetric message from %s over round %d", receptionID, round.ID)
 			receiveChan <- payload
@@ -180,7 +180,7 @@ var broadcastCmd = &cobra.Command{
 		// Create & register asymmetric receiver callback
 		asymmetricReceiveChan := make(chan []byte, 100)
 		acb := func(payload, _ []byte, _ []string,
-			_ uint16, receptionID receptionID.EphemeralIdentity,
+			_ [2]byte, receptionID receptionID.EphemeralIdentity,
 			round rounds.Round) {
 			jww.INFO.Printf("Received asymmetric message from %s(eph: %d) over round %d", receptionID.Source,
 				receptionID.EphId.Int64(), round.ID)

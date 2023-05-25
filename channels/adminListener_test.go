@@ -76,7 +76,8 @@ func Test_adminListener_Listen(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(cmSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(cmSerial, nil, nil, mt.Marshal(), receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -123,7 +124,9 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(cmSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(cmSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -149,7 +152,9 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(chMsgSerialSized, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(chMsgSerialSized, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {

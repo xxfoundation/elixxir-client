@@ -9,7 +9,6 @@ package bindings
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -207,44 +206,6 @@ func (r *RemoteKV) IsMemStore() bool {
 // GetFullKey returns the key with all prefixes appended
 func (r *RemoteKV) GetFullKey(key string, version int64) string {
 	return r.rkv.GetFullKey(key, uint64(version))
-}
-
-// Transaction locks a key while it is being mutated then stores the result
-// and returns the old value and if it existed in a JSON object.
-// Transactions cannot be remote operations
-// If the op returns an error, the operation will be aborted.
-func (r *RemoteKV) Transaction(key string, op TransactionOperation,
-	version int64) ([]byte, error) {
-	jww.DEBUG.Printf("[RKV] Transaction(%s, %d)", key, version)
-
-	bindingsOp := func(old *versioned.Object, existed bool) (
-		data *versioned.Object, err error) {
-		oldJSON, err := json.Marshal(old)
-		panicOnErr(err)
-		dataJSON := op.Operation(oldJSON, existed)
-		txOpData := &transactionOperationData{}
-		err = json.Unmarshal(dataJSON, txOpData)
-		// This is from the user's implementation, but if they give us
-		// malformed data we want to panic on that anyway to tell them.
-		panicOnErr(err)
-		if len(txOpData.Error) != 0 {
-			return nil, errors.New(txOpData.Error)
-		}
-		return txOpData.NewObject, nil
-	}
-
-	old, existed, err := r.rkv.Transaction(key, bindingsOp, uint64(version))
-	if err != nil {
-		return nil, err
-	}
-	txOpRes := &transactionResult{
-		OldValue: old,
-		Existed:  existed,
-	}
-
-	resJSON, err := json.Marshal(txOpRes)
-	panicOnErr(err)
-	return resJSON, nil
 }
 
 // StoreMapElement stores a versioned map element into the KV. This relies

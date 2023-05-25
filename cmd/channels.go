@@ -469,6 +469,8 @@ func (c *channelCbs) NotificationUpdate(nfs []channels.NotificationFilter,
 	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
 }
 
+func (c *channelCbs) UpdateAdminKeys(chID *id.ID, isAdmin bool) {}
+
 func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
 
 func init() {

@@ -99,7 +99,7 @@ func LoadNotificationsDummy(cmixId int) (*Notifications, error) {
 	}
 	mix := mixBind.api
 	identity := mix.GetTransmissionIdentity()
-	sig := mix.GetStorage().GetReceptionRegistrationValidationSignature()
+	sig := mix.GetStorage().GetTransmissionRegistrationValidationSignature()
 	kv := mix.GetStorage().GetKV()
 	comms := &notifications.MockComms{}
 	rng := mix.GetRng()

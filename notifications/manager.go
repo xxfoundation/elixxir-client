@@ -97,7 +97,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 
 	m := &manager{
 		transmissionRSA:                             identity.RSAPrivate,
-		transmissionRSAPubPem:                       identity.RSAPrivate.MarshalPem(),
+		transmissionRSAPubPem:                       identity.RSAPrivate.Public().MarshalPem(),
 		transmissionRegistrationValidationSignature: regSig,
 		registrationTimestampNs:                     identity.RegistrationTimestamp,
 		transmissionSalt:                            identity.Salt,

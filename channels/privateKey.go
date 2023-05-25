@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -147,6 +146,7 @@ func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
 ////////////////////////////////////////////////////////////////////////////////
 
 const (
+	adminKeyPrefix      = "adminKeys"
 	adminKeysMapName    = "adminKeysMap"
 	adminKeysMapVersion = 0
 )
@@ -154,16 +154,16 @@ const (
 // adminKeysManager is responsible for handling admin key modifications for any
 // channel. This is embedded within the [manager].
 type adminKeysManager struct {
-	callback func(updates []AdminKeyUpdate)
+	callback func(ch *id.ID, isAdmin bool)
 	remote   versioned.KV
 	mux      sync.RWMutex
 }
 
 // newAdminKeysManager is a constructor for the adminKeysManager.
 func newAdminKeysManager(
-	kv versioned.KV, cb func(updates []AdminKeyUpdate)) *adminKeysManager {
+	kv versioned.KV, cb func(ch *id.ID, isAdmin bool)) *adminKeysManager {
 
-	kvRemote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	kvRemote, err := kv.Prefix(adminKeyPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("[CH] Admin keys failed to prefix KV: %+v", err)
 	}
@@ -287,9 +287,13 @@ func (akm *adminKeysManager) mapUpdate(
 
 // report is a helper function which reports every AdminKeyUpdate to the
 // UpdateAdminKeys callback.
-func (akm *adminKeysManager) report(updates []AdminKeyUpdate) {
+func (akm *adminKeysManager) report(updates map[id.ID]bool) {
 	if akm.callback != nil {
-		go akm.callback(updates)
+		for ch, isAdmin := range updates {
+			chLocal := (&ch).DeepCopy()
+			go akm.callback(chLocal, isAdmin)
+		}
+
 	}
 }
 
@@ -307,41 +311,23 @@ func (akm *adminKeysManager) reportNewAdmin(channelID *id.ID) {
 // is used by [adminKeysManager.mapUpdate] and every element of [modified]
 // is reported as a [AdminKeyUpdate] to the [UpdateAdminKeys] callback.
 type adminKeyUpdates struct {
-	modified []AdminKeyUpdate
+	modified map[id.ID]bool
 }
 
 // newAdminKeyChanges is a constructor for adminKeyUpdates.
 func newAdminKeyChanges() *adminKeyUpdates {
 	return &adminKeyUpdates{
-		modified: make([]AdminKeyUpdate, 0),
+		modified: make(map[id.ID]bool),
 	}
 }
 
 // AddDeletion creates a [AdminKeyUpdate] report for a deleted channel admin key.
 func (aku *adminKeyUpdates) AddDeletion(chanId *id.ID) {
-	aku.modified = append(aku.modified, AdminKeyUpdate{
-		ChannelId: chanId,
-		IsAdmin:   false,
-	})
+	aku.modified[*chanId] = false
 }
 
 // AddCreatedOrEdit creates a [AdminKeyUpdate] report for an addition of a
 // channel's admin key.
 func (aku *adminKeyUpdates) AddCreatedOrEdit(chanId *id.ID) {
-	aku.modified = append(aku.modified, AdminKeyUpdate{
-		ChannelId: chanId,
-		IsAdmin:   true,
-	})
-}
-
-func (aku *AdminKeyUpdate) Equals(nu2 AdminKeyUpdate) bool {
-	if aku.IsAdmin != nu2.IsAdmin {
-		return false
-	}
-
-	if !aku.ChannelId.Cmp(nu2.ChannelId) {
-		return false
-	}
-
-	return true
+	aku.modified[*chanId] = true
 }

@@ -473,13 +473,5 @@ type UiCallbacks interface {
 	// added or removed. (See [Manager.ImportChannelAdminKey] or
 	// [Manager.DeleteChannelAdminKey]). This will pass along a list of
 	// AdminKeyUpdate as a report.
-	UpdateAdminKeys(updates []AdminKeyUpdate)
-}
-
-// AdminKeyUpdate is a structure which reporting how the possession of a
-// channel's private key has been modified (ie whether the user has gained or
-// lost admin access).
-type AdminKeyUpdate struct {
-	ChannelId *id.ID
-	IsAdmin   bool
+	UpdateAdminKeys(chID *id.ID, isAdmin bool)
 }

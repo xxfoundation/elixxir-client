@@ -3261,6 +3261,18 @@ type MessageDeletedJson struct {
 	MessageID message.ID `json:"messageID"`
 }
 
+// AdminKeysUpdateJson describes when you get or loose keys for a specific
+// channel
+//
+//	{
+//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	 "hasKeys":true
+//	}
+type AdminKeysUpdateJson struct {
+	ChannelId *id.ID `json:"channelID"`
+	isAdmin   bool   `json:"isAdmin"`
+}
+
 type ChannelUICallbacks interface {
 	EventUpdate(eventType int64, jsonData []byte)
 }
@@ -3269,8 +3281,13 @@ type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) UpdateAdminKeys(updates []channels.AdminKeyUpdate) {
-	jsonBytes, err := json.Marshal(updates)
+func (cuicbw *ChannelUICallbacksWrapper) UpdateAdminKeys(chID *id.ID, isAdmin bool) {
+
+	akJson := &AdminKeysUpdateJson{
+		ChannelId: chID,
+		isAdmin:   false,
+	}
+	jsonBytes, err := json.Marshal(akJson)
 	if err != nil {
 		jww.ERROR.Printf("Failed to json admin keys update "+
 			"event for bindings: %+v", err)

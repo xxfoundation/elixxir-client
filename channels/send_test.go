@@ -112,7 +112,9 @@ func Test_manager_SendGeneric(t *testing.T) {
 func Test_manager_SendAdminGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -137,6 +139,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	messageType := Text

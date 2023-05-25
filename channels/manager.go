@@ -514,8 +514,8 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 // it is used for tests and when nothing is passed in for UI callbacks
 type dummyUICallback struct{}
 
-func (duic *dummyUICallback) UpdateAdminKeys(updates []AdminKeyUpdate) {
-	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
+func (duic *dummyUICallback) UpdateAdminKeys(chID *id.ID, isAdmin bool) {
+	jww.DEBUG.Printf("UpdateAdminKeys unimplemented in dummyUICallback")
 }
 
 func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,

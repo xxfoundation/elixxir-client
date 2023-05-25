@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-var dummyAdminKeyUpdate = func(updates []AdminKeyUpdate) {}
+var dummyAdminKeyUpdate = func(chID *id.ID, isAdmin bool) {}
 
 func newPrivKeyTestManager(t *testing.T) *manager {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
@@ -108,21 +108,17 @@ func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 
 	m := &manager{
-		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		//local:            versioned.NewKV(ekv.MakeMemstore()),
 		adminKeysManager: akm,
-		rng:   fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		local: versioned.NewKV(ekv.MakeMemstore()),
+		rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		local:            versioned.NewKV(ekv.MakeMemstore()),
 	}
 
 	invalidChannelID := id.NewIdFromString("someID", id.User, t)
 	_, err := m.ExportChannelAdminKey(invalidChannelID, "password")
-	require.Error(t, err,
+	require.Errorf(t, err,
 		"Unexpected error when no private key exist."+
-	if err == nil || m.local.Exists(err) {
-		t.Errorf("Unexpected error when no private key exist."+
 			"\nexpected: %s\nreceived: %+v", "object not found", err)
-	}
 }
 
 // Error path: Tests that when the password is invalid,
@@ -277,10 +273,10 @@ func Test_mapUpdate(t *testing.T) {
 	const numTests = 100
 
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(numTests)
 
 	edits := make(map[string]versioned.ElementEdit, numTests)
-	expectedUpdates := make(map[id.ID]AdminKeyUpdate, numTests)
+	expectedUpdates := make(map[id.ID]bool, numTests)
 	rng := rand.New(rand.NewSource(69))
 
 	// build the input and output data
@@ -296,25 +292,22 @@ func Test_mapUpdate(t *testing.T) {
 		rng.Read(existsChoice)
 		op := versioned.KeyOperation(int(existsChoice[0]) % 3)
 		data := privKey.MarshalPem()
-		aku := AdminKeyUpdate{
-			ChannelId: cid,
-			IsAdmin:   true,
-		}
+		expected := true
 
 		if op == versioned.Deleted {
 			require.NoError(t, akm.saveChannelPrivateKey(cid, privKey))
 			data = nil
-			aku.IsAdmin = false
+			expected = false
 		} else if op == versioned.Updated {
 			privKeyOld, err := rsa.GetScheme().Generate(rng, 1024)
 			require.NoError(t, err)
 			require.NoError(t, akm.saveChannelPrivateKey(cid, privKeyOld))
 		}
 
-		expectedUpdates[*aku.ChannelId] = aku
+		expectedUpdates[*cid] = expected
 
 		// Create the edit
-		edits[marshalChID(aku.ChannelId)] = versioned.ElementEdit{
+		edits[marshalChID(cid)] = versioned.ElementEdit{
 			OldElement: nil,
 			NewElement: &versioned.Object{
 				Version:   0,
@@ -325,13 +318,10 @@ func Test_mapUpdate(t *testing.T) {
 		}
 	}
 
-	akm.callback = func(updates []AdminKeyUpdate) {
-		for _, update := range updates {
-			expectedUpdate, exists := expectedUpdates[*update.ChannelId]
-			require.True(t, exists)
-			require.Equal(t, expectedUpdate, update)
-		}
-
+	akm.callback = func(chID *id.ID, isAdmin bool) {
+		expectedUpdate, exists := expectedUpdates[*chID]
+		require.True(t, exists)
+		require.Equal(t, expectedUpdate, isAdmin)
 		wg.Done()
 	}
 

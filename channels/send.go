@@ -483,7 +483,7 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Failed to load channel private key: %+v", err)
-		if m.local.Exists(err) {
+		if m.adminKeysManager.remote.Exists(err) {
 			jww.WARN.Printf("[CH] Private key for channel ID %s found in "+
 				"storage, but an error was encountered while accessing it: %+v",
 				channelID, err)

@@ -29,7 +29,7 @@ var dummyAdminKeyUpdate = func(updates []AdminKeyUpdate) {}
 
 func newPrivKeyTestManager(t *testing.T) *manager {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs)
+		collective.StandardPrefexs, collective.NewMockRemote())
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 	return &manager{
 		channels:         make(map[id.ID]*joinedChannel),
@@ -104,12 +104,12 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 // exist in storage, as determined by kv.Exists.
 func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs)
+		collective.StandardPrefexs, collective.NewMockRemote())
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 
 	m := &manager{
-		rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		local:            versioned.NewKV(ekv.MakeMemstore()),
+		rng: fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		//local:            versioned.NewKV(ekv.MakeMemstore()),
 		adminKeysManager: akm,
 	}
 
@@ -210,7 +210,7 @@ func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 // loaded with loadChannelPrivateKey matches the original.
 func Test_saveChannelPrivateKey_loadChannelPrivateKey(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs)
+		collective.StandardPrefexs, collective.NewMockRemote())
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 	c, pk, err := cryptoBroadcast.NewChannel(
 		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
@@ -233,7 +233,7 @@ func Test_saveChannelPrivateKey_loadChannelPrivateKey(t *testing.T) {
 // nothing saved to storage for the given channel ID.
 func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs)
+		collective.StandardPrefexs, collective.NewMockRemote())
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 
 	channelID, _ := id.NewRandomID(rand.New(rand.NewSource(654)), id.User)
@@ -248,7 +248,7 @@ func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
 // from storage.
 func Test_deleteChannelPrivateKey(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs)
+		collective.StandardPrefexs, collective.NewMockRemote())
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 	c, pk, err := cryptoBroadcast.NewChannel(
 		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
@@ -266,7 +266,7 @@ func Test_deleteChannelPrivateKey(t *testing.T) {
 
 func Test_mapUpdate(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs)
+		collective.StandardPrefexs, collective.NewMockRemote())
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 
 	const numTests = 100

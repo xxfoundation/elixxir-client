@@ -58,6 +58,9 @@ type manager struct {
 	// Nicknames
 	*nicknameManager
 
+	// Admin (Channel Private Keys)
+	*adminKeysManager
+
 	// Send tracker
 	st *sendTracker
 
@@ -301,7 +304,7 @@ func (m *manager) generateChannel(name, description string,
 	}
 
 	// Save private key to storage
-	err = saveChannelPrivateKey(ch.ReceptionID, pk, m.kv)
+	err = m.adminKeysManager.saveChannelPrivateKey(ch.ReceptionID, pk)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -476,6 +479,10 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 // dummyUICallback is an implementation of UI callbacks that does nothing
 // it is used for tests and when nothing is passed in for UI callbacks
 type dummyUICallback struct{}
+
+func (duic *dummyUICallback) UpdateAdminKeys(updates []AdminKeyUpdate) {
+	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
+}
 
 func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 	exists bool) {

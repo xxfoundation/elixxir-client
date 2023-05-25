@@ -10,26 +10,89 @@ package nodes
 import (
 	"bytes"
 	"encoding/binary"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
+const currentKeyVersion = 0
+
 type key struct {
+	kv         versioned.KV
 	k          *cyclic.Int
 	keyId      []byte
 	validUntil uint64
+	storeKey   string
 }
 
-func newKey(k *cyclic.Int, validUntil uint64, keyId []byte) *key {
-	return &key{
+func newKey(kv versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64,
+	keyId []byte) *key {
+	nk := &key{
+		kv:         kv,
 		k:          k,
 		keyId:      keyId,
 		validUntil: validUntil,
+		storeKey:   keyKey(id),
 	}
+
+	if err := nk.save(); err != nil {
+		jww.FATAL.Panicf("Failed to make nodeKey for %s: %s", id, err)
+	}
+
+	return nk
 }
 
 // get returns the cyclic key.
 func (k *key) get() *cyclic.Int {
 	return k.k
+}
+
+// loadKey loads the key for the given node ID from the versioned keystore.
+func loadKey(kv versioned.KV, id *id.ID) (*key, error) {
+	k := &key{}
+
+	key := keyKey(id)
+
+	obj, err := kv.Get(key, currentKeyVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	err = k.unmarshal(obj.Data)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return k, nil
+}
+
+// save stores the key as the key for the given nodes ID in the keystore.
+func (k *key) save() error {
+	now := netTime.Now()
+
+	data, err := k.marshal()
+	if err != nil {
+		return err
+	}
+
+	obj := versioned.Object{
+		Version:   currentKeyVersion,
+		Timestamp: now,
+		Data:      data,
+	}
+
+	return k.kv.Set(k.storeKey, &obj)
+}
+
+// delete deletes the key from the versioned keystore.
+func (k *key) delete(kv versioned.KV, id *id.ID) {
+	key := keyKey(id)
+	if err := kv.Delete(key, currentKeyVersion); err != nil {
+		jww.FATAL.Panicf("Failed to delete key %s: %s", k, err)
+	}
 }
 
 // marshal makes a binary representation of the given key and key values in the
@@ -86,4 +149,15 @@ func (k *key) unmarshal(b []byte) error {
 	k.validUntil = binary.LittleEndian.Uint64(buff.Next(8))
 
 	return nil
+}
+
+// String returns a string representation of key. This functions adheres to the
+// fmt.Stringer interface.
+func (k *key) String() string {
+	return k.storeKey
+}
+
+// keyKey generates the key used in the keystore for the given key.
+func keyKey(id *id.ID) string {
+	return "nodeKey:" + id.String()
 }

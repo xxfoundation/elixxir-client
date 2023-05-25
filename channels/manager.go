@@ -20,18 +20,18 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 const storageTagFormat = "channelManagerStorageTag-%s"
@@ -47,19 +47,16 @@ type manager struct {
 	mux      sync.RWMutex
 
 	// External references
-	local  versioned.KV
-	remote versioned.KV
-	net    Client
-	rng    *fastRNG.StreamGenerator
+	kv  versioned.KV
+	net Client
+	nm  NotificationsManager
+	rng *fastRNG.StreamGenerator
 
 	// Events model
 	*events
 
 	// Nicknames
 	*nicknameManager
-
-	// Admin (Channel Private Keys)
-	*adminKeysManager
 
 	// Send tracker
 	st *sendTracker
@@ -68,50 +65,63 @@ type manager struct {
 	// it can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 
-	// Ui callbacks are calls made when the remote does something which will
-	// update the UI
-	uiCallbacks UICallbacks
+	// Notification manager
+	*notifications
 }
 
-// Client contains the methods from cmix.Client that are required by the
+// Client contains the methods from [cmix.Client] that are required by the
 // [Manager].
 type Client interface {
 	GetMaxMessageLength() int
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
-	IsHealthy() bool
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
 		fallthroughProcessor message.Processor)
 	AddIdentityWithHistory(
 		id *id.ID, validUntil, beginning time.Time,
 		persistent bool, fallthroughProcessor message.Processor)
+	RemoveIdentity(id *id.ID)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
-	DeleteClientService(clientID *id.ID)
-	RemoveIdentity(id *id.ID)
-	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-		roundList ...id.Round)
-	AddHealthCallback(f func(bool)) uint64
-	RemoveHealthCallback(uint64)
 	UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
 		response message.Processor)
+	DeleteClientService(clientID *id.ID)
+	IsHealthy() bool
+	AddHealthCallback(f func(bool)) uint64
+	RemoveHealthCallback(uint64)
+	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
+		roundList ...id.Round)
 }
 
-type UICallbacks interface {
-	ChannelListUpdate(joined []*cryptoBroadcast.Channel, left []*id.ID)
+// NotificationsManager contains the methods from [notifications.Manager] that
+// are required by the [Manager].
+type NotificationsManager interface {
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
+		status clientNotif.NotificationState) error
+	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationState,
+		metadata []byte, group string, exists bool)
+	Delete(toBeNotifiedOn *id.ID) error
+	RegisterUpdateCallback(group string, nu clientNotif.Update)
+}
+
+// NotificationInfo contains notification information for each identity.
+type NotificationInfo struct {
+	Status   bool   `json:"status"`
+	Metadata []byte `json:"metadata"`
 }
 
 // NewManagerBuilder creates a new channel Manager using an EventModelBuilder.
 func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
 	extensions []ExtensionBuilder, addService AddServiceFn,
-	uiCallbacks UiCallbacks) (Manager, error) {
+	nm NotificationsManager, uiCallbacks UiCallbacks) (Manager, error) {
 	model, err := modelBuilder(getStorageTag(identity.PubKey))
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return NewManager(identity, kv, net, rng, model, extensions, addService, uiCallbacks)
+	return NewManager(identity, kv, net, rng, model, extensions, addService, nm,
+		uiCallbacks)
 }
 
 // NewManager creates a new channel [Manager] from a
@@ -121,7 +131,7 @@ func NewManagerBuilder(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
 	extensions []ExtensionBuilder, addService AddServiceFn,
-	uiCallbacks UiCallbacks) (Manager, error) {
+	nm NotificationsManager, uiCallbacks UiCallbacks) (Manager, error) {
 
 	// Make a copy of the public key to prevent outside edits
 	// TODO: Convert this to DeepCopy() method
@@ -142,7 +152,7 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions, uiCallbacks)
+	m := setupManager(identity, kv, net, rng, model, extensions, nm, uiCallbacks)
 	m.dmTokens = make(map[id.ID]uint32)
 
 	return m, addService(m.leases.StartProcesses)
@@ -152,7 +162,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 // tag.
 func LoadManager(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, model EventModel,
-	extensions []ExtensionBuilder, uiCallbacks UiCallbacks) (Manager, error) {
+	extensions []ExtensionBuilder, nm NotificationsManager,
+	uiCallbacks UiCallbacks) (Manager, error) {
 	jww.INFO.Printf("[CH] LoadManager for tag %s", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
@@ -167,7 +178,7 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 		return nil, err
 	}
 
-	m := setupManager(identity, kv, net, rng, model, extensions, uiCallbacks)
+	m := setupManager(identity, kv, net, rng, model, extensions, nm, uiCallbacks)
 	m.loadDMTokens()
 
 	return m, nil
@@ -177,18 +188,20 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 // tag.
 func LoadManagerBuilder(storageTag string, kv versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder,
-	extensions []ExtensionBuilder, uiCallbacks UiCallbacks) (Manager, error) {
+	extensions []ExtensionBuilder, nm NotificationsManager,
+	uiCallbacks UiCallbacks) (Manager, error) {
 	model, err := modelBuilder(storageTag)
 	if err != nil {
 		return nil, errors.Errorf("Failed to build event model: %+v", err)
 	}
 
-	return LoadManager(storageTag, kv, net, rng, model, extensions, uiCallbacks)
+	return LoadManager(storageTag, kv, net, rng, model, extensions, nm, uiCallbacks)
 }
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	net Client, rng *fastRNG.StreamGenerator, model EventModel,
-	extensionBuilders []ExtensionBuilder, uiCallbacks UiCallbacks) *manager {
+	extensionBuilders []ExtensionBuilder, nm NotificationsManager,
+	uiCallbacks UiCallbacks) *manager {
 
 	if uiCallbacks == nil {
 		uiCallbacks = &dummyUICallback{}
@@ -197,11 +210,12 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	// Build the manager
 	m := &manager{
 		me:             identity,
-		local:          kv,
+		kv:             kv,
 		net:            net,
+		nm:             nm,
 		rng:            rng,
-		broadcastMaker: broadcast.NewBroadcastChannel,
 		events:         initEvents(model, 512, kv, rng),
+		broadcastMaker: broadcast.NewBroadcastChannel,
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
@@ -212,7 +226,9 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	m.loadChannels()
 
 	m.nicknameManager = loadOrNewNicknameManager(kv, uiCallbacks.NicknameUpdate)
-	m.adminKeysManager = newAdminKeysManager(kv, uiCallbacks.UpdateAdminKeys)
+
+	m.notifications = newNotifications(
+		identity.PubKey, uiCallbacks.NotificationUpdate, m, nm)
 
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
@@ -285,12 +301,10 @@ func (m *manager) generateChannel(name, description string,
 	}
 
 	// Save private key to storage
-	err = m.adminKeysManager.saveChannelPrivateKey(ch.ReceptionID, pk)
+	err = saveChannelPrivateKey(ch.ReceptionID, pk, m.kv)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	m.adminKeysManager.reportNewAdmin(ch.ReceptionID)
 
 	return ch, pk, nil
 }
@@ -463,11 +477,11 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 // it is used for tests and when nothing is passed in for UI callbacks
 type dummyUICallback struct{}
 
-func (duic *dummyUICallback) UpdateAdminKeys(updates []AdminKeyUpdate) {
-	jww.DEBUG.Printf("UpdateAdminKeys unimplemented in dummyUICallback")
-}
-
 func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 	exists bool) {
 	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
+}
+
+func (duic *dummyUICallback) NotificationUpdate([]NotificationFilter,
+	[]NotificationState, []*id.ID, clientNotif.NotificationState) {
 }

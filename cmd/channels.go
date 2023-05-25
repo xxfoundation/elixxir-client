@@ -10,6 +10,10 @@ package cmd
 import (
 	"crypto/ed25519"
 	"fmt"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
+	"os"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -23,8 +27,6 @@ import (
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
-	"os"
-	"time"
 )
 
 const channelsPrintHeader = "CHANNELS"
@@ -116,10 +118,16 @@ var channelsCmd = &cobra.Command{
 			}
 		}
 
+		// Construct notifications manager
+		sig := user.GetStorage().GetTransmissionRegistrationValidationSignature()
+		nm := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
+			user.GetStorage().GetKV(), &clientNotif.MockComms{}, user.GetRng())
+
 		// Construct channels manager
+		cbs := &channelCbs{}
 		chanManager, err := channels.NewManagerBuilder(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder, nil, user.AddService)
+			mockEventModelBuilder, nil, user.AddService, nm, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)
@@ -447,6 +455,21 @@ func (m *eventModel) DeleteMessage(message.ID) error {
 func (m *eventModel) MuteUser(*id.ID, ed25519.PublicKey, bool) {
 	jww.WARN.Printf("MuteUser is unimplemented in the CLI event model!")
 }
+
+type channelCbs struct{}
+
+func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
+	exists bool) {
+	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,
+		nickname, exists)
+}
+
+func (c *channelCbs) NotificationUpdate(nfs []channels.NotificationFilter,
+	changedNotificationStates []channels.NotificationState,
+	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
+}
+
+func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
 
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",

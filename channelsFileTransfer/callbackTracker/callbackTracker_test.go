@@ -8,6 +8,7 @@
 package callbackTracker
 
 import (
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
 	"time"
@@ -53,9 +54,7 @@ func Test_callbackTracker_call(t *testing.T) {
 
 	select {
 	case r := <-cbChan:
-		if r != nil {
-			t.Errorf("Received error: %+v", r)
-		}
+		require.Nil(t, r, "Received error: %+v", r)
 	case <-time.After(35 * time.Millisecond):
 		t.Error("Timed out waiting for callback.")
 	}
@@ -68,11 +67,9 @@ func Test_callbackTracker_call(t *testing.T) {
 	case <-cbChan:
 		t.Error("Callback called too soon.")
 
-	case <-time.After(35 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		ct.mux.RLock()
-		if !ct.scheduled {
-			t.Error("Callback is not scheduled when it should be.")
-		}
+		require.False(t, !ct.scheduled, "Callback is not scheduled when it should be.")
 		ct.mux.RUnlock()
 		select {
 		case r := <-cbChan:
@@ -94,13 +91,11 @@ func Test_callbackTracker_call(t *testing.T) {
 
 	select {
 	case r := <-cbChan:
-		if r != expectedErr {
-			t.Errorf("Received incorrect error.\nexpected: %v\nreceived: %v",
-				expectedErr, r)
-		}
-		if !ct.complete {
-			t.Error("Callback is not marked complete when it should be.")
-		}
+		require.EqualError(t, expectedErr, r.Error(),
+			"Received incorrect error.\nexpected: %v\nreceived: %v",
+			expectedErr, r)
+		require.True(t, ct.complete, "Callback is not marked complete when it should be.")
+
 	case <-time.After(ct.period + 25*time.Millisecond):
 		t.Errorf("Callback not called after period %s.",
 			ct.period+15*time.Millisecond)

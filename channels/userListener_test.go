@@ -33,7 +33,7 @@ type triggerEventDummy struct {
 }
 
 func (ted *triggerEventDummy) triggerEvent(chID *id.ID,
-	umi *userMessageInternal, _ MessageType, _ []byte, _ time.Time,
+	umi *userMessageInternal, _ []byte, _ time.Time,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	_ SentStatus) (uint64, error) {
 	ted.gotData = true

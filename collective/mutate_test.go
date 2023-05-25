@@ -16,23 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Hard-coded constants for testing purposes.
-const (
-
-	// expectedTransactionJson is the expected result for calling json.Marshal
-	// on a Mutate object with example data.
-	expectedTransactionJson = `{"Timestamp":"2012-12-21T22:08:41Z","Key":"key","Value":"dmFsdWU="}`
-
-	// expectedTransactionZeroTimeJson is the expected result for calling
-	// json.Marshal on a Mutate object with example data, specifically
-	// with a zero time.Time.
-	expectedTransactionZeroTimeJson = `{"Timestamp":"0001-01-01T00:00:00Z","Key":"key","Value":"dmFsdWU="}`
-
-	// expectedSerializedTransaction is the expected result after calling
-	// Mutate.serialize with example data.
-	expectedSerializedTransaction = `MCxBUUlEQkFVR0J3Z0pDZ3NNRFE0UEVCRVNFeFFWRmhjWXBEZURxZjlNY0sya1VIcWpmVW50SHZIVW9Od2lnYjd6WTBDQW9MZzMyMVgyYlREUUNSaXlPMkhCWG1hS3hLWEk0TDFiLW9Hb1duMDc4Tk5IYTZMbDZNZHMycmtJQ2JieFE2RTk3MDlIM25ENTk3QT0=`
-)
-
 // Smoke test for NewMutate.
 func TestNewTransaction(t *testing.T) {
 	// Initialize a mock time (not time.Now so that it can be constant)
@@ -64,6 +47,8 @@ func TestTransaction_MarshalJSON(t *testing.T) {
 	// Marshal Mutate into JSON data
 	marshalledData, err := json.Marshal(tx)
 	require.NoError(t, err)
+
+	expectedTransactionJson := `{"Timestamp":1356127721,"Value":"dmFsdWU=","Deletion":false}`
 
 	// Check that marshaled data matches expected value
 	require.Equal(t, expectedTransactionJson, string(marshalledData))
@@ -97,6 +82,8 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 	newTxData, err := json.Marshal(newTx)
 	require.NoError(t, err)
 
+	expectedTransactionJson := `{"Timestamp":1356127721,"Value":"dmFsdWU=","Deletion":false}`
+
 	// Ensure that newTx's marshalled data matches the expected JSON
 	// output (if no data has been lost, this should be the case)
 	require.Equal(t, expectedTransactionJson, string(newTxData))
@@ -106,7 +93,7 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 // Edge check: check that a zero value time.Time object gets marshalled
 // and unmarshalled properly.
 func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
-	testTime := time.Time{}
+	testTime := time.Unix(0, 0)
 
 	// Construct a Mutate object
 	_, val := "key", []byte("value")
@@ -116,13 +103,15 @@ func TestTransaction_UnmarshalJSON_ZeroTime(t *testing.T) {
 	oldTxData, err := json.Marshal(oldTx)
 	require.NoError(t, err)
 
+	expectedTransactionZeroTimeJson := `{"Timestamp":0,"Value":"dmFsdWU=","Deletion":false}`
+
 	require.Equal(t, expectedTransactionZeroTimeJson, string(oldTxData))
 
 	// Construct a new mutate and unmarshal the old mutate into it
-	newTx := NewMutate(time.Time{}, make([]byte, 0), false)
+	newTx := NewMutate(time.Unix(0, 0), make([]byte, 0), false)
 	require.NoError(t, json.Unmarshal(oldTxData, &newTx))
 
-	require.Equal(t, newTx.Timestamp, testTime)
+	require.Equal(t, newTx.Timestamp, testTime.Unix())
 }
 
 // Smoke test of Mutate.serialize.
@@ -137,8 +126,10 @@ func TestTransaction_Serialize(t *testing.T) {
 	tx := NewMutate(testTime, val, false)
 
 	// Serialize mutate
-	txSerial, err := tx.MarshalJSON()
+	txSerial, err := json.Marshal(tx)
 	require.NoError(t, err)
+
+	expectedSerializedTransaction := "eyJUaW1lc3RhbXAiOjEzNTYxMjc3MjEsIlZhbHVlIjoiZG1Gc2RXVT0iLCJEZWxldGlvbiI6ZmFsc2V9"
 
 	// Ensure serialization is consistent
 	require.Equal(t, expectedSerializedTransaction,
@@ -158,14 +149,14 @@ func TestTransaction_Deserialize(t *testing.T) {
 	tx := NewMutate(testTime, val, false)
 
 	// Serialize mutate
-	txSerial, err := tx.MarshalJSON()
+	txSerial, err := json.Marshal(tx)
 	require.NoError(t, err)
 
 	// Deserialize mutate
 	txDeserialize := &Mutate{}
-	err = txDeserialize.UnmarshalJSON(txSerial)
+	err = json.Unmarshal(txSerial, txDeserialize)
 	require.NoError(t, err)
 
 	// Ensure deserialized object matches original object
-	require.Equal(t, tx, txDeserialize)
+	require.Equal(t, tx, *txDeserialize)
 }

@@ -11,10 +11,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
@@ -69,11 +70,16 @@ type RemoteKV interface {
 
 // internalKV implements a remote internalKV to handle mutate logs.
 type internalKV struct {
-	// local is the local EKV store that will Write the mutate.
-	local ekv.KeyValue
+	// kv is the local EKV store that will Write the mutate.
+	kv ekv.KeyValue
 
 	// txLog is the mutate log used to Write transactions.
 	txLog *remoteWriter
+	col   *collector
+
+	// is the synchronization thread active?
+	isSynchronizing *atomic.Bool
+	mux             sync.Mutex
 
 	// keyUpdateListeners holds callbacks called when a key is updated
 	// by a remote
@@ -86,11 +92,15 @@ type internalKV struct {
 // that context and handle it appropriately.
 func newKV(transactionLog *remoteWriter, kv ekv.KeyValue) *internalKV {
 
+	isSync := atomic.Bool{}
+	isSync.Store(false)
+
 	rkv := &internalKV{
-		local:              kv,
+		kv:                 kv,
 		txLog:              transactionLog,
 		keyUpdateListeners: make(map[string]KeyUpdateCallback),
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
+		isSynchronizing:    &isSync,
 	}
 
 	// Panic if an instance ID doesn't exist
@@ -105,7 +115,7 @@ func newKV(transactionLog *remoteWriter, kv ekv.KeyValue) *internalKV {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Begin KV [ekv.KeyValue] interface implementation functions
+// KV [ekv.KeyValue] interface implementation functions
 ///////////////////////////////////////////////////////////////////////////////
 
 // Set implements [ekv.KeyValue.Set]. This is a LOCAL ONLY
@@ -138,7 +148,7 @@ func (r *internalKV) Delete(key string) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	return r.local.Delete(key)
+	return r.kv.Delete(key)
 }
 
 // SetInterface implements [ekv.KeyValue.SetInterface]. This is a LOCAL ONLY
@@ -177,53 +187,40 @@ func (r *internalKV) SetBytes(key string, data []byte) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	return r.local.SetBytes(key, data)
+	return r.kv.SetBytes(key, data)
 }
 
 // GetBytes implements [ekv.KeyValue.GetBytes]
 func (r *internalKV) GetBytes(key string) ([]byte, error) {
-	return r.local.GetBytes(key)
+	return r.kv.GetBytes(key)
 }
 
-// Transaction locks a key while it is being mutated then stores the result
-// and returns the old value if it existed.
-// If the op returns an error, the operation will be aborted.
-func (r *internalKV) Transaction(key string, op ekv.TransactionOperation) (
-	old []byte, existed bool, err error) {
-	if err = versioned.IsValidKey(key); err != nil {
-		return nil, false, err
-	}
-
-	return r.local.Transaction(key, op)
+// Transaction implements [ekv.KeyValue.Transaction]
+// does not filter for invalid keys
+func (r *internalKV) Transaction(op ekv.TransactionOperation, keys ...string) error {
+	return r.kv.Transaction(op, keys...)
 }
 
-// MutualTransaction locks all keys while operating, getting the initial values
-// for all keys, passing them into the MutualTransactionOperation, writing
-// the resulting values for all keys to disk, and returns the initial value
-// the return value is the same as is sent to the op, if it is edited they
-// will reflect in the returned old dataset
-func (r *internalKV) MutualTransaction(keys []string, op ekv.MutualTransactionOperation) (
-	old, written map[string]ekv.Value, err error) {
-	for _, k := range keys {
-		if err = versioned.IsValidKey(k); err != nil {
-			return nil, nil, errors.WithMessagef(err,
-				"Failed to execute due to malformed key %s", k)
-		}
-	}
-
-	return r.local.MutualTransaction(keys, op)
-}
+///////////////////////////////////////////////////////////////////////////////
+// Collector API - collector uses these to update local
+///////////////////////////////////////////////////////////////////////////////
 
 // SetBytesFromRemote implements [ekv.KeyValue.SetBytes].
 // This is a LOCAL ONLY operation which will Write the Mutate
 // to local store. Only use this from the collector system, designed
 // to allow event models to connect to the Write.
 func (r *internalKV) SetBytesFromRemote(key string, data []byte) error {
-	f := func(_ []byte, _ bool) ([]byte, bool, error) {
-		return data, false, nil
+	var old []byte
+	var existed bool
+
+	op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
+		file := files[key]
+		old, existed = file.Get()
+		file.Set(data)
+		return file.Flush()
 	}
 
-	old, existed, err := r.local.Transaction(key, f)
+	err := r.kv.Transaction(op, key)
 
 	if err != nil {
 		return err
@@ -232,11 +229,11 @@ func (r *internalKV) SetBytesFromRemote(key string, data []byte) error {
 	r.UpdateListenerMux.RLock()
 	defer r.UpdateListenerMux.RUnlock()
 	if cb, exists := r.keyUpdateListeners[key]; exists {
-		op := versioned.Created
+		opp := versioned.Created
 		if existed {
-			op = versioned.Updated
+			opp = versioned.Updated
 		}
-		go cb(key, old, data, op)
+		go cb(key, old, data, opp)
 	}
 	return nil
 }
@@ -259,77 +256,68 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 	mapKey := versioned.MakeMapKey(mapName)
 	keys = append(keys, mapKey)
 
-	op := func(old map[string]ekv.Value) (map[string]ekv.Value, error) {
-		updates := make(map[string]ekv.Value, len(old))
+	// build map in which the updates will be reported
+	reportedEdits := make(map[string]elementEdit, len(edits))
+
+	// construct the operation to do on the ekv
+	op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
 
 		//process key map, will always be the last value due to it being
-		mapFile, err := getMapFile(old[mapKey], len(old)-1)
+		mapFile := files[mapKey]
+		mapFileBytes, _ := mapFile.Get()
+		mapSet, err := getMapFile(mapFileBytes, len(edits))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		// edit elements and update map file
+		// edit elements and update map file while building the update
+		// structure
 		for elementKey, value := range edits {
-			updates[elementKey] = ekv.Value{
-				Data:   value.Value,
-				Exists: !value.Deletion,
-			}
+
+			// get the data about the element
+			elementName := keysToName[elementKey]
+			file := files[elementName]
+			old, exists := file.Get()
+
+			element := elementEdit{OldElement: old}
+
+			//handle the operation
 			if value.Deletion {
-				mapFile.Add(keysToName[elementKey])
+				mapSet.Delete(elementName)
+				file.Delete()
+				element.Operation = versioned.Deleted
 			} else {
-				mapFile.Delete(keysToName[elementKey])
+				mapSet.Add(elementName)
+				file.Set(value.Value)
+				element.NewElement = value.Value
+				if exists {
+					element.Operation = versioned.Updated
+				} else {
+					element.Operation = versioned.Created
+				}
 			}
+
+			// store the description of the operation in the report map
+			reportedEdits[elementName] = element
 		}
 
 		// add the map file to updates
-		mapFileUpdate, err := json.Marshal(mapFile)
+		mapFileUpdate, err := json.Marshal(mapSet)
 		if err != nil {
-			return nil, err
+			return err
 		}
+		mapFile.Set(mapFileUpdate)
 
-		updates[mapKey] = ekv.Value{
-			Data:   mapFileUpdate,
-			Exists: true,
-		}
-
-		return updates, nil
+		return nil
 	}
 
-	//run the operation on the ekv
-	old, _, err := r.local.MutualTransaction(keys, op)
+	// run the operation on the ekv
+	err := r.kv.Transaction(op, keys...)
 	if err != nil {
 		return err
 	}
 
-	//build the return data, ignore deletion failures
-	reportedEdits := make(map[string]elementEdit, len(edits))
-	for elementKey := range edits {
-		elementName := keysToName[elementKey]
-		oldElement := old[elementKey]
-		newElement := edits[elementKey]
-
-		var mapOp versioned.KeyOperation
-		if newElement.Deletion {
-			if !oldElement.Exists {
-				// if the element was already deleted, dont report the operation
-				continue
-			}
-			mapOp = versioned.Deleted
-		} else {
-			if oldElement.Exists {
-				mapOp = versioned.Updated
-			} else {
-				mapOp = versioned.Created
-			}
-		}
-
-		reportedEdits[elementName] = elementEdit{
-			OldElement: oldElement.Data,
-			NewElement: newElement.Value,
-			Operation:  mapOp,
-		}
-	}
-
+	// Call callbacks reporting on the operation
 	r.UpdateListenerMux.RLock()
 	defer r.UpdateListenerMux.RUnlock()
 
@@ -341,11 +329,16 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 }
 
 func (r *internalKV) DeleteFromRemote(key string) error {
-	f := func(_ []byte, _ bool) ([]byte, bool, error) {
-		return nil, true, nil
+	var old []byte
+
+	op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
+		file := files[key]
+		old, _ = file.Get()
+		file.Delete()
+		return file.Flush()
 	}
 
-	old, _, err := r.local.Transaction(key, f)
+	err := r.kv.Transaction(op, key)
 
 	if err != nil {
 		return err
@@ -362,19 +355,43 @@ func (r *internalKV) DeleteFromRemote(key string) error {
 // ListenOnRemoteKey allows the caller to receive updates when
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
-func (r *internalKV) ListenOnRemoteKey(key string, callback KeyUpdateCallback) {
+// NOTE: It may make more sense to listen for updates via the collector directly
+func (r *internalKV) ListenOnRemoteKey(key string, cb KeyUpdateCallback) ([]byte,
+	error) {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
-	r.keyUpdateListeners[key] = callback
+
+	if r.IsSynchronizing() {
+		jww.FATAL.Panic("cannot add listener when synchronizing")
+	}
+
+	r.keyUpdateListeners[key] = cb
+	curData, err := r.GetBytes(key)
+	if err != nil && ekv.Exists(err) {
+		return nil, err
+	}
+	return curData, nil
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // any element in the given map is updated by synching with another client.
 // Only one callback can be written per key.
-func (r *internalKV) ListenOnRemoteMap(mapName string, callback mapChangedByRemoteCallback) {
+// NOTE: It may make more sense to listen for updates via the collector directly
+func (r *internalKV) ListenOnRemoteMap(mapName string,
+	cb mapChangedByRemoteCallback) (map[string][]byte, error) {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
-	r.mapUpdateListeners[mapName] = callback
+
+	if r.IsSynchronizing() {
+		jww.FATAL.Panic("cannot add listener when synchronizing")
+	}
+
+	r.mapUpdateListeners[mapName] = cb
+	curMap, err := r.GetMap(mapName)
+	if err != nil && ekv.Exists(err) {
+		return nil, err
+	}
+	return curMap, nil
 }
 
 type mapChangedByRemoteCallback func(mapName string, edits map[string]elementEdit)
@@ -385,7 +402,7 @@ type elementEdit struct {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// End KV [ekv.KeyValue] interface implementation functions
+// Remote functions -- writers to the txLog
 ///////////////////////////////////////////////////////////////////////////////
 
 // SetRemote will Write a mutate to the remote and write the key to the
@@ -432,4 +449,67 @@ func isRemoteKV(kv ekv.KeyValue) bool {
 		return true
 	}
 	return false
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Collector Wrappers -- FIXME, this should probably be put elsewhere on stack
+// but we don't have a good design solution for it yet.
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *internalKV) IsSynchronizing() bool {
+	return r.isSynchronizing.Load()
+}
+
+func (r *internalKV) StartProcesses() (stoppable.Stoppable, error) {
+
+	// Lock up while we start to prevent Listen functions from overlapping
+	// with this function.
+	r.UpdateListenerMux.Lock()
+	defer r.UpdateListenerMux.Unlock()
+
+	r.isSynchronizing.Store(true)
+
+	// Construct stoppables
+	multiStoppable := stoppable.NewMulti(syncStoppable)
+
+	if r.col != nil {
+		colStopper := stoppable.NewSingle(collectorRunnerStoppable)
+		multiStoppable.Add(colStopper)
+		go r.col.runner(colStopper)
+	}
+
+	writerStopper := stoppable.NewSingle(writerRunnerStoppable)
+	multiStoppable.Add(writerStopper)
+	go r.txLog.Runner(writerStopper)
+
+	// Switch my state back to not synchronizing when stopped
+	myStopper := stoppable.NewSingle(syncStoppable + "_synchronizing")
+	go func(s *stoppable.Single) {
+		<-s.Quit()
+		s.ToStopped()
+		// We explicitly do not do the following to prevent users
+		// from listening to keys after networking starts
+		// r.isSynchronizing.Store(false)
+	}(myStopper)
+	multiStoppable.Add(myStopper)
+
+	return multiStoppable, nil
+}
+
+func (r *internalKV) RegisterConnectionTracker(nc NotifyCallback) {
+	r.col.Register(nc)
+	go nc(r.col.IsConnected())
+}
+
+func (r *internalKV) IsConnected() bool {
+	return r.col.IsConnected()
+}
+
+func (r *internalKV) IsSynched() bool {
+	return r.col.IsSynched()
+}
+
+// WaitForRemote block until timeout or remote operations complete
+func (r *internalKV) WaitForRemote(timeout time.Duration) bool {
+	return r.col.WaitUntilSynched(timeout)
 }

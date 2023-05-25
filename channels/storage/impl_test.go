@@ -24,7 +24,7 @@ import (
 // Series of interdependent smoke tests of the impl object and its methods.
 func TestImpl(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
-	testCb := func(uuid uint64, channelID *id.ID, update bool) {}
+	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
 	model, err := newImpl("", nil, testCb, nil, nil)
 	if err != nil {

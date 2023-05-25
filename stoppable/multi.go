@@ -8,11 +8,12 @@
 package stoppable
 
 import (
-	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Error message.

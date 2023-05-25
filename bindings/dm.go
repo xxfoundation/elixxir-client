@@ -496,11 +496,9 @@ func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, partnerToken int32,
 }
 
 // SendSilent is used to send to a channel a message with no notifications.
-// Its primary purpose is to communicate new nicknames without calling
-// SendMessage.
+// Its primary purpose is to communicate new nicknames without calling [Send].
 //
-// It takes no payload intentionally as the message should be very
-// lightweight.
+// It takes no payload intentionally as the message should be very lightweight.
 //
 // Parameters:
 //   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519

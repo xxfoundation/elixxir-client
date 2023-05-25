@@ -40,7 +40,7 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	wg.Add(numGroups)
 	for i := 0; i < numGroups; i++ {
 		localI := i
-		update := func(group Group, created, edits, deletions []*id.ID) {
+		update := func(group Group, created, edits, deletions []*id.ID, max NotificationState) {
 			update1Response[localI] = true
 		}
 		go func() {
@@ -61,7 +61,7 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	// bool was set
 	for gKey := range mInternal.callbacks {
 		update := mInternal.callbacks[gKey]
-		update(nil, nil, nil, nil)
+		update(nil, nil, nil, nil, Push)
 	}
 
 	for idx, wasSet := range update1Response {
@@ -78,7 +78,8 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	wg3.Add(numGroups / 2)
 	for i := 0; i < numGroups; i = i + 2 {
 		localI := i
-		update := func(group Group, created, edits, deletions []*id.ID) {
+		update := func(group Group, created, edits, deletions []*id.ID,
+			max NotificationState) {
 			update2Response[localI] = true
 		}
 		go func() {
@@ -99,7 +100,7 @@ func TestManager_RegisterUpdateCallback(t *testing.T) {
 	// bool was set
 	for gKey := range mInternal.callbacks {
 		update := mInternal.callbacks[gKey]
-		update(nil, nil, nil, nil)
+		update(nil, nil, nil, nil, Push)
 	}
 
 	for idx, wasSet := range update2Response {
@@ -139,7 +140,8 @@ func TestManager_mapUpdate(t *testing.T) {
 		localI := i
 		if i%2 == 0 {
 			wg.Add(1)
-			cb := func(group Group, created, edits, deletions []*id.ID) {
+			cb := func(group Group, created, edits, deletions []*id.ID,
+				max NotificationState) {
 				received := expectedCallback{
 					group:     group,
 					created:   created,
@@ -395,6 +397,123 @@ func getGroup(i, numGroups int) int {
 	return i % numGroups
 }
 
+func TestManager_maxStateUpdate(t *testing.T) {
+	m, _, _ := buildTestingManager(t)
+	mInternal := m.(*manager)
+
+	mInternal.maxStateUpdate("blah", nil, nil, versioned.Deleted)
+	// key check worked becasue we didnt crash from the delete panic
+
+	numGroups := 4
+	numCB := numGroups / 2
+	wg := &sync.WaitGroup{}
+
+	didRun := make([]bool, numGroups)
+	expectedRun := []bool{true, false, true, false}
+
+	var setMax NotificationState
+
+	for i := 0; i < numGroups; i++ {
+		groupName := fmt.Sprintf("grp_%d", i)
+		nid := id.NewIdFromUInt(uint64(i), id.User, t)
+		m.Set(nid, groupName, []byte{0}, NotificationState(i%3))
+		if i%2 == 0 {
+			localI := i
+			cb := func(group Group, created, edits, deletions []*id.ID,
+				maxState NotificationState) {
+				if created != nil || edits != nil || deletions != nil {
+					t.Errorf("actions are not nil")
+				}
+				if maxState != setMax {
+					t.Errorf("max state incorrect, expected %s, "+
+						"received %s", setMax, maxState)
+				}
+				didRun[localI] = true
+				wg.Done()
+			}
+			m.RegisterUpdateCallback(groupName, cb)
+		}
+	}
+
+	for i := Mute; i <= Push; i++ {
+		setMax = i
+		for j := versioned.Created; j <= versioned.Deleted; j++ {
+			ch := make(chan bool)
+			didRun = make([]bool, numGroups)
+			if j != versioned.Deleted {
+				wg.Add(numCB)
+			}
+
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						ch <- false
+					}
+				}()
+				mInternal.maxStateUpdate(maxStateKey, nil,
+					makeMaxStateObj(i, t), j)
+				ch <- true
+			}()
+			result := <-ch
+			if j == versioned.Deleted && result {
+				t.Errorf("did not panic on deletion")
+			} else if j != versioned.Deleted && !result {
+				t.Errorf("panicked on non deletion")
+			}
+			if j != versioned.Deleted {
+				wg.Wait()
+				if mInternal.maxState != i {
+					t.Errorf("max state not set to %s, is %s", i, mInternal.maxState)
+				}
+				if !reflect.DeepEqual(expectedRun, didRun) {
+					t.Errorf("wrong callbacks were called, %+v", didRun)
+				}
+			}
+
+		}
+	}
+
+}
+
+func makeMaxStateObj(max NotificationState, t *testing.T) *versioned.Object {
+	b, err := json.Marshal(&max)
+	if err != nil {
+		t.Fatalf("Failed to marshal max state: %+v", err)
+	}
+	return &versioned.Object{
+		Version:   maxStateKetVersion,
+		Timestamp: time.Now(),
+		Data:      b,
+	}
+}
+
+func TestManager_setLoadMaxState(t *testing.T) {
+	m, _, _ := buildTestingManager(t)
+	mInternal := m.(*manager)
+
+	mInternal.maxState = -1
+
+	tests := []NotificationState{Mute, WhenOpen, Push}
+
+	for _, ns := range tests {
+		mInternal.maxState = -1
+		mInternal.setMaxStateUnsafe(ns)
+		if mInternal.maxState != ns {
+			t.Errorf("In ram max state did not take with set")
+		}
+		mInternal.maxState = -1
+		obj, err := mInternal.remote.Get(maxStateKey, maxStateKetVersion)
+		if err != nil {
+			t.Errorf("Failed to get max state %s from ekv: %+v", ns, err)
+		}
+		mInternal.loadMaxStateUnsafe(obj)
+		if mInternal.maxState != ns {
+			t.Errorf("In ram max state did not take with load of %s",
+				string(obj.Data))
+		}
+	}
+}
+
 func TestManager_upsertNotificationUnsafeRAM(t *testing.T) {
 	m, _, _ := buildTestingManager(t)
 	mInternal := m.(*manager)
@@ -600,7 +719,7 @@ func TestManager_token(t *testing.T) {
 }
 
 func buildTestingManager(t *testing.T) (Manager, xxdk.TransmissionIdentity, *commsMock) {
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
 	comms := initCommsMock()
 	rng := fastRNG.NewStreamGenerator(1, 1,
 		csprng.NewSystemRNG)
@@ -643,21 +762,27 @@ type commsMock struct {
 	receivedMessage interface{}
 	returnedMessage *messages.Ack
 	returnedError   error
+	numRuns         int
 }
 
 func initCommsMock() *commsMock {
-	return &commsMock{
-		receivedHost:    nil,
-		receivedMessage: nil,
-		returnedMessage: &messages.Ack{},
-		returnedError:   nil,
-	}
+	cm := &commsMock{}
+	cm.reset()
+	return cm
+}
+
+func (cm *commsMock) reset() {
+	cm.receivedHost = nil
+	cm.receivedMessage = nil
+	cm.returnedMessage = &messages.Ack{}
+	cm.returnedError = nil
 }
 
 func (cm *commsMock) RegisterToken(host *connect.Host,
 	message *pb.RegisterTokenRequest) (*messages.Ack, error) {
 	cm.receivedHost = host
 	cm.receivedMessage = message
+	cm.numRuns++
 	return cm.returnedMessage, cm.returnedError
 }
 
@@ -665,20 +790,23 @@ func (cm *commsMock) UnregisterToken(host *connect.Host,
 	message *pb.UnregisterTokenRequest) (*messages.Ack, error) {
 	cm.receivedHost = host
 	cm.receivedMessage = message
+	cm.numRuns++
 	return cm.returnedMessage, cm.returnedError
 }
 
 func (cm *commsMock) RegisterTrackedID(host *connect.Host,
-	message *pb.TrackedIntermediaryIDRequest) (*messages.Ack, error) {
+	message *pb.RegisterTrackedIdRequest) (*messages.Ack, error) {
 	cm.receivedHost = host
 	cm.receivedMessage = message
+	cm.numRuns++
 	return cm.returnedMessage, cm.returnedError
 }
 
 func (cm *commsMock) UnregisterTrackedID(host *connect.Host,
-	message *pb.TrackedIntermediaryIDRequest) (*messages.Ack, error) {
+	message *pb.UnregisterTrackedIdRequest) (*messages.Ack, error) {
 	cm.receivedHost = host
 	cm.receivedMessage = message
+	cm.numRuns++
 	return cm.returnedMessage, cm.returnedError
 }
 

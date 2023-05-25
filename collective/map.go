@@ -2,12 +2,17 @@ package collective
 
 import (
 	"encoding/json"
-	"strings"
-
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 )
+
+var ErrMapInconsistent = errors.New("element is in the map file but not" +
+	"in the ekv")
+var ErrMapElementNotFound = errors.New("element is not in the map")
+
+const errWrap = "for map '%s' element '%s'"
 
 // StoreMapElement stores a versioned map element into the KV. This relies
 // on the underlying remote [KV.StoreMapElement] function to lock and control
@@ -17,7 +22,7 @@ func (r *internalKV) StoreMapElement(mapName, element string,
 	value []byte) error {
 	elementsMap := make(map[string][]byte)
 	elementsMap[element] = value
-	_, _, err := r.txLog.WriteMap(mapName, elementsMap, nil)
+	_, err := r.txLog.WriteMap(mapName, elementsMap, nil)
 	return err
 }
 
@@ -28,12 +33,12 @@ func (r *internalKV) StoreMapElement(mapName, element string,
 func (r *internalKV) DeleteMapElement(mapName, element string) ([]byte, error) {
 	elementsMap := make(map[string]struct{})
 	elementsMap[element] = struct{}{}
-	_, deleted, err := r.txLog.WriteMap(mapName, nil, elementsMap)
+	old, err := r.txLog.WriteMap(mapName, nil, elementsMap)
 	if err != nil {
 		return nil, err
 	}
 
-	oldData, exists := deleted[element]
+	oldData, exists := old[element]
 	if !exists {
 		return nil, nil
 	}
@@ -44,93 +49,109 @@ func (r *internalKV) DeleteMapElement(mapName, element string) ([]byte, error) {
 // and deletes no longer used keys in the map.
 // All Map storage functions update the remote.
 func (r *internalKV) StoreMap(mapName string, value map[string][]byte) error {
-	_, _, err := r.txLog.WriteMap(mapName, value, nil)
+	_, err := r.txLog.WriteMap(mapName, value, nil)
 	return err
 }
 
 // GetMapElement looks up the element for the given map
-func (r *internalKV) GetMapElement(mapName, element string) ([]byte, error) {
+func (r *internalKV) GetMapElement(mapName, elementName string) ([]byte, error) {
 	mapKey := versioned.MakeMapKey(mapName)
-	elementKey := versioned.MakeElementKey(mapName, element)
+	elementKey := versioned.MakeElementKey(mapName, elementName)
 	keys := []string{elementKey, mapKey}
 
-	op := func(old map[string]ekv.Value) (updates map[string]ekv.Value, err error) {
-		return nil, errors.New("dummy")
+	var old []byte
+	var existed bool
+
+	op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
+		mapFile := files[mapKey]
+		mapFileBytes, _ := mapFile.Get()
+		mapSet, err := getMapFile(mapFileBytes, len(old))
+		if err != nil {
+			return err
+		}
+
+		if mapSet.Has(elementName) {
+			elementFile := files[elementKey]
+			old, existed = elementFile.Get()
+			if !existed {
+				return errors.Wrapf(ErrMapInconsistent, errWrap, mapName,
+					elementName)
+			}
+		} else {
+			return errors.Wrapf(ErrMapElementNotFound, errWrap, mapName,
+				elementName)
+		}
+
+		return nil
 	}
 
-	old, _, _ := r.local.MutualTransaction(keys, op)
-	mapFile, err := getMapFile(old[mapKey], 100)
+	err := r.kv.Transaction(op, keys...)
 	if err != nil {
-		return nil, errors.WithMessage(err, "map file could not be found")
-	}
-	if !mapFile.Has(elementKey) {
-		return nil, errors.New("element not found in map")
-	}
-	elementValue := old[elementKey]
-	if !elementValue.Exists {
-		return nil, errors.New("failed to get element from disk")
+		return nil, err
 	}
 
-	return elementValue.Data, nil
+	return old, nil
 }
 
 // GetMap get an entire map from disk
 func (r *internalKV) GetMap(mapName string) (map[string][]byte, error) {
 	mapKey := versioned.MakeMapKey(mapName)
 
-	mapFileBytes, err := r.local.GetBytes(mapKey)
-	if err != nil {
-		if ekv.Exists(err) {
-			return nil, errors.WithMessage(err, "map file could not be found")
-		} else {
-			// if it doesnt exist, that means the map hasnt been created yet
-			// this is a valid state, equivalent to an empty map
-			return make(map[string][]byte), nil
+	var mapMap map[string][]byte
+
+	op := func(files map[string]ekv.Operable, ext ekv.Extender) error {
+
+		// get the mapSet
+		mapFile := files[mapKey]
+		mapFileBytes, _ := mapFile.Get()
+		mapSet, err := getMapFile(mapFileBytes, 10)
+		if err != nil {
+			return err
 		}
+
+		// create the keys to lookup with from the mapSet
+		mapKeys := make([]string, 0, mapSet.Length())
+		keysToNames := make(map[string]string, mapSet.Length())
+		mapMap = make(map[string][]byte, mapSet.Length())
+
+		for elementName := range mapSet {
+			elementKey := versioned.MakeElementKey(mapName, elementName)
+			mapKeys = append(mapKeys, elementKey)
+			keysToNames[elementKey] = elementName
+		}
+
+		// Get the keys
+		elementFiles, err := ext.Extend(mapKeys)
+		if err != nil {
+			return err
+		}
+
+		//convert the files to the return map
+		var exists bool
+		for elementKey, elementFile := range elementFiles {
+			elementName := keysToNames[elementKey]
+			mapMap[elementName], exists = elementFile.Get()
+			if !exists {
+				jww.WARN.Printf("%+v", errors.Wrapf(ErrMapInconsistent,
+					errWrap, mapName, elementName))
+			}
+		}
+
+		return nil
 	}
 
-	mapFile, err := getMapFile(ekv.Value{
-		Data:   mapFileBytes,
-		Exists: true,
-	}, 100)
+	err := r.kv.Transaction(op, mapKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "map file could not be "+
-			"unmarshaled")
-	}
-
-	keys := make([]string, 0, mapFile.Length())
-	for key := range mapFile {
-		fullKey := versioned.MakeElementKey(mapName, key)
-		keys = append(keys, fullKey)
-	}
-
-	op := func(old map[string]ekv.Value) (updates map[string]ekv.Value, err error) {
-		return nil, errors.New("dummy")
-	}
-
-	old, _, err := r.local.MutualTransaction(keys, op)
-	if err != nil && !strings.Contains("dummy", err.Error()) {
 		return nil, err
 	}
 
-	m := make(map[string][]byte)
-	for key, value := range old {
-		isMapElement, _, elementName := versioned.DetectMapElement(key)
-		if !isMapElement {
-			return nil, errors.New("Loaded invaid map element in map")
-		}
-		if value.Exists {
-			m[elementName] = value.Data
-		}
-	}
-
-	return m, nil
+	return mapMap, nil
 }
 
-func getMapFile(mapFileValue ekv.Value, length int) (set, error) {
+func getMapFile(data []byte, length int) (set, error) {
 	mapFile := newSet(uint(length))
-	if mapFileValue.Exists {
-		err := json.Unmarshal(mapFileValue.Data, &mapFile)
+	if data != nil {
+		err := json.Unmarshal(data, &mapFile)
 		if err != nil {
 			return nil, err
 		}
@@ -156,6 +177,15 @@ func (ks set) Has(element string) bool {
 
 func (ks set) Add(element string) {
 	ks[element] = struct{}{}
+}
+
+func (ks set) Get() []string {
+	list := make([]string, 0, len(ks))
+
+	for key := range ks {
+		list = append(list, key)
+	}
+	return list
 }
 
 func (ks set) Delete(element string) {

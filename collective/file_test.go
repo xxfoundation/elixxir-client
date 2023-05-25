@@ -16,41 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	// expectedHeaderJson is the expected result for calling json.Marshal on a
-	// header object with example data.
-	expectedHeaderJson = `{"version":0,"entries":{"key0":"val0","key1":"val1","key2":"val2","key3":"val3","key4":"val4","key5":"val5","key6":"val6","key7":"val7","key8":"val8","key9":"val9"}}`
-
-	// expectedHeaderJsonNewline is the expected result of calling
-	// json.MarshalIndent on a header object with example data. This differs
-	// from expectedHeaderJson by having a newline character, `\n`. within
-	// header.entries. expectedHeaderJsonNewline is presented with idents to
-	// illustrate that the newline character `\n` is parsed as part of the key
-	// and not as the escape character. Note that if one were to json.Unmarshal
-	// this back into a header object, then json.Marshal that object, the output
-	// would be a single line of text.
-	expectedHeaderJsonNewline = `{
-	"version": 0,
-	"entries": {
-		"edgeCheckKey\n": "edgeCheckVal",
-		"key0": "val0",
-		"key1": "val1",
-		"key2": "val2",
-		"key3": "val3",
-		"key4": "val4",
-		"key5": "val5",
-		"key6": "val6",
-		"key7": "val7",
-		"key8": "val8",
-		"key9": "val9"
-	}
-}`
-
-	// expectedHeaderSerial is the expected result after calling
-	// header.serialize with example data.
-	expectedHeaderSerial = `WFhES1RYTE9HSERSZXlKMlpYSnphVzl1SWpvd0xDSmxiblJ5YVdWeklqcDdJbXRsZVNJNkluWmhiQ0o5ZlE9PQ==`
-)
-
 // Unit test of newHeader.
 func TestNewHeader(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
@@ -78,12 +43,10 @@ func TestHeader_MarshalJSON(t *testing.T) {
 	marshaledData, err := json.Marshal(head)
 	require.NoError(t, err)
 
+	expectedHeaderJson := `{"version":0,"device":"U4x_lrFkvxs"}`
+
 	// Check that marshaled data matches expected JSON
 	require.Equal(t, expectedHeaderJson, string(marshaledData))
-
-	// Ensure it outputs a single line, ie the newline character does not
-	// create a multi-line JSON file.
-	require.Equal(t, expectedHeaderJsonNewline, string(marshaledData))
 }
 
 // Smoke & unit test for header.UnmarshalJSON.
@@ -110,6 +73,8 @@ func TestHeader_UnmarshalJSON(t *testing.T) {
 	newHeaderData, err := json.Marshal(newHeader)
 	require.NoError(t, err)
 
+	expectedHeaderJson := `{"version":0,"device":"U4x_lrFkvxs"}`
+
 	// Ensure that newHeader's marshalled data matches the expected JSON output
 	// (if no data has been lost, this should be the case)
 	require.Equal(t, expectedHeaderJson, string(newHeaderData))
@@ -130,6 +95,8 @@ func TestHeader_Serialize(t *testing.T) {
 	// Serialize header
 	hdrSerial, err := head.serialize()
 	require.NoError(t, err)
+
+	expectedHeaderSerial := "WFhES1RYTE9HSERSeyJ2ZXJzaW9uIjowLCJkZXZpY2UiOiJVNHhfbHJGa3Z4cyJ9"
 
 	// Ensure serialization is consistent
 	require.Equal(t, expectedHeaderSerial,
@@ -155,4 +122,27 @@ func TestHeader_Deserialize(t *testing.T) {
 
 	// Ensure deserialized object matches original object
 	require.Equal(t, head, hdrDeserialize)
+}
+
+// TestFile smoke test file serial/deserialization
+func TestFile(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+	dvcID, err := NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	expectedHeader := newHeader(dvcID)
+
+	// ~5Mib
+	sz := 5123456
+	sz = 25
+	randomBodyData := make([]byte, sz)
+	n, err := rng.Read(randomBodyData)
+	require.NoError(t, err)
+	require.Equal(t, n, sz)
+
+	filedata := buildFile(expectedHeader, randomBodyData)
+
+	readHeader, readBody, err := decodeFile(filedata)
+	require.NoError(t, err)
+	require.Equal(t, expectedHeader, readHeader)
+	require.Equal(t, randomBodyData, readBody)
 }

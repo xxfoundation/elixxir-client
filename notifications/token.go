@@ -31,14 +31,14 @@ func (m *manager) AddToken(token, app string) error {
 	}
 
 	_, err = m.comms.RegisterToken(m.notificationHost, &pb.RegisterTokenRequest{
-		App:                        app,
-		Token:                      token,
-		TransmissionRSAPem:         m.transmissionRSAPubPem,
-		TransmissionSalt:           m.transmissionSalt,
-		RegistrationTimestamp:      m.registrationTimestampNs,
-		TransmissionRsaRegistarSig: m.transmissionRegistrationValidationSignature,
-		RequestTimestamp:           ts.UnixNano(),
-		TokenSignature:             tokenSig,
+		App:                         app,
+		Token:                       token,
+		TransmissionRsaPem:          m.transmissionRSAPubPem,
+		TransmissionSalt:            m.transmissionSalt,
+		RegistrationTimestamp:       m.registrationTimestampNs,
+		TransmissionRsaRegistrarSig: m.transmissionRegistrationValidationSignature,
+		RequestTimestamp:            ts.UnixNano(),
+		TokenSignature:              tokenSig,
 	})
 
 	if err != nil {
@@ -74,7 +74,7 @@ func (m *manager) RemoveToken() error {
 	_, err = m.comms.UnregisterToken(m.notificationHost, &pb.UnregisterTokenRequest{
 		App:                m.token.App,
 		Token:              m.token.Token,
-		TransmissionRSAPem: m.transmissionRSAPubPem,
+		TransmissionRsaPem: m.transmissionRSAPubPem,
 		RequestTimestamp:   ts.UnixNano(),
 		TokenSignature:     tokenSig,
 	})

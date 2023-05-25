@@ -297,12 +297,12 @@ func Test_events_triggerEvents(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	umi, _, _ := builtTestUMI(t)
+	umi, _, _ := builtTestUMI(t, mt)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// Call the trigger
-	_, err = e.triggerEvent(chID, umi, 42, nil, netTime.Now(),
+	_, err = e.triggerEvent(chID, umi, nil, netTime.Now(),
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -337,13 +337,13 @@ func Test_events_triggerEvents_noChannel(t *testing.T) {
 	// Craft the input for the event
 	chID := &id.ID{1}
 
-	umi, _, _ := builtTestUMI(t)
+	umi, _, _ := builtTestUMI(t, mt)
 
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 
 	// call the trigger
-	_, err := e.triggerEvent(chID, umi, mt, nil, netTime.Now(),
+	_, err := e.triggerEvent(chID, umi, nil, netTime.Now(),
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -371,7 +371,7 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	u, _, cm := builtTestUMI(t)
+	u, _, cm := builtTestUMI(t, mt)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := message.
@@ -407,7 +407,7 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	u, _, cm := builtTestUMI(t)
+	u, _, cm := builtTestUMI(t, mt)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := message.
@@ -440,7 +440,7 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 
 	// Craft the input for the event
 	chID := &id.ID{1}
-	u, _, cm := builtTestUMI(t)
+	u, _, cm := builtTestUMI(t, mt)
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	msgID := message.
@@ -950,9 +950,9 @@ func Test_events_receiveAdminReplay(t *testing.T) {
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock Event Model                                                           //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type eventReceive struct {
 	channelID   *id.ID
 	messageID   message.ID

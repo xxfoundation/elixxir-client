@@ -216,12 +216,12 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	if dc.myToken == partnerToken &&
-		!dc.me.PubKey.Equal(partnerEdwardsPubKey) {
+		!dc.me.PubKey.Equal(*partnerEdwardsPubKey) {
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{},
 			errors.Errorf("can only use myToken on self send: "+
-				"myToken: %d, partnerKey: %v, partnerToken: %d",
-				dc.myToken, partnerEdwardsPubKey, partnerToken)
+				"myToken: %d, myKey: %v, partnerKey: %v, partnerToken: %d",
+				dc.myToken, dc.me.PubKey, partnerEdwardsPubKey, partnerToken)
 	}
 
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
@@ -230,8 +230,9 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf("[DM][%s] Sending dm to %s type %d at %s",
-		params.DebugTag, partnerID, messageType, netTime.Now())
+	sendPrint := fmt.Sprintf("[DM][%s] Sending from %s to %s type %d at %s",
+		params.DebugTag, dc.me.PubKey, partnerID, messageType,
+		netTime.Now())
 	defer func() { jww.INFO.Println(sendPrint) }()
 
 	rng := dc.rng.GetStream()

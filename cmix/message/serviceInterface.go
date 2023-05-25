@@ -69,13 +69,19 @@ type CompressedService struct {
 }
 
 func (cs CompressedService) ForMe(pickup *id.ID, contents, hash []byte) (
-	bool, []string, []byte) {
-	tags, metadata, found, err := sih.EvaluateCompressedSIH(pickup, hash,
-		cs.Identifier, cs.Tags, contents)
+	tags []string, found bool, metadata []byte) {
+	matchedTags, metadata, found, err :=
+		sih.EvaluateCompressedSIH(pickup, contents, cs.Identifier, cs.Tags, hash)
 	if err != nil {
-		jww.WARN.Printf("Failed to evaluate compressed SID for %s: %+v", pickup, err)
+		jww.WARN.Printf(
+			"Failed to evaluate compressed SID for %s: %+v", pickup, err)
 	}
-	return found, tags, metadata
+
+	tags = make([]string, 0, len(tags))
+	for tag := range matchedTags {
+		tags = append(tags, tag)
+	}
+	return tags, found, metadata
 }
 
 func (cs CompressedService) Hash(pickup *id.ID, contents []byte) ([]byte, error) {

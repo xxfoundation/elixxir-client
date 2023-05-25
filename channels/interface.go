@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"math"
 	"time"
 
@@ -284,6 +285,24 @@ type Manager interface {
 	// an empty list is returned.
 	GetMutedUsers(channelID *id.ID) []ed25519.PublicKey
 
+	// GetNotificationLevel returns the notification level for the given channel.
+	GetNotificationLevel(channelID *id.ID) (NotificationLevel, error)
+
+	// GetNotificationStatus returns the notification status for the given channel.
+	GetNotificationStatus(channelID *id.ID) (clientNotif.NotificationState, error)
+
+	// SetMobileNotificationsLevel sets the notification level for the given
+	// channel. The [NotificationLevel] dictates the type of notifications
+	// received and the status controls weather the notification is push or
+	// in-app. If muted, both the level and status must be set to mute.
+	//
+	// To use push notifications, a token must be registered with the
+	// notification manager. Note, when enabling push notifications, information
+	// may be shared with third parties (i.e., Firebase and Google's Palantir)
+	// and may represent a security risk to the user.
+	SetMobileNotificationsLevel(channelID *id.ID, level NotificationLevel,
+		status clientNotif.NotificationState) error
+
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Management                                                       //
 	////////////////////////////////////////////////////////////////////////////
@@ -429,12 +448,26 @@ type ExtensionBuilder func(e EventModel, m Manager,
 type AddServiceFn func(sp xxdk.Service) error
 
 // UiCallbacks is an interface that a caller can adhere to in order to get
-// updates on when sync events occur that require the UI to be updated
-// and what those events are
+// updates on when sync events occur that require the UI to be updated and what
+// those events are.
 type UiCallbacks interface {
 	// NicknameUpdate is called when your nickname changes due to a
 	// change on a remote.
 	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
+
+	// NotificationUpdate is a callback that is called any time a notification
+	// level changes.
+	//
+	// It returns a slice of [NotificationFilter] for all channels with
+	// notifications enabled. The [NotificationFilter] is used to determine
+	// which notifications from the notification server belong to the caller.
+	//
+	// It also returns a map of all channel notification states that have
+	// changed and all that have been deleted. The maxState is the global state
+	// set for notifications.
+	NotificationUpdate(nfs []NotificationFilter,
+		changedNotificationStates []NotificationState,
+		deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState)
 
 	// UpdateAdminKeys is a callback be called when a channel's admin key is
 	// added or removed. (See [Manager.ImportChannelAdminKey] or

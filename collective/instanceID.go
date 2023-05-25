@@ -42,21 +42,16 @@ func (i InstanceID) String() string {
 
 // MarshalText implements the [encoding.MarshalText] interface function
 func (i InstanceID) MarshalText() (text []byte, err error) {
-	return i[:], nil
+	return []byte(i.String()), nil
 }
 
 // UnmarshalText implements the [encoding.TextUnmarshaler] interface function
 func (i *InstanceID) UnmarshalText(text []byte) error {
-	if len(text) == 0 {
-		// Error if we got an empty instance id entry
-		return ErrEmptyInstance
-	} else if len(text) != instanceIDLength {
-		// Error if it is the wrong size
-		return errors.Wrapf(ErrIncorrectSize,
-			"%d != %d", instanceIDLength, len(text))
+	n, err := base64.RawURLEncoding.Strict().Decode(i[:], text)
+	if err != nil {
+		return err
 	}
-	copy(i[:], text)
-	return nil
+	return checkSize(n)
 }
 
 // Cmp determines which instance id is greater assuming they are numbers.
@@ -153,7 +148,11 @@ func GetInstanceID(kv ekv.KeyValue) (InstanceID, error) {
 // slice is empty.
 func NewInstanceIDFromBytes(idBytes []byte) (InstanceID, error) {
 	instanceID := InstanceID{}
-	return instanceID, (&instanceID).UnmarshalText(idBytes)
+	err := checkSize(len(idBytes))
+	if err == nil {
+		copy(instanceID[:], idBytes)
+	}
+	return instanceID, err
 }
 
 // NewInstanceIDFromString creates an instanceID from a string object
@@ -180,4 +179,16 @@ func NewRandomInstanceID(csprng io.Reader) (InstanceID, error) {
 		copy(id[:], instanceIDBytes)
 	}
 	return id, err
+}
+
+func checkSize(n int) error {
+	if n == 0 {
+		// Error if we got an empty instance id entry
+		return ErrEmptyInstance
+	} else if n != instanceIDLength {
+		// Error if it is the wrong size
+		return errors.Wrapf(ErrIncorrectSize,
+			"%d != %d", instanceIDLength, n)
+	}
+	return nil
 }

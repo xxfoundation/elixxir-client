@@ -7,10 +7,13 @@
 
 package dm
 
+import "time"
+
 type ModelConversation struct {
-	Pubkey         []byte `json:"pub_key"`
-	Nickname       string `json:"nickname"`
-	Token          uint32 `json:"token"`
-	CodesetVersion uint8  `json:"codeset_version"`
-	Blocked        bool   `json:"blocked"`
+	Pubkey           []byte     `json:"pub_key"`
+	Nickname         string     `json:"nickname"`
+	Token            uint32     `json:"token"`
+	CodesetVersion   uint8      `json:"codeset_version"`
+	Blocked          bool       `json:"blocked"`
+	BlockedTimestamp *time.Time `json:"blocked_timestamp"`
 }

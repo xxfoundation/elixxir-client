@@ -10,32 +10,37 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"gitlab.com/elixxir/client/v4/broadcast"
-	"gitlab.com/elixxir/client/v4/cmix"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/netTime"
-	"google.golang.org/protobuf/proto"
-	"math/rand"
-	"testing"
-	"time"
+
+	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/cmix"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 )
 
 func Test_manager_SendGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -47,18 +52,18 @@ func Test_manager_SendGeneric(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
-		}, func(*id.ID, *ChannelMessage, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) error {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -74,7 +79,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 	m.channels[*channelID] = &joinedChannel{broadcast: mbc}
 
 	messageID, _, _, err :=
-		m.SendGeneric(channelID, messageType, msg, validUntil, true, params)
+		m.SendGeneric(channelID, messageType, msg, validUntil, true, params, nil)
 	if err != nil {
 		t.Fatalf("SendGeneric error: %+v", err)
 	}
@@ -82,7 +87,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, messageType)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -96,11 +101,6 @@ func Test_manager_SendGeneric(t *testing.T) {
 	if !bytes.Equal(umi.GetChannelMessage().Payload, msg) {
 		t.Errorf("Incorrect payload.\nexpected: %q\nreceived: %q",
 			msg, umi.GetChannelMessage().Payload)
-	}
-
-	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			messageType, MessageType(umi.GetChannelMessage().PayloadType))
 	}
 
 	if umi.GetChannelMessage().RoundID != returnedRound {
@@ -124,19 +124,19 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string)},
-		st: loadSendTracker(&mockBroadcastClient{}, kv,
-			func(*id.ID, *userMessageInternal, []byte, time.Time,
-				receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
-				uint64, error) {
-				return 0, nil
-			}, func(*id.ID, *ChannelMessage, []byte, time.Time,
-				message.ID, receptionID.EphemeralIdentity,
-				rounds.Round, SentStatus) (uint64, error) {
-				return 0, nil
-			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-				*bool, *bool, *SentStatus) error {
-				return nil
-			}, crng),
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*SentStatus) error {
+			return nil
+		}, crng),
 	}
 
 	messageType := Text
@@ -167,11 +167,6 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 			msg, chMgs.Payload)
 	}
 
-	if MessageType(chMgs.PayloadType) != messageType {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			messageType, MessageType(chMgs.PayloadType))
-	}
-
 	if chMgs.RoundID != returnedRound {
 		t.Errorf("Incorrect round ID.\nexpected: %d\nreceived: %d",
 			returnedRound, chMgs.RoundID)
@@ -190,7 +185,8 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 func Test_manager_SendMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -202,18 +198,18 @@ func Test_manager_SendMessage(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
-		}, func(*id.ID, *ChannelMessage, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) error {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -221,14 +217,13 @@ func Test_manager_SendMessage(t *testing.T) {
 	rng := crng.GetStream()
 	defer rng.Close()
 	channelID, _ := id.NewRandomID(rng, id.User)
-	messageType := Text
 	msg := "hello world"
 	validUntil := time.Hour
 	params := cmix.CMIXParams{DebugTag: "ChannelTest"}
 	mbc := &mockBroadcastChannel{}
 	m.channels[*channelID] = &joinedChannel{broadcast: mbc}
 
-	messageID, _, _, err := m.SendMessage(channelID, msg, validUntil, params)
+	messageID, _, _, err := m.SendMessage(channelID, msg, validUntil, params, nil)
 	if err != nil {
 		t.Fatalf("SendMessage error: %+v", err)
 	}
@@ -236,7 +231,7 @@ func Test_manager_SendMessage(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Text)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -245,11 +240,6 @@ func Test_manager_SendMessage(t *testing.T) {
 	if !umi.GetMessageID().Equals(messageID) {
 		t.Errorf("Incorrect message ID.\nexpected: %s\nreceived: %s",
 			messageID, umi.messageID)
-	}
-
-	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			messageType, MessageType(umi.GetChannelMessage().PayloadType))
 	}
 
 	if umi.GetChannelMessage().RoundID != returnedRound {
@@ -278,7 +268,8 @@ func Test_manager_SendMessage(t *testing.T) {
 func Test_manager_SendReply(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -290,18 +281,18 @@ func Test_manager_SendReply(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
-		}, func(*id.ID, *ChannelMessage, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
 			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) error {
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*SentStatus) error {
 			return nil
 		}, crng),
 	}
@@ -309,7 +300,6 @@ func Test_manager_SendReply(t *testing.T) {
 	rng := crng.GetStream()
 	defer rng.Close()
 	channelID, _ := id.NewRandomID(rng, id.User)
-	messageType := Text
 	msg := "hello world"
 	validUntil := time.Hour
 	params := new(cmix.CMIXParams)
@@ -318,7 +308,7 @@ func Test_manager_SendReply(t *testing.T) {
 	m.channels[*channelID] = &joinedChannel{broadcast: mbc}
 
 	messageID, _, _, err :=
-		m.SendReply(channelID, msg, replyMsgID, validUntil, *params)
+		m.SendReply(channelID, msg, replyMsgID, validUntil, *params, nil)
 	if err != nil {
 		t.Fatalf("SendReply error: %+v", err)
 	}
@@ -326,7 +316,7 @@ func Test_manager_SendReply(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Text)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -335,11 +325,6 @@ func Test_manager_SendReply(t *testing.T) {
 	if !umi.GetMessageID().Equals(messageID) {
 		t.Errorf("Incorrect message ID.\nexpected: %s\nreceived: %s",
 			messageID, umi.messageID)
-	}
-
-	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			messageType, MessageType(umi.GetChannelMessage().PayloadType))
 	}
 
 	if umi.GetChannelMessage().RoundID != returnedRound {
@@ -368,7 +353,8 @@ func Test_manager_SendReply(t *testing.T) {
 func Test_manager_SendReaction(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -380,13 +366,13 @@ func Test_manager_SendReaction(t *testing.T) {
 		kv:              kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: kv},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
-		}, func(*id.ID, *ChannelMessage, []byte, time.Time,
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
 			message.ID, receptionID.EphemeralIdentity,
 			rounds.Round, SentStatus) (uint64, error) {
 			return 0, nil
@@ -399,7 +385,6 @@ func Test_manager_SendReaction(t *testing.T) {
 	rng := crng.GetStream()
 	defer rng.Close()
 	channelID, _ := id.NewRandomID(rng, id.User)
-	messageType := Reaction
 	msg := "🍆"
 	params := new(cmix.CMIXParams)
 	replyMsgID := message.ID{69}
@@ -415,7 +400,7 @@ func Test_manager_SendReaction(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Reaction)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -424,11 +409,6 @@ func Test_manager_SendReaction(t *testing.T) {
 	if !umi.GetMessageID().Equals(messageID) {
 		t.Errorf("Incorrect message ID.\nexpected: %s\nreceived: %s",
 			messageID, umi.messageID)
-	}
-
-	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			messageType, MessageType(umi.GetChannelMessage().PayloadType))
 	}
 
 	if umi.GetChannelMessage().RoundID != returnedRound {
@@ -454,6 +434,68 @@ func Test_manager_SendReaction(t *testing.T) {
 	}
 }
 
+func Test_manager_SendSilent(t *testing.T) {
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	prng := rand.New(rand.NewSource(64))
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	require.NoError(t, err)
+
+	m := &manager{
+		me:              pi,
+		channels:        make(map[id.ID]*joinedChannel),
+		kv:              kv,
+		rng:             crng,
+		events:          initEvents(&mockEventModel{}, 512, kv, crng),
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity,
+			rounds.Round, SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
+			*bool, *bool, *SentStatus) error {
+			return nil
+		}, crng),
+	}
+
+	rng := crng.GetStream()
+	defer rng.Close()
+
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
+	require.NoError(t, err)
+
+	params := new(cmix.CMIXParams)
+	mbc := &mockBroadcastChannel{
+		crypto: ch,
+	}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+
+	// Send message
+	messageID, _, _, err := m.SendSilent(ch.ReceptionID, ValidForever, *params)
+	require.NoError(t, err)
+
+	// Verify the message was handled correctly
+
+	// Decode the user message
+	umi, err := unmarshalUserMessageInternal(mbc.payload, ch.ReceptionID, Silent)
+	require.NoError(t, err)
+
+	// Do checks of the data
+	require.True(t, umi.GetMessageID().Equals(messageID))
+
+	// Decode the text message
+	txt := &CMIXChannelSilentMessage{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	require.NoError(t, err)
+
+}
+
 func Test_manager_DeleteMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	kv := versioned.NewKV(ekv.MakeMemstore())
@@ -467,7 +509,7 @@ func Test_manager_DeleteMessage(t *testing.T) {
 				receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 				uint64, error) {
 				return 0, nil
-			}, func(*id.ID, *ChannelMessage, []byte, time.Time,
+			}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
 				message.ID, receptionID.EphemeralIdentity,
 				rounds.Round, SentStatus) (uint64, error) {
 				return 0, nil
@@ -505,11 +547,6 @@ func Test_manager_DeleteMessage(t *testing.T) {
 		t.Fatalf("Could not proto unmarshal ChannelMessage: %+v", err)
 	}
 
-	if MessageType(chMgs.PayloadType) != Delete {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			Delete, MessageType(chMgs.PayloadType))
-	}
-
 	if chMgs.RoundID != returnedRound {
 		t.Errorf("Incorrect round ID.\nexpected: %d\nreceived: %d",
 			returnedRound, chMgs.RoundID)
@@ -536,19 +573,19 @@ func Test_manager_PinMessage(t *testing.T) {
 		channels: make(map[id.ID]*joinedChannel),
 		kv:       kv,
 		rng:      crng,
-		st: loadSendTracker(&mockBroadcastClient{}, kv,
-			func(*id.ID, *userMessageInternal, []byte, time.Time,
-				receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
-				uint64, error) {
-				return 0, nil
-			}, func(*id.ID, *ChannelMessage, []byte, time.Time,
-				message.ID, receptionID.EphemeralIdentity,
-				rounds.Round, SentStatus) (uint64, error) {
-				return 0, nil
-			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-				*bool, *bool, *SentStatus) error {
-				return nil
-			}, crng),
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*SentStatus) error {
+			return nil
+		}, crng),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -577,11 +614,6 @@ func Test_manager_PinMessage(t *testing.T) {
 	chMgs := &ChannelMessage{}
 	if err = proto.Unmarshal(mbc.payload, chMgs); err != nil {
 		t.Fatalf("Could not proto unmarshal ChannelMessage: %+v", err)
-	}
-
-	if MessageType(chMgs.PayloadType) != Pinned {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			Pinned, MessageType(chMgs.PayloadType))
 	}
 
 	if chMgs.RoundID != returnedRound {
@@ -615,19 +647,19 @@ func Test_manager_MuteUser(t *testing.T) {
 		channels: make(map[id.ID]*joinedChannel),
 		kv:       kv,
 		rng:      crng,
-		st: loadSendTracker(&mockBroadcastClient{}, kv,
-			func(*id.ID, *userMessageInternal, []byte, time.Time,
-				receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
-				uint64, error) {
-				return 0, nil
-			}, func(*id.ID, *ChannelMessage, []byte, time.Time,
-				message.ID, receptionID.EphemeralIdentity,
-				rounds.Round, SentStatus) (uint64, error) {
-				return 0, nil
-			}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-				*bool, *bool, *SentStatus) error {
-				return nil
-			}, crng),
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity, rounds.Round,
+			SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round, *bool, *bool,
+			*SentStatus) error {
+			return nil
+		}, crng),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -654,13 +686,7 @@ func Test_manager_MuteUser(t *testing.T) {
 	// Decode the channel message
 	chMgs := &ChannelMessage{}
 	if err = proto.Unmarshal(mbc.payload, chMgs); err != nil {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			Delete, MessageType(chMgs.PayloadType))
-	}
-
-	if MessageType(chMgs.PayloadType) != Mute {
-		t.Errorf("Incorrect message type.\nexpected: %s\nreceived: %s",
-			Mute, MessageType(chMgs.PayloadType))
+		t.Errorf("Failed to unmarshal: %s", err)
 	}
 
 	if chMgs.RoundID != returnedRound {
@@ -701,7 +727,7 @@ func (m *mockBroadcastChannel) MaxPayloadSize() int            { return 1024 }
 func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int { return 512 }
 func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel  { return m.crypto }
 
-func (m *mockBroadcastChannel) Broadcast(payload []byte,
+func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -710,8 +736,8 @@ func (m *mockBroadcastChannel) Broadcast(payload []byte,
 }
 
 func (m *mockBroadcastChannel) BroadcastWithAssembler(
-	assembler broadcast.Assembler, cMixParams cmix.CMIXParams) (
-	rounds.Round, ephemeral.Id, error) {
+	assembler broadcast.Assembler, _ []string, _ [2]byte,
+	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
 	m.payload, err = assembler(returnedRound)
@@ -720,7 +746,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
-	payload []byte, cMixParams cmix.CMIXParams) (
+	payload []byte, _ []string, _ [2]byte, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -730,7 +756,7 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
-	pk rsa.PrivateKey, assembler broadcast.Assembler,
+	pk rsa.PrivateKey, assembler broadcast.Assembler, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -740,11 +766,20 @@ func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
 	return nil, rounds.Round{ID: returnedRound}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) RegisterListener(
-	broadcast.ListenerFunc, broadcast.Method) (broadcast.Processor, error) {
-	return nil, nil
+func (m *mockBroadcastChannel) RegisterRSAtoPublicListener(
+	broadcast.ListenerFunc, []string) (broadcast.Processor, error) {
+	panic("implement me")
 }
+
+func (m *mockBroadcastChannel) RegisterSymmetricListener(
+	broadcast.ListenerFunc, []string) (broadcast.Processor, error) {
+	panic("implement me")
+}
+
 func (m *mockBroadcastChannel) Stop() {}
+
+func (m *mockBroadcastChannel) AsymmetricIdentifier() []byte { panic("implement me") }
+func (m *mockBroadcastChannel) SymmetricIdentifier() []byte  { panic("implement me") }
 
 // mockNameService adheres to the NameService interface and is used for testing.
 type mockNameService struct {

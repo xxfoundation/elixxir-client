@@ -302,6 +302,10 @@ func (m *mockNetManager) DeleteClientService(clientID *id.ID) {}
 
 func (m *mockNetManager) TrackServices(tracker message.ServicesTracker) {}
 
+func (m *mockNetManager) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
+
 func (m *mockNetManager) CheckInProgressMessages() {}
 
 func (m *mockNetManager) IsHealthy() bool {

@@ -3,6 +3,7 @@ package notifications
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	notifCrypto "gitlab.com/elixxir/crypto/notifications"
@@ -12,12 +13,21 @@ import (
 	"time"
 )
 
-func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte, status NotificationState) error {
+func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
+	status NotificationState) error {
+	if err := status.IsValid(); err != nil {
+		return err
+	}
+
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
 	currentReg, exists := m.notifications[*toBeNotifiedOn]
 	if exists {
+		if currentReg.Group != group {
+			return errors.New("cannot change the group of a notification " +
+				"registration")
+		}
 		if currentReg.Status == status &&
 			bytes.Equal(metadata, currentReg.Metadata) {
 			return nil
@@ -26,11 +36,11 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte, stat
 
 	// register with remote
 	if status == Push && (!exists || exists && currentReg.Status != Push) {
-		if err := m.registerNotification(toBeNotifiedOn); err != nil {
+		if err := m.registerNotification([]*id.ID{toBeNotifiedOn}); err != nil {
 			return err
 		}
 	} else if status != Push {
-		if err := m.unregisterNotification(toBeNotifiedOn); err != nil {
+		if err := m.unregisterNotification([]*id.ID{toBeNotifiedOn}); err != nil {
 			return err
 		}
 	}
@@ -78,7 +88,7 @@ func (m *manager) Delete(toBeNotifiedOn *id.ID) error {
 	}
 
 	if r.Status == Push {
-		if err := m.unregisterNotification(toBeNotifiedOn); err != nil {
+		if err := m.unregisterNotification([]*id.ID{toBeNotifiedOn}); err != nil {
 			return err
 		}
 	}
@@ -124,16 +134,20 @@ func (m *manager) GetGroup(group string) (Group, bool) {
 
 // registerNotification registers to receive notifications on the given
 // id from remote.
-func (m *manager) registerNotification(nid *id.ID) error {
-	iid, err := ephemeral.GetIntermediaryId(nid)
-	if err != nil {
-		return err
+func (m *manager) registerNotification(nids []*id.ID) error {
+	iidLst := make([][]byte, len(nids))
+	for i, nid := range nids {
+		iid, err := ephemeral.GetIntermediaryId(nid)
+		if err != nil {
+			return err
+		}
+		iidLst[i] = iid
 	}
 
 	ts := netTime.Now().UTC()
 
 	stream := m.rng.GetStream()
-	sig, err := notifCrypto.SignIdentity(m.transmissionRSA, iid, ts,
+	sig, err := notifCrypto.SignIdentity(m.transmissionRSA, iidLst, ts,
 		notifCrypto.RegisterTrackedIDTag, stream)
 	stream.Close()
 	if err != nil {
@@ -141,28 +155,32 @@ func (m *manager) registerNotification(nid *id.ID) error {
 	}
 
 	_, err = m.comms.RegisterTrackedID(m.notificationHost,
-		&pb.TrackedIntermediaryIDRequest{
-			TrackedIntermediaryID: iid,
-			TransmissionRSAPem:    m.transmissionRSAPubPem,
+		&pb.RegisterTrackedIdRequest{Request: &pb.TrackedIntermediaryIdRequest{
+			TrackedIntermediaryID: iidLst,
+			TransmissionRsaPem:    m.transmissionRSAPubPem,
 			RequestTimestamp:      ts.UnixNano(),
 			Signature:             sig,
-		})
+		}})
 
 	return err
 }
 
 // unregisterNotification unregisters to receive notifications on the given
 // id from remote.
-func (m *manager) unregisterNotification(nid *id.ID) error {
-	iid, err := ephemeral.GetIntermediaryId(nid)
-	if err != nil {
-		return err
+func (m *manager) unregisterNotification(nids []*id.ID) error {
+	iidLst := make([][]byte, len(nids))
+	for i, nid := range nids {
+		iid, err := ephemeral.GetIntermediaryId(nid)
+		if err != nil {
+			return err
+		}
+		iidLst[i] = iid
 	}
 
 	ts := netTime.Now().UTC()
 
 	stream := m.rng.GetStream()
-	sig, err := notifCrypto.SignIdentity(m.transmissionRSA, iid, ts,
+	sig, err := notifCrypto.SignIdentity(m.transmissionRSA, iidLst, ts,
 		notifCrypto.UnregisterTrackedIDTag, stream)
 	stream.Close()
 	if err != nil {
@@ -170,12 +188,12 @@ func (m *manager) unregisterNotification(nid *id.ID) error {
 	}
 
 	_, err = m.comms.UnregisterTrackedID(m.notificationHost,
-		&pb.TrackedIntermediaryIDRequest{
-			TrackedIntermediaryID: iid,
-			TransmissionRSAPem:    m.transmissionRSAPubPem,
+		&pb.UnregisterTrackedIdRequest{Request: &pb.TrackedIntermediaryIdRequest{
+			TrackedIntermediaryID: iidLst,
+			TransmissionRsaPem:    m.transmissionRSAPubPem,
 			RequestTimestamp:      ts.UnixNano(),
 			Signature:             sig,
-		})
+		}})
 
 	return err
 }

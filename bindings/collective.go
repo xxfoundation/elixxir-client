@@ -131,6 +131,7 @@ type RemoteStoreReport struct {
 // Get returns the object stored at the specified version.
 // returns a json of [versioned.Object]
 func (r *RemoteKV) Get(key string, version int64) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] Get(%s, %d)", key, version)
 	obj, err := r.rkv.Get(key, uint64(version))
 	if err != nil {
 		return nil, err
@@ -140,6 +141,7 @@ func (r *RemoteKV) Get(key string, version int64) ([]byte, error) {
 
 // Delete removes a given key from the data store.
 func (r *RemoteKV) Delete(key string, version int64) error {
+	jww.DEBUG.Printf("[RKV] Delete(%s, %d)", key, version)
 	return r.rkv.Delete(key, uint64(version))
 }
 
@@ -150,6 +152,7 @@ func (r *RemoteKV) Delete(key string, version int64) error {
 // The [Object] should contain the versioning if you are
 // maintaining such a functionality.
 func (r *RemoteKV) Set(key string, objectJSON []byte) error {
+	jww.DEBUG.Printf("[RKV] set(%s)", key)
 	obj := versioned.Object{}
 	err := json.Unmarshal(objectJSON, &obj)
 	if err != nil {
@@ -170,6 +173,8 @@ func (r *RemoteKV) HasPrefix(prefix string) bool {
 
 // Prefix returns a new KV with the new prefix appending
 func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
+	jww.DEBUG.Printf("[RKV] Prefix(%s)", prefix)
+
 	newK, err := r.rkv.Prefix(prefix)
 	if err != nil {
 		return nil, err
@@ -182,6 +187,8 @@ func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
 
 // Root returns the KV with no prefixes
 func (r *RemoteKV) Root() (*RemoteKV, error) {
+	jww.DEBUG.Printf("[RKV] Root()")
+
 	newK, err := r.rkv.Root().Prefix("bindings")
 	if err != nil {
 		return nil, err
@@ -208,6 +215,8 @@ func (r *RemoteKV) GetFullKey(key string, version int64) string {
 // If the op returns an error, the operation will be aborted.
 func (r *RemoteKV) Transaction(key string, op TransactionOperation,
 	version int64) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] Transaction(%s, %d)", key, version)
+
 	bindingsOp := func(old *versioned.Object, existed bool) (
 		data *versioned.Object, err error) {
 		oldJSON, err := json.Marshal(old)
@@ -245,6 +254,8 @@ func (r *RemoteKV) Transaction(key string, op TransactionOperation,
 // valueJSON is a json of a versioned.Object
 func (r *RemoteKV) StoreMapElement(mapName, elementKey string,
 	valueJSON []byte, version int64) error {
+	jww.DEBUG.Printf("[RKV] StoreMapElement(%s, %s, %d)", mapName, elementKey,
+		version)
 	obj := versioned.Object{}
 	err := json.Unmarshal(valueJSON, &obj)
 	if err != nil {
@@ -260,6 +271,7 @@ func (r *RemoteKV) StoreMapElement(mapName, elementKey string,
 // valueJSON is a json of map[string]*versioned.Object
 func (r *RemoteKV) StoreMap(mapName string,
 	valueJSON []byte, version int64) error {
+	jww.DEBUG.Printf("[RKV] StoreMap(%s, %d)", mapName, version)
 	obj := make(map[string]*versioned.Object)
 	err := json.Unmarshal(valueJSON, &obj)
 	if err != nil {
@@ -271,6 +283,8 @@ func (r *RemoteKV) StoreMap(mapName string,
 // DeleteMapElement removes a versioned map element from the KV.
 func (r *RemoteKV) DeleteMapElement(mapName, elementName string,
 	mapVersion int64) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] DeleteMapElement(%s, %s, %d)", mapName,
+		elementName, mapVersion)
 	oldVal, err := r.rkv.DeleteMapElement(mapName, elementName,
 		uint64(mapVersion))
 	if err != nil {
@@ -287,6 +301,7 @@ func (r *RemoteKV) DeleteMapElement(mapName, elementName string,
 // on the underlying remote [KV.GetMap] function to lock and control
 // updates, but it uses [versioned.Object] values.
 func (r *RemoteKV) GetMap(mapName string, version int64) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] GetMap(%s, %d)", mapName, version)
 	mapData, err := r.rkv.GetMap(mapName, uint64(version))
 	if err != nil {
 		return nil, err
@@ -299,6 +314,8 @@ func (r *RemoteKV) GetMap(mapName string, version int64) ([]byte, error) {
 // updates, but it uses [versioned.Object] values.
 func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 	[]byte, error) {
+	jww.DEBUG.Printf("[RKV] GetMapElement(%s, %s, %d)", mapName, element, version)
+
 	obj, err := r.rkv.GetMapElement(mapName, element, uint64(version))
 	if err != nil {
 		return nil, err
@@ -312,6 +329,8 @@ func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 	callback KeyChangedByRemoteCallback) ([]byte,
 	error) {
+
+	jww.DEBUG.Printf("[RKV] ListenOnRemoteKey(%s, %d)", key, version)
 
 	bindingsCb := func(key string,
 		old, new *versioned.Object, op versioned.KeyOperation) {
@@ -337,6 +356,7 @@ func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 // map[string]versioned.Object of the current map value.
 func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
 	callback MapChangedByRemoteCallback) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] ListenOnRemoteMap(%s, %d)", mapName, version)
 
 	bindingsCb := func(mapName string,
 		edits map[string]versioned.ElementEdit) {

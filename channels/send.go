@@ -222,7 +222,8 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			userMessage:    usrMsg,
 			channelMessage: chMsg,
 			messageID:      messageID,
-		}, messageType)
+			messageType:    messageType,
+		})
 		if err != nil {
 			printErr = true
 			log += fmt.Sprintf(

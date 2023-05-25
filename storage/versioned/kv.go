@@ -85,12 +85,6 @@ type KV interface {
 	DeleteMapElement(mapName, elementName string, mapVersion uint64) (
 		*Object, error)
 
-	// Transaction locks a key while it is being mutated then stores the result
-	// and returns the old value if it existed.
-	// If the op returns an error, the operation will be aborted.
-	Transaction(key string, op TransactionOperation, version uint64) (
-		old *Object, existed bool, err error)
-
 	// ListenOnRemoteKey allows the caller to receive updates when
 	// a key is updated by synching with another client.
 	// Only one callback can be written per key.
@@ -140,6 +134,7 @@ type KeyChangedByRemoteCallback func(key string, old, new *Object, op KeyOperati
 // MapChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
 type MapChangedByRemoteCallback func(mapName string, edits map[string]ElementEdit)
+
 type ElementEdit struct {
 	OldElement *Object
 	NewElement *Object
@@ -169,14 +164,6 @@ func (ko KeyOperation) String() string {
 
 type TransactionOperation func(old *Object, existed bool) (data *Object,
 	err error)
-
-type MutualTransactionOperation func(map[string]Value) (
-	updates map[string]Value, err error)
-
-type Value struct {
-	Obj    *Object
-	Exists bool
-}
 
 // MakePartnerPrefix creates a string prefix
 // to denote who a conversation or relationship is with

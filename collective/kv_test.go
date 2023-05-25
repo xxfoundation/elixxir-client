@@ -44,7 +44,7 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 
 	// Create expected remote kv
 	expected := &internalKV{
-		local:              kv,
+		kv:                 kv,
 		txLog:              txLog,
 		keyUpdateListeners: make(map[string]KeyUpdateCallback),
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
@@ -70,7 +70,7 @@ func TestNewOrLoadRemoteKv_Loading(t *testing.T) {
 	// Create remote kv
 	rkv := newKV(txLog, kv)
 
-	instance, err := GetInstanceID(rkv.local)
+	instance, err := GetInstanceID(rkv.kv)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, instance.String())

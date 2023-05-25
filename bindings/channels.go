@@ -2928,6 +2928,7 @@ const (
 	MessageReceived
 	UserMuted
 	MessageDeleted
+	AdminKeyUpdate
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a
@@ -3260,12 +3261,39 @@ type MessageDeletedJson struct {
 	MessageID message.ID `json:"messageID"`
 }
 
+// AdminKeysUpdateJson describes when you get or loose keys for a specific
+// channel
+//
+//	{
+//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	 "hasKeys":true
+//	}
+type AdminKeysUpdateJson struct {
+	ChannelId *id.ID `json:"channelID"`
+	isAdmin   bool   `json:"isAdmin"`
+}
+
 type ChannelUICallbacks interface {
 	EventUpdate(eventType int64, jsonData []byte)
 }
 
 type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks
+}
+
+func (cuicbw *ChannelUICallbacksWrapper) UpdateAdminKeys(chID *id.ID, isAdmin bool) {
+
+	akJson := &AdminKeysUpdateJson{
+		ChannelId: chID,
+		isAdmin:   false,
+	}
+	jsonBytes, err := json.Marshal(akJson)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json admin keys update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(AdminKeyUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,

@@ -328,7 +328,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	// Construct new channels manager
 	m, err := channels.NewManager(pi, channelsKV, user.api.GetCmix(),
 		user.api.GetRng(), model, extensionBuilders, user.api.AddService,
-		notif, wrap)
+		notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 
 	// Construct new channels manager
 	m, err := channels.LoadManager(storageTag, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), model, extensionBuilders, notif, wrap)
+		user.api.GetRng(), model, extensionBuilders, notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -470,8 +470,8 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 
 	// Construct new channels manager
 	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), eb, extensionBuilders, user.api.AddService, notif,
-		wrap)
+		user.api.GetRng(), eb, extensionBuilders, user.api.AddService,
+		notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +537,8 @@ func LoadChannelsManager(cmixID int, storageTag string,
 
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(), eb, extensionBuilders, notif, wrap)
+		user.api.GetCmix(), user.api.GetRng(), eb, extensionBuilders,
+		notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +606,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	// Construct new channels manager
 	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
 		user.api.GetRng(), goEventBuilder, extensionBuilders,
-		user.api.AddService, notif, cbs)
+		user.api.AddService, notif.manager, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -665,7 +666,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
-		extensionBuilders, notif, cbs)
+		extensionBuilders, notif.manager, cbs)
 	if err != nil {
 		return nil, err
 	}

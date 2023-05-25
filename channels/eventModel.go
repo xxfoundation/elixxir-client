@@ -915,7 +915,7 @@ func (e *events) receiveAdminReplay(channelID *id.ID, messageID message.ID,
 		return 0
 	}
 
-	go p.ProcessAdminMessage(content, nil, uint16(messageType),
+	go p.ProcessAdminMessage(content, nil, messageType.Marshal(),
 		receptionID.EphemeralIdentity{}, round)
 	return 0
 }

@@ -158,7 +158,7 @@ func (tp *testProcessor) Process(
 	tp.c <- struct{}{}
 }
 func (tp *testProcessor) ProcessAdminMessage(
-	[]byte, []string, uint16, receptionID.EphemeralIdentity, rounds.Round) {
+	[]byte, []string, [2]byte, receptionID.EphemeralIdentity, rounds.Round) {
 	tp.c <- struct{}{}
 }
 func (tp *testProcessor) String() string { return "testProcessor" }
@@ -174,7 +174,7 @@ func (tap *testAdminProcessor) Process(
 	tap.c <- struct{}{}
 }
 func (tap *testAdminProcessor) ProcessAdminMessage(
-	innerCiphertext []byte, _ []string, _ uint16, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+	innerCiphertext []byte, _ []string, _ [2]byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	tap.adminMsgChan <- innerCiphertext
 }
 func (tap *testAdminProcessor) String() string { return "testProcessor" }

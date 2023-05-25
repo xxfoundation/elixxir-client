@@ -30,8 +30,8 @@ type userListener struct {
 
 // Listen is called when a message is received for the user listener.
 func (ul *userListener) Listen(payload, encryptedPayload []byte, tags []string,
-	messageType uint16, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	mt := MessageType(messageType)
+	metadata [2]byte, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	mt := UnmarshalMessageType(metadata)
 	// Decode the message as a user message
 	umi, err := unmarshalUserMessageInternal(payload, ul.chID, mt)
 	if err != nil {

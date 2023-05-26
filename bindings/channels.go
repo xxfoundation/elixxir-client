@@ -1180,8 +1180,8 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 		lease = channels.ValidForever
 	}
 
-	var pings []ed25519.PublicKey
-	if err = json.Unmarshal(pingsJSON, &pings); err != nil {
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1247,8 +1247,8 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
-	var pings []ed25519.PublicKey
-	if err = json.Unmarshal(pingsJSON, &pings); err != nil {
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1324,8 +1324,8 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
-	var pings []ed25519.PublicKey
-	if err = json.Unmarshal(pingsJSON, &pings); err != nil {
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
 		return nil, err
 	}
 
@@ -3408,4 +3408,12 @@ func (cuicbw *ChannelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
 	}
 
 	cuicbw.Cuic.EventUpdate(MessageDeleted, jsonBytes)
+}
+
+func unmarshalPingsJson(b []byte) ([]ed25519.PublicKey, error) {
+	var pings []ed25519.PublicKey
+	if b != nil && len(b) > 0 {
+		return pings, json.Unmarshal(b, &pings)
+	}
+	return pings, nil
 }

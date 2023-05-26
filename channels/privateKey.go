@@ -255,35 +255,13 @@ func (akm *adminKeysManager) mapUpdate(
 		}
 
 		if edit.Operation == versioned.Deleted {
-			if err := akm.deleteChannelPrivateKey(chanId); err != nil {
-				jww.WARN.Printf("Failed to delete channel's private key "+
-					"for %s, skipping: %+v", elementName, err)
-				continue
-			}
-
-			continue
-		}
-
-		if edit.Operation == versioned.Created ||
+			akm.callback(chanId, false)
+		} else if edit.Operation == versioned.Created ||
 			edit.Operation == versioned.Updated {
+			akm.callback(chanId, true)
 		} else {
 			jww.WARN.Printf("Failed to handle admin key update %s, "+
 				"bad operation: %s, skipping", elementName, edit.Operation)
-			continue
-		}
-
-		newUpdate, err := rsa.GetScheme().UnmarshalPrivateKeyPEM(
-			edit.NewElement.Data)
-		if err != nil {
-			jww.WARN.Printf("Failed to unmarshal data in admin key update %s, "+
-				"bad operation: %s, skipping", elementName, edit.Operation)
-			continue
-		}
-
-		if err = akm.saveChannelPrivateKey(chanId, newUpdate); err != nil {
-			jww.WARN.Printf("Failed to save channel's private key "+
-				"for %s, skipping: %+v", elementName, err)
-			continue
 		}
 	}
 }

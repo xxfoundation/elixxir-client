@@ -189,12 +189,18 @@ func (akm *adminKeysManager) saveChannelPrivateKey(
 	channelID *id.ID, pk rsa.PrivateKey) error {
 
 	elementName := marshalChID(channelID)
-	return akm.remote.StoreMapElement(adminKeysMapName, elementName,
+	err := akm.remote.StoreMapElement(adminKeysMapName, elementName,
 		&versioned.Object{
 			Version:   adminKeysMapVersion,
 			Timestamp: netTime.Now(),
 			Data:      pk.MarshalPem(),
 		}, adminKeysMapVersion)
+	if err != nil {
+		return err
+	}
+
+	go akm.callback(channelID, true)
+	return nil
 }
 
 // loadChannelPrivateKey retrieves the [rsa.PrivateKey] for the given channel ID
@@ -219,7 +225,12 @@ func (akm *adminKeysManager) deleteChannelPrivateKey(
 	channelID *id.ID) error {
 	elementName := marshalChID(channelID)
 	_, err := akm.remote.DeleteMapElement(adminKeysMapName, elementName, adminKeysMapVersion)
-	return err
+	if err != nil {
+		return err
+	}
+
+	go akm.callback(channelID, true)
+	return nil
 }
 
 // mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
@@ -286,7 +297,7 @@ func (akm *adminKeysManager) mapUpdate(
 }
 
 // report is a helper function which reports every AdminKeyUpdate to the
-// UpdateAdminKeys callback.
+// AdminKeysUpdate callback.
 func (akm *adminKeysManager) report(updates map[id.ID]bool) {
 	if akm.callback != nil {
 		for ch, isAdmin := range updates {
@@ -309,7 +320,7 @@ func (akm *adminKeysManager) reportNewAdmin(channelID *id.ID) {
 
 // adminKeyUpdates is a tracker for any modified channel admin key. This
 // is used by [adminKeysManager.mapUpdate] and every element of [modified]
-// is reported as a [AdminKeyUpdate] to the [UpdateAdminKeys] callback.
+// is reported as a [AdminKeyUpdate] to the [AdminKeysUpdate] callback.
 type adminKeyUpdates struct {
 	modified map[id.ID]bool
 }

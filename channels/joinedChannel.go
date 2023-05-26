@@ -86,9 +86,23 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 			}
 			continue
 		} else if edit.Operation == versioned.Updated {
-			jww.WARN.Printf("Received update from remote for %s, "+
-				"updates not supported", channelID)
-			continue
+			jc, err := m.getChannelUnsafe(channelID)
+			if err != nil {
+				jww.WARN.Printf("Failed to update "+
+					"channel on instruction from remote %s: %+v", channelID,
+					err)
+				continue
+			}
+			jcd := &joinedChannelDisk{}
+			err = json.Unmarshal(edit.NewElement.Data, jcd)
+			if err != nil {
+				jww.WARN.Printf("Failed to update "+
+					"channel on instruction from remote %s: %+v", channelID,
+					err)
+				continue
+			}
+			jc.dmEnabled = jcd.DmEnabled
+			go m.dmCallback(channelID, jc.dmEnabled)
 		}
 
 		jc, err := m.setUpJoinedChannel(edit.NewElement.Data)

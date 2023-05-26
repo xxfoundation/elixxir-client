@@ -469,9 +469,12 @@ type UiCallbacks interface {
 		changedNotificationStates []NotificationState,
 		deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState)
 
-	// UpdateAdminKeys is a callback be called when a channel's admin key is
+	// AdminKeysUpdate is a callback be called when a channel's admin key is
 	// added or removed. (See [Manager.ImportChannelAdminKey] or
-	// [Manager.DeleteChannelAdminKey]). This will pass along a list of
-	// AdminKeyUpdate as a report.
-	UpdateAdminKeys(chID *id.ID, isAdmin bool)
+	// [Manager.DeleteChannelAdminKey]).
+	AdminKeysUpdate(chID *id.ID, isAdmin bool)
+
+	// DmTokenUpdate is a callback be called when a channel's dm token state is
+	// changed
+	DmTokenUpdate(chID *id.ID, sendToken bool)
 }

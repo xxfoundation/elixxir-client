@@ -69,7 +69,13 @@ func (nm *nicknameManager) SetNickname(nickname string, channelID *id.ID) error 
 		return err
 	}
 
-	return nm.setNicknameUnsafe(nickname, channelID)
+	if err := nm.setNicknameUnsafe(nickname, channelID); err != nil {
+		return err
+	}
+
+	go nm.callback(channelID, nickname, true)
+
+	return nil
 }
 
 // DeleteNickname removes the nickname for a given channel. The name will revert
@@ -78,7 +84,13 @@ func (nm *nicknameManager) DeleteNickname(channelID *id.ID) error {
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	return nm.deleteNicknameUnsafe(channelID)
+	if err := nm.deleteNicknameUnsafe(channelID); err != nil {
+		return err
+	}
+
+	go nm.callback(channelID, "", false)
+
+	return nil
 }
 
 // GetNickname returns the nickname for the given channel if it exists.

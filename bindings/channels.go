@@ -2929,6 +2929,7 @@ const (
 	UserMuted
 	MessageDeleted
 	AdminKeyUpdate
+	DmTokenUpdate
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a
@@ -3261,7 +3262,7 @@ type MessageDeletedJson struct {
 	MessageID message.ID `json:"messageID"`
 }
 
-// AdminKeysUpdateJson describes when you get or loose keys for a specific
+// AdminKeysUpdateJson describes when you get or lose keys for a specific
 // channel
 //
 //	{
@@ -3273,6 +3274,18 @@ type AdminKeysUpdateJson struct {
 	isAdmin   bool   `json:"isAdmin"`
 }
 
+// DmTokenUpdateJson describes when the sending of dm tokens is enabled or
+// disabled on a specific channel
+//
+//	{
+//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	 "sendToken":true
+//	}
+type DmTokenUpdateJson struct {
+	ChannelId *id.ID `json:"channelID"`
+	SendToken bool   `json:"sendToken"`
+}
+
 type ChannelUICallbacks interface {
 	EventUpdate(eventType int64, jsonData []byte)
 }
@@ -3281,11 +3294,26 @@ type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) UpdateAdminKeys(chID *id.ID, isAdmin bool) {
+func (cuicbw *ChannelUICallbacksWrapper) DmTokenUpdate(chID *id.ID, sendToken bool) {
+
+	dmtJson := &DmTokenUpdateJson{
+		ChannelId: chID,
+		SendToken: sendToken,
+	}
+	jsonBytes, err := json.Marshal(dmtJson)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json dm token update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(DmTokenUpdate, jsonBytes)
+}
+
+func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
 
 	akJson := &AdminKeysUpdateJson{
 		ChannelId: chID,
-		isAdmin:   false,
+		isAdmin:   isAdmin,
 	}
 	jsonBytes, err := json.Marshal(akJson)
 	if err != nil {

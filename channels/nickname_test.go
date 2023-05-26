@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -123,8 +124,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 	numIDs := 100
 
 	wg := &sync.WaitGroup{}
-	wg.Add(numIDs)
-
+	wg.Add(101)
 	expectedUpdates := make(map[id.ID]nicknameUpdate, numIDs)
 	edits := make(map[string]versioned.ElementEdit, numIDs)
 
@@ -132,8 +132,13 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 	mux := &sync.RWMutex{}
 	mux.Lock()
 
+	skip := uint64(1)
+
 	// check that all callbacks get called correctly
 	testingCB := func(channelId *id.ID, nickname string, exists bool) {
+		if atomic.LoadUint64(&skip) == 1 {
+			return
+		}
 		mux.RLock()
 		defer mux.RUnlock()
 		receivedUpdate := nicknameUpdate{
@@ -157,6 +162,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 
 	// build the input and output data
 	for i := 0; i < numIDs; i++ {
+
 		cid := &id.ID{}
 		cid[0] = byte(i)
 
@@ -205,6 +211,8 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 			Operation: op,
 		}
 	}
+
+	atomic.StoreUint64(&skip, 0)
 
 	nm.callback = testingCB
 

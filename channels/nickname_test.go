@@ -129,9 +129,13 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 	edits := make(map[string]versioned.ElementEdit, numIDs)
 
 	rng := rand.New(rand.NewSource(69))
+	mux := &sync.RWMutex{}
+	mux.Lock()
 
 	// check that all callbacks get called correctly
 	testingCB := func(channelId *id.ID, nickname string, exists bool) {
+		mux.RLock()
+		defer mux.RUnlock()
 		receivedUpdate := nicknameUpdate{
 			ChannelId:      channelId,
 			Nickname:       nickname,
@@ -205,6 +209,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 	nm.callback = testingCB
 
 	nm.mapUpdate(nicknameMapName, edits)
+	mux.Unlock()
 
 	wg.Wait()
 

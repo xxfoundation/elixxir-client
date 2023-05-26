@@ -348,8 +348,9 @@ func TestGetNotificationReportsForMe(t *testing.T) {
 						tags[j] = makeUserPingTag(makeEd25519PubKey(rng, t))
 					}
 
+					mtByte := mt.Marshal()
 					cSIH, err := sih.MakeCompressedSIH(
-						chanID, msgHash, identifier, tags, mt.Marshal())
+						chanID, msgHash, identifier, tags, mtByte[:])
 					if err != nil {
 						t.Fatalf("Failed to make compressed SIH: %+v", err)
 					}
@@ -656,7 +657,7 @@ func newMockCG(n int, t testing.TB) *mockCG {
 			channelID:      chanID,
 			asymIdentifier: append(chanID.Bytes(), []byte("asymIdentifier")...),
 			symIdentifier:  append(chanID.Bytes(), []byte("symIdentifier")...),
-		}}
+		}, true}
 	}
 	return cg
 }

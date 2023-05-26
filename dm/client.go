@@ -171,6 +171,16 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 	return blocked
 }
 
+// BlockSender blocks DMs from the sender with the passed in public key.
+func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
+	dc.receiver.BlockSender(senderPubKey)
+}
+
+// UnblockSender unblocks DMs from the sender with the passed in public key.
+func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
+	dc.receiver.UnblockSender(senderPubKey)
+}
+
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
 // string.
 func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {

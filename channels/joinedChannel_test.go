@@ -10,20 +10,13 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"encoding/binary"
-	"reflect"
-	"sort"
-	"strconv"
-	"sync"
-	"testing"
-	"time"
-
-	"gitlab.com/elixxir/client/v4/broadcast"
+	"encoding/base64"
 	clientCmix "gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -32,43 +25,92 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
+	"reflect"
+	"sort"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
 )
 
 // Tests that manager.store stores the channel list in the ekv.
-func Test_manager_store(t *testing.T) {
-	m := newTestManager(t)
+func Test_manager_setGet(t *testing.T) {
+	rng := rand.New(rand.NewSource(64))
 
-	for i := 0; i < 10; i++ {
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+	mFace, err := NewManagerBuilder(pi, kv,
+		new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
+
+	numtests := 5
+
+	idsList := make([]*id.ID, 0, numtests)
+
+	stream := m.rng.GetStream()
+	for i := 0; i < numtests; i++ {
 		ch, _, err := newTestChannel(
 			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i),
-			m.rng.GetStream(), cryptoBroadcast.Public)
+			stream, cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
 
-		b, err := broadcast.NewBroadcastChannel(ch, m.net, m.rng)
-		if err != nil {
+		if err = m.addChannel(ch, true); err != nil {
 			t.Errorf("Failed to make new broadcast channel: %+v", err)
 		}
 
-		m.channels[*ch.ReceptionID] = &joinedChannel{b}
-	}
+		idsList = append(idsList, ch.ReceptionID)
 
-	err := m.store()
+	}
+	stream.Close()
+
+	chMap, err := m.remote.GetMap(joinedChannelsMap, joinedChannelsMapVersion)
 	if err != nil {
-		t.Errorf("Error storing channels: %+v", err)
+		t.Fatalf("failed to get the map")
 	}
 
-	_, err = m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
-	if !ekv.Exists(err) {
-		t.Errorf("channel list not found in KV: %+v", err)
+	for _, chID := range idsList {
+		if _, exists := chMap[base64.StdEncoding.EncodeToString(chID[:])]; !exists {
+			t.Errorf("channel %s not found in KV: %+v", chID, err)
+		}
 	}
+
 }
 
 // Tests that the manager.loadChannels loads all the expected channels from the
 // ekv.
 func Test_manager_loadChannels(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	expected := make([]*joinedChannel, 10)
 
@@ -80,29 +122,20 @@ func Test_manager_loadChannels(t *testing.T) {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
 
-		b, err := broadcast.NewBroadcastChannel(ch, m.net, m.rng)
+		err = m.addChannel(ch, true)
 		if err != nil {
-			t.Errorf("Failed to make new broadcast channel: %+v", err)
+			t.Errorf("Failed to add new channel %d: %+v", i, err)
 		}
-
-		jc := &joinedChannel{b}
-		if err = jc.Store(m.kv); err != nil {
-			t.Errorf("Failed to store joinedChannel %d: %+v", i, err)
-		}
-
-		chID := *ch.ReceptionID
-		m.channels[chID] = jc
-		expected[i] = jc
 	}
 
-	err := m.store()
 	if err != nil {
 		t.Errorf("Error storing channels: %+v", err)
 	}
 
 	newManager := &manager{
 		channels:       make(map[id.ID]*joinedChannel),
-		kv:             m.kv,
+		local:          m.local,
+		remote:         m.remote,
 		net:            m.net,
 		rng:            m.rng,
 		events:         &events{broadcast: newProcessorList()},
@@ -135,9 +168,26 @@ func Test_manager_loadChannels(t *testing.T) {
 }
 
 // Tests that manager.addChannel adds the channel to the map and stores it in
-// the kv.
+// the local.
 func Test_manager_addChannel(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -145,7 +195,7 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
 
-	err = m.addChannel(ch)
+	err = m.addChannel(ch, true)
 	if err != nil {
 		t.Errorf("Failed to add new channel: %+v", err)
 	}
@@ -154,21 +204,39 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Errorf("Channel %s not added to channel map.", ch.Name)
 	}
 
-	_, err = m.kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
+	_, err = m.remote.GetMapElement(joinedChannelsMap,
+		base64.StdEncoding.EncodeToString(ch.ReceptionID[:]), joinedChannelsMapVersion)
 	if err != nil {
-		t.Errorf("Failed to get joinedChannel from kv: %+v", err)
+		t.Errorf("Failed to get joinedChannel from local: %+v", err)
 	}
 
-	_, err = m.kv.Get(joinedChannelsKey, joinedChannelsVersion)
+	_, err = m.local.GetMap(joinedChannelsMap, joinedChannelsMapVersion)
 	if err != nil {
-		t.Errorf("Failed to get channels from kv: %+v", err)
+		t.Errorf("Failed to get channels from local: %+v", err)
 	}
 }
 
 // Error path: tests that manager.addChannel returns ChannelAlreadyExistsErr
 // when the channel was already added.
 func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -176,12 +244,12 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
 
-	err = m.addChannel(ch)
+	err = m.addChannel(ch, true)
 	if err != nil {
 		t.Errorf("Failed to add new channel: %+v", err)
 	}
 
-	err = m.addChannel(ch)
+	err = m.addChannel(ch, true)
 	if err == nil || err != ChannelAlreadyExistsErr {
 		t.Errorf("Received incorrect error when adding a channel that already "+
 			"exists.\nexpected: %s\nreceived: %+v", ChannelAlreadyExistsErr, err)
@@ -190,7 +258,24 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 
 // Tests the manager.removeChannel deletes the channel from the map.
 func Test_manager_removeChannel(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -198,7 +283,7 @@ func Test_manager_removeChannel(t *testing.T) {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
 
-	err = m.addChannel(ch)
+	err = m.addChannel(ch, true)
 	if err != nil {
 		t.Errorf("Failed to add new channel: %+v", err)
 	}
@@ -212,16 +297,34 @@ func Test_manager_removeChannel(t *testing.T) {
 		t.Errorf("Channel %s was not remove from the channel map.", ch.Name)
 	}
 
-	_, err = m.kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
+	_, err = m.remote.GetMapElement(joinedChannelsMap,
+		base64.StdEncoding.EncodeToString(ch.ReceptionID[:]), joinedChannelsMapVersion)
 	if ekv.Exists(err) {
-		t.Errorf("joinedChannel not removed from kv: %+v", err)
+		t.Errorf("joinedChannel not removed from local: %+v", err)
 	}
 }
 
 // Error path: tests that manager.removeChannel returns ChannelDoesNotExistsErr
 // when the channel was never added.
 func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -239,7 +342,24 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 // Tests the manager.getChannel returns the expected channel.
 func Test_manager_getChannel(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -247,7 +367,7 @@ func Test_manager_getChannel(t *testing.T) {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
 
-	err = m.addChannel(ch)
+	err = m.addChannel(ch, true)
 	if err != nil {
 		t.Errorf("Failed to add new channel: %+v", err)
 	}
@@ -266,7 +386,24 @@ func Test_manager_getChannel(t *testing.T) {
 // Error path: tests that manager.getChannel returns ChannelDoesNotExistsErr
 // when the channel was never added.
 func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
@@ -285,7 +422,24 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 // Tests that manager.getChannels returns all the channels that were added to
 // the map.
 func Test_manager_getChannels(t *testing.T) {
-	m := newTestManager(t)
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
+	}
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs, nil)
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	m := mFace.(*manager)
 
 	expected := make([]*id.ID, 10)
 
@@ -298,7 +452,7 @@ func Test_manager_getChannels(t *testing.T) {
 		}
 		expected[i] = ch.ReceptionID
 
-		err = m.addChannel(ch)
+		err = m.addChannel(ch, true)
 		if err != nil {
 			t.Errorf("Failed to add new channel %d: %+v", i, err)
 		}
@@ -316,129 +470,6 @@ func Test_manager_getChannels(t *testing.T) {
 	if !reflect.DeepEqual(expected, channelIDs) {
 		t.Errorf("ID list does not match expected.\nexpected: %v\nreceived: %v",
 			expected, channelIDs)
-	}
-}
-
-// Tests that joinedChannel.Store saves the joinedChannel to the expected place
-// in the ekv.
-func Test_joinedChannel_Store(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	ch, _, err := newTestChannel(
-		"name", "description", rng.GetStream(), cryptoBroadcast.Public)
-	if err != nil {
-		t.Errorf("Failed to create new channel: %+v", err)
-	}
-
-	b, err := broadcast.NewBroadcastChannel(ch, new(mockBroadcastClient), rng)
-	if err != nil {
-		t.Errorf("Failed to create new broadcast channel: %+v", err)
-	}
-
-	jc := &joinedChannel{b}
-
-	err = jc.Store(kv)
-	if err != nil {
-		t.Errorf("Error storing joinedChannel: %+v", err)
-	}
-
-	_, err = kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
-	if !ekv.Exists(err) {
-		t.Errorf("joinedChannel not found in KV: %+v", err)
-	}
-}
-
-// Tests that loadJoinedChannel returns a joinedChannel from storage that
-// matches the original.
-func Test_loadJoinedChannel(t *testing.T) {
-	m := newTestManager(t)
-
-	ch, _, err := newTestChannel(
-		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
-	if err != nil {
-		t.Errorf("Failed to create new channel: %+v", err)
-	}
-
-	err = m.addChannel(ch)
-	if err != nil {
-		t.Errorf("Failed to add channel: %+v", err)
-	}
-
-	loadedJc, err := m.loadJoinedChannel(ch.ReceptionID)
-	if err != nil {
-		t.Errorf("Failed to load joinedChannel: %+v", err)
-	}
-
-	expected := *ch
-	received := *loadedJc.broadcast.Get()
-	// NOTE: Times don't compare properly after marshalling due to the
-	// monotonic counter
-	if expected.Created.Equal(received.Created) {
-		expected.Created = received.Created
-	}
-
-	if !reflect.DeepEqual(expected, received) {
-		t.Errorf("Loaded joinedChannel does not match original."+
-			"\nexpected: %+v\nreceived: %+v", expected, received)
-	}
-}
-
-// Tests that joinedChannel.delete deletes the stored joinedChannel from the
-// ekv.
-func Test_joinedChannel_delete(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	ch, _, err := newTestChannel(
-		"name", "description", rng.GetStream(), cryptoBroadcast.Public)
-	if err != nil {
-		t.Errorf("Failed to create new channel: %+v", err)
-	}
-
-	b, err := broadcast.NewBroadcastChannel(ch, new(mockBroadcastClient), rng)
-	if err != nil {
-		t.Errorf("Failed to create new broadcast channel: %+v", err)
-	}
-
-	jc := &joinedChannel{b}
-
-	err = jc.Store(kv)
-	if err != nil {
-		t.Errorf("Error storing joinedChannel: %+v", err)
-	}
-
-	err = jc.delete(kv)
-	if err != nil {
-		t.Errorf("Error deleting joinedChannel: %+v", err)
-	}
-
-	_, err = kv.Get(makeJoinedChannelKey(ch.ReceptionID), joinedChannelVersion)
-	if ekv.Exists(err) {
-		t.Errorf("joinedChannel found in KV: %+v", err)
-	}
-}
-
-// Consistency test of makeJoinedChannelKey.
-func Test_makeJoinedChannelKey_Consistency(t *testing.T) {
-	values := map[*id.ID]string{
-		id.NewIdFromUInt(0, id.User, t): "JoinedChannelKey-0x0000000000000000000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(1, id.User, t): "JoinedChannelKey-0x0000000000000001000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(2, id.User, t): "JoinedChannelKey-0x0000000000000002000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(3, id.User, t): "JoinedChannelKey-0x0000000000000003000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(4, id.User, t): "JoinedChannelKey-0x0000000000000004000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(5, id.User, t): "JoinedChannelKey-0x0000000000000005000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(6, id.User, t): "JoinedChannelKey-0x0000000000000006000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(7, id.User, t): "JoinedChannelKey-0x0000000000000007000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(8, id.User, t): "JoinedChannelKey-0x0000000000000008000000000000000000000000000000000000000000000000",
-		id.NewIdFromUInt(9, id.User, t): "JoinedChannelKey-0x0000000000000009000000000000000000000000000000000000000000000000",
-	}
-
-	for chID, expected := range values {
-		key := makeJoinedChannelKey(chID)
-
-		if expected != key {
-			t.Errorf("Unexpected key for ID %d.\nexpected: %s\nreceived: %s",
-				binary.BigEndian.Uint64(chID[:8]), expected, key)
-		}
 	}
 }
 
@@ -467,18 +498,20 @@ func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
+
+func (m *mockBroadcastClient) IsHealthy() bool                                        { return true }
 func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
 func (m *mockBroadcastClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {
 }
-func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
 func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
-func (m *mockBroadcastClient) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {
+func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
+func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
+func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
 }
-func (m *mockBroadcastClient) DeleteClientService(*id.ID)          {}
-func (m *mockBroadcastClient) IsHealthy() bool                     { return true }
 func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
 func (m *mockBroadcastClient) RemoveHealthCallback(uint64)         {}
-func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
+func (m *mockBroadcastClient) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////

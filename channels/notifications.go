@@ -284,8 +284,11 @@ func GetNotificationReportsForMe(nfs []NotificationFilter,
 				continue
 			}
 
+			var b [2]byte
+			copy(b[:], metadata)
+
 			if found {
-				messageType := UnmarshalMessageType(metadata)
+				messageType := UnmarshalMessageType(b)
 				if nf.match(matchedTags, messageType) {
 					nr = append(nr, NotificationReport{
 						Channel: nf.ChannelID,

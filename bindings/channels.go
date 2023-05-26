@@ -1181,8 +1181,8 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 		lease = channels.ValidForever
 	}
 
-	var pings []ed25519.PublicKey
-	if err = json.Unmarshal(pingsJSON, &pings); err != nil {
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1248,8 +1248,8 @@ func (cm *ChannelsManager) SendMessage(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
-	var pings []ed25519.PublicKey
-	if err = json.Unmarshal(pingsJSON, &pings); err != nil {
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1325,8 +1325,8 @@ func (cm *ChannelsManager) SendReply(channelIdBytes []byte, message string,
 		lease = channels.ValidForever
 	}
 
-	var pings []ed25519.PublicKey
-	if err = json.Unmarshal(pingsJSON, &pings); err != nil {
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
 		return nil, err
 	}
 
@@ -2929,6 +2929,8 @@ const (
 	MessageReceived
 	UserMuted
 	MessageDeleted
+	AdminKeyUpdate
+	DmTokenUpdate
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a
@@ -3261,12 +3263,66 @@ type MessageDeletedJson struct {
 	MessageID message.ID `json:"messageID"`
 }
 
+// AdminKeysUpdateJson describes when you get or lose keys for a specific
+// channel
+//
+//	{
+//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	 "hasKeys":true
+//	}
+type AdminKeysUpdateJson struct {
+	ChannelId *id.ID `json:"channelID"`
+	isAdmin   bool   `json:"isAdmin"`
+}
+
+// DmTokenUpdateJson describes when the sending of dm tokens is enabled or
+// disabled on a specific channel
+//
+//	{
+//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	 "sendToken":true
+//	}
+type DmTokenUpdateJson struct {
+	ChannelId *id.ID `json:"channelID"`
+	SendToken bool   `json:"sendToken"`
+}
+
 type ChannelUICallbacks interface {
 	EventUpdate(eventType int64, jsonData []byte)
 }
 
 type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks
+}
+
+func (cuicbw *ChannelUICallbacksWrapper) DmTokenUpdate(chID *id.ID, sendToken bool) {
+
+	dmtJson := &DmTokenUpdateJson{
+		ChannelId: chID,
+		SendToken: sendToken,
+	}
+	jsonBytes, err := json.Marshal(dmtJson)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json dm token update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(DmTokenUpdate, jsonBytes)
+}
+
+func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
+
+	akJson := &AdminKeysUpdateJson{
+		ChannelId: chID,
+		isAdmin:   isAdmin,
+	}
+	jsonBytes, err := json.Marshal(akJson)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json admin keys update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(AdminKeyUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
@@ -3353,4 +3409,12 @@ func (cuicbw *ChannelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
 	}
 
 	cuicbw.Cuic.EventUpdate(MessageDeleted, jsonBytes)
+}
+
+func unmarshalPingsJson(b []byte) ([]ed25519.PublicKey, error) {
+	var pings []ed25519.PublicKey
+	if b != nil && len(b) > 0 {
+		return pings, json.Unmarshal(b, &pings)
+	}
+	return pings, nil
 }

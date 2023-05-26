@@ -331,6 +331,22 @@ func (dmc *DMClient) SetNickname(nick string) {
 	dmc.api.SetNickname(nick)
 }
 
+// BlockSender silences messages sent by the indicated sender
+// public key.
+//   - senderPubKey - The sender's Ed25519 public key to block.
+func (dmc *DMClient) BlockSender(senderPubKeyBytes []byte) {
+	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
+	dmc.api.BlockSender(senderPubKey)
+}
+
+// UnblockSender allows messages sent by the indicated sender
+// public key.
+//   - senderPubKey - The sender's Ed25519 public key to unblock.
+func (dmc *DMClient) UnblockSender(senderPubKeyBytes []byte) {
+	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
+	dmc.api.UnblockSender(senderPubKey)
+}
+
 // IsBlocked indicates if the given sender is blocked.
 // Blocking is controlled by the receiver/EventModel.
 func (dmc *DMClient) IsBlocked(senderPubKeyBytes []byte) bool {

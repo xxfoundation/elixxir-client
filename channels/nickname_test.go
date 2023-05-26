@@ -124,7 +124,6 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(numIDs)
-
 	expectedUpdates := make(map[id.ID]nicknameUpdate, numIDs)
 	edits := make(map[string]versioned.ElementEdit, numIDs)
 
@@ -149,10 +148,11 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 
 	kv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
-	nm := loadOrNewNicknameManager(kv, testingCB)
+	nm := loadOrNewNicknameManager(kv, func(channelId *id.ID, nickname string, exists bool) {})
 
 	// build the input and output data
 	for i := 0; i < numIDs; i++ {
+
 		cid := &id.ID{}
 		cid[0] = byte(i)
 
@@ -201,6 +201,8 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 			Operation: op,
 		}
 	}
+
+	time.Sleep(1 * time.Second)
 
 	nm.callback = testingCB
 

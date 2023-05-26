@@ -97,7 +97,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 
 	m := &manager{
 		transmissionRSA:                             identity.RSAPrivate,
-		transmissionRSAPubPem:                       identity.RSAPrivate.MarshalPem(),
+		transmissionRSAPubPem:                       identity.RSAPrivate.Public().MarshalPem(),
 		transmissionRegistrationValidationSignature: regSig,
 		registrationTimestampNs:                     identity.RegistrationTimestamp,
 		transmissionSalt:                            identity.Salt,
@@ -258,8 +258,9 @@ func (m *manager) maxStateUpdate(key string, old, new *versioned.Object, op vers
 func (m *manager) loadMaxStateUnsafe(obj *versioned.Object) {
 	err := json.Unmarshal(obj.Data, &m.maxState)
 	if err != nil {
-		jww.WARN.Printf("failed to unmarshal %s, defaulting to %s: %+v",
-			maxStateKey, Push, err)
+		jww.WARN.Printf("failed to unmarshal %s, defaulting to %s. "+
+			"This should occur only on first run : %+v", maxStateKey, Push, err)
+		m.setMaxStateUnsafe(Push)
 	}
 }
 

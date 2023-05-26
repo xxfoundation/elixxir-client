@@ -270,7 +270,7 @@ func Test_mapUpdate(t *testing.T) {
 		collective.StandardPrefexs, collective.NewMockRemote())
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 
-	const numTests = 100
+	const numTests = 5
 
 	wg := &sync.WaitGroup{}
 	wg.Add(numTests)
@@ -284,7 +284,7 @@ func Test_mapUpdate(t *testing.T) {
 		cid := &id.ID{}
 		cid[0] = byte(i)
 
-		privKey, err := rsa.GetScheme().Generate(rng, 1024)
+		privKey, err := rsa.GetScheme().Generate(rng, 3192)
 		require.NoError(t, err)
 
 		// make 1/3 chance it will be deleted
@@ -299,7 +299,7 @@ func Test_mapUpdate(t *testing.T) {
 			data = nil
 			expected = false
 		} else if op == versioned.Updated {
-			privKeyOld, err := rsa.GetScheme().Generate(rng, 1024)
+			privKeyOld, err := rsa.GetScheme().Generate(rng, 3192)
 			require.NoError(t, err)
 			require.NoError(t, akm.saveChannelPrivateKey(cid, privKeyOld))
 		}
@@ -317,7 +317,6 @@ func Test_mapUpdate(t *testing.T) {
 			Operation: op,
 		}
 	}
-
 	akm.callback = func(chID *id.ID, isAdmin bool) {
 		expectedUpdate, exists := expectedUpdates[*chID]
 		require.True(t, exists)

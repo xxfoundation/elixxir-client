@@ -292,8 +292,6 @@ func (akm *adminKeysManager) mapUpdate(
 			continue
 		}
 	}
-
-	akm.report(updates.modified)
 }
 
 // report is a helper function which reports every AdminKeyUpdate to the

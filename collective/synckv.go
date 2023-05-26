@@ -305,41 +305,6 @@ func (r *versionedKV) DeleteMapElement(mapName, elementName string,
 	return obj, err
 }
 
-// Transaction locks a key while it is being mutated then stores the result
-// and returns the old value if it existed.
-// Transactions cannot be remote operations
-// If the op returns an error, the operation will be aborted.
-func (r *versionedKV) Transaction(key string, op versioned.TransactionOperation,
-	version uint64) (*versioned.Object, bool, error) {
-
-	if r.inSynchronizedPrefix && isRemoteKV(r.remote) {
-		return nil, false, errors.New("Transactions cannot be remote" +
-			"operations")
-	}
-
-	fullKey := r.local.GetFullKey(key, version)
-
-	var oldObj *versioned.Object
-
-	wrapper := func(old []byte, existed bool) (data []byte, delete bool, err error) {
-		oldObj = &versioned.Object{}
-		err = oldObj.Unmarshal(old)
-		if err != nil {
-			return nil, false, err
-		}
-		newObj, err := op(oldObj, existed)
-		if err != nil {
-			return nil, false, err
-		}
-
-		return newObj.Marshal(), false, nil
-	}
-
-	_, existed, err := r.remote.Transaction(fullKey, wrapper)
-
-	return oldObj, existed, err
-}
-
 // ListenOnRemoteKey allows the caller to receive updates when
 // a key is updated by synching with another client.
 // Only one callback can be written per key.

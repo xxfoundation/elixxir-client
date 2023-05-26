@@ -451,6 +451,8 @@ type AddServiceFn func(sp xxdk.Service) error
 // updates on when sync events occur that require the UI to be updated and what
 // those events are.
 type UiCallbacks interface {
+	// NicknameUpdate is called when your nickname changes due to a
+	// change on a remote.
 	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
 
 	// NotificationUpdate is a callback that is called any time a notification
@@ -466,4 +468,13 @@ type UiCallbacks interface {
 	NotificationUpdate(nfs []NotificationFilter,
 		changedNotificationStates []NotificationState,
 		deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState)
+
+	// AdminKeysUpdate is a callback be called when a channel's admin key is
+	// added or removed. (See [Manager.ImportChannelAdminKey] or
+	// [Manager.DeleteChannelAdminKey]).
+	AdminKeysUpdate(chID *id.ID, isAdmin bool)
+
+	// DmTokenUpdate is a callback be called when a channel's dm token state is
+	// changed
+	DmTokenUpdate(chID *id.ID, sendToken bool)
 }

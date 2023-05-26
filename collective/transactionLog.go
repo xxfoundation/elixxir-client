@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -279,7 +278,7 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 // inserted and deleted elements
 func (rw *remoteWriter) WriteMap(mapName string,
 	elements map[string][]byte, toDelete map[string]struct{}) (
-	oldE map[string][]byte, deletedE map[string][]byte, err error) {
+	map[string][]byte, error) {
 	jww.INFO.Printf("[%s] Inserting upsert to remote for map %s",
 		logHeader, mapName)
 	// do not operate while the collector is collecting. this will
@@ -288,38 +287,30 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	ts := netTime.Now()
 	tsInt := ts.UTC().UnixNano()
 
-	mapKey := versioned.MakeMapKey(mapName)
+	//build handling data
 	keys := make([]string, 0, len(elements)+1)
-	updates := make(map[string]ekv.Value, len(elements)+len(toDelete)+1)
 	mutates := make(map[string]*Mutate, len(elements)+len(toDelete))
-	oldE = make(map[string][]byte, len(elements))
-	deletedE = make(map[string][]byte)
-
+	old := make(map[string][]byte, len(elements)+len(toDelete))
 	keyConversions := make(map[string]string, len(elements))
 
+	// construct mutates for upserts
 	for element := range elements {
 		key := versioned.MakeElementKey(mapName, element)
 		rw.syncLock.RLock()
 		keys = append(keys, key)
-		v := elements[element]
-		updates[key] = ekv.Value{
-			Data:   v,
-			Exists: true,
-		}
 		mutates[key] = &Mutate{
 			Timestamp: tsInt,
-			Value:     v,
+			Value:     elements[element],
 			Deletion:  false,
 		}
 		keyConversions[key] = element
 	}
+
+	// construct mutates for deletions
 	for element := range toDelete {
 		key := versioned.MakeElementKey(mapName, element)
 		rw.syncLock.RLock()
 		keys = append(keys, key)
-		updates[key] = ekv.Value{
-			Exists: false,
-		}
 		mutates[key] = &Mutate{
 			Timestamp: tsInt,
 			Value:     nil,
@@ -327,48 +318,53 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		}
 		keyConversions[key] = element
 	}
+
+	//add the map file to the end of the keys list
+	mapKey := versioned.MakeMapKey(mapName)
 	keys = append(keys, mapKey)
 
-	op := func(old map[string]ekv.Value) (map[string]ekv.Value, error) {
+	op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
 
 		// process key map, will always be the last value due to it being
-		mapFile, err := getMapFile(old[mapKey], len(old)-1)
+		mapFile := files[mapKey]
+		mapFileBytes, _ := mapFile.Get()
+		mapSet, err := getMapFile(mapFileBytes, len(old))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// make edits to the map file and store changes
-		for key, update := range updates {
-			if update.Exists {
-				mapFile.Add(key)
-				oldE[keyConversions[key]] = copyData(old[key].Data)
+		for key, mutate := range mutates {
+			elementName := keyConversions[key]
+			file := files[key]
+			old[elementName], _ = file.Get()
+			if mutate.Deletion {
+				mapSet.Delete(elementName)
+				file.Delete()
 			} else {
-				mapFile.Delete(key)
-				deletedE[keyConversions[key]] = copyData(old[key].Data)
+				mapSet.Add(elementName)
+				file.Set(mutate.Value)
 			}
 		}
 
 		// add the updated map file to updates
-		mapFileValue, err := json.Marshal(mapFile)
+		mapFileBytesNew, err := json.Marshal(mapSet)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		updates[mapKey] = ekv.Value{
-			Data:   mapFileValue,
-			Exists: true,
-		}
+		mapFile.Set(mapFileBytesNew)
 
-		return updates, nil
+		return nil
 	}
 
 	//Write to KV
-	_, _, err = rw.kv.MutualTransaction(keys, op)
-	if err != nil && !strings.Contains(err.Error(), ekv.ErrDeletesFailed) {
+	err := rw.kv.Transaction(op, keys...)
+	if err != nil {
 		for i := 0; i < len(elements)+len(toDelete); i++ {
 			rw.syncLock.RUnlock()
 		}
-		return oldE, deletedE, err
+		return nil, err
 	}
 
 	// send signals to collective all transactions
@@ -376,7 +372,7 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		rw.adds <- transaction{m, key}
 	}
 
-	return oldE, deletedE, err
+	return old, err
 }
 
 func copyData(b []byte) []byte {

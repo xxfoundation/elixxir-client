@@ -469,7 +469,11 @@ func (c *channelCbs) NotificationUpdate(nfs []channels.NotificationFilter,
 	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
 }
 
+func (c *channelCbs) AdminKeysUpdate(chID *id.ID, isAdmin bool) {}
+
 func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
+
+func (c *channelCbs) DmTokenUpdate(chID *id.ID, sendToken bool) {}
 
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",

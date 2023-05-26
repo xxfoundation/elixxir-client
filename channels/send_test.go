@@ -49,7 +49,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -112,7 +112,9 @@ func Test_manager_SendGeneric(t *testing.T) {
 func Test_manager_SendAdminGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -121,7 +123,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string)},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
@@ -137,6 +139,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	messageType := Text
@@ -185,8 +188,9 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 func Test_manager_SendMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs, collective.NewMockRemote())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -195,7 +199,7 @@ func Test_manager_SendMessage(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -212,6 +216,7 @@ func Test_manager_SendMessage(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	rng := crng.GetStream()
@@ -268,8 +273,9 @@ func Test_manager_SendMessage(t *testing.T) {
 func Test_manager_SendReply(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs, collective.NewMockRemote())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -278,7 +284,7 @@ func Test_manager_SendReply(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -295,6 +301,7 @@ func Test_manager_SendReply(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	rng := crng.GetStream()
@@ -353,8 +360,9 @@ func Test_manager_SendReply(t *testing.T) {
 func Test_manager_SendReaction(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := collective.TestingKV(t, ekv.MakeMemstore(),
-		collective.StandardPrefexs, collective.NewMockRemote())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -363,7 +371,7 @@ func Test_manager_SendReaction(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -380,6 +388,7 @@ func Test_manager_SendReaction(t *testing.T) {
 			*bool, *bool, *SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	rng := crng.GetStream()
@@ -437,14 +446,16 @@ func Test_manager_SendReaction(t *testing.T) {
 func Test_manager_SendSilent(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	require.NoError(t, err)
 
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
@@ -461,6 +472,7 @@ func Test_manager_SendSilent(t *testing.T) {
 			*bool, *bool, *SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	rng := crng.GetStream()
@@ -498,11 +510,13 @@ func Test_manager_SendSilent(t *testing.T) {
 
 func Test_manager_DeleteMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv,
 			func(*id.ID, *userMessageInternal, []byte, time.Time,
@@ -517,6 +531,7 @@ func Test_manager_DeleteMessage(t *testing.T) {
 				*bool, *bool, *SentStatus) error {
 				return nil
 			}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -567,11 +582,13 @@ func Test_manager_DeleteMessage(t *testing.T) {
 
 func Test_manager_PinMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
@@ -586,6 +603,7 @@ func Test_manager_PinMessage(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -637,7 +655,9 @@ func Test_manager_PinMessage(t *testing.T) {
 func Test_manager_MuteUser(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -645,7 +665,7 @@ func Test_manager_MuteUser(t *testing.T) {
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
@@ -660,6 +680,7 @@ func Test_manager_MuteUser(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)

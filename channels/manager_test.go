@@ -220,15 +220,18 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf("EnableDirectMessageToken error: %+v", err)
 	}
 
-	token := m.getDmToken(ch.ReceptionID)
+	if enabled := m.AreDMsEnabled(ch.ReceptionID); !enabled {
+		t.Fatalf("AreDMsEnabled expected to return true after calling " +
+			"EnableDirectMessages")
+	}
 
+	token := m.getDmToken(ch.ReceptionID)
 	expected := m.me.GetDMToken()
 	if !reflect.DeepEqual(token, expected) {
 		t.Fatalf("EnableDirectMessageToken did not set token as expected."+
 			"\nExpected: %v"+
 			"\nReceived: %v", expected, token)
 	}
-
 }
 
 // Smoke test.
@@ -257,10 +260,16 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 	}
 
 	// Test that token is 0 when retrieved
+	enabled := m.AreDMsEnabled(ch.ReceptionID)
+	if enabled {
+		t.Fatalf("AreDMsEnabled expected to return false after calling " +
+			"DisableDirectMessages")
+	}
+
 	token := m.getDmToken(ch.ReceptionID)
 	if token != 0 {
 		t.Fatalf("getDmToken expected to return nil after calling " +
-			"DisableDirectMessageToken")
+			"DisableDirectMessages")
 	}
 }
 

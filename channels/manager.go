@@ -72,6 +72,8 @@ type manager struct {
 
 	// Notification manager
 	*notifications
+
+	dmCallback func(chID *id.ID, sendToken bool)
 }
 
 // Client contains the methods from [cmix.Client] that are required by the
@@ -233,6 +235,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, local, remote versione
 		rng:            rng,
 		events:         initEvents(model, 512, local, rng),
 		broadcastMaker: broadcast.NewBroadcastChannel,
+		dmCallback:     uiCallbacks.DmTokenUpdate,
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
@@ -371,7 +374,11 @@ func (m *manager) EnableDirectMessages(chId *id.ID) error {
 		return nil
 	}
 	jc.dmEnabled = true
-	return m.saveChannel(jc)
+	if err = m.saveChannel(jc); err != nil {
+		return err
+	}
+	go m.dmCallback(chId, true)
+	return nil
 }
 
 // DisableDirectMessages removes the token for direct messaging for a given
@@ -387,7 +394,11 @@ func (m *manager) DisableDirectMessages(chId *id.ID) error {
 		return nil
 	}
 	jc.dmEnabled = false
-	return m.saveChannel(jc)
+	if err = m.saveChannel(jc); err != nil {
+		return err
+	}
+	go m.dmCallback(chId, false)
+	return nil
 }
 
 // AreDMsEnabled returns status of DMs for a given channel ID (true if enabled)
@@ -514,8 +525,8 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 // it is used for tests and when nothing is passed in for UI callbacks
 type dummyUICallback struct{}
 
-func (duic *dummyUICallback) UpdateAdminKeys(chID *id.ID, isAdmin bool) {
-	jww.DEBUG.Printf("UpdateAdminKeys unimplemented in dummyUICallback")
+func (duic *dummyUICallback) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
+	jww.DEBUG.Printf("AdminKeysUpdate unimplemented in dummyUICallback")
 }
 
 func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
@@ -525,4 +536,9 @@ func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 
 func (duic *dummyUICallback) NotificationUpdate([]NotificationFilter,
 	[]NotificationState, []*id.ID, clientNotif.NotificationState) {
+	jww.DEBUG.Printf("NotificationUpdate unimplemented in dummyUICallback")
+}
+
+func (duic *dummyUICallback) DmTokenUpdate(chID *id.ID, sendToken bool) {
+	jww.DEBUG.Printf("UpdateDmToken unimplemented in dummyUICallback")
 }

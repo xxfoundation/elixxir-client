@@ -123,8 +123,6 @@ func (m *manager) ImportChannelAdminKey(
 		return WrongPrivateKeyErr
 	}
 
-	m.adminKeysManager.reportNewAdmin(channelID)
-
 	return m.adminKeysManager.saveChannelPrivateKey(channelID, pk)
 }
 
@@ -135,9 +133,6 @@ func (m *manager) ImportChannelAdminKey(
 // admin.
 func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
 	jww.INFO.Printf("[CH] DeleteChannelAdminKey for channel %s", channelID)
-	update := newAdminKeyChanges()
-	update.AddDeletion(channelID)
-	m.adminKeysManager.report(update.modified)
 	return m.adminKeysManager.deleteChannelPrivateKey(channelID)
 }
 
@@ -189,12 +184,18 @@ func (akm *adminKeysManager) saveChannelPrivateKey(
 	channelID *id.ID, pk rsa.PrivateKey) error {
 
 	elementName := marshalChID(channelID)
-	return akm.remote.StoreMapElement(adminKeysMapName, elementName,
+	err := akm.remote.StoreMapElement(adminKeysMapName, elementName,
 		&versioned.Object{
 			Version:   adminKeysMapVersion,
 			Timestamp: netTime.Now(),
 			Data:      pk.MarshalPem(),
 		}, adminKeysMapVersion)
+	if err != nil {
+		return err
+	}
+
+	go akm.callback(channelID, true)
+	return nil
 }
 
 // loadChannelPrivateKey retrieves the [rsa.PrivateKey] for the given channel ID
@@ -219,7 +220,12 @@ func (akm *adminKeysManager) deleteChannelPrivateKey(
 	channelID *id.ID) error {
 	elementName := marshalChID(channelID)
 	_, err := akm.remote.DeleteMapElement(adminKeysMapName, elementName, adminKeysMapVersion)
-	return err
+	if err != nil {
+		return err
+	}
+
+	go akm.callback(channelID, false)
+	return nil
 }
 
 // mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
@@ -236,7 +242,6 @@ func (akm *adminKeysManager) mapUpdate(
 	akm.mux.Lock()
 	defer akm.mux.Unlock()
 
-	updates := newAdminKeyChanges()
 	for elementName, edit := range edits {
 		// unmarshal element name
 		chanId, err := unmarshalChID(elementName)
@@ -248,86 +253,13 @@ func (akm *adminKeysManager) mapUpdate(
 		}
 
 		if edit.Operation == versioned.Deleted {
-			if err := akm.deleteChannelPrivateKey(chanId); err != nil {
-				jww.WARN.Printf("Failed to delete channel's private key "+
-					"for %s, skipping: %+v", elementName, err)
-				continue
-			}
-
-			updates.AddDeletion(chanId)
-			continue
-		}
-
-		if edit.Operation == versioned.Created ||
+			akm.callback(chanId, false)
+		} else if edit.Operation == versioned.Created ||
 			edit.Operation == versioned.Updated {
-			updates.AddCreatedOrEdit(chanId)
+			akm.callback(chanId, true)
 		} else {
 			jww.WARN.Printf("Failed to handle admin key update %s, "+
 				"bad operation: %s, skipping", elementName, edit.Operation)
-			continue
-		}
-
-		newUpdate, err := rsa.GetScheme().UnmarshalPrivateKeyPEM(
-			edit.NewElement.Data)
-		if err != nil {
-			jww.WARN.Printf("Failed to unmarshal data in admin key update %s, "+
-				"bad operation: %s, skipping", elementName, edit.Operation)
-			continue
-		}
-
-		if err = akm.saveChannelPrivateKey(chanId, newUpdate); err != nil {
-			jww.WARN.Printf("Failed to save channel's private key "+
-				"for %s, skipping: %+v", elementName, err)
-			continue
 		}
 	}
-
-	akm.report(updates.modified)
-}
-
-// report is a helper function which reports every AdminKeyUpdate to the
-// UpdateAdminKeys callback.
-func (akm *adminKeysManager) report(updates map[id.ID]bool) {
-	if akm.callback != nil {
-		for ch, isAdmin := range updates {
-			chLocal := (&ch).DeepCopy()
-			go akm.callback(chLocal, isAdmin)
-		}
-
-	}
-}
-
-// reportNewAdmin is a helper function which will specifically report a new
-// channel which the user has gained admin access. This may be used by
-// adminKeysManager or the higher level manager (for example when creating
-// a new channel).
-func (akm *adminKeysManager) reportNewAdmin(channelID *id.ID) {
-	update := newAdminKeyChanges()
-	update.AddCreatedOrEdit(channelID)
-	akm.report(update.modified)
-}
-
-// adminKeyUpdates is a tracker for any modified channel admin key. This
-// is used by [adminKeysManager.mapUpdate] and every element of [modified]
-// is reported as a [AdminKeyUpdate] to the [UpdateAdminKeys] callback.
-type adminKeyUpdates struct {
-	modified map[id.ID]bool
-}
-
-// newAdminKeyChanges is a constructor for adminKeyUpdates.
-func newAdminKeyChanges() *adminKeyUpdates {
-	return &adminKeyUpdates{
-		modified: make(map[id.ID]bool),
-	}
-}
-
-// AddDeletion creates a [AdminKeyUpdate] report for a deleted channel admin key.
-func (aku *adminKeyUpdates) AddDeletion(chanId *id.ID) {
-	aku.modified[*chanId] = false
-}
-
-// AddCreatedOrEdit creates a [AdminKeyUpdate] report for an addition of a
-// channel's admin key.
-func (aku *adminKeyUpdates) AddCreatedOrEdit(chanId *id.ID) {
-	aku.modified[*chanId] = true
 }

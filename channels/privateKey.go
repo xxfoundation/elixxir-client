@@ -123,8 +123,6 @@ func (m *manager) ImportChannelAdminKey(
 		return WrongPrivateKeyErr
 	}
 
-	m.adminKeysManager.reportNewAdmin(channelID)
-
 	return m.adminKeysManager.saveChannelPrivateKey(channelID, pk)
 }
 
@@ -264,12 +262,4 @@ func (akm *adminKeysManager) mapUpdate(
 				"bad operation: %s, skipping", elementName, edit.Operation)
 		}
 	}
-}
-
-// reportNewAdmin is a helper function which will specifically report a new
-// channel which the user has gained admin access. This may be used by
-// adminKeysManager or the higher level manager (for example when creating
-// a new channel).
-func (akm *adminKeysManager) reportNewAdmin(channelID *id.ID) {
-	go akm.callback(channelID, true)
 }

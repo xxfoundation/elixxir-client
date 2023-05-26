@@ -105,6 +105,7 @@ var syncCmd = &cobra.Command{
 				Version:   0,
 				Data:      []byte(val),
 			})
+			time.Sleep(6 * time.Second)
 		}
 		// Wait for updates or timeout
 		synched := synckv.WaitForRemote(waitTime)

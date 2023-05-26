@@ -6,11 +6,12 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"os"
 )
 
 var ErrMapInconsistent = errors.New("element is in the map file but not" +
 	"in the ekv")
-var ErrMapElementNotFound = errors.New("element is not in the map")
+var ErrMapElementNotFound = os.ErrNotExist
 
 const errWrap = "for map '%s' element '%s'"
 

@@ -227,15 +227,16 @@ func setupManager(identity cryptoChannel.PrivateIdentity, local, remote versione
 
 	// Build the manager
 	m := &manager{
-		me:             identity,
-		local:          local,
-		remote:         remote,
-		net:            net,
-		nm:             nm,
-		rng:            rng,
-		events:         initEvents(model, 512, local, rng),
-		broadcastMaker: broadcast.NewBroadcastChannel,
-		dmCallback:     uiCallbacks.DmTokenUpdate,
+		me:               identity,
+		local:            local,
+		remote:           remote,
+		net:              net,
+		nm:               nm,
+		rng:              rng,
+		events:           initEvents(model, 512, local, rng),
+		adminKeysManager: newAdminKeysManager(remote, uiCallbacks.AdminKeysUpdate),
+		broadcastMaker:   broadcast.NewBroadcastChannel,
+		dmCallback:       uiCallbacks.DmTokenUpdate,
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)

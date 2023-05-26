@@ -33,7 +33,7 @@ const (
 	cmixChannelTextVersion       = 0
 	cmixChannelReactionVersion   = 0
 	cmixChannelInvitationVersion = 0
-	cmixChannelSilentVersion   = 0
+	cmixChannelSilentVersion     = 0
 	cmixChannelDeleteVersion     = 0
 	cmixChannelPinVersion        = 0
 
@@ -383,6 +383,39 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		nil)
 }
 
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very lightweight.
+func (m *manager) SendSilent(channelID *id.ID, validUntil time.Duration,
+	params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
+	// Formulate custom tag
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, nil, SendSilentTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf(
+		"[CH] [%s] SendSilent on channel %s", tag, channelID)
+
+	// Construct message
+	silent := &CMIXChannelSilentMessage{
+		Version: cmixChannelSilentVersion,
+	}
+
+	// Marshal message
+	silentMarshalled, err := proto.Marshal(silent)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Send silent message
+	return m.SendGeneric(channelID, Silent, silentMarshalled,
+		validUntil, true, params, nil)
+}
+
 // SendInvite is used to send to a channel (invited) an invitation to another
 // channel (invitee).
 //
@@ -453,39 +486,6 @@ func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
 	return m.SendGeneric(
 		channelID, AdminReplay, encryptedPayload, 0,
 		false, params, nil)
-}
-
-// SendSilent is used to send to a channel a message with no notifications.
-// Its primary purpose is to communicate new nicknames without calling
-// SendMessage.
-//
-// It takes no payload intentionally as the message should be very lightweight.
-func (m *manager) SendSilent(channelID *id.ID, validUntil time.Duration,
-	params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
-	// Formulate custom tag
-	tag := makeChaDebugTag(
-		channelID, m.me.PubKey, nil, SendSilentTag)
-
-	// Modify the params for the custom tag
-	params = params.SetDebugTag(tag)
-
-	jww.INFO.Printf(
-		"[CH] [%s] SendSilent on channel %s", tag, channelID)
-
-	// Construct message
-	silent := &CMIXChannelSilentMessage{
-		Version: cmixChannelSilentVersion,
-	}
-
-	// Marshal message
-	silentMarshalled, err := proto.Marshal(silent)
-	if err != nil {
-		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
-	}
-
-	// Send silent message
-	return m.SendGeneric(channelID, Silent, silentMarshalled,
-		validUntil, true, params, nil)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

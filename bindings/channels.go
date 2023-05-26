@@ -1084,7 +1084,7 @@ func (cm *ChannelsManager) GetShareURL(cmixID int, host string, maxUses int,
 //	1 = private channel
 //	2 = secret channel
 func GetShareUrlType(url string) (int, error) {
-	level, err := cryptoBroadcast.GetShareUrlType(url)
+	level, err := cryptoBroadcast.GetURLType(url)
 	return int(level), err
 }
 

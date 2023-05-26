@@ -121,9 +121,9 @@ func TestE2EDMs(t *testing.T) {
 	// Send a silent message
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
-	_, _, _, err := clientA.SendSilent(&pubKey, dmToken, params)
+	_, _, _, err = clientA.SendSilent(&pubKey, dmToken, params)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(receiverB.Msgs))
+	require.Equal(t, 6, len(receiverB.Msgs))
 	rcvB3 := receiverB.Msgs[4]
 	silent := &SilentMessage{}
 	require.NoError(t, proto.Unmarshal([]byte(rcvB3.Message), silent))

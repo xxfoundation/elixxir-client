@@ -443,77 +443,6 @@ func Test_manager_SendReaction(t *testing.T) {
 	}
 }
 
-func Test_manager_SendInvite(t *testing.T) {
-	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
-	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	pi, err := cryptoChannel.GenerateIdentity(prng)
-	require.NoError(t, err)
-
-	m := &manager{
-		me:              pi,
-		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
-		rng:             crng,
-		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
-		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
-			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
-			uint64, error) {
-			return 0, nil
-		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
-			message.ID, receptionID.EphemeralIdentity,
-			rounds.Round, SentStatus) (uint64, error) {
-			return 0, nil
-		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
-			*bool, *bool, *SentStatus) error {
-			return nil
-		}, crng),
-	}
-
-	rng := crng.GetStream()
-	defer rng.Close()
-
-	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
-	require.NoError(t, err)
-
-	invitedChannelID, inviteeChannelID := ch.ReceptionID, ch.ReceptionID
-
-	msg := "Dude check out this channel!"
-	params := new(cmix.CMIXParams)
-	mbc := &mockBroadcastChannel{
-		crypto: ch,
-	}
-	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
-	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
-	host := "https://internet.speakeasy.tech/"
-	maxUses := 0
-	messageID, _, _, err := m.SendInvite(invitedChannelID, msg,
-		inviteeChannelID, host, maxUses, ValidForever, *params, nil)
-	require.NoError(t, err)
-
-	// Verify the message was handled correctly
-
-	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, invitedChannelID)
-	require.NoError(t, err)
-
-	// Do checks of the data
-	require.True(t, umi.GetMessageID().Equals(messageID))
-
-	// Decode the text message
-	txt := &CMIXChannelInvitation{}
-	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
-	require.NoError(t, err)
-
-	// Ensure invite URL matches expected
-	expectedLink, err := ch.InviteURL(host, maxUses)
-	require.NoError(t, err)
-	require.Equal(t, expectedLink, txt.InviteLink)
-
-}
-
 func Test_manager_SendSilent(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
@@ -576,6 +505,80 @@ func Test_manager_SendSilent(t *testing.T) {
 	txt := &CMIXChannelSilentMessage{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	require.NoError(t, err)
+
+}
+
+func Test_manager_SendInvite(t *testing.T) {
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	prng := rand.New(rand.NewSource(64))
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	require.NoError(t, err)
+
+	m := &manager{
+		me:               pi,
+		channels:         make(map[id.ID]*joinedChannel),
+		local:            kv,
+		rng:              crng,
+		events:           initEvents(&mockEventModel{}, 512, kv, crng),
+		nicknameManager:  &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity,
+			rounds.Round, SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
+			*bool, *bool, *SentStatus) error {
+			return nil
+		}, crng),
+	}
+
+	rng := crng.GetStream()
+	defer rng.Close()
+
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
+	require.NoError(t, err)
+
+	invitedChannelID, inviteeChannelID := ch.ReceptionID, ch.ReceptionID
+
+	msg := "Dude check out this channel!"
+	params := new(cmix.CMIXParams)
+	mbc := &mockBroadcastChannel{
+		crypto: ch,
+	}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+	host := "https://internet.speakeasy.tech/"
+	maxUses := 0
+	messageID, _, _, err := m.SendInvite(invitedChannelID, msg,
+		inviteeChannelID, host, maxUses, ValidForever, *params, nil)
+	require.NoError(t, err)
+
+	// Verify the message was handled correctly
+
+	// Decode the user message
+	umi, err := unmarshalUserMessageInternal(mbc.payload, invitedChannelID, Invitation)
+	require.NoError(t, err)
+
+	// Do checks of the data
+	require.True(t, umi.GetMessageID().Equals(messageID))
+
+	// Decode the text message
+	txt := &CMIXChannelInvitation{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	require.NoError(t, err)
+
+	// Ensure invite URL matches expected
+	expectedLink, err := ch.InviteURL(host, maxUses)
+	require.NoError(t, err)
+	require.Equal(t, expectedLink, txt.InviteLink)
 
 }
 

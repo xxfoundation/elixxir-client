@@ -35,7 +35,7 @@ func (m *manager) loadChannels() {
 			"channels: %+v", err)
 	}
 
-	chMap := make(map[id.ID]*joinedChannel)
+	m.channels = make(map[id.ID]*joinedChannel)
 
 	for elementName, chObj := range mapObj {
 		channelID := &id.ID{}
@@ -52,8 +52,6 @@ func (m *manager) loadChannels() {
 			continue
 		}
 	}
-
-	m.channels = chMap
 }
 
 func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEdit) {

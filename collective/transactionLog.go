@@ -210,7 +210,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				return
 			}
 			if !running {
-				timer.Reset(rw.uploadPeriod)
+				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			}
 
@@ -225,7 +225,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				jww.ERROR.Printf("Failed to update collective state, "+
 					"last update %s, will auto retry in %s: %+v", ts,
 					uploadPeriod, err)
-				timer.Reset(uploadPeriod)
+				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			} else {
 				rw.notify(true)

@@ -123,7 +123,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 	numIDs := 100
 
 	wg := &sync.WaitGroup{}
-	wg.Add(100)
+	wg.Add(numIDs)
 	expectedUpdates := make(map[id.ID]nicknameUpdate, numIDs)
 	edits := make(map[string]versioned.ElementEdit, numIDs)
 

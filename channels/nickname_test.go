@@ -202,6 +202,8 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 		}
 	}
 
+	time.Sleep(1 * time.Second)
+
 	nm.callback = testingCB
 
 	nm.mapUpdate(nicknameMapName, edits)

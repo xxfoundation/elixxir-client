@@ -8,6 +8,7 @@
 package collective
 
 import (
+	"os"
 	"path/filepath"
 	"time"
 
@@ -80,5 +81,26 @@ func (f *FileSystemStorage) GetLastWrite() (time.Time, error) {
 
 // ReadDir implements [RemoteStore.ReadDir] and gets a file listing.
 func (f *FileSystemStorage) ReadDir(path string) ([]string, error) {
-	return utils.ReadDir(filepath.Join(f.baseDir, path))
+	jww.INFO.Printf("ReadDir: %s %s", f.baseDir, path)
+	joined := filepath.Join(f.baseDir, path)
+	jww.INFO.Printf("joined: %s", joined)
+	return readDir(joined)
+}
+
+// ReadDir reads the named directory, returning all its directory entries
+// sorted by filename.
+func readDir(path string) ([]string, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, 0)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			files = append(files, entry.Name())
+		}
+	}
+
+	return files, nil
 }

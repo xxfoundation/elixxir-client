@@ -296,8 +296,8 @@ func Test_mapUpdate(t *testing.T) {
 
 		if op == versioned.Deleted {
 			require.NoError(t, akm.saveChannelPrivateKey(cid, privKey))
-			data = nil
 			expected = false
+			data = nil
 		} else if op == versioned.Updated {
 			privKeyOld, err := rsa.GetScheme().Generate(rng, 3192)
 			require.NoError(t, err)
@@ -318,11 +318,14 @@ func Test_mapUpdate(t *testing.T) {
 		}
 	}
 	akm.callback = func(chID *id.ID, isAdmin bool) {
+		defer wg.Done()
 		expectedUpdate, exists := expectedUpdates[*chID]
 		require.True(t, exists)
-		require.Equal(t, expectedUpdate, isAdmin)
-		wg.Done()
+		require.Equalf(t, expectedUpdate, isAdmin, "%s", chID)
+
 	}
+
+	time.Sleep(1 * time.Second)
 
 	akm.mapUpdate(adminKeysMapName, edits)
 	wg.Wait()

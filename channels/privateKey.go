@@ -135,9 +135,6 @@ func (m *manager) ImportChannelAdminKey(
 // admin.
 func (m *manager) DeleteChannelAdminKey(channelID *id.ID) error {
 	jww.INFO.Printf("[CH] DeleteChannelAdminKey for channel %s", channelID)
-	update := newAdminKeyChanges()
-	update.AddDeletion(channelID)
-	m.adminKeysManager.report(update.modified)
 	return m.adminKeysManager.deleteChannelPrivateKey(channelID)
 }
 
@@ -229,7 +226,7 @@ func (akm *adminKeysManager) deleteChannelPrivateKey(
 		return err
 	}
 
-	go akm.callback(channelID, true)
+	go akm.callback(channelID, false)
 	return nil
 }
 
@@ -247,7 +244,6 @@ func (akm *adminKeysManager) mapUpdate(
 	akm.mux.Lock()
 	defer akm.mux.Unlock()
 
-	updates := newAdminKeyChanges()
 	for elementName, edit := range edits {
 		// unmarshal element name
 		chanId, err := unmarshalChID(elementName)
@@ -265,13 +261,11 @@ func (akm *adminKeysManager) mapUpdate(
 				continue
 			}
 
-			updates.AddDeletion(chanId)
 			continue
 		}
 
 		if edit.Operation == versioned.Created ||
 			edit.Operation == versioned.Updated {
-			updates.AddCreatedOrEdit(chanId)
 		} else {
 			jww.WARN.Printf("Failed to handle admin key update %s, "+
 				"bad operation: %s, skipping", elementName, edit.Operation)
@@ -294,49 +288,10 @@ func (akm *adminKeysManager) mapUpdate(
 	}
 }
 
-// report is a helper function which reports every AdminKeyUpdate to the
-// AdminKeysUpdate callback.
-func (akm *adminKeysManager) report(updates map[id.ID]bool) {
-	if akm.callback != nil {
-		for ch, isAdmin := range updates {
-			chLocal := (&ch).DeepCopy()
-			go akm.callback(chLocal, isAdmin)
-		}
-
-	}
-}
-
 // reportNewAdmin is a helper function which will specifically report a new
 // channel which the user has gained admin access. This may be used by
 // adminKeysManager or the higher level manager (for example when creating
 // a new channel).
 func (akm *adminKeysManager) reportNewAdmin(channelID *id.ID) {
-	update := newAdminKeyChanges()
-	update.AddCreatedOrEdit(channelID)
-	akm.report(update.modified)
-}
-
-// adminKeyUpdates is a tracker for any modified channel admin key. This
-// is used by [adminKeysManager.mapUpdate] and every element of [modified]
-// is reported as a [AdminKeyUpdate] to the [AdminKeysUpdate] callback.
-type adminKeyUpdates struct {
-	modified map[id.ID]bool
-}
-
-// newAdminKeyChanges is a constructor for adminKeyUpdates.
-func newAdminKeyChanges() *adminKeyUpdates {
-	return &adminKeyUpdates{
-		modified: make(map[id.ID]bool),
-	}
-}
-
-// AddDeletion creates a [AdminKeyUpdate] report for a deleted channel admin key.
-func (aku *adminKeyUpdates) AddDeletion(chanId *id.ID) {
-	aku.modified[*chanId] = false
-}
-
-// AddCreatedOrEdit creates a [AdminKeyUpdate] report for an addition of a
-// channel's admin key.
-func (aku *adminKeyUpdates) AddCreatedOrEdit(chanId *id.ID) {
-	aku.modified[*chanId] = true
+	go akm.callback(channelID, true)
 }

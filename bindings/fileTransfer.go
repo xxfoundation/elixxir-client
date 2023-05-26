@@ -35,14 +35,15 @@ type FileTransfer struct {
 // [ReceiveFileCallback.Callback].
 //
 // Example JSON:
-//  {
-//    "TransferID": "0U+QY1nMOUzQGxGpqZyxDw8Cd6+qm8t870CzLtVoUM8=",
-//    "SenderID": "UL3+S8XdJHAfUtCUm7iZMxW8orR8Nd5JM9Ky7/5jds8D",
-//    "Preview": "aXQNcyBtZSBhIHByZXZpZXc=",
-//    "Name": "testfile.txt",
-//    "Type": "text file",
-//    "Size": 2048
-//  }
+//
+//	{
+//	  "TransferID": "0U+QY1nMOUzQGxGpqZyxDw8Cd6+qm8t870CzLtVoUM8=",
+//	  "SenderID": "UL3+S8XdJHAfUtCUm7iZMxW8orR8Nd5JM9Ky7/5jds8D",
+//	  "Preview": "aXQNcyBtZSBhIHByZXZpZXc=",
+//	  "Name": "testfile.txt",
+//	  "Type": "text file",
+//	  "Size": 2048
+//	}
 type ReceivedFile struct {
 	TransferID *ftCrypto.TransferID // ID of the file transfer
 	SenderID   *id.ID               // ID of the file sender
@@ -56,12 +57,13 @@ type ReceivedFile struct {
 // marshalled and passed as the payload to [FileTransfer.Send].
 //
 // Example JSON:
-//  {
-//    "Name": "testfile.txt",
-//    "Type": "text file",
-//    "Preview": "RMlsZSBwCmV2aWV3Lg==",
-//    "Contents": "RMlsZSBjb250ZW50cy4="
-//  }
+//
+//	{
+//	  "Name": "testfile.txt",
+//	  "Type": "text file",
+//	  "Preview": "RMlsZSBwCmV2aWV3Lg==",
+//	  "Contents": "RMlsZSBjb250ZW50cy4="
+//	}
 type FileSend struct {
 	// Name is the human-readable file name. Get max length from
 	// [FileTransfer.MaxFileNameLen].
@@ -85,12 +87,13 @@ type FileSend struct {
 // [FileTransferReceiveProgressCallback.Callback].
 //
 // Example JSON:
-//  {
-//    "TransferID": "RyJcMqtI3IIM1+YMxRwCcFiOX6AGuIzS+vQaPnqXVT8=",
-//    "Completed": false,
-//    "Transmitted": 128,
-//    "Total": 2048
-//  }
+//
+//	{
+//	  "TransferID": "RyJcMqtI3IIM1+YMxRwCcFiOX6AGuIzS+vQaPnqXVT8=",
+//	  "Completed": false,
+//	  "Transmitted": 128,
+//	  "Total": 2048
+//	}
 type Progress struct {
 	TransferID  *ftCrypto.TransferID // Transfer ID
 	Completed   bool                 // Status of transfer (true if done)
@@ -150,15 +153,15 @@ type FileTransferReceiveProgressCallback interface {
 // InitFileTransfer creates a bindings-level file transfer manager.
 //
 // Parameters:
-//  - e2eID - ID of [E2e] object in tracker.
-//  - receiveFileCallback - A callback that is called when a new file transfer
-//    is received.
-//  - e2eFileTransferParamsJson - JSON of
-//    [gitlab.com/elixxir/client/v4/fileTransfer/e2e.Params].
-//  - fileTransferParamsJson - JSON of [fileTransfer.Params].
+//   - e2eID - ID of [E2e] object in tracker.
+//   - receiveFileCallback - A callback that is called when a new file transfer
+//     is received.
+//   - e2eFileTransferParamsJson - JSON of
+//     [gitlab.com/elixxir/client/v4/fileTransfer/e2e.Params].
+//   - fileTransferParamsJson - JSON of [fileTransfer.Params].
 //
 // Returns:
-//  - New [FileTransfer] object.
+//   - New [FileTransfer] object.
 func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 	e2eFileTransferParamsJson, fileTransferParamsJson []byte) (*FileTransfer, error) {
 	jww.INFO.Printf("[FT] Calling InitFileTransfer(e2eID:%d params:%s)",
@@ -225,21 +228,21 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 // is reported to that passed in callback.
 //
 // Parameters:
-//  - payload - JSON of [FileSend], which contains the file contents and its
-//    metadata.
-//  - recipientID - marshalled bytes of the recipient's [id.ID].
-//  - retry - The number of sending retries allowed on send failure (e.g. a
-//    retry of 2.0 with 6 parts means 12 total possible sends).
-//  - callback - A callback that reports the progress of the file transfer. The
-//    callback is called once on initialization, on every progress update (or
-//    less if restricted by the period), or on fatal error.
-//  - period - The progress callback will be limited from triggering only once
-//    per period. It is a duration in milliseconds. This value should depend on
-//    how frequently you want to receive updates, and should be tuned to your
-//    implementation.
+//   - payload - JSON of [FileSend], which contains the file contents and its
+//     metadata.
+//   - recipientID - marshalled bytes of the recipient's [id.ID].
+//   - retry - The number of sending retries allowed on send failure (e.g. a
+//     retry of 2.0 with 6 parts means 12 total possible sends).
+//   - callback - A callback that reports the progress of the file transfer. The
+//     callback is called once on initialization, on every progress update (or
+//     less if restricted by the period), or on fatal error.
+//   - period - The progress callback will be limited from triggering only once
+//     per period. It is a duration in milliseconds. This value should depend on
+//     how frequently you want to receive updates, and should be tuned to your
+//     implementation.
 //
 // Returns:
-//  - The bytes of the unique [fileTransfer.TransferID].
+//   - The bytes of the unique [fileTransfer.TransferID].
 func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 	callback FileTransferSentProgressCallback, period int) ([]byte, error) {
 	jww.INFO.Printf("[FT] Sending file transfer to %s.",
@@ -296,7 +299,7 @@ func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 // transfer is complete.
 //
 // Parameters:
-//  - tidBytes - The file transfer's unique [fileTransfer.TransferID].
+//   - tidBytes - The file transfer's unique [fileTransfer.TransferID].
 func (f *FileTransfer) Receive(tidBytes []byte) ([]byte, error) {
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 	return f.w.Receive(&tid)
@@ -310,7 +313,7 @@ func (f *FileTransfer) Receive(tidBytes []byte) ([]byte, error) {
 // reported by the progress callback).
 //
 // Parameters:
-//  - tidBytes - the file transfer's unique [fileTransfer.TransferID].
+//   - tidBytes - the file transfer's unique [fileTransfer.TransferID].
 func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 	return f.w.CloseSend(&tid)
@@ -333,14 +336,14 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 // function or Send.
 //
 // Parameters:
-//  - tidBytes - The file transfer's unique [fileTransfer.TransferID].
-//  - callback - A callback that reports the progress of the file transfer. The
-//    callback is called once on initialization, on every progress update (or
-//    less if restricted by the period), or on fatal error.
-//  - period - The progress callback will be limited from triggering only once
-//    per period. It is a duration in milliseconds. This value should depend on
-//    how frequently you want to receive updates, and should be tuned to your
-//    implementation.
+//   - tidBytes - The file transfer's unique [fileTransfer.TransferID].
+//   - callback - A callback that reports the progress of the file transfer. The
+//     callback is called once on initialization, on every progress update (or
+//     less if restricted by the period), or on fatal error.
+//   - period - The progress callback will be limited from triggering only once
+//     per period. It is a duration in milliseconds. This value should depend on
+//     how frequently you want to receive updates, and should be tuned to your
+//     implementation.
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	callback FileTransferSentProgressCallback, period int) error {
 	cb := func(completed bool, arrived, total uint16,
@@ -379,14 +382,14 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 // get the full file by calling Receive.
 //
 // Parameters:
-//  - tidBytes - The file transfer's unique [fileTransfer.TransferID].
-//  - callback - A callback that reports the progress of the file transfer. The
-//    callback is called once on initialization, on every progress update (or
-//    less if restricted by the period), or on fatal error.
-//  - period - The progress callback will be limited from triggering only once
-//    per period. It is a duration in milliseconds. This value should depend on
-//    how frequently you want to receive updates, and should be tuned to your
-//    implementation.
+//   - tidBytes - The file transfer's unique [fileTransfer.TransferID].
+//   - callback - A callback that reports the progress of the file transfer. The
+//     callback is called once on initialization, on every progress update (or
+//     less if restricted by the period), or on fatal error.
+//   - period - The progress callback will be limited from triggering only once
+//     per period. It is a duration in milliseconds. This value should depend on
+//     how frequently you want to receive updates, and should be tuned to your
+//     implementation.
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 	callback FileTransferReceiveProgressCallback, period int) error {
 	cb := func(completed bool, received, total uint16,
@@ -447,10 +450,10 @@ type FilePartTracker struct {
 // GetPartStatus returns the status of the file part with the given part number.
 //
 // The possible values for the status are:
-//  - 0 < Part does not exist
-//  - 0 = unsent
-//  - 1 = arrived (sender has sent a part, and it has arrived)
-//  - 2 = received (receiver has received a part)
+//   - 0 < Part does not exist
+//   - 0 = unsent
+//   - 1 = arrived (sender has sent a part, and it has arrived)
+//   - 2 = received (receiver has received a part)
 func (fpt FilePartTracker) GetPartStatus(partNum int) int {
 	return int(fpt.m.GetPartStatus(uint16(partNum)))
 }
@@ -468,12 +471,13 @@ func (fpt FilePartTracker) GetNumParts() int {
 // report.
 //
 // Example JSON:
-//  {
-//   "Priority": 1,
-//   "Category": "Test Events",
-//   "EventType": "Ping",
-//   "Details": "This is an example of an event report"
-//  }
+//
+//	{
+//	 "Priority": 1,
+//	 "Category": "Test Events",
+//	 "EventType": "Ping",
+//	 "Details": "This is an example of an event report"
+//	}
 type EventReport struct {
 	Priority  int
 	Category  string
@@ -485,7 +489,7 @@ type EventReport struct {
 // Manager.
 //
 // Parameters:
-//  - payload - JSON marshalled EventReport object
+//   - payload - JSON marshalled EventReport object
 type ReporterFunc interface {
 	Report(payload []byte, err error)
 }

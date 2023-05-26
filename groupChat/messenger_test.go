@@ -32,7 +32,7 @@ type mockE2e struct {
 	storage     storage.Session
 }
 
-func newMockE2e(t testing.TB, kv *versioned.KV) groupE2e {
+func newMockE2e(t testing.TB, kv versioned.KV) groupE2e {
 	receptionId := id.NewIdFromString("test", id.User, t)
 	mockCmix := newTestNetworkManager(0)
 	prng := rand.New(rand.NewSource(42))

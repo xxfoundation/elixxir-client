@@ -7,7 +7,6 @@
 
 package broadcast
 
-/*
 import (
 	"bytes"
 	"fmt"
@@ -15,11 +14,11 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
+	"sync"
 
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 )
@@ -39,7 +38,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	cname := "MyChannel"
 	cdesc := "This is my channel about stuff."
 	mCmix := newMockCmix(cMixHandler)
-	channel,_,_ := crypto.NewChannel(cname, cdesc,
+	channel, _, _ := crypto.NewChannel(cname, cdesc, crypto.Public,
 		mCmix.GetMaxMessageLength(),
 		rngGen.GetStream())
 
@@ -49,8 +48,8 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	clients := make([]Channel, n)
 	for i := range clients {
 		cbChan := make(chan []byte, 10)
-		cb := func(payload []byte, _ receptionID.EphemeralIdentity,
-			_ rounds.Round) {
+		cb := func(payload, _ []byte, _ []string, _ [2]byte,
+			_ receptionID.EphemeralIdentity, _ rounds.Round) {
 			cbChan <- payload
 		}
 
@@ -59,7 +58,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 			t.Errorf("Failed to create broadcast channel: %+v", err)
 		}
 
-		err = s.RegisterListener(cb, Symmetric)
+		_, err = s.RegisterSymmetricListener(cb, nil)
 		if err != nil {
 			t.Errorf("Failed to register listener: %+v", err)
 		}
@@ -85,7 +84,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 		for j := range cbChans {
 			wg.Add(1)
 			go func(i, j int, cbChan chan []byte) {
-				defer wg.Done()
+
 				select {
 				case r := <-cbChan:
 					if !bytes.Equal(payload, r) {
@@ -93,15 +92,16 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 							"payload from client %d."+
 							"\nexpected: %q\nreceived: %q", j, i, payload, r)
 					}
-				case <-time.After(25 * time.Millisecond):
+				case <-time.After(3 * time.Second):
 					t.Errorf("Cmix %d timed out waiting for broadcast "+
 						"payload from client %d.", j, i)
 				}
+				wg.Done()
 			}(i, j, cbChans[j])
 		}
 
 		// Broadcast payload
-		_, _, err := clients[i].Broadcast(payload, cmix.GetDefaultCMIXParams())
+		_, _, err := clients[i].Broadcast(payload, nil, [2]byte{}, cmix.GetDefaultCMIXParams())
 		if err != nil {
 			t.Errorf("Cmix %d failed to send broadcast: %+v", i, err)
 		}
@@ -115,7 +115,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 		clients[i].Stop()
 	}
 
-	payload := make([]byte, newMockCmix(cMixHandler).GetMaxMessageLength())
+	payload := make([]byte, clients[0].MaxPayloadSize())
 	copy(payload, "This message should not get through.")
 
 	// Start waiting on channels and error if anything is received
@@ -133,10 +133,10 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	}
 
 	// Broadcast payload
-	_, _, err := clients[0].Broadcast(payload, cmix.GetDefaultCMIXParams())
+	_, _, err := clients[0].Broadcast(payload, nil, [2]byte{}, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Errorf("Cmix 0 failed to send broadcast: %+v", err)
 	}
 
 	wg.Wait()
-}*/
+}

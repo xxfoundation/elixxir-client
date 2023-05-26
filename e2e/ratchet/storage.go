@@ -29,10 +29,13 @@ const (
 )
 
 // Load loads an extant ratchet from disk
-func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
+func Load(kv versioned.KV, myID *id.ID, grp *cyclic.Group,
 	cyHandler session.CypherHandler, services Services, rng *fastRNG.StreamGenerator) (
 	*Ratchet, error) {
-	kv = kv.Prefix(packagePrefix)
+	kv, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to add prefix %s:", packagePrefix)
+	}
 
 	privKey, err := util.LoadCyclicKey(kv, privKeyKey)
 	if err != nil {

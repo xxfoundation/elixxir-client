@@ -8,9 +8,9 @@
 package dm
 
 import (
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/broadcast"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"google.golang.org/protobuf/proto"
 	"os"
 	"testing"
 
@@ -117,4 +117,14 @@ func TestE2EDMs(t *testing.T) {
 	rcvChannel, err := cryptoBroadcast.DecodeInviteURL(invitation.InviteLink)
 	require.NoError(t, err)
 	require.Equal(t, ch, rcvChannel)
+
+	// Send a silent message
+	pubKey = rcvB1.PubKey
+	dmToken = rcvB1.DMToken
+	_, _, _, err := clientA.SendSilent(&pubKey, dmToken, params)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(receiverB.Msgs))
+	rcvB3 := receiverB.Msgs[4]
+	silent := &SilentMessage{}
+	require.NoError(t, proto.Unmarshal([]byte(rcvB3.Message), silent))
 }

@@ -21,6 +21,10 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// DefaultFollowPeriod is the default period in which the network will be polled
+// for state changes (see [Client.Follow]).
+const DefaultFollowPeriod = 1000 * time.Millisecond
+
 type Params struct {
 	// TrackNetworkPeriod determines how frequently follower threads are started.
 	TrackNetworkPeriod time.Duration
@@ -109,7 +113,7 @@ type paramsDisk struct {
 // default parameters.
 func GetDefaultParams() Params {
 	n := Params{
-		TrackNetworkPeriod:        1000 * time.Millisecond,
+		TrackNetworkPeriod:        DefaultFollowPeriod,
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
 		NetworkHealthTimeout:      15 * time.Second,

@@ -40,11 +40,11 @@ const (
 // 4 tags are used
 //
 // The network must be healthy to send.
-func (bc *broadcastClient) BroadcastRSAtoPublic(
-	pk rsa.PrivateKey, payload []byte, tags []string, messageType uint16, cMixParams cmix.CMIXParams) (
+func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
+	payload []byte, tags []string, metadata [2]byte, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
 	assemble := func(rid id.Round) ([]byte, error) { return payload, nil }
-	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, tags, messageType, cMixParams)
+	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, tags, metadata, cMixParams)
 }
 
 // BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel
@@ -56,7 +56,7 @@ func (bc *broadcastClient) BroadcastRSAtoPublic(
 //
 // The network must be healthy to send.
 func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
-	pk rsa.PrivateKey, assembler Assembler, tags []string, messageType uint16,
+	pk rsa.PrivateKey, assembler Assembler, tags []string, metadata [2]byte,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
 	if !bc.net.IsHealthy() {
@@ -97,7 +97,7 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 		// Create service using asymmetric broadcast service tag and channel
 		// reception ID allows anybody with this info to listen for messages on
 		// this channel
-		service = bc.GetRSAToPublicCompressedService(tags, messageType)
+		service = bc.GetRSAToPublicCompressedService(tags, metadata)
 
 		if cMixParams.DebugTag == cmix.DefaultDebugTag {
 			cMixParams.DebugTag = asymmCMixSendTag
@@ -122,12 +122,11 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 	return singleEncryptedPayload, r, ephID, err
 }
 
-func (bc *broadcastClient) GetRSAToPublicCompressedService(tags []string, messageType uint16) message.CompressedService {
-	md := make([]byte, 2)
-	binary.BigEndian.PutUint16(md, messageType)
+func (bc *broadcastClient) GetRSAToPublicCompressedService(
+	tags []string, metadata [2]byte) message.CompressedService {
 	return message.CompressedService{
 		Identifier: bc.asymIdentifier,
 		Tags:       tags,
-		Metadata:   md,
+		Metadata:   metadata[:],
 	}
 }

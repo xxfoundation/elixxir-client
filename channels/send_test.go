@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective"
 	"math/rand"
 	"testing"
 	"time"
@@ -38,7 +39,8 @@ import (
 func Test_manager_SendGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -47,12 +49,12 @@ func Test_manager_SendGeneric(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -85,7 +87,7 @@ func Test_manager_SendGeneric(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, messageType)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -110,7 +112,9 @@ func Test_manager_SendGeneric(t *testing.T) {
 func Test_manager_SendAdminGeneric(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -119,11 +123,11 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string)},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -135,6 +139,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	messageType := Text
@@ -183,7 +188,9 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 func Test_manager_SendMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -192,12 +199,12 @@ func Test_manager_SendMessage(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -209,6 +216,7 @@ func Test_manager_SendMessage(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	rng := crng.GetStream()
@@ -228,7 +236,7 @@ func Test_manager_SendMessage(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Text)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -265,7 +273,9 @@ func Test_manager_SendMessage(t *testing.T) {
 func Test_manager_SendReply(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -274,12 +284,12 @@ func Test_manager_SendReply(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -291,6 +301,7 @@ func Test_manager_SendReply(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	rng := crng.GetStream()
@@ -312,7 +323,7 @@ func Test_manager_SendReply(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Text)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -349,7 +360,9 @@ func Test_manager_SendReply(t *testing.T) {
 func Test_manager_SendReaction(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -358,12 +371,12 @@ func Test_manager_SendReaction(t *testing.T) {
 	m := &manager{
 		me:              pi,
 		channels:        make(map[id.ID]*joinedChannel),
-		kv:              kv,
+		local:           kv,
 		rng:             crng,
 		events:          initEvents(&mockEventModel{}, 512, kv, crng),
-		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), kv: nil},
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -375,6 +388,7 @@ func Test_manager_SendReaction(t *testing.T) {
 			*bool, *bool, *SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	rng := crng.GetStream()
@@ -395,7 +409,7 @@ func Test_manager_SendReaction(t *testing.T) {
 	// Verify the message was handled correctly
 
 	// Decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID, Reaction)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %+v", err)
 	}
@@ -500,16 +514,83 @@ func Test_manager_SendInvite(t *testing.T) {
 
 }
 
+func Test_manager_SendSilent(t *testing.T) {
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	prng := rand.New(rand.NewSource(64))
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	require.NoError(t, err)
+
+	m := &manager{
+		me:              pi,
+		channels:        make(map[id.ID]*joinedChannel),
+		local:           kv,
+		rng:             crng,
+		events:          initEvents(&mockEventModel{}, 512, kv, crng),
+		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity,
+			rounds.Round, SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
+			*bool, *bool, *SentStatus) error {
+			return nil
+		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
+	}
+
+	rng := crng.GetStream()
+	defer rng.Close()
+
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
+	require.NoError(t, err)
+
+	params := new(cmix.CMIXParams)
+	mbc := &mockBroadcastChannel{
+		crypto: ch,
+	}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+
+	// Send message
+	messageID, _, _, err := m.SendSilent(ch.ReceptionID, ValidForever, *params)
+	require.NoError(t, err)
+
+	// Verify the message was handled correctly
+
+	// Decode the user message
+	umi, err := unmarshalUserMessageInternal(mbc.payload, ch.ReceptionID, Silent)
+	require.NoError(t, err)
+
+	// Do checks of the data
+	require.True(t, umi.GetMessageID().Equals(messageID))
+
+	// Decode the text message
+	txt := &CMIXChannelSilentMessage{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	require.NoError(t, err)
+
+}
+
 func Test_manager_DeleteMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv,
-			func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+			func(*id.ID, *userMessageInternal, []byte, time.Time,
 				receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 				uint64, error) {
 				return 0, nil
@@ -521,6 +602,7 @@ func Test_manager_DeleteMessage(t *testing.T) {
 				*bool, *bool, *SentStatus) error {
 				return nil
 			}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -571,14 +653,16 @@ func Test_manager_DeleteMessage(t *testing.T) {
 
 func Test_manager_PinMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -590,6 +674,7 @@ func Test_manager_PinMessage(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -641,7 +726,9 @@ func Test_manager_PinMessage(t *testing.T) {
 func Test_manager_MuteUser(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	prng := rand.New(rand.NewSource(64))
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -649,10 +736,10 @@ func Test_manager_MuteUser(t *testing.T) {
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		kv:       kv,
+		local:    kv,
 		rng:      crng,
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
-			*userMessageInternal, MessageType, []byte, time.Time,
+			*userMessageInternal, []byte, time.Time,
 			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
 			uint64, error) {
 			return 0, nil
@@ -664,6 +751,7 @@ func Test_manager_MuteUser(t *testing.T) {
 			*SentStatus) error {
 			return nil
 		}, crng),
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
@@ -731,7 +819,7 @@ func (m *mockBroadcastChannel) MaxPayloadSize() int            { return 1024 }
 func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int { return 512 }
 func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel  { return m.crypto }
 
-func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ uint16,
+func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -740,7 +828,7 @@ func (m *mockBroadcastChannel) Broadcast(payload []byte, _ []string, _ uint16,
 }
 
 func (m *mockBroadcastChannel) BroadcastWithAssembler(
-	assembler broadcast.Assembler, _ []string, _ uint16,
+	assembler broadcast.Assembler, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -750,7 +838,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
-	payload []byte, _ []string, _ uint16, cMixParams cmix.CMIXParams) (
+	payload []byte, _ []string, _ [2]byte, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	m.payload = payload
@@ -760,7 +848,7 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
-	pk rsa.PrivateKey, assembler broadcast.Assembler, _ []string, _ uint16,
+	pk rsa.PrivateKey, assembler broadcast.Assembler, _ []string, _ [2]byte,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 	var err error
@@ -781,6 +869,9 @@ func (m *mockBroadcastChannel) RegisterSymmetricListener(
 }
 
 func (m *mockBroadcastChannel) Stop() {}
+
+func (m *mockBroadcastChannel) AsymmetricIdentifier() []byte { panic("implement me") }
+func (m *mockBroadcastChannel) SymmetricIdentifier() []byte  { panic("implement me") }
 
 // mockNameService adheres to the NameService interface and is used for testing.
 type mockNameService struct {

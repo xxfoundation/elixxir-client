@@ -333,7 +333,7 @@ func (rmh *ReceiveMessageHandler) CheckSpace(user, admin, muted bool) error {
 
 // initEvents initializes the event model and registers default message type
 // handlers.
-func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
+func initEvents(model EventModel, maxMessageLength int, kv versioned.KV,
 	rng *fastRNG.StreamGenerator) *events {
 	e := &events{
 		model:            model,
@@ -375,7 +375,7 @@ func initEvents(model EventModel, maxMessageLength int, kv *versioned.KV,
 }
 
 // RegisterReceiveHandler registers a listener for non-default message types so
-// that they can be processed by modules. It is important that such modules sync
+// that they can be processed by modules. It is important that such modules collective
 // up with the event model implementation.
 //
 // There can only be one handler per message type; the error
@@ -407,7 +407,7 @@ func (e *events) RegisterReceiveHandler(
 
 // triggerEventFunc is triggered on normal message reception.
 type triggerEventFunc func(channelID *id.ID, umi *userMessageInternal,
-	messageType MessageType, encryptedPayload []byte, timestamp time.Time,
+	encryptedPayload []byte, timestamp time.Time,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	status SentStatus) (uint64, error)
 
@@ -418,7 +418,7 @@ type triggerEventFunc func(channelID *id.ID, umi *userMessageInternal,
 //
 // This function adheres to the triggerEventFunc type.
 func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
-	messageType MessageType, encryptedPayload []byte, timestamp time.Time,
+	encryptedPayload []byte, timestamp time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (
 	uint64, error) {
 	um := umi.GetUserMessage()
@@ -435,7 +435,7 @@ func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
 	}
 
 	// Get handler for message type
-	handler, err := e.getHandler(messageType, true, false, isMuted)
+	handler, err := e.getHandler(umi.messageType, true, false, isMuted)
 	if err != nil {
 		return 0, errors.Errorf("Received message %s from %x on channel %s in "+
 			"round %d that could not be handled: %s; Contents: %v",
@@ -445,7 +445,7 @@ func (e *events) triggerEvent(channelID *id.ID, umi *userMessageInternal,
 
 	// Call the listener. This is already in an instanced event; no new thread
 	// is needed.
-	uuid := handler.listener(channelID, umi.GetMessageID(), messageType,
+	uuid := handler.listener(channelID, umi.GetMessageID(), umi.GetMessageType(),
 		cm.Nickname, cm.Payload, encryptedPayload, um.ECCPublicKey, cm.DMToken,
 		0, timestamp, time.Unix(0, cm.LocalTimestamp), time.Duration(cm.Lease),
 		id.Round(cm.RoundID), round, status, false, false)
@@ -915,7 +915,7 @@ func (e *events) receiveAdminReplay(channelID *id.ID, messageID message.ID,
 		return 0
 	}
 
-	go p.ProcessAdminMessage(content, nil, uint16(messageType),
+	go p.ProcessAdminMessage(content, nil, messageType.Marshal(),
 		receptionID.EphemeralIdentity{}, round)
 	return 0
 }

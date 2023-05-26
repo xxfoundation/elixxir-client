@@ -20,7 +20,7 @@ const isRegisteredVersion = 0
 
 // IsRegistered loads from storage if the user is registered with user
 // discovery.
-func IsRegistered(kv *versioned.KV) bool {
+func IsRegistered(kv versioned.KV) bool {
 	_, err := kv.Get(isRegisteredKey, isRegisteredVersion)
 	if err != nil {
 		return false
@@ -30,7 +30,7 @@ func IsRegistered(kv *versioned.KV) bool {
 }
 
 // setRegistered sets the user to registered
-func setRegistered(kv *versioned.KV) error {
+func setRegistered(kv versioned.KV) error {
 	data := make([]byte, 4)
 	binary.BigEndian.PutUint32(data, 1)
 	obj := &versioned.Object{

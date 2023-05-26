@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/message"
@@ -83,10 +84,12 @@ func Test_newReplayBlocker(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	s := NewCommandStore(kv)
 
+	expectedKv, err := kv.Prefix(replayBlockerStoragePrefix)
+	require.NoError(t, err)
 	expected := &replayBlocker{
 		commandsByChannel: make(map[id.ID]map[commandFingerprintKey]*commandMessage),
 		store:             s,
-		kv:                kv.Prefix(replayBlockerStoragePrefix),
+		kv:                expectedKv,
 	}
 
 	rb := newReplayBlocker(nil, s, kv)

@@ -197,13 +197,13 @@ func getDMPartner() (ed25519.PublicKey, uint32, bool) {
 	pubBytesStr := viper.GetString(dmPartnerPubKeyFlag)
 	pubBytes, err := base64.RawStdEncoding.DecodeString(pubBytesStr)
 	if err != nil {
-		jww.INFO.Printf("unable to read partner public key: %+v",
+		jww.WARN.Printf("unable to read partner public key: %+v",
 			err)
 		return nil, 0, false
 	}
 	pubKey, err := ecdh.ECDHNIKE.UnmarshalBinaryPublicKey(pubBytes)
 	if err != nil {
-		jww.INFO.Printf("unable to decode partner public key: %+v",
+		jww.WARN.Printf("unable to decode partner public key: %+v",
 			err)
 		return nil, 0, false
 	}

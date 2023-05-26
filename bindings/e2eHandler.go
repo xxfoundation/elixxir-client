@@ -220,7 +220,8 @@ func (e *E2e) RegisterListener(
 
 // Processor is the bindings-specific interface for message.Processor methods.
 type Processor interface {
-	Process(message []byte, tags []byte, metadata []byte, receptionId []byte, ephemeralId int64, roundId int64)
+	Process(
+		message, tags, metadata, receptionId []byte, ephemeralId, roundId int64)
 	fmt.Stringer
 }
 

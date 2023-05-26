@@ -333,6 +333,22 @@ func (dmc *DMClient) SetNickname(nick string) {
 	dmc.api.SetNickname(nick)
 }
 
+// BlockSender silences messages sent by the indicated sender
+// public key.
+//   - senderPubKey - The sender's Ed25519 public key to block.
+func (dmc *DMClient) BlockSender(senderPubKeyBytes []byte) {
+	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
+	dmc.api.BlockSender(senderPubKey)
+}
+
+// UnblockSender allows messages sent by the indicated sender
+// public key.
+//   - senderPubKey - The sender's Ed25519 public key to unblock.
+func (dmc *DMClient) UnblockSender(senderPubKeyBytes []byte) {
+	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
+	dmc.api.UnblockSender(senderPubKey)
+}
+
 // IsBlocked indicates if the given sender is blocked.
 // Blocking is controlled by the receiver/EventModel.
 func (dmc *DMClient) IsBlocked(senderPubKeyBytes []byte) bool {
@@ -487,6 +503,36 @@ func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, partnerToken int32,
 	// Send reaction
 	msgID, rnd, ephID, err := dmc.api.SendReaction(&partnerPubKey,
 		uint32(partnerToken), reaction, reactTo, params.CMIX)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct send report
+	return constructDMSendReport(msgID, rnd.ID, ephID)
+}
+
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling [Send].
+//
+// It takes no payload intentionally as the message should be very lightweight.
+//
+// Parameters:
+//   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519
+//     signing key.
+//   - partnerToken - The token used to derive the reception ID for the partner.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+func (dmc *DMClient) SendSilent(partnerPubKeyBytes []byte,
+	partnerToken int32, cmixParamsJSON []byte) ([]byte, error) {
+	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
+
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	msgID, rnd, ephID, err := dmc.api.SendSilent(&partnerPubKey, uint32(partnerToken),
+		params.CMIX)
 	if err != nil {
 		return nil, err
 	}

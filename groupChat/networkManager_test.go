@@ -155,6 +155,10 @@ func (tnm *testNetworkManager) TrackServices(tracker message.ServicesTracker) {
 	panic("implement me")
 }
 
+func (tnm *testNetworkManager) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
+
 func (tnm *testNetworkManager) CheckInProgressMessages() {
 	// TODO implement me
 	panic("implement me")

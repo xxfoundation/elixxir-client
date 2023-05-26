@@ -8,6 +8,12 @@
 package gateway
 
 import (
+	"math"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"testing"
+
 	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,11 +25,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"math"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"testing"
 )
 
 type hostPool struct {
@@ -56,7 +57,7 @@ type hostPool struct {
 	manager   HostManager
 	filterMux sync.Mutex
 	filter    Filter
-	kv        *versioned.KV
+	kv        versioned.KV
 	addChan   chan commNetwork.NodeGateway
 
 	/* Computed parameters*/
@@ -140,6 +141,11 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		params.GatewayFilter = defaultFilter
 	}
 
+	kv, err := storage.GetKV().Prefix(hostListPrefix)
+	if err != nil {
+		return nil, err
+	}
+
 	// Build the host pool
 	hp := &hostPool{
 		writePool:     p,
@@ -155,7 +161,7 @@ func newHostPool(params Params, rng *fastRNG.StreamGenerator,
 		params:        params,
 		manager:       getter,
 		filter:        params.GatewayFilter,
-		kv:            storage.GetKV().Prefix(hostListPrefix),
+		kv:            kv,
 		numNodesToTest: getNumNodesToTest(int(params.MaxPings),
 			len(netDef.Gateways), int(params.PoolSize)),
 		addChan: addChan,
@@ -304,7 +310,7 @@ func (hp *hostPool) getFilter() Filter {
 // getHostList returns the host list from storage.
 // it will trip the list if it is too long and
 // extend it if it is too short
-func getHostPreparedList(kv *versioned.KV, poolSize int) ([]*id.ID, error) {
+func getHostPreparedList(kv versioned.KV, poolSize int) ([]*id.ID, error) {
 	obj, err := kv.Get(hostListKey, hostListVersion)
 	if err != nil {
 		return make([]*id.ID, poolSize), errors.Errorf(getStorageErr, err)

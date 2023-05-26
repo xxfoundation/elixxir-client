@@ -39,6 +39,9 @@ func (v *Object) Unmarshal(data []byte) error {
 // Object exports all fields and they have simple types, so
 // json.Marshal works fine.
 func (v *Object) Marshal() []byte {
+	// Force timestamp into UTC time zone, which resolves certain
+	// deserialization issues.
+	v.Timestamp = v.Timestamp.UTC()
 	d, err := json.Marshal(v)
 	// Not being to marshal this simple object means something is really
 	// wrong

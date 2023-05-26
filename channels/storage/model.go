@@ -19,7 +19,7 @@ import (
 // The user's nickname can change each message, but the rest does not. We
 // still duplicate all of it for each entry to simplify code for now.
 type Message struct {
-	Id              uint64        `gorm:"primaryKey;autoIncrement:true"`
+	Id              int64         `gorm:"primaryKey;autoIncrement:true"`
 	Nickname        string        `gorm:"not null"`
 	MessageId       []byte        `gorm:"uniqueIndex;not null"`
 	ChannelId       []byte        `gorm:"index;not null"`
@@ -29,7 +29,7 @@ type Message struct {
 	Status          uint8         `gorm:"not null"`
 	Text            []byte        `gorm:"not null"`
 	Type            uint16        `gorm:"not null"`
-	Round           uint64        `gorm:"not null"`
+	Round           int64         `gorm:"not null"`
 
 	// Pointer to enforce zero-value reading in ORM.
 	Hidden *bool `gorm:"not null"`

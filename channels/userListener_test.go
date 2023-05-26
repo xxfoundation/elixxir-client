@@ -10,19 +10,16 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"math/rand"
-	"testing"
-	"time"
-
-	"gitlab.com/xx_network/primitives/netTime"
-
-	"github.com/golang/protobuf/proto"
-
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/protobuf/proto"
+	"math/rand"
+	"testing"
+	"time"
 )
 
 type triggerEventDummy struct {
@@ -36,7 +33,7 @@ type triggerEventDummy struct {
 }
 
 func (ted *triggerEventDummy) triggerEvent(chID *id.ID,
-	umi *userMessageInternal, _ MessageType, _ []byte, _ time.Time,
+	umi *userMessageInternal, _ []byte, _ time.Time,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	_ SentStatus) (uint64, error) {
 	ted.gotData = true
@@ -106,7 +103,9 @@ func Test_userListener_Listen(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -191,7 +190,8 @@ func Test_userListener_Listen_BadUserSig(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(), receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -253,7 +253,9 @@ func Test_userListener_Listen_BadRound(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -287,7 +289,9 @@ func Test_userListener_Listen_BadMessage(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -351,7 +355,9 @@ func Test_userListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, nil, 42, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {

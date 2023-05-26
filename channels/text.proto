@@ -28,6 +28,12 @@ message CMIXChannelReaction {
     bytes  reactionMessageID = 3;
 }
 
+// CMIXSilentMessage is the payload for a Silent MessageType. Its primary
+// purpose is to communicate new nicknames without sending a CMIXChannelText.
+message CMIXChannelSilentMessage {
+    uint32 version = 1;
+}
+
 // CMIXChannelDelete is the payload for a Delete MessageType. It deletes the
 // message with the messageID from storage.
 message CMIXChannelDelete {

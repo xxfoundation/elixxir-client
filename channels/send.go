@@ -33,6 +33,7 @@ const (
 	cmixChannelTextVersion       = 0
 	cmixChannelReactionVersion   = 0
 	cmixChannelInvitationVersion = 0
+	cmixChannelSilentVersion   = 0
 	cmixChannelDeleteVersion     = 0
 	cmixChannelPinVersion        = 0
 
@@ -47,6 +48,10 @@ const (
 	// SendReactionTag is the base tag used when generating a debug tag for
 	// sending a reaction.
 	SendReactionTag = "ChReaction"
+
+	// SendSilentTag is the base tag used when generating a debug tag for
+	// sending a silent message.
+	SendSilentTag = "ChSilent"
 
 	// SendInviteTag is the base tag used when generating a debug tag for
 	// sending an invitation.
@@ -223,6 +228,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			userMessage:    usrMsg,
 			channelMessage: chMsg,
 			messageID:      messageID,
+			messageType:    messageType,
 		})
 		if err != nil {
 			printErr = true
@@ -235,9 +241,10 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	}
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
-	tags := makeUserPingTags(pings)
+	tags := makeUserPingTags(pings...)
+	mt := messageType.Marshal()
 	r, ephID, err := ch.broadcast.BroadcastWithAssembler(assemble, tags,
-		uint16(messageType), params)
+		[2]byte{mt[0], mt[1]}, params)
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
@@ -448,6 +455,39 @@ func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
 		false, params, nil)
 }
 
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very lightweight.
+func (m *manager) SendSilent(channelID *id.ID, validUntil time.Duration,
+	params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
+	// Formulate custom tag
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, nil, SendSilentTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf(
+		"[CH] [%s] SendSilent on channel %s", tag, channelID)
+
+	// Construct message
+	silent := &CMIXChannelSilentMessage{
+		Version: cmixChannelSilentVersion,
+	}
+
+	// Marshal message
+	silentMarshalled, err := proto.Marshal(silent)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Send silent message
+	return m.SendGeneric(channelID, Silent, silentMarshalled,
+		validUntil, true, params, nil)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Admin Sending                                                              //
 ////////////////////////////////////////////////////////////////////////////////
@@ -501,11 +541,11 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 
 	// Return an error if the user is not an admin
 	log += "Getting channel private key. "
-	privKey, err := loadChannelPrivateKey(channelID, m.kv)
+	privKey, err := m.adminKeysManager.loadChannelPrivateKey(channelID)
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Failed to load channel private key: %+v", err)
-		if m.kv.Exists(err) {
+		if m.adminKeysManager.remote.Exists(err) {
 			jww.WARN.Printf("[CH] Private key for channel ID %s found in "+
 				"storage, but an error was encountered while accessing it: %+v",
 				channelID, err)
@@ -568,9 +608,10 @@ func (m *manager) SendAdminGeneric(channelID *id.ID, messageType MessageType,
 	}
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
+	mt := messageType.Marshal()
 	encryptedPayload, r, ephID, err := ch.broadcast.
 		BroadcastRSAToPublicWithAssembler(privKey, assemble, nil,
-			uint16(messageType), params)
+			[2]byte{mt[0], mt[1]}, params)
 	if err != nil {
 		printErr = true
 		log += fmt.Sprintf("ERROR Broadcast failed at %s: %s. ", timeNow(), err)
@@ -749,7 +790,7 @@ func makeChaDebugTag(
 	return fmt.Sprintf("%s-%s", baseTag, tripCode)
 }
 
-func makeUserPingTags(users []ed25519.PublicKey) []string {
+func makeUserPingTags(users ...ed25519.PublicKey) []string {
 	if users == nil || len(users) == 0 {
 		return nil
 	}

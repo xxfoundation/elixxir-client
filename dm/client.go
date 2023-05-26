@@ -108,7 +108,7 @@ func (dc *dmClient) register(apiReceiver EventModel,
 	return nil
 }
 
-func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
+func NewNicknameManager(id *id.ID, ekv versioned.KV) NickNameManager {
 	return &nickMgr{
 		ekv:      ekv,
 		storeKey: fmt.Sprintf(nickStoreKey, id.String()),
@@ -118,7 +118,7 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 
 type nickMgr struct {
 	storeKey string
-	ekv      *versioned.KV
+	ekv      versioned.KV
 	nick     string
 	sync.Mutex
 }
@@ -151,7 +151,7 @@ func (dc *dmClient) SetNickname(nick string) {
 func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
 	conversation := dc.receiver.GetConversation(senderPubKey)
 	if conversation != nil {
-		return conversation.Blocked
+		return conversation.BlockedTimestamp != nil
 	}
 	return false
 }
@@ -163,12 +163,22 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 	blocked := make([]ed25519.PublicKey, 0)
 	for i := range allConversations {
 		convo := allConversations[i]
-		if convo.Blocked {
+		if convo.BlockedTimestamp != nil {
 			pub := convo.Pubkey
 			blocked = append(blocked, ed25519.PublicKey(pub))
 		}
 	}
 	return blocked
+}
+
+// BlockSender blocks DMs from the sender with the passed in public key.
+func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
+	dc.receiver.BlockSender(senderPubKey)
+}
+
+// UnblockSender unblocks DMs from the sender with the passed in public key.
+func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
+	dc.receiver.UnblockSender(senderPubKey)
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

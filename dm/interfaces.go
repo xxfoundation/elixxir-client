@@ -28,12 +28,10 @@ import (
 type Client interface {
 	Sender
 	// Listener
-	// TODO: These unimplemented at this time.
-	// BlockDMs disables DMs from a specific user. Received messages
-	// will be dropped during event processing.
-	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken uint32) error
-	// UnblockDMs enables DMs from a specific user.
-	// UnblockDMs(conversationID *id.ID) error
+
+	BlockSender(senderPubKey ed25519.PublicKey)
+
+	UnblockSender(senderPubKey ed25519.PublicKey)
 
 	// GetPublicKey returns the public key of this client.
 	GetPublicKey() nike.PublicKey
@@ -93,6 +91,16 @@ type Sender interface {
 	SendInvite(partnerPubKey *ed25519.PublicKey,
 		partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
 		host string, maxUses int, params cmix.CMIXParams) (
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
+
+	// SendSilent is used to send to a channel a message with no notifications.
+	// Its primary purpose is to communicate new nicknames without calling
+	// SendMessage.
+	//
+	// It takes no payload intentionally as the message should be very
+	// lightweight.
+	SendSilent(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+		params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
 	// Send is used to send a raw message. In general, it

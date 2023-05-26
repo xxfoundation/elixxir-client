@@ -21,27 +21,21 @@ import (
 
 type mockClient struct{}
 
-func (mc *mockClient) GetMaxMessageLength() int {
-	return 2048
-}
+func (mc *mockClient) GetMaxMessageLength() int { return 2048 }
 func (mc *mockClient) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (mc *mockClient) IsHealthy() bool {
-	return true
-}
 func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool, message.Processor)                       {}
 func (mc *mockClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {}
-func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
-func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
 func (mc *mockClient) RemoveIdentity(*id.ID)                                                        {}
-func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
+func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
+func (mc *mockClient) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {}
+func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
+func (mc *mockClient) IsHealthy() bool                                                              { return true }
 func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                          { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)                                                  {}
-func (mc *mockClient) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
-	response message.Processor) {
-}
+func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
 
 // Test MessageReceive basic logic.
 func TestSendTracker_MessageReceive(t *testing.T) {
@@ -54,7 +48,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		Timestamps: make(map[states.Round]time.Time),
 	}
 	r.Timestamps[states.QUEUED] = netTime.Now()
-	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		oldUUID := uuidNum
 		uuidNum++
@@ -85,7 +79,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Lease:   netTime.Now().UnixNano(),
 			RoundID: uint64(rid),
 			Payload: []byte("hello"),
-		}})
+		},
+		messageType: 42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +104,8 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 			Lease:   netTime.Now().UnixNano(),
 			RoundID: uint64(rid),
 			Payload: []byte("hello again"),
-		}})
+		},
+		messageType: 42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +197,7 @@ func TestSendTracker_send(t *testing.T) {
 	triggerCh := make(chan bool)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
@@ -227,7 +223,8 @@ func TestSendTracker_send(t *testing.T) {
 			RoundID: uint64(rid),
 			Payload: []byte("hello"),
 		},
-		messageID: mid,
+		messageID:   mid,
+		messageType: 42,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -302,7 +299,7 @@ func TestRoundResult_callback(t *testing.T) {
 		triggerCh <- true
 		return nil
 	}
-	trigger := func(*id.ID, *userMessageInternal, MessageType, []byte, time.Time,
+	trigger := func(*id.ID, *userMessageInternal, []byte, time.Time,
 		receptionID.EphemeralIdentity, rounds.Round, SentStatus) (uint64, error) {
 		return 0, nil
 	}
@@ -321,7 +318,8 @@ func TestRoundResult_callback(t *testing.T) {
 			RoundID: uint64(rid),
 			Payload: []byte("hello"),
 		},
-		messageID: mid,
+		messageID:   mid,
+		messageType: 42,
 	})
 	if err != nil {
 		t.Fatal(err)

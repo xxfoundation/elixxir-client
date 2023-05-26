@@ -47,6 +47,7 @@ type Handler interface {
 		processor Processor)
 	DeleteClientService(clientID *id.ID)
 	TrackServices(triggerTracker ServicesTracker)
+	GetServices() (ServiceList, CompressedServiceList)
 
 	//Fallthrough
 	AddFallthrough(c *id.ID, p Processor)
@@ -68,7 +69,7 @@ type handler struct {
 	FallthroughManager
 }
 
-func NewHandler(param Params, kv *versioned.KV, events event.Reporter,
+func NewHandler(param Params, kv versioned.KV, events event.Reporter,
 	standardID *id.ID) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)

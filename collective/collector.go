@@ -282,10 +282,17 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			lastTrackedUpdate := c.lastUpdateRead[deviceID]
 
 			if !lastRemoteUpdate.After(lastTrackedUpdate) {
-				jww.DEBUG.Printf("last remote after tracked: "+
+				// FIXME: we warn here, because the
+				// very first thing that is done on
+				// start is to write a txLog, which
+				// means this condition is almost
+				// always true on the first run, and
+				// there may be updates to
+				// collect. Must speak w/ ben on
+				// preferences for how to addres.
+				jww.WARN.Printf("last remote after tracked: "+
 					"%s != %s", lastRemoteUpdate,
 					lastTrackedUpdate)
-				return
 			}
 
 			// Read the remote log

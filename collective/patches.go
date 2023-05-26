@@ -3,6 +3,8 @@ package collective
 import (
 	"encoding/json"
 	"time"
+
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Patch is the structure which stores both local and remote patches,
@@ -31,11 +33,22 @@ func (p *Patch) AddUnsafe(key string, m *Mutate) {
 }
 
 func (p *Patch) Serialize() ([]byte, error) {
-	return json.Marshal(&p.keys)
+	for k, v := range p.keys {
+		d, _ := json.Marshal(v)
+		jww.DEBUG.Printf("Serializing %s: %s->%s",
+			p.myID, k, d)
+	}
+	return json.Marshal(p.keys)
 }
 
 func (p *Patch) Deserialize(b []byte) error {
-	return json.Unmarshal(b, &p.keys)
+	err := json.Unmarshal(b, &p.keys)
+	for k, v := range p.keys {
+		d, _ := json.Marshal(v)
+		jww.DEBUG.Printf("Deserializing %s: %s->%s",
+			p.myID, k, d)
+	}
+	return err
 }
 
 func (p *Patch) get(key string) (*Mutate, bool) {

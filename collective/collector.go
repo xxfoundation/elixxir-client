@@ -172,7 +172,7 @@ func (c *collector) IsSynched() bool {
 func (c *collector) WaitUntilSynched(timeout time.Duration) bool {
 	start := netTime.Now()
 
-	for time.Now().Sub(start) < timeout {
+	for time.Since(start) < timeout {
 		if c.IsSynched() {
 			return true
 		}
@@ -210,10 +210,14 @@ func (c *collector) collect() {
 			collectorLogHeader, err)
 		return
 	}
+	jww.DEBUG.Printf("[%s] devicePaths: %v", collectorLogHeader,
+		devicePaths)
 
 	start := netTime.Now()
 
 	devices := c.initDevices(devicePaths)
+	jww.DEBUG.Printf("[%s] initDevices: %v", collectorLogHeader,
+		devices)
 	newUpdates, err := c.collectChanges(devices)
 	if err != nil {
 		jww.WARN.Printf("[%s] Failed to collect updates: %+v",
@@ -303,6 +307,15 @@ func (c *collector) collectChanges(devices []InstanceID) (
 
 			// preallocated
 			lck.Lock()
+			for k, v := range patch.keys {
+				mutateData, _ := json.Marshal(v)
+				jww.DEBUG.Printf("[%s] changes: %s: %s -> %s",
+					collectorLogHeader,
+					deviceID,
+					k,
+					mutateData)
+			}
+
 			c.devicePatchTracker[deviceID] = patch
 			newUpdates[deviceID] = lastRemoteUpdate
 			lck.Unlock()

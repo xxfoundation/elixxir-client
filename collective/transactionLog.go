@@ -165,6 +165,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 	for {
 		select {
 		case t := <-rw.adds:
+			jww.INFO.Printf("Adding change for %s", t.Key)
 			rw.state.AddUnsafe(t.Key, t.Mutate)
 
 			// batch writes
@@ -262,6 +263,7 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 		return err
 	}
 
+	jww.INFO.Printf("Sending transaction for %s", key)
 	rw.adds <- transaction{
 		Mutate: &Mutate{
 			Timestamp: ts.UTC().UnixNano(),

@@ -511,5 +511,6 @@ func (r *internalKV) IsSynched() bool {
 
 // WaitForRemote block until timeout or remote operations complete
 func (r *internalKV) WaitForRemote(timeout time.Duration) bool {
+	// FIXME: txLog needs to wait here as well!
 	return r.col.WaitUntilSynched(timeout)
 }

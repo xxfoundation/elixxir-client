@@ -201,8 +201,7 @@ func (c *collector) notify(state bool) {
 
 // collect will collect, organize and apply all changes across devices.
 func (c *collector) collect() {
-	// note this returns full device paths from the perspective of
-	// the remote
+	start := netTime.Now()
 	devices, err := getDevices(c.remote, c.syncPath)
 	if err != nil {
 		c.notify(false)
@@ -256,6 +255,7 @@ func (c *collector) collectAllChanges(devices []InstanceID) (
 			c.lastMutationRead[deviceID] = time.Unix(0, 0).UTC()
 			c.devicePatchTracker[deviceID] = newPatch(deviceID)
 			jww.INFO.Printf("[%s] new device detected: %s",
+				collectorLogHeader,
 				deviceID)
 		}
 		wg.Add(1)
@@ -505,7 +505,7 @@ func getDevices(r RemoteStore, path string) ([]InstanceID, error) {
 		if err != nil {
 			jww.WARN.Printf("deviceID decode error: %+v", err)
 		}
-		devices = append(devices, deviceID)
+		devices[i] = deviceID
 	}
 
 	return devices, nil

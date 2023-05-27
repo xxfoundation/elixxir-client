@@ -200,14 +200,14 @@ func (c *collector) notify(state bool) {
 }
 
 // collect will collect, organize and apply all changes across devices.
-func (c *collector) collect() {
+func (c *collector) collect() error {
 	start := netTime.Now()
 	devices, err := getDevices(c.remote, c.syncPath)
 	if err != nil {
 		c.notify(false)
 		jww.ERROR.Printf("[%s] unable to get devices: %+v",
 			collectorLogHeader, err)
-		return
+		return err
 	}
 
 	jww.DEBUG.Printf("[%s] initDevices: %v", collectorLogHeader,
@@ -217,7 +217,7 @@ func (c *collector) collect() {
 		jww.WARN.Printf("[%s] Failed to collect updates: %+v",
 			collectorLogHeader, err)
 		c.notify(false)
-		return
+		return err
 	}
 
 	c.notify(true)
@@ -226,7 +226,7 @@ func (c *collector) collect() {
 	if err = c.applyChanges(); err != nil {
 		jww.WARN.Printf("[%s] Failed to apply updates: %+v",
 			collectorLogHeader, err)
-		return
+		return err
 	}
 
 	atomic.StoreUint32(c.synched, 1)
@@ -239,6 +239,7 @@ func (c *collector) collect() {
 		c.lastUpdateRead[k] = v
 	}
 
+	return nil
 }
 
 func (c *collector) collectAllChanges(devices []InstanceID) (

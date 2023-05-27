@@ -210,6 +210,13 @@ func (c *collector) collect() error {
 		return err
 	}
 
+	if len(devices) == 0 {
+		err = errors.Errorf("[%s] no devices to collect",
+			collectorLogHeader)
+		jww.ERROR.Printf("%+v", err)
+		return err
+	}
+
 	jww.DEBUG.Printf("[%s] initDevices: %v", collectorLogHeader,
 		devices)
 	newUpdates, err := c.collectAllChanges(devices)

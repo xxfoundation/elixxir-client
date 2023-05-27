@@ -50,6 +50,87 @@ type versionedKV struct {
 	local versioned.KV
 }
 
+// CloneFromRemoteStorage copies state from RemoteStore and
+// instantiates a SynchronizedKV
+func CloneFromRemoteStorage(path string, deviceSecret []byte,
+	remote RemoteStore, kv ekv.KeyValue,
+	rng *fastRNG.StreamGenerator) error {
+
+	devices, err := getDevices(remote, path)
+	if err != nil {
+		return err
+	}
+
+	cipher := &deviceCrypto{
+		secret: deviceSecret,
+		rngGen: rng,
+	}
+
+	// Find the newest patch
+	logPath := ""
+	deviceID := InstanceID{}
+	var mostRecent time.Time
+	for i := range devices {
+		curID := devices[i]
+		kid := cipher.KeyID(curID)
+		curPath := getTxLogPath(path, kid, curID)
+		curModified, err := remote.GetLastModified(logPath)
+		if err != nil {
+			jww.ERROR.Printf("CloneFromRemoteStorage: %+v",
+				err)
+			continue
+		}
+		if logPath == "" || curModified.After(mostRecent) {
+			logPath = curPath
+			mostRecent = curModified
+			deviceID = curID
+		}
+	}
+
+	if logPath == "" {
+		return errors.Errorf("could not find existing device")
+	}
+	jww.INFO.Printf("cloning from %s...", logPath)
+
+	// Read out the patch file
+	patchFile, err := remote.Read(logPath)
+	if err != nil {
+		return errors.Wrapf(err, "path: %s", logPath)
+	}
+	_, patch, err := handleIncomingFile(deviceID,
+		patchFile, cipher)
+	if err != nil {
+		return errors.Wrapf(err, "path: %s", logPath)
+	}
+
+	// Copy data to local kv
+	for k, v := range patch.keys {
+		kv.SetBytes(k, v.Value)
+	}
+
+	// Make a new Instance ID and overwrite the one inside our patch
+	rngStream := rng.GetStream()
+	defer rngStream.Close()
+	newID, err := InitInstanceID(kv, rngStream)
+	if err != nil {
+		return err
+	}
+	patch.myID = newID
+
+	// Now save the patch to kv, this will cause proper behavior
+	// when SynchronizedKV(...) is called.
+	serial, err := patch.Serialize()
+	if err != nil {
+		return err
+	}
+
+	if err = kv.SetBytes(makeLocalWriteKey(path), serial); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // SynchronizedKV loads or creates a synchronized remote KV that uses
 // a remote RemoteStore to store defined synchronization prefixes to the
 // network.

@@ -8,6 +8,7 @@
 package user
 
 import (
+	"gitlab.com/elixxir/client/v4/collective"
 	"sync"
 	"time"
 
@@ -38,20 +39,30 @@ func NewUser(kv versioned.KV, transmissionID, receptionID *id.ID, transmissionSa
 	receptionSalt []byte, transmissionRsa, receptionRsa rsa.PrivateKey, isPrecanned bool,
 	e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int) (*User, error) {
 
-	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt,
-		receptionSalt, transmissionRsa, receptionRsa, isPrecanned, e2eDhPrivateKey, e2eDhPublicKey, kv)
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		return nil, err
+	}
 
-	return &User{CryptographicIdentity: ci, kv: kv}, nil
+	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt,
+		receptionSalt, transmissionRsa, receptionRsa, isPrecanned, e2eDhPrivateKey, e2eDhPublicKey, remote)
+
+	return &User{CryptographicIdentity: ci, kv: remote}, nil
 }
 
 func LoadUser(kv versioned.KV) (*User, error) {
-	ci, err := loadCryptographicIdentity(kv)
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	ci, err := loadCryptographicIdentity(remote)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load user "+
 			"due to failure to load cryptographic identity")
 	}
 
-	u := &User{CryptographicIdentity: ci, kv: kv}
+	u := &User{CryptographicIdentity: ci, kv: remote}
 	u.loadTransmissionRegistrationValidationSignature()
 	u.loadReceptionRegistrationValidationSignature()
 	u.loadUsername()

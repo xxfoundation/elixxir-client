@@ -110,7 +110,7 @@ func TestKV_SetGet(t *testing.T) {
 	txLog2.uploadPeriod = 500 * time.Millisecond
 
 	// t.Logf("Device 1: %s, Device 2: %s", txLog.header.DeviceID,
-	// txLog2.header.DeviceID)
+	// 	txLog2.header.DeviceID)
 
 	// Construct mock update callback
 	txChan := make(chan string, numTests)

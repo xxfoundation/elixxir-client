@@ -8,6 +8,7 @@
 package user
 
 import (
+	"gitlab.com/elixxir/client/v4/collective"
 	"math/rand"
 	"testing"
 
@@ -43,9 +44,11 @@ func TestLoadUser(t *testing.T) {
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
 
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+
 	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
-		reception, false, dhPrivKey, dhPubKey, kv)
-	err = ci.save(kv)
+		reception, false, dhPrivKey, dhPubKey, remote)
+	err = ci.save(remote)
 	if err != nil {
 		t.Errorf("Failed to save ci to kv: %+v", err)
 	}

@@ -27,6 +27,7 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -157,6 +158,35 @@ func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.
 		return nil, err
 	}
 	return openCmix(storageKV, rngStreamGen)
+}
+
+// NewSynchronizedCmix clones a Cmix from remote storage
+func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
+	remote collective.RemoteStore) error {
+	jww.INFO.Printf("NewSynchronizedCmix(dir: %s)", storageDir)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
+		csprng.NewSystemRNG)
+
+	def, err := ParseNDF(ndfJSON)
+	if err != nil {
+		return err
+	}
+
+	kv, err := ekv.NewFilestore(storageDir, string(password))
+	if err != nil {
+		return err
+	}
+
+	err = collective.CloneFromRemoteStorage(storageDir, password, remote,
+		kv, rngStreamGen)
+	if err != nil {
+		return err
+	}
+
+	// NDF is saved differently in web (not to kv), so save it
+	// explicitly here. everything else should be synchronized
+	vkv := versioned.NewKV(kv)
+	return storage.SaveNDF(vkv, def)
 }
 
 func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (

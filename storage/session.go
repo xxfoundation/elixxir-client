@@ -126,11 +126,11 @@ func New(storage versioned.KV, u user.Info,
 		return nil, err
 	}
 
-	if err = utility.StoreGroup(s.syncKV, cmixGrp, cmixGroupKey); err != nil {
+	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
 		return nil, err
 	}
 
-	if err = utility.StoreGroup(s.syncKV, e2eGrp, e2eGroupKey); err != nil {
+	if err = utility.StoreGroup(s.kv, e2eGrp, e2eGroupKey); err != nil {
 		return nil, err
 	}
 

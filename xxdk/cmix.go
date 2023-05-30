@@ -132,34 +132,6 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
-// OpenCmix creates client storage but does not connect to the network or login.
-// Note that this is a helper function that, in most applications, should not be
-// used on its own. Consider using LoadCmix instead, which calls this function
-// for you.
-func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
-	jww.INFO.Printf("OpenCmix(%s)", storageDir)
-
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
-	storageKV, err := LocalKV(storageDir, password, rngStreamGen)
-	if err != nil {
-		return nil, err
-	}
-	return openCmix(storageKV, rngStreamGen)
-}
-
-func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
-	synchedPrefixes []string) (*Cmix, error) {
-
-	jww.INFO.Printf("OpenSynchronizedCmix(%s)", storageDir)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
-	storageKV, err := SynchronizedKV(storageDir, password,
-		remote, synchedPrefixes, rngStreamGen)
-	if err != nil {
-		return nil, err
-	}
-	return openCmix(storageKV, rngStreamGen)
-}
-
 // NewSynchronizedCmix clones a Cmix from remote storage
 func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 	remote collective.RemoteStore) error {
@@ -187,6 +159,34 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 	// explicitly here. everything else should be synchronized
 	vkv := versioned.NewKV(kv)
 	return storage.SaveNDF(vkv, def)
+}
+
+// OpenCmix creates client storage but does not connect to the network or login.
+// Note that this is a helper function that, in most applications, should not be
+// used on its own. Consider using LoadCmix instead, which calls this function
+// for you.
+func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
+	jww.INFO.Printf("OpenCmix(%s)", storageDir)
+
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
+	storageKV, err := LocalKV(storageDir, password, rngStreamGen)
+	if err != nil {
+		return nil, err
+	}
+	return openCmix(storageKV, rngStreamGen)
+}
+
+func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
+	synchedPrefixes []string) (*Cmix, error) {
+
+	jww.INFO.Printf("OpenSynchronizedCmix(%s)", storageDir)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
+	storageKV, err := SynchronizedKV(storageDir, password,
+		remote, synchedPrefixes, rngStreamGen)
+	if err != nil {
+		return nil, err
+	}
+	return openCmix(storageKV, rngStreamGen)
 }
 
 func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (

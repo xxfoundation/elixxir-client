@@ -172,7 +172,7 @@ func (c *collector) IsSynched() bool {
 func (c *collector) WaitUntilSynched(timeout time.Duration) bool {
 	start := netTime.Now()
 
-	for time.Now().Sub(start) < timeout {
+	for time.Since(start) < timeout {
 		if c.IsSynched() {
 			return true
 		}
@@ -210,10 +210,14 @@ func (c *collector) collect() {
 			collectorLogHeader, err)
 		return
 	}
+	jww.DEBUG.Printf("[%s] devicePaths: %v", collectorLogHeader,
+		devicePaths)
 
 	start := netTime.Now()
 
 	devices := c.initDevices(devicePaths)
+	jww.DEBUG.Printf("[%s] initDevices: %v", collectorLogHeader,
+		devices)
 	newUpdates, err := c.collectChanges(devices)
 	if err != nil {
 		jww.WARN.Printf("[%s] Failed to collect updates: %+v",
@@ -278,10 +282,17 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			lastTrackedUpdate := c.lastUpdateRead[deviceID]
 
 			if !lastRemoteUpdate.After(lastTrackedUpdate) {
-				jww.DEBUG.Printf("last remote after tracked: "+
+				// FIXME: we warn here, because the
+				// very first thing that is done on
+				// start is to write a txLog, which
+				// means this condition is almost
+				// always true on the first run, and
+				// there may be updates to
+				// collect. Must speak w/ ben on
+				// preferences for how to addres.
+				jww.WARN.Printf("last remote after tracked: "+
 					"%s != %s", lastRemoteUpdate,
 					lastTrackedUpdate)
-				return
 			}
 
 			// Read the remote log
@@ -303,6 +314,15 @@ func (c *collector) collectChanges(devices []InstanceID) (
 
 			// preallocated
 			lck.Lock()
+			for k, v := range patch.keys {
+				mutateData, _ := json.Marshal(v)
+				jww.DEBUG.Printf("[%s] changes: %s: %s -> %s",
+					collectorLogHeader,
+					deviceID,
+					k,
+					mutateData)
+			}
+
 			c.devicePatchTracker[deviceID] = patch
 			newUpdates[deviceID] = lastRemoteUpdate
 			lck.Unlock()

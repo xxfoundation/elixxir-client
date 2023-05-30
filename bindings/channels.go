@@ -2826,9 +2826,9 @@ func (ct *dbCipherTracker) delete(id int) {
 	delete(ct.tracked, id)
 }
 
-// GetChannelDbCipherTrackerFromID returns the DbCipher with the
+// GetDbCipherTrackerFromID returns the DbCipher with the
 // corresponding ID in the tracker.
-func GetChannelDbCipherTrackerFromID(id int) (*DbCipher, error) {
+func GetDbCipherTrackerFromID(id int) (*DbCipher, error) {
 	return dbCipherTrackerSingleton.get(id)
 }
 

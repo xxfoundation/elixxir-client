@@ -86,3 +86,15 @@ func (m *manager) RemoveToken() error {
 	m.deleteTokenUnsafe()
 	return nil
 }
+
+// GetToken returns the token if it is registered
+func (m *manager) GetToken() (has bool, token, app string) {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+	if m.token.Token != "" {
+		return true, m.token.Token, m.token.App
+	} else {
+		return false, "", ""
+	}
+
+}

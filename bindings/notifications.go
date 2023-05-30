@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/notifications"
 	"sync"
@@ -38,6 +39,29 @@ func (n *Notifications) AddToken(newToken, app string) error {
 // It will remove all registered identities if it is the last Token
 func (n *Notifications) RemoveToken() error {
 	return n.manager.RemoveToken()
+}
+
+type GetTokenJson struct {
+	Exists bool   `json:"exists"`
+	Token  string `json:"token"`
+	App    string `json:"app"`
+}
+
+// GetToken returns the token if it exists
+//
+//	{
+//	  "exists":true,
+//	  "Token":"Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4HZ",
+//	  "App":"havenIOS"
+//	}
+func (n *Notifications) GetToken() ([]byte, error) {
+	exist, token, app := n.manager.GetToken()
+	gtj := &GetTokenJson{
+		Exists: exist,
+		Token:  token,
+		App:    app,
+	}
+	return json.Marshal(gtj)
 }
 
 // SetMaxState sets the maximum functional state of any identity

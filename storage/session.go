@@ -126,11 +126,11 @@ func New(storage versioned.KV, u user.Info,
 		return nil, err
 	}
 
-	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
+	if err = utility.StoreGroup(s.syncKV, cmixGrp, cmixGroupKey); err != nil {
 		return nil, err
 	}
 
-	if err = utility.StoreGroup(s.kv, e2eGrp, e2eGroupKey); err != nil {
+	if err = utility.StoreGroup(s.syncKV, e2eGrp, e2eGroupKey); err != nil {
 		return nil, err
 	}
 
@@ -180,12 +180,12 @@ func Load(storage versioned.KV,
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.cmixGroup, err = utility.LoadGroup(s.kv, cmixGroupKey)
+	s.cmixGroup, err = utility.LoadGroup(s.syncKV, cmixGroupKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.e2eGroup, err = utility.LoadGroup(s.kv, e2eGroupKey)
+	s.e2eGroup, err = utility.LoadGroup(s.syncKV, e2eGroupKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}

@@ -10,6 +10,7 @@ package storage
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -67,7 +68,7 @@ func (s *session) newRegStatus() error {
 		Data:      s.regStatus.marshalBinary(),
 	}
 
-	err := s.Set(registrationStatusKey, &obj)
+	err := s.syncKV.Set(registrationStatusKey, &obj)
 	if err != nil {
 		return errors.WithMessagef(err, "Failed to store new "+
 			"registration status")
@@ -78,7 +79,7 @@ func (s *session) newRegStatus() error {
 
 // loads registration status from disk.
 func (s *session) loadRegStatus() error {
-	obj, err := s.Get(registrationStatusKey)
+	obj, err := s.syncKV.Get(registrationStatusKey, currentSessionVersion)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to load registration status")
 	}
@@ -105,8 +106,7 @@ func (s *session) ForwardRegistrationStatus(regStatus RegistrationStatus) error 
 		Timestamp: now,
 		Data:      regStatus.marshalBinary(),
 	}
-
-	err := s.Set(registrationStatusKey, &obj)
+	err := s.syncKV.Set(registrationStatusKey, &obj)
 	if err != nil {
 		return errors.WithMessagef(err, "Failed to store registration status")
 	}

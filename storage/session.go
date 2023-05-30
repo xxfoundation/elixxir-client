@@ -113,7 +113,7 @@ func New(storage versioned.KV, u user.Info,
 			"Create new session")
 	}
 
-	s.User, err = user.NewUser(s.syncKV, u.TransmissionID, u.ReceptionID,
+	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID,
 		u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA,
 		u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey,
 		u.E2eDhPublicKey)
@@ -175,7 +175,7 @@ func Load(storage versioned.KV,
 			"Failed to load client version store.")
 	}
 
-	s.User, err = user.LoadUser(s.syncKV)
+	s.User, err = user.LoadUser(s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}

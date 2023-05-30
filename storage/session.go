@@ -114,6 +114,9 @@ func New(storage versioned.KV, u user.Info,
 	}
 
 	s.clientVersion, err = clientVersion.NewStore(currentVersion, s.kv)
+	if err != nil {
+		return nil, err
+	}
 
 	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
 		return nil, err

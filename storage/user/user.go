@@ -47,7 +47,7 @@ func NewUser(kv versioned.KV, transmissionID, receptionID *id.ID, transmissionSa
 	ci := newCryptographicIdentity(transmissionID, receptionID,
 		transmissionSalt, receptionSalt, transmissionRsa,
 		receptionRsa, isPrecanned,
-		e2eDhPrivateKey, e2eDhPublicKey, kv)
+		e2eDhPrivateKey, e2eDhPublicKey, remote)
 
 	return &User{CryptographicIdentity: ci, kv: remote}, nil
 }
@@ -58,7 +58,7 @@ func LoadUser(kv versioned.KV) (*User, error) {
 		return nil, err
 	}
 
-	ci, err := loadCryptographicIdentity(kv)
+	ci, err := loadCryptographicIdentity(remote)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load user "+
 			"due to failure to load cryptographic identity")

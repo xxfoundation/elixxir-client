@@ -84,7 +84,7 @@ type internalKV struct {
 	// keyUpdateListeners holds callbacks called when a key is updated
 	// by a remote
 	UpdateListenerMux  sync.RWMutex
-	keyUpdateListeners map[string]KeyUpdateCallback
+	keyUpdateListeners map[string]keyUpdateCallback
 	mapUpdateListeners map[string]mapChangedByRemoteCallback
 }
 
@@ -98,7 +98,7 @@ func newKV(transactionLog *remoteWriter, kv ekv.KeyValue) *internalKV {
 	rkv := &internalKV{
 		kv:                 kv,
 		txLog:              transactionLog,
-		keyUpdateListeners: make(map[string]KeyUpdateCallback),
+		keyUpdateListeners: make(map[string]keyUpdateCallback),
 		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
 		isSynchronizing:    &isSync,
 	}
@@ -233,7 +233,7 @@ func (r *internalKV) SetBytesFromRemote(key string, data []byte) error {
 		if existed {
 			opp = versioned.Updated
 		}
-		go cb(key, old, data, opp)
+		go cb(old, data, opp)
 	}
 	return nil
 }
@@ -322,7 +322,7 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 	defer r.UpdateListenerMux.RUnlock()
 
 	if cb, exists := r.mapUpdateListeners[mapName]; exists {
-		go cb(mapName, reportedEdits)
+		go cb(reportedEdits)
 	}
 
 	return nil
@@ -347,7 +347,7 @@ func (r *internalKV) DeleteFromRemote(key string) error {
 	r.UpdateListenerMux.RLock()
 	defer r.UpdateListenerMux.RUnlock()
 	if cb, exists := r.keyUpdateListeners[key]; exists {
-		go cb(key, old, nil, versioned.Deleted)
+		go cb(old, nil, versioned.Deleted)
 	}
 	return nil
 }
@@ -356,45 +356,56 @@ func (r *internalKV) DeleteFromRemote(key string) error {
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
 // NOTE: It may make more sense to listen for updates via the collector directly
-func (r *internalKV) ListenOnRemoteKey(key string, cb KeyUpdateCallback) ([]byte,
-	error) {
+func (r *internalKV) ListenOnRemoteKey(key string, cb keyUpdateCallback) error {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
-
-	if r.IsSynchronizing() {
-		jww.FATAL.Panic("cannot add listener when synchronizing")
-	}
 
 	r.keyUpdateListeners[key] = cb
 	curData, err := r.GetBytes(key)
 	if err != nil && ekv.Exists(err) {
-		return nil, err
+		return err
 	}
-	return curData, nil
+	if curData != nil {
+		cb(nil, curData, versioned.Loaded)
+	}
+	return nil
 }
+
+// keyUpdateCallback is the callback used to report the event.
+type keyUpdateCallback func(oldVal, newVal []byte,
+	op versioned.KeyOperation)
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // any element in the given map is updated by synching with another client.
 // Only one callback can be written per key.
 // NOTE: It may make more sense to listen for updates via the collector directly
 func (r *internalKV) ListenOnRemoteMap(mapName string,
-	cb mapChangedByRemoteCallback) (map[string][]byte, error) {
+	cb mapChangedByRemoteCallback) error {
 	r.UpdateListenerMux.Lock()
 	defer r.UpdateListenerMux.Unlock()
-
-	if r.IsSynchronizing() {
-		jww.FATAL.Panic("cannot add listener when synchronizing")
-	}
 
 	r.mapUpdateListeners[mapName] = cb
 	curMap, err := r.GetMap(mapName)
 	if err != nil && ekv.Exists(err) {
-		return nil, err
+		return err
 	}
-	return curMap, nil
+
+	if len(curMap) > 0 {
+		ee := make(map[string]elementEdit, len(curMap))
+		for key := range curMap {
+			ee[key] = elementEdit{
+				OldElement: nil,
+				NewElement: curMap[key],
+				Operation:  versioned.Loaded,
+			}
+		}
+		cb(ee)
+	}
+
+	return nil
 }
 
-type mapChangedByRemoteCallback func(mapName string, edits map[string]elementEdit)
+type mapChangedByRemoteCallback func(edits map[string]elementEdit)
 type elementEdit struct {
 	OldElement []byte
 	NewElement []byte

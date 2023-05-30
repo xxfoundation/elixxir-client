@@ -50,12 +50,26 @@ type versionedKV struct {
 	local versioned.KV
 }
 
+// CloneFromRemoteStorage copies state from RemoteStore and
+// instantiates a SynchronizedKV
+func CloneFromRemoteStorage(path string, deviceSecret []byte,
+	remote RemoteStore, kv ekv.KeyValue,
+	rng *fastRNG.StreamGenerator) error {
+
+	rkv, err := SynchronizedKV(path, deviceSecret, remote, kv, nil, rng)
+	if err != nil {
+		return err
+	}
+
+	return rkv.remote.col.collect()
+}
+
 // SynchronizedKV loads or creates a synchronized remote KV that uses
 // a remote RemoteStore to store defined synchronization prefixes to the
 // network.
 func SynchronizedKV(path string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue, synchedPrefixes []string,
-	rng *fastRNG.StreamGenerator) (SyncKV, error) {
+	rng *fastRNG.StreamGenerator) (*versionedKV, error) {
 
 	rngStream := rng.GetStream()
 	defer rngStream.Close()

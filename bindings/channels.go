@@ -2764,7 +2764,7 @@ func (ebt *channelsExtensionBuilderTracker) delete(id int) {
 // Channel DbCipher                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 
-// DbCipher is the bindings layer representation of the [channel.Cipher].
+// DbCipher is the bindings layer representation of the [database.Cipher].
 type DbCipher struct {
 	api  database.Cipher
 	salt []byte
@@ -2787,7 +2787,7 @@ type dbCipherTracker struct {
 	mux     sync.RWMutex
 }
 
-// create creates a DbCipher from a [channel.Cipher], assigns it a unique
+// create creates a DbCipher from a [database.Cipher], assigns it a unique
 // ID, and adds it to the dbCipherTracker.
 func (ct *dbCipherTracker) create(c database.Cipher) *DbCipher {
 	ct.mux.Lock()

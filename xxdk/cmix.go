@@ -141,24 +141,47 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "ParseNDF")
 	}
 
 	kv, err := ekv.NewFilestore(storageDir, string(password))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "NewFilestore")
 	}
 
 	err = collective.CloneFromRemoteStorage(storageDir, password, remote,
 		kv, rngStreamGen)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "CloneFromRemoteStorage")
 	}
 
-	// NDF is saved differently in web (not to kv), so save it
-	// explicitly here. everything else should be synchronized
+	// Now we do a partial version of CheckVersionAndSetupStorage(...)
 	vkv := versioned.NewKV(kv)
-	return storage.SaveNDF(vkv, def)
+	// Load from the synchronized KV.
+	myID, err := user.LoadUser(vkv)
+	if err != nil {
+		return errors.Wrapf(err, "LoadUser")
+	}
+	cmixGrp, e2eGrp := DecodeGroups(def)
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.Wrapf(err, "Could not parse version string.")
+	}
+	// FIXME: this is a little hacky, since it resaves some of the
+	// synchronized keys, but it shouldn't cause a problem.
+	storageSess, err := storage.New(vkv, myID.PortableUserInfo(),
+		currentVersion, cmixGrp, e2eGrp)
+	if err != nil {
+		return err
+	}
+	// NOTE: RegCode is synchronized, so we don't need to set it.
+	// Move the registration state to keys generated
+	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	if err != nil {
+		return errors.Wrapf(err,
+			"Failed to denote state change in session")
+	}
+	return err
 }
 
 // OpenCmix creates client storage but does not connect to the network or login.
@@ -722,9 +745,6 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
 
 	// Store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
-
-	rngStream := rng.GetStream()
-	defer rngStream.Close()
 
 	// Move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)

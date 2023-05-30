@@ -8,16 +8,20 @@
 package dm
 
 import (
-	"testing"
-
+	"crypto/ed25519"
+	"encoding/base64"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
+	"testing"
 )
 
 // TestNick runs basic smoke testing of nick name manager
@@ -70,8 +74,10 @@ func TestBlock(t *testing.T) {
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
-	ekvA := versioned.NewKV(ekv.MakeMemstore())
-	ekvB := versioned.NewKV(ekv.MakeMemstore())
+	ekvA := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+	ekvB := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	stA := NewSendTracker(ekvA)
 	stB := NewSendTracker(ekvB)
@@ -88,8 +94,10 @@ func TestBlock(t *testing.T) {
 	nnmA.SetNickname("me")
 	nnmB.SetNickname("partner")
 
-	clientA := NewDMClient(&me, receiverA, stA, nnmA, netA, crng)
-	clientB := NewDMClient(&partner, receiverB, stB, nnmB, netB, crng)
+	clientA, err := NewDMClient(&me, receiverA, stA, nnmA, netA, ekvA, crng)
+	require.NoError(t, err)
+	clientB, err := NewDMClient(&partner, receiverB, stB, nnmB, netB, ekvA, crng)
+	require.NoError(t, err)
 
 	// make sure the blocklist is empty
 	beEmpty := clientB.GetBlockedSenders()
@@ -151,4 +159,80 @@ func TestBlock(t *testing.T) {
 
 	require.Equal(t, len(clientB.GetBlockedSenders()), 0)
 
+}
+
+func TestDm_mapUpdate(t *testing.T) {
+
+	numEdits := 100
+
+	expectedUpdates := make(map[string]bool, numEdits)
+	edits := make(map[string]versioned.ElementEdit, numEdits)
+
+	rng := rand.New(rand.NewSource(69))
+
+	netA, _ := createLinkedNets()
+
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	me, _ := codename.GenerateIdentity(rng)
+	partner, _ := codename.GenerateIdentity(rng)
+
+	ekvA := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+	ekvB := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+
+	stA := NewSendTracker(ekvA)
+
+	receiverA := newMockReceiver()
+
+	myID := DeriveReceptionID(me.PubKey, me.GetDMToken())
+	partnerID := deriveReceptionID(partner.PubKey, partner.GetDMToken())
+
+	nnmA := NewNicknameManager(myID, ekvA)
+	nnmB := NewNicknameManager(partnerID, ekvB)
+
+	nnmA.SetNickname("me")
+	nnmB.SetNickname("partner")
+
+	clientA, err := newDmClient(&me, receiverA, stA, nnmA, netA, ekvA, crng)
+	require.NoError(t, err)
+
+	for i := 0; i < numEdits; i++ {
+		pubKey, _, err := ed25519.GenerateKey(rng)
+		require.NoError(t, err)
+
+		// make 1/3 chance it will be deleted
+		existsChoice := make([]byte, 1)
+		rng.Read(existsChoice)
+		op := versioned.KeyOperation(int(existsChoice[0]) % 3)
+		expected := true
+		data := base64.StdEncoding.EncodeToString(pubKey)
+		if op == versioned.Deleted {
+			expected = false
+		}
+
+		expectedUpdates[data] = expected
+		edits[data] = versioned.ElementEdit{
+			OldElement: nil,
+			NewElement: &versioned.Object{
+				Version:   0,
+				Timestamp: netTime.Now(),
+				Data:      pubKey,
+			},
+			Operation: op,
+		}
+	}
+
+	clientA.mapUpdate(dmMapName, edits)
+
+	for key, shouldBeBlocked := range expectedUpdates {
+		pubKey, err := base64.StdEncoding.DecodeString(key)
+		require.NoError(t, err)
+		if !shouldBeBlocked {
+			require.False(t, clientA.IsBlocked(pubKey))
+		} else {
+			require.True(t, clientA.IsBlocked(pubKey))
+		}
+
+	}
 }

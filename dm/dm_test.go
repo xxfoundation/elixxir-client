@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"gitlab.com/elixxir/client/v4/collective"
 	"google.golang.org/protobuf/proto"
 	"os"
 	"testing"
@@ -15,7 +16,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -44,8 +44,10 @@ func TestE2EDMs(t *testing.T) {
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
-	ekvA := versioned.NewKV(ekv.MakeMemstore())
-	ekvB := versioned.NewKV(ekv.MakeMemstore())
+	ekvA := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+	ekvB := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	stA := NewSendTracker(ekvA)
 	stB := NewSendTracker(ekvB)
@@ -62,8 +64,10 @@ func TestE2EDMs(t *testing.T) {
 	nnmA.SetNickname("me")
 	nnmB.SetNickname("partner")
 
-	clientA := NewDMClient(&me, receiverA, stA, nnmA, netA, crng)
-	clientB := NewDMClient(&partner, receiverB, stB, nnmB, netB, crng)
+	clientA, err := NewDMClient(&me, receiverA, stA, nnmA, netA, ekvA, crng)
+	require.NoError(t, err)
+	clientB, err := NewDMClient(&partner, receiverB, stB, nnmB, netB, ekvB, crng)
+	require.NoError(t, err)
 
 	params := cmix.GetDefaultCMIXParams()
 
@@ -96,7 +100,7 @@ func TestE2EDMs(t *testing.T) {
 	// Send a silent message
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
-	_, _, _, err := clientA.SendSilent(&pubKey, dmToken, params)
+	_, _, _, err = clientA.SendSilent(&pubKey, dmToken, params)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(receiverB.Msgs))
 	rcvB3 := receiverB.Msgs[4]

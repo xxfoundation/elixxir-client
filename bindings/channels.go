@@ -2832,7 +2832,7 @@ func GetChannelDbCipherTrackerFromID(id int) (*DbCipher, error) {
 	return dbCipherTrackerSingleton.get(id)
 }
 
-// NewChannelsDatabaseCipher constructs a DbCipher object.
+// NewDatabaseCipher constructs a DbCipher object.
 //
 // Parameters:
 //   - cmixID - The tracked [Cmix] object ID.
@@ -2841,7 +2841,7 @@ func GetChannelDbCipherTrackerFromID(id int) (*DbCipher, error) {
 //   - plaintTextBlockSize - The maximum size of a payload to be encrypted.
 //     A payload passed into [DbCipher.Encrypt] that is larger than
 //     plaintTextBlockSize will result in an error.
-func NewChannelsDatabaseCipher(cmixID int, password []byte,
+func NewDatabaseCipher(cmixID int, password []byte,
 	plaintTextBlockSize int) (*DbCipher, error) {
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -2880,7 +2880,7 @@ func (c *DbCipher) GetID() int {
 //
 // Parameters:
 //   - plaintext - The data to be encrypted. This must be smaller than the block
-//     size passed into [NewChannelsDatabaseCipher]. If it is larger, this will
+//     size passed into [NewDatabaseCipher]. If it is larger, this will
 //     return an error.
 func (c *DbCipher) Encrypt(plaintext []byte) ([]byte, error) {
 	return c.api.Encrypt(plaintext)

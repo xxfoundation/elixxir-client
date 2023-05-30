@@ -8,7 +8,6 @@
 package collective
 
 import (
-	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -119,7 +118,6 @@ func TestKV_SetGet(t *testing.T) {
 		op versioned.KeyOperation) {
 		// t.Logf("%s: %s -> %s", key, string(oldVal), string(newVal))
 		require.Nil(t, oldVal)
-		fmt.Println(string(newVal))
 		txChan <- string(newVal)
 	})
 

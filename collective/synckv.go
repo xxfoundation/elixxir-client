@@ -315,12 +315,12 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 
 	wrap := func(old, new []byte, op versioned.KeyOperation) {
 		var oldObj *versioned.Object
-		if old != nil {
+		if old != nil && len(old) > 0 {
 			oldObj = &versioned.Object{}
 			err := oldObj.Unmarshal(old)
 			if err != nil {
 				jww.WARN.Printf("Failed to unmarshal old versioned object "+
-					"for listener on key %s", key)
+					"for listener on key %s: %+v", key, err)
 			}
 		}
 
@@ -356,10 +356,11 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 				NewElement: &versioned.Object{},
 				Operation:  edit.Operation,
 			}
-
-			if err := versionedEdit.OldElement.Unmarshal(edit.OldElement); err != nil {
-				jww.WARN.Printf("Failed to unmarshal old versioned object "+
-					"for listener on map %s element %s", mapName, key)
+			if edit.OldElement != nil && len(edit.OldElement) > 0 {
+				if err := versionedEdit.OldElement.Unmarshal(edit.OldElement); err != nil {
+					jww.WARN.Printf("Failed to unmarshal old versioned object "+
+						"for listener on map %s element %s: %+v", mapName, key, err)
+				}
 			}
 
 			if err := versionedEdit.NewElement.Unmarshal(edit.NewElement); err != nil {

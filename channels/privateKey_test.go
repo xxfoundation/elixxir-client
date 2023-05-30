@@ -327,7 +327,7 @@ func Test_mapUpdate(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	akm.mapUpdate(adminKeysMapName, edits)
+	akm.mapUpdate(edits)
 	wg.Wait()
 
 }

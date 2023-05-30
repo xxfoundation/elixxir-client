@@ -27,40 +27,18 @@ const (
 // for message reception.
 func (m *manager) loadChannels() {
 	m.mux.Lock()
-	defer m.mux.Unlock()
-	mapObj, err := m.remote.ListenOnRemoteMap(joinedChannelsMap, joinedChannelsMapVersion, m.mapUpdate)
+	m.channels = make(map[id.ID]*joinedChannel)
+	m.mux.Unlock()
+	err := m.remote.ListenOnRemoteMap(joinedChannelsMap, joinedChannelsMapVersion, m.mapUpdate)
 
 	if err != nil {
 		jww.FATAL.Panicf("Failed to set up listener on remote for "+
 			"channels: %+v", err)
 	}
 
-	m.channels = make(map[id.ID]*joinedChannel)
-
-	for elementName, chObj := range mapObj {
-		channelID := &id.ID{}
-
-		if _, err = base64.StdEncoding.Decode(channelID[:], []byte(elementName)); err != nil {
-			jww.WARN.Printf("Failed to unmarshal channel ID in"+
-				"remote channel %s, skipping: %+v", elementName, err)
-			continue
-		}
-
-		if _, err := m.setUpJoinedChannel(chObj.Data); err != nil {
-			jww.WARN.Printf("Failed to set up channel %s, skipping: "+
-				"%+v", elementName, err)
-			continue
-		}
-	}
 }
 
-func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEdit) {
-	if mapName != joinedChannelsMap {
-		jww.ERROR.Printf("Got an update for the wrong map, "+
-			"expected: %s, got: %s", joinedChannelsMap, mapName)
-		return
-	}
-
+func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
@@ -69,11 +47,14 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 
 	for elementName, edit := range edits {
 		channelID := &id.ID{}
-		if err := channelID.UnmarshalJSON([]byte(elementName)); err != nil {
+		elementBytes, err := base64.StdEncoding.DecodeString(elementName)
+		if err != nil {
 			jww.WARN.Printf("Failed to unmarshal channel ID in"+
 				"remote channel %s, skipping: %+v", elementName, err)
 			continue
 		}
+		copy(channelID[:], elementBytes)
+
 		if edit.Operation == versioned.Deleted {
 			if err := m.removeChannelUnsafe(channelID); err != nil {
 				jww.WARN.Printf("Failed to remove "+

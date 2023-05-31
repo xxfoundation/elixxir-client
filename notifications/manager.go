@@ -129,6 +129,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	}
 
 	m.loadTokenUnsafe()
+	m.initialization = false
 	m.mux.Unlock()
 
 	return m
@@ -242,12 +243,14 @@ func (m *manager) maxStateUpdate(old, new *versioned.Object, op versioned.KeyOpe
 			maxStateKey, err)
 		return
 	}
-
 	if !m.initialization {
 		for g := range m.callbacks {
 			cb := m.callbacks[g]
 			go cb(m.group[g].DeepCopy(), nil, nil, nil, m.maxState)
 		}
+	} else {
+		jww.DEBUG.Printf("Skipping callback on masStateUpdate to %s, "+
+			"in initialization", m.maxState)
 	}
 
 }

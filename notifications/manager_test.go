@@ -430,6 +430,7 @@ func TestManager_maxStateUpdate(t *testing.T) {
 		groupName := fmt.Sprintf("grp_%d", i)
 		nid := id.NewIdFromUInt(uint64(i), id.User, t)
 		if i%2 == 0 {
+
 			localI := i
 			cb := func(group Group, created, edits, deletions []*id.ID,
 				maxState NotificationState) {
@@ -451,7 +452,6 @@ func TestManager_maxStateUpdate(t *testing.T) {
 	for i := Mute; i <= Push; i++ {
 		setMax = i
 		for j := versioned.Created; j <= versioned.Loaded; j++ {
-			fmt.Println(j)
 			ch := make(chan bool)
 			didRun = make([]bool, numGroups)
 			if j != versioned.Deleted {

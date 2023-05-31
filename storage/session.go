@@ -155,7 +155,9 @@ func InitFromRemote(storage versioned.KV,
 	if err = utility.StoreGroup(storage, e2eGrp, e2eGroupKey); err != nil {
 		return err
 	}
-	return nil
+
+	_, err = Load(storage, currentVersion)
+	return err
 }
 
 // Load existing user data into the session

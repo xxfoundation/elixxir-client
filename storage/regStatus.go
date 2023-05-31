@@ -60,28 +60,21 @@ func (rs RegistrationStatus) marshalBinary() []byte {
 
 // RegStatus returns the registration status as stored in the
 // kv
-func (s *session) RegStatus() (RegistrationStatus, error) {
+func (s *session) RegStatus() RegistrationStatus {
 	var status RegistrationStatus
 	obj, err := s.syncKV.Get(registrationStatusKey,
 		currentRegistrationStatusVersion)
 	if err == nil {
 		status = regStatusUnmarshalBinary(obj.Data)
 	} else {
-		err = errors.Wrapf(err, "could not load RegStatus")
+		jww.FATAL.Panicf("could not load RegStatus: %+v", err)
 	}
-	return status, err
+	return status
 }
 
 // creates a new registration status and stores it
 func (s *session) newRegStatus() error {
 	regStatus := NotStarted
-
-	curStatus, err := s.RegStatus()
-	if err == nil {
-		jww.WARN.Printf("RegStatus is already created: %s",
-			curStatus)
-		return nil
-	}
 
 	now := netTime.Now()
 
@@ -91,7 +84,7 @@ func (s *session) newRegStatus() error {
 		Data:      regStatus.marshalBinary(),
 	}
 
-	err = s.syncKV.Set(registrationStatusKey, &obj)
+	err := s.syncKV.Set(registrationStatusKey, &obj)
 	if err != nil {
 		return errors.WithMessagef(err, "Failed to store new "+
 			"registration status")
@@ -107,11 +100,7 @@ func (s *session) ForwardRegistrationStatus(
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	oldStatus, err := s.RegStatus()
-	if err != nil {
-		return err
-	}
-
+	oldStatus := s.RegStatus()
 	if regStatus <= oldStatus {
 		return errors.Errorf("Cannot set registration status to a "+
 			"status before the current stats: Current: %s, New: %s",
@@ -125,7 +114,7 @@ func (s *session) ForwardRegistrationStatus(
 		Timestamp: now,
 		Data:      regStatus.marshalBinary(),
 	}
-	err = s.syncKV.Set(registrationStatusKey, &obj)
+	err := s.syncKV.Set(registrationStatusKey, &obj)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to store registration status")
 	}

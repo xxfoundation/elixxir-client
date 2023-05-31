@@ -62,7 +62,7 @@ func (m mockStorage) ForwardRegistrationStatus(regStatus storage.RegistrationSta
 	panic("implement me")
 }
 
-func (m mockStorage) RegStatus() (storage.RegistrationStatus, error) {
+func (m mockStorage) RegStatus() storage.RegistrationStatus {
 	//TODO implement me
 	panic("implement me")
 }

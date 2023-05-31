@@ -330,7 +330,7 @@ func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement 
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {
 	panic("implement me")
 }
-func (m *mockStorage) RegStatus() (storage.RegistrationStatus, error)         { panic("implement me") }
+func (m *mockStorage) RegStatus() storage.RegistrationStatus                  { panic("implement me") }
 func (m *mockStorage) SetRegCode(string)                                      { panic("implement me") }
 func (m *mockStorage) GetRegCode() (string, error)                            { panic("implement me") }
 func (m *mockStorage) SetNDF(*ndf.NetworkDefinition)                          { panic("implement me") }

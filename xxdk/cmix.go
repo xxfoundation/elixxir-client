@@ -166,18 +166,13 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 	}
 	// FIXME: this is a little hacky, since it resaves some of the
 	// synchronized keys, but it shouldn't cause a problem.
-	storageSess, err := storage.New(rkv, myID.PortableUserInfo(),
+	_, err = storage.New(rkv, myID.PortableUserInfo(),
 		currentVersion, cmixGrp, e2eGrp)
 	if err != nil {
 		return err
 	}
-	// NOTE: RegCode is synchronized, so we don't need to set it.
-	// Move the registration state to keys generated
-	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
-	if err != nil {
-		return errors.Wrapf(err,
-			"Failed to denote state change in session")
-	}
+	// NOTE: RegCode and Registration State is synchronized, so we
+	// don't need to set it.
 	return err
 }
 

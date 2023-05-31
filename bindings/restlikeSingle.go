@@ -19,8 +19,8 @@ import (
 // asynchronous restlike request.
 //
 // Parameters:
-//  - []byte - JSON marshalled restlike.Message
-//  - error - an error (the results of calling json.Marshal on the message)
+//   - []byte - JSON marshalled restlike.Message
+//   - error - an error (the results of calling json.Marshal on the message)
 type RestlikeCallback interface {
 	Callback([]byte, error)
 }
@@ -28,13 +28,13 @@ type RestlikeCallback interface {
 // RequestRestLike sends a restlike request to a given contact.
 //
 // Parameters:
-//  - e2eID - ID of the e2e object in the tracker
-//  - recipient - marshalled contact.Contact object
-//  - request - JSON marshalled RestlikeMessage
-//  - paramsJSON - JSON marshalled single.RequestParams
+//   - e2eID - ID of the e2e object in the tracker
+//   - recipient - marshalled contact.Contact object
+//   - request - JSON marshalled RestlikeMessage
+//   - paramsJSON - JSON marshalled single.RequestParams
 //
 // Returns:
-//  - []byte - JSON marshalled restlike.Message
+//   - []byte - JSON marshalled restlike.Message
 func RequestRestLike(e2eID int, recipient, request, paramsJSON []byte) ([]byte, error) {
 	c, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
@@ -74,11 +74,11 @@ func RequestRestLike(e2eID int, recipient, request, paramsJSON []byte) ([]byte, 
 // contact.
 //
 // Parameters:
-//  - e2eID - ID of the e2e object in the tracker
-//  - recipient - marshalled contact.Contact object
-//  - request - JSON marshalled RestlikeMessage
-//  - paramsJSON - JSON marshalled single.RequestParams
-//  - cb - RestlikeCallback callback
+//   - e2eID - ID of the e2e object in the tracker
+//   - recipient - marshalled contact.Contact object
+//   - request - JSON marshalled RestlikeMessage
+//   - paramsJSON - JSON marshalled single.RequestParams
+//   - cb - RestlikeCallback callback
 //
 // Returns an error, and the RestlikeCallback will be called with the results
 // of JSON marshalling the response when received.

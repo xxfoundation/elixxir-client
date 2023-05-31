@@ -40,7 +40,8 @@ var backOffTable = [cappedTries]time.Duration{
 // found to be due on a periodical check, the round is sent back to
 // processMessageRetrieval.
 // TODO: Make this system know which rounds are still in progress instead of
-//  just assume by time
+//
+//	just assume by time
 func (m *pickup) processUncheckedRounds(checkInterval time.Duration,
 	backoffTable [cappedTries]time.Duration, stop *stoppable.Single) {
 	ticker := time.NewTicker(checkInterval)

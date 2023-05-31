@@ -8,6 +8,8 @@
 package ud
 
 import (
+	"time"
+
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -17,7 +19,6 @@ import (
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"time"
 )
 
 type mockStorage struct{}
@@ -61,7 +62,7 @@ func (m mockStorage) ForwardRegistrationStatus(regStatus storage.RegistrationSta
 	panic("implement me")
 }
 
-func (m mockStorage) GetRegistrationStatus() storage.RegistrationStatus {
+func (m mockStorage) RegStatus() (storage.RegistrationStatus, error) {
 	//TODO implement me
 	panic("implement me")
 }

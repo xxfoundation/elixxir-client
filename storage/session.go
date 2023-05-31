@@ -51,7 +51,7 @@ type Session interface {
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	ForwardRegistrationStatus(regStatus RegistrationStatus) error
-	GetRegistrationStatus() RegistrationStatus
+	RegStatus() (RegistrationStatus, error)
 	SetRegCode(regCode string)
 	GetRegCode() (string, error)
 	SetNDF(def *ndf.NetworkDefinition)
@@ -79,9 +79,8 @@ type session struct {
 	syncKV versioned.KV
 
 	// memoized data
-	mux       sync.RWMutex
-	regStatus RegistrationStatus
-	ndf       *ndf.NetworkDefinition
+	mux sync.RWMutex
+	ndf *ndf.NetworkDefinition
 
 	// network parameters
 	cmixGroup *cyclic.Group
@@ -153,7 +152,7 @@ func Load(storage versioned.KV,
 		syncKV: remote,
 	}
 
-	err = s.loadRegStatus()
+	_, err = s.RegStatus()
 	if err != nil {
 		if !ekv.Exists(err) {
 			return nil, errors.Errorf(

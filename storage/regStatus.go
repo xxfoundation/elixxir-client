@@ -56,16 +56,30 @@ func (rs RegistrationStatus) marshalBinary() []byte {
 	return b
 }
 
+// RegStatus returns the registration status as stored in the
+// kv
+func (s *session) RegStatus() (RegistrationStatus, error) {
+	var status RegistrationStatus
+	obj, err := s.syncKV.Get(registrationStatusKey,
+		currentRegistrationStatusVersion)
+	if err == nil {
+		status = regStatusUnmarshalBinary(obj.Data)
+	} else {
+		err = errors.Wrapf(err, "could not load RegStatus")
+	}
+	return status, err
+}
+
 // creates a new registration status and stores it
 func (s *session) newRegStatus() error {
-	s.regStatus = NotStarted
+	regStatus := NotStarted
 
 	now := netTime.Now()
 
 	obj := versioned.Object{
 		Version:   currentRegistrationStatusVersion,
 		Timestamp: now,
-		Data:      s.regStatus.marshalBinary(),
+		Data:      regStatus.marshalBinary(),
 	}
 
 	err := s.syncKV.Set(registrationStatusKey, &obj)
@@ -77,26 +91,22 @@ func (s *session) newRegStatus() error {
 	return nil
 }
 
-// loads registration status from disk.
-func (s *session) loadRegStatus() error {
-	obj, err := s.syncKV.Get(registrationStatusKey, currentSessionVersion)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to load registration status")
-	}
-	s.regStatus = regStatusUnmarshalBinary(obj.Data)
-	return nil
-}
-
 // sets the registration status to the passed status if it is greater than the
 // current stats, otherwise returns an error
-func (s *session) ForwardRegistrationStatus(regStatus RegistrationStatus) error {
+func (s *session) ForwardRegistrationStatus(
+	regStatus RegistrationStatus) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if regStatus <= s.regStatus {
+	oldStatus, err := s.RegStatus()
+	if err != nil {
+		return err
+	}
+
+	if regStatus <= oldStatus {
 		return errors.Errorf("Cannot set registration status to a "+
 			"status before the current stats: Current: %s, New: %s",
-			s.regStatus, regStatus)
+			oldStatus, regStatus)
 	}
 
 	now := netTime.Now()
@@ -106,19 +116,10 @@ func (s *session) ForwardRegistrationStatus(regStatus RegistrationStatus) error 
 		Timestamp: now,
 		Data:      regStatus.marshalBinary(),
 	}
-	err := s.syncKV.Set(registrationStatusKey, &obj)
+	err = s.syncKV.Set(registrationStatusKey, &obj)
 	if err != nil {
-		return errors.WithMessagef(err, "Failed to store registration status")
+		return errors.Wrapf(err, "Failed to store registration status")
 	}
 
-	s.regStatus = regStatus
 	return nil
-}
-
-// sets the registration status to the passed status if it is greater than the
-// current stats, otherwise returns an error
-func (s *session) GetRegistrationStatus() RegistrationStatus {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.regStatus
 }

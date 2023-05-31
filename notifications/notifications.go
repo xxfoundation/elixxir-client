@@ -63,6 +63,19 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 	// update in ram storage
 	m.upsertNotificationUnsafeRAM(toBeNotifiedOn, reg)
 
+	// call the callback if it exists to notify that an update exists
+	if cb, cbExists := m.callbacks[group]; cbExists {
+		// can be nil if the last element was deleted
+		g, _ := m.group[group]
+		var created, updated []*id.ID
+		if exists {
+			updated = []*id.ID{toBeNotifiedOn}
+		} else {
+			created = []*id.ID{toBeNotifiedOn}
+		}
+		go cb(g.DeepCopy(), created, updated, nil, m.maxState)
+	}
+
 	return nil
 }
 
@@ -97,7 +110,14 @@ func (m *manager) Delete(toBeNotifiedOn *id.ID) error {
 
 	_, err := m.remote.DeleteMapElement(notificationsMap, elementName,
 		notificationsMapVersion)
-	m.deleteNotificationUnsafeRAM(toBeNotifiedOn)
+	group := m.deleteNotificationUnsafeRAM(toBeNotifiedOn)
+
+	// call the callback if it exists to notify that an update exists
+	if cb, cbExists := m.callbacks[group]; cbExists {
+		// can be nil if the last element was deleted
+		g, _ := m.group[group]
+		go cb(g.DeepCopy(), nil, nil, []*id.ID{toBeNotifiedOn}, m.maxState)
+	}
 	return err
 }
 

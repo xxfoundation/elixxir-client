@@ -308,10 +308,11 @@ func (m *manager) addToGroupUnsafeRAM(nID *id.ID, reg registration) {
 // deleteNotificationUnsafeRAM removes the given notification registration from
 // the in ram storage, both to notification and groups
 // must be called under the lock
-func (m *manager) deleteNotificationUnsafeRAM(nid *id.ID) {
+// returns the group becasue it may be nesseary
+func (m *manager) deleteNotificationUnsafeRAM(nid *id.ID) string {
 	reg, exists := m.notifications[*nid]
 	if !exists {
-		return
+		return ""
 	}
 
 	groupList := m.group[reg.Group]
@@ -323,6 +324,8 @@ func (m *manager) deleteNotificationUnsafeRAM(nid *id.ID) {
 	}
 
 	delete(m.notifications, *nid)
+
+	return reg.Group
 }
 
 // setTokenUnsafe sets the token in ram and on disk, locally only. Returns true

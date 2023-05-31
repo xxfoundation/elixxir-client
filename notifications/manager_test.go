@@ -426,6 +426,7 @@ func TestManager_maxStateUpdate(t *testing.T) {
 
 	var setMax NotificationState
 
+	skip := true
 	for i := 0; i < numGroups; i++ {
 		groupName := fmt.Sprintf("grp_%d", i)
 		nid := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -434,6 +435,9 @@ func TestManager_maxStateUpdate(t *testing.T) {
 			localI := i
 			cb := func(group Group, created, edits, deletions []*id.ID,
 				maxState NotificationState) {
+				if skip {
+					return
+				}
 				if created != nil || edits != nil || deletions != nil {
 					t.Errorf("actions are not nil")
 				}
@@ -448,6 +452,7 @@ func TestManager_maxStateUpdate(t *testing.T) {
 		}
 		m.Set(nid, groupName, []byte{0}, NotificationState(i%3))
 	}
+	skip = false
 
 	for i := Mute; i <= Push; i++ {
 		setMax = i
@@ -623,9 +628,12 @@ func TestManager_deleteNotificationUnsafeRAM(t *testing.T) {
 	// some groups and partially from other
 	for i := 0; i < numTests; i++ {
 		if (i%2) == 1 || i < numTests/2 {
-			mInternal.deleteNotificationUnsafeRAM(nids[i])
+			grp := mInternal.deleteNotificationUnsafeRAM(nids[i])
 			if _, exists := mInternal.notifications[*nids[i]]; exists {
 				t.Errorf("Failed to delete %s", nids[i])
+			}
+			if grp != regs[i].Group {
+				t.Errorf("group does not match, %s vs %s", grp, regs[i].Group)
 			}
 		}
 

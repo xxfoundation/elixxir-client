@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"

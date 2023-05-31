@@ -14,7 +14,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 

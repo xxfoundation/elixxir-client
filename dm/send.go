@@ -39,7 +39,7 @@ const (
 	textVersion       = 0
 	reactionVersion   = 0
 	invitationVersion = 0
-	silentVersion   = 0
+	silentVersion     = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -220,7 +220,9 @@ func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
 		base64.RawStdEncoding.EncodeToString(*partnerPubKey),
 		inviteTo.ReceptionID)
 
-	inviteUrl, err := inviteTo.InviteURL(host, maxUses)
+	rng := dc.rng.GetStream()
+	defer rng.Close()
+	inviteUrl, passsord, err := inviteTo.InviteURL(host, maxUses, rng)
 	if err != nil {
 		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.WithMessage(err, "could not form URL")
@@ -230,6 +232,7 @@ func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
 		Version:    invitationVersion,
 		Text:       msg,
 		InviteLink: inviteUrl,
+		Password:   passsord,
 	}
 
 	invitationMarshaled, err := proto.Marshal(invitation)

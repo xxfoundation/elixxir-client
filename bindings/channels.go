@@ -1068,7 +1068,7 @@ func (cm *ChannelsManager) GetShareURL(cmixID int, host string, maxUses int,
 	return json.Marshal(su)
 }
 
-// GetShareUrlType determines the [broadcast.PrivacyLevel] of the channel URL.
+// GetShareUrlType determines the [broadcast.PrivacyLevel] of the shared URL.
 // If the URL is an invalid channel URL, an error is returned.
 //
 // Parameters:
@@ -1084,7 +1084,7 @@ func (cm *ChannelsManager) GetShareURL(cmixID int, host string, maxUses int,
 //	1 = private channel
 //	2 = secret channel
 func GetShareUrlType(url string) (int, error) {
-	level, err := cryptoBroadcast.GetURLType(url)
+	level, err := cryptoBroadcast.GetShareUrlType(url)
 	return int(level), err
 }
 

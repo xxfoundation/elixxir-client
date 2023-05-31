@@ -114,7 +114,8 @@ func TestE2EDMs(t *testing.T) {
 	rcvB2 := receiverB.Msgs[4]
 	invitation := &ChannelInvitation{}
 	require.NoError(t, proto.Unmarshal([]byte(rcvB2.Message), invitation))
-	rcvChannel, err := cryptoBroadcast.DecodeInviteURL(invitation.InviteLink)
+	rcvChannel, err := cryptoBroadcast.DecodeInviteURL(
+		invitation.InviteLink, invitation.Password)
 	require.NoError(t, err)
 	require.Equal(t, ch, rcvChannel)
 

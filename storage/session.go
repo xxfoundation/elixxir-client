@@ -138,37 +138,23 @@ func New(storage versioned.KV, u user.Info,
 	return s, nil
 }
 
-// New UserData in the session
+// InitFromRemote sets local data for a session variable
 func InitFromRemote(storage versioned.KV,
 	currentVersion version.Version,
-	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
-
-	remote, err := storage.Prefix(collective.StandardRemoteSyncPrefix)
+	cmixGrp, e2eGrp *cyclic.Group) error {
+	_, err := clientVersion.NewStore(currentVersion, storage)
 	if err != nil {
-		return nil, errors.Wrapf(err, "create new session")
+		return err
 	}
 
-	s := &session{
-		kv:     storage,
-		syncKV: remote,
+	if err = utility.StoreGroup(storage, cmixGrp, cmixGroupKey); err != nil {
+		return err
 	}
 
-	s.clientVersion, err = clientVersion.NewStore(currentVersion, s.kv)
-	if err != nil {
-		return nil, err
+	if err = utility.StoreGroup(storage, e2eGrp, e2eGroupKey); err != nil {
+		return err
 	}
-
-	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
-		return nil, err
-	}
-
-	if err = utility.StoreGroup(s.kv, e2eGrp, e2eGroupKey); err != nil {
-		return nil, err
-	}
-
-	s.cmixGroup = cmixGrp
-	s.e2eGroup = e2eGrp
-	return s, nil
+	return nil
 }
 
 // Load existing user data into the session
@@ -207,7 +193,7 @@ func Load(storage versioned.KV,
 			"Failed to load client version store.")
 	}
 
-	s.User, err = user.LoadUser(s.kv)
+	s.User, err = user.LoadUser(s.syncKV)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}

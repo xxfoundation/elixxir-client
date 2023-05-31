@@ -362,7 +362,7 @@ func (r *internalKV) ListenOnRemoteKey(key string, cb KeyUpdateCallback) ([]byte
 	defer r.UpdateListenerMux.Unlock()
 
 	if r.IsSynchronizing() {
-		jww.FATAL.Printf("cannot add listener when synchronizing")
+		jww.FATAL.Panicf("cannot add listener when synchronizing")
 	}
 
 	r.keyUpdateListeners[key] = cb
@@ -383,7 +383,7 @@ func (r *internalKV) ListenOnRemoteMap(mapName string,
 	defer r.UpdateListenerMux.Unlock()
 
 	if r.IsSynchronizing() {
-		jww.FATAL.Printf("cannot add listener when synchronizing")
+		jww.FATAL.Panicf("cannot add listener when synchronizing")
 	}
 
 	r.mapUpdateListeners[mapName] = cb

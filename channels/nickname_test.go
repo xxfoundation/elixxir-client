@@ -206,7 +206,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 
 	nm.callback = testingCB
 
-	nm.mapUpdate(nicknameMapName, edits)
+	nm.mapUpdate(edits)
 
 	wg.Wait()
 

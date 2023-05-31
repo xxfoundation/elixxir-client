@@ -9,8 +9,6 @@ package collective
 
 import (
 	"time"
-
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 )
 
 // FileIO is a simplified filesystem interface, providing Read and
@@ -50,17 +48,6 @@ type RemoteStore interface {
 	// sorted by filename.
 	ReadDir(path string) ([]string, error)
 }
-
-// UpsertCallback is a custom upsert handling for specific keys. When
-// an upsert is not defined, the default is used (overwrite the
-// previous key).
-type UpsertCallback interface {
-	Callback(key string, curVal, newVal []byte)
-}
-
-// KeyUpdateCallback is the callback used to report the event.
-type KeyUpdateCallback func(key string, oldVal, newVal []byte,
-	op versioned.KeyOperation)
 
 // RemoteStoreCallback is a callback for reporting the status of
 // writing the new mutate to remote storage.

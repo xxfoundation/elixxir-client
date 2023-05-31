@@ -71,8 +71,8 @@ type Cmix struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information at a
 // later date.
-func NewCmix(
-	ndfJSON, storageDir string, password []byte, registrationCode string) error {
+func NewCmix(ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
 	jww.INFO.Printf("NewCmix(dir: %s)", storageDir)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
@@ -132,6 +132,45 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
+// NewSynchronizedCmix clones a Cmix from remote storage
+func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
+	remote collective.RemoteStore) error {
+	jww.INFO.Printf("NewSynchronizedCmix(dir: %s)", storageDir)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
+		csprng.NewSystemRNG)
+
+	def, err := ParseNDF(ndfJSON)
+	if err != nil {
+		return errors.Wrapf(err, "ParseNDF")
+	}
+
+	kv, err := ekv.NewFilestore(storageDir, string(password))
+	if err != nil {
+		return errors.Wrapf(err, "NewFilestore")
+	}
+
+	rkv, err := collective.CloneFromRemoteStorage(storageDir, password,
+		remote, kv, rngStreamGen)
+	if err != nil {
+		return errors.Wrapf(err, "CloneFromRemoteStorage")
+	}
+
+	cmixGrp, e2eGrp := DecodeGroups(def)
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.Wrapf(err, "Could not parse version string.")
+	}
+
+	err = storage.InitFromRemote(rkv, currentVersion, cmixGrp, e2eGrp)
+	if err != nil {
+		return err
+	}
+
+	// NOTE: UserInfo, RegCode, and Registration State is synchronized,
+	// so we don't need to set it.
+	return err
+}
+
 // OpenCmix creates client storage but does not connect to the network or login.
 // Note that this is a helper function that, in most applications, should not be
 // used on its own. Consider using LoadCmix instead, which calls this function
@@ -158,35 +197,6 @@ func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.
 		return nil, err
 	}
 	return openCmix(storageKV, rngStreamGen)
-}
-
-// NewSynchronizedCmix clones a Cmix from remote storage
-func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
-	remote collective.RemoteStore) error {
-	jww.INFO.Printf("NewSynchronizedCmix(dir: %s)", storageDir)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
-		csprng.NewSystemRNG)
-
-	def, err := ParseNDF(ndfJSON)
-	if err != nil {
-		return err
-	}
-
-	kv, err := ekv.NewFilestore(storageDir, string(password))
-	if err != nil {
-		return err
-	}
-
-	err = collective.CloneFromRemoteStorage(storageDir, password, remote,
-		kv, rngStreamGen)
-	if err != nil {
-		return err
-	}
-
-	// NDF is saved differently in web (not to kv), so save it
-	// explicitly here. everything else should be synchronized
-	vkv := versioned.NewKV(kv)
-	return storage.SaveNDF(vkv, def)
 }
 
 func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (
@@ -216,6 +226,10 @@ func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (
 	if err != nil {
 		return nil, err
 	}
+
+	// NOTE: Open is the only place where we have the reference to
+	// add the service
+	c.AddService(storageKV.StartProcesses)
 
 	return c, nil
 }
@@ -366,7 +380,8 @@ func (c *Cmix) initPermissioning(def *ndf.NetworkDefinition) error {
 	}
 
 	// Register with registration if necessary
-	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+	regStatus := c.storage.RegStatus()
+	if regStatus == storage.KeyGenComplete {
 		jww.INFO.Printf("Cmix has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
@@ -722,9 +737,6 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
 
 	// Store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
-
-	rngStream := rng.GetStream()
-	defer rngStream.Close()
 
 	// Move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)

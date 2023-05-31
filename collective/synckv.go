@@ -54,14 +54,14 @@ type versionedKV struct {
 // instantiates a SynchronizedKV
 func CloneFromRemoteStorage(path string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue,
-	rng *fastRNG.StreamGenerator) error {
+	rng *fastRNG.StreamGenerator) (*versionedKV, error) {
 
 	rkv, err := SynchronizedKV(path, deviceSecret, remote, kv, nil, rng)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return rkv.remote.col.collect()
+	return rkv, rkv.remote.col.collect()
 }
 
 // SynchronizedKV loads or creates a synchronized remote KV that uses

@@ -71,8 +71,8 @@ type Cmix struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information at a
 // later date.
-func NewCmix(
-	ndfJSON, storageDir string, password []byte, registrationCode string) error {
+func NewCmix(ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
 	jww.INFO.Printf("NewCmix(dir: %s)", storageDir)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
@@ -380,10 +380,7 @@ func (c *Cmix) initPermissioning(def *ndf.NetworkDefinition) error {
 	}
 
 	// Register with registration if necessary
-	regStatus, err := c.storage.RegStatus()
-	if err != nil {
-		return err
-	}
+	regStatus := c.storage.RegStatus()
 	if regStatus == storage.KeyGenComplete {
 		jww.INFO.Printf("Cmix has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()

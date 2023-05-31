@@ -42,7 +42,7 @@ func newContext() (context.Context, context.CancelFunc) {
 // NOTE: ID is not set inside this function because we want to use the
 // autoincrement key by default. If you are trying to overwrite an existing
 // message, then you need to set it manually yourself.
-func buildMessage(messageID, parentID, text []byte, partnerKey,
+func buildMessage(messageID, parentID []byte, text string, partnerKey []byte,
 	senderKey ed25519.PublicKey, timestamp time.Time, round id.Round,
 	mType dm.MessageType, codeset uint8, status dm.Status) *Message {
 	return &Message{
@@ -53,7 +53,7 @@ func buildMessage(messageID, parentID, text []byte, partnerKey,
 		SenderPubKey:       senderKey[:],
 		Status:             uint8(status),
 		CodesetVersion:     codeset,
-		Text:               text,
+		Text:               []byte(text),
 		Type:               uint16(mType),
 		Round:              int64(round),
 	}
@@ -303,21 +303,12 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 		}
 	}
 
-	// Handle encryption, if it is present
-	textBytes := []byte(data)
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt(textBytes)
-		if err != nil {
-			return 0, err
-		}
-	}
-
 	var parentIdBytes []byte
 	if parentID != nil {
 		parentIdBytes = parentID.Marshal()
 	}
 
-	msgToInsert := buildMessage(messageID.Bytes(), parentIdBytes, textBytes,
+	msgToInsert := buildMessage(messageID.Bytes(), parentIdBytes, data,
 		partnerKey, senderKey, timestamp, round.ID, mType, codeset, status)
 
 	uuid, err := i.upsertMessage(msgToInsert)

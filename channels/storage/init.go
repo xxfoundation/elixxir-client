@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/elixxir/crypto/database"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/driver/sqlite"
@@ -36,23 +35,20 @@ type DeletedMessageCallback func(messageID message.ID)
 // impl implements the channels.EventModel interface with an underlying DB.
 type impl struct {
 	db       *gorm.DB // Stored database connection
-	cipher   database.Cipher
 	msgCb    MessageReceivedCallback
 	deleteCb DeletedMessageCallback
 	muteCb   MuteCallback
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string, encryption database.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption, msgCb, deleteCb, muteCb)
+func NewEventModel(dbFilePath string, msgCb MessageReceivedCallback,
+	deleteCb DeletedMessageCallback, muteCb MuteCallback) (channels.EventModel, error) {
+	model, err := newImpl(dbFilePath, msgCb, deleteCb, muteCb)
 	return channels.EventModel(model), err
 }
 
-func newImpl(dbFilePath string, encryption database.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (*impl, error) {
+func newImpl(dbFilePath string, msgCb MessageReceivedCallback,
+	deleteCb DeletedMessageCallback, muteCb MuteCallback) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -106,7 +102,6 @@ func newImpl(dbFilePath string, encryption database.Cipher,
 	// Build the interface
 	di := &impl{
 		db:       db,
-		cipher:   encryption,
 		msgCb:    msgCb,
 		deleteCb: deleteCb,
 		muteCb:   muteCb,

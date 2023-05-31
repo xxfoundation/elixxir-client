@@ -16,8 +16,8 @@ import (
 // number generator.
 //
 // Parameters:
-//  - numBytes - The size of secret. It should be set to 32, but can be set
-//   higher in certain cases.
+//   - numBytes - The size of secret. It should be set to 32, but can be set
+//     higher in certain cases.
 func GenerateSecret(numBytes int) []byte {
 	if numBytes < 32 {
 		jww.FATAL.Panic(

@@ -166,15 +166,10 @@ type DmReceivedCallback interface {
 //   - cipherID - ID of [DbCipher] object in tracker.
 //   - msgCb - Callback that is invoked whenever DM message is received/updated.
 func NewDmManagerMobile(cmixID int, privateIdentity []byte,
-	dbFilePath string, cipherID int, msgCb DmReceivedCallback) (*DMClient, error) {
+	dbFilePath string, msgCb DmReceivedCallback) (*DMClient, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
-	if err != nil {
-		return nil, err
-	}
-
-	cipher, err := dbCipherTrackerSingleton.get(cipherID)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +179,7 @@ func NewDmManagerMobile(cmixID int, privateIdentity []byte,
 		msgCb.Callback(int64(uuid), pubKey, messageUpdate, conversationUpdate)
 	}
 
-	model, err := storage.NewEventModel(dbFilePath, cipher, newMsgCb)
+	model, err := storage.NewEventModel(dbFilePath, newMsgCb)
 	if err != nil {
 		return nil, err
 	}

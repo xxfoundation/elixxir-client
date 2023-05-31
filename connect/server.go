@@ -16,7 +16,7 @@ import (
 )
 
 // authenticatedServerListenerName is the name of the client's
-//listener interface.
+// listener interface.
 const authenticatedServerListenerName = "AuthenticatedServerListener"
 
 // server is an interface that wraps receive.Listener. This handles

@@ -27,14 +27,14 @@ type DummyTraffic struct {
 // given parameters below.
 //
 // Parameters:
-//  - cmixId - a Cmix object ID in the tracker.
-//  - maxNumMessages - the upper bound of the random number of messages sent
-//    each sending cycle.  Suggested value: 5.
-//  - avgSendDeltaMS - the average duration, in milliseconds, to wait between
-//    sends.  Suggested value: 60000.
-//  - randomRangeMS - the upper bound of the interval between sending cycles, in
-//    milliseconds. Sends occur every avgSendDeltaMS +/- a random duration with
-//    an upper bound of randomRangeMS.  Suggested value: 1000.
+//   - cmixId - a Cmix object ID in the tracker.
+//   - maxNumMessages - the upper bound of the random number of messages sent
+//     each sending cycle.  Suggested value: 5.
+//   - avgSendDeltaMS - the average duration, in milliseconds, to wait between
+//     sends.  Suggested value: 60000.
+//   - randomRangeMS - the upper bound of the interval between sending cycles, in
+//     milliseconds. Sends occur every avgSendDeltaMS +/- a random duration with
+//     an upper bound of randomRangeMS.  Suggested value: 1000.
 func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 	randomRangeMS int) (*DummyTraffic, error) {
 
@@ -66,8 +66,9 @@ func (dt *DummyTraffic) Pause() error {
 }
 
 // Start will start up the Manager's sending thread, meaning messages will
-//  be sent. This should be called after calling NewManager, as by default the
-//  thread is paused. This may also be called after a call to Pause.
+//
+//	be sent. This should be called after calling NewManager, as by default the
+//	thread is paused. This may also be called after a call to Pause.
 //
 // This will re-initialize the sending thread with a new randomly generated
 // interval between sending dummy messages. This means that there is zero

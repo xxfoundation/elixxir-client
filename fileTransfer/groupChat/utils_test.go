@@ -310,7 +310,7 @@ func (m *mockStorage) GetClientVersion() version.Version     { panic("implement 
 func (m *mockStorage) Get(string) (*versioned.Object, error) { panic("implement me") }
 func (m *mockStorage) Set(string, *versioned.Object) error   { panic("implement me") }
 func (m *mockStorage) Delete(string) error                   { panic("implement me") }
-func (m *mockStorage) GetKV() versioned.KV                  { return m.kv }
+func (m *mockStorage) GetKV() versioned.KV                   { return m.kv }
 func (m *mockStorage) GetCmixGroup() *cyclic.Group           { return m.cmixGroup }
 func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement me") }
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {

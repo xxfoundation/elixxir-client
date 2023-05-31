@@ -26,7 +26,7 @@ type registrationMessageSender interface {
 	SendRegistrationMessage(host *connect.Host, message *pb.ClientRegistration) (*pb.SignedClientRegistrationConfirmations, error)
 }
 
-//register registers the user with optional registration code
+// register registers the user with optional registration code
 // Returns an error if registration fails.
 func register(comms registrationMessageSender, host *connect.Host,
 	transmissionPublicKey, receptionPublicKey rsa.PublicKey,

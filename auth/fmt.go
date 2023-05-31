@@ -20,7 +20,7 @@ import (
 
 const requestFmtVersion = 1
 
-//Basic Format//////////////////////////////////////////////////////////////////
+// Basic Format//////////////////////////////////////////////////////////////////
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
@@ -115,7 +115,7 @@ func (f baseFormat) SetEcrPayload(ecr []byte) {
 	copy(f.ecrPayload, ecr)
 }
 
-//Encrypted Format//////////////////////////////////////////////////////////////
+// Encrypted Format//////////////////////////////////////////////////////////////
 const ownershipSize = 32
 
 type ecrFormat struct {
@@ -206,7 +206,7 @@ func (f ecrFormat) SetPayload(p []byte) {
 	copy(f.payload, p)
 }
 
-//Request Format////////////////////////////////////////////////////////////////
+// Request Format////////////////////////////////////////////////////////////////
 type requestFormat struct {
 	ecrFormat
 	id         []byte
@@ -252,7 +252,7 @@ func (rf requestFormat) GetMsgPayload() []byte {
 	return rf.msgPayload
 }
 
-//utility functions
+// utility functions
 func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	*cyclic.Int, error) {
 

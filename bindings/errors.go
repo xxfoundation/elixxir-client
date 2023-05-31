@@ -57,8 +57,8 @@ const (
 //   - errStr - an error returned from the backend.
 //
 // Returns
-//  - A user-friendly error message. This should be devoid of technical speak
-//    but still be meaningful for front-end or back-end teams.
+//   - A user-friendly error message. This should be devoid of technical speak
+//     but still be meaningful for front-end or back-end teams.
 func CreateUserFriendlyErrorMessage(errStr string) string {
 	errorMux.RLock()
 	defer errorMux.RUnlock()
@@ -102,14 +102,15 @@ func CreateUserFriendlyErrorMessage(errStr string) string {
 // messages.
 //
 // Parameters:
-//  - jsonFile - contents of a JSON file whose format conforms to the example below.
+//   - jsonFile - contents of a JSON file whose format conforms to the example below.
 //
 // Example Input:
-//  {
-//    "Failed to Unmarshal Conversation": "Could not retrieve conversation",
-//    "Failed to unmarshal SentRequestMap": "Failed to pull up friend requests",
-//    "cannot create username when network is not health": "Cannot create username, unable to connect to network",
-//  }
+//
+//	{
+//	  "Failed to Unmarshal Conversation": "Could not retrieve conversation",
+//	  "Failed to unmarshal SentRequestMap": "Failed to pull up friend requests",
+//	  "cannot create username when network is not health": "Cannot create username, unable to connect to network",
+//	}
 func UpdateCommonErrors(jsonFile string) error {
 	errorMux.Lock()
 	defer errorMux.Unlock()

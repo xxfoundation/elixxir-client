@@ -25,6 +25,7 @@ type Container struct {
 // The passed in reason will be printed to the log when the backup is sent. It
 // should be in the paste tense. For example, if a contact is deleted, the
 // reason can be "contact deleted" and the log will show:
+//
 //	Triggering backup: contact deleted
 func (bc *Container) TriggerBackup(reason string) {
 	bc.mux.RLock()

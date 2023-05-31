@@ -263,11 +263,11 @@ type failure struct {
 	Err error
 }
 
-////
+// //
 // stateStore wraps a kv and stores contact state for the restoration
 // TODO: Right now, it uses 1 contact-per-key approach, but it might make sense
 // to wrap this in a mutex and load/store a whole list
-////
+// //
 const stateStoreFmt = "restoreContactsFromBackup/v1/%s"
 
 type stateStore struct {

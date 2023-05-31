@@ -98,7 +98,6 @@ var channelsFileTransferCmd = &cobra.Command{
 				"[FT] Failed to create new file transfer manager: %+v", err)
 		}
 
-
 		// Construct channels manager
 		cbs := &channelCbs{}
 		em.eventModel.api, err = channels.NewManager(chanID,

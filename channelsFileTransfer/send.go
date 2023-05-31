@@ -315,7 +315,7 @@ func (m *manager) checkedReceivedParts(st *store.SentTransfer, fl *FileLink,
 			jww.DEBUG.Printf("[FT] Completed sending and receiving file %s.",
 				st.GetFileID())
 			if err = m.closeSend(st); err != nil {
-				jww.ERROR.Printf("[FT] Failed to close file transfer send %s: " +
+				jww.ERROR.Printf("[FT] Failed to close file transfer send %s: "+
 					"%+v", st.GetFileID(), err)
 			}
 			if _, err = m.receiveFromID(rt.GetFileID()); err != nil {

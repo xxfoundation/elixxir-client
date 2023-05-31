@@ -155,24 +155,19 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 		return errors.Wrapf(err, "CloneFromRemoteStorage")
 	}
 
-	myID, err := user.LoadUser(rkv)
-	if err != nil {
-		return errors.Wrapf(err, "LoadUser")
-	}
 	cmixGrp, e2eGrp := DecodeGroups(def)
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
 		return errors.Wrapf(err, "Could not parse version string.")
 	}
-	// FIXME: this is a little hacky, since it resaves some of the
-	// synchronized keys, but it shouldn't cause a problem.
-	_, err = storage.New(rkv, myID.PortableUserInfo(),
-		currentVersion, cmixGrp, e2eGrp)
+
+	err = storage.InitFromRemote(rkv, currentVersion, cmixGrp, e2eGrp)
 	if err != nil {
 		return err
 	}
-	// NOTE: RegCode and Registration State is synchronized, so we
-	// don't need to set it.
+
+	// NOTE: UserInfo, RegCode, and Registration State is synchronized,
+	// so we don't need to set it.
 	return err
 }
 

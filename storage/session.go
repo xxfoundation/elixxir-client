@@ -51,7 +51,7 @@ type Session interface {
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	ForwardRegistrationStatus(regStatus RegistrationStatus) error
-	GetRegistrationStatus() RegistrationStatus
+	RegStatus() RegistrationStatus
 	SetRegCode(regCode string)
 	GetRegCode() (string, error)
 	SetNDF(def *ndf.NetworkDefinition)
@@ -79,9 +79,8 @@ type session struct {
 	syncKV versioned.KV
 
 	// memoized data
-	mux       sync.RWMutex
-	regStatus RegistrationStatus
-	ndf       *ndf.NetworkDefinition
+	mux sync.RWMutex
+	ndf *ndf.NetworkDefinition
 
 	// network parameters
 	cmixGroup *cyclic.Group
@@ -113,6 +112,7 @@ func New(storage versioned.KV, u user.Info,
 			"Create new session")
 	}
 
+	// Note: user does it's own prefixing
 	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID,
 		u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA,
 		u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey,
@@ -126,17 +126,38 @@ func New(storage versioned.KV, u user.Info,
 		return nil, err
 	}
 
-	if err = utility.StoreGroup(s.syncKV, cmixGrp, cmixGroupKey); err != nil {
+	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
 		return nil, err
 	}
 
-	if err = utility.StoreGroup(s.syncKV, e2eGrp, e2eGroupKey); err != nil {
+	if err = utility.StoreGroup(s.kv, e2eGrp, e2eGroupKey); err != nil {
 		return nil, err
 	}
 
 	s.cmixGroup = cmixGrp
 	s.e2eGroup = e2eGrp
 	return s, nil
+}
+
+// InitFromRemote sets local data for a session variable
+func InitFromRemote(storage versioned.KV,
+	currentVersion version.Version,
+	cmixGrp, e2eGrp *cyclic.Group) error {
+	_, err := clientVersion.NewStore(currentVersion, storage)
+	if err != nil {
+		return err
+	}
+
+	if err = utility.StoreGroup(storage, cmixGrp, cmixGroupKey); err != nil {
+		return err
+	}
+
+	if err = utility.StoreGroup(storage, e2eGrp, e2eGroupKey); err != nil {
+		return err
+	}
+
+	_, err = Load(storage, currentVersion)
+	return err
 }
 
 // Load existing user data into the session
@@ -153,15 +174,6 @@ func Load(storage versioned.KV,
 		syncKV: remote,
 	}
 
-	err = s.loadRegStatus()
-	if err != nil {
-		if !ekv.Exists(err) {
-			return nil, errors.Errorf(
-				"uninitialized cMix, call 'NewCmix' first")
-		}
-		return nil, errors.WithMessage(err, "Failed to load Session")
-	}
-
 	s.clientVersion, err = clientVersion.LoadStore(s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err,
@@ -175,19 +187,20 @@ func Load(storage versioned.KV,
 			"Failed to load client version store.")
 	}
 
+	// Note: User does it's own prefixing
 	s.User, err = user.LoadUser(s.kv)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load user")
 	}
 
-	s.cmixGroup, err = utility.LoadGroup(s.syncKV, cmixGroupKey)
+	s.cmixGroup, err = utility.LoadGroup(s.kv, cmixGroupKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load group")
 	}
 
-	s.e2eGroup, err = utility.LoadGroup(s.syncKV, e2eGroupKey)
+	s.e2eGroup, err = utility.LoadGroup(s.kv, e2eGroupKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load e2e group")
 	}
 
 	return s, nil

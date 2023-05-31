@@ -46,8 +46,8 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	expected := &internalKV{
 		kv:                 kv,
 		txLog:              txLog,
-		keyUpdateListeners: make(map[string]keyUpdateCallback),
-		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
+		keyUpdateListeners: make(map[string]keyUpdate),
+		mapUpdateListeners: make(map[string]mapUpdate),
 		isSynchronizing:    &isSync,
 	}
 
@@ -123,7 +123,7 @@ func TestKV_SetGet(t *testing.T) {
 
 	for i := 0; i < numTests; i++ {
 		key := "key" + strconv.Itoa(i)
-		err := rkv2.ListenOnRemoteKey(key, updateCb)
+		err := rkv2.ListenOnRemoteKey(key, updateCb, false)
 		require.NoError(t, err)
 	}
 

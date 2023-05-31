@@ -116,18 +116,18 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 
 	// lock so that an update cannot run while we are loading the basic
 	// notifications structure from disk into ram
-	m.mux.Lock()
+
 	err = m.remote.ListenOnRemoteKey(maxStateKey,
-		maxStateKetVersion, m.maxStateUpdate)
+		maxStateKetVersion, m.maxStateUpdate, false)
 	if err != nil && ekv.Exists(err) {
 		jww.FATAL.Panicf("Could not load notifications state key: %+v", err)
 	}
 	err = m.remote.ListenOnRemoteMap(notificationsMap,
-		notificationsMapVersion, m.mapUpdate)
+		notificationsMapVersion, m.mapUpdate, false)
 	if err != nil {
 		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
 	}
-
+	m.mux.Lock()
 	m.loadTokenUnsafe()
 	m.initialization = false
 	m.mux.Unlock()

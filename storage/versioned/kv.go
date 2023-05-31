@@ -92,8 +92,10 @@ type KV interface {
 	// the current state of the key as a creation event. This call will occur
 	// in the go routine that ListenOnRemoteKey is called from, blocking its
 	// return until the callback returns.
+	// If local Events is true, the callback will also trigger when
+	// setting this key locally
 	ListenOnRemoteKey(key string, version uint64,
-		callback KeyChangedByRemoteCallback) error
+		callback KeyChangedByRemoteCallback, localEvents bool) error
 
 	// ListenOnRemoteMap allows the caller to receive updates when
 	// the map or map elements are updated
@@ -102,8 +104,10 @@ type KV interface {
 	// the entire state of the map as a creation event. This call will occur
 	// in the go routine that ListenOnRemoteMap is called from, blocking its
 	// return until the callback returns.
+	// If local Events is true, the callback will also trigger when
+	// modifying this map locally
 	ListenOnRemoteMap(mapName string, version uint64,
-		callback MapChangedByRemoteCallback) error
+		callback MapChangedByRemoteCallback, localEvents bool) error
 
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
@@ -412,12 +416,12 @@ func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 
 // ListenOnRemoteKey is not implemented for local KVs
 func (v *kv) ListenOnRemoteKey(key string, version uint64,
-	callback KeyChangedByRemoteCallback) error {
+	callback KeyChangedByRemoteCallback, localEvents bool) error {
 	return errors.Wrapf(UnimplementedErr, "ListenOnRemoteMap")
 }
 
 // ListenOnRemoteMap is not implemented for local KVs
 func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
-	callback MapChangedByRemoteCallback) error {
+	callback MapChangedByRemoteCallback, localEvents bool) error {
 	return errors.Wrapf(UnimplementedErr, "ListenOnRemoteMap")
 }

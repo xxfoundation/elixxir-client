@@ -29,7 +29,8 @@ func (m *manager) loadChannels() {
 	m.mux.Lock()
 	m.channels = make(map[id.ID]*joinedChannel)
 	m.mux.Unlock()
-	err := m.remote.ListenOnRemoteMap(joinedChannelsMap, joinedChannelsMapVersion, m.mapUpdate)
+	err := m.remote.ListenOnRemoteMap(joinedChannelsMap, joinedChannelsMapVersion,
+		m.mapUpdate, false)
 
 	if err != nil {
 		jww.FATAL.Panicf("Failed to set up listener on remote for "+

@@ -44,7 +44,7 @@ func loadOrNewNicknameManager(remote versioned.KV, callback func(channelId *id.I
 	}
 
 	err = nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
-		nm.mapUpdate)
+		nm.mapUpdate, false)
 	if err != nil && nm.remote.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
 			"updates on nicknameManager: %+v", err)

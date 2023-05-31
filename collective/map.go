@@ -23,7 +23,28 @@ func (r *internalKV) StoreMapElement(mapName, element string,
 	value []byte) error {
 	elementsMap := make(map[string][]byte)
 	elementsMap[element] = value
-	_, err := r.txLog.WriteMap(mapName, elementsMap, nil)
+	oldMap, err := r.txLog.WriteMap(mapName, elementsMap, nil)
+
+	if updater, existed := r.mapUpdateListeners[mapName]; existed && updater.local {
+		old := oldMap[element]
+
+		op := versioned.Created
+		if old != nil {
+			op = versioned.Updated
+		}
+
+		ee := elementEdit{
+			OldElement: old,
+			NewElement: value,
+			Operation:  op,
+		}
+
+		edits := make(map[string]elementEdit)
+		edits[element] = ee
+
+		go updater.cb(edits)
+	}
+
 	return err
 }
 
@@ -34,23 +55,59 @@ func (r *internalKV) StoreMapElement(mapName, element string,
 func (r *internalKV) DeleteMapElement(mapName, element string) ([]byte, error) {
 	elementsMap := make(map[string]struct{})
 	elementsMap[element] = struct{}{}
-	old, err := r.txLog.WriteMap(mapName, nil, elementsMap)
+	oldMap, err := r.txLog.WriteMap(mapName, nil, elementsMap)
 	if err != nil {
 		return nil, err
 	}
 
-	oldData, exists := old[element]
-	if !exists {
-		return nil, nil
+	old, _ := oldMap[element]
+
+	if updater, existed := r.mapUpdateListeners[mapName]; existed && updater.local {
+
+		ee := elementEdit{
+			OldElement: old,
+			NewElement: nil,
+			Operation:  versioned.Deleted,
+		}
+
+		edits := make(map[string]elementEdit)
+		edits[element] = ee
+
+		go updater.cb(edits)
 	}
-	return oldData, nil
+
+	return old, nil
 }
 
 // StoreMap saves each element of the map, then updates the map structure
 // and deletes no longer used keys in the map.
 // All Map storage functions update the remote.
 func (r *internalKV) StoreMap(mapName string, value map[string][]byte) error {
-	_, err := r.txLog.WriteMap(mapName, value, nil)
+	oldMap, err := r.txLog.WriteMap(mapName, value, nil)
+	if updater, existed := r.mapUpdateListeners[mapName]; existed && updater.local {
+
+		edits := make(map[string]elementEdit)
+
+		for element := range value {
+			old := oldMap[element]
+
+			op := versioned.Created
+			if old != nil {
+				op = versioned.Updated
+			}
+
+			ee := elementEdit{
+				OldElement: old,
+				NewElement: value[element],
+				Operation:  op,
+			}
+
+			edits[element] = ee
+		}
+
+		go updater.cb(edits)
+	}
+
 	return err
 }
 

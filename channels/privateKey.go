@@ -166,7 +166,7 @@ func newAdminKeysManager(
 	adminMan := &adminKeysManager{remote: kvRemote, callback: cb}
 
 	err = adminMan.remote.ListenOnRemoteMap(
-		adminKeysMapName, adminKeysMapVersion, adminMan.mapUpdate)
+		adminKeysMapName, adminKeysMapVersion, adminMan.mapUpdate, false)
 	if err != nil && adminMan.remote.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
 			"updates on adminKeysManager: %+v", err)

@@ -309,7 +309,7 @@ func (r *versionedKV) DeleteMapElement(mapName, elementName string,
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
 func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
-	callback versioned.KeyChangedByRemoteCallback) error {
+	callback versioned.KeyChangedByRemoteCallback, localEvents bool) error {
 
 	versionedKey := r.local.GetFullKey(key, version)
 
@@ -337,13 +337,13 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 		callback(oldObj, newObj, op)
 	}
 
-	return r.remote.ListenOnRemoteKey(versionedKey, wrap)
+	return r.remote.ListenOnRemoteKey(versionedKey, wrap, localEvents)
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated
 func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
-	callback versioned.MapChangedByRemoteCallback) error {
+	callback versioned.MapChangedByRemoteCallback, localEvents bool) error {
 
 	versionedMap := r.local.GetFullKey(mapName, version)
 
@@ -378,7 +378,7 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 		callback(versionedEdits)
 	}
 
-	return r.remote.ListenOnRemoteMap(versionedMap, wrap)
+	return r.remote.ListenOnRemoteMap(versionedMap, wrap, localEvents)
 }
 
 // GetPrefix implements [storage.versioned.KV.GetPrefix]

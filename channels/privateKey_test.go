@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"

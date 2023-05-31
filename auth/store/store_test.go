@@ -17,9 +17,9 @@ import (
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"

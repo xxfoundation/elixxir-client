@@ -10,9 +10,9 @@ package ud
 import (
 	"time"
 
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"

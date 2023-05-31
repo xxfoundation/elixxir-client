@@ -13,8 +13,8 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	store "gitlab.com/elixxir/client/v4/ud/store"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"

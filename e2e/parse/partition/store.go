@@ -16,8 +16,8 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"

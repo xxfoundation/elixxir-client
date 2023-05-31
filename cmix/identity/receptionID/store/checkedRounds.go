@@ -12,8 +12,8 @@ import (
 	"encoding/binary"
 
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 )
 

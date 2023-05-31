@@ -13,10 +13,10 @@ import (
 
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/parse/conversation"
 	"gitlab.com/elixxir/client/v4/e2e/parse/partition"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )

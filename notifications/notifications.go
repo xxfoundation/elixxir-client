@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	notifCrypto "gitlab.com/elixxir/crypto/notifications"
 	"gitlab.com/xx_network/primitives/id"

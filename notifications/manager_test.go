@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"

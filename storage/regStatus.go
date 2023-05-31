@@ -11,6 +11,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	jww "github.com/spf13/jwalterweatherman"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -74,6 +76,13 @@ func (s *session) RegStatus() (RegistrationStatus, error) {
 func (s *session) newRegStatus() error {
 	regStatus := NotStarted
 
+	curStatus, err := s.RegStatus()
+	if err == nil {
+		jww.WARN.Printf("RegStatus is already created: %s",
+			curStatus)
+		return nil
+	}
+
 	now := netTime.Now()
 
 	obj := versioned.Object{
@@ -82,7 +91,7 @@ func (s *session) newRegStatus() error {
 		Data:      regStatus.marshalBinary(),
 	}
 
-	err := s.syncKV.Set(registrationStatusKey, &obj)
+	err = s.syncKV.Set(registrationStatusKey, &obj)
 	if err != nil {
 		return errors.WithMessagef(err, "Failed to store new "+
 			"registration status")

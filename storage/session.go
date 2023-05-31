@@ -139,7 +139,7 @@ func New(storage versioned.KV, u user.Info,
 }
 
 // New UserData in the session
-func InitFromRemote(storage versioned.KV, u user.Info,
+func InitFromRemote(storage versioned.KV,
 	currentVersion version.Version,
 	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
 

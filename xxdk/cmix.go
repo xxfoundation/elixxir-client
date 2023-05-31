@@ -149,16 +149,13 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 		return errors.Wrapf(err, "NewFilestore")
 	}
 
-	err = collective.CloneFromRemoteStorage(storageDir, password, remote,
-		kv, rngStreamGen)
+	rkv, err := collective.CloneFromRemoteStorage(storageDir, password,
+		remote, kv, rngStreamGen)
 	if err != nil {
 		return errors.Wrapf(err, "CloneFromRemoteStorage")
 	}
 
-	// Now we do a partial version of CheckVersionAndSetupStorage(...)
-	vkv := versioned.NewKV(kv)
-	// Load from the synchronized KV.
-	myID, err := user.LoadUser(vkv)
+	myID, err := user.LoadUser(rkv)
 	if err != nil {
 		return errors.Wrapf(err, "LoadUser")
 	}
@@ -169,7 +166,7 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 	}
 	// FIXME: this is a little hacky, since it resaves some of the
 	// synchronized keys, but it shouldn't cause a problem.
-	storageSess, err := storage.New(vkv, myID.PortableUserInfo(),
+	storageSess, err := storage.New(rkv, myID.PortableUserInfo(),
 		currentVersion, cmixGrp, e2eGrp)
 	if err != nil {
 		return err
@@ -239,6 +236,10 @@ func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (
 	if err != nil {
 		return nil, err
 	}
+
+	// NOTE: Open is the only place where we have the reference to
+	// add the service
+	c.AddService(storageKV.StartProcesses)
 
 	return c, nil
 }
@@ -389,7 +390,11 @@ func (c *Cmix) initPermissioning(def *ndf.NetworkDefinition) error {
 	}
 
 	// Register with registration if necessary
-	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+	regStatus, err := c.storage.RegStatus()
+	if err != nil {
+		return err
+	}
+	if regStatus == storage.KeyGenComplete {
 		jww.INFO.Printf("Cmix has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {

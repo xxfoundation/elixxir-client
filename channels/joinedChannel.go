@@ -118,7 +118,11 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel, dmEnabled bool) e
 		return err
 	}
 
-	return m.saveChannel(jc)
+	err = m.saveChannel(jc)
+	if err != nil {
+		return err
+	}
+	return m.notifications.addChannel(channel.ReceptionID)
 }
 
 func (m *manager) saveChannel(jc *joinedChannel) error {
@@ -165,7 +169,10 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	return m.removeChannelUnsafe(channelID)
+	if err := m.removeChannelUnsafe(channelID); err != nil {
+		return err
+	}
+	return m.notifications.removeChannel(channelID)
 }
 
 func (m *manager) removeChannelUnsafe(channelID *id.ID) error {

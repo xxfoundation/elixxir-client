@@ -43,15 +43,12 @@ func loadOrNewNicknameManager(remote versioned.KV, callback func(channelId *id.I
 		callback:  callback,
 	}
 
-	nm.mux.Lock()
 	err = nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
 		nm.mapUpdate)
 	if err != nil && nm.remote.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
 			"updates on nicknameManager: %+v", err)
 	}
-
-	nm.mux.Unlock()
 
 	return nm
 }
@@ -172,7 +169,9 @@ func (nm *nicknameManager) mapUpdate(edits map[string]versioned.ElementEdit) {
 			continue
 		}
 
-		if edit.Operation == versioned.Created || edit.Operation == versioned.Updated {
+		if edit.Operation == versioned.Created ||
+			edit.Operation == versioned.Updated ||
+			edit.Operation == versioned.Loaded {
 			updates.AddCreatedOrEdit(newUpdate, *chanId)
 		} else {
 			jww.WARN.Printf("Failed to handle nickname update %s, "+

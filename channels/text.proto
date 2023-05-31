@@ -64,4 +64,5 @@ message CMIXChannelInvitation {
     uint32 version = 1;
     string text = 2;
     string inviteLink = 3;
+    string password = 4;
 }

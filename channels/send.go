@@ -448,7 +448,9 @@ func (m *manager) SendInvite(channelID *id.ID, msg string, inviteTo *id.ID,
 	}
 
 	// Form link for invitation
-	inviteUrl, err := ch.broadcast.Get().InviteURL(host, maxUses)
+	rng := m.rng.GetStream()
+	defer rng.Close()
+	inviteUrl, password, err := ch.broadcast.Get().InviteURL(host, maxUses, rng)
 	if err != nil {
 		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.WithMessage(err, "could not form URL")
@@ -459,6 +461,7 @@ func (m *manager) SendInvite(channelID *id.ID, msg string, inviteTo *id.ID,
 		Version:    cmixChannelInvitationVersion,
 		Text:       msg,
 		InviteLink: inviteUrl,
+		Password:   password,
 	}
 
 	// Marshal message

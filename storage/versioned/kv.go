@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -125,6 +126,9 @@ type KV interface {
 	// Exists returns if the error indicates a KV error showing
 	// the key exists.
 	Exists(err error) bool
+
+	// StartProcesses starts any applicable networking processes
+	StartProcesses() (stoppable.Stoppable, error)
 }
 
 // KeyChangedByRemoteCallback is the callback used to report local updates caused
@@ -420,4 +424,9 @@ func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
 	callback MapChangedByRemoteCallback) (map[string]*Object, error) {
 	return nil, errors.Wrapf(UnimplementedErr,
 		"ListenOnRemoteMap")
+}
+
+// StartProcesses doesn't do anything for local KVs
+func (v *kv) StartProcesses() (stoppable.Stoppable, error) {
+	return stoppable.NewSingle("nil"), nil
 }

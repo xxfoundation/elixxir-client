@@ -235,9 +235,9 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", c, testC)
 	}
 
-	keyBytes := make([]byte, PubKeyByteSize)
+	keyBytes := make([]byte, util.PubKeyByteSize)
 	sidhPubKey.Export(keyBytes)
-	expKeyBytes := make([]byte, PubKeyByteSize)
+	expKeyBytes := make([]byte, util.PubKeyByteSize)
 	s.receivedByID[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")

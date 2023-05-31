@@ -10,7 +10,6 @@ package utility
 import (
 	"encoding/base64"
 	"fmt"
-	sidhinterface "gitlab.com/elixxir/client/v4/auth/store"
 	"io"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -25,13 +24,13 @@ const currentSIDHVersion = 0
 // NewSIDHPUblicKey is a helper which returns a proper new SIDH public key
 // Right now this is set to Fp434 but it could change.
 func NewSIDHPublicKey(variant sidh.KeyVariant) *sidh.PublicKey {
-	return sidh.NewPublicKey(sidhinterface.KeyId, variant)
+	return sidh.NewPublicKey(KeyId, variant)
 }
 
 // NewSIDHPUblicKey is a helper which returns a proper new SIDH public key
 // Right now this is set to Fp434 but it could change.
 func NewSIDHPrivateKey(variant sidh.KeyVariant) *sidh.PrivateKey {
-	return sidh.NewPrivateKey(sidhinterface.KeyId, variant)
+	return sidh.NewPrivateKey(KeyId, variant)
 }
 
 // GetSIDHVariant returns the variant opposite the otherVariant

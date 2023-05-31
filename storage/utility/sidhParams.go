@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package store
+package utility
 
 import "github.com/cloudflare/circl/dh/sidh"
 

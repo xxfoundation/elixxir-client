@@ -26,6 +26,21 @@ type Notifications struct {
 	id      int
 }
 
+// NotificationState indicates the status of notifications for an ID.
+const (
+	// NotificationsMute shows no notifications for the ID.
+	NotificationsMute int64 = int64(notifications.Mute)
+
+	// NotificationsWhenOpen shows notifications for this ID only when the app
+	// is running and open. No registration or privacy leaks occur in this
+	// state.
+	NotificationsWhenOpen int64 = int64(notifications.WhenOpen)
+
+	// NotificationsPush shows notifications for this ID as push notification
+	// on applicable devices. This state has a minor privacy loss.
+	NotificationsPush int64 = int64(notifications.Push)
+)
+
 // AddToken registers the Token with the remote server if this manager is
 // in set to register, otherwise it will return ErrRemoteRegistrationDisabled
 // This will add the token to the list of tokens which are forwarded the messages

@@ -229,7 +229,7 @@ func TestManager_mapUpdate(t *testing.T) {
 	}
 
 	// run the map update
-	mInternal.mapUpdate(notificationsMap, edits)
+	mInternal.mapUpdate(edits)
 
 	wg.Wait()
 
@@ -400,9 +400,22 @@ func getGroup(i, numGroups int) int {
 func TestManager_maxStateUpdate(t *testing.T) {
 	m, _, _ := buildTestingManager(t)
 	mInternal := m.(*manager)
+	resultCh := make(chan bool, 1)
 
-	mInternal.maxStateUpdate("blah", nil, nil, versioned.Deleted)
-	// key check worked becasue we didnt crash from the delete panic
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				resultCh <- true
+			}
+		}()
+		mInternal.maxStateUpdate(nil, nil, versioned.Deleted)
+		resultCh <- false
+	}()
+
+	result := <-resultCh
+	if result == false {
+		t.Errorf("Failed to get panic on delete")
+	}
 
 	numGroups := 4
 	numCB := numGroups / 2
@@ -416,8 +429,8 @@ func TestManager_maxStateUpdate(t *testing.T) {
 	for i := 0; i < numGroups; i++ {
 		groupName := fmt.Sprintf("grp_%d", i)
 		nid := id.NewIdFromUInt(uint64(i), id.User, t)
-		m.Set(nid, groupName, []byte{0}, NotificationState(i%3))
 		if i%2 == 0 {
+
 			localI := i
 			cb := func(group Group, created, edits, deletions []*id.ID,
 				maxState NotificationState) {
@@ -433,11 +446,12 @@ func TestManager_maxStateUpdate(t *testing.T) {
 			}
 			m.RegisterUpdateCallback(groupName, cb)
 		}
+		m.Set(nid, groupName, []byte{0}, NotificationState(i%3))
 	}
 
 	for i := Mute; i <= Push; i++ {
 		setMax = i
-		for j := versioned.Created; j <= versioned.Deleted; j++ {
+		for j := versioned.Created; j <= versioned.Loaded; j++ {
 			ch := make(chan bool)
 			didRun = make([]bool, numGroups)
 			if j != versioned.Deleted {
@@ -450,8 +464,7 @@ func TestManager_maxStateUpdate(t *testing.T) {
 						ch <- false
 					}
 				}()
-				mInternal.maxStateUpdate(maxStateKey, nil,
-					makeMaxStateObj(i, t), j)
+				mInternal.maxStateUpdate(nil, makeMaxStateObj(i, t), j)
 				ch <- true
 			}()
 			result := <-ch

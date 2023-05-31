@@ -55,7 +55,8 @@ type manager struct {
 	local  versioned.KV
 	remote versioned.KV
 
-	maxState NotificationState
+	maxState       NotificationState
+	initialization bool
 }
 
 type registration struct {
@@ -110,24 +111,25 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		notifications:                               make(map[id.ID]registration),
 		group:                                       make(map[string]Group),
 		maxState:                                    Push,
+		initialization:                              true,
 	}
 
 	// lock so that an update cannot run while we are loading the basic
 	// notifications structure from disk into ram
-	m.mux.Lock()
-	loadedMap, err := m.remote.ListenOnRemoteMap(notificationsMap,
-		notificationsMapVersion, m.mapUpdate)
-	if err != nil {
-		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
-	}
-	m.loadNotificationsUnsafe(loadedMap)
-	loadedMaxState, err := m.remote.ListenOnRemoteKey(maxStateKey,
-		maxStateKetVersion, m.maxStateUpdate)
+
+	err = m.remote.ListenOnRemoteKey(maxStateKey,
+		maxStateKetVersion, m.maxStateUpdate, false)
 	if err != nil && ekv.Exists(err) {
 		jww.FATAL.Panicf("Could not load notifications state key: %+v", err)
 	}
-	m.loadMaxStateUnsafe(loadedMaxState)
+	err = m.remote.ListenOnRemoteMap(notificationsMap,
+		notificationsMapVersion, m.mapUpdate, false)
+	if err != nil {
+		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
+	}
+	m.mux.Lock()
 	m.loadTokenUnsafe()
+	m.initialization = false
 	m.mux.Unlock()
 
 	return m
@@ -137,16 +139,14 @@ func (m *manager) RegisterUpdateCallback(group string, nu Update) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.callbacks[group] = nu
+	if g, ok := m.group[group]; ok {
+		nu(g, nil, nil, nil, m.maxState)
+	}
 }
 
 // mapUpdate is the listener function which is called whenever the notifications
 // data is updated based upon a remote sync
-func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEdit) {
-	if mapName != notificationsMap {
-		jww.ERROR.Printf("Got an update for the wrong map, "+
-			"expected: %s, got: %s", notificationsMap, mapName)
-		return
-	}
+func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 
 	updates := make(groupChanges)
 
@@ -182,7 +182,8 @@ func (m *manager) mapUpdate(mapName string, edits map[string]versioned.ElementEd
 			continue
 		}
 
-		if edit.Operation == versioned.Created {
+		if edit.Operation == versioned.Created ||
+			edit.Operation == versioned.Loaded {
 			updates.AddCreated(newUpdate.Group, nID)
 		} else if edit.Operation == versioned.Updated {
 			updates.AddEdit(newUpdate.Group, nID)
@@ -229,13 +230,7 @@ func (m *manager) loadNotificationsUnsafe(mapObj map[string]*versioned.Object) {
 	}
 }
 
-func (m *manager) maxStateUpdate(key string, old, new *versioned.Object, op versioned.KeyOperation) {
-	if key != maxStateKey {
-		jww.ERROR.Printf("Got an update for the wrong key, "+
-			"expected: %s, got: %s", maxStateKey, key)
-		return
-	}
-
+func (m *manager) maxStateUpdate(old, new *versioned.Object, op versioned.KeyOperation) {
 	if op == versioned.Deleted {
 		jww.FATAL.Panicf("Notifications max state key cannot be deleted")
 	}
@@ -248,11 +243,16 @@ func (m *manager) maxStateUpdate(key string, old, new *versioned.Object, op vers
 			maxStateKey, err)
 		return
 	}
-
-	for g := range m.callbacks {
-		cb := m.callbacks[g]
-		go cb(m.group[g].DeepCopy(), nil, nil, nil, m.maxState)
+	if !m.initialization {
+		for g := range m.callbacks {
+			cb := m.callbacks[g]
+			go cb(m.group[g].DeepCopy(), nil, nil, nil, m.maxState)
+		}
+	} else {
+		jww.DEBUG.Printf("Skipping callback on masStateUpdate to %s, "+
+			"in initialization", m.maxState)
 	}
+
 }
 
 func (m *manager) loadMaxStateUnsafe(obj *versioned.Object) {

@@ -324,19 +324,18 @@ func (r *versionedKV) DeleteMapElement(mapName, elementName string,
 // a key is updated by synching with another client.
 // Only one callback can be written per key.
 func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
-	callback versioned.KeyChangedByRemoteCallback) (*versioned.Object,
-	error) {
+	callback versioned.KeyChangedByRemoteCallback, localEvents bool) error {
 
 	versionedKey := r.local.GetFullKey(key, version)
 
-	wrap := func(key string, old, new []byte, op versioned.KeyOperation) {
+	wrap := func(old, new []byte, op versioned.KeyOperation) {
 		var oldObj *versioned.Object
-		if old != nil {
+		if old != nil && len(old) > 0 {
 			oldObj = &versioned.Object{}
 			err := oldObj.Unmarshal(old)
 			if err != nil {
 				jww.WARN.Printf("Failed to unmarshal old versioned object "+
-					"for listener on key %s", key)
+					"for listener on key %s: %+v", key, err)
 			}
 		}
 
@@ -350,27 +349,20 @@ func (r *versionedKV) ListenOnRemoteKey(key string, version uint64,
 			}
 		}
 
-		cleanedKey := cleanKey(key)
-
-		callback(cleanedKey, oldObj, newObj, op)
+		callback(oldObj, newObj, op)
 	}
 
-	cur := &versioned.Object{}
-	val, err := r.remote.ListenOnRemoteKey(versionedKey, wrap)
-	if err == nil && val != nil {
-		err = cur.Unmarshal(val)
-	}
-	return cur, err
+	return r.remote.ListenOnRemoteKey(versionedKey, wrap, localEvents)
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated
 func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
-	callback versioned.MapChangedByRemoteCallback) (map[string]*versioned.Object, error) {
+	callback versioned.MapChangedByRemoteCallback, localEvents bool) error {
 
 	versionedMap := r.local.GetFullKey(mapName, version)
 
-	wrap := func(mapName string, edits map[string]elementEdit) {
+	wrap := func(edits map[string]elementEdit) {
 		versionedEdits := make(map[string]versioned.ElementEdit, len(edits))
 
 		for key, edit := range edits {
@@ -379,10 +371,11 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 				NewElement: &versioned.Object{},
 				Operation:  edit.Operation,
 			}
-
-			if err := versionedEdit.OldElement.Unmarshal(edit.OldElement); err != nil {
-				jww.WARN.Printf("Failed to unmarshal old versioned object "+
-					"for listener on map %s element %s", mapName, key)
+			if edit.OldElement != nil && len(edit.OldElement) > 0 {
+				if err := versionedEdit.OldElement.Unmarshal(edit.OldElement); err != nil {
+					jww.WARN.Printf("Failed to unmarshal old versioned object "+
+						"for listener on map %s element %s: %+v", mapName, key, err)
+				}
 			}
 
 			if err := versionedEdit.NewElement.Unmarshal(edit.NewElement); err != nil {
@@ -397,16 +390,10 @@ func (r *versionedKV) ListenOnRemoteMap(mapName string, version uint64,
 			versionedEdits[key] = versionedEdit
 		}
 
-		cleanedMapName := cleanKey(mapName)
-		callback(cleanedMapName, versionedEdits)
+		callback(versionedEdits)
 	}
 
-	var cur map[string]*versioned.Object
-	rMap, err := r.remote.ListenOnRemoteMap(versionedMap, wrap)
-	if err == nil {
-		cur, err = mapBytesToVersioned(rMap)
-	}
-	return cur, err
+	return r.remote.ListenOnRemoteMap(versionedMap, wrap, localEvents)
 }
 
 // GetPrefix implements [storage.versioned.KV.GetPrefix]

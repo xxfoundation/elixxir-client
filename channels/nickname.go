@@ -43,18 +43,12 @@ func loadOrNewNicknameManager(remote versioned.KV, callback func(channelId *id.I
 		callback:  callback,
 	}
 
-	nm.mux.Lock()
-	loadedMap, err := nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
-		nm.mapUpdate)
+	err = nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
+		nm.mapUpdate, false)
 	if err != nil && nm.remote.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
 			"updates on nicknameManager: %+v", err)
 	}
-	err = nm.load(loadedMap)
-	if err != nil {
-		jww.FATAL.Panicf("[CH] Failed to load nicknameManager: %+v", err)
-	}
-	nm.mux.Unlock()
 
 	return nm
 }
@@ -142,15 +136,7 @@ func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
 
 // mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
 // method.
-func (nm *nicknameManager) mapUpdate(
-	mapName string, edits map[string]versioned.ElementEdit) {
-
-	// Ensure the user is attempting to modify the correct map
-	if mapName != nicknameMapName {
-		jww.ERROR.Printf("Got an update for the wrong map, "+
-			"expected: %s, got: %s", nicknameMapName, mapName)
-		return
-	}
+func (nm *nicknameManager) mapUpdate(edits map[string]versioned.ElementEdit) {
 
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
@@ -183,7 +169,9 @@ func (nm *nicknameManager) mapUpdate(
 			continue
 		}
 
-		if edit.Operation == versioned.Created || edit.Operation == versioned.Updated {
+		if edit.Operation == versioned.Created ||
+			edit.Operation == versioned.Updated ||
+			edit.Operation == versioned.Loaded {
 			updates.AddCreatedOrEdit(newUpdate, *chanId)
 		} else {
 			jww.WARN.Printf("Failed to handle nickname update %s, "+
@@ -214,28 +202,6 @@ func (nm *nicknameManager) initiateCallbacks(updates *nicknameUpdates) {
 // to in RAM memory.
 func (nm *nicknameManager) upsertNicknameUnsafeRAM(cID *id.ID, nickname string) {
 	nm.byChannel[*cID] = nickname
-}
-
-// load restores the nickname manager from disk.
-func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
-
-	for elementName, obj := range loadedMap {
-		chanId, err := unmarshalChID(elementName)
-		if err != nil {
-			jww.WARN.Printf("Failed to unmarshal id in nickname "+
-				"in load of %s, skipping: %+v", elementName, err)
-			continue
-		}
-		var nickname string
-		if err := json.Unmarshal(obj.Data, &nickname); err != nil {
-			jww.WARN.Printf("Failed to unmarshal nickname "+
-				"for %s, skipping: %+v", elementName, err)
-			continue
-		}
-		nm.upsertNicknameUnsafeRAM(chanId, nickname)
-	}
-
-	return nil
 }
 
 // deleteNicknameUnsafe will remote the nickname into the remote local and into the

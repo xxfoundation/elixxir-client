@@ -89,21 +89,26 @@ type KV interface {
 	// ListenOnRemoteKey allows the caller to receive updates when
 	// a key is updated by synching with another client.
 	// Only one callback can be written per key.
-	// returns the object for the key such that callbacks will be updates on
-	// that state. The object will be nil if it doesn't exist yet.
-	// You cannot add listeners when network processor for
-	// synchronization is active.
+	// On call, a state update will be created on the callback containing
+	// the current state of the key as a creation event. This call will occur
+	// in the go routine that ListenOnRemoteKey is called from, blocking its
+	// return until the callback returns.
+	// If local Events is true, the callback will also trigger when
+	// setting this key locally
 	ListenOnRemoteKey(key string, version uint64,
-		callback KeyChangedByRemoteCallback) (*Object, error)
+		callback KeyChangedByRemoteCallback, localEvents bool) error
 
 	// ListenOnRemoteMap allows the caller to receive updates when
 	// the map or map elements are updated
-	// returns the map such that callbacks will be updates on
-	// that state. The Map will be nil if it doesn't exist yet.
-	// You cannot add listeners when network processor for
-	// synchronization is active.
+	// Only one callback can be written per map.
+	// On call, a state update will be created on the callback containing
+	// the entire state of the map as a creation event. This call will occur
+	// in the go routine that ListenOnRemoteMap is called from, blocking its
+	// return until the callback returns.
+	// If local Events is true, the callback will also trigger when
+	// modifying this map locally
 	ListenOnRemoteMap(mapName string, version uint64,
-		callback MapChangedByRemoteCallback) (map[string]*Object, error)
+		callback MapChangedByRemoteCallback, localEvents bool) error
 
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
@@ -133,11 +138,11 @@ type KV interface {
 
 // KeyChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
-type KeyChangedByRemoteCallback func(key string, old, new *Object, op KeyOperation)
+type KeyChangedByRemoteCallback func(old, new *Object, op KeyOperation)
 
 // MapChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
-type MapChangedByRemoteCallback func(mapName string, edits map[string]ElementEdit)
+type MapChangedByRemoteCallback func(edits map[string]ElementEdit)
 
 type ElementEdit struct {
 	OldElement *Object
@@ -151,6 +156,7 @@ const (
 	Created KeyOperation = iota
 	Updated
 	Deleted
+	Loaded
 )
 
 func (ko KeyOperation) String() string {
@@ -414,16 +420,14 @@ func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 
 // ListenOnRemoteKey is not implemented for local KVs
 func (v *kv) ListenOnRemoteKey(key string, version uint64,
-	callback KeyChangedByRemoteCallback) (*Object, error) {
-	return nil, errors.Wrapf(UnimplementedErr,
-		"ListenOnRemoteMap")
+	callback KeyChangedByRemoteCallback, localEvents bool) error {
+	return errors.Wrapf(UnimplementedErr, "ListenOnRemoteMap")
 }
 
 // ListenOnRemoteMap is not implemented for local KVs
 func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
-	callback MapChangedByRemoteCallback) (map[string]*Object, error) {
-	return nil, errors.Wrapf(UnimplementedErr,
-		"ListenOnRemoteMap")
+	callback MapChangedByRemoteCallback, localEvents bool) error {
+	return errors.Wrapf(UnimplementedErr, "ListenOnRemoteMap")
 }
 
 // StartProcesses doesn't do anything for local KVs

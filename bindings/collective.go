@@ -287,14 +287,14 @@ func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 // ListenOnRemoteKey sets up a callback listener for the object specified
 // by the key and version. It returns the current [versioned.Object] JSON
 // of the value.
+// If local events is true, you will get callback when you write to the
+// key as well
 func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
-	callback KeyChangedByRemoteCallback) ([]byte,
-	error) {
+	callback KeyChangedByRemoteCallback, localEvents bool) error {
 
 	jww.DEBUG.Printf("[RKV] ListenOnRemoteKey(%s, %d)", key, version)
 
-	bindingsCb := func(key string,
-		old, new *versioned.Object, op versioned.KeyOperation) {
+	bindingsCb := func(old, new *versioned.Object, op versioned.KeyOperation) {
 		oldJSON, err := json.Marshal(old)
 		panicOnErr(err)
 		newJSON, err := json.Marshal(new)
@@ -302,40 +302,26 @@ func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 		callback.Callback(key, oldJSON, newJSON, int8(op))
 	}
 
-	obj, err := r.rkv.ListenOnRemoteKey(key, uint64(version), bindingsCb)
-	if err != nil {
-		return nil, err
-	}
-
-	objJSON, err := json.Marshal(obj)
-	panicOnErr(err)
-	return objJSON, nil
+	return r.rkv.ListenOnRemoteKey(key, uint64(version), bindingsCb, localEvents)
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated. Returns a JSON of
 // map[string]versioned.Object of the current map value.
+// If local events is true, you will get callback when you write to the
+// key as well
 func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
-	callback MapChangedByRemoteCallback) ([]byte, error) {
+	callback MapChangedByRemoteCallback, localEvents bool) error {
 	jww.DEBUG.Printf("[RKV] ListenOnRemoteMap(%s, %d)", mapName, version)
 
-	bindingsCb := func(mapName string,
-		edits map[string]versioned.ElementEdit) {
+	bindingsCb := func(edits map[string]versioned.ElementEdit) {
 		editsJSON, err := json.Marshal(edits)
 		panicOnErr(err)
 		callback.Callback(mapName, editsJSON)
 	}
 
-	obj, err := r.rkv.ListenOnRemoteMap(mapName, uint64(version),
-		bindingsCb)
-	if err != nil {
-		return nil, err
-	}
-
-	objJSON, err := json.Marshal(obj)
-	panicOnErr(err)
-	return objJSON, nil
-
+	return r.rkv.ListenOnRemoteMap(mapName, uint64(version),
+		bindingsCb, localEvents)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

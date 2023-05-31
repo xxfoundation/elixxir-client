@@ -8,6 +8,8 @@
 package xxdk
 
 import (
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/elixxir/primitives/states"
 	"math"
 	"time"
 
@@ -19,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/interfaces"
 	"gitlab.com/elixxir/client/v4/registration"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
@@ -61,7 +62,7 @@ type Cmix struct {
 
 	// Services system to track running threads
 	followerServices   *services
-	clientErrorChannel chan interfaces.ClientError
+	clientErrorChannel chan ClientError
 
 	// Event reporting in event.go
 	events *event.Manager
@@ -218,7 +219,7 @@ func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (
 		comms:              nil,
 		network:            nil,
 		followerServices:   newServices(),
-		clientErrorChannel: make(chan interfaces.ClientError, 1000),
+		clientErrorChannel: make(chan ClientError, 1000),
 		events:             event.NewEventManager(),
 	}
 
@@ -400,7 +401,7 @@ func (c *Cmix) registerFollower() error {
 	// Build the error callback
 	cer := func(source, message, trace string) {
 		select {
-		case c.clientErrorChannel <- interfaces.ClientError{
+		case c.clientErrorChannel <- ClientError{
 			Source:  source,
 			Message: message,
 			Trace:   trace,
@@ -433,7 +434,7 @@ func (c *Cmix) registerFollower() error {
 
 // GetErrorsChannel returns a channel that passes errors from the long-running
 // threads controlled by StartNetworkFollower and StopNetworkFollower.
-func (c *Cmix) GetErrorsChannel() <-chan interfaces.ClientError {
+func (c *Cmix) GetErrorsChannel() <-chan ClientError {
 	return c.clientErrorChannel
 }
 
@@ -526,8 +527,32 @@ func (c *Cmix) GetRunningProcesses() []string {
 	return c.followerServices.stoppable.GetRunningProcesses()
 }
 
+// The round events interface allows the registration of an event which triggers
+// when a round reaches one or more states
+
+type RoundEvents interface {
+	// AddRoundEvent designates a callback to call on the specified event
+	// rid is the id of the round the event occurs on
+	// callback is the callback the event is triggered on
+	// timeout is the amount of time before an error event is returned
+	// valid states are the states which the event should trigger on
+	AddRoundEvent(rid id.Round, callback ds.RoundEventCallback,
+		timeout time.Duration, validStates ...states.Round) *ds.EventCallback
+
+	// AddRoundEventChan designates a go channel to signal the specified event
+	// rid is the id of the round the event occurs on
+	// eventChan is the channel the event is triggered on
+	// timeout is the amount of time before an error event is returned
+	// valid states are the states which the event should trigger on
+	AddRoundEventChan(rid id.Round, eventChan chan ds.EventReturn,
+		timeout time.Duration, validStates ...states.Round) *ds.EventCallback
+
+	// Remove Allows the un-registration of a round event before it triggers
+	Remove(rid id.Round, e *ds.EventCallback)
+}
+
 // GetRoundEvents registers a callback for round events.
-func (c *Cmix) GetRoundEvents() interfaces.RoundEvents {
+func (c *Cmix) GetRoundEvents() RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
 	jww.WARN.Printf("GetRoundEvents does not handle Cmix Errors edge case!")
 	return c.network.GetInstance().GetRoundEvents()

@@ -18,7 +18,6 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
@@ -236,9 +235,9 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", c, testC)
 	}
 
-	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
+	keyBytes := make([]byte, PubKeyByteSize)
 	sidhPubKey.Export(keyBytes)
-	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
+	expKeyBytes := make([]byte, PubKeyByteSize)
 	s.receivedByID[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")

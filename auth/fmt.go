@@ -11,7 +11,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
+	sidhinterface "gitlab.com/elixxir/client/v4/auth/store"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"

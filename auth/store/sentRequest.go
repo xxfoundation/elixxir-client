@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -114,7 +113,7 @@ func loadSentRequest(kv versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentR
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.KeyId,
+	mySidHPrivKeyA := sidh.NewPrivateKey(KeyId,
 		sidh.KeyVariantSidhA)
 	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
@@ -122,7 +121,7 @@ func loadSentRequest(kv versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentR
 				"with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.KeyId,
+	mySidHPubKeyA := sidh.NewPublicKey(KeyId,
 		sidh.KeyVariantSidhA)
 	if err = mySidHPubKeyA.Import(srd.MySidHPubKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
@@ -184,8 +183,8 @@ func (sr *SentRequest) save() error {
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",
 		hex.EncodeToString(sr.fingerprint[:]))
 
-	sidHPriv := make([]byte, sidhinterface.PrivKeyByteSize)
-	sidHPub := make([]byte, sidhinterface.PubKeyByteSize)
+	sidHPriv := make([]byte, PrivKeyByteSize)
+	sidHPub := make([]byte, PubKeyByteSize)
 	sr.mySidHPrivKeyA.Export(sidHPriv)
 	sr.mySidHPubKeyA.Export(sidHPub)
 

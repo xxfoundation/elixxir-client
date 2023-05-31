@@ -9,11 +9,11 @@ package auth
 
 import (
 	"bytes"
+	sidhinterface "gitlab.com/elixxir/client/v4/auth/store"
 	"math/rand"
 	"reflect"
 	"testing"
 
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
 	"gitlab.com/xx_network/primitives/id"
 )
 

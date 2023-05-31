@@ -138,6 +138,39 @@ func New(storage versioned.KV, u user.Info,
 	return s, nil
 }
 
+// New UserData in the session
+func InitFromRemote(storage versioned.KV, u user.Info,
+	currentVersion version.Version,
+	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
+
+	remote, err := storage.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create new session")
+	}
+
+	s := &session{
+		kv:     storage,
+		syncKV: remote,
+	}
+
+	s.clientVersion, err = clientVersion.NewStore(currentVersion, s.kv)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
+		return nil, err
+	}
+
+	if err = utility.StoreGroup(s.kv, e2eGrp, e2eGroupKey); err != nil {
+		return nil, err
+	}
+
+	s.cmixGroup = cmixGrp
+	s.e2eGroup = e2eGrp
+	return s, nil
+}
+
 // Load existing user data into the session
 func Load(storage versioned.KV,
 	currentVersion version.Version) (Session, error) {

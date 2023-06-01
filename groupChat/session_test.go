@@ -8,16 +8,17 @@
 package groupChat
 
 import (
+	"time"
+
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"time"
 )
 
 // mockSession is a storage.Session implementation for testing.
@@ -75,7 +76,7 @@ func (m mockSession) ForwardRegistrationStatus(regStatus storage.RegistrationSta
 	panic("implement me")
 }
 
-func (m mockSession) GetRegistrationStatus() storage.RegistrationStatus {
+func (m mockSession) RegStatus() storage.RegistrationStatus {
 	//TODO implement me
 	panic("implement me")
 }

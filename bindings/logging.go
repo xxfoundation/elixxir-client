@@ -22,6 +22,7 @@ import (
 // messages will be printed).
 //
 // Log level options:
+//
 //	TRACE    - 0
 //	DEBUG    - 1
 //	INFO     - 2

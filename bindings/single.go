@@ -24,16 +24,16 @@ import (
 // TransmitSingleUse transmits payload to recipient via single-use.
 //
 // Parameters:
-//  - e2eID - ID of the e2e object in the tracker
-//  - recipient - marshalled contact.Contact object
-//  - tag - identifies the single-use message
-//  - payload - message contents
-//  - paramsJSON - JSON marshalled single.RequestParams
-//  - responseCB - the callback that will be called when a response is received
+//   - e2eID - ID of the e2e object in the tracker
+//   - recipient - marshalled contact.Contact object
+//   - tag - identifies the single-use message
+//   - payload - message contents
+//   - paramsJSON - JSON marshalled single.RequestParams
+//   - responseCB - the callback that will be called when a response is received
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
-//    which can be passed into WaitForRoundResult to see if the send succeeded.
+//   - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
+//     which can be passed into WaitForRoundResult to see if the send succeeded.
 func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 	paramsJSON []byte, responseCB SingleUseResponse) ([]byte, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
@@ -73,12 +73,12 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 // object and SingleUseCallback func.
 //
 // Parameters:
-//  - e2eID - ID of the e2e object in the tracker
-//  - tag - identifies the single-use message
-//  - cb - the callback that will be called when a response is received
+//   - e2eID - ID of the e2e object in the tracker
+//   - tag - identifies the single-use message
+//   - cb - the callback that will be called when a response is received
 //
 // Returns:
-//  - Stopper - an interface containing a function used to stop the listener
+//   - Stopper - an interface containing a function used to stop the listener
 func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
@@ -101,12 +101,13 @@ func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 // information returned by single.TransmitRequest.
 //
 // SingleUseSendReport JSON example:
-//  {
-//   "Rounds":[1,5,9],
-//   "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
-//   "EphID":1655533,
-//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
-//  }
+//
+//	{
+//	 "Rounds":[1,5,9],
+//	 "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//	 "EphID":1655533,
+//	 "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
+//	}
 type SingleUseSendReport struct {
 	RoundsList
 	RoundURL    string
@@ -119,14 +120,15 @@ type SingleUseSendReport struct {
 // single.TransmitRequest.
 //
 // SingleUseResponseReport JSON example:
-//  {
-//   "Rounds":[1,5,9],
-//   "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
-//   "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
-//   "EphID":1655533,
-//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"},
-//   "Err":"",
-//  }
+//
+//	{
+//	 "Rounds":[1,5,9],
+//	 "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//	 "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
+//	 "EphID":1655533,
+//	 "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"},
+//	 "Err":"",
+//	}
 type SingleUseResponseReport struct {
 	RoundsList
 	RoundURL    string
@@ -140,14 +142,15 @@ type SingleUseResponseReport struct {
 // single -use messages received by a callback passed into single.Listen.
 //
 // SingleUseCallbackReport JSON example:
-//    {
-//      "Rounds":[1,5,9],
-//      "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
-//      "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
-//      "Partner":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//      "EphID":1655533,
-//      "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
-//    }
+//
+//	{
+//	  "Rounds":[1,5,9],
+//	  "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//	  "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
+//	  "Partner":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//	  "EphID":1655533,
+//	  "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
+//	}
 type SingleUseCallbackReport struct {
 	RoundsList
 	RoundURL    string
@@ -171,9 +174,9 @@ type Stopper interface {
 // received.
 //
 // Parameters:
-//  - callbackReport - the JSON marshalled bytes of the SingleUseCallbackReport
-//    object, which can be passed into Cmix.WaitForRoundResult to see if the
-//    send operation succeeded.
+//   - callbackReport - the JSON marshalled bytes of the SingleUseCallbackReport
+//     object, which can be passed into Cmix.WaitForRoundResult to see if the
+//     send operation succeeded.
 type SingleUseCallback interface {
 	Callback(callbackReport []byte, err error)
 }
@@ -182,9 +185,9 @@ type SingleUseCallback interface {
 // clients into TransmitSingleUse.
 //
 // Parameters:
-//  - callbackReport - the JSON marshalled bytes of the SingleUseResponseReport
-//    object, which can be passed into Cmix.WaitForRoundResult to see if the
-//    send operation succeeded.
+//   - callbackReport - the JSON marshalled bytes of the SingleUseResponseReport
+//     object, which can be passed into Cmix.WaitForRoundResult to see if the
+//     send operation succeeded.
 type SingleUseResponse interface {
 	Callback(responseReport []byte, err error)
 }

@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package interfaces
+package xxdk
 
 type ClientError struct {
 	Source  string
@@ -14,3 +14,12 @@ type ClientError struct {
 }
 
 type ClientErrorReport func(source, message, trace string)
+
+type HealthTracker interface {
+	AddChannel(chan bool) uint64
+	RemoveChannel(uint64)
+	AddFunc(f func(bool)) uint64
+	RemoveFunc(uint64)
+	IsHealthy() bool
+	WasHealthy() bool
+}

@@ -29,13 +29,13 @@ const (
 // newRandomCmixMessage returns random format.Message data.
 //
 // Returns in order a:
-//  - Recipient (id.ID)
-//  - Message fingerprint (format.Fingerprint)
-//  - Message service (message.Service)
-//  - Payload ([]byte)
-//  - MAC ([]byte)
-//  - Error if there was an issue randomly generating any of the above data.
-//    The error will specify which of the above failed to be randomly generated.
+//   - Recipient (id.ID)
+//   - Message fingerprint (format.Fingerprint)
+//   - Message service (message.Service)
+//   - Payload ([]byte)
+//   - MAC ([]byte)
+//   - Error if there was an issue randomly generating any of the above data.
+//     The error will specify which of the above failed to be randomly generated.
 func (m *Manager) newRandomCmixMessage(rng csprng.Source) (
 	recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service,

@@ -12,7 +12,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const (
@@ -196,32 +200,52 @@ func TestGetChannelInfo(t *testing.T) {
 // 	return txLog
 // }
 
-// type mockRemote struct {
-// 	lck  sync.Mutex
-// 	data map[string][]byte
-// }
+type mockRemote struct {
+	lck  sync.Mutex
+	data map[string][]byte
+	t    *testing.T
+}
 
-// func (m *mockRemote) Read(path string) ([]byte, error) {
-// 	m.lck.Lock()
-// 	defer m.lck.Unlock()
-// 	return m.data[path], nil
-// }
+func (m *mockRemote) Read(path string) ([]byte, error) {
+	m.lck.Lock()
+	defer m.lck.Unlock()
+	return m.data[path], nil
+}
 
-// func (m *mockRemote) Write(path string, data []byte) error {
-// 	m.lck.Lock()
-// 	defer m.lck.Unlock()
-// 	m.data[path] = append(m.data[path], data...)
-// 	return nil
-// }
+func (m *mockRemote) Write(path string, data []byte) error {
+	m.lck.Lock()
+	defer m.lck.Unlock()
+	m.data[path] = append(m.data[path], data...)
+	return nil
+}
 
-// func (m *mockRemote) ReadDir(path string) ([]string, error) {
-// 	panic("unimplemented")
-// }
+func (m *mockRemote) ReadDir(path string) ([]byte, error) {
+	dirs := []string{
+		"hello",
+		"these",
+		"are",
+		"directory",
+		"names",
+	}
 
-// func (m mockRemote) GetLastModified(path string) (time.Time, error) {
-// 	return netTime.Now(), nil
-// }
+	data, err := json.Marshal(dirs)
+	m.t.Logf("Data: %s", data)
+	return data, err
+}
 
-// func (m mockRemote) GetLastWrite() (time.Time, error) {
-// 	return netTime.Now(), nil
-// }
+func (m *mockRemote) GetLastModified(path string) ([]byte, error) {
+	return netTime.Now().MarshalBinary()
+}
+
+func (m *mockRemote) GetLastWrite() ([]byte, error) {
+	return netTime.Now().MarshalBinary()
+}
+
+func TestReadDir(t *testing.T) {
+	mRemote := newRemoteStoreFileSystemWrapper(
+		&mockRemote{t: t, data: make(map[string][]byte)})
+
+	dirs, err := mRemote.ReadDir("test")
+	require.NoError(t, err)
+	t.Logf("%+v", dirs)
+}

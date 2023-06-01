@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/notifications"
 	"sync"
@@ -25,6 +26,21 @@ type Notifications struct {
 	id      int
 }
 
+// NotificationState indicates the status of notifications for an ID.
+const (
+	// NotificationsMute shows no notifications for the ID.
+	NotificationsMute int64 = int64(notifications.Mute)
+
+	// NotificationsWhenOpen shows notifications for this ID only when the app
+	// is running and open. No registration or privacy leaks occur in this
+	// state.
+	NotificationsWhenOpen int64 = int64(notifications.WhenOpen)
+
+	// NotificationsPush shows notifications for this ID as push notification
+	// on applicable devices. This state has a minor privacy loss.
+	NotificationsPush int64 = int64(notifications.Push)
+)
+
 // AddToken registers the Token with the remote server if this manager is
 // in set to register, otherwise it will return ErrRemoteRegistrationDisabled
 // This will add the token to the list of tokens which are forwarded the messages
@@ -38,6 +54,29 @@ func (n *Notifications) AddToken(newToken, app string) error {
 // It will remove all registered identities if it is the last Token
 func (n *Notifications) RemoveToken() error {
 	return n.manager.RemoveToken()
+}
+
+type GetTokenJson struct {
+	Exists bool   `json:"exists"`
+	Token  string `json:"token"`
+	App    string `json:"app"`
+}
+
+// GetToken returns the token if it exists
+//
+//	{
+//	  "exists":true,
+//	  "Token":"Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4HZ",
+//	  "App":"havenIOS"
+//	}
+func (n *Notifications) GetToken() ([]byte, error) {
+	exist, token, app := n.manager.GetToken()
+	gtj := &GetTokenJson{
+		Exists: exist,
+		Token:  token,
+		App:    app,
+	}
+	return json.Marshal(gtj)
 }
 
 // SetMaxState sets the maximum functional state of any identity

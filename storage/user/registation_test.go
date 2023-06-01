@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -152,7 +152,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	}
 
 	sig := []byte("transmissionsignature")
-	err = kv.Set(transmissionRegValidationSigKey,
+	err = u.kv.Set(transmissionRegValidationSigKey,
 		&versioned.Object{
 			Version:   currentRegValidationSigVersion,
 			Timestamp: netTime.Now(),
@@ -168,7 +168,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	}
 
 	sig = []byte("receptionsignature")
-	err = kv.Set(receptionRegValidationSigKey,
+	err = u.kv.Set(receptionRegValidationSigKey,
 		&versioned.Object{
 			Version:   currentRegValidationSigVersion,
 			Timestamp: netTime.Now(),
@@ -283,7 +283,7 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 		Data:      data,
 	}
 
-	err = kv.Set(registrationTimestampKey, vo)
+	err = u.kv.Set(registrationTimestampKey, vo)
 	if err != nil {
 		t.Errorf("Failed to set reg validation sig key in kv store: %+v", err)
 	}

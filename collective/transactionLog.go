@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -165,6 +165,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 	for {
 		select {
 		case t := <-rw.adds:
+			jww.INFO.Printf("Adding change for %s", t.Key)
 			rw.state.AddUnsafe(t.Key, t.Mutate)
 
 			// batch writes
@@ -209,7 +210,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				return
 			}
 			if !running {
-				timer.Reset(rw.uploadPeriod)
+				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			}
 
@@ -224,7 +225,7 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				jww.ERROR.Printf("Failed to update collective state, "+
 					"last update %s, will auto retry in %s: %+v", ts,
 					uploadPeriod, err)
-				timer.Reset(uploadPeriod)
+				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			} else {
 				rw.notify(true)
@@ -262,6 +263,7 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 		return err
 	}
 
+	jww.INFO.Printf("Sending transaction for %s", key)
 	rw.adds <- transaction{
 		Mutate: &Mutate{
 			Timestamp: ts.UTC().UnixNano(),

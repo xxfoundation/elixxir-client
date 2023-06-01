@@ -266,14 +266,14 @@ func (m *mockCmix) TrackServices(message.ServicesTracker)                    {}
 func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
 	return message.ServiceList{}, message.CompressedServiceList{}
 }
-func (m *mockCmix) CheckInProgressMessages()                                 {}
-func (m *mockCmix) IsHealthy() bool                                          { return m.health }
-func (m *mockCmix) WasHealthy() bool                                         { return true }
-func (m *mockCmix) AddHealthCallback(func(bool)) uint64                      { return 0 }
-func (m *mockCmix) RemoveHealthCallback(uint64)                              {}
-func (m *mockCmix) HasNode(*id.ID) bool                                      { return true }
-func (m *mockCmix) NumRegisteredNodes() int                                  { return 0 }
-func (m *mockCmix) TriggerNodeRegistration(*id.ID)                           {}
+func (m *mockCmix) CheckInProgressMessages()            {}
+func (m *mockCmix) IsHealthy() bool                     { return m.health }
+func (m *mockCmix) WasHealthy() bool                    { return true }
+func (m *mockCmix) AddHealthCallback(func(bool)) uint64 { return 0 }
+func (m *mockCmix) RemoveHealthCallback(uint64)         {}
+func (m *mockCmix) HasNode(*id.ID) bool                 { return true }
+func (m *mockCmix) NumRegisteredNodes() int             { return 0 }
+func (m *mockCmix) TriggerNodeRegistration(*id.ID)      {}
 func (m *mockCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) {
 }
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error { return nil }

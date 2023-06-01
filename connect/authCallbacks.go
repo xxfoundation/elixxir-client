@@ -76,7 +76,7 @@ func (a clientAuthCallback) Reset(contact.Contact,
 
 // serverAuthCallback provides callback functionality for interfacing between
 // auth.State and Connection. This is used for building new Connection
-//objects when an auth Request is received.
+// objects when an auth Request is received.
 type serverAuthCallback struct {
 	// Used for signaling confirmation of E2E partnership
 	requestCallback Callback

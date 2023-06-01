@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 
 	jww "github.com/spf13/jwalterweatherman"

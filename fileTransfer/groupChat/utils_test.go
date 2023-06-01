@@ -18,12 +18,12 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/groupChat"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -310,13 +310,13 @@ func (m *mockStorage) GetClientVersion() version.Version     { panic("implement 
 func (m *mockStorage) Get(string) (*versioned.Object, error) { panic("implement me") }
 func (m *mockStorage) Set(string, *versioned.Object) error   { panic("implement me") }
 func (m *mockStorage) Delete(string) error                   { panic("implement me") }
-func (m *mockStorage) GetKV() versioned.KV                  { return m.kv }
+func (m *mockStorage) GetKV() versioned.KV                   { return m.kv }
 func (m *mockStorage) GetCmixGroup() *cyclic.Group           { return m.cmixGroup }
 func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement me") }
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {
 	panic("implement me")
 }
-func (m *mockStorage) GetRegistrationStatus() storage.RegistrationStatus      { panic("implement me") }
+func (m *mockStorage) RegStatus() storage.RegistrationStatus                  { panic("implement me") }
 func (m *mockStorage) SetRegCode(string)                                      { panic("implement me") }
 func (m *mockStorage) GetRegCode() (string, error)                            { panic("implement me") }
 func (m *mockStorage) SetNDF(*ndf.NetworkDefinition)                          { panic("implement me") }

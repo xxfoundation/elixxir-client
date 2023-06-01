@@ -10,7 +10,7 @@ package storage
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -19,7 +19,7 @@ const regCodeVersion = 0
 
 // SetNDF stores a network definition json file
 func (s *session) SetRegCode(regCode string) {
-	if err := s.Set(regCodeKey,
+	if err := s.syncKV.Set(regCodeKey,
 		&versioned.Object{
 			Version:   regCodeVersion,
 			Data:      []byte(regCode),
@@ -31,7 +31,7 @@ func (s *session) SetRegCode(regCode string) {
 
 // Returns the stored network definition json file
 func (s *session) GetRegCode() (string, error) {
-	regCode, err := s.Get(regCodeKey)
+	regCode, err := s.syncKV.Get(regCodeKey, regCodeVersion)
 	if err != nil {
 		return "", errors.WithMessage(err, "Failed to load the regcode")
 	}

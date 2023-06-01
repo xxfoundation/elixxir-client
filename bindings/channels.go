@@ -1904,6 +1904,19 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 // Notifications                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// Notifications options
+const (
+	// ChannelsNotifyNone results in no notifications.
+	ChannelsNotifyNone int64 = int64(channels.NotifyNone)
+
+	// ChannelsNotifyPing results in notifications from tags, replies, and pins.
+	ChannelsNotifyPing int64 = int64(channels.NotifyPing)
+
+	// ChannelsNotifyAll results in notifications from all messages except
+	// silent ones and replays.
+	ChannelsNotifyAll = int64(channels.NotifyAll)
+)
+
 // GetNotificationLevel returns the [channels.NotificationLevel] for the given
 // channel.
 //
@@ -1949,12 +1962,14 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 		clientNotif.NotificationState(status))
 }
 
-// GetNotificationReportsForMe checks the notification data against the filter
+// GetChannelNotificationReportsForMe checks the notification data against the filter
 // list to determine which notifications belong to the user. A list of
 // notification reports is returned detailing all notifications for the user.
 //
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
+//     Can optionally be the entire json return from NotificationUpdateJson
+//     Instead of just the needed subsection
 //   - notificationDataJSON - JSON of a slice of [notifications.Data].
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
@@ -2014,11 +2029,16 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].
-func GetNotificationReportsForMe(notificationFilterJSON,
+func GetChannelNotificationReportsForMe(notificationFilterJSON,
 	notificationDataJSON []byte) ([]byte, error) {
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
-		return nil, err
+		//attempt to unmarshal as the entire NotificationUpdateJson
+		nuj := &NotificationUpdateJson{}
+		if err2 := json.Unmarshal(notificationFilterJSON, &nfs); err2 != nil {
+			return nil, err
+		}
+		nfs = nuj.NotificationFilters
 	}
 
 	var notifData []*notifications.Data
@@ -2995,13 +3015,13 @@ func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *ChannelUICallbacksWr
 
 // Event Type
 const (
-	NickNameUpdate int64 = iota
-	NotificationUpdate
-	MessageReceived
-	UserMuted
-	MessageDeleted
-	AdminKeyUpdate
-	DmTokenUpdate
+	NickNameUpdate     int64 = 1000
+	NotificationUpdate int64 = 2000
+	MessageReceived    int64 = 3000
+	UserMuted          int64 = 4000
+	MessageDeleted     int64 = 5000
+	AdminKeyUpdate     int64 = 6000
+	DmTokenUpdate      int64 = 7000
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a

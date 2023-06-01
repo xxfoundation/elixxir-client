@@ -1961,11 +1961,11 @@ func GetChannelNotificationReportsForMe(notificationFilterJSON,
 	notificationDataJSON []byte) ([]byte, error) {
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
-		//attempt to unmarshal as the entire NotificationUpdateJson
-		nuj := &NotificationUpdateJson{}
-		if err2 := json.Unmarshal(notificationFilterJSON, &nfs); err2 != nil {
-			return nil, errors.WithMessagef(err, "failed both on %s, "+
-				"second err: %s", string(notificationFilterJSON), err2.Error())
+		// Attempt to unmarshal as the entire NotificationUpdateJson
+		var nuj NotificationUpdateJson
+		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
+			return nil, errors.Errorf("failed to JSON unmarshal " +
+				"notificationFilterJSON:\n%v\n%v", err, err2)
 		}
 		nfs = nuj.NotificationFilters
 	}

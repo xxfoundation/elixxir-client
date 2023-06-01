@@ -206,8 +206,16 @@ func (dc *dmClient) SendSilent(partnerPubKey *ed25519.PublicKey,
 // channel.
 func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
 	partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
-	host string, maxUses int, params cmix.CMIXParams) (
+	host string, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// fixme: As of writing, maxUses is not a functional parameter. It
+	//  is passed down to the lower levels, but requires server side changes to
+	//  enforce, which have not been implemented. Until that is done,
+	//  maxUses will be hard-coded here. Once it is done, this function
+	//  signature and all corresponding interface(s) should be modified
+	//  such that maxUses is a parameter w/ proper documentation.
+	const maxUses = 0
+
 	// Formulate custom tag
 	tag := makeDebugTag(
 		*partnerPubKey, []byte(msg),

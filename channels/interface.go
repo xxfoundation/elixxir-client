@@ -182,8 +182,9 @@ type Manager interface {
 	//
 	// See [Manager.SendGeneric] for details on payload size limitations and
 	// elaboration of pings.
-	SendInvite(channelID *id.ID, msg string, inviteTo *id.ID, host string,
-		maxUses int, validUntil time.Duration, params cmix.CMIXParams,
+	SendInvite(channelID *id.ID, msg string, inviteTo *cryptoBroadcast.Channel,
+		host string,
+		validUntil time.Duration, params cmix.CMIXParams,
 		pings []ed25519.PublicKey) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 

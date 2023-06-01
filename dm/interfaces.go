@@ -90,7 +90,7 @@ type Sender interface {
 	// channel.
 	SendInvite(partnerPubKey *ed25519.PublicKey,
 		partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
-		host string, maxUses int, params cmix.CMIXParams) (
+		host string, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendSilent is used to send to a channel a message with no notifications.

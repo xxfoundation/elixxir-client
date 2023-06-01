@@ -102,8 +102,8 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 		receiver:        receiver,
 	}
 
-	_, err = dmc.remote.ListenOnRemoteMap(
-		dmMapName, dmMapVersion, dmc.mapUpdate)
+	err = dmc.remote.ListenOnRemoteMap(
+		dmMapName, dmMapVersion, dmc.mapUpdate, false)
 	if err != nil && dmc.remote.Exists(err) {
 		jww.FATAL.Panicf("[DM] Failed to load and listen to remote updates on "+
 			"adminKeysManager: %+v", err)
@@ -260,12 +260,7 @@ func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
 // mapUpdate acts as a listener for remote edits to the dmClient. It will
 // update internal state accordingly.
 func (dc *dmClient) mapUpdate(
-	mapName string, edits map[string]versioned.ElementEdit) {
-	if mapName != dmMapName {
-		jww.ERROR.Printf("Got an update for the wrong map, "+
-			"expected: %s, got: %s", dmMapName, mapName)
-		return
-	}
+	edits map[string]versioned.ElementEdit) {
 
 	dc.mux.Lock()
 	defer dc.mux.Unlock()

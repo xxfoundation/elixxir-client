@@ -223,7 +223,7 @@ func TestDm_mapUpdate(t *testing.T) {
 		}
 	}
 
-	clientA.mapUpdate(dmMapName, edits)
+	clientA.mapUpdate(edits)
 
 	for key, shouldBeBlocked := range expectedUpdates {
 		pubKey, err := base64.StdEncoding.DecodeString(key)

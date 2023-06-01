@@ -1964,7 +1964,8 @@ func GetChannelNotificationReportsForMe(notificationFilterJSON,
 		//attempt to unmarshal as the entire NotificationUpdateJson
 		nuj := &NotificationUpdateJson{}
 		if err2 := json.Unmarshal(notificationFilterJSON, &nfs); err2 != nil {
-			return nil, err
+			return nil, errors.WithMessagef(err, "failed both on %s, "+
+				"second err: %s", string(notificationFilterJSON), err2.Error())
 		}
 		nfs = nuj.NotificationFilters
 	}

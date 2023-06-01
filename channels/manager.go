@@ -248,9 +248,6 @@ func setupManager(identity cryptoChannel.PrivateIdentity, local, remote versione
 
 	m.nicknameManager = loadOrNewNicknameManager(remote, uiCallbacks.NicknameUpdate)
 
-	m.notifications = newNotifications(
-		identity.PubKey, uiCallbacks.NotificationUpdate, m, nm)
-
 	// Activate all extensions
 	var extensions []ExtensionMessageHandler
 	for i := range extensionBuilders {
@@ -274,6 +271,9 @@ func setupManager(identity cryptoChannel.PrivateIdentity, local, remote versione
 				"failed to register: %+v", name, i, len(extensions), err)
 		}
 	}
+
+	m.notifications = newNotifications(
+		identity.PubKey, uiCallbacks.NotificationUpdate, m, extensions, nm)
 
 	return m
 }

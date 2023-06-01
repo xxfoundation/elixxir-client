@@ -9,18 +9,21 @@ package channels
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/json"
 	"math/rand"
 	"reflect"
 	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/crypto/sih"
 	primNotif "gitlab.com/elixxir/primitives/notifications"
@@ -35,10 +38,12 @@ func Test_newNotifications(t *testing.T) {
 		pubKey:        makeEd25519PubKey(rand.New(rand.NewSource(1219)), t),
 		cb:            nil,
 		channelGetter: newMockCG(0, t),
+		ext:           []ExtensionMessageHandler{newMockNotifExtension()},
 		nm:            nm,
 	}
 
-	n := newNotifications(expected.pubKey, nil, newMockCG(0, t), nm)
+	n := newNotifications(
+		expected.pubKey, nil, newMockCG(0, t), expected.ext, nm)
 
 	if !reflect.DeepEqual(expected, n) {
 		t.Errorf("New notifications does not match expected."+
@@ -50,7 +55,7 @@ func Test_newNotifications(t *testing.T) {
 // level NotifyNone.
 func Test_notifications_addChannel(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	expected := clientNotif.Group{
 		*id.NewIdFromString("channel1", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
@@ -75,7 +80,7 @@ func Test_notifications_addChannel(t *testing.T) {
 // notification manager.
 func Test_notifications_removeChannel(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	channels := map[id.ID]NotificationLevel{
 		*id.NewIdFromString("NotifyNone", id.User, t): NotifyNone,
@@ -106,7 +111,7 @@ func Test_notifications_removeChannel(t *testing.T) {
 // all added IDs.
 func TestNotifications_GetNotificationLevel(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	expected := map[id.ID]NotificationState{
 		*id.NewIdFromString("channel1", id.User, t): {nil, NotifyNone, clientNotif.Mute},
@@ -154,7 +159,7 @@ func TestNotifications_GetNotificationLevel(t *testing.T) {
 // level and status correctly.
 func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	expected := clientNotif.Group{
 		*id.NewIdFromString("channel1", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
@@ -187,7 +192,7 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 func Test_notifications_getChannelStatuses(t *testing.T) {
 	rng := rand.New(rand.NewSource(2323))
 	cg, nm := newMockCG(5, t), newMockNM()
-	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nm}
+	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nil, nm}
 
 	nim := make(clientNotif.Group, len(cg.channels))
 	var created []*id.ID
@@ -239,7 +244,8 @@ func Test_notifications_getChannelStatuses(t *testing.T) {
 func Test_notifications_processesNotificationUpdates(t *testing.T) {
 	rng := rand.New(rand.NewSource(2323))
 	cg, nm := newMockCG(5, t), newMockNM()
-	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nm}
+	ext := []ExtensionMessageHandler{newMockNotifExtension()}
+	n := notifications{makeEd25519PubKey(rng, t), nil, cg, ext, nm}
 
 	nim := make(clientNotif.Group, len(cg.channels))
 	created := map[id.ID]struct{}{}
@@ -718,3 +724,35 @@ func (m *mockChannel) Stop() { panic("implement me") }
 
 func (m *mockChannel) AsymmetricIdentifier() []byte { return m.asymIdentifier }
 func (m *mockChannel) SymmetricIdentifier() []byte  { return m.symIdentifier }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock ExtensionMessageHandler                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+// Tests that mockNotifExtension adheres to the ExtensionMessageHandler interface.
+var _ ExtensionMessageHandler = (*mockNotifExtension)(nil)
+
+// mockNotifExtension is a mock interface of ExtensionMessageHandler for
+// testing.
+type mockNotifExtension struct{}
+
+func newMockNotifExtension() *mockNotifExtension                        { return &mockNotifExtension{} }
+func (m *mockNotifExtension) GetType() MessageType                      { panic("implement me") }
+func (m *mockNotifExtension) GetProperties() (string, bool, bool, bool) { panic("implement me") }
+func (m *mockNotifExtension) Handle(*id.ID, message.ID, MessageType, string,
+	[]byte, []byte, ed25519.PublicKey, uint32, uint8, time.Time, time.Time,
+	time.Duration, id.Round, rounds.Round, SentStatus, bool, bool) uint64 {
+	panic("implement me")
+}
+
+func (m *mockNotifExtension) GetNotificationTags(_ *id.ID, level NotificationLevel) (asymmetric, symmetric AllowLists) {
+	switch level {
+	case NotifyPing:
+		return AllowLists{},
+			AllowLists{AllowWithTags: map[MessageType]struct{}{FileTransfer: {}}}
+	case NotifyAll:
+		return AllowLists{},
+			AllowLists{AllowWithoutTags: map[MessageType]struct{}{FileTransfer: {}}}
+	}
+	return AllowLists{}, AllowLists{}
+}

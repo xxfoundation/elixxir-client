@@ -105,8 +105,11 @@ var dmCmd = &cobra.Command{
 
 		sendTracker := dm.NewSendTracker(ekv)
 
-		dmClient := dm.NewDMClient(&dmID, myReceiver, sendTracker,
-			myNickMgr, user.GetCmix(), user.GetRng())
+		dmClient, err := dm.NewDMClient(&dmID, myReceiver, sendTracker,
+			myNickMgr, user.GetCmix(), ekv, user.GetRng())
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 
 		err = user.StartNetworkFollower(5 * time.Second)
 		if err != nil {

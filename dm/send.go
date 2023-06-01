@@ -222,7 +222,7 @@ func (dc *dmClient) SendInvite(partnerPubKey *ed25519.PublicKey,
 
 	rng := dc.rng.GetStream()
 	defer rng.Close()
-	inviteUrl, passsord, err := inviteTo.InviteURL(host, maxUses, rng)
+	inviteUrl, passsord, err := inviteTo.ShareURL(host, maxUses, rng)
 	if err != nil {
 		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.WithMessage(err, "could not form URL")

@@ -576,7 +576,7 @@ func Test_manager_SendInvite(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure invite URL matches expected
-	expectedLink, expectedPassword, err := ch.InviteURL(host, maxUses, rng)
+	expectedLink, expectedPassword, err := ch.ShareURL(host, maxUses, rng)
 	require.NoError(t, err)
 	require.Equal(t, expectedLink, txt.InviteLink)
 	require.Equal(t, expectedPassword, txt.Password)

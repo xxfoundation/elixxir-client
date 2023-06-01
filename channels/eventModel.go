@@ -21,8 +21,8 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/emoji"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"

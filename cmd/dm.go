@@ -19,8 +19,8 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/dm"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike/ecdh"

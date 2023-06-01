@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 )
 
@@ -43,12 +43,21 @@ type Cmix struct {
 // date.
 //
 // Users of this function should delete the storage directory on error.
-func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode string) error {
+func NewCmix(ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
 	err := xxdk.NewCmix(ndfJSON, storageDir, password, registrationCode)
 	if err != nil {
 		return errors.Errorf("Failed to create new cmix: %+v", err)
 	}
 	return nil
+}
+
+// NewSynchronizedCmix clones a Cmix from remote storage
+func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
+	remote RemoteStore) error {
+	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
+	return xxdk.NewSynchronizedCmix(ndfJSON, storageDir, password,
+		wrappedRemote)
 }
 
 // LoadCmix will load an existing user storage from the storageDir using the

@@ -8,7 +8,7 @@
 package partition
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 )

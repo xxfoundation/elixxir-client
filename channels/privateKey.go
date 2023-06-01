@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -165,8 +165,8 @@ func newAdminKeysManager(
 
 	adminMan := &adminKeysManager{remote: kvRemote, callback: cb}
 
-	_, err = adminMan.remote.ListenOnRemoteMap(
-		adminKeysMapName, adminKeysMapVersion, adminMan.mapUpdate)
+	err = adminMan.remote.ListenOnRemoteMap(
+		adminKeysMapName, adminKeysMapVersion, adminMan.mapUpdate, false)
 	if err != nil && adminMan.remote.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
 			"updates on adminKeysManager: %+v", err)
@@ -230,15 +230,7 @@ func (akm *adminKeysManager) deleteChannelPrivateKey(
 
 // mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
 // method.
-func (akm *adminKeysManager) mapUpdate(
-	mapName string, edits map[string]versioned.ElementEdit) {
-
-	if mapName != adminKeysMapName {
-		jww.ERROR.Printf("Got an update for the wrong map, "+
-			"expected: %s, got: %s", adminKeysMapName, mapName)
-		return
-	}
-
+func (akm *adminKeysManager) mapUpdate(edits map[string]versioned.ElementEdit) {
 	akm.mux.Lock()
 	defer akm.mux.Unlock()
 
@@ -255,7 +247,8 @@ func (akm *adminKeysManager) mapUpdate(
 		if edit.Operation == versioned.Deleted {
 			akm.callback(chanId, false)
 		} else if edit.Operation == versioned.Created ||
-			edit.Operation == versioned.Updated {
+			edit.Operation == versioned.Updated ||
+			edit.Operation == versioned.Loaded {
 			akm.callback(chanId, true)
 		} else {
 			jww.WARN.Printf("Failed to handle admin key update %s, "+

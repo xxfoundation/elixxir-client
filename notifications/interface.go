@@ -97,6 +97,9 @@ type Manager interface {
 	// It will remove all registered identities if it is the last Token.
 	RemoveToken() error
 
+	// GetToken returns the token if it is registered
+	GetToken() (has bool, token, app string)
+
 	// RegisterUpdateCallback registers a callback to be used to receive updates
 	// to changes in notifications. Because this is being called after
 	// initialization, a poll of state via the get function will be necessary

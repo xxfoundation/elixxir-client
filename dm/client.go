@@ -23,7 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 )

@@ -9,10 +9,10 @@ package groupChat
 
 import (
 	"encoding/base64"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/event"
 	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/group"

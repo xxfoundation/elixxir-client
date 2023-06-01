@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 )
@@ -46,8 +46,8 @@ func TestNewOrLoadRemoteKv(t *testing.T) {
 	expected := &internalKV{
 		kv:                 kv,
 		txLog:              txLog,
-		keyUpdateListeners: make(map[string]KeyUpdateCallback),
-		mapUpdateListeners: make(map[string]mapChangedByRemoteCallback),
+		keyUpdateListeners: make(map[string]keyUpdate),
+		mapUpdateListeners: make(map[string]mapUpdate),
 		isSynchronizing:    &isSync,
 	}
 
@@ -110,20 +110,21 @@ func TestKV_SetGet(t *testing.T) {
 	txLog2.uploadPeriod = 500 * time.Millisecond
 
 	// t.Logf("Device 1: %s, Device 2: %s", txLog.header.DeviceID,
-	// txLog2.header.DeviceID)
+	// 	txLog2.header.DeviceID)
 
 	// Construct mock update callback
 	txChan := make(chan string, numTests)
-	updateCb := KeyUpdateCallback(func(key string, oldVal, newVal []byte,
+	updateCb := keyUpdateCallback(func(oldVal, newVal []byte,
 		op versioned.KeyOperation) {
 		// t.Logf("%s: %s -> %s", key, string(oldVal), string(newVal))
 		require.Nil(t, oldVal)
-		txChan <- key
+		txChan <- string(newVal)
 	})
 
 	for i := 0; i < numTests; i++ {
 		key := "key" + strconv.Itoa(i)
-		rkv2.ListenOnRemoteKey(key, updateCb)
+		err := rkv2.ListenOnRemoteKey(key, updateCb, false)
+		require.NoError(t, err)
 	}
 
 	mStopper := stoppable.NewMulti("SetTest")
@@ -134,10 +135,10 @@ func TestKV_SetGet(t *testing.T) {
 	mStopper.Add(stop1)
 	mStopper.Add(stop2)
 
-	expected := make(map[string][]byte)
+	expected := make(map[string]string)
 	for i := 0; i < numTests; i++ {
 		key, val := "key"+strconv.Itoa(i), []byte("val"+strconv.Itoa(i))
-		expected[key] = val
+		expected[string(val)] = key
 		// t.Logf("SetRemote: %s: %s", key, string(val))
 		require.NoError(t, rkv.SetRemote(key, val))
 	}
@@ -147,7 +148,7 @@ func TestKV_SetGet(t *testing.T) {
 			t.Fatalf("Failed to receive from callback %d", i)
 		case txKey := <-txChan:
 			_, ok := expected[txKey]
-			require.True(t, ok, txKey)
+			require.Truef(t, ok, "failed on reception %d, %s", i, txKey)
 		}
 	}
 
@@ -160,7 +161,8 @@ func TestKV_SetGet(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify everything is synchronized between both instances
-	for k, v := range expected {
+	for vStr, k := range expected {
+		v := []byte(vStr)
 		v1, err := rkv.GetBytes(k)
 		require.NoError(t, err)
 		require.Equal(t, v, v1, k)

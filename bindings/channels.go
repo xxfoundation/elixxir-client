@@ -1832,6 +1832,19 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 // Notifications                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// Notifications options
+const (
+	// ChannelsNotifyNone results in no notifications.
+	ChannelsNotifyNone int64 = int64(channels.NotifyNone)
+
+	// ChannelsNotifyPing results in notifications from tags, replies, and pins.
+	ChannelsNotifyPing int64 = int64(channels.NotifyPing)
+
+	// ChannelsNotifyAll results in notifications from all messages except
+	// silent ones and replays.
+	ChannelsNotifyAll = int64(channels.NotifyAll)
+)
+
 // GetNotificationLevel returns the [channels.NotificationLevel] for the given
 // channel.
 //
@@ -2923,13 +2936,13 @@ func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *ChannelUICallbacksWr
 
 // Event Type
 const (
-	NickNameUpdate int64 = iota
-	NotificationUpdate
-	MessageReceived
-	UserMuted
-	MessageDeleted
-	AdminKeyUpdate
-	DmTokenUpdate
+	NickNameUpdate     int64 = 1000
+	NotificationUpdate int64 = 2000
+	MessageReceived    int64 = 3000
+	UserMuted          int64 = 4000
+	MessageDeleted     int64 = 5000
+	AdminKeyUpdate     int64 = 6000
+	DmTokenUpdate      int64 = 7000
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a

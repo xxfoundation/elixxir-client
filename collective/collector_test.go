@@ -129,7 +129,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 	testcol := newCollector(myID, syncPath, remoteStore, remoteKv.remote,
 		crypt, txLog)
 
-	changes, err := testcol.collectChanges(devices)
+	changes, err := testcol.collectAllChanges(devices)
 	require.NoError(t, err)
 
 	// t.Logf("changes: %+v", changes)
@@ -168,9 +168,11 @@ func TestCollector_ApplyChanges(t *testing.T) {
 		encrypted := txLog.encrypt.Encrypt(serial)
 		require.NoError(t, err)
 		file := buildFile(txLog.header, encrypted)
-		err = txLog.io.Write(getTxLogPath(syncPath,
+		logPath := getTxLogPath(syncPath,
 			txLog.encrypt.KeyID(txLog.header.DeviceID),
-			txLog.header.DeviceID), file)
+			txLog.header.DeviceID)
+		t.Logf("LogPath: %s", logPath)
+		err = txLog.io.Write(logPath, file)
 		require.NoError(t, err)
 		devices = append(devices, txLog.header.DeviceID)
 	}
@@ -197,7 +199,7 @@ func TestCollector_ApplyChanges(t *testing.T) {
 	// Construct collector
 	testcol := newCollector(myID, syncPath, remoteStore, remoteKv.remote,
 		crypt, txLog)
-	_, err = testcol.collectChanges(devices)
+	_, err = testcol.collectAllChanges(devices)
 	require.NoError(t, err)
 	require.NoError(t, testcol.applyChanges())
 

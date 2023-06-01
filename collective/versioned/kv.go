@@ -321,17 +321,19 @@ func (v *kv) HasPrefix(prefix string) bool {
 // [KV.Prefix].
 func (v *kv) Prefix(prefix string) (KV, error) {
 	if prefix == "" {
-		return nil, EmptyPrefixErr
+		return nil, errors.WithStack(EmptyPrefixErr)
 	}
 
 	//// Reject invalid prefixes
 	if strings.Contains(prefix, PrefixSeparator) {
-		return nil, PrefixContainingSeparatorErr
+		return nil, errors.Wrapf(PrefixContainingSeparatorErr,
+			"prefix: %s", prefix)
 	}
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {
-		return nil, DuplicatePrefixErr
+		return nil, errors.Wrapf(DuplicatePrefixErr,
+			"%s: %s", v.GetPrefix(), prefix)
 	}
 
 	newPrefixMap := make(map[string]int)
@@ -385,37 +387,37 @@ func (v *kv) Exists(err error) bool {
 // StoreMapElement is not implemented for local KVs
 func (v *kv) StoreMapElement(mapName, elementName string, value *Object,
 	mapVersion uint64) error {
-	return UnimplementedErr
+	return errors.WithStack(UnimplementedErr)
 }
 
 // StoreMap is not implemented for local KVs
 func (v *kv) StoreMap(mapName string,
 	values map[string]*Object, mapVersion uint64) error {
-	return UnimplementedErr
+	return errors.WithStack(UnimplementedErr)
 }
 
 // GetMap is not implemented for local KVs
 func (v *kv) GetMap(mapName string, version uint64) (
 	map[string]*Object, error) {
-	return nil, UnimplementedErr
+	return nil, errors.WithStack(UnimplementedErr)
 }
 
 // GetMapElement is not implemented for local KVs
 func (v *kv) GetMapElement(mapName, element string, version uint64) (
 	*Object, error) {
-	return nil, UnimplementedErr
+	return nil, errors.WithStack(UnimplementedErr)
 }
 
 // DeleteMapElement is not implemented for local KVs
 func (v *kv) DeleteMapElement(mapName, element string, version uint64) (
 	*Object, error) {
-	return nil, UnimplementedErr
+	return nil, errors.WithStack(UnimplementedErr)
 }
 
 // Transaction is not implemented for local KVs
 func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 	old *Object, existed bool, err error) {
-	return nil, false, UnimplementedErr
+	return nil, false, errors.WithStack(UnimplementedErr)
 }
 
 // ListenOnRemoteKey is not implemented for local KVs

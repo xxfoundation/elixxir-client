@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"gitlab.com/elixxir/client/v4/dm/storage"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -545,34 +546,27 @@ func (dmc *DMClient) SendSilent(partnerPubKeyBytes []byte,
 // channel.
 //
 // Parameters:
-//   - channelsManagerId - ID of [ChannelsManager] object in tracker. This can
-//     be retrieved using [ChannelsManager.GetID].
 //   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519
 //     signing key.
 //   - partnerToken - The token used to derive the reception ID for the partner.
-//   - inviteToChannelBytes - Marshalled bytes of the channel the user is
-//     inviting another user to.
+//   - inviteToChannelJson - A JSON marshalled channel. This should be the data
+//     of the invitee channel. This can be retrieved from [GetChannelJSON].
 //   - message - The contents of the message. The message should be at most 510
 //     bytes. This is expected to be Unicode, and thus a string data type is
 //     expected.
 //   - host - The URL to append the channel info to.
-//   - maxUses - The maximum number of uses the link can be used (0 for
-//     unlimited).
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and GetDefaultCMixParams will be used internally.
-func (dmc *DMClient) SendInvite(channelsManagerId int, partnerPubKeyBytes []byte,
-	partnerToken int32, inviteToChannelBytes []byte, message string,
-	host string, maxUses int, cmixParamsJSON []byte) ([]byte, error) {
+func (dmc *DMClient) SendInvite(partnerPubKeyBytes []byte,
+	partnerToken int32, inviteToChannelJson []byte, message string,
+	host string, cmixParamsJSON []byte) ([]byte, error) {
 
-	chanMan, err := channelManagerTrackerSingleton.get(channelsManagerId)
+	// Retrieve channel that will be used for the invitation
+	var inviteToChan *cryptoBroadcast.Channel
+	err := json.Unmarshal(inviteToChannelJson, &inviteToChan)
 	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal channel ID
-	inviteToID, err := id.Unmarshal(inviteToChannelBytes)
-	if err != nil {
-		return nil, err
+		return nil,
+			errors.WithMessage(err, "could not unmarshal channel json")
 	}
 
 	// Unmarshal cmix params
@@ -581,17 +575,11 @@ func (dmc *DMClient) SendInvite(channelsManagerId int, partnerPubKeyBytes []byte
 		return nil, err
 	}
 
-	// Retrieve channel from manager
-	inviteTo, err := chanMan.api.GetChannel(inviteToID)
-	if err != nil {
-		return nil, err
-	}
-
 	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
 
 	// Send invite
 	msgID, rnd, ephID, err := dmc.api.SendInvite(&partnerPubKey,
-		uint32(partnerToken), message, inviteTo, host, maxUses, params.CMIX)
+		uint32(partnerToken), message, inviteToChan, host, params.CMIX)
 	if err != nil {
 		return nil, err
 	}

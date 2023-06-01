@@ -1447,14 +1447,14 @@ func (cm *ChannelsManager) SendSilent(channelIdBytes []byte, validUntilMS int64,
 // then an error will be returned.
 //
 // Parameters:
-//   - channelIdBytes - Marshalled bytes of the channel's [id.ID].
-//   - inviteToChannelBytes - Marshalled bytes of the invitee channel.
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID]
+//     This is invited channel.
+//   - inviteToChannelJSON - A JSON marshalled channel. This should be the data
+//     of the invitee channel. This can be retrieved from [GetChannelJSON].
 //   - message - The contents of the message. The message should be at most 510
 //     bytes. This is expected to be Unicode, and thus a string data type is
 //     expected.
 //   - host - The URL to append the channel info to.
-//   - maxUses - The maximum number of uses the link can be used (0 for
-//     unlimited).
 //   - validUntilMS - The lease of the message. This will be how long the
 //     message is available from the network, in milliseconds. As per the
 //     [channels.Manager] documentation, this has different meanings depending
@@ -1477,19 +1477,13 @@ func (cm *ChannelsManager) SendSilent(channelIdBytes []byte, validUntilMS int64,
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendInvite(channelIdBytes,
-	inviteToChannelBytes []byte, message string, host string, maxUses int,
+	inviteToJson []byte, message string, host string,
 	validUntilMS int64, cmixParamsJSON []byte, pingsJSON []byte) (
 	[]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err := parseChannelsParameters(
 		channelIdBytes, cmixParamsJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal channel to invite to
-	inviteTo, err := id.Unmarshal(inviteToChannelBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -1505,9 +1499,17 @@ func (cm *ChannelsManager) SendInvite(channelIdBytes,
 		return nil, err
 	}
 
+	// Retrieve channel that will be used for the invitation
+	var inviteToChan *cryptoBroadcast.Channel
+	err = json.Unmarshal(inviteToJson, &inviteToChan)
+	if err != nil {
+		return nil,
+			errors.WithMessage(err, "could not unmarshal channel json")
+	}
+
 	// Send invite
 	messageID, rnd, ephID, err := cm.api.SendInvite(channelID, message,
-		inviteTo, host, maxUses, lease, params.CMIX, pings)
+		inviteToChan, host, lease, params.CMIX, pings)
 
 	// Construct send report
 	return constructChannelSendReport(&messageID, rnd.ID, &ephID)

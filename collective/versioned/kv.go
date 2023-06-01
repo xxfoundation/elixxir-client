@@ -331,7 +331,7 @@ func (v *kv) Prefix(prefix string) (KV, error) {
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {
-		return nil, DuplicatePrefixErr
+		return nil, errors.WithStack(DuplicatePrefixErr)
 	}
 
 	newPrefixMap := make(map[string]int)

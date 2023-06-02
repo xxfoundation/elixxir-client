@@ -32,14 +32,14 @@ type RemoteStore interface {
 	// support this, FileIO.Write or FileIO.Read should be implemented to either
 	// write a separate timestamp file or add a prefix.
 	//
-	// Returns the JSON of [RemoteStoreReport].
-	GetLastModified(path string) ([]byte, error)
+	// Returns an RFC3339 timestamp string
+	GetLastModified(path string) (string, error)
 
 	// GetLastWrite retrieves the most recent successful write operation that
 	// was received by RemoteStore.
 	//
-	// Returns the JSON of [RemoteStoreReport].
-	GetLastWrite() ([]byte, error)
+	// Returns an RFC3339 timestamp string
+	GetLastWrite() (string, error)
 
 	// ReadDir reads the named directory, returning all its
 	// directory entries sorted by filename as json of a []string
@@ -370,33 +370,23 @@ func (r *remoteStoreWrapper) ReadDir(path string) ([]string, error) {
 // separate timestamp file or add a prefix.
 func (r *remoteStoreWrapper) GetLastModified(
 	path string) (time.Time, error) {
-	reportData, err := r.store.GetLastModified(path)
+	rfc3339, err := r.store.GetLastModified(path)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	rsr := &RemoteStoreReport{}
-	if err = json.Unmarshal(reportData, rsr); err != nil {
-		return time.Time{}, err
-	}
-
-	return time.Unix(0, rsr.LastModified), nil
+	return time.Parse(time.RFC3339, rfc3339)
 }
 
 // GetLastWrite retrieves the most recent successful write operation that was
 // received by RemoteStore.
 func (r *remoteStoreWrapper) GetLastWrite() (time.Time, error) {
-	reportData, err := r.store.GetLastWrite()
+	rfc3339, err := r.store.GetLastWrite()
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	rsr := &RemoteStoreReport{}
-	if err = json.Unmarshal(reportData, rsr); err != nil {
-		return time.Time{}, err
-	}
-
-	return time.Unix(0, rsr.LastWrite), nil
+	return time.Parse(time.RFC3339, rfc3339)
 }
 
 // RemoteStoreFileSystem is a structure adhering to [RemoteStore]. This utilizes
@@ -434,17 +424,14 @@ func (r *RemoteStoreFileSystem) Write(path string, data []byte) error {
 //
 // Returns:
 //   - []byte - JSON of [RemoteStoreReport].
-func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
+func (r *RemoteStoreFileSystem) GetLastModified(path string) (string, error) {
 	ts, err := r.api.GetLastModified(path)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	rsr := &RemoteStoreReport{
-		LastModified: ts.UnixNano(),
-	}
-
-	return json.Marshal(rsr)
+	timeStr := ts.UTC().Format(time.RFC3339)
+	return timeStr, nil
 }
 
 // GetLastWrite retrieves the most recent successful write operation that was
@@ -452,17 +439,13 @@ func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
 //
 // Returns:
 //   - []byte - JSON of [RemoteStoreReport].
-func (r *RemoteStoreFileSystem) GetLastWrite() ([]byte, error) {
+func (r *RemoteStoreFileSystem) GetLastWrite() (string, error) {
 	ts, err := r.api.GetLastWrite()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	rsr := &RemoteStoreReport{
-		LastWrite: ts.UnixNano(),
-	}
-
-	return json.Marshal(rsr)
+	return ts.UTC().Format(time.RFC3339), nil
 }
 
 type transactionResult struct {

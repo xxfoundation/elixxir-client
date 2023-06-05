@@ -91,7 +91,7 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 		params)
 }
 
-// SendDMReply is used to send a formatted direct message reply.
+// SendReply is used to send a formatted direct message reply.
 //
 // If the message ID that the reply is sent to does not exist,
 // then the other side will post the message as a normal
@@ -463,8 +463,8 @@ func calcDMPayloadLen(net cMixClient) int {
 	// As we don't use the mac or fp fields, we can extend
 	// our payload size
 	// (-2 to eliminate the first byte of mac and fp)
-	return (net.GetMaxMessageLength() +
-		format.MacLen + format.KeyFPLen - 2)
+	return net.GetMaxMessageLength() +
+		format.MacLen + format.KeyFPLen - 2
 
 }
 

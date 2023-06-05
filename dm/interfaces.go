@@ -220,6 +220,13 @@ type EventModel interface {
 	UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status Status)
 
+	// BlockSender silences messages sent by the indicated sender
+	// public key.
+	BlockSender(senderPubKey ed25519.PublicKey)
+	// UnblockSender allows messages sent by the indicated sender
+	// public key.
+	UnblockSender(senderPubKey ed25519.PublicKey)
+
 	// GetConversation returns any conversations held by the
 	// model (receiver)
 	GetConversation(senderPubKey ed25519.PublicKey) *ModelConversation

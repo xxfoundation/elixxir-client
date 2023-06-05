@@ -342,6 +342,9 @@ func (c *collector) collectChanges(deviceID InstanceID) (*Patch,
 			errors.Wrapf(err, "path: %s", logPath)
 	}
 
+	jww.DEBUG.Printf("[%s] collected changes from %s: %d",
+		collectorLogHeader, deviceID, len(patch.keys))
+
 	return patch, lastRemoteUpdate, nil
 }
 
@@ -361,6 +364,9 @@ func (c *collector) applyChanges() error {
 
 	//execute the diff
 	updates, lastSeen := localPatch.Diff(patches, ignoreBefore)
+
+	jww.INFO.Printf("[%s] Applying updates: %d",
+		collectorLogHeader, len(updates))
 
 	// store the timestamps
 	for i, device := range devices {
@@ -493,6 +499,8 @@ func handleIncomingFile(deviceID InstanceID, patchFile []byte,
 		err = errors.WithMessagef(err, "failed to decode the patch from file")
 		return h, nil, err
 	}
+	jww.DEBUG.Printf("[%s] read patch %s: %d",
+		collectorLogHeader, deviceID, len(patch.keys))
 
 	return h, patch, nil
 }

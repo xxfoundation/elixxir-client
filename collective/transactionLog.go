@@ -228,6 +228,8 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			} else {
+				jww.DEBUG.Printf("Wrote patch %s: %d",
+					rw.header.DeviceID, len(rw.state.keys))
 				rw.notify(true)
 				uploadPeriod = defaultUploadPeriod
 				ts = netTime.Now()

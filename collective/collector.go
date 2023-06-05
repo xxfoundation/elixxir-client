@@ -386,6 +386,8 @@ func (c *collector) applyChanges() error {
 		} else {
 			wg.Add(1)
 			go func(key string, m *Mutate) {
+				jww.DEBUG.Printf("[%s] Update for %s: %s",
+					collectorLogHeader, key, m)
 				if m.Deletion {
 					err := c.kv.DeleteFromRemote(key)
 					if err != nil {

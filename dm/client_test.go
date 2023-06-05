@@ -20,7 +20,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// TestNick runs basic smoke testing of nick name manager
+// TestNick runs basic smoke testing of the nickname manager.
 func TestNick(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
@@ -28,11 +28,11 @@ func TestNick(t *testing.T) {
 	// partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
-	// NOTE: the ID's were lobotomized in the middle of the DM
-	// development, s.t. there is only one nick name for everyone
+	// NOTE: the IDs were lobotomized in the middle of the DM
+	// development, s.t. there is only one nickname for everyone
 	// right now. Adding nicks per user is a future feature, which
 	// is why this test is the way it is and why the API
-	// is wonky. For now we are locking in expected behavior but
+	// is wonky. For now, we are locking in expected behavior but
 	// expect to change this in the future.
 	myPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&me.PubKey)
 	myID := deriveReceptionID(myPubKey.Bytes(),
@@ -91,7 +91,7 @@ func TestBlock(t *testing.T) {
 	clientA := NewDMClient(&me, receiverA, stA, nnmA, netA, crng)
 	clientB := NewDMClient(&partner, receiverB, stB, nnmB, netB, crng)
 
-	// make sure the blocklist is empty
+	// make sure the block list is empty
 	beEmpty := clientB.GetBlockedSenders()
 	require.Equal(t, len(beEmpty), 0)
 

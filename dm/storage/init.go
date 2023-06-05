@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-// Handles low level database control and interfaces
+// Handles low-level database control and interfaces.
 
 package storage
 

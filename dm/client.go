@@ -11,7 +11,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"strings"
-	sync "sync"
+	"sync"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -165,7 +165,7 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 		convo := allConversations[i]
 		if convo.BlockedTimestamp != nil {
 			pub := convo.Pubkey
-			blocked = append(blocked, ed25519.PublicKey(pub))
+			blocked = append(blocked, pub)
 		}
 	}
 	return blocked

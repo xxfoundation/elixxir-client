@@ -320,7 +320,7 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 
 			// get the data about the element
 			elementName := keysToName[elementKey]
-			file := files[elementName]
+			file := files[elementKey]
 			old, exists := file.Get()
 
 			element := elementEdit{OldElement: old}

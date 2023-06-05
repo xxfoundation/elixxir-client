@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
 	sync "sync"
 	"time"
@@ -112,7 +111,7 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	// Register the listener
 	err = dmc.register(receiver, dmc.st)
 	if err != nil {
-		return nil, err
+		jww.FATAL.Panicf("[DM] Failed to register listener: %+v", err)
 	}
 
 	return dmc, nil
@@ -218,33 +217,13 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 
 // BlockSender blocks DMs from the sender with the passed in public key.
 func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
-	elemName := base64.StdEncoding.EncodeToString(senderPubKey)
-	dc.mux.Lock()
-	defer dc.mux.Unlock()
-	err := dc.remote.StoreMapElement(dmMapName, elemName,
-		&versioned.Object{
-			Version:   dmStoreVersion,
-			Timestamp: netTime.Now(),
-			Data:      senderPubKey,
-		}, dmMapVersion)
-	if err != nil {
-		jww.WARN.Printf("[DM] Failed to remotely store user with public "+
-			"key (%s) as blocked", elemName)
-	}
+	dc.setBlock(senderPubKey)
 	dc.receiver.BlockSender(senderPubKey)
 }
 
 // UnblockSender unblocks DMs from the sender with the passed in public key.
 func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
-	elemName := base64.StdEncoding.EncodeToString(senderPubKey)
-	dc.mux.Lock()
-	defer dc.mux.Unlock()
-	_, err := dc.remote.DeleteMapElement(dmMapName, elemName, dmMapVersion)
-	if err != nil {
-		jww.WARN.Printf("[DM] Failed to remotely store user with public "+
-			"key (%s) as unblocked", elemName)
-	}
-
+	dc.deleteBlock(senderPubKey)
 	dc.receiver.UnblockSender(senderPubKey)
 }
 

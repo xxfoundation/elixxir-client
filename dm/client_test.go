@@ -199,5 +199,4 @@ func TestBlock(t *testing.T) {
 	require.False(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
 
 	require.Equal(t, len(clientB.GetBlockedSenders()), 0)
-
 }

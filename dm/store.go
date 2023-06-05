@@ -18,7 +18,7 @@ import (
 // setBlock is a helper function which blocks the user across devices via the
 // remote KV.
 func (dc *dmClient) setBlocked(senderPubKey ed25519.PublicKey) {
-	elemName := base64.RawStdEncoding.EncodeToString(senderPubKey)
+	elemName := getElementName(senderPubKey)
 	dc.mux.Lock()
 	defer dc.mux.Unlock()
 	err := dc.remote.StoreMapElement(dmMapName, elemName,
@@ -36,7 +36,7 @@ func (dc *dmClient) setBlocked(senderPubKey ed25519.PublicKey) {
 // setBlock is a helper function which blocks the user across devices via the
 // remote KV.
 func (dc *dmClient) deleteBlocked(senderPubKey ed25519.PublicKey) {
-	elemName := base64.RawStdEncoding.EncodeToString(senderPubKey)
+	elemName := getElementName(senderPubKey)
 	dc.mux.Lock()
 	defer dc.mux.Unlock()
 	_, err := dc.remote.DeleteMapElement(dmMapName, elemName, dmMapVersion)
@@ -89,4 +89,10 @@ func (dc *dmClient) getBlockedSenders() []ed25519.PublicKey {
 
 	return blockedSenders
 
+}
+
+// getElementName is a helper function which retrieves the element name for the
+// sender public key.
+func getElementName(senderPubKey ed25519.PublicKey) string {
+	return base64.RawStdEncoding.EncodeToString(senderPubKey)
 }

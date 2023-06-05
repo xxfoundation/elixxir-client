@@ -368,7 +368,12 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 			return nil, err
 		}
 
-		service := createRandomService(rng)
+		mt := MessageType(msg.PayloadType).Marshal()
+		service := message.CompressedService{
+			Identifier: partnerPubKey.Bytes(),
+			Tags:       []string{makeSenderTag(myID)},
+			Metadata:   mt[:],
+		}
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -406,7 +411,7 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 			return nil, err
 		}
 
-		service = createRandomService(rng)
+		selfService := createRandomService(rng)
 
 		payloadLen = calcDMPayloadLen(net)
 
@@ -430,7 +435,7 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 			Recipient:   myID,
 			Payload:     encryptedPayload,
 			Fingerprint: fp,
-			Service:     service,
+			Service:     selfService,
 			Mac:         mac,
 		}
 
@@ -528,4 +533,8 @@ func createRandomService(rng io.Reader) message.Service {
 		Identifier: data[:33],
 		Tag:        base64.RawStdEncoding.EncodeToString(data[33:]),
 	}
+}
+
+func makeSenderTag(sender *id.ID) string {
+	return fmt.Sprintf("%x-dmsender", sender)
 }

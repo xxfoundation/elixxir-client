@@ -25,7 +25,7 @@ func TestDmClient_ShareURL_DecodeShareURL(t *testing.T) {
 
 	// Construct dm Client w/ minimum required values
 	me, _ := codename.GenerateIdentity(rng)
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(me.Privkey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(me.Privkey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	// Construct URL
@@ -56,7 +56,7 @@ func TestDmClient_ShareURL_ParseError(t *testing.T) {
 	// Construct dm Client w/ minimum required values
 	rng := csprng.NewSystemRNG()
 	me, _ := codename.GenerateIdentity(rng)
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(me.Privkey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(me.Privkey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	// Attempt to share with an invalid host URL

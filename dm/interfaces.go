@@ -60,7 +60,7 @@ type Client interface {
 // cMix.
 type Sender interface {
 	// SendText is used to send a formatted message to another user.
-	SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendText(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		msg string, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
@@ -69,7 +69,7 @@ type Sender interface {
 	// If the message ID that the reply is sent to does not exist,
 	// then the other side will post the message as a normal
 	// message and not as a reply.
-	SendReply(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendReply(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		msg string, replyTo cryptoMessage.ID,
 		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
@@ -80,7 +80,7 @@ type Sender interface {
 	//
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
-	SendReaction(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendReaction(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		reaction string, reactTo cryptoMessage.ID,
 		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
@@ -91,7 +91,7 @@ type Sender interface {
 	//
 	// It takes no payload intentionally as the message should be very
 	// lightweight.
-	SendSilent(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendSilent(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
@@ -103,7 +103,7 @@ type Sender interface {
 	// encoding using compression, it is not possible to define
 	// the largest payload that can be sent, but it will always be
 	// possible to send a payload of 802 bytes at a minimum.
-	Send(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	Send(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		messageType MessageType, plaintext []byte,
 		params cmix.CMIXParams) (cryptoMessage.ID,
 		rounds.Round, ephemeral.Id, error)

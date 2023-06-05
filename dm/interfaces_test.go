@@ -10,6 +10,7 @@ package dm
 import (
 	"bytes"
 	"crypto/ed25519"
+	"testing"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -24,9 +25,9 @@ import (
 )
 
 // createLinkedNets links 2 clients together.
-func createLinkedNets() (*mockClient, *mockClient) {
-	client1 := newMockClient()
-	client2 := newMockClient()
+func createLinkedNets(t testing.TB) (*mockClient, *mockClient) {
+	client1 := newMockClient(t)
+	client2 := newMockClient(t)
 
 	client1.otherClient = client2
 	client2.otherClient = client1
@@ -34,11 +35,12 @@ func createLinkedNets() (*mockClient, *mockClient) {
 }
 
 // newMockClient creates a client that can send messages
-func newMockClient() *mockClient {
+func newMockClient(t testing.TB) *mockClient {
 	return &mockClient{
 		rndID:       uint64(0),
 		processors:  make(map[id.ID]message.Processor),
 		otherClient: nil,
+		t: t,
 	}
 }
 
@@ -46,6 +48,7 @@ type mockClient struct {
 	rndID       uint64
 	processors  map[id.ID]message.Processor
 	otherClient *mockClient
+	t testing.TB
 }
 
 func (mc *mockClient) GetMaxMessageLength() int {
@@ -75,18 +78,18 @@ func (mc *mockClient) SendManyWithAssembler(recipients []*id.ID,
 	rnd := rounds.Round{ID: id.Round(mc.rndID)}
 	msgs, err := assembler(rnd.ID)
 	if err != nil {
-		panic(err.Error())
+		mc.t.Fatal(err)
 	}
 	clients := []*mockClient{mc.otherClient, mc}
 	if mc.otherClient != nil {
-		for i := 0; i < len(recipients); i++ {
+		for i, recipient := range recipients {
 			msg := format.NewMessage(2048)
 			msg.SetKeyFP(msgs[i].Fingerprint)
 			msg.SetContents(msgs[i].Payload)
 			msg.SetMac(msgs[i].Mac)
-			SIH, err := msgs[i].Service.Hash(nil, msg.GetContents())
+			SIH, err := msgs[i].Service.Hash(recipient, msg.GetContents())
 			if err != nil {
-				panic(err)
+				mc.t.Fatal(err)
 			}
 			msg.SetSIH(SIH)
 			recID := receptionID.EphemeralIdentity{
@@ -106,9 +109,8 @@ func (mc *mockClient) AddIdentityWithHistory(id *id.ID, _ time.Time, _ time.Time
 	jww.INFO.Printf("AddIdentityWithHistory: %s", id)
 	mc.processors[*id] = processor
 }
-func (mc *mockClient) AddService(*id.ID, message.Service,
-	message.Processor) {
-	panic("cannot add server to mockClient here")
+func (mc *mockClient) AddService(*id.ID, message.Service,message.Processor) {
+	mc.t.Fatalf("cannot add server to mockClient here")
 }
 func (mc *mockClient) DeleteClientService(*id.ID) {}
 func (mc *mockClient) RemoveIdentity(*id.ID)      {}

@@ -60,7 +60,7 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	privateEdwardsKey := myID.Privkey
 	myIDToken := myID.GetDMToken()
 
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(privateEdwardsKey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)

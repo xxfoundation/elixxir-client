@@ -34,11 +34,11 @@ func TestNick(t *testing.T) {
 	// is why this test is the way it is and why the API
 	// is wonky. For now, we are locking in expected behavior but
 	// expect to change this in the future.
-	myPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&me.PubKey)
+	myPubKey := ecdh.Edwards2EcdhNikePublicKey(me.PubKey)
 	myID := deriveReceptionID(myPubKey.Bytes(),
 		me.GetDMToken())
 
-	// partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	// partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 	// partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 	// 	partner.GetDMToken())
 
@@ -62,7 +62,7 @@ func TestNick(t *testing.T) {
 }
 
 func TestBlock(t *testing.T) {
-	netA, netB := createLinkedNets()
+	netA, netB := createLinkedNets(t)
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
@@ -98,7 +98,9 @@ func TestBlock(t *testing.T) {
 	params := cmix.GetDefaultCMIXParams()
 
 	// Send and receive a text
-	clientA.SendText(&partner.PubKey, partner.GetDMToken(), "Hi", params)
+	_, _, _, err :=
+		clientA.SendText(partner.PubKey, partner.GetDMToken(), "Hi", params)
+	require.NoError(t, err)
 	require.Equal(t, 1, len(receiverB.Msgs))
 	rcvA1 := receiverB.Msgs[0]
 	require.Equal(t, "Hi", rcvA1.Message)
@@ -107,7 +109,8 @@ func TestBlock(t *testing.T) {
 	pubKey := rcvA1.PubKey
 	dmToken := rcvA1.DMToken
 	replyTo := rcvA1.MessageID
-	clientB.SendReply(&pubKey, dmToken, "whatup?", replyTo, params)
+	_, _, _, err = clientB.SendReply(pubKey, dmToken, "whatup?", replyTo, params)
+	require.NoError(t, err)
 	require.Equal(t, 3, len(receiverA.Msgs))
 	rcvB1 := receiverA.Msgs[2]
 	replyTo2 := rcvB1.ReplyTo
@@ -121,7 +124,8 @@ func TestBlock(t *testing.T) {
 	// React to the reply
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
-	clientA.SendReaction(&pubKey, dmToken, "😀", replyTo2, params)
+	_, _, _, err = clientA.SendReaction(pubKey, dmToken, "😀", replyTo2, params)
+	require.NoError(t, err)
 
 	// Make sure nothing changed under the hood because the
 	// message was dropped.
@@ -140,7 +144,8 @@ func TestBlock(t *testing.T) {
 	// React to the reply
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
-	clientA.SendReaction(&pubKey, dmToken, "😀", replyTo2, params)
+	_, _, _, err = clientA.SendReaction(pubKey, dmToken, "😀", replyTo2, params)
+	require.NoError(t, err)
 
 	// Make sure reaction is received
 	require.Equal(t, 4, len(receiverB.Msgs))

@@ -47,29 +47,21 @@ func (dc *dmClient) deleteBlocked(senderPubKey ed25519.PublicKey) {
 }
 
 // IsBlocked is a helper function which returns if the given sender is blocked.
-// Blocking is controlled by the Receiver / EventModel
+// Blocking is controlled by the remote KV.
 func (dc *dmClient) isBlocked(senderPubKey ed25519.PublicKey) bool {
-	elemName := base64.StdEncoding.EncodeToString(senderPubKey)
+	elemName := base64.RawStdEncoding.EncodeToString(senderPubKey)
 
 	// Check remote
 	dc.mux.RLock()
 	defer dc.mux.RUnlock()
 	_, err := dc.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
-	if err != nil {
-		// Check locally
-		conversation := dc.receiver.GetConversation(senderPubKey)
 
-		if conversation != nil {
-			return conversation.BlockedTimestamp != nil
-		}
-	}
-
-	return false
+	return err == nil
 }
 
 // GetBlockedSenders is a helper function which returns all senders who are
 // blocked by this user.
-// Blocking is controlled by the Receiver / EventModel
+// Blocking is controlled by the remote KV.
 func (dc *dmClient) getBlockedSenders() []ed25519.PublicKey {
 	dc.mux.RLock()
 	defer dc.mux.RUnlock()
@@ -79,20 +71,11 @@ func (dc *dmClient) getBlockedSenders() []ed25519.PublicKey {
 
 	blockedMap, err := dc.remote.GetMap(dmMapName, dmMapVersion)
 	if err != nil {
-		allConversations := dc.receiver.GetConversations()
-		blocked := make([]ed25519.PublicKey, 0)
-		for i := range allConversations {
-			convo := allConversations[i]
-			if convo.BlockedTimestamp != nil {
-				pub := convo.Pubkey
-				blocked = append(blocked, ed25519.PublicKey(pub))
-			}
-		}
-		return blocked
+		jww.WARN.Panicf("[DM] Failed to retrieve map from storage: %+v", err)
+		return nil
 	}
 
 	blockedSenders := make([]ed25519.PublicKey, 0)
-
 	for elemName, elem := range blockedMap {
 		pubKeyBytes, err := base64.RawStdEncoding.DecodeString(elemName)
 		if err != nil {

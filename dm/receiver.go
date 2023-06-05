@@ -239,7 +239,7 @@ func (r *receiver) GetSelfProcessor() *selfProcessor {
 	return &selfProcessor{r: r}
 }
 
-// GetSelfProcessor handles receiving direct messages
+// GetProcessor handles receiving direct messages
 func (r *receiver) GetProcessor() *dmProcessor {
 	return &dmProcessor{r: r}
 }
@@ -362,7 +362,6 @@ func (r *receiver) receiveReaction(messageID message.ID,
 			"to %s", tag,
 			base64.RawStdEncoding.EncodeToString(partnerPubKey),
 			reactTo)
-
 		return r.api.ReceiveReaction(messageID, reactTo, nickname,
 			react.Reaction, partnerPubKey, senderPubKey,
 			dmToken, codeset, timestamp,

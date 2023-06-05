@@ -212,19 +212,6 @@ func (mr *mockReceiver) UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID
 	jww.INFO.Printf("UpdateSentStatus: %s", messageID)
 }
 
-func (mr *mockReceiver) BlockSender(pubKey ed25519.PublicKey) {
-	mr.blocked = append(mr.blocked, pubKey)
-}
-
-func (mr *mockReceiver) UnblockSender(pubKey ed25519.PublicKey) {
-	for i := range mr.blocked {
-		cur := mr.blocked[i]
-		if bytes.Equal(cur[:], pubKey[:]) {
-			mr.blocked = append(mr.blocked[:i], mr.blocked[i+1:]...)
-		}
-	}
-}
-
 func (mr *mockReceiver) GetConversation(pubKey ed25519.PublicKey) *ModelConversation {
 	convo := ModelConversation{}
 	convo.Pubkey = pubKey

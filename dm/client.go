@@ -9,7 +9,6 @@ package dm
 
 import (
 	"crypto/ed25519"
-	"encoding/base64"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/collective"
 	"strings"
@@ -177,29 +176,26 @@ func (dc *dmClient) SetNickname(nick string) {
 	dc.nm.SetNickname(nick)
 }
 
-// IsBlocked returns if the given sender is blocked
-// Blocking is controlled by the Receiver / EventModel
+// IsBlocked returns if the given sender is blocked.
+// Blocking is controlled by the remote KV.
 func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
 	return dc.isBlocked(senderPubKey)
 }
 
 // GetBlockedSenders returns all senders who are blocked by this user.
-// Blocking is controlled by the Receiver / EventModel
+// Blocking is controlled by the remote KV.
 func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
-	// fixme: use kv now
 	return dc.getBlockedSenders()
 }
 
 // BlockSender blocks DMs from the sender with the passed in public key.
 func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
 	dc.setBlocked(senderPubKey)
-	dc.receiver.BlockSender(senderPubKey)
 }
 
 // UnblockSender unblocks DMs from the sender with the passed in public key.
 func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
 	dc.deleteBlocked(senderPubKey)
-	dc.receiver.UnblockSender(senderPubKey)
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
@@ -216,23 +212,23 @@ func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
 func (dc *dmClient) mapUpdate(
 	edits map[string]versioned.ElementEdit) {
 
-	dc.mux.Lock()
-	defer dc.mux.Unlock()
-
-	for elemName, edit := range edits {
-		senderPubKey, err := base64.StdEncoding.DecodeString(elemName)
-		if err != nil {
-			jww.WARN.Printf("[DM] Failed to unmarshal public "+
-				"key %s on operation %s, skipping: %+v",
-				elemName, edit.Operation, err)
-		}
-
-		if edit.Operation == versioned.Deleted {
-			dc.receiver.UnblockSender(senderPubKey)
-		} else {
-			dc.receiver.BlockSender(senderPubKey)
-		}
-	}
+	//dc.mux.Lock()
+	//defer dc.mux.Unlock()
+	//
+	//for elemName, edit := range edits {
+	//	senderPubKey, err := base64.StdEncoding.DecodeString(elemName)
+	//	if err != nil {
+	//		jww.WARN.Printf("[DM] Failed to unmarshal public "+
+	//			"key %s on operation %s, skipping: %+v",
+	//			elemName, edit.Operation, err)
+	//	}
+	//
+	//	if edit.Operation == versioned.Deleted {
+	//		dc.receiver.UnblockSender(senderPubKey)
+	//	} else {
+	//		dc.receiver.BlockSender(senderPubKey)
+	//	}
+	//}
 }
 
 // GetNickname returns the stored nickname if there is one

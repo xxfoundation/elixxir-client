@@ -230,9 +230,10 @@ func (st *sendTracker) Sent(
 	return nil
 }
 
-// send tracks a generic send message.
+// FailedSend marks a message failed.
 func (st *sendTracker) FailedSend(uuid uint64) error {
 	// Update the on disk message status
+
 	t, err := st.handleSendFailed(uuid)
 	if err != nil {
 		return err

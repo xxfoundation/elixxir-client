@@ -124,7 +124,7 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, 3, len(receiverB.Msgs))
 
 	// User B Blocks User A
-	receiverB.BlockSender(rcvA1.PubKey)
+	clientB.BlockSender(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey
@@ -139,11 +139,12 @@ func TestBlock(t *testing.T) {
 
 	// Ensure that this user appears in the blocked senders list:
 	blocked := clientB.GetBlockedSenders()
+	t.Logf("%+v", blocked)
 	require.Equal(t, len(blocked), 1)
 	require.Equal(t, blocked[0], rcvA1.PubKey)
 
 	// User B Stops blocking User A
-	receiverB.UnblockSender(rcvA1.PubKey)
+	clientB.UnblockSender(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey

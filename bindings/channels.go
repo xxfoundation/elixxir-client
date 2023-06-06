@@ -278,7 +278,6 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     with an extension builder (e.g.,
 //     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
-//   - cipherID - ID of [DbCipher] object in tracker.
 //   - notificationsID - ID of [Notifications] object in tracker. This can be
 //     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
@@ -346,7 +345,6 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //   - storageTag - The storage tag associated with the previously created
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - dbFilePath - absolute string path to the SqlLite database file
-//   - cipherID - ID of [DbCipher] object in tracker.
 //   - extensionBuilderIDsJSON - JSON of an array of integers of
 //     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
 //     with an extension builder (e.g.,

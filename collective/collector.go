@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/ekv"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -467,7 +468,10 @@ func (c *collector) loadLastMutationTime() {
 	data, err := c.kv.GetBytes(storageKey)
 	if err != nil {
 		jww.WARN.Printf("Failed to load lastMutationRead from "+
-			"to disk at %s, data may be replayed: %+v", storageKey, err)
+			"to disk at %s, data may be replayed", storageKey)
+		if !ekv.Exists(err) {
+			jww.ERROR.Printf("unexpected error: %+v", err)
+		}
 		return
 	}
 
@@ -475,7 +479,8 @@ func (c *collector) loadLastMutationTime() {
 	err = json.Unmarshal(data, &c.lastMutationRead)
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal lastMutationRead loaded "+
-			"from disk at %s, data may be replayed: %+v", storageKey, err)
+			"from disk at %s, data may be replayed: %+v",
+			storageKey, err)
 		return
 	}
 }

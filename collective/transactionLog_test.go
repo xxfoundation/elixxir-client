@@ -27,7 +27,7 @@ import (
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	baseDir := ".testDir"
-	logFile := baseDir + "/test.txt"
+	logFile := baseDir + "/TestNewOrLoadTransactionLog"
 	os.RemoveAll(baseDir)
 	password := "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
@@ -58,6 +58,9 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 
 	zero := uint32(0)
 
+	emptyMB, transactions := loadBuffer(fs)
+	require.Equal(t, len(transactions), 0)
+
 	logPath := getTxLogPath(logFile, crypt.KeyID(deviceID), deviceID)
 	// Construct expected mutate log object
 	expected := &remoteWriter{
@@ -72,6 +75,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 		remoteUpToDate: &zero,
 		notifier:       &notifier{},
 		uploadPeriod:   defaultUploadPeriod,
+		mb:             emptyMB,
 	}
 
 	// Ensure constructor generates expected object
@@ -128,7 +132,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	for cnt := 0; cnt < 10; cnt++ {
 		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		err := txLog.Write(key, []byte(val))
+		_, _, err := txLog.Write(key, []byte(val))
 		require.NoError(t, err)
 	}
 
@@ -162,6 +166,12 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	newTxLog.remoteUpToDate = txLog.remoteUpToDate
 	newTxLog.uploadPeriod = txLog.uploadPeriod
 
+	// reset index in mb
+	mb, transactions := loadBuffer(fs)
+	require.Equal(t, len(transactions), 0)
+
+	txLog.mb = mb
+
 	// Ensure loaded log matches original log
 	require.Equal(t, txLog, newTxLog)
 }
@@ -185,7 +195,7 @@ func TestTransactionLog_Serialize(t *testing.T) {
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewMutate(curTs, []byte(val), false)
 
-		txLog.state.AddUnsafe(key, &newTx)
+		txLog.state.AddUnsafe(key, newTx)
 	}
 
 	// Serialize data
@@ -221,7 +231,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewMutate(curTs, []byte(val), false)
 
-		txLog.state.AddUnsafe(key, &newTx)
+		txLog.state.AddUnsafe(key, newTx)
 	}
 
 	// Serialize data

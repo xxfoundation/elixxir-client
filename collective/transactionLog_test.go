@@ -27,7 +27,7 @@ import (
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	baseDir := ".testDir"
-	logFile := baseDir + "/test.txt"
+	logFile := baseDir + "/TestNewOrLoadTransactionLog"
 	os.RemoveAll(baseDir)
 	password := "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
@@ -58,6 +58,9 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 
 	zero := uint32(0)
 
+	emptyMB, transactions := loadBuffer(fs)
+	require.Equal(t, len(transactions), 0)
+
 	logPath := getTxLogPath(logFile, crypt.KeyID(deviceID), deviceID)
 	// Construct expected mutate log object
 	expected := &remoteWriter{
@@ -72,6 +75,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 		remoteUpToDate: &zero,
 		notifier:       &notifier{},
 		uploadPeriod:   defaultUploadPeriod,
+		mb:             emptyMB,
 	}
 
 	// Ensure constructor generates expected object
@@ -161,6 +165,12 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	newTxLog.notifier = txLog.notifier
 	newTxLog.remoteUpToDate = txLog.remoteUpToDate
 	newTxLog.uploadPeriod = txLog.uploadPeriod
+
+	// reset index in mb
+	mb, transactions := loadBuffer(fs)
+	require.Equal(t, len(transactions), 0)
+
+	txLog.mb = mb
 
 	// Ensure loaded log matches original log
 	require.Equal(t, txLog, newTxLog)

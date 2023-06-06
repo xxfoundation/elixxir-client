@@ -2,10 +2,11 @@ package collective
 
 import (
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/ekv"
 	"strconv"
 	"sync/atomic"
+
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/ekv"
 )
 
 const (
@@ -74,7 +75,7 @@ func loadBuffer(kv ekv.KeyValue) (*mutateBuffer, map[int]map[string]Mutate) {
 			currentBucketSize += firstBucketStart
 		}
 		if currentBucketSize > largestBucketSize {
-			largestBucketSize = currentBucketSize
+			// largestBucketSize = currentBucketSize - not used...
 			largestBucketStart = currentBucketStart
 		}
 		buffPos = uint64(largestBucketStart)

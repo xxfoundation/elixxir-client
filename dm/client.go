@@ -48,7 +48,6 @@ type dmClient struct {
 	net    cMixClient
 	rng    *fastRNG.StreamGenerator
 	remote versioned.KV
-	mux    sync.RWMutex
 }
 
 // NewDMClient creates a new client for direct messaging. This should

@@ -19,8 +19,6 @@ import (
 // remote KV.
 func (dc *dmClient) setBlocked(senderPubKey ed25519.PublicKey) {
 	elemName := getElementName(senderPubKey)
-	dc.mux.Lock()
-	defer dc.mux.Unlock()
 	err := dc.remote.StoreMapElement(dmMapName, elemName,
 		&versioned.Object{
 			Version:   dmStoreVersion,
@@ -37,8 +35,6 @@ func (dc *dmClient) setBlocked(senderPubKey ed25519.PublicKey) {
 // remote KV.
 func (dc *dmClient) deleteBlocked(senderPubKey ed25519.PublicKey) {
 	elemName := getElementName(senderPubKey)
-	dc.mux.Lock()
-	defer dc.mux.Unlock()
 	_, err := dc.remote.DeleteMapElement(dmMapName, elemName, dmMapVersion)
 	if err != nil {
 		jww.WARN.Printf("[DM] Failed to remotely store user with public "+
@@ -48,12 +44,22 @@ func (dc *dmClient) deleteBlocked(senderPubKey ed25519.PublicKey) {
 
 // IsBlocked is a helper function which returns if the given sender is blocked.
 // Blocking is controlled by the remote KV.
+//
+// NOTE: In the internal remote structure, a blocked user is defined as a user
+// which has an entry in storage. A non-blocked user is defined as a user which
+// has no entry.
+//
+// In practical terms, when calling GetMapElement on a user's public key, a
+// successful call implies this user has been blocked, while an unsuccessful
+// call implies the user has not been blocked.
+//
+// Please note that the current construction assumes a local KV operation,
+// so network failure should not cause false negatives. If this assumption is
+// changed, this construction will need modification.
 func (dc *dmClient) isBlocked(senderPubKey ed25519.PublicKey) bool {
 	elemName := base64.RawStdEncoding.EncodeToString(senderPubKey)
 
 	// Check remote
-	dc.mux.RLock()
-	defer dc.mux.RUnlock()
 	_, err := dc.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
 
 	return err == nil
@@ -63,12 +69,6 @@ func (dc *dmClient) isBlocked(senderPubKey ed25519.PublicKey) bool {
 // blocked by this user.
 // Blocking is controlled by the remote KV.
 func (dc *dmClient) getBlockedSenders() []ed25519.PublicKey {
-	dc.mux.RLock()
-	defer dc.mux.RUnlock()
-
-	dc.mux.RLock()
-	defer dc.mux.RUnlock()
-
 	blockedMap, err := dc.remote.GetMap(dmMapName, dmMapVersion)
 	if err != nil {
 		jww.WARN.Panicf("[DM] Failed to retrieve map from storage: %+v", err)

@@ -158,7 +158,8 @@ func InitFromRemote(storage versioned.KV,
 		return err
 	}
 
-	_, err = Load(storage, currentVersion)
+	session, err := Load(storage, currentVersion)
+	session.SetNDF(def)
 	return err
 }
 

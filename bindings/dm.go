@@ -90,8 +90,14 @@ func NewDMClient(cmixID int, privateIdentity []byte,
 
 	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
 
-	m := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
-		user.api.GetCmix(), user.api.GetRng())
+	dmKV, err := user.api.GetStorage().GetKV().Prefix("dm")
+	if err != nil {
+		return nil, err
+	}
+
+	// todo:
+	m, err := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
+		user.api.GetCmix(), dmKV, user.api.GetRng())
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +142,13 @@ func NewDMClientWithGoEventModel(cmixID int, privateIdentity []byte,
 
 	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
 
-	m := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
-		user.api.GetCmix(), user.api.GetRng())
+	dmKV, err := user.api.GetStorage().GetKV().Prefix("dm")
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr,
+		user.api.GetCmix(), dmKV, user.api.GetRng())
 	if err != nil {
 		return nil, err
 	}
@@ -203,8 +214,13 @@ func NewDmManagerMobile(cmixID int, privateIdentity []byte,
 
 	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
 
-	m := dm.NewDMClient(&pi, model, sendTracker, nickMgr,
-		user.api.GetCmix(), user.api.GetRng())
+	dmKV, err := user.api.GetStorage().GetKV().Prefix("dm")
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := dm.NewDMClient(&pi, model, sendTracker, nickMgr,
+		user.api.GetCmix(), dmKV, user.api.GetRng())
 	if err != nil {
 		return nil, err
 	}

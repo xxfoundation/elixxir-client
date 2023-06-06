@@ -8,16 +8,17 @@
 package dm
 
 import (
-	"testing"
-
+	"crypto/ed25519"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
+	"testing"
 )
 
 // TestNick runs basic smoke testing of the nickname manager.
@@ -61,6 +62,45 @@ func TestNick(t *testing.T) {
 	require.Equal(t, name2, expectedName)
 }
 
+func TestSetBlocked(t *testing.T) {
+	netA, _ := createLinkedNets()
+
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	rng := crng.GetStream()
+	me, _ := codename.GenerateIdentity(rng)
+	partner, _ := codename.GenerateIdentity(rng)
+	defer rng.Close()
+
+	ekvA := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+	ekvB := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+
+	stA := NewSendTracker(ekvA)
+
+	receiverA := newMockReceiver()
+
+	myID := DeriveReceptionID(me.PubKey, me.GetDMToken())
+	partnerID := deriveReceptionID(partner.PubKey, partner.GetDMToken())
+
+	nnmA := NewNicknameManager(myID, ekvA)
+	nnmB := NewNicknameManager(partnerID, ekvB)
+
+	nnmA.SetNickname("me")
+	nnmB.SetNickname("partner")
+
+	clientA, err := NewDMClient(&me, receiverA, stA, nnmA, netA, ekvA, crng)
+	require.NoError(t, err)
+
+	blockKey, _, err := ed25519.GenerateKey(rng)
+	require.NoError(t, err)
+
+	clientA.BlockSender(blockKey)
+
+	require.True(t, clientA.IsBlocked(blockKey))
+
+}
+
 func TestBlock(t *testing.T) {
 	netA, netB := createLinkedNets(t)
 
@@ -70,8 +110,10 @@ func TestBlock(t *testing.T) {
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
-	ekvA := versioned.NewKV(ekv.MakeMemstore())
-	ekvB := versioned.NewKV(ekv.MakeMemstore())
+	ekvA := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+	ekvB := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	stA := NewSendTracker(ekvA)
 	stB := NewSendTracker(ekvB)
@@ -88,8 +130,10 @@ func TestBlock(t *testing.T) {
 	nnmA.SetNickname("me")
 	nnmB.SetNickname("partner")
 
-	clientA := NewDMClient(&me, receiverA, stA, nnmA, netA, crng)
-	clientB := NewDMClient(&partner, receiverB, stB, nnmB, netB, crng)
+	clientA, err := NewDMClient(&me, receiverA, stA, nnmA, netA, ekvA, crng)
+	require.NoError(t, err)
+	clientB, err := NewDMClient(&partner, receiverB, stB, nnmB, netB, ekvA, crng)
+	require.NoError(t, err)
 
 	// make sure the block list is empty
 	beEmpty := clientB.GetBlockedSenders()
@@ -119,13 +163,17 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, 3, len(receiverB.Msgs))
 
 	// User B Blocks User A
-	receiverB.BlockSender(rcvA1.PubKey)
+	t.Logf("blocking sender a")
+
+	clientB.BlockSender(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
 	_, _, _, err = clientA.SendReaction(pubKey, dmToken, "😀", replyTo2, params)
 	require.NoError(t, err)
+
+	t.Logf("send reaction despite being blocked")
 
 	// Make sure nothing changed under the hood because the
 	// message was dropped.
@@ -135,11 +183,12 @@ func TestBlock(t *testing.T) {
 
 	// Ensure that this user appears in the blocked senders list:
 	blocked := clientB.GetBlockedSenders()
+	t.Logf("%+v", blocked)
 	require.Equal(t, len(blocked), 1)
 	require.Equal(t, blocked[0], rcvA1.PubKey)
 
 	// User B Stops blocking User A
-	receiverB.UnblockSender(rcvA1.PubKey)
+	clientB.UnblockSender(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey
@@ -155,5 +204,4 @@ func TestBlock(t *testing.T) {
 	require.False(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
 
 	require.Equal(t, len(clientB.GetBlockedSenders()), 0)
-
 }

@@ -20,13 +20,18 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 )
 
 const (
-	nickStoreKey = "dm_nickname_%s"
+	nickStoreKey   = "dm_nickname_%s"
+	dmPrefix       = "dm"
+	dmMapName      = "dmMap"
+	dmMapVersion   = 0
+	dmStoreVersion = 0
 )
 
 type dmClient struct {
@@ -38,10 +43,11 @@ type dmClient struct {
 	myToken         uint32
 	receiver        EventModel
 
-	st  SendTracker
-	nm  NickNameManager
-	net cMixClient
-	rng *fastRNG.StreamGenerator
+	st     SendTracker
+	nm     NickNameManager
+	net    cMixClient
+	rng    *fastRNG.StreamGenerator
+	remote versioned.KV
 }
 
 // NewDMClient creates a new client for direct messaging. This should
@@ -54,8 +60,20 @@ type dmClient struct {
 func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
 	nickManager NickNameManager,
-	net cMixClient,
-	rng *fastRNG.StreamGenerator) Client {
+	net cMixClient, kv versioned.KV,
+	rng *fastRNG.StreamGenerator) (Client, error) {
+	return newDmClient(myID, receiver, tracker, nickManager, net, kv, rng)
+}
+
+func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
+	tracker SendTracker,
+	nickManager NickNameManager,
+	net cMixClient, kv versioned.KV,
+	rng *fastRNG.StreamGenerator) (*dmClient, error) {
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	privateEdwardsKey := myID.Privkey
 	myIDToken := myID.GetDMToken()
@@ -70,6 +88,7 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 		me:              myID,
 		receptionID:     receptionID,
 		selfReceptionID: selfReceptionID,
+		remote:          remote,
 		privateKey:      privateKey,
 		publicKey:       publicKey,
 		myToken:         myIDToken,
@@ -80,10 +99,20 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 		receiver:        receiver,
 	}
 
-	// Register the listener
-	dmc.register(receiver, dmc.st)
+	err = dmc.remote.ListenOnRemoteMap(
+		dmMapName, dmMapVersion, dmc.mapUpdate, false)
+	if err != nil && dmc.remote.Exists(err) {
+		jww.FATAL.Panicf("[DM] Failed to load and listen to remote updates on "+
+			"adminKeysManager: %+v", err)
+	}
 
-	return dmc
+	// Register the listener
+	err = dmc.register(receiver, dmc.st)
+	if err != nil {
+		jww.FATAL.Panicf("[DM] Failed to register listener: %+v", err)
+	}
+
+	return dmc, nil
 }
 
 // Register registers a listener for direct messages.
@@ -146,39 +175,26 @@ func (dc *dmClient) SetNickname(nick string) {
 	dc.nm.SetNickname(nick)
 }
 
-// IsBlocked returns if the given sender is blocked
-// Blocking is controlled by the Receiver / EventModel
+// IsBlocked returns if the given sender is blocked.
+// Blocking is controlled by the remote KV.
 func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
-	conversation := dc.receiver.GetConversation(senderPubKey)
-	if conversation != nil {
-		return conversation.BlockedTimestamp != nil
-	}
-	return false
+	return dc.isBlocked(senderPubKey)
 }
 
 // GetBlockedSenders returns all senders who are blocked by this user.
-// Blocking is controlled by the Receiver / EventModel
+// Blocking is controlled by the remote KV.
 func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
-	allConversations := dc.receiver.GetConversations()
-	blocked := make([]ed25519.PublicKey, 0)
-	for i := range allConversations {
-		convo := allConversations[i]
-		if convo.BlockedTimestamp != nil {
-			pub := convo.Pubkey
-			blocked = append(blocked, pub)
-		}
-	}
-	return blocked
+	return dc.getBlockedSenders()
 }
 
 // BlockSender blocks DMs from the sender with the passed in public key.
 func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
-	dc.receiver.BlockSender(senderPubKey)
+	dc.setBlocked(senderPubKey)
 }
 
 // UnblockSender unblocks DMs from the sender with the passed in public key.
 func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
-	dc.receiver.UnblockSender(senderPubKey)
+	dc.deleteBlocked(senderPubKey)
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
@@ -188,6 +204,30 @@ func (dc *dmClient) ExportPrivateIdentity(password string) ([]byte, error) {
 	rng := dc.rng.GetStream()
 	defer rng.Close()
 	return dc.me.Export(password, rng)
+}
+
+// mapUpdate acts as a listener for remote edits to the dmClient. It will
+// update internal state accordingly.
+func (dc *dmClient) mapUpdate(
+	edits map[string]versioned.ElementEdit) {
+
+	//dc.mux.Lock()
+	//defer dc.mux.Unlock()
+	//
+	//for elemName, edit := range edits {
+	//	senderPubKey, err := base64.StdEncoding.DecodeString(elemName)
+	//	if err != nil {
+	//		jww.WARN.Printf("[DM] Failed to unmarshal public "+
+	//			"key %s on operation %s, skipping: %+v",
+	//			elemName, edit.Operation, err)
+	//	}
+	//
+	//	if edit.Operation == versioned.Deleted {
+	//		dc.receiver.UnblockSender(senderPubKey)
+	//	} else {
+	//		dc.receiver.BlockSender(senderPubKey)
+	//	}
+	//}
 }
 
 // GetNickname returns the stored nickname if there is one

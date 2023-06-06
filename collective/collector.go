@@ -137,6 +137,8 @@ func newCollector(myID InstanceID, syncPath string,
 // runner is the long-running thread responsible for collecting changes and
 // synchronizing changes across devices.
 func (c *collector) runner(stop *stoppable.Single) {
+	jww.INFO.Printf("[%s] started collector thread", collectorLogHeader)
+
 	for {
 		t := time.NewTicker(c.synchronizationEpoch)
 		select {

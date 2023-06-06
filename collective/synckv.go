@@ -56,7 +56,8 @@ func CloneFromRemoteStorage(path string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue,
 	rng *fastRNG.StreamGenerator) (*versionedKV, error) {
 
-	rkv, err := SynchronizedKV(path, deviceSecret, remote, kv, nil, rng)
+	rkv, err := SynchronizedKV(path, deviceSecret, remote, kv,
+		[]string{StandardRemoteSyncPrefix}, rng)
 	if err != nil {
 		return nil, err
 	}

@@ -128,7 +128,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	for cnt := 0; cnt < 10; cnt++ {
 		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		err := txLog.Write(key, []byte(val))
+		_, _, err := txLog.Write(key, []byte(val))
 		require.NoError(t, err)
 	}
 
@@ -185,7 +185,7 @@ func TestTransactionLog_Serialize(t *testing.T) {
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewMutate(curTs, []byte(val), false)
 
-		txLog.state.AddUnsafe(key, &newTx)
+		txLog.state.AddUnsafe(key, newTx)
 	}
 
 	// Serialize data
@@ -221,7 +221,7 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
 		newTx := NewMutate(curTs, []byte(val), false)
 
-		txLog.state.AddUnsafe(key, &newTx)
+		txLog.state.AddUnsafe(key, newTx)
 	}
 
 	// Serialize data

@@ -152,6 +152,8 @@ func newRemoteWriter(path string, deviceID InstanceID,
 
 // Runner pushes updates to the patch file to the remote
 func (rw *remoteWriter) Runner(s *stoppable.Single) {
+	jww.INFO.Printf("[SYNC] started transaction log (remoteWriter) thread")
+
 	//always Write to remote when we start in order to ensure that any
 	//dropped updates are propogated
 	timer := time.NewTimer(time.Nanosecond)
@@ -228,6 +230,8 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			} else {
+				jww.DEBUG.Printf("Wrote patch %s: %d",
+					rw.header.DeviceID, len(rw.state.keys))
 				rw.notify(true)
 				uploadPeriod = defaultUploadPeriod
 				ts = netTime.Now()

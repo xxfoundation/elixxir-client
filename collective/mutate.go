@@ -8,6 +8,7 @@
 package collective
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -34,4 +35,9 @@ type Mutate struct {
 // instead of the stored uinx nano count
 func (m *Mutate) GetTimestamp() time.Time {
 	return time.Unix(0, m.Timestamp)
+}
+
+func (m *Mutate) String() string {
+	return fmt.Sprintf("ts: %d, deleted? %v, data: %v...",
+		m.Timestamp, m.Deletion, m.Value)
 }

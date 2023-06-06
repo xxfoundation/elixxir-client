@@ -169,7 +169,7 @@ func (c *Cmix) EKVSet(key string, value []byte) error {
 // cMix Tracker                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-// GetCMixInstance gets a copy of the cMix instance by its ID number
+// GetCMixInstance gets the xxdk.Cmix for the given Cmix instanceID.
 func GetCMixInstance(instanceID int) (*xxdk.Cmix, error) {
 	instance, ok := cmixTrackerSingleton.tracked[instanceID]
 	if !ok {

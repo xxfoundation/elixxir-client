@@ -268,7 +268,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 		}
 	}
 
-	// Handle encryption, if it is present
+	// Handle encryption if it is present
 	textBytes := []byte(data)
 	if i.cipher != nil {
 		textBytes, err = i.cipher.Encrypt(textBytes)

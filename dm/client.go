@@ -10,9 +10,8 @@ package dm
 import (
 	"crypto/ed25519"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/collective"
 	"strings"
-	sync "sync"
+	"sync"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"

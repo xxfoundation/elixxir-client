@@ -18,8 +18,7 @@ const (
 	// Unsent is the status of a message when it is pending to be sent.
 	Unsent Status = iota
 
-	// Sent is the status of a message once the round it is sent
-	// on completed.
+	// Sent is the status of a message once the round it is sent on completes.
 	Sent
 
 	// Received is the status of a message once is has been received.

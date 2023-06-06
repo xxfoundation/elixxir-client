@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -233,12 +234,12 @@ func (m *mockRemote) ReadDir(path string) ([]byte, error) {
 	return data, err
 }
 
-func (m *mockRemote) GetLastModified(path string) ([]byte, error) {
-	return netTime.Now().MarshalBinary()
+func (m *mockRemote) GetLastModified(path string) (string, error) {
+	return netTime.Now().UTC().Format(time.RFC3339), nil
 }
 
-func (m *mockRemote) GetLastWrite() ([]byte, error) {
-	return netTime.Now().MarshalBinary()
+func (m *mockRemote) GetLastWrite() (string, error) {
+	return netTime.Now().UTC().Format(time.RFC3339), nil
 }
 
 func TestReadDir(t *testing.T) {

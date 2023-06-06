@@ -102,7 +102,7 @@ type Sender interface {
 	// too long, this will return an error. Due to the underlying
 	// encoding using compression, it is not possible to define
 	// the largest payload that can be sent, but it will always be
-	// possible to send a payload of 802 bytes at minimum.
+	// possible to send a payload of 802 bytes at a minimum.
 	Send(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		messageType MessageType, plaintext []byte,
 		params cmix.CMIXParams) (cryptoMessage.ID,
@@ -273,15 +273,15 @@ type SendTracker interface {
 	// FailedSend marks a message failed
 	FailedSend(uuid uint64) error
 
-	//Sent marks a message successfully Sent
+	// Sent marks a message successfully Sent
 	Sent(uuid uint64, msgID cryptoMessage.ID, round rounds.Round) error
 
-	//CheckIfSent checks if the given message was a sent message
+	// CheckIfSent checks if the given message was a sent message
 	CheckIfSent(messageID cryptoMessage.ID, r rounds.Round) bool
 
-	//Delivered marks a message delivered
+	// Delivered marks a message delivered
 	Delivered(msgID cryptoMessage.ID, round rounds.Round) bool
 
-	//StopTracking stops tracking a message
+	// StopTracking stops tracking a message
 	StopTracking(msgID cryptoMessage.ID, round rounds.Round) bool
 }

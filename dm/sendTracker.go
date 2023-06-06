@@ -68,8 +68,8 @@ type trackedList struct {
 }
 
 // sendTracker tracks outbound messages and denotes when they are delivered to
-// the event model. It also captures incoming messages and in the event they
-// were sent by this user diverts them as status updates on the previously sent
+// the event model. It also captures incoming messages and, in the event they
+// were sent by this user, diverts them as status updates on the previously sent
 // messages.
 type sendTracker struct {
 	byRound map[id.Round]trackedList
@@ -230,10 +230,9 @@ func (st *sendTracker) Sent(
 	return nil
 }
 
-// FailedSend marks a message failed.
+// FailedSend marks the message send as failed.
 func (st *sendTracker) FailedSend(uuid uint64) error {
 	// Update the on disk message status
-
 	t, err := st.handleSendFailed(uuid)
 	if err != nil {
 		return err
@@ -321,8 +320,7 @@ func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
 
 // CheckIfSent is used when a message is received to check if the message was
 // sent by this user.
-func (st *sendTracker) CheckIfSent(
-	messageID message.ID, round rounds.Round) bool {
+func (st *sendTracker) CheckIfSent(messageID message.ID, _ rounds.Round) bool {
 	st.mux.RLock()
 	defer st.mux.RUnlock()
 	_, existsMessage := st.byMessageID[messageID]
@@ -351,8 +349,7 @@ func (st *sendTracker) Delivered(messageID message.ID,
 
 // StopTracking deletes this message id/round combination from the
 // send tracking.  returns true if it was removed, false otherwise.
-func (st *sendTracker) StopTracking(messageID message.ID,
-	round rounds.Round) bool {
+func (st *sendTracker) StopTracking(messageID message.ID, _ rounds.Round) bool {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 	msgData, existsMessage := st.byMessageID[messageID]

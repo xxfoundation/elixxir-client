@@ -1890,12 +1890,14 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 		clientNotif.NotificationState(status))
 }
 
-// GetNotificationReportsForMe checks the notification data against the filter
+// GetChannelNotificationReportsForMe checks the notification data against the filter
 // list to determine which notifications belong to the user. A list of
 // notification reports is returned detailing all notifications for the user.
 //
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
+//     Can optionally be the entire json return from NotificationUpdateJson
+//     Instead of just the needed subsection
 //   - notificationDataJSON - JSON of a slice of [notifications.Data].
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
@@ -1955,11 +1957,16 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].
-func GetNotificationReportsForMe(notificationFilterJSON,
+func GetChannelNotificationReportsForMe(notificationFilterJSON,
 	notificationDataJSON []byte) ([]byte, error) {
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
-		return nil, err
+		//attempt to unmarshal as the entire NotificationUpdateJson
+		nuj := &NotificationUpdateJson{}
+		if err2 := json.Unmarshal(notificationFilterJSON, &nfs); err2 != nil {
+			return nil, err
+		}
+		nfs = nuj.NotificationFilters
 	}
 
 	var notifData []*notifications.Data

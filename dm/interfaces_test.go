@@ -58,10 +58,10 @@ func (mc *mockClient) GetMaxMessageLength() int {
 // When otherClient is not nil, this sends the messages to the linked
 // receiver.
 func (mc *mockClient) SendManyWithAssembler(recipients []*id.ID,
-	assembler cmix.ManyMessageAssembler,
-	params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
-	jww.INFO.Printf("SendManyWithAssembler: %s, %s", recipients[0],
-		recipients[1])
+	assembler cmix.ManyMessageAssembler, _ cmix.CMIXParams) (
+	rounds.Round, []ephemeral.Id, error) {
+	jww.INFO.Printf(
+		"SendManyWithAssembler: %s, %s", recipients[0], recipients[1])
 	mc.rndID += 1
 	id1, _, _, err := ephemeral.GetId(recipients[0], 8, time.Now().Unix())
 	if err != nil {
@@ -100,9 +100,7 @@ func (mc *mockClient) SendManyWithAssembler(recipients []*id.ID,
 	return rounds.Round{ID: id.Round(mc.rndID)}, ids, nil
 }
 
-func (mc *mockClient) AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
-	fallthroughProcessor message.Processor) {
-}
+func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool, message.Processor) {}
 func (mc *mockClient) AddIdentityWithHistory(id *id.ID, _ time.Time, _ time.Time,
 	_ bool, processor message.Processor) {
 	jww.INFO.Printf("AddIdentityWithHistory: %s", id)
@@ -121,7 +119,7 @@ func (mc *mockClient) AddHealthCallback(func(bool)) uint64 { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)         {}
 
 // mockReceiver stores the messages sent to it for testing/debugging
-// NOTE: when sending remember the sender sees the sent message twice.
+// NOTE: When sending, remember the sender sees the sent message twice.
 //
 //	the receiver receives it only once. See TestE2EDMs test in dm_test.go
 //	for details
@@ -139,11 +137,9 @@ type mockReceiver struct {
 	blocked []ed25519.PublicKey
 }
 
-func (mr *mockReceiver) Receive(messageID cryptoMessage.ID,
-	nickname string, text []byte, pubKey, senderPubKey ed25519.PublicKey,
-	dmToken uint32,
-	codeset uint8, timestamp time.Time,
-	round rounds.Round, mType MessageType, status Status) uint64 {
+func (mr *mockReceiver) Receive(messageID cryptoMessage.ID, _ string,
+	text []byte, pubKey, _ ed25519.PublicKey, dmToken uint32, _ uint8,
+	_ time.Time, _ rounds.Round, _ MessageType, _ Status) uint64 {
 	jww.INFO.Printf("Receive: %s", messageID)
 	mr.Msgs = append(mr.Msgs, mockMessage{
 		Message:   string(text),
@@ -156,11 +152,9 @@ func (mr *mockReceiver) Receive(messageID cryptoMessage.ID,
 	return mr.uuid
 }
 
-func (mr *mockReceiver) ReceiveText(messageID cryptoMessage.ID,
-	nickname, text string, pubKey, senderPubKey ed25519.PublicKey,
-	dmToken uint32,
-	codeset uint8, timestamp time.Time,
-	round rounds.Round, status Status) uint64 {
+func (mr *mockReceiver) ReceiveText(messageID cryptoMessage.ID, _, text string,
+	pubKey, _ ed25519.PublicKey, dmToken uint32, _ uint8, _ time.Time,
+	_ rounds.Round, _ Status) uint64 {
 	jww.INFO.Printf("ReceiveText: %s", messageID)
 	mr.Msgs = append(mr.Msgs, mockMessage{
 		Message:   text,
@@ -174,10 +168,8 @@ func (mr *mockReceiver) ReceiveText(messageID cryptoMessage.ID,
 }
 
 func (mr *mockReceiver) ReceiveReply(messageID cryptoMessage.ID,
-	reactionTo cryptoMessage.ID, nickname, text string,
-	pubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
-	timestamp time.Time, round rounds.Round,
-	status Status) uint64 {
+	reactionTo cryptoMessage.ID, _, text string, pubKey, _ ed25519.PublicKey,
+	dmToken uint32, _ uint8, _ time.Time, _ rounds.Round, _ Status) uint64 {
 	jww.INFO.Printf("ReceiveReply: %s", messageID)
 	mr.Msgs = append(mr.Msgs, mockMessage{
 		Message:   text,
@@ -191,10 +183,9 @@ func (mr *mockReceiver) ReceiveReply(messageID cryptoMessage.ID,
 }
 
 func (mr *mockReceiver) ReceiveReaction(messageID cryptoMessage.ID,
-	reactionTo cryptoMessage.ID, nickname, reaction string,
-	pubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
-	timestamp time.Time, round rounds.Round,
-	status Status) uint64 {
+	reactionTo cryptoMessage.ID, _, reaction string, pubKey,
+	_ ed25519.PublicKey, dmToken uint32, _ uint8, _ time.Time, _ rounds.Round,
+	_ Status) uint64 {
 	jww.INFO.Printf("ReceiveReaction: %s", messageID)
 	mr.Msgs = append(mr.Msgs, mockMessage{
 		Message:   reaction,
@@ -207,8 +198,8 @@ func (mr *mockReceiver) ReceiveReaction(messageID cryptoMessage.ID,
 	return mr.uuid
 }
 
-func (mr *mockReceiver) UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
-	timestamp time.Time, round rounds.Round, status Status) {
+func (mr *mockReceiver) UpdateSentStatus(_ uint64, messageID cryptoMessage.ID,
+	_ time.Time, _ rounds.Round, _ Status) {
 	jww.INFO.Printf("UpdateSentStatus: %s", messageID)
 }
 

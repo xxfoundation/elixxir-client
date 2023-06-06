@@ -1934,6 +1934,12 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].
+//
+// Example return:
+//  [
+//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
+//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
+//  ]
 func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter

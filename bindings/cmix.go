@@ -141,8 +141,14 @@ func (c *Cmix) GetReceptionID() []byte {
 // interacted with directly.
 // TODO: force this into a synchronized prefix?
 func (c *Cmix) GetRemoteKV() *RemoteKV {
+	local := c.api.GetStorage().GetKV()
+	remote, err := local.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("could not get remote KV: %+v", err)
+	}
+
 	return &RemoteKV{
-		rkv: c.api.GetStorage().GetKV(),
+		rkv: remote,
 	}
 }
 

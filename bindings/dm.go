@@ -349,36 +349,60 @@ func (dmc *DMClient) SetNickname(nick string) {
 	dmc.api.SetNickname(nick)
 }
 
-// BlockSender silences messages sent by the indicated sender
-// public key.
+// BlockUnDmedSender blocks a sender that a DM conversation has never been
+// started with.
+//
+// Parameters:
 //   - senderPubKey - The sender's Ed25519 public key to block.
-func (dmc *DMClient) BlockSender(senderPubKeyBytes []byte) {
-	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
-	dmc.api.BlockSender(senderPubKey)
+//   - token - The sender's DM token.
+func (dmc *DMClient) BlockUnDmedSender(senderPubKey []byte, token int) {
+	dmc.api.BlockUnDmedSender(senderPubKey, uint32(token))
 }
 
-// UnblockSender allows messages sent by the indicated sender
-// public key.
+// BlockSender prevents receiving messages from the sender. An error is returned
+// if no conversations have been started with the sender.
+//
+// Parameters:
+//   - senderPubKey - The sender's Ed25519 public key to block.
+//   - token - The sender's DM token.
+func (dmc *DMClient) BlockSender(senderPubKey []byte) error {
+	return dmc.api.BlockSender(senderPubKey)
+}
+
+// UnblockSender unblocks DMs from the sender with the passed in public key.
+// An error is returned if no conversations have been started with the sender.
+//
+// Parameters:
 //   - senderPubKey - The sender's Ed25519 public key to unblock.
-func (dmc *DMClient) UnblockSender(senderPubKeyBytes []byte) {
-	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
-	dmc.api.UnblockSender(senderPubKey)
+func (dmc *DMClient) UnblockSender(senderPubKey []byte) error {
+	return dmc.api.UnblockSender(senderPubKey)
 }
 
-// IsBlocked indicates if the given sender is blocked.
-// Blocking is controlled by the receiver/EventModel.
-func (dmc *DMClient) IsBlocked(senderPubKeyBytes []byte) bool {
-	senderPubKey := ed25519.PublicKey(senderPubKeyBytes)
+// IsBlocked indicates if the given sender is blocked. Returns an error if
+// no conversations have been started with the sender.
+//
+// Parameters:
+//   - senderPubKey - The sender's Ed25519 public key to check.
+func (dmc *DMClient) IsBlocked(senderPubKey []byte) (bool, error) {
 	return dmc.api.IsBlocked(senderPubKey)
 }
 
-// GetBlockedSenders returns the public keys of all senders who are blocked by
-// this user. Blocking is controlled by the receiver/EventModel.
+// GetBlockedSenders returns all senders who are blocked by this user.
+//
+// Returns:
+//   - []byte - JSON of of an array of [ed25519.PublicKey].
+//
+// Example return:
+//  [
+//    "TYWuCfyGBjNWDtl/Roa6f/o206yYPpuB6sX2kJZTe98=",
+//    "4JLRzgtW1SZ9c5pE+v0WwrGPj1t19AuU6Gg5IND5ymA=",
+//    "CWDqF1bnhulW2pko+zgmbDZNaKkmNtFdUgY4bTm2DhA="
+//  ]
 func (dmc *DMClient) GetBlockedSenders() []byte {
-	blocked := dmc.api.GetBlockedSenders()
-	blockedJSON, err := json.Marshal(blocked)
+	blockedJSON, err := json.Marshal(dmc.api.GetBlockedSenders())
 	if err != nil {
-		jww.ERROR.Printf("Couldn't marshal blocked senders: %+v", err)
+		jww.FATAL.Panicf(
+			"[DM] Failed to JSON marshal blocked sender list: %+v", err)
 	}
 	return blockedJSON
 }

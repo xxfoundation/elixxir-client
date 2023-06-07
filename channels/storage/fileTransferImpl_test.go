@@ -27,7 +27,7 @@ func TestImpl_ReceiveFile(t *testing.T) {
 	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
 	testString := "TestImpl_ReceiveFile"
-	m, err := newImpl("", nil,
+	m, err := newImpl("",
 		testCb, nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -103,8 +103,7 @@ func TestImpl_DeleteMessage_Error(t *testing.T) {
 	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
 	testString := "TestImpl_DeleteMessage_Error"
-	m, err := newImpl("", nil,
-		testCb, nil, nil)
+	m, err := newImpl("", testCb, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

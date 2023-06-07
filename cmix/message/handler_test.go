@@ -13,8 +13,8 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/sih"
 	"gitlab.com/elixxir/ekv"

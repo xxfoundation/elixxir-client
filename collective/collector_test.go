@@ -93,7 +93,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 			value := []byte(fmt.Sprintf("Value%d", i*j))
 			mutation := NewMutate(timestamps[tsIdx],
 				value, false)
-			txLog.state.AddUnsafe(key, &mutation)
+			txLog.state.AddUnsafe(key, mutation)
 		}
 		serial, err := txLog.state.Serialize()
 		encrypted := txLog.encrypt.Encrypt(serial)
@@ -162,7 +162,7 @@ func TestCollector_ApplyChanges(t *testing.T) {
 				value, false)
 			// t.Logf("%s: %s -> %s @ ts: %s", txLog.state.myID,
 			// 	key, string(value), timestamps[tsIdx])
-			txLog.state.AddUnsafe(key, &mutation)
+			txLog.state.AddUnsafe(key, mutation)
 		}
 		serial, err := txLog.state.Serialize()
 		encrypted := txLog.encrypt.Encrypt(serial)

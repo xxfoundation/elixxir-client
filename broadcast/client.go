@@ -42,9 +42,9 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 		channel: channel,
 		net:     net,
 		rng:     rng,
-		asymIdentifier: append(channel.ReceptionID.Bytes(),
+		asymIdentifier: append(channel.ReceptionID.Marshal(),
 			[]byte(asymmetricRSAToPublicBroadcastServicePostfix)...),
-		symIdentifier: append(channel.ReceptionID.Bytes(),
+		symIdentifier: append(channel.ReceptionID.Marshal(),
 			[]byte(symmetricBroadcastServicePostfix)...),
 	}
 

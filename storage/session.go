@@ -17,14 +17,15 @@ import (
 
 	"gitlab.com/elixxir/crypto/diffieHellman"
 
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/crypto/large"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/clientVersion"
 	"gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
@@ -50,7 +51,7 @@ type Session interface {
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	ForwardRegistrationStatus(regStatus RegistrationStatus) error
-	GetRegistrationStatus() RegistrationStatus
+	RegStatus() RegistrationStatus
 	SetRegCode(regCode string)
 	GetRegCode() (string, error)
 	SetNDF(def *ndf.NetworkDefinition)
@@ -74,12 +75,12 @@ type Session interface {
 }
 
 type session struct {
-	kv versioned.KV
+	kv     versioned.KV
+	syncKV versioned.KV
 
 	// memoized data
-	mux       sync.RWMutex
-	regStatus RegistrationStatus
-	ndf       *ndf.NetworkDefinition
+	mux sync.RWMutex
+	ndf *ndf.NetworkDefinition
 
 	// network parameters
 	cmixGroup *cyclic.Group
@@ -95,16 +96,23 @@ func New(storage versioned.KV, u user.Info,
 	currentVersion version.Version,
 	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
 
-	s := &session{
-		kv: storage,
+	remote, err := storage.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create new session")
 	}
 
-	err := s.newRegStatus()
+	s := &session{
+		kv:     storage,
+		syncKV: remote,
+	}
+
+	err = s.newRegStatus()
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Create new session")
 	}
 
+	// Note: user does it's own prefixing
 	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID,
 		u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA,
 		u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey,
@@ -114,6 +122,9 @@ func New(storage versioned.KV, u user.Info,
 	}
 
 	s.clientVersion, err = clientVersion.NewStore(currentVersion, s.kv)
+	if err != nil {
+		return nil, err
+	}
 
 	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
 		return nil, err
@@ -128,21 +139,39 @@ func New(storage versioned.KV, u user.Info,
 	return s, nil
 }
 
+// InitFromRemote sets local data for a session variable
+func InitFromRemote(storage versioned.KV,
+	currentVersion version.Version,
+	cmixGrp, e2eGrp *cyclic.Group) error {
+	_, err := clientVersion.NewStore(currentVersion, storage)
+	if err != nil {
+		return err
+	}
+
+	if err = utility.StoreGroup(storage, cmixGrp, cmixGroupKey); err != nil {
+		return err
+	}
+
+	if err = utility.StoreGroup(storage, e2eGrp, e2eGroupKey); err != nil {
+		return err
+	}
+
+	_, err = Load(storage, currentVersion)
+	return err
+}
+
 // Load existing user data into the session
 func Load(storage versioned.KV,
 	currentVersion version.Version) (Session, error) {
 
-	s := &session{
-		kv: storage,
+	remote, err := storage.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create new session")
 	}
 
-	err := s.loadRegStatus()
-	if err != nil {
-		if !ekv.Exists(err) {
-			return nil, errors.Errorf(
-				"uninitialized cMix, call 'NewCmix' first")
-		}
-		return nil, errors.WithMessage(err, "Failed to load Session")
+	s := &session{
+		kv:     storage,
+		syncKV: remote,
 	}
 
 	s.clientVersion, err = clientVersion.LoadStore(s.kv)
@@ -158,19 +187,20 @@ func Load(storage versioned.KV,
 			"Failed to load client version store.")
 	}
 
+	// Note: User does it's own prefixing
 	s.User, err = user.LoadUser(s.kv)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load user")
 	}
 
 	s.cmixGroup, err = utility.LoadGroup(s.kv, cmixGroupKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load group")
 	}
 
 	s.e2eGroup, err = utility.LoadGroup(s.kv, e2eGroupKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load e2e group")
 	}
 
 	return s, nil

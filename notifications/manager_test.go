@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -229,7 +229,7 @@ func TestManager_mapUpdate(t *testing.T) {
 	}
 
 	// run the map update
-	mInternal.mapUpdate(notificationsMap, edits)
+	mInternal.mapUpdate(edits)
 
 	wg.Wait()
 
@@ -400,9 +400,22 @@ func getGroup(i, numGroups int) int {
 func TestManager_maxStateUpdate(t *testing.T) {
 	m, _, _ := buildTestingManager(t)
 	mInternal := m.(*manager)
+	resultCh := make(chan bool, 1)
 
-	mInternal.maxStateUpdate("blah", nil, nil, versioned.Deleted)
-	// key check worked becasue we didnt crash from the delete panic
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				resultCh <- true
+			}
+		}()
+		mInternal.maxStateUpdate(nil, nil, versioned.Deleted)
+		resultCh <- false
+	}()
+
+	result := <-resultCh
+	if result == false {
+		t.Errorf("Failed to get panic on delete")
+	}
 
 	numGroups := 4
 	numCB := numGroups / 2
@@ -413,14 +426,18 @@ func TestManager_maxStateUpdate(t *testing.T) {
 
 	var setMax NotificationState
 
+	skip := true
 	for i := 0; i < numGroups; i++ {
 		groupName := fmt.Sprintf("grp_%d", i)
 		nid := id.NewIdFromUInt(uint64(i), id.User, t)
-		m.Set(nid, groupName, []byte{0}, NotificationState(i%3))
 		if i%2 == 0 {
+
 			localI := i
 			cb := func(group Group, created, edits, deletions []*id.ID,
 				maxState NotificationState) {
+				if skip {
+					return
+				}
 				if created != nil || edits != nil || deletions != nil {
 					t.Errorf("actions are not nil")
 				}
@@ -433,11 +450,13 @@ func TestManager_maxStateUpdate(t *testing.T) {
 			}
 			m.RegisterUpdateCallback(groupName, cb)
 		}
+		m.Set(nid, groupName, []byte{0}, NotificationState(i%3))
 	}
+	skip = false
 
 	for i := Mute; i <= Push; i++ {
 		setMax = i
-		for j := versioned.Created; j <= versioned.Deleted; j++ {
+		for j := versioned.Created; j <= versioned.Loaded; j++ {
 			ch := make(chan bool)
 			didRun = make([]bool, numGroups)
 			if j != versioned.Deleted {
@@ -450,8 +469,7 @@ func TestManager_maxStateUpdate(t *testing.T) {
 						ch <- false
 					}
 				}()
-				mInternal.maxStateUpdate(maxStateKey, nil,
-					makeMaxStateObj(i, t), j)
+				mInternal.maxStateUpdate(nil, makeMaxStateObj(i, t), j)
 				ch <- true
 			}()
 			result := <-ch
@@ -610,9 +628,12 @@ func TestManager_deleteNotificationUnsafeRAM(t *testing.T) {
 	// some groups and partially from other
 	for i := 0; i < numTests; i++ {
 		if (i%2) == 1 || i < numTests/2 {
-			mInternal.deleteNotificationUnsafeRAM(nids[i])
+			grp := mInternal.deleteNotificationUnsafeRAM(nids[i])
 			if _, exists := mInternal.notifications[*nids[i]]; exists {
 				t.Errorf("Failed to delete %s", nids[i])
+			}
+			if grp != regs[i].Group {
+				t.Errorf("group does not match, %s vs %s", grp, regs[i].Group)
 			}
 		}
 

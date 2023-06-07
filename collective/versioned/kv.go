@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -88,21 +89,26 @@ type KV interface {
 	// ListenOnRemoteKey allows the caller to receive updates when
 	// a key is updated by synching with another client.
 	// Only one callback can be written per key.
-	// returns the object for the key such that callbacks will be updates on
-	// that state. The object will be nil if it doesn't exist yet.
-	// You cannot add listeners when network processor for
-	// synchronization is active.
+	// On call, a state update will be created on the callback containing
+	// the current state of the key as a creation event. This call will occur
+	// in the go routine that ListenOnRemoteKey is called from, blocking its
+	// return until the callback returns.
+	// If local Events is true, the callback will also trigger when
+	// setting this key locally
 	ListenOnRemoteKey(key string, version uint64,
-		callback KeyChangedByRemoteCallback) (*Object, error)
+		callback KeyChangedByRemoteCallback, localEvents bool) error
 
 	// ListenOnRemoteMap allows the caller to receive updates when
 	// the map or map elements are updated
-	// returns the map such that callbacks will be updates on
-	// that state. The Map will be nil if it doesn't exist yet.
-	// You cannot add listeners when network processor for
-	// synchronization is active.
+	// Only one callback can be written per map.
+	// On call, a state update will be created on the callback containing
+	// the entire state of the map as a creation event. This call will occur
+	// in the go routine that ListenOnRemoteMap is called from, blocking its
+	// return until the callback returns.
+	// If local Events is true, the callback will also trigger when
+	// modifying this map locally
 	ListenOnRemoteMap(mapName string, version uint64,
-		callback MapChangedByRemoteCallback) (map[string]*Object, error)
+		callback MapChangedByRemoteCallback, localEvents bool) error
 
 	// GetPrefix returns the full Prefix of the KV
 	GetPrefix() string
@@ -125,15 +131,18 @@ type KV interface {
 	// Exists returns if the error indicates a KV error showing
 	// the key exists.
 	Exists(err error) bool
+
+	// StartProcesses starts any applicable networking processes
+	StartProcesses() (stoppable.Stoppable, error)
 }
 
 // KeyChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
-type KeyChangedByRemoteCallback func(key string, old, new *Object, op KeyOperation)
+type KeyChangedByRemoteCallback func(old, new *Object, op KeyOperation)
 
 // MapChangedByRemoteCallback is the callback used to report local updates caused
 // by a remote client editing their EKV
-type MapChangedByRemoteCallback func(mapName string, edits map[string]ElementEdit)
+type MapChangedByRemoteCallback func(edits map[string]ElementEdit)
 
 type ElementEdit struct {
 	OldElement *Object
@@ -147,6 +156,7 @@ const (
 	Created KeyOperation = iota
 	Updated
 	Deleted
+	Loaded
 )
 
 func (ko KeyOperation) String() string {
@@ -311,17 +321,19 @@ func (v *kv) HasPrefix(prefix string) bool {
 // [KV.Prefix].
 func (v *kv) Prefix(prefix string) (KV, error) {
 	if prefix == "" {
-		return nil, EmptyPrefixErr
+		return nil, errors.WithStack(EmptyPrefixErr)
 	}
 
 	//// Reject invalid prefixes
 	if strings.Contains(prefix, PrefixSeparator) {
-		return nil, PrefixContainingSeparatorErr
+		return nil, errors.Wrapf(PrefixContainingSeparatorErr,
+			"prefix: %s", prefix)
 	}
 
 	// Reject duplicate prefixes
 	if v.HasPrefix(prefix) {
-		return nil, DuplicatePrefixErr
+		return nil, errors.Wrapf(DuplicatePrefixErr,
+			"%s: %s", v.GetPrefix(), prefix)
 	}
 
 	newPrefixMap := make(map[string]int)
@@ -375,49 +387,52 @@ func (v *kv) Exists(err error) bool {
 // StoreMapElement is not implemented for local KVs
 func (v *kv) StoreMapElement(mapName, elementName string, value *Object,
 	mapVersion uint64) error {
-	return UnimplementedErr
+	return errors.WithStack(UnimplementedErr)
 }
 
 // StoreMap is not implemented for local KVs
 func (v *kv) StoreMap(mapName string,
 	values map[string]*Object, mapVersion uint64) error {
-	return UnimplementedErr
+	return errors.WithStack(UnimplementedErr)
 }
 
 // GetMap is not implemented for local KVs
 func (v *kv) GetMap(mapName string, version uint64) (
 	map[string]*Object, error) {
-	return nil, UnimplementedErr
+	return nil, errors.WithStack(UnimplementedErr)
 }
 
 // GetMapElement is not implemented for local KVs
 func (v *kv) GetMapElement(mapName, element string, version uint64) (
 	*Object, error) {
-	return nil, UnimplementedErr
+	return nil, errors.WithStack(UnimplementedErr)
 }
 
 // DeleteMapElement is not implemented for local KVs
 func (v *kv) DeleteMapElement(mapName, element string, version uint64) (
 	*Object, error) {
-	return nil, UnimplementedErr
+	return nil, errors.WithStack(UnimplementedErr)
 }
 
 // Transaction is not implemented for local KVs
 func (v *kv) Transaction(key string, op TransactionOperation, version uint64) (
 	old *Object, existed bool, err error) {
-	return nil, false, UnimplementedErr
+	return nil, false, errors.WithStack(UnimplementedErr)
 }
 
 // ListenOnRemoteKey is not implemented for local KVs
 func (v *kv) ListenOnRemoteKey(key string, version uint64,
-	callback KeyChangedByRemoteCallback) (*Object, error) {
-	return nil, errors.Wrapf(UnimplementedErr,
-		"ListenOnRemoteMap")
+	callback KeyChangedByRemoteCallback, localEvents bool) error {
+	return errors.Wrapf(UnimplementedErr, "ListenOnRemoteMap")
 }
 
 // ListenOnRemoteMap is not implemented for local KVs
 func (v *kv) ListenOnRemoteMap(mapName string, version uint64,
-	callback MapChangedByRemoteCallback) (map[string]*Object, error) {
-	return nil, errors.Wrapf(UnimplementedErr,
-		"ListenOnRemoteMap")
+	callback MapChangedByRemoteCallback, localEvents bool) error {
+	return errors.Wrapf(UnimplementedErr, "ListenOnRemoteMap")
+}
+
+// StartProcesses doesn't do anything for local KVs
+func (v *kv) StartProcesses() (stoppable.Stoppable, error) {
+	return stoppable.NewSingle("nil"), nil
 }

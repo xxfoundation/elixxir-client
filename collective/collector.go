@@ -15,7 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/ekv"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -136,6 +137,8 @@ func newCollector(myID InstanceID, syncPath string,
 // runner is the long-running thread responsible for collecting changes and
 // synchronizing changes across devices.
 func (c *collector) runner(stop *stoppable.Single) {
+	jww.INFO.Printf("[%s] started collector thread", collectorLogHeader)
+
 	for {
 		t := time.NewTicker(c.synchronizationEpoch)
 		select {
@@ -342,6 +345,9 @@ func (c *collector) collectChanges(deviceID InstanceID) (*Patch,
 			errors.Wrapf(err, "path: %s", logPath)
 	}
 
+	jww.DEBUG.Printf("[%s] collected changes from %s: %d",
+		collectorLogHeader, deviceID, len(patch.keys))
+
 	return patch, lastRemoteUpdate, nil
 }
 
@@ -361,6 +367,9 @@ func (c *collector) applyChanges() error {
 
 	//execute the diff
 	updates, lastSeen := localPatch.Diff(patches, ignoreBefore)
+
+	jww.INFO.Printf("[%s] Applying updates: %d",
+		collectorLogHeader, len(updates))
 
 	// store the timestamps
 	for i, device := range devices {
@@ -386,6 +395,8 @@ func (c *collector) applyChanges() error {
 		} else {
 			wg.Add(1)
 			go func(key string, m *Mutate) {
+				jww.DEBUG.Printf("[%s] Update for %s: %s",
+					collectorLogHeader, key, m)
 				if m.Deletion {
 					err := c.kv.DeleteFromRemote(key)
 					if err != nil {
@@ -459,7 +470,10 @@ func (c *collector) loadLastMutationTime() {
 	data, err := c.kv.GetBytes(storageKey)
 	if err != nil {
 		jww.WARN.Printf("Failed to load lastMutationRead from "+
-			"to disk at %s, data may be replayed: %+v", storageKey, err)
+			"to disk at %s, data may be replayed", storageKey)
+		if !ekv.Exists(err) {
+			jww.ERROR.Printf("unexpected error: %+v", err)
+		}
 		return
 	}
 
@@ -467,7 +481,8 @@ func (c *collector) loadLastMutationTime() {
 	err = json.Unmarshal(data, &c.lastMutationRead)
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal lastMutationRead loaded "+
-			"from disk at %s, data may be replayed: %+v", storageKey, err)
+			"from disk at %s, data may be replayed: %+v",
+			storageKey, err)
 		return
 	}
 }
@@ -491,6 +506,8 @@ func handleIncomingFile(deviceID InstanceID, patchFile []byte,
 		err = errors.WithMessagef(err, "failed to decode the patch from file")
 		return h, nil, err
 	}
+	jww.DEBUG.Printf("[%s] read patch %s: %d",
+		collectorLogHeader, deviceID, len(patch.keys))
 
 	return h, patch, nil
 }

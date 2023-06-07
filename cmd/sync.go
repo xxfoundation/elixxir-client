@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"gitlab.com/elixxir/client/v4/collective"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -82,7 +82,7 @@ var syncCmd = &cobra.Command{
 
 		// Listen on the key
 		waitCh := make(chan bool)
-		cb := func(key string, old, new *versioned.Object,
+		cb := func(old, new *versioned.Object,
 			op versioned.KeyOperation) {
 			oldJSON, _ := json.Marshal(old)
 			newJSON, _ := json.Marshal(new)
@@ -90,7 +90,7 @@ var syncCmd = &cobra.Command{
 				key, op, oldJSON, newJSON)
 			waitCh <- false
 		}
-		kv.ListenOnRemoteKey(parts[len(parts)-1], 0, cb)
+		kv.ListenOnRemoteKey(parts[len(parts)-1], 0, cb, false)
 
 		// Begin synchronization
 		stopSync, err := synckv.StartProcesses()

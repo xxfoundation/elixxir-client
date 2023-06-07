@@ -10,7 +10,7 @@ package ud
 import (
 	"bytes"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/fact"
 	"reflect"

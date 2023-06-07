@@ -11,12 +11,13 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
-	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"io"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
+
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 
 	jww "github.com/spf13/jwalterweatherman"
 
@@ -27,11 +28,11 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
 	userStorage "gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
@@ -371,7 +372,7 @@ func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement 
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {
 	panic("implement me")
 }
-func (m *mockStorage) GetRegistrationStatus() storage.RegistrationStatus      { panic("implement me") }
+func (m *mockStorage) RegStatus() storage.RegistrationStatus                  { panic("implement me") }
 func (m *mockStorage) SetRegCode(string)                                      { panic("implement me") }
 func (m *mockStorage) GetRegCode() (string, error)                            { panic("implement me") }
 func (m *mockStorage) SetNDF(*ndf.NetworkDefinition)                          { panic("implement me") }

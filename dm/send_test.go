@@ -21,15 +21,15 @@ import (
 func TestMakeDebugTag(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 	partner, _ := codename.GenerateIdentity(rng)
-	dtag := makeDebugTag(partner.PubKey, []byte("hi"), "baseTag")
+	dTag := makeDebugTag(partner.PubKey, []byte("hi"), "baseTag")
 
-	require.Equal(t, "baseTag-pY7752Fc7oa4", dtag)
+	require.Equal(t, "baseTag-pY7752Fc7oa4", dTag)
 }
 
 func TestCalcDMPayloadLen(t *testing.T) {
 	net := &mockClient{}
-	plen := calcDMPayloadLen(net)
-	require.Equal(t, 4060, plen)
+	pLen := calcDMPayloadLen(net)
+	require.Equal(t, 4060, pLen)
 }
 
 func TestCreateCMIXFields(t *testing.T) {

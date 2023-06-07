@@ -11,7 +11,6 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -31,14 +30,14 @@ type baseFormat struct {
 func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
 	total := pubkeySize
 	// Size of sidh pubkey
-	total += sidhinterface.PubKeyByteSize + 1
+	total += util.PubKeyByteSize + 1
 	// Size of version
 	total += 1
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big "+
 			"enough to contain public key (%d) and sidh key (%d)"+
 			"and version which totals to %d", payloadSize,
-			pubkeySize, sidhinterface.PubKeyByteSize+1, total)
+			pubkeySize, util.PubKeyByteSize+1, total)
 	}
 
 	jww.INFO.Printf("Empty Space RequestAuth: %d", payloadSize-total)
@@ -126,7 +125,7 @@ type ecrFormat struct {
 }
 
 func newEcrFormat(size int) ecrFormat {
-	if size < (ownershipSize + sidhinterface.PubKeyByteSize + 1) {
+	if size < (ownershipSize + util.PubKeyByteSize + 1) {
 		jww.FATAL.Panicf("Size too small to hold")
 	}
 
@@ -146,7 +145,7 @@ func buildEcrFormat(data []byte) ecrFormat {
 	f.ownership = f.data[start:end]
 
 	start = end
-	end = start + sidhinterface.PubKeyByteSize + 1
+	end = start + util.PubKeyByteSize + 1
 	f.sidHpubkey = f.data[start:end]
 
 	start = end

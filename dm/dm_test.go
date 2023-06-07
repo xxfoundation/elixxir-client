@@ -15,14 +15,14 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// TestMain sets the log level so we see important debug messages
+// TestMain sets the log level so that we see important debug messages.
 func TestMain(m *testing.M) {
 	jww.SetStdoutThreshold(jww.LevelInfo)
 	os.Exit(m.Run())

@@ -21,13 +21,23 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/v4/interfaces"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )
+
+// RestoreContactsUpdater interface provides a callback function
+// for receiving update information from RestoreContactsFromBackup.
+type RestoreContactsUpdater interface {
+	// RestoreContactsCallback is called to report the current # of contacts
+	// that have been found and how many have been restored
+	// against the total number that need to be
+	// processed. If an error occurs it it set on the err variable as a
+	// plain string.
+	RestoreContactsCallback(numFound, numRestored, total int, err string)
+}
 
 // RestoreContactsFromBackup takes as input the jason output of the
 // `NewClientFromBackup` function, unmarshals it into IDs, looks up
@@ -39,7 +49,7 @@ import (
 // should be treated as internal functions specific to the phone apps.
 func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 	udManager *ud.Manager,
-	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
+	updatesCb RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
 
 	var restored, failed []*id.ID

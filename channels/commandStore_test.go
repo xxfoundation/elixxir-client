@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"

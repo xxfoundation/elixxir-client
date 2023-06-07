@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -206,7 +206,7 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 
 	nm.callback = testingCB
 
-	nm.mapUpdate(nicknameMapName, edits)
+	nm.mapUpdate(edits)
 
 	wg.Wait()
 

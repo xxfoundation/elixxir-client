@@ -8,12 +8,12 @@
 package user
 
 import (
-	"gitlab.com/elixxir/client/v4/collective"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -44,8 +44,10 @@ func NewUser(kv versioned.KV, transmissionID, receptionID *id.ID, transmissionSa
 		return nil, err
 	}
 
-	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt,
-		receptionSalt, transmissionRsa, receptionRsa, isPrecanned, e2eDhPrivateKey, e2eDhPublicKey, remote)
+	ci := newCryptographicIdentity(transmissionID, receptionID,
+		transmissionSalt, receptionSalt, transmissionRsa,
+		receptionRsa, isPrecanned,
+		e2eDhPrivateKey, e2eDhPublicKey, remote)
 
 	return &User{CryptographicIdentity: ci, kv: remote}, nil
 }

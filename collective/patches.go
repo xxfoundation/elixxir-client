@@ -28,8 +28,8 @@ func newPatch(patchID InstanceID) *Patch {
 // AddUnsafe adds a given mutation to the Patch.
 // This must only be called on the creator of the patch
 // Only call within the transaction log
-func (p *Patch) AddUnsafe(key string, m *Mutate) {
-	p.keys[key] = m
+func (p *Patch) AddUnsafe(key string, m Mutate) {
+	p.keys[key] = &m
 }
 
 func (p *Patch) Serialize() ([]byte, error) {

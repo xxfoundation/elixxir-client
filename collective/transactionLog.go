@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -91,11 +91,13 @@ type remoteWriter struct {
 	// remote
 	remoteUpToDate *uint32
 	*notifier
+
+	mb *mutateBuffer
 }
 
 type transaction struct {
-	Mutate *Mutate
-	Key    string
+	Mutate    map[string]Mutate
+	BuffIndex int
 }
 
 // newRemoteWriter constructs a remoteWriter object that does
@@ -116,8 +118,8 @@ func newRemoteWriter(path string, deviceID InstanceID,
 
 	// Per spec, the path is: [path] + /[deviceID]/[txlog]
 	// we don't use path.join because we aren't relying on OS pathSep.
-	keyID := encrypt.KeyID(deviceID)
-	myPath := getTxLogPath(path, keyID, deviceID)
+	logKeyID := encrypt.KeyID(deviceID)
+	myPath := getTxLogPath(path, logKeyID, deviceID)
 
 	connected := uint32(0)
 	// Construct a new mutate log
@@ -125,7 +127,7 @@ func newRemoteWriter(path string, deviceID InstanceID,
 		path:           myPath,
 		header:         newHeader(deviceID),
 		state:          newPatch(deviceID),
-		adds:           make(chan transaction, 1000),
+		adds:           make(chan transaction, bufferSize),
 		io:             io,
 		encrypt:        encrypt,
 		kv:             kv,
@@ -147,11 +149,26 @@ func newRemoteWriter(path string, deviceID InstanceID,
 		jww.WARN.Printf("No transaction log found, creating a new one")
 	}
 
+	//attempt to load stored mutateBuffer and handle any extant data
+	mb, remainingMutations := loadBuffer(kv)
+	tx.mb = mb
+	if len(remainingMutations) > 0 {
+		for index := range remainingMutations {
+			tx.syncLock.RLock()
+			mutations := remainingMutations[index]
+			tx.adds <- transaction{
+				Mutate:    mutations,
+				BuffIndex: index,
+			}
+		}
+	}
 	return tx, nil
 }
 
 // Runner pushes updates to the patch file to the remote
 func (rw *remoteWriter) Runner(s *stoppable.Single) {
+	jww.INFO.Printf("[SYNC] started transaction log (remoteWriter) thread")
+
 	//always Write to remote when we start in order to ensure that any
 	//dropped updates are propogated
 	timer := time.NewTimer(time.Nanosecond)
@@ -165,31 +182,10 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 	for {
 		select {
 		case t := <-rw.adds:
-			jww.INFO.Printf("Adding change for %s", t.Key)
-			rw.state.AddUnsafe(t.Key, t.Mutate)
 
-			// batch writes
-			counter := 100 * time.Millisecond
-			timer2 := time.NewTimer(counter)
-			quit := false
-			done := false
-			for !done {
-				select {
-				case t = <-rw.adds:
-					rw.state.AddUnsafe(t.Key, t.Mutate)
-					rw.syncLock.RUnlock()
-					counter -= 100 * time.Microsecond
-					if counter <= 0 {
-						done = true
-					} else {
-						timer2.Reset(counter)
-					}
-				case <-timer2.C:
-					done = true
-				case <-s.Quit():
-					quit = true
-					done = true
-				}
+			for key, mutate := range t.Mutate {
+				jww.INFO.Printf("Adding change for %s", key)
+				rw.state.AddUnsafe(key, mutate)
 			}
 
 			// Write to disk and queue the remote Write
@@ -204,11 +200,8 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 					"log to disk: %+v", err)
 			}
 			rw.syncLock.RUnlock()
+			rw.mb.DeleteBufferElement(t.BuffIndex)
 
-			if quit {
-				s.ToStopped()
-				return
-			}
 			if !running {
 				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
@@ -228,6 +221,8 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			} else {
+				jww.DEBUG.Printf("Wrote patch %s: %d",
+					rw.header.DeviceID, len(rw.state.keys))
 				rw.notify(true)
 				uploadPeriod = defaultUploadPeriod
 				ts = netTime.Now()
@@ -248,7 +243,8 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 // serialized remoteWriter to local and remote storage. The callback for
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
 // this blocks so it cannot be run conncurently with the collector
-func (rw *remoteWriter) Write(key string, value []byte) error {
+func (rw *remoteWriter) Write(key string, value []byte) (
+	oldData []byte, existed bool, err error) {
 	jww.INFO.Printf("[%s] Inserting upsert to remote at %s", logHeader, key)
 	// do not operate while the collector is collecting. this will
 	// be unlocked when the transaction is written to disk
@@ -256,23 +252,33 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 
 	ts := netTime.Now()
 
-	//Write to KV
-	err := rw.kv.SetBytes(key, value)
+	m := Mutate{
+		Timestamp: ts.UTC().UnixNano(),
+		Value:     value,
+		Deletion:  false,
+	}
+
+	op := func(files map[string]ekv.Operable, ext ekv.Extender) error {
+		wFile := files[key]
+		oldData, existed = wFile.Get()
+		wFile.Set(value)
+		return nil
+	}
+
+	mutateMap := msmm(key, m)
+
+	buffIndex, err := rw.mb.DoTransactionAndWriteToBuffer(op, []string{key}, mutateMap)
 	if err != nil {
 		rw.syncLock.RUnlock()
-		return err
+		return oldData, existed, err
 	}
 
 	jww.INFO.Printf("Sending transaction for %s", key)
 	rw.adds <- transaction{
-		Mutate: &Mutate{
-			Timestamp: ts.UTC().UnixNano(),
-			Value:     value,
-			Deletion:  false,
-		},
-		Key: key,
+		Mutate:    mutateMap,
+		BuffIndex: buffIndex,
 	}
-	return nil
+	return oldData, existed, nil
 }
 
 // WriteMap writes to a map, adding the passed in elements and deleting the
@@ -285,22 +291,22 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		logHeader, mapName)
 	// do not operate while the collector is collecting. this will
 	// be unlocked when the transaction is written to disk
+	rw.syncLock.RLock()
 
 	ts := netTime.Now()
 	tsInt := ts.UTC().UnixNano()
 
 	//build handling data
 	keys := make([]string, 0, len(elements)+1)
-	mutates := make(map[string]*Mutate, len(elements)+len(toDelete))
+	mutates := make(map[string]Mutate, len(elements)+len(toDelete))
 	old := make(map[string][]byte, len(elements)+len(toDelete))
 	keyConversions := make(map[string]string, len(elements))
 
 	// construct mutates for upserts
 	for element := range elements {
 		key := versioned.MakeElementKey(mapName, element)
-		rw.syncLock.RLock()
 		keys = append(keys, key)
-		mutates[key] = &Mutate{
+		mutates[key] = Mutate{
 			Timestamp: tsInt,
 			Value:     elements[element],
 			Deletion:  false,
@@ -311,9 +317,8 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	// construct mutates for deletions
 	for element := range toDelete {
 		key := versioned.MakeElementKey(mapName, element)
-		rw.syncLock.RLock()
 		keys = append(keys, key)
-		mutates[key] = &Mutate{
+		mutates[key] = Mutate{
 			Timestamp: tsInt,
 			Value:     nil,
 			Deletion:  true,
@@ -361,18 +366,14 @@ func (rw *remoteWriter) WriteMap(mapName string,
 	}
 
 	//Write to KV
-	err := rw.kv.Transaction(op, keys...)
+	buffIndex, err := rw.mb.DoTransactionAndWriteToBuffer(op, keys, mutates)
 	if err != nil {
-		for i := 0; i < len(elements)+len(toDelete); i++ {
-			rw.syncLock.RUnlock()
-		}
+		rw.syncLock.RUnlock()
 		return nil, err
 	}
 
 	// send signals to collective all transactions
-	for key, m := range mutates {
-		rw.adds <- transaction{m, key}
-	}
+	rw.adds <- transaction{mutates, buffIndex}
 
 	return old, err
 }
@@ -391,7 +392,8 @@ func copyData(b []byte) []byte {
 // serialized remoteWriter to local and remote storage. The callback for
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
 // this blocks so it cannot be run conncurently with the collector
-func (rw *remoteWriter) Delete(key string) error {
+func (rw *remoteWriter) Delete(key string) (
+	oldData []byte, existed bool, err error) {
 	jww.INFO.Printf("[%s] Inserting Delete to remote at %s", logHeader, key)
 	// do not operate while the collector is collecting. this will
 	// be unlocked when the transaction is written to disk
@@ -399,22 +401,33 @@ func (rw *remoteWriter) Delete(key string) error {
 
 	ts := netTime.Now()
 
+	m := Mutate{
+		Timestamp: ts.UTC().UnixNano(),
+		Value:     nil,
+		Deletion:  true,
+	}
+
+	op := func(files map[string]ekv.Operable, ext ekv.Extender) error {
+		wFile := files[key]
+		oldData, existed = wFile.Get()
+		wFile.Delete()
+		return nil
+	}
+
+	mutateMap := msmm(key, m)
+
 	//Write to KV
-	err := rw.kv.Delete(key)
+	buffIndex, err := rw.mb.DoTransactionAndWriteToBuffer(op, []string{key}, mutateMap)
 	if err != nil {
 		rw.syncLock.RUnlock()
-		return err
+		return oldData, existed, err
 	}
 
 	rw.adds <- transaction{
-		Mutate: &Mutate{
-			Timestamp: ts.UTC().UnixNano(),
-			Value:     nil,
-			Deletion:  true,
-		},
-		Key: key,
+		Mutate:    mutateMap,
+		BuffIndex: buffIndex,
 	}
-	return nil
+	return oldData, existed, nil
 }
 
 func (rw *remoteWriter) Read() (patch *Patch, unlock func()) {

@@ -35,7 +35,7 @@ message SilentMessage {
 }
 
 // DirectMessage is a message sent directly from one user to another. It
-// includes the return information (public key and dmtoken) for the sender.
+// includes the return information (public key and DMToken) for the sender.
 message DirectMessage{
     // The round this message was sent on to the intended recipient
     uint64 RoundID = 1;

@@ -11,7 +11,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"strings"
-	sync "sync"
+	"sync"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,7 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 )
@@ -165,7 +165,7 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 		convo := allConversations[i]
 		if convo.BlockedTimestamp != nil {
 			pub := convo.Pubkey
-			blocked = append(blocked, ed25519.PublicKey(pub))
+			blocked = append(blocked, pub)
 		}
 	}
 	return blocked

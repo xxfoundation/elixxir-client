@@ -228,7 +228,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
 
-	sihTag := dm.MakeSihTag(partnerEdwardsPubKey, dc.me.Privkey, partnerID)
+	sihTag := dm.MakeSenderSihTag(partnerEdwardsPubKey, dc.me.Privkey)
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.

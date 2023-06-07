@@ -95,11 +95,9 @@ func TestSetBlocked(t *testing.T) {
 	blockKey, _, err := ed25519.GenerateKey(rng)
 	require.NoError(t, err)
 
-	clientA.BlockUnDmedSender(blockKey, 5)
+	clientA.BlockSender(blockKey)
 
-	blocked, err := clientA.IsBlocked(blockKey)
-	require.NoError(t, err)
-	require.True(t, blocked)
+	require.True(t, clientA.IsBlocked(blockKey))
 
 }
 
@@ -165,9 +163,7 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, 3, len(receiverB.Msgs))
 
 	// User B Blocks User A
-	t.Logf("blocking sender a")
-
-	require.NoError(t, clientB.BlockSender(rcvA1.PubKey))
+	clientB.BlockSender(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey
@@ -175,15 +171,11 @@ func TestBlock(t *testing.T) {
 	_, _, _, err = clientA.SendReaction(pubKey, dmToken, "😀", replyTo2, params)
 	require.NoError(t, err)
 
-	t.Logf("send reaction despite being blocked")
-
 	// Make sure nothing changed under the hood because the
 	// message was dropped.
 	require.Equal(t, 3, len(receiverB.Msgs))
 
-	blockedB, err := clientB.IsBlocked(clientA.GetIdentity().PubKey)
-	require.NoError(t, err)
-	require.True(t, blockedB)
+	require.True(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
 
 	// Ensure that this user appears in the blocked senders list:
 	blocked := clientB.GetBlockedSenders()
@@ -192,7 +184,7 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, blocked[0], rcvA1.PubKey)
 
 	// User B Stops blocking User A
-	require.NoError(t, clientB.UnblockSender(rcvA1.PubKey))
+	clientB.UnblockSender(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey
@@ -206,9 +198,7 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, replyTo2, rcvA2.ReplyTo)
 	require.Equal(t, "😀", rcvA2.Message)
 
-	blockedB, err = clientB.IsBlocked(clientA.GetIdentity().PubKey)
-	require.NoError(t, err)
-	require.False(t, blockedB)
+	require.False(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
 
 	require.Equal(t, len(clientB.GetBlockedSenders()), 0)
 }

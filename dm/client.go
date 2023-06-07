@@ -164,32 +164,24 @@ func (dc *dmClient) SetNickname(nick string) {
 	dc.nm.SetNickname(nick)
 }
 
-// BlockUnDmedSender blocks a sender that a DM conversation has never been
-// started with.
-func (dc *dmClient) BlockUnDmedSender(senderPubKey ed25519.PublicKey, token uint32) {
-	dc.userStore.set(senderPubKey, statusBlocked, token)
+// BlockSender prevents receiving messages and notifications from the sender.
+func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
+	dc.userStore.set(senderPubKey, statusBlocked)
 }
 
-// BlockSender prevents receiving messages from the sender. A DM
-// conversation must already have been started or an error will be returned.
-func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) error {
-	return dc.userStore.update(senderPubKey, statusBlocked)
+// UnblockSender unblocks a blocked sender to allow DM messages.
+func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
+	dc.userStore.set(senderPubKey, defaultStatus)
 }
 
-// UnblockSender unblocks DMs from the sender with the passed in public key.
-func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) error {
-	return dc.userStore.update(senderPubKey, defaultStatus)
-}
-
-// IsBlocked returns if the given sender is blocked.
-// Blocking is controlled by the remote KV.
-func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) (bool, error) {
+// IsBlocked indicates if the given sender is blocked.
+func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
 	user, err := dc.userStore.get(senderPubKey)
 	if err != nil {
-		return false, err
+		return false
 	}
 
-	return user.Status == statusBlocked, nil
+	return user.Status == statusBlocked
 }
 
 // GetBlockedSenders returns all senders who are blocked by this user.

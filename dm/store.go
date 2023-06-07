@@ -62,9 +62,6 @@ type dmUser struct {
 	// Status indicates the notification status for the user or if they are
 	// blocked.
 	Status userStatus `json:"s"`
-
-	// Token is the unique DM token for the user.
-	Token uint32 `json:"t"`
 }
 
 // String prints the dmUser in a human-readable form for logging and debugging.
@@ -73,7 +70,6 @@ func (dmu *dmUser) String() string {
 	fields := []string{
 		hex.EncodeToString(dmu.PublicKey),
 		strconv.Itoa(int(dmu.Status)),
-		strconv.Itoa(int(dmu.Token)),
 	}
 	return "{" + strings.Join(fields, " ") + "}"
 }
@@ -91,17 +87,16 @@ const (
 )
 
 // set saves the dmUser info to storage keyed on the Ed25519 public key.
-func (us *userStore) set(pubKey ed25519.PublicKey, status userStatus, token uint32) {
+func (us *userStore) set(pubKey ed25519.PublicKey, status userStatus) {
 	us.mux.Lock()
 	defer us.mux.Unlock()
-	us.setUnsafe(pubKey, status, token)
+	us.setUnsafe(pubKey, status)
 }
 
-func (us *userStore) setUnsafe(pubKey ed25519.PublicKey, status userStatus, token uint32) {
+func (us *userStore) setUnsafe(pubKey ed25519.PublicKey, status userStatus) {
 	elemName := marshalElementName(pubKey)
 	data, err := json.Marshal(dmUser{
 		Status: status,
-		Token:  token,
 	})
 	if err != nil {
 		jww.FATAL.Panicf("[DM] Failed to JSON marshal user %X for storage: %+v",
@@ -189,8 +184,8 @@ func (us *userStore) get(pubKey ed25519.PublicKey) (*dmUser, error) {
 
 // getOrSet returns the dmUser from storage. If the user does not exist, then it
 // is added with the default status and returned.
-// / TODO: test
-func (us *userStore) getOrSet(pubKey ed25519.PublicKey, token uint32) *dmUser {
+// TODO: test
+func (us *userStore) getOrSet(pubKey ed25519.PublicKey) *dmUser {
 	elemName := marshalElementName(pubKey)
 	us.mux.Lock()
 	defer us.mux.Unlock()
@@ -201,11 +196,10 @@ func (us *userStore) getOrSet(pubKey ed25519.PublicKey, token uint32) *dmUser {
 				pubKey, err)
 		}
 
-		us.setUnsafe(pubKey, defaultStatus, token)
+		us.setUnsafe(pubKey, defaultStatus)
 		return &dmUser{
 			PublicKey: pubKey,
 			Status:    defaultStatus,
-			Token:     token,
 		}
 	}
 

@@ -40,22 +40,15 @@ type Client interface {
 	// portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
-	// BlockUnDmedSender blocks a sender that a DM conversation has never been
-	// started with.
-	BlockUnDmedSender(senderPubKey ed25519.PublicKey, token uint32)
-
-	// BlockSender prevents receiving messages from the sender. An error is
-	// returned if no conversations have been started with the sender.
-	BlockSender(senderPubKey ed25519.PublicKey) error
-
-	// UnblockSender unblocks DMs from the sender with the passed in public key.
-	// An error is returned if no conversations have been started with the
+	// BlockSender prevents receiving messages and notifications from the
 	// sender.
-	UnblockSender(senderPubKey ed25519.PublicKey) error
+	BlockSender(senderPubKey ed25519.PublicKey)
 
-	// IsBlocked indicates if the given sender is blocked. Returns an error if
-	// no conversations have been started with the sender.
-	IsBlocked(senderPubKey ed25519.PublicKey) (bool, error)
+	// UnblockSender unblocks a blocked sender to allow DM messages.
+	UnblockSender(senderPubKey ed25519.PublicKey)
+
+	// IsBlocked indicates if the given sender is blocked.
+	IsBlocked(senderPubKey ed25519.PublicKey) bool
 
 	// GetBlockedSenders returns all senders who are blocked by this user.
 	GetBlockedSenders() []ed25519.PublicKey

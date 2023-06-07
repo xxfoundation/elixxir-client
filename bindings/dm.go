@@ -349,41 +349,28 @@ func (dmc *DMClient) SetNickname(nick string) {
 	dmc.api.SetNickname(nick)
 }
 
-// BlockUnDmedSender blocks a sender that a DM conversation has never been
-// started with.
+
+// BlockSender prevents receiving messages and notifications from the sender.
 //
 // Parameters:
 //   - senderPubKey - The sender's Ed25519 public key to block.
-//   - token - The sender's DM token.
-func (dmc *DMClient) BlockUnDmedSender(senderPubKey []byte, token int) {
-	dmc.api.BlockUnDmedSender(senderPubKey, uint32(token))
+func (dmc *DMClient) BlockSender(senderPubKey []byte) {
+	dmc.api.BlockSender(senderPubKey)
 }
 
-// BlockSender prevents receiving messages from the sender. An error is returned
-// if no conversations have been started with the sender.
-//
-// Parameters:
-//   - senderPubKey - The sender's Ed25519 public key to block.
-//   - token - The sender's DM token.
-func (dmc *DMClient) BlockSender(senderPubKey []byte) error {
-	return dmc.api.BlockSender(senderPubKey)
-}
-
-// UnblockSender unblocks DMs from the sender with the passed in public key.
-// An error is returned if no conversations have been started with the sender.
+// UnblockSender unblocks a blocked sender to allow DM messages.
 //
 // Parameters:
 //   - senderPubKey - The sender's Ed25519 public key to unblock.
-func (dmc *DMClient) UnblockSender(senderPubKey []byte) error {
-	return dmc.api.UnblockSender(senderPubKey)
+func (dmc *DMClient) UnblockSender(senderPubKey []byte) {
+	dmc.api.UnblockSender(senderPubKey)
 }
 
-// IsBlocked indicates if the given sender is blocked. Returns an error if
-// no conversations have been started with the sender.
+// IsBlocked indicates if the given sender is blocked.
 //
 // Parameters:
 //   - senderPubKey - The sender's Ed25519 public key to check.
-func (dmc *DMClient) IsBlocked(senderPubKey []byte) (bool, error) {
+func (dmc *DMClient) IsBlocked(senderPubKey []byte) bool {
 	return dmc.api.IsBlocked(senderPubKey)
 }
 

@@ -36,10 +36,10 @@ func Test_userStore_set(t *testing.T) {
 	statuses := []userStatus{statusMute, statusNotifyAll, statusBlocked}
 	for i := 0; i < numUsers; i++ {
 		pubKey, _, _ := ed25519.GenerateKey(prng)
-		user := dmUser{nil, statuses[i%len(statuses)], prng.Uint32()}
+		user := dmUser{nil, statuses[i%len(statuses)]}
 		elemName := marshalElementName(pubKey)
 		expected[elemName] = &user
-		us.set(pubKey, user.Status, user.Token)
+		us.set(pubKey, user.Status)
 	}
 
 	for elemName, exp := range expected {
@@ -172,14 +172,11 @@ func Test_marshalElementName_unmarshalElementName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Logf("%s", data)
-
 	var b [2]uint32
 	err = json.Unmarshal(data, &b)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("%v", b)
 }
 
 // newFilledUserStore creates a new userStore and fills it with randomly
@@ -198,11 +195,11 @@ func newFilledUserStore(numUsers int, seed int64, t testing.TB) (
 	statuses := []userStatus{statusMute, statusNotifyAll, statusBlocked}
 	for i := 0; i < numUsers; i++ {
 		pubKey, _, _ := ed25519.GenerateKey(prng)
-		user := dmUser{pubKey, statuses[i%len(statuses)], prng.Uint32()}
+		user := dmUser{pubKey, statuses[i%len(statuses)]}
 		elemName := marshalElementName(pubKey)
 		userMap[elemName] = &user
 		userList[i] = &user
-		us.set(pubKey, user.Status, user.Token)
+		us.set(pubKey, user.Status)
 	}
 
 	return us, userMap, userList, kv

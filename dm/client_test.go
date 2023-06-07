@@ -63,7 +63,7 @@ func TestNick(t *testing.T) {
 }
 
 func TestSetBlocked(t *testing.T) {
-	netA, _ := createLinkedNets()
+	netA, _ := createLinkedNets(t)
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
@@ -142,7 +142,7 @@ func TestBlock(t *testing.T) {
 	params := cmix.GetDefaultCMIXParams()
 
 	// Send and receive a text
-	_, _, _, err :=
+	_, _, _, err =
 		clientA.SendText(partner.PubKey, partner.GetDMToken(), "Hi", params)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(receiverB.Msgs))

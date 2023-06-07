@@ -72,7 +72,8 @@ func TestE2EDMs(t *testing.T) {
 	params := cmix.GetDefaultCMIXParams()
 
 	// Send and receive a text
-	_, _, _, err := clientA.SendText(partner.PubKey, partner.GetDMToken(), "Hi", params)
+	_, _, _, err =
+		clientA.SendText(partner.PubKey, partner.GetDMToken(), "Hi", params)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(receiverB.Msgs))
 	rcvA1 := receiverB.Msgs[0]

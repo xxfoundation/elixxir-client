@@ -411,7 +411,7 @@ func (dmc *DMClient) SendText(partnerPubKeyBytes []byte, partnerToken int32,
 	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
 
 	// Send message
-	msgID, rnd, ephID, err := dmc.api.SendText(&partnerPubKey, uint32(partnerToken),
+	msgID, rnd, ephID, err := dmc.api.SendText(partnerPubKey, uint32(partnerToken),
 		message, params.CMIX)
 	if err != nil {
 		return nil, err
@@ -468,7 +468,7 @@ func (dmc *DMClient) SendReply(partnerPubKeyBytes []byte, partnerToken int32,
 	}
 
 	// Send Reply
-	msgID, rnd, ephID, err := dmc.api.SendReply(&partnerPubKey,
+	msgID, rnd, ephID, err := dmc.api.SendReply(partnerPubKey,
 		uint32(partnerToken), replyMessage, replyTo, params.CMIX)
 	if err != nil {
 		return nil, err
@@ -517,7 +517,7 @@ func (dmc *DMClient) SendReaction(partnerPubKeyBytes []byte, partnerToken int32,
 	}
 
 	// Send reaction
-	msgID, rnd, ephID, err := dmc.api.SendReaction(&partnerPubKey,
+	msgID, rnd, ephID, err := dmc.api.SendReaction(partnerPubKey,
 		uint32(partnerToken), reaction, reactTo, params.CMIX)
 	if err != nil {
 		return nil, err
@@ -547,7 +547,7 @@ func (dmc *DMClient) SendSilent(partnerPubKeyBytes []byte,
 		return nil, err
 	}
 
-	msgID, rnd, ephID, err := dmc.api.SendSilent(&partnerPubKey, uint32(partnerToken),
+	msgID, rnd, ephID, err := dmc.api.SendSilent(partnerPubKey, uint32(partnerToken),
 		params.CMIX)
 	if err != nil {
 		return nil, err
@@ -598,7 +598,7 @@ func (dmc *DMClient) Send(partnerPubKeyBytes []byte,
 	msgTy := dm.MessageType(messageType)
 
 	// Send message
-	msgID, rnd, ephID, err := dmc.api.Send(&partnerPubKey,
+	msgID, rnd, ephID, err := dmc.api.Send(partnerPubKey,
 		uint32(partnerToken), msgTy, plaintext, params.CMIX)
 	if err != nil {
 		return nil, err

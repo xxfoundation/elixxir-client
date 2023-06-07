@@ -313,7 +313,6 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	}
 
 	wrap := newChannelUICallbacksWrapper(uiCallbacks)
-
 	model, err := storage.NewEventModel(dbFilePath, cipher,
 		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
 	if err != nil {
@@ -379,8 +378,13 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	// Load extension builders from singleton
+	extensionBuilders, err := loadExtensionBuilders(extensionBuilderIDsJSON)
+	if err != nil {
+		return nil, err
+	}
 
+	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 	model, err := storage.NewEventModel(dbFilePath, cipher,
 		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
 	if err != nil {
@@ -388,12 +392,6 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	}
 
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
-	if err != nil {
-		return nil, err
-	}
-
-	// Load extension builders from singleton
-	extensionBuilders, err := loadExtensionBuilders(extensionBuilderIDsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -436,6 +434,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 func NewChannelsManager(cmixID int, privateIdentity []byte,
 	eventBuilder EventModelBuilder, extensionBuilderIDsJSON []byte,
 	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err

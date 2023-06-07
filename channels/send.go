@@ -116,7 +116,8 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			errors.Errorf("user muted in channel %s", channelID)
 	}
 
-	// Reject the send if the user is muted in the channel they are sending to
+	// Reject the send operation if the user is muted in the channel
+	// they are sending to
 	if m.events.mutedUsers.isMuted(channelID, m.me.PubKey) {
 		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.Errorf("user muted in channel %s", channelID)

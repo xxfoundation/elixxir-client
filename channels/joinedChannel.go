@@ -257,7 +257,7 @@ func (jc *joinedChannel) Marshal() ([]byte, error) {
 	return json.Marshal(&jcd)
 }
 
-// Unmarshal loads a given channel from ekv storage.
+// setUpJoinedChannel unmarshals and adds a channel to the channels map.
 func (m *manager) setUpJoinedChannel(b []byte) (*joinedChannel, error) {
 	jcd := &joinedChannelDisk{}
 	err := json.Unmarshal(b, jcd)
@@ -277,6 +277,9 @@ func (m *manager) setUpJoinedChannel(b []byte) (*joinedChannel, error) {
 	return jc, nil
 }
 
+// initBroadcast converts a [cryptoBroadcast.Channel] into a
+// [broadcast.Channel] and register all listeners related to
+// the channel (see [registerListeners]).
 func (m *manager) initBroadcast(
 	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
 
@@ -292,25 +295,40 @@ func (m *manager) initBroadcast(
 func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 	channel *cryptoBroadcast.Channel) (broadcast.Channel, error) {
 	// User message listener
-	p, err := broadcastChan.RegisterSymmetricListener((&userListener{
-		chID:      channel.ReceptionID,
-		trigger:   m.events.triggerEvent,
-		checkSent: m.st.MessageReceive,
-	}).Listen, nil)
+	p, err := broadcastChan.RegisterSymmetricListener(
+		m.getUserListener(channel), nil)
 	if err != nil {
 		return nil, err
 	}
 	m.broadcast.addProcessor(channel.ReceptionID, userProcessor, p)
 
 	// Admin message listener
-	p, err = broadcastChan.RegisterRSAtoPublicListener((&adminListener{
-		chID:    channel.ReceptionID,
-		trigger: m.events.triggerAdminEvent,
-	}).Listen, nil)
+	p, err = broadcastChan.RegisterRSAtoPublicListener(
+		m.getAdminListener(channel), nil)
 	if err != nil {
 		return nil, err
 	}
 	m.broadcast.addProcessor(channel.ReceptionID, adminProcessor, p)
 
 	return broadcastChan, nil
+}
+
+func (m *manager) getUserListener(
+	channel *cryptoBroadcast.Channel) broadcast.ListenerFunc {
+	userListen := &userListener{
+		chID:      channel.ReceptionID,
+		trigger:   m.events.triggerEvent,
+		checkSent: m.st.MessageReceive,
+	}
+
+	return userListen.Listen
+}
+
+func (m *manager) getAdminListener(
+	channel *cryptoBroadcast.Channel) broadcast.ListenerFunc {
+	adminListen := &adminListener{
+		chID:    channel.ReceptionID,
+		trigger: m.events.triggerAdminEvent,
+	}
+	return adminListen.Listen
 }

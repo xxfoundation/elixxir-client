@@ -150,6 +150,13 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv versioned.KV,
 	storageTag := getStorageTag(identity.PubKey)
 	jww.INFO.Printf("[CH] NewManager for %s (pubKey:%x tag:%s)",
 		identity.Codename, identity.PubKey, storageTag)
+
+	jww.INFO.Printf("[LoadVsNew DEBUG] NEW Identity PubKey: %+v",
+		identity.PubKey)
+
+	jww.INFO.Printf("[LoadVsNew DEBUG] NEW storage tag: %+v",
+		storageTag)
+
 	local, err := kv.Prefix(storageTag)
 	if err != nil {
 		return nil, err
@@ -196,8 +203,14 @@ func LoadManager(storageTag string, kv versioned.KV, net Client,
 		return nil, err
 	}
 
-	m := setupManager(identity, local, remote, net, rng, model, extensions, nm,
-		uiCallbacks)
+	jww.INFO.Printf("[LoadVsNew DEBUG] LOAD Identity PubKey: %+v",
+		storageTag)
+
+	jww.INFO.Printf("[LoadVsNew DEBUG] LOAD storage tag: %+v",
+		storageTag)
+
+	m := setupManager(identity, local, remote, net, rng, model, extensions,
+		nm, uiCallbacks)
 
 	return m, nil
 }
@@ -246,7 +259,8 @@ func setupManager(identity cryptoChannel.PrivateIdentity, local, remote versione
 
 	m.loadChannels()
 
-	m.nicknameManager = loadOrNewNicknameManager(remote, uiCallbacks.NicknameUpdate)
+	m.nicknameManager = loadOrNewNicknameManager(remote,
+		uiCallbacks.NicknameUpdate)
 
 	m.notifications = newNotifications(
 		identity.PubKey, uiCallbacks.NotificationUpdate, m, nm)

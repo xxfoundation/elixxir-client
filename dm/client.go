@@ -164,20 +164,35 @@ func (dc *dmClient) SetNickname(nick string) {
 	dc.nm.SetNickname(nick)
 }
 
+// BlockUnDmedSender blocks a sender that a DM conversation has never been
+// started with.
+func (dc *dmClient) BlockUnDmedSender(senderPubKey ed25519.PublicKey, token uint32) {
+	dc.userStore.set(senderPubKey, statusBlocked, token)
+}
+
+// BlockSender prevents receiving messages from the sender. A DM
+// conversation must already have been started or an error will be returned.
+func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) error {
+	return dc.userStore.update(senderPubKey, statusBlocked)
+}
+
+// UnblockSender unblocks DMs from the sender with the passed in public key.
+func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) error {
+	return dc.userStore.update(senderPubKey, defaultStatus)
+}
+
 // IsBlocked returns if the given sender is blocked.
 // Blocking is controlled by the remote KV.
-func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
+func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) (bool, error) {
 	user, err := dc.userStore.get(senderPubKey)
 	if err != nil {
-		jww.ERROR.Printf("Failed to get user %X: %+v", senderPubKey, err)
-		return false
+		return false, err
 	}
 
-	return user.Status == statusBlocked
+	return user.Status == statusBlocked, nil
 }
 
 // GetBlockedSenders returns all senders who are blocked by this user.
-// Blocking is controlled by the remote KV.
 func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 	var blockedSenders []ed25519.PublicKey
 	init := func(n int) {
@@ -190,31 +205,9 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 		}
 	}
 
-	err := dc.userStore.iterate(init, add)
-	if err != nil {
-		jww.WARN.Panicf("[DM] Failed to retrieve map from storage: %+v", err)
-		return nil
-	}
+	dc.userStore.iterate(init, add)
 
 	return blockedSenders
-}
-
-// BlockSender blocks DMs from the sender with the passed in public key.
-func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
-	err := dc.userStore.update(senderPubKey, statusBlocked)
-	if err != nil {
-		jww.ERROR.Printf("[DM] Failed to remotely store user %X as blocked: %+v",
-			senderPubKey, err)
-	}
-}
-
-// UnblockSender unblocks DMs from the sender with the passed in public key.
-func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
-	err := dc.userStore.update(senderPubKey, statusNotifyAll)
-	if err != nil {
-		jww.ERROR.Printf("[DM] Failed to remotely store user %X as unblocked: %+v",
-			senderPubKey, err)
-	}
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

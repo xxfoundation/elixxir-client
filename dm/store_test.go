@@ -39,10 +39,7 @@ func Test_userStore_set(t *testing.T) {
 		user := dmUser{nil, statuses[i%len(statuses)], prng.Uint32()}
 		elemName := marshalElementName(pubKey)
 		expected[elemName] = &user
-		err := us.set(pubKey, user.Status, user.Token)
-		if err != nil {
-			t.Errorf("Failed to set dmUser %s %v: %+v", elemName, user, err)
-		}
+		us.set(pubKey, user.Status, user.Token)
 	}
 
 	for elemName, exp := range expected {
@@ -98,12 +95,9 @@ func Test_userStore_delete(t *testing.T) {
 	us, expected, _, kv := newFilledUserStore(25, 98957, t)
 
 	for elemName, exp := range expected {
-		err := us.delete(exp.PublicKey)
-		if err != nil {
-			t.Errorf("Error while deleting dmUser %s: %+v", elemName, err)
-		}
+		us.delete(exp.PublicKey)
 
-		_, err = us.get(exp.PublicKey)
+		_, err := us.get(exp.PublicKey)
 		if err == nil || kv.Exists(err) {
 			t.Errorf("Unexpected error for user %s."+
 				"\nexpected: %+v\nreceived: %+v", elemName, os.ErrNotExist, err)
@@ -115,10 +109,7 @@ func Test_userStore_delete(t *testing.T) {
 func Test_userStore_getAll(t *testing.T) {
 	us, _, expected, _ := newFilledUserStore(25, 52889, t)
 
-	users, err := us.getAll()
-	if err != nil {
-		t.Errorf("Failed to get all users: %+v", err)
-	}
+	users := us.getAll()
 
 	sort.SliceStable(expected, func(i, j int) bool {
 		return bytes.Compare(expected[i].PublicKey, expected[j].PublicKey) == -1
@@ -142,10 +133,7 @@ func Test_userStore_iterate(t *testing.T) {
 	init := func(n int) { users = make([]*dmUser, 0, n) }
 	add := func(user *dmUser) { users = append(users, user) }
 
-	err := us.iterate(init, add)
-	if err != nil {
-		t.Errorf("Failed to get all users: %+v", err)
-	}
+	us.iterate(init, add)
 
 	sort.SliceStable(expected, func(i, j int) bool {
 		return bytes.Compare(expected[i].PublicKey, expected[j].PublicKey) == -1
@@ -214,10 +202,7 @@ func newFilledUserStore(numUsers int, seed int64, t testing.TB) (
 		elemName := marshalElementName(pubKey)
 		userMap[elemName] = &user
 		userList[i] = &user
-		err := us.set(pubKey, user.Status, user.Token)
-		if err != nil {
-			t.Errorf("Failed to set dmUser %s %v: %+v", elemName, user, err)
-		}
+		us.set(pubKey, user.Status, user.Token)
 	}
 
 	return us, userMap, userList, kv

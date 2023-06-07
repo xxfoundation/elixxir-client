@@ -26,11 +26,6 @@ import (
 // Client the direct message client implements a Listener and Sender interface.
 type Client interface {
 	Sender
-	// Listener
-
-	BlockSender(senderPubKey ed25519.PublicKey)
-
-	UnblockSender(senderPubKey ed25519.PublicKey)
 
 	// GetPublicKey returns the public key of this client.
 	GetPublicKey() nike.PublicKey
@@ -45,12 +40,24 @@ type Client interface {
 	// portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
-	// IsBlocked indicates if the given sender is blocked.
-	// Blocking is controlled by the receiver/EventModel.
-	IsBlocked(senderPubKey ed25519.PublicKey) bool
+	// BlockUnDmedSender blocks a sender that a DM conversation has never been
+	// started with.
+	BlockUnDmedSender(senderPubKey ed25519.PublicKey, token uint32)
+
+	// BlockSender prevents receiving messages from the sender. An error is
+	// returned if no conversations have been started with the sender.
+	BlockSender(senderPubKey ed25519.PublicKey) error
+
+	// UnblockSender unblocks DMs from the sender with the passed in public key.
+	// An error is returned if no conversations have been started with the
+	// sender.
+	UnblockSender(senderPubKey ed25519.PublicKey) error
+
+	// IsBlocked indicates if the given sender is blocked. Returns an error if
+	// no conversations have been started with the sender.
+	IsBlocked(senderPubKey ed25519.PublicKey) (bool, error)
 
 	// GetBlockedSenders returns all senders who are blocked by this user.
-	// Blocking is controlled by the receiver/EventModel.
 	GetBlockedSenders() []ed25519.PublicKey
 
 	NickNameManager

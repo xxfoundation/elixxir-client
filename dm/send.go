@@ -232,8 +232,9 @@ func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf("[DM][%s] Sending from %s to %s type %d at %s",
-		params.DebugTag, dc.me.PubKey, partnerID, messageType,
+	sendPrint := fmt.Sprintf("[DM][%s] Sending from %s to %s type %s at %s",
+		params.DebugTag, base64.StdEncoding.EncodeToString(dc.me.PubKey),
+		partnerID, messageType,
 		netTime.Now())
 	defer func() { jww.INFO.Println(sendPrint) }()
 

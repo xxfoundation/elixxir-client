@@ -111,7 +111,9 @@ func (dp *dmProcessor) Process(msg format.Message, _ []string, _ []byte,
 
 	messageType := MessageType(directMsg.PayloadType)
 
-	if dp.r.c.IsBlocked(pubSigningKey) {
+	// Check if the user is blocked
+	user := dp.r.c.userStore.getOrSet(pubSigningKey, senderToken)
+	if user.Status == statusBlocked {
 		jww.INFO.Printf("Dropping message from blocked user: %s",
 			base64.RawStdEncoding.EncodeToString(pubSigningKey))
 		return

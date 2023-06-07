@@ -85,105 +85,170 @@ const (
 	statusMute      userStatus = 10
 	statusNotifyAll userStatus = 20
 	statusBlocked   userStatus = 50
+
+	// defaultStatus is set when adding a new user or resetting a status.
+	defaultStatus = statusNotifyAll
 )
 
 // set saves the dmUser info to storage keyed on the Ed25519 public key.
-func (us *userStore) set(pubKey ed25519.PublicKey, status userStatus, token uint32) error {
+func (us *userStore) set(pubKey ed25519.PublicKey, status userStatus, token uint32) {
+	us.mux.Lock()
+	defer us.mux.Unlock()
+	us.setUnsafe(pubKey, status, token)
+}
+
+func (us *userStore) setUnsafe(pubKey ed25519.PublicKey, status userStatus, token uint32) {
 	elemName := marshalElementName(pubKey)
 	data, err := json.Marshal(dmUser{
 		Status: status,
 		Token:  token,
 	})
 	if err != nil {
-		return err
+		jww.FATAL.Panicf("[DM] Failed to JSON marshal user %X for storage: %+v",
+			pubKey, err)
 	}
 
-	us.mux.Lock()
-	defer us.mux.Unlock()
-	return us.remote.StoreMapElement(dmMapName, elemName, &versioned.Object{
+	obj := &versioned.Object{
 		Version:   dmStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
-	}, dmMapVersion)
+	}
+
+	err = us.remote.StoreMapElement(dmMapName, elemName, obj, dmMapVersion)
+	if err != nil {
+		jww.FATAL.Panicf("[DM] Failed to set user %X: %+v", pubKey, err)
+	}
 }
 
 // update updates the status for the dmUser keyed on the Ed25519 public key.
+// Only returns an error if the user does not exist in storage.
 func (us *userStore) update(pubKey ed25519.PublicKey, status userStatus) error {
 	elemName := marshalElementName(pubKey)
 	us.mux.Lock()
 	defer us.mux.Unlock()
 	obj, err := us.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
 	if err != nil {
-		return err
+		if us.remote.Exists(err) {
+			jww.FATAL.Panicf("[DM] Failed to load user %X from storage: %+v",
+				pubKey, err)
+		} else {
+			return err
+		}
 	}
 
 	var user dmUser
 	if err = json.Unmarshal(obj.Data, &user); err != nil {
-		return err
+		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal user %X from storage: %+v",
+			pubKey, err)
 	}
 	user.Status = status
 
 	data, err := json.Marshal(user)
 	if err != nil {
-		return err
+		jww.FATAL.Panicf("[DM] Failed to JSON marshal user %X for storage: %+v",
+			pubKey, err)
 	}
 
-	return us.remote.StoreMapElement(dmMapName, elemName, &versioned.Object{
+	err = us.remote.StoreMapElement(dmMapName, elemName, &versioned.Object{
 		Version:   dmStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}, dmMapVersion)
+	if err != nil {
+		jww.FATAL.Panicf("[DM] Failed to update user %X: %+v", pubKey, err)
+	}
+
+	return nil
 }
 
-// get returns the dmUser from storage.
+// get returns the dmUser from storage. Only returns an error if the user does
+// not exist in storage.
 func (us *userStore) get(pubKey ed25519.PublicKey) (*dmUser, error) {
 	elemName := marshalElementName(pubKey)
 	us.mux.Lock()
 	obj, err := us.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
 	us.mux.Unlock()
 	if err != nil {
-		return nil, err
+		if us.remote.Exists(err) {
+			jww.FATAL.Panicf("[DM] Failed to load user %X from storage: %+v",
+				pubKey, err)
+		} else {
+			return nil, err
+		}
 	}
 
 	var user dmUser
 	if err = json.Unmarshal(obj.Data, &user); err != nil {
-		return nil, err
+		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal user %X from storage: %+v",
+			pubKey, err)
 	}
 	user.PublicKey = pubKey
 
 	return &user, nil
 }
 
+// getOrSet returns the dmUser from storage. If the user does not exist, then it
+// is added with the default status and returned.
+// / TODO: test
+func (us *userStore) getOrSet(pubKey ed25519.PublicKey, token uint32) *dmUser {
+	elemName := marshalElementName(pubKey)
+	us.mux.Lock()
+	defer us.mux.Unlock()
+	obj, err := us.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
+	if err != nil {
+		if us.remote.Exists(err) {
+			jww.FATAL.Panicf("[DM] Failed to load user %X from storage: %+v",
+				pubKey, err)
+		}
+
+		us.setUnsafe(pubKey, defaultStatus, token)
+		return &dmUser{
+			PublicKey: pubKey,
+			Status:    defaultStatus,
+			Token:     token,
+		}
+	}
+
+	var user dmUser
+	if err = json.Unmarshal(obj.Data, &user); err != nil {
+		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal user %X from storage: %+v",
+			pubKey, err)
+	}
+	user.PublicKey = pubKey
+
+	return &user
+}
+
 // delete removes the dmUser for the public key from storage.
-func (us *userStore) delete(pubKey ed25519.PublicKey) error {
+func (us *userStore) delete(pubKey ed25519.PublicKey) {
 	elemName := marshalElementName(pubKey)
 	us.mux.Lock()
 	_, err := us.remote.DeleteMapElement(dmMapName, elemName, dmMapVersion)
 	us.mux.Unlock()
 	if err != nil {
-		return err
+		jww.FATAL.Panicf("[DM] Failed to delete user %X from storage: %+v",
+			pubKey, err)
 	}
-
-	return nil
 }
 
 // getAll returns a list of all users in storage.
-func (us *userStore) getAll() ([]*dmUser, error) {
+func (us *userStore) getAll() []*dmUser {
 	var users []*dmUser
-	init := func(n int) { users = make([]*dmUser, 0, n) }
-	add := func(user *dmUser) { users = append(users, user) }
-	return users, us.iterate(init, add)
+	us.iterate(func(n int) { users = make([]*dmUser, 0, n) },
+		func(user *dmUser) { users = append(users, user) })
+	return users
 }
 
 // iterate loops through all users in storage, unmarshalls each one, and passes
 // it into the add function. Before add is called, init is called with the total
 // number of users storage.
-func (us *userStore) iterate(init func(n int), add func(user *dmUser)) error {
+func (us *userStore) iterate(init func(n int), add func(user *dmUser)) {
 	us.mux.Lock()
 	userMap, err := us.remote.GetMap(dmMapName, dmMapVersion)
 	us.mux.Unlock()
 	if err != nil {
-		return err
+		jww.FATAL.Panicf("[DM] Failed to load map %s from storage: %+v",
+			dmMapName, err)
 	}
 
 	init(len(userMap))
@@ -204,8 +269,6 @@ func (us *userStore) iterate(init func(n int), add func(user *dmUser)) error {
 
 		add(&user)
 	}
-
-	return nil
 }
 
 // marshalElementName marshals the [ed25519.PublicKey] into a string for use as

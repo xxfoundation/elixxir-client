@@ -336,24 +336,14 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 	lease time.Duration, round rounds.Round,
 	messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) (uint64, error) {
-	textBytes := []byte(text)
-	var err error
-
-	// Handle encryption of input text
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt([]byte(text))
-		if err != nil {
-			return 0, errors.Errorf("Failed to encrypt message: %+v", err)
-		}
-	}
 
 	msgToInsert := buildMessage(
 		channelID.Marshal(), messageID.Bytes(), parentMsgId, nickname,
-		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
+		text, pubKey, dmToken, codeset, timestamp, lease, round.ID,
 		messageType, false, hidden, status)
 
 	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Create(msgToInsert).Error
+	err := i.db.WithContext(ctx).Create(msgToInsert).Error
 	cancel()
 
 	if err != nil {
@@ -370,8 +360,8 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 // NOTE: ID is not set inside this function because we want to use the
 // autoincrement key by default. If you are trying to overwrite an existing
 // message, then you need to set it manually yourself.
-func buildMessage(channelID, messageID, parentID []byte, nickname string,
-	text []byte, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+func buildMessage(channelID, messageID, parentID []byte, nickname,
+	text string, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, lease time.Duration, round id.Round,
 	mType channels.MessageType, pinned, hidden bool,
 	status channels.SentStatus) *Message {
@@ -385,7 +375,7 @@ func buildMessage(channelID, messageID, parentID []byte, nickname string,
 		Status:          uint8(status),
 		Hidden:          &hidden,
 		Pinned:          &pinned,
-		Text:            text,
+		Text:            []byte(text),
 		Type:            uint16(mType),
 		Round:           int64(round),
 		// User Identity Info

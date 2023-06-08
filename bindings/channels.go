@@ -1926,10 +1926,11 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //   - []byte - JSON of a slice of [channels.NotificationReport].
 //
 // Example return:
-//  [
-//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
-//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
-//  ]
+//
+//	[
+//	  {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
+//	  {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
+//	]
 func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
@@ -1937,7 +1938,7 @@ func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 		// Attempt to unmarshal as the entire NotificationUpdateJson
 		var nuj NotificationUpdateJson
 		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
-			return nil, errors.Errorf("failed to JSON unmarshal " +
+			return nil, errors.Errorf("failed to JSON unmarshal "+
 				"notificationFilterJSON:\n%v\n%v", err, err2)
 		}
 		nfs = nuj.NotificationFilters
@@ -3150,7 +3151,7 @@ type AdminKeysUpdateJson struct {
 //      "status":2,
 //      "broadcastDMToken":false
 //   }
-//
+// ]
 
 type ChannelsUpdateJson struct {
 	ChannelId        *id.ID `json:"channelID"`

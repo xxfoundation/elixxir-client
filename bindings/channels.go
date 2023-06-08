@@ -1885,9 +1885,9 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
-//     Can optionally be the entire json return from NotificationUpdateJson
+//     It can optionally be the entire json return from [NotificationUpdateJson]
 //     Instead of just the needed subsection
-//   - notificationDataJSON - JSON of a slice of [notifications.Data].
+//   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
 // [
@@ -1921,45 +1921,29 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //	  }
 //	]
 //
-// Example JSON of a slice of [notifications.Data]:
-//
-//	[
-//	  {
-//	    "EphemeralID": -6475,
-//	    "RoundID": 875,
-//	    "IdentityFP": "jWG/UuxRjD80HEo0WX3KYIag5LCfgaWKAg==",
-//	    "MessageHash": "hDGE46QWa3d70y5nJTLbEaVmrFJHOyp2"
-//	  },
-//	  {
-//	    "EphemeralID": -2563,
-//	    "RoundID": 875,
-//	    "IdentityFP": "gL4nhCGKPNBm6YZ7KC0v4JThw65N9bRLTQ==",
-//	    "MessageHash": "WcS4vGrSWDK8Kj7JYOkMo8kSh1Xti94V"
-//	  },
-//	  {
-//	    "EphemeralID": -13247,
-//	    "RoundID": 875,
-//	    "IdentityFP": "qV3uD++VWPhD2rRMmvrP9j8hp+jpFSsUHg==",
-//	    "MessageHash": "VX6Tw7N48j7U2rRXYle20mFZi0If4CB1"
-//	  }
-//	]
-//
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].
-func GetChannelNotificationReportsForMe(notificationFilterJSON,
-	notificationDataJSON []byte) ([]byte, error) {
+//
+// Example return:
+//  [
+//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
+//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
+//  ]
+func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
+	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
-		//attempt to unmarshal as the entire NotificationUpdateJson
-		nuj := &NotificationUpdateJson{}
-		if err2 := json.Unmarshal(notificationFilterJSON, &nfs); err2 != nil {
-			return nil, err
+		// Attempt to unmarshal as the entire NotificationUpdateJson
+		var nuj NotificationUpdateJson
+		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
+			return nil, errors.Errorf("failed to JSON unmarshal " +
+				"notificationFilterJSON:\n%v\n%v", err, err2)
 		}
 		nfs = nuj.NotificationFilters
 	}
 
-	var notifData []*notifications.Data
-	if err := json.Unmarshal(notificationDataJSON, &notifData); err != nil {
+	notifData, err := notifications.DecodeNotificationsCSV(notificationDataCSV)
+	if err != nil {
 		return nil, err
 	}
 

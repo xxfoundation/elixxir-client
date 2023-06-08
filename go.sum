@@ -501,6 +501,8 @@ gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8 h1:uAFCyBkXprQ
 gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8/go.mod h1:1X8gRIAPDisS3W6Vtr/ymiUmZMJUIwDV1o5DEOo/pzw=
 gitlab.com/elixxir/comms v0.0.4-0.20230519211512-4a998f4b0938 h1:f27+QUFiGWrprKm+fstOg3ABkYLpWcZi3+8Lf5eDnqY=
 gitlab.com/elixxir/comms v0.0.4-0.20230519211512-4a998f4b0938/go.mod h1:z+qW0D9VpY5QKTd7wRlb5SK4kBNqLYsa4DXBcUXue9Q=
+gitlab.com/elixxir/comms v0.0.4-0.20230608201134-3cac2b04fb52 h1:S1h/1m8uXb3iEcaSch1tYbNjNRDLHyXyor5k/xodVXE=
+gitlab.com/elixxir/comms v0.0.4-0.20230608201134-3cac2b04fb52/go.mod h1:z+qW0D9VpY5QKTd7wRlb5SK4kBNqLYsa4DXBcUXue9Q=
 gitlab.com/elixxir/crypto v0.0.7-0.20230522162218-45433d877235 h1:0BySdXTzRWxzH8k5RiNNMmmn2lpuQWLVcDDA/7ehyqc=
 gitlab.com/elixxir/crypto v0.0.7-0.20230522162218-45433d877235/go.mod h1:IYInxKr5Q7EH3oNhg1QX1/sTTRNi7L0JkcyfdRegoio=
 gitlab.com/elixxir/ekv v0.3.1-0.20230525194317-09a02b3624b4 h1:CAnL4hXfDBcBimI/GxFoBWNeS8DAXrc6YXxUL7C0nEM=

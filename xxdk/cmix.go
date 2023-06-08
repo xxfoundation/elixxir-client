@@ -8,10 +8,11 @@
 package xxdk
 
 import (
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
-	"gitlab.com/elixxir/primitives/states"
 	"math"
 	"time"
+
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/elixxir/primitives/states"
 
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -162,7 +163,8 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 		return errors.Wrapf(err, "Could not parse version string.")
 	}
 
-	err = storage.InitFromRemote(rkv, currentVersion, cmixGrp, e2eGrp)
+	err = storage.InitFromRemote(rkv, def, currentVersion, cmixGrp,
+		e2eGrp)
 	if err != nil {
 		return err
 	}

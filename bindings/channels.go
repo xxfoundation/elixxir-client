@@ -10,6 +10,7 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"sync"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/channels/storage"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -279,13 +279,12 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     with an extension builder (e.g.,
 //     [ChannelsFileTransfer.GetExtensionBuilderID]). Leave empty if not using
 //     extension builders. Example: `[2,11,5]`.
-//   - cipherID - ID of [ChannelDbCipher] object in tracker.
 //   - notificationsID - ID of [Notifications] object in tracker. This can be
 //     retrieved using [Notifications.GetID].
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
-	dbFilePath string, extensionBuilderIDsJSON []byte, cipherID,
+	dbFilePath string, extensionBuilderIDsJSON []byte,
 	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
@@ -294,10 +293,6 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 
 	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
-	if err != nil {
-		return nil, err
-	}
-	cipher, err := channelDbCipherTrackerSingleton.get(cipherID)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +309,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 
 	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath, cipher,
+	model, err := storage.NewEventModel(dbFilePath,
 		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
 	if err != nil {
 		return nil, err
@@ -351,7 +346,6 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //   - storageTag - The storage tag associated with the previously created
 //     channel manager and retrieved with [ChannelsManager.GetStorageTag].
 //   - dbFilePath - absolute string path to the SqlLite database file
-//   - cipherID - ID of [ChannelDbCipher] object in tracker.
 //   - extensionBuilderIDsJSON - JSON of an array of integers of
 //     [channels.ExtensionBuilder] IDs. The ID can be retrieved from an object
 //     with an extension builder (e.g.,
@@ -362,15 +356,11 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //   - uiCallbacks - Callbacks to inform the UI about various events. The entire
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
-	cipherID int, extensionBuilderIDsJSON []byte, notificationsID int,
+	extensionBuilderIDsJSON []byte, notificationsID int,
 	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
-	if err != nil {
-		return nil, err
-	}
-	cipher, err := channelDbCipherTrackerSingleton.get(cipherID)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +371,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 
 	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath, cipher,
+	model, err := storage.NewEventModel(dbFilePath,
 		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
 	if err != nil {
 		return nil, err
@@ -1896,9 +1886,9 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
-//     Can optionally be the entire json return from NotificationUpdateJson
+//     It can optionally be the entire json return from [NotificationUpdateJson]
 //     Instead of just the needed subsection
-//   - notificationDataJSON - JSON of a slice of [notifications.Data].
+//   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
 // [
@@ -1932,45 +1922,29 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //	  }
 //	]
 //
-// Example JSON of a slice of [notifications.Data]:
-//
-//	[
-//	  {
-//	    "EphemeralID": -6475,
-//	    "RoundID": 875,
-//	    "IdentityFP": "jWG/UuxRjD80HEo0WX3KYIag5LCfgaWKAg==",
-//	    "MessageHash": "hDGE46QWa3d70y5nJTLbEaVmrFJHOyp2"
-//	  },
-//	  {
-//	    "EphemeralID": -2563,
-//	    "RoundID": 875,
-//	    "IdentityFP": "gL4nhCGKPNBm6YZ7KC0v4JThw65N9bRLTQ==",
-//	    "MessageHash": "WcS4vGrSWDK8Kj7JYOkMo8kSh1Xti94V"
-//	  },
-//	  {
-//	    "EphemeralID": -13247,
-//	    "RoundID": 875,
-//	    "IdentityFP": "qV3uD++VWPhD2rRMmvrP9j8hp+jpFSsUHg==",
-//	    "MessageHash": "VX6Tw7N48j7U2rRXYle20mFZi0If4CB1"
-//	  }
-//	]
-//
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].
-func GetChannelNotificationReportsForMe(notificationFilterJSON,
-	notificationDataJSON []byte) ([]byte, error) {
+//
+// Example return:
+//  [
+//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
+//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
+//  ]
+func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
+	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
-		//attempt to unmarshal as the entire NotificationUpdateJson
-		nuj := &NotificationUpdateJson{}
-		if err2 := json.Unmarshal(notificationFilterJSON, &nfs); err2 != nil {
-			return nil, err
+		// Attempt to unmarshal as the entire NotificationUpdateJson
+		var nuj NotificationUpdateJson
+		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
+			return nil, errors.Errorf("failed to JSON unmarshal " +
+				"notificationFilterJSON:\n%v\n%v", err, err2)
 		}
 		nfs = nuj.NotificationFilters
 	}
 
-	var notifData []*notifications.Data
-	if err := json.Unmarshal(notificationDataJSON, &notifData); err != nil {
+	notifData, err := notifications.DecodeNotificationsCSV(notificationDataCSV)
+	if err != nil {
 		return nil, err
 	}
 
@@ -2780,157 +2754,6 @@ func (ebt *channelsExtensionBuilderTracker) delete(id int) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Channel ChannelDbCipher                                                    //
-////////////////////////////////////////////////////////////////////////////////
-
-// ChannelDbCipher is the bindings layer representation of the [channel.Cipher].
-type ChannelDbCipher struct {
-	api  cryptoChannel.Cipher
-	salt []byte
-	id   int
-}
-
-// channelDbCipherTrackerSingleton is used to track ChannelDbCipher objects
-// so that they can be referenced by ID back over the bindings.
-var channelDbCipherTrackerSingleton = &channelDbCipherTracker{
-	tracked: make(map[int]*ChannelDbCipher),
-	count:   0,
-}
-
-// channelDbCipherTracker is a singleton used to keep track of extant
-// ChannelDbCipher objects, preventing race conditions created by passing it
-// over the bindings.
-type channelDbCipherTracker struct {
-	tracked map[int]*ChannelDbCipher
-	count   int
-	mux     sync.RWMutex
-}
-
-// create creates a ChannelDbCipher from a [channel.Cipher], assigns it a unique
-// ID, and adds it to the channelDbCipherTracker.
-func (ct *channelDbCipherTracker) create(c cryptoChannel.Cipher) *ChannelDbCipher {
-	ct.mux.Lock()
-	defer ct.mux.Unlock()
-
-	chID := ct.count
-	ct.count++
-
-	ct.tracked[chID] = &ChannelDbCipher{
-		api: c,
-		id:  chID,
-	}
-
-	return ct.tracked[chID]
-}
-
-// get an ChannelDbCipher from the channelDbCipherTracker given its ID.
-func (ct *channelDbCipherTracker) get(id int) (*ChannelDbCipher, error) {
-	ct.mux.RLock()
-	defer ct.mux.RUnlock()
-
-	c, exist := ct.tracked[id]
-	if !exist {
-		return nil, errors.Errorf(
-			"Cannot get ChannelDbCipher for ID %d, does not exist", id)
-	}
-
-	return c, nil
-}
-
-// delete removes a ChannelDbCipher from the channelDbCipherTracker.
-func (ct *channelDbCipherTracker) delete(id int) {
-	ct.mux.Lock()
-	defer ct.mux.Unlock()
-
-	delete(ct.tracked, id)
-}
-
-// GetChannelDbCipherTrackerFromID returns the ChannelDbCipher with the
-// corresponding ID in the tracker.
-func GetChannelDbCipherTrackerFromID(id int) (*ChannelDbCipher, error) {
-	return channelDbCipherTrackerSingleton.get(id)
-}
-
-// NewChannelsDatabaseCipher constructs a ChannelDbCipher object.
-//
-// Parameters:
-//   - cmixID - The tracked [Cmix] object ID.
-//   - password - The password for storage. This should be the same password
-//     passed into [NewCmix].
-//   - plaintTextBlockSize - The maximum size of a payload to be encrypted.
-//     A payload passed into [ChannelDbCipher.Encrypt] that is larger than
-//     plaintTextBlockSize will result in an error.
-func NewChannelsDatabaseCipher(cmixID int, password []byte,
-	plaintTextBlockSize int) (*ChannelDbCipher, error) {
-	// Get user from singleton
-	user, err := cmixTrackerSingleton.get(cmixID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate RNG
-	stream := user.api.GetRng().GetStream()
-
-	// Load or generate a salt
-	salt, err := utility.NewOrLoadSalt(
-		user.api.GetStorage().GetKV(), stream)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct a cipher
-	c, err := cryptoChannel.NewCipher(
-		password, salt, plaintTextBlockSize, stream)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return a cipher
-	return channelDbCipherTrackerSingleton.create(c), nil
-}
-
-// GetID returns the ID for this ChannelDbCipher in the channelDbCipherTracker.
-func (c *ChannelDbCipher) GetID() int {
-	return c.id
-}
-
-// Encrypt will encrypt the raw data. It will return a ciphertext. Padding is
-// done on the plaintext so all encrypted data looks uniform at rest.
-//
-// Parameters:
-//   - plaintext - The data to be encrypted. This must be smaller than the block
-//     size passed into [NewChannelsDatabaseCipher]. If it is larger, this will
-//     return an error.
-func (c *ChannelDbCipher) Encrypt(plaintext []byte) ([]byte, error) {
-	return c.api.Encrypt(plaintext)
-}
-
-// Decrypt will decrypt the passed in encrypted value. The plaintext will
-// be returned by this function. Any padding will be discarded within
-// this function.
-//
-// Parameters:
-//   - ciphertext - the encrypted data returned by [ChannelDbCipher.Encrypt].
-func (c *ChannelDbCipher) Decrypt(ciphertext []byte) ([]byte, error) {
-	return c.api.Decrypt(ciphertext)
-}
-
-// MarshalJSON marshals the cipher into valid JSON. This function adheres to the
-// json.Marshaler interface.
-func (c *ChannelDbCipher) MarshalJSON() ([]byte, error) {
-	return c.api.MarshalJSON()
-}
-
-// UnmarshalJSON unmarshalls JSON into the cipher. This function adheres to the
-// json.Unmarshaler interface.
-//
-// Note that this function does not transfer the internal RNG. Use
-// NewCipherFromJSON to properly reconstruct a cipher from JSON.
-func (c *ChannelDbCipher) UnmarshalJSON(data []byte) error {
-	return c.api.UnmarshalJSON(data)
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // UI Callbacks                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -2949,7 +2772,7 @@ const (
 	UserMuted          int64 = 4000
 	MessageDeleted     int64 = 5000
 	AdminKeyUpdate     int64 = 6000
-	DmTokenUpdate      int64 = 7000
+	ChannelUpdate      int64 = 7000
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a
@@ -3294,17 +3117,61 @@ type AdminKeysUpdateJson struct {
 	isAdmin   bool   `json:"isAdmin"`
 }
 
-// DmTokenUpdateJson describes when the sending of dm tokens is enabled or
+// ChannelsUpdateJson describes when the sending of dm tokens is enabled or
 // disabled on a specific channel
+// Status consts are described by SyncCreated, SyncUpdated, SyncDeleted, and
+// SyncLoaded
 //
-//	{
-//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
-//	 "sendToken":true
-//	}
-type DmTokenUpdateJson struct {
-	ChannelId *id.ID `json:"channelID"`
-	SendToken bool   `json:"sendToken"`
+// This is used as a list of these, which looks as follows:
+//
+//	[
+//   {
+//      "channelID":"AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":0,
+//      "broadcastDMToken":false
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":0,
+//      "broadcastDMToken":true
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":1,
+//      "broadcastDMToken":true
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":1,
+//      "broadcastDMToken":false
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":2,
+//      "broadcastDMToken":false
+//   }
+//
+
+type ChannelsUpdateJson struct {
+	ChannelId        *id.ID `json:"channelID"`
+	Status           int    `json:"status"`
+	BroadcastDMToken bool   `json:"broadcastDMToken"`
 }
+
+const (
+	// SyncCreated is the status when the update represents the first creation
+	SyncCreated = int(versioned.Created)
+	// SyncUpdated is the status when the update represents a change to
+	// an already existing value
+	SyncUpdated = int(versioned.Updated)
+	// SyncDeleted is the status when the update represents the removal of
+	// data
+	SyncDeleted = int(versioned.Deleted)
+	// SyncLoaded is called when the data is loaded on a start, may not
+	// represent a mutation, but can if a mutation was missed due to a crash
+	// or shut down
+	SyncLoaded = int(versioned.Deleted)
+)
 
 type ChannelUICallbacks interface {
 	EventUpdate(eventType int64, jsonData []byte)
@@ -3314,19 +3181,26 @@ type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) DmTokenUpdate(chID *id.ID, sendToken bool) {
+func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(cu []channels.ChannelUpdateOperation) {
 
-	dmtJson := &DmTokenUpdateJson{
-		ChannelId: chID,
-		SendToken: sendToken,
+	cuJson := make([]ChannelsUpdateJson, 0, len(cu))
+
+	for i := range cu {
+		update := cu[i]
+		cuJson = append(cuJson, ChannelsUpdateJson{
+			ChannelId:        update.ChID,
+			Status:           int(update.Status),
+			BroadcastDMToken: update.BroadcastDMToken,
+		})
 	}
-	jsonBytes, err := json.Marshal(dmtJson)
+
+	jsonBytes, err := json.Marshal(&cuJson)
 	if err != nil {
-		jww.ERROR.Printf("Failed to json dm token update "+
+		jww.ERROR.Printf("Failed to json Channel Update "+
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(DmTokenUpdate, jsonBytes)
+	cuicbw.Cuic.EventUpdate(ChannelUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bool) {

@@ -10,9 +10,10 @@ package cmd
 import (
 	"crypto/ed25519"
 	"fmt"
-	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"os"
 	"time"
+
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -474,6 +475,8 @@ func (c *channelCbs) AdminKeysUpdate(chID *id.ID, isAdmin bool) {}
 func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
 
 func (c *channelCbs) DmTokenUpdate(chID *id.ID, sendToken bool) {}
+
+func (c *channelCbs) ChannelUpdate([]channels.ChannelUpdateOperation) {}
 
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",

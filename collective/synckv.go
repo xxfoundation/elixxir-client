@@ -56,7 +56,8 @@ func CloneFromRemoteStorage(path string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue,
 	rng *fastRNG.StreamGenerator) (*versionedKV, error) {
 
-	rkv, err := SynchronizedKV(path, deviceSecret, remote, kv, nil, rng)
+	rkv, err := SynchronizedKV(path, deviceSecret, remote, kv,
+		nil, rng)
 	if err != nil {
 		return nil, err
 	}
@@ -149,9 +150,21 @@ func LocalKV(path string, deviceSecret []byte, kv ekv.KeyValue,
 func newVersionedKV(transactionLog *remoteWriter, kv ekv.KeyValue,
 	synchedPrefixes []string) *versionedKV {
 
+	hasStandardPrefix := false
 	sPrefixes := synchedPrefixes
 	if sPrefixes == nil {
-		sPrefixes = make([]string, 0)
+		sPrefixes = []string{StandardRemoteSyncPrefix}
+		hasStandardPrefix = true
+	} else {
+		for i := 0; i < len(sPrefixes); i++ {
+			if sPrefixes[i] == StandardRemoteSyncPrefix {
+				hasStandardPrefix = true
+				break
+			}
+		}
+	}
+	if !hasStandardPrefix {
+		sPrefixes = append(sPrefixes, StandardRemoteSyncPrefix)
 	}
 
 	remote := newKV(transactionLog, kv)

@@ -10,6 +10,7 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"sync"
 	"time"
@@ -2771,7 +2772,7 @@ const (
 	UserMuted          int64 = 4000
 	MessageDeleted     int64 = 5000
 	AdminKeyUpdate     int64 = 6000
-	DmTokenUpdate      int64 = 7000
+	ChannelUpdate      int64 = 7000
 )
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a
@@ -3116,17 +3117,61 @@ type AdminKeysUpdateJson struct {
 	isAdmin   bool   `json:"isAdmin"`
 }
 
-// DmTokenUpdateJson describes when the sending of dm tokens is enabled or
+// ChannelsUpdateJson describes when the sending of dm tokens is enabled or
 // disabled on a specific channel
+// Status consts are described by SyncCreated, SyncUpdated, SyncDeleted, and
+// SyncLoaded
 //
-//	{
-//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
-//	 "sendToken":true
-//	}
-type DmTokenUpdateJson struct {
-	ChannelId *id.ID `json:"channelID"`
-	SendToken bool   `json:"sendToken"`
+// This is used as a list of these, which looks as follows:
+//
+//	[
+//   {
+//      "channelID":"AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":0,
+//      "broadcastDMToken":false
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":0,
+//      "broadcastDMToken":true
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":1,
+//      "broadcastDMToken":true
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":1,
+//      "broadcastDMToken":false
+//   },
+//   {
+//      "channelID":"AAAAAAAAAAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "status":2,
+//      "broadcastDMToken":false
+//   }
+//
+
+type ChannelsUpdateJson struct {
+	ChannelId        *id.ID `json:"channelID"`
+	Status           int    `json:"status"`
+	BroadcastDMToken bool   `json:"broadcastDMToken"`
 }
+
+const (
+	// SyncCreated is the status when the update represents the first creation
+	SyncCreated = int(versioned.Created)
+	// SyncUpdated is the status when the update represents a change to
+	// an already existing value
+	SyncUpdated = int(versioned.Updated)
+	// SyncDeleted is the status when the update represents the removal of
+	// data
+	SyncDeleted = int(versioned.Deleted)
+	// SyncLoaded is called when the data is loaded on a start, may not
+	// represent a mutation, but can if a mutation was missed due to a crash
+	// or shut down
+	SyncLoaded = int(versioned.Deleted)
+)
 
 type ChannelUICallbacks interface {
 	EventUpdate(eventType int64, jsonData []byte)
@@ -3136,19 +3181,26 @@ type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) DmTokenUpdate(chID *id.ID, sendToken bool) {
+func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(cu []channels.ChannelUpdateOperation) {
 
-	dmtJson := &DmTokenUpdateJson{
-		ChannelId: chID,
-		SendToken: sendToken,
+	cuJson := make([]ChannelsUpdateJson, 0, len(cu))
+
+	for i := range cu {
+		update := cu[i]
+		cuJson = append(cuJson, ChannelsUpdateJson{
+			ChannelId:        update.ChID,
+			Status:           int(update.Status),
+			BroadcastDMToken: update.BroadcastDMToken,
+		})
 	}
-	jsonBytes, err := json.Marshal(dmtJson)
+
+	jsonBytes, err := json.Marshal(&cuJson)
 	if err != nil {
-		jww.ERROR.Printf("Failed to json dm token update "+
+		jww.ERROR.Printf("Failed to json Channel Update "+
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(DmTokenUpdate, jsonBytes)
+	cuicbw.Cuic.EventUpdate(ChannelUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bool) {

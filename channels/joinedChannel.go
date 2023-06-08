@@ -43,8 +43,7 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	joined := make([]*cryptoBroadcast.Channel, 0, len(edits))
-	deleted := make([]*id.ID, 0, len(edits))
+	updates := make([]ChannelUpdateOperation, 0, len(edits))
 
 	for elementName, edit := range edits {
 		channelID := &id.ID{}
@@ -57,13 +56,17 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 		copy(channelID[:], elementBytes)
 
 		if edit.Operation == versioned.Deleted {
-			if err := m.removeChannelUnsafe(channelID); err != nil {
+			if err = m.removeChannelUnsafe(channelID); err != nil {
 				jww.WARN.Printf("Failed to remove "+
 					"channel on instruction from remote %s: %+v", channelID,
 					err)
-			} else {
-				deleted = append(deleted, channelID)
 			}
+			m.events.model.LeaveChannel(channelID)
+			updates = append(updates, ChannelUpdateOperation{
+				ChID:             channelID,
+				Status:           versioned.Deleted,
+				BroadcastDMToken: false,
+			})
 			continue
 		} else if edit.Operation == versioned.Updated {
 			jc, err := m.getChannelUnsafe(channelID)
@@ -82,7 +85,11 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 				continue
 			}
 			jc.dmEnabled = jcd.DmEnabled
-			go m.dmCallback(channelID, jc.dmEnabled)
+			updates = append(updates, ChannelUpdateOperation{
+				ChID:             channelID,
+				Status:           versioned.Updated,
+				BroadcastDMToken: jc.dmEnabled,
+			})
 		}
 
 		jc, err := m.setUpJoinedChannel(edit.NewElement.Data)
@@ -91,17 +98,16 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 				"remote, skipping: %+v", channelID, err)
 			continue
 		}
-		joined = append(joined, jc.broadcast.Get())
+		m.events.model.JoinChannel(jc.broadcast.Get())
+		updates = append(updates, ChannelUpdateOperation{
+			ChID:             channelID,
+			Status:           edit.Operation,
+			BroadcastDMToken: jc.dmEnabled,
+		})
 	}
 
-	if !(len(joined) == 0 && len(deleted) == 0) {
-		for _, j := range joined {
-			m.events.model.JoinChannel(j)
-		}
-		for _, d := range deleted {
-			m.events.model.LeaveChannel(d)
-		}
-
+	if len(updates) > 0 {
+		m.channelCallback(updates)
 	} else {
 		jww.WARN.Printf("Received empty update from remote in " +
 			"join channels")

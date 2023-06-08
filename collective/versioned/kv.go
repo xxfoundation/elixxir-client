@@ -167,6 +167,8 @@ func (ko KeyOperation) String() string {
 		return "Updated"
 	case Deleted:
 		return "Deleted"
+	case Loaded:
+		return "Loaded"
 	default:
 		return "Unknown Key Operation: " + strconv.Itoa(int(ko))
 	}

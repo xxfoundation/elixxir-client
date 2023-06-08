@@ -115,50 +115,9 @@ func (us *userStore) setUnsafe(pubKey ed25519.PublicKey, status userStatus) {
 	}
 }
 
-// update updates the status for the dmUser keyed on the Ed25519 public key.
-// Only returns an error if the user does not exist in storage.
-func (us *userStore) update(pubKey ed25519.PublicKey, status userStatus) error {
-	elemName := marshalElementName(pubKey)
-	us.mux.Lock()
-	defer us.mux.Unlock()
-	obj, err := us.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
-	if err != nil {
-		if us.remote.Exists(err) {
-			jww.FATAL.Panicf("[DM] Failed to load user %X from storage: %+v",
-				pubKey, err)
-		} else {
-			return err
-		}
-	}
-
-	var user dmUser
-	if err = json.Unmarshal(obj.Data, &user); err != nil {
-		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal user %X from storage: %+v",
-			pubKey, err)
-	}
-	user.Status = status
-
-	data, err := json.Marshal(user)
-	if err != nil {
-		jww.FATAL.Panicf("[DM] Failed to JSON marshal user %X for storage: %+v",
-			pubKey, err)
-	}
-
-	err = us.remote.StoreMapElement(dmMapName, elemName, &versioned.Object{
-		Version:   dmStoreVersion,
-		Timestamp: netTime.Now(),
-		Data:      data,
-	}, dmMapVersion)
-	if err != nil {
-		jww.FATAL.Panicf("[DM] Failed to update user %X: %+v", pubKey, err)
-	}
-
-	return nil
-}
-
-// get returns the dmUser from storage. Only returns an error if the user does
-// not exist in storage.
-func (us *userStore) get(pubKey ed25519.PublicKey) (*dmUser, error) {
+// get returns the dmUser from storage. Returns false if the user does not
+// exist.
+func (us *userStore) get(pubKey ed25519.PublicKey) (user *dmUser, exists bool) {
 	elemName := marshalElementName(pubKey)
 	us.mux.Lock()
 	obj, err := us.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
@@ -168,18 +127,18 @@ func (us *userStore) get(pubKey ed25519.PublicKey) (*dmUser, error) {
 			jww.FATAL.Panicf("[DM] Failed to load user %X from storage: %+v",
 				pubKey, err)
 		} else {
-			return nil, err
+			return nil, false
 		}
 	}
 
-	var user dmUser
-	if err = json.Unmarshal(obj.Data, &user); err != nil {
+	user = &dmUser{}
+	if err = json.Unmarshal(obj.Data, user); err != nil {
 		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal user %X from storage: %+v",
 			pubKey, err)
 	}
 	user.PublicKey = pubKey
 
-	return &user, nil
+	return user, true
 }
 
 // getOrSet returns the dmUser from storage. If the user does not exist, then it
@@ -235,7 +194,7 @@ func (us *userStore) getAll() []*dmUser {
 
 // iterate loops through all users in storage, unmarshalls each one, and passes
 // it into the add function. Before add is called, init is called with the total
-// number of users storage.
+// number of users storage. Init can be nil.
 func (us *userStore) iterate(init func(n int), add func(user *dmUser)) {
 	us.mux.Lock()
 	userMap, err := us.remote.GetMap(dmMapName, dmMapVersion)
@@ -245,24 +204,94 @@ func (us *userStore) iterate(init func(n int), add func(user *dmUser)) {
 			dmMapName, err)
 	}
 
-	init(len(userMap))
-	for elemName, elem := range userMap {
+	if init != nil {
+		init(len(userMap))
+	}
+	for elemName, obj := range userMap {
 		var user dmUser
-		if err = json.Unmarshal(elem.Data, &user); err != nil {
+		user.PublicKey, err = unmarshalElementName(elemName)
+		if err != nil {
+			jww.ERROR.Printf("[DM] Failed to parse element name %s: %+v",
+				elemName, err)
+			continue
+		}
+		if err = json.Unmarshal(obj.Data, &user); err != nil {
 			jww.ERROR.Printf("[DM] Failed to parse user for element name %q: %+v",
 				elemName, err)
 			continue
 		}
 
-		user.PublicKey, err = unmarshalElementName(elemName)
-		if err != nil {
-			jww.ERROR.Printf("[DM] Failed to parse element name %s for user "+
-				"%+v: %+v", elemName, elem, err)
-			continue
-		}
-
 		add(&user)
 	}
+}
+
+// elementEdit describes a single edit in the userStore KV storage.
+type elementEdit struct {
+	old       *dmUser
+	new       *dmUser
+	operation versioned.KeyOperation
+}
+
+
+// String prints the elementEdit in a human-readable form for logging and
+// debugging. This function adheres to the fmt.Stringer interface.
+func (ee elementEdit) String() string {
+	fields := []string{
+		"old:" + fmt.Sprint(ee.old),
+		"new:" + fmt.Sprint(ee.new),
+		"operation:" + ee.operation.String(),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
+}
+
+// listen is called when the map or map elements are updated remotely or
+// locally. The public key will never change between an old and new pair in the
+// elementEdit list.
+func (us *userStore) listen(cb func(edits []elementEdit)) error {
+	us.mux.Lock()
+	defer us.mux.Unlock()
+	return us.remote.ListenOnRemoteMap(dmMapName, dmMapVersion,
+		func(edits map[string]versioned.ElementEdit) {
+			userEdits := make([]elementEdit, 0, len(edits))
+			for elemName, edit := range edits {
+				pubKey, err := unmarshalElementName(elemName)
+				if err != nil {
+					jww.ERROR.Printf("[DM] Failed to parse element name %s: %+v",
+						elemName, err)
+					continue
+				}
+
+				e := elementEdit{
+					operation: edit.Operation,
+				}
+
+				if len(edit.OldElement.Data) > 0 {
+					err = json.Unmarshal(edit.OldElement.Data, &e.old)
+					if err != nil {
+						jww.ERROR.Printf("[DM] Failed to parse old user for "+
+							"element name %q: %+v", elemName, err)
+						continue
+					} else {
+						e.old.PublicKey = pubKey
+					}
+				}
+
+				if len(edit.NewElement.Data) > 0 {
+					err = json.Unmarshal(edit.NewElement.Data, &e.new)
+					if err != nil {
+						jww.ERROR.Printf("[DM] Failed to parse new user for "+
+							"element name %q: %+v", elemName, err)
+						continue
+					} else {
+						e.new.PublicKey = pubKey
+					}
+				}
+
+				userEdits = append(userEdits, e)
+			}
+			cb(userEdits)
+		}, true)
 }
 
 // marshalElementName marshals the [ed25519.PublicKey] into a string for use as

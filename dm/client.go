@@ -176,8 +176,8 @@ func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
 
 // IsBlocked indicates if the given sender is blocked.
 func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
-	user, err := dc.userStore.get(senderPubKey)
-	if err != nil {
+	user, exists := dc.userStore.get(senderPubKey)
+	if !exists {
 		return false
 	}
 

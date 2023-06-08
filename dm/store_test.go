@@ -11,14 +11,15 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/collective/versioned"
-	"gitlab.com/elixxir/ekv"
+	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
 	"sort"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/collective"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/ekv"
 )
 
 // Unit test of userStore.set.
@@ -56,33 +57,14 @@ func Test_userStore_set(t *testing.T) {
 	}
 }
 
-// Unit test of userStore.update.
-func Test_userStore_update(t *testing.T) {
-	prng := rand.New(rand.NewSource(42889))
-	us, expected, _, _ := newFilledUserStore(25, 3694, t)
-	statuses := []userStatus{statusMute, statusNotifyAll, statusBlocked}
-
-	for elemName, exp := range expected {
-		exp.Status = statuses[prng.Intn(len(statuses))]
-		if err := us.update(exp.PublicKey, exp.Status); err != nil {
-			t.Errorf("Failed to update dmUser %s: %+v", elemName, err)
-		} else if user, err := us.get(exp.PublicKey); err != nil {
-			t.Errorf("Failed to get dmUser %s: %+v", elemName, err)
-		} else if !reflect.DeepEqual(exp, user) {
-			t.Errorf("Loaded unexpected dmUser %s.\nexpected: %v\nreceived: %v",
-				elemName, exp, user)
-		}
-	}
-}
-
 // Unit test of userStore.get.
 func Test_userStore_get(t *testing.T) {
 	us, expected, _, _ := newFilledUserStore(25, 3694, t)
 
 	for elemName, exp := range expected {
-		user, err := us.get(exp.PublicKey)
-		if err != nil {
-			t.Errorf("Failed to get dmUser %s: %+v", elemName, err)
+		user, exist := us.get(exp.PublicKey)
+		if !exist {
+			t.Errorf("User %s does not exist", elemName)
 		} else if !reflect.DeepEqual(exp, user) {
 			t.Errorf("Loaded unexpected dmUser %s.\nexpected: %v\nreceived: %v",
 				elemName, exp, user)
@@ -92,15 +74,14 @@ func Test_userStore_get(t *testing.T) {
 
 // Unit test of userStore.delete.
 func Test_userStore_delete(t *testing.T) {
-	us, expected, _, kv := newFilledUserStore(25, 98957, t)
+	us, expected, _, _ := newFilledUserStore(25, 98957, t)
 
 	for elemName, exp := range expected {
 		us.delete(exp.PublicKey)
 
-		_, err := us.get(exp.PublicKey)
-		if err == nil || kv.Exists(err) {
-			t.Errorf("Unexpected error for user %s."+
-				"\nexpected: %+v\nreceived: %+v", elemName, os.ErrNotExist, err)
+		_, exists := us.get(exp.PublicKey)
+		if exists {
+			t.Errorf("User %s not deleted.", elemName)
 		}
 	}
 }
@@ -145,6 +126,108 @@ func Test_userStore_iterate(t *testing.T) {
 	if !reflect.DeepEqual(expected, users) {
 		t.Errorf("List of all users does not match expected."+
 			"\nexpected: %v\nreceived: %v", expected, users)
+	}
+}
+
+// Tests that userStore.iterate calls init with the correct size and that add is
+// called for all stored users.
+func Test_userStore_listen(t *testing.T) {
+
+	kv := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+	prng := rand.New(rand.NewSource(33482))
+	us, err := newUserStore(kv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pubKey1, _, _ := ed25519.GenerateKey(prng)
+	pubKey2, _, _ := ed25519.GenerateKey(prng)
+	pubKey3, _, _ := ed25519.GenerateKey(prng)
+	pubKey4, _, _ := ed25519.GenerateKey(prng)
+
+	expectedEdits := [][]elementEdit{
+		{
+			{
+				old:       nil,
+				new:       &dmUser{pubKey1, statusMute},
+				operation: versioned.Loaded,
+			}, {
+				old:       nil,
+				new:       &dmUser{pubKey2, statusNotifyAll},
+				operation: versioned.Loaded,
+			}, {
+				old:       nil,
+				new:       &dmUser{pubKey3, statusBlocked},
+				operation: versioned.Loaded,
+			},
+		}, {
+			{
+				old:       &dmUser{pubKey1, statusMute},
+				new:       &dmUser{pubKey1, statusNotifyAll},
+				operation: versioned.Updated,
+			},
+		}, {
+			{
+				old:       &dmUser{pubKey2, statusNotifyAll},
+				new:       nil,
+				operation: versioned.Deleted,
+			},
+		}, {
+			{
+				old:       nil,
+				new:       &dmUser{pubKey4, statusNotifyAll},
+				operation: versioned.Created,
+			},
+		},
+	}
+
+	for _, edit := range expectedEdits[0] {
+		us.set(edit.new.PublicKey, edit.new.Status)
+	}
+
+	var i int
+	testChan := make(chan struct{})
+	cb := func(edits []elementEdit) {
+		sort.SliceStable(expectedEdits[i], func(x, y int) bool {
+			xKey := fmt.Sprintf("%s%s", expectedEdits[i][x].old, expectedEdits[i][x].new)
+			yKey := fmt.Sprintf("%s%s", expectedEdits[i][y].old, expectedEdits[i][y].new)
+			return bytes.Compare([]byte(xKey), []byte(yKey)) == -1
+		})
+		sort.SliceStable(edits, func(x, y int) bool {
+			xKey := fmt.Sprintf("%s%s", edits[x].old, edits[x].new)
+			yKey := fmt.Sprintf("%s%s", edits[y].old, edits[y].new)
+			return bytes.Compare([]byte(xKey), []byte(yKey)) == -1
+		})
+
+		if !reflect.DeepEqual(expectedEdits[i], edits) {
+			t.Errorf("Unexpected edits (%d).\nexpected: %s\nreceived: %s",
+				i, expectedEdits[i], edits)
+		}
+		i++
+		<-testChan
+	}
+	go func() {
+		err = us.listen(cb)
+		if err != nil {
+			t.Errorf("Failed to add listener: %+v", err)
+		}
+	}()
+
+	testChan <- struct{}{}
+
+	for _, edits := range expectedEdits[1:] {
+		for _, edit := range edits {
+			switch edit.operation {
+			case versioned.Created:
+				us.set(edit.new.PublicKey, edit.new.Status)
+			case versioned.Updated:
+				us.set(edit.new.PublicKey, edit.new.Status)
+			case versioned.Deleted:
+				us.delete(edit.old.PublicKey)
+			}
+		}
+		testChan <- struct{}{}
 	}
 }
 

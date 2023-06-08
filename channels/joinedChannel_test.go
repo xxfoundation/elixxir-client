@@ -11,6 +11,14 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
+	"math/rand"
+	"reflect"
+	"sort"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
 	clientCmix "gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -25,13 +33,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"reflect"
-	"sort"
-	"strconv"
-	"sync"
-	"testing"
-	"time"
 )
 
 // Tests that manager.store stores the channel list in the ekv.
@@ -132,6 +133,8 @@ func Test_manager_loadChannels(t *testing.T) {
 		t.Errorf("Error storing channels: %+v", err)
 	}
 
+	cbs := &dummyUICallback{}
+
 	newManager := &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		local:    m.local,
@@ -141,7 +144,8 @@ func Test_manager_loadChannels(t *testing.T) {
 		events: &events{broadcast: newProcessorList(),
 			model: &mockEventModel{},
 		},
-		broadcastMaker: m.broadcastMaker,
+		broadcastMaker:  m.broadcastMaker,
+		channelCallback: cbs.ChannelUpdate,
 	}
 
 	newManager.loadChannels()

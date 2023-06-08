@@ -141,6 +141,7 @@ func New(storage versioned.KV, u user.Info,
 
 // InitFromRemote sets local data for a session variable
 func InitFromRemote(storage versioned.KV,
+	def *ndf.NetworkDefinition,
 	currentVersion version.Version,
 	cmixGrp, e2eGrp *cyclic.Group) error {
 	_, err := clientVersion.NewStore(currentVersion, storage)
@@ -148,7 +149,8 @@ func InitFromRemote(storage versioned.KV,
 		return err
 	}
 
-	if err = utility.StoreGroup(storage, cmixGrp, cmixGroupKey); err != nil {
+	if err = utility.StoreGroup(storage, cmixGrp,
+		cmixGroupKey); err != nil {
 		return err
 	}
 
@@ -156,7 +158,8 @@ func InitFromRemote(storage versioned.KV,
 		return err
 	}
 
-	_, err = Load(storage, currentVersion)
+	session, err := Load(storage, currentVersion)
+	session.SetNDF(def)
 	return err
 }
 

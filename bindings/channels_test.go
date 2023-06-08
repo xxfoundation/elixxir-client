@@ -178,4 +178,38 @@ func Test_buildJsons(t *testing.T) {
 		t.Logf("MessageDeleted Json: %s", string(msgDeletedJson))
 	}
 
+	channelUpdates := make([]ChannelsUpdateJson, 0, 5)
+	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
+		ChannelId:        id.NewIdFromUInt(1, id.User, t),
+		Status:           SyncCreated,
+		BroadcastDMToken: false,
+	})
+	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
+		ChannelId:        id.NewIdFromUInt(2, id.User, t),
+		Status:           SyncCreated,
+		BroadcastDMToken: true,
+	})
+	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
+		ChannelId:        id.NewIdFromUInt(3, id.User, t),
+		Status:           SyncUpdated,
+		BroadcastDMToken: true,
+	})
+	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
+		ChannelId:        id.NewIdFromUInt(4, id.User, t),
+		Status:           SyncUpdated,
+		BroadcastDMToken: false,
+	})
+	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
+		ChannelId:        id.NewIdFromUInt(5, id.User, t),
+		Status:           SyncDeleted,
+		BroadcastDMToken: false,
+	})
+
+	channelUpdatesJson, err := json.Marshal(&channelUpdates)
+	if err != nil {
+		t.Errorf("Failed to json channel update: %+v", err)
+	} else {
+		t.Logf("[]ChannelUpdate Json: %s", string(channelUpdatesJson))
+	}
+
 }

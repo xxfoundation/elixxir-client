@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"math"
 	"time"
@@ -474,7 +475,13 @@ type UiCallbacks interface {
 	// [Manager.DeleteChannelAdminKey]).
 	AdminKeysUpdate(chID *id.ID, isAdmin bool)
 
-	// DmTokenUpdate is a callback be called when a channel's dm token state is
-	// changed
-	DmTokenUpdate(chID *id.ID, sendToken bool)
+	// ChannelUpdate is a callback be called when a channel is added or removed
+	// or if the dmToken state is changed
+	ChannelUpdate([]ChannelUpdateOperation)
+}
+
+type ChannelUpdateOperation struct {
+	ChID             *id.ID
+	Status           versioned.KeyOperation
+	BroadcastDMToken bool
 }

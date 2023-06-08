@@ -40,18 +40,18 @@ type Client interface {
 	// portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
-	// BlockSender prevents receiving messages and notifications from the
-	// sender.
-	BlockSender(senderPubKey ed25519.PublicKey)
+	// BlockPartner prevents receiving messages and notifications from the
+	// partner.
+	BlockPartner(partnerPubKey ed25519.PublicKey)
 
-	// UnblockSender unblocks a blocked sender to allow DM messages.
-	UnblockSender(senderPubKey ed25519.PublicKey)
+	// UnblockPartner unblocks a blocked sender to allow DM messages.
+	UnblockPartner(partnerPubKey ed25519.PublicKey)
 
-	// IsBlocked indicates if the given sender is blocked.
-	IsBlocked(senderPubKey ed25519.PublicKey) bool
+	// IsBlocked indicates if the given partner is blocked.
+	IsBlocked(partnerPubKey ed25519.PublicKey) bool
 
-	// GetBlockedSenders returns all senders who are blocked by this user.
-	GetBlockedSenders() []ed25519.PublicKey
+	// GetBlockedPartners returns all partners who are blocked by this user.
+	GetBlockedPartners() []ed25519.PublicKey
 
 	NickNameManager
 }

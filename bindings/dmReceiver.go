@@ -194,14 +194,17 @@ type DMReceiver interface {
 	UpdateSentStatus(uuid int64, messageID []byte, timestamp, roundID,
 		status int64)
 
-	// BlockSender silences messages sent by the indicated sender
-	// public key.
-	//  - senderPubKey - The sender's Ed25519 public key to block.
-	BlockSender(senderPubKey []byte)
-	// UnblockSender allows messages sent by the indicated sender
-	// public key.
-	//  - senderPubKey - The sender's Ed25519 public key to unblock.
-	UnblockSender(senderPubKey []byte)
+	// BlockPartner prevents receiving messages and notifications from the partner.
+	//
+	// Parameters:
+	//   - partnerPubKey - The partner's Ed25519 public key to block.
+	BlockPartner(partnerPubKey []byte)
+
+	// UnblockPartner unblocks a blocked partner to allow DM messages.
+	//
+	// Parameters:
+	//   - partnerPubKey - The partner's Ed25519 public key to unblock.
+	UnblockPartner(partnerPubKey []byte)
 
 	// GetConversations returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
@@ -300,16 +303,17 @@ func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 		int64(round.ID), int64(status))
 }
 
-// BlockSender silences messages sent by the indicated sender
-// public key.
-func (dmr *dmReceiver) BlockSender(senderPubKey ed25519.PublicKey) {
-	dmr.dr.BlockSender(senderPubKey)
+// BlockPartner prevents receiving messages and notifications from the partner.
+func (dmr *dmReceiver) BlockPartner(partnerPubKey ed25519.PublicKey) {
+	dmr.dr.BlockPartner(partnerPubKey)
 }
 
-// UnblockSender allows messages sent by the indicated sender
-// public key.
-func (dmr *dmReceiver) UnblockSender(senderPubKey ed25519.PublicKey) {
-	dmr.dr.UnblockSender(senderPubKey)
+// UnblockPartner unblocks a blocked partner to allow DM messages.
+//
+// Parameters:
+//   - partnerPubKey - The partner's Ed25519 public key to unblock.
+func (dmr *dmReceiver) UnblockPartner(partnerPubKey ed25519.PublicKey) {
+	dmr.dr.UnblockPartner(partnerPubKey)
 }
 
 // GetConversations returns any conversations held by the

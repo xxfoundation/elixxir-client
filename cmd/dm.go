@@ -336,7 +336,7 @@ func (r *receiver) UpdateSentStatus(uuid uint64, messageID message.ID,
 	msg.status = status
 }
 
-func (r *receiver) BlockSender(pubKey ed25519.PublicKey) {
+func (r *receiver) BlockPartner(ed25519.PublicKey) {
 }
 
 func (r *receiver) UnblockSender(pubKey ed25519.PublicKey) {

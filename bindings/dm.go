@@ -349,32 +349,31 @@ func (dmc *DMClient) SetNickname(nick string) {
 	dmc.api.SetNickname(nick)
 }
 
-
-// BlockSender prevents receiving messages and notifications from the sender.
+// BlockPartner prevents receiving messages and notifications from the partner.
 //
 // Parameters:
-//   - senderPubKey - The sender's Ed25519 public key to block.
-func (dmc *DMClient) BlockSender(senderPubKey []byte) {
-	dmc.api.BlockSender(senderPubKey)
+//   - partnerPubKey - The partner's Ed25519 public key to block.
+func (dmc *DMClient) BlockPartner(partnerPubKey []byte) {
+	dmc.api.BlockPartner(partnerPubKey)
 }
 
-// UnblockSender unblocks a blocked sender to allow DM messages.
+// UnblockPartner unblocks a blocked partner to allow DM messages.
 //
 // Parameters:
-//   - senderPubKey - The sender's Ed25519 public key to unblock.
-func (dmc *DMClient) UnblockSender(senderPubKey []byte) {
-	dmc.api.UnblockSender(senderPubKey)
+//   - partnerPubKey - The partner's Ed25519 public key to unblock.
+func (dmc *DMClient) UnblockPartner(partnerPubKey []byte) {
+	dmc.api.UnblockPartner(partnerPubKey)
 }
 
-// IsBlocked indicates if the given sender is blocked.
+// IsBlocked indicates if the given partner is blocked.
 //
 // Parameters:
-//   - senderPubKey - The sender's Ed25519 public key to check.
-func (dmc *DMClient) IsBlocked(senderPubKey []byte) bool {
-	return dmc.api.IsBlocked(senderPubKey)
+//   - partnerPubKey - The partner's Ed25519 public key to check.
+func (dmc *DMClient) IsBlocked(partnerPubKey []byte) bool {
+	return dmc.api.IsBlocked(partnerPubKey)
 }
 
-// GetBlockedSenders returns all senders who are blocked by this user.
+// GetBlockedPartners returns all partners who are blocked by this user.
 //
 // Returns:
 //   - []byte - JSON of of an array of [ed25519.PublicKey].
@@ -385,8 +384,8 @@ func (dmc *DMClient) IsBlocked(senderPubKey []byte) bool {
 //    "4JLRzgtW1SZ9c5pE+v0WwrGPj1t19AuU6Gg5IND5ymA=",
 //    "CWDqF1bnhulW2pko+zgmbDZNaKkmNtFdUgY4bTm2DhA="
 //  ]
-func (dmc *DMClient) GetBlockedSenders() []byte {
-	blockedJSON, err := json.Marshal(dmc.api.GetBlockedSenders())
+func (dmc *DMClient) GetBlockedPartners() []byte {
+	blockedJSON, err := json.Marshal(dmc.api.GetBlockedPartners())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[DM] Failed to JSON marshal blocked sender list: %+v", err)

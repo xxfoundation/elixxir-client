@@ -62,7 +62,7 @@ func TestNick(t *testing.T) {
 	require.Equal(t, name2, expectedName)
 }
 
-func TestSetBlocked(t *testing.T) {
+func TestClient_BlockPartner(t *testing.T) {
 	netA, _ := createLinkedNets(t)
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
@@ -95,7 +95,7 @@ func TestSetBlocked(t *testing.T) {
 	blockKey, _, err := ed25519.GenerateKey(rng)
 	require.NoError(t, err)
 
-	clientA.BlockSender(blockKey)
+	clientA.BlockPartner(blockKey)
 
 	require.True(t, clientA.IsBlocked(blockKey))
 
@@ -136,7 +136,7 @@ func TestBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	// make sure the block list is empty
-	beEmpty := clientB.GetBlockedSenders()
+	beEmpty := clientB.GetBlockedPartners()
 	require.Equal(t, len(beEmpty), 0)
 
 	params := cmix.GetDefaultCMIXParams()
@@ -163,7 +163,7 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, 3, len(receiverB.Msgs))
 
 	// User B Blocks User A
-	clientB.BlockSender(rcvA1.PubKey)
+	clientB.BlockPartner(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey
@@ -178,13 +178,13 @@ func TestBlock(t *testing.T) {
 	require.True(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
 
 	// Ensure that this user appears in the blocked senders list:
-	blocked := clientB.GetBlockedSenders()
+	blocked := clientB.GetBlockedPartners()
 	t.Logf("%+v", blocked)
 	require.Equal(t, len(blocked), 1)
 	require.Equal(t, blocked[0], rcvA1.PubKey)
 
 	// User B Stops blocking User A
-	clientB.UnblockSender(rcvA1.PubKey)
+	clientB.UnblockPartner(rcvA1.PubKey)
 
 	// React to the reply
 	pubKey = rcvB1.PubKey
@@ -200,5 +200,5 @@ func TestBlock(t *testing.T) {
 
 	require.False(t, clientB.IsBlocked(clientA.GetIdentity().PubKey))
 
-	require.Equal(t, len(clientB.GetBlockedSenders()), 0)
+	require.Equal(t, len(clientB.GetBlockedPartners()), 0)
 }

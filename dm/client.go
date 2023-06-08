@@ -164,19 +164,19 @@ func (dc *dmClient) SetNickname(nick string) {
 	dc.nm.SetNickname(nick)
 }
 
-// BlockSender prevents receiving messages and notifications from the sender.
-func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
-	dc.userStore.set(senderPubKey, statusBlocked)
+// BlockPartner prevents receiving messages and notifications from the partner.
+func (dc *dmClient) BlockPartner(partnerPubKey ed25519.PublicKey) {
+	dc.userStore.set(partnerPubKey, statusBlocked)
 }
 
-// UnblockSender unblocks a blocked sender to allow DM messages.
-func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
-	dc.userStore.set(senderPubKey, defaultStatus)
+// UnblockPartner unblocks a blocked partner to allow DM messages.
+func (dc *dmClient) UnblockPartner(partnerPubKey ed25519.PublicKey) {
+	dc.userStore.set(partnerPubKey, defaultStatus)
 }
 
-// IsBlocked indicates if the given sender is blocked.
-func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
-	user, exists := dc.userStore.get(senderPubKey)
+// IsBlocked indicates if the given partner is blocked.
+func (dc *dmClient) IsBlocked(partnerPubKey ed25519.PublicKey) bool {
+	user, exists := dc.userStore.get(partnerPubKey)
 	if !exists {
 		return false
 	}
@@ -184,22 +184,22 @@ func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
 	return user.Status == statusBlocked
 }
 
-// GetBlockedSenders returns all senders who are blocked by this user.
-func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
-	var blockedSenders []ed25519.PublicKey
+// GetBlockedPartners returns all partners who are blocked by this user.
+func (dc *dmClient) GetBlockedPartners() []ed25519.PublicKey {
+	var blockedPartners []ed25519.PublicKey
 	init := func(n int) {
-		blockedSenders = make([]ed25519.PublicKey, 0, n)
+		blockedPartners = make([]ed25519.PublicKey, 0, n)
 	}
 
 	add := func(user *dmUser) {
 		if user.Status == statusBlocked {
-			blockedSenders = append(blockedSenders, user.PublicKey)
+			blockedPartners = append(blockedPartners, user.PublicKey)
 		}
 	}
 
 	dc.userStore.iterate(init, add)
 
-	return blockedSenders
+	return blockedPartners
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable

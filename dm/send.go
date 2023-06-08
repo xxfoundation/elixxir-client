@@ -229,6 +229,12 @@ func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
 
 	sihTag := dm.MakeSenderSihTag(partnerEdwardsPubKey, dc.me.Privkey)
+	mt := messageType.Marshal()
+	service := message.CompressedService{
+		Identifier: partnerEdwardsPubKey,
+		Tags:       []string{sihTag},
+		Metadata:   mt[:],
+	}
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
@@ -293,7 +299,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 	}
 
 	rndID, ephIDs, err := send(dc.net, dc.selfReceptionID,
-		partnerID, partnerPubKey, dc.privateKey, []string{sihTag},
+		partnerID, partnerPubKey, dc.privateKey, service,
 		partnerToken, directMessage, params, dc.rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on send: %+v", err)
@@ -351,8 +357,8 @@ func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 }
 
 func send(net cMixClient, myID *id.ID, partnerID *id.ID,
-	partnerPubKey nike.PublicKey, myPrivateKey nike.PrivateKey, sihTags []string,
-	partnerToken uint32,
+	partnerPubKey nike.PublicKey, myPrivateKey nike.PrivateKey,
+	service cmix.Service, partnerToken uint32,
 	msg *DirectMessage, params cmix.CMIXParams,
 	rngGenerator *fastRNG.StreamGenerator) (rounds.Round,
 	[]ephemeral.Id, error) {
@@ -369,13 +375,6 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 		dmSerial, err := proto.Marshal(msg)
 		if err != nil {
 			return nil, err
-		}
-
-		mt := MessageType(msg.PayloadType).Marshal()
-		service := message.CompressedService{
-			Identifier: partnerPubKey.Bytes(),
-			Tags:       sihTags,
-			Metadata:   mt[:],
 		}
 
 		payloadLen := calcDMPayloadLen(net)

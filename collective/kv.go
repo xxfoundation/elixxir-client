@@ -320,7 +320,7 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 
 			// get the data about the element
 			elementName := keysToName[elementKey]
-			file := files[elementName]
+			file := files[elementKey]
 			old, exists := file.Get()
 
 			element := elementEdit{OldElement: old}
@@ -485,7 +485,8 @@ func (r *internalKV) SetRemote(key string, value []byte) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	return r.txLog.Write(key, value)
+	_, _, err := r.txLog.Write(key, value)
+	return err
 }
 
 // DeleteRemote will write a mutate to the remote with an instruction to delete
@@ -496,7 +497,8 @@ func (r *internalKV) DeleteRemote(key string) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	return r.txLog.Delete(key)
+	_, _, err := r.txLog.Delete(key)
+	return err
 }
 
 // setIsRemoteKV sets the kvIsRemoteVal for isRemoteKey, making isRemote turn

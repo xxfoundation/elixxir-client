@@ -299,7 +299,9 @@ type NotificationReport struct {
 func GetNotificationReportsForMe(nfs []NotificationFilter,
 	notificationData []*primNotif.Data) []NotificationReport {
 
-	var nr []NotificationReport
+	// Initialize list to an empty slice instead of a nil initializer so the
+	// json.Marshal outputs an empty slice `[]` instead of `null`.
+	nr := make([]NotificationReport, 0)
 
 	for _, data := range notificationData {
 		for _, nf := range nfs {

@@ -147,7 +147,6 @@ func (ps *partnerStore) get(
 
 // getOrSet returns the dmPartner from storage. If the partner does not exist,
 // then it is added with the default status and returned.
-// TODO: test
 func (ps *partnerStore) getOrSet(pubKey ed25519.PublicKey) *dmPartner {
 	elemName := marshalElementName(pubKey)
 	ps.mux.Lock()

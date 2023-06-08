@@ -72,6 +72,28 @@ func Test_partnerStore_get(t *testing.T) {
 	}
 }
 
+// Unit test of partnerStore.getOrSet.
+func Test_partnerStore_getOrSet(t *testing.T) {
+	ps, expected, _, _ := newFilledPartnerStore(25, 342952, t)
+
+	prng := rand.New(rand.NewSource(342))
+
+	for elemName, exp := range expected {
+		deleted := prng.Intn(2)%2 == 0
+		if deleted {
+			ps.delete(exp.PublicKey)
+		}
+		partner := ps.getOrSet(exp.PublicKey)
+		if deleted {
+			exp.Status = defaultStatus
+		}
+		if !reflect.DeepEqual(exp, partner) {
+			t.Errorf("Loaded unexpected dmPartner %s.\nexpected: %v\nreceived: %v",
+				elemName, exp, partner)
+		}
+	}
+}
+
 // Unit test of partnerStore.delete.
 func Test_partnerStore_delete(t *testing.T) {
 	ps, expected, _, _ := newFilledPartnerStore(25, 98957, t)

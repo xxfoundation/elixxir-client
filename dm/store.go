@@ -32,14 +32,14 @@ const (
 	dmStoreVersion = 0
 )
 
-// userStore contains the DM remote KV storage
-type userStore struct {
+// partnerStore contains the DM remote KV storage
+type partnerStore struct {
 	remote versioned.KV
 	mux    sync.Mutex
 }
 
-// newUserStore initialises a new userStore.
-func newUserStore(kv versioned.KV) (*userStore, error) {
+// newPartnerStore initialises a new partnerStore.
+func newPartnerStore(kv versioned.KV) (*partnerStore, error) {
 	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		return nil, err
@@ -48,26 +48,26 @@ func newUserStore(kv versioned.KV) (*userStore, error) {
 	err = remote.ListenOnRemoteMap(dmMapName, dmMapVersion, nil, false)
 	if err != nil && remote.Exists(err) {
 		return nil, errors.Wrap(err, "failed to load and listen to remote "+
-			"updates on dm user storage")
+			"updates on DM partner storage")
 	}
 
-	return &userStore{remote: kv}, nil
+	return &partnerStore{remote: kv}, nil
 }
 
-// dmUser stores information for each user the current user has a DM
+// dmPartner stores information for each partner the current user has a DM
 // conversation with.
-type dmUser struct {
-	// PublicKey is the user's public key. It is not included in JSON.
+type dmPartner struct {
+	// PublicKey is the partner's public key. It is not included in JSON.
 	PublicKey ed25519.PublicKey `json:"-"`
 
-	// Status indicates the notification status for the user or if they are
+	// Status indicates the notification status for the partner or if they are
 	// blocked.
-	Status userStatus `json:"s"`
+	Status partnerStatus `json:"s"`
 }
 
-// String prints the dmUser in a human-readable form for logging and debugging.
-// This function adheres to the fmt.Stringer interface.
-func (dmu *dmUser) String() string {
+// String prints the dmPartner in a human-readable form for logging and
+// debugging. This function adheres to the fmt.Stringer interface.
+func (dmu *dmPartner) String() string {
 	fields := []string{
 		hex.EncodeToString(dmu.PublicKey),
 		strconv.Itoa(int(dmu.Status)),
@@ -75,32 +75,34 @@ func (dmu *dmUser) String() string {
 	return "{" + strings.Join(fields, " ") + "}"
 }
 
-// userStatus represents the notification status or blocked status of the user.
-type userStatus uint32
+// partnerStatus represents the notification status or blocked status of the DM
+// partner.
+type partnerStatus uint32
 
 const (
-	statusMute      userStatus = 10
-	statusNotifyAll userStatus = 20
-	statusBlocked   userStatus = 50
+	statusMute      partnerStatus = 10
+	statusNotifyAll partnerStatus = 20
+	statusBlocked   partnerStatus = 50
 
-	// defaultStatus is set when adding a new user or resetting a status.
+	// defaultStatus is set when adding a new partner or resetting a status.
 	defaultStatus = statusNotifyAll
 )
 
-// set saves the dmUser info to storage keyed on the Ed25519 public key.
-func (us *userStore) set(pubKey ed25519.PublicKey, status userStatus) {
-	us.mux.Lock()
-	defer us.mux.Unlock()
-	us.setUnsafe(pubKey, status)
+// set saves the dmPartner info to storage keyed on the Ed25519 public key.
+func (ps *partnerStore) set(pubKey ed25519.PublicKey, status partnerStatus) {
+	ps.mux.Lock()
+	defer ps.mux.Unlock()
+	ps.setUnsafe(pubKey, status)
 }
 
-func (us *userStore) setUnsafe(pubKey ed25519.PublicKey, status userStatus) {
+func (ps *partnerStore) setUnsafe(
+	pubKey ed25519.PublicKey, status partnerStatus) {
 	elemName := marshalElementName(pubKey)
-	data, err := json.Marshal(dmUser{
+	data, err := json.Marshal(dmPartner{
 		Status: status,
 	})
 	if err != nil {
-		jww.FATAL.Panicf("[DM] Failed to JSON marshal user %X for storage: %+v",
+		jww.FATAL.Panicf("[DM] Failed to JSON marshal partner %X for storage: %+v",
 			pubKey, err)
 	}
 
@@ -110,129 +112,130 @@ func (us *userStore) setUnsafe(pubKey ed25519.PublicKey, status userStatus) {
 		Data:      data,
 	}
 
-	err = us.remote.StoreMapElement(dmMapName, elemName, obj, dmMapVersion)
+	err = ps.remote.StoreMapElement(dmMapName, elemName, obj, dmMapVersion)
 	if err != nil {
-		jww.FATAL.Panicf("[DM] Failed to set user %X: %+v", pubKey, err)
+		jww.FATAL.Panicf("[DM] Failed to set partner %X: %+v", pubKey, err)
 	}
 }
 
-// get returns the dmUser from storage. Returns false if the user does not
+// get returns the dmPartner from storage. Returns false if the partner does not
 // exist.
-func (us *userStore) get(pubKey ed25519.PublicKey) (user *dmUser, exists bool) {
+func (ps *partnerStore) get(
+	pubKey ed25519.PublicKey) (partner *dmPartner, exists bool) {
 	elemName := marshalElementName(pubKey)
-	us.mux.Lock()
-	obj, err := us.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
-	us.mux.Unlock()
+	ps.mux.Lock()
+	obj, err := ps.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
+	ps.mux.Unlock()
 	if err != nil {
-		if us.remote.Exists(err) {
-			jww.FATAL.Panicf("[DM] Failed to load user %X from storage: %+v",
+		if ps.remote.Exists(err) {
+			jww.FATAL.Panicf("[DM] Failed to load partner %X from storage: %+v",
 				pubKey, err)
 		} else {
 			return nil, false
 		}
 	}
 
-	user = &dmUser{}
-	if err = json.Unmarshal(obj.Data, user); err != nil {
-		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal user %X from storage: %+v",
-			pubKey, err)
+	partner = &dmPartner{}
+	if err = json.Unmarshal(obj.Data, partner); err != nil {
+		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal partner %X from "+
+			"storage: %+v", pubKey, err)
 	}
-	user.PublicKey = pubKey
+	partner.PublicKey = pubKey
 
-	return user, true
+	return partner, true
 }
 
-// getOrSet returns the dmUser from storage. If the user does not exist, then it
-// is added with the default status and returned.
+// getOrSet returns the dmPartner from storage. If the partner does not exist,
+// then it is added with the default status and returned.
 // TODO: test
-func (us *userStore) getOrSet(pubKey ed25519.PublicKey) *dmUser {
+func (ps *partnerStore) getOrSet(pubKey ed25519.PublicKey) *dmPartner {
 	elemName := marshalElementName(pubKey)
-	us.mux.Lock()
-	defer us.mux.Unlock()
-	obj, err := us.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
+	ps.mux.Lock()
+	defer ps.mux.Unlock()
+	obj, err := ps.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
 	if err != nil {
-		if us.remote.Exists(err) {
-			jww.FATAL.Panicf("[DM] Failed to load user %X from storage: %+v",
+		if ps.remote.Exists(err) {
+			jww.FATAL.Panicf("[DM] Failed to load partner %X from storage: %+v",
 				pubKey, err)
 		}
 
-		us.setUnsafe(pubKey, defaultStatus)
-		return &dmUser{
+		ps.setUnsafe(pubKey, defaultStatus)
+		return &dmPartner{
 			PublicKey: pubKey,
 			Status:    defaultStatus,
 		}
 	}
 
-	var user dmUser
-	if err = json.Unmarshal(obj.Data, &user); err != nil {
-		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal user %X from storage: %+v",
-			pubKey, err)
+	var partner dmPartner
+	if err = json.Unmarshal(obj.Data, &partner); err != nil {
+		jww.FATAL.Panicf("[DM] Failed to JSON unmarshal partner %X from "+
+			"storage: %+v", pubKey, err)
 	}
-	user.PublicKey = pubKey
+	partner.PublicKey = pubKey
 
-	return &user
+	return &partner
 }
 
-// delete removes the dmUser for the public key from storage.
-func (us *userStore) delete(pubKey ed25519.PublicKey) {
+// delete removes the dmPartner for the public key from storage.
+func (ps *partnerStore) delete(pubKey ed25519.PublicKey) {
 	elemName := marshalElementName(pubKey)
-	us.mux.Lock()
-	_, err := us.remote.DeleteMapElement(dmMapName, elemName, dmMapVersion)
-	us.mux.Unlock()
+	ps.mux.Lock()
+	_, err := ps.remote.DeleteMapElement(dmMapName, elemName, dmMapVersion)
+	ps.mux.Unlock()
 	if err != nil {
-		jww.FATAL.Panicf("[DM] Failed to delete user %X from storage: %+v",
+		jww.FATAL.Panicf("[DM] Failed to delete partner %X from storage: %+v",
 			pubKey, err)
 	}
 }
 
-// getAll returns a list of all users in storage.
-func (us *userStore) getAll() []*dmUser {
-	var users []*dmUser
-	us.iterate(func(n int) { users = make([]*dmUser, 0, n) },
-		func(user *dmUser) { users = append(users, user) })
-	return users
+// getAll returns a list of all partner in storage.
+func (ps *partnerStore) getAll() []*dmPartner {
+	var partners []*dmPartner
+	ps.iterate(func(n int) { partners = make([]*dmPartner, 0, n) },
+		func(partner *dmPartner) { partners = append(partners, partner) })
+	return partners
 }
 
-// iterate loops through all users in storage, unmarshalls each one, and passes
-// it into the add function. Before add is called, init is called with the total
-// number of users storage. Init can be nil.
-func (us *userStore) iterate(init func(n int), add func(user *dmUser)) {
-	us.mux.Lock()
-	userMap, err := us.remote.GetMap(dmMapName, dmMapVersion)
-	us.mux.Unlock()
+// iterate loops through all partners in storage, unmarshalls each one, and
+// passes it into the add function. Before add is called, init is called with
+// the total number of partners storage. Init can be nil.
+func (ps *partnerStore) iterate(
+	init func(n int), add func(partner *dmPartner)) {
+	ps.mux.Lock()
+	partnerMap, err := ps.remote.GetMap(dmMapName, dmMapVersion)
+	ps.mux.Unlock()
 	if err != nil {
 		jww.FATAL.Panicf("[DM] Failed to load map %s from storage: %+v",
 			dmMapName, err)
 	}
 
 	if init != nil {
-		init(len(userMap))
+		init(len(partnerMap))
 	}
-	for elemName, obj := range userMap {
-		var user dmUser
-		user.PublicKey, err = unmarshalElementName(elemName)
+	for elemName, obj := range partnerMap {
+		var partner dmPartner
+		partner.PublicKey, err = unmarshalElementName(elemName)
 		if err != nil {
 			jww.ERROR.Printf("[DM] Failed to parse element name %s: %+v",
 				elemName, err)
 			continue
 		}
-		if err = json.Unmarshal(obj.Data, &user); err != nil {
-			jww.ERROR.Printf("[DM] Failed to parse user for element name %q: %+v",
-				elemName, err)
+		if err = json.Unmarshal(obj.Data, &partner); err != nil {
+			jww.ERROR.Printf("[DM] Failed to parse partner for element name "+
+				"%q: %+v", elemName, err)
 			continue
 		}
 
-		add(&user)
+		add(&partner)
 	}
 }
 
-// elementEdit describes a single edit in the userStore KV storage.
+// elementEdit describes a single edit in the partnerStore KV storage.
 type elementEdit struct {
-	old       *dmUser
-	new       *dmUser
+	old       *dmPartner
+	new       *dmPartner
 	operation versioned.KeyOperation
 }
-
 
 // String prints the elementEdit in a human-readable form for logging and
 // debugging. This function adheres to the fmt.Stringer interface.
@@ -249,12 +252,12 @@ func (ee elementEdit) String() string {
 // listen is called when the map or map elements are updated remotely or
 // locally. The public key will never change between an old and new pair in the
 // elementEdit list.
-func (us *userStore) listen(cb func(edits []elementEdit)) error {
-	us.mux.Lock()
-	defer us.mux.Unlock()
-	return us.remote.ListenOnRemoteMap(dmMapName, dmMapVersion,
+func (ps *partnerStore) listen(cb func(edits []elementEdit)) error {
+	ps.mux.Lock()
+	defer ps.mux.Unlock()
+	return ps.remote.ListenOnRemoteMap(dmMapName, dmMapVersion,
 		func(edits map[string]versioned.ElementEdit) {
-			userEdits := make([]elementEdit, 0, len(edits))
+			partnerEdits := make([]elementEdit, 0, len(edits))
 			for elemName, edit := range edits {
 				pubKey, err := unmarshalElementName(elemName)
 				if err != nil {
@@ -270,7 +273,7 @@ func (us *userStore) listen(cb func(edits []elementEdit)) error {
 				if len(edit.OldElement.Data) > 0 {
 					err = json.Unmarshal(edit.OldElement.Data, &e.old)
 					if err != nil {
-						jww.ERROR.Printf("[DM] Failed to parse old user for "+
+						jww.ERROR.Printf("[DM] Failed to parse old partner for "+
 							"element name %q: %+v", elemName, err)
 						continue
 					} else {
@@ -281,7 +284,7 @@ func (us *userStore) listen(cb func(edits []elementEdit)) error {
 				if len(edit.NewElement.Data) > 0 {
 					err = json.Unmarshal(edit.NewElement.Data, &e.new)
 					if err != nil {
-						jww.ERROR.Printf("[DM] Failed to parse new user for "+
+						jww.ERROR.Printf("[DM] Failed to parse new partner for "+
 							"element name %q: %+v", elemName, err)
 						continue
 					} else {
@@ -289,9 +292,9 @@ func (us *userStore) listen(cb func(edits []elementEdit)) error {
 					}
 				}
 
-				userEdits = append(userEdits, e)
+				partnerEdits = append(partnerEdits, e)
 			}
-			cb(userEdits)
+			cb(partnerEdits)
 		}, true)
 }
 

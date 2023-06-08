@@ -38,11 +38,11 @@ type dmClient struct {
 	myToken         uint32
 	receiver        EventModel
 
-	st        SendTracker
-	nm        NickNameManager
-	net       cMixClient
-	rng       *fastRNG.StreamGenerator
-	userStore *userStore
+	st  SendTracker
+	nm  NickNameManager
+	net cMixClient
+	rng *fastRNG.StreamGenerator
+	ps  *partnerStore
 }
 
 // NewDMClient creates a new client for direct messaging. This should
@@ -66,7 +66,7 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	net cMixClient, kv versioned.KV,
 	rng *fastRNG.StreamGenerator) (*dmClient, error) {
 
-	us, err := newUserStore(kv)
+	us, err := newPartnerStore(kv)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 		net:             net,
 		rng:             rng,
 		receiver:        receiver,
-		userStore:       us,
+		ps:              us,
 	}
 
 	// Register the listener
@@ -166,17 +166,17 @@ func (dc *dmClient) SetNickname(nick string) {
 
 // BlockPartner prevents receiving messages and notifications from the partner.
 func (dc *dmClient) BlockPartner(partnerPubKey ed25519.PublicKey) {
-	dc.userStore.set(partnerPubKey, statusBlocked)
+	dc.ps.set(partnerPubKey, statusBlocked)
 }
 
 // UnblockPartner unblocks a blocked partner to allow DM messages.
 func (dc *dmClient) UnblockPartner(partnerPubKey ed25519.PublicKey) {
-	dc.userStore.set(partnerPubKey, defaultStatus)
+	dc.ps.set(partnerPubKey, defaultStatus)
 }
 
 // IsBlocked indicates if the given partner is blocked.
 func (dc *dmClient) IsBlocked(partnerPubKey ed25519.PublicKey) bool {
-	user, exists := dc.userStore.get(partnerPubKey)
+	user, exists := dc.ps.get(partnerPubKey)
 	if !exists {
 		return false
 	}
@@ -191,13 +191,13 @@ func (dc *dmClient) GetBlockedPartners() []ed25519.PublicKey {
 		blockedPartners = make([]ed25519.PublicKey, 0, n)
 	}
 
-	add := func(user *dmUser) {
+	add := func(user *dmPartner) {
 		if user.Status == statusBlocked {
 			blockedPartners = append(blockedPartners, user.PublicKey)
 		}
 	}
 
-	dc.userStore.iterate(init, add)
+	dc.ps.iterate(init, add)
 
 	return blockedPartners
 }

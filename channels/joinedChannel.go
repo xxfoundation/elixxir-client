@@ -10,12 +10,13 @@ package channels
 import (
 	"encoding/base64"
 	"encoding/json"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 const (
@@ -43,23 +44,28 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
+	jww.DEBUG.Printf("[CH] Applying mapUpdate: %d", len(edits))
+
 	joined := make([]*cryptoBroadcast.Channel, 0, len(edits))
 	deleted := make([]*id.ID, 0, len(edits))
 
 	for elementName, edit := range edits {
 		channelID := &id.ID{}
-		elementBytes, err := base64.StdEncoding.DecodeString(elementName)
+		elementBytes, err := base64.StdEncoding.DecodeString(
+			elementName)
 		if err != nil {
-			jww.WARN.Printf("Failed to unmarshal channel ID in"+
-				"remote channel %s, skipping: %+v", elementName, err)
+			jww.WARN.Printf("[CH] Failed to unmarshal channel ID "+
+				"in remote channel %s, skipping: %+v",
+				elementName, err)
 			continue
 		}
 		copy(channelID[:], elementBytes)
 
 		if edit.Operation == versioned.Deleted {
 			if err := m.removeChannelUnsafe(channelID); err != nil {
-				jww.WARN.Printf("Failed to remove "+
-					"channel on instruction from remote %s: %+v", channelID,
+				jww.WARN.Printf("[CH] Failed to remove "+
+					"channel on instruction from remote "+
+					"%s: %+v", channelID,
 					err)
 			} else {
 				deleted = append(deleted, channelID)
@@ -68,17 +74,18 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 		} else if edit.Operation == versioned.Updated {
 			jc, err := m.getChannelUnsafe(channelID)
 			if err != nil {
-				jww.WARN.Printf("Failed to update "+
-					"channel on instruction from remote %s: %+v", channelID,
+				jww.WARN.Printf("[CH] Failed to update "+
+					"channel on instruction from remote "+
+					"%s: %+v", channelID,
 					err)
 				continue
 			}
 			jcd := &joinedChannelDisk{}
 			err = json.Unmarshal(edit.NewElement.Data, jcd)
 			if err != nil {
-				jww.WARN.Printf("Failed to update "+
-					"channel on instruction from remote %s: %+v", channelID,
-					err)
+				jww.WARN.Printf("[CH] Failed to update "+
+					"channel on instruction from remote "+
+					"%s: %+v", channelID, err)
 				continue
 			}
 			jc.dmEnabled = jcd.DmEnabled
@@ -87,23 +94,23 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 
 		jc, err := m.setUpJoinedChannel(edit.NewElement.Data)
 		if err != nil {
-			jww.WARN.Printf("Failed to set up channel %s passed by "+
-				"remote, skipping: %+v", channelID, err)
+			jww.WARN.Printf("[CH] Failed to set up channel %s "+
+				"passed by remote, skipping: %+v",
+				channelID, err)
 			continue
 		}
 		joined = append(joined, jc.broadcast.Get())
 	}
 
-	if !(len(joined) == 0 && len(deleted) == 0) {
-		for _, j := range joined {
-			m.events.model.JoinChannel(j)
-		}
-		for _, d := range deleted {
-			m.events.model.LeaveChannel(d)
-		}
+	for _, j := range joined {
+		m.events.model.JoinChannel(j)
+	}
+	for _, d := range deleted {
+		m.events.model.LeaveChannel(d)
+	}
 
-	} else {
-		jww.WARN.Printf("Received empty update from remote in " +
+	if len(joined) == 0 && len(deleted) == 0 {
+		jww.WARN.Printf("[CH] Received empty update from remote in " +
 			"join channels")
 	}
 

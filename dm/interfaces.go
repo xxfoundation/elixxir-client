@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
@@ -246,6 +247,17 @@ type cMixClient interface {
 		roundCallback cmix.RoundEventCallback, roundList ...id.Round)
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
+}
+
+// NotificationsManager contains the methods from [notifications.Manager] that
+// are required by the [Manager].
+type NotificationsManager interface {
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
+		status clientNotif.NotificationState) error
+	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationState,
+		metadata []byte, group string, exists bool)
+	Delete(toBeNotifiedOn *id.ID) error
+	RegisterUpdateCallback(group string, nu clientNotif.Update)
 }
 
 // NickNameManager interface is an object that handles the mapping of nicknames

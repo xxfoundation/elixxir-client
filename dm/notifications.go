@@ -196,12 +196,10 @@ func (n *notifications) SetMobileNotificationsLevel(
 // statusToLevel converts a partnerStatus to its equivalent NotificationLevel.
 func statusToLevel(status partnerStatus) NotificationLevel {
 	switch status {
-	case statusMute:
+	case statusMute, statusBlocked:
 		return NotifyNone
 	case statusNotifyAll:
 		return NotifyAll
-	case statusBlocked:
-		return NotifyBlocked
 	default:
 		return NotifyAll
 	}
@@ -214,8 +212,6 @@ func levelToStatus(level NotificationLevel) partnerStatus {
 		return statusMute
 	case NotifyAll:
 		return statusNotifyAll
-	case NotifyBlocked:
-		return statusBlocked
 	default:
 		return statusNotifyAll
 	}
@@ -343,7 +339,6 @@ type NotificationLevel uint8
 var allowList = map[NotificationLevel]map[MessageType]struct{}{
 	NotifyNone:    {},
 	NotifyAll:     {TextType: {}, ReplyType: {}},
-	NotifyBlocked: {},
 }
 
 const (
@@ -352,10 +347,6 @@ const (
 
 	// NotifyAll results in notifications from all messages except silent ones.
 	NotifyAll NotificationLevel = 40
-
-	// NotifyBlocked indicates notifications are muted because the partner is
-	// blocked.
-	NotifyBlocked NotificationLevel = 100
 )
 
 // String prints a human-readable form of the [NotificationLevel] for logging
@@ -366,8 +357,6 @@ func (nl NotificationLevel) String() string {
 		return "none"
 	case NotifyAll:
 		return "all"
-	case NotifyBlocked:
-		return "blocked"
 	default:
 		return "INVALID NOTIFICATION LEVEL: " + strconv.Itoa(int(nl))
 	}

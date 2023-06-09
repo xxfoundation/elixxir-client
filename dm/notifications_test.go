@@ -121,7 +121,7 @@ func Test_notifications_updateSihTagsCBUnsafe(t *testing.T) {
 			PublicKeys:   map[string]ed25519.PublicKey{tag1: key1, tag4: key4},
 			AllowedTypes: allowList[NotifyAll],
 		},
-		changed:       []NotificationState{{key2, NotifyNone}, {key3, NotifyBlocked}, {key4, NotifyAll}},
+		changed:       []NotificationState{{key2, NotifyNone}, {key3, NotifyNone}, {key4, NotifyAll}},
 		deleted:       []ed25519.PublicKey{},
 		partnerTagMap: map[string]string{string(key1): tag1, string(key4): tag4},
 	}, {
@@ -182,7 +182,7 @@ func Test_notifications_GetNotificationLevel(t *testing.T) {
 	expected := map[string]NotificationLevel{
 		string(newPubKey(prng)): NotifyNone,
 		string(newPubKey(prng)): NotifyAll,
-		string(newPubKey(prng)): NotifyBlocked,
+		string(newPubKey(prng)): NotifyAll,
 	}
 
 	for pubKey, level := range expected {
@@ -221,7 +221,7 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	expected := map[string]NotificationLevel{
 		string(newPubKey(prng)): NotifyNone,
 		string(newPubKey(prng)): NotifyAll,
-		string(newPubKey(prng)): NotifyBlocked,
+		string(newPubKey(prng)): NotifyAll,
 	}
 
 	for pubKey := range expected {
@@ -260,7 +260,7 @@ func Test_statusToLevel(t *testing.T) {
 	tests := map[partnerStatus]NotificationLevel{
 		statusMute:      NotifyNone,
 		statusNotifyAll: NotifyAll,
-		statusBlocked:   NotifyBlocked,
+		statusBlocked:   NotifyNone,
 		6565:            NotifyAll,
 	}
 
@@ -278,7 +278,6 @@ func Test_levelToStatus(t *testing.T) {
 	tests := map[NotificationLevel]partnerStatus{
 		NotifyNone:    statusMute,
 		NotifyAll:     statusNotifyAll,
-		NotifyBlocked: statusBlocked,
 		186:           statusNotifyAll,
 	}
 
@@ -369,7 +368,6 @@ func TestNotificationLevel_String(t *testing.T) {
 	tests := map[NotificationLevel]string{
 		NotifyNone:    "none",
 		NotifyAll:     "all",
-		NotifyBlocked: "blocked",
 		32:            "INVALID NOTIFICATION LEVEL: 32",
 	}
 
@@ -385,7 +383,7 @@ func TestNotificationLevel_String(t *testing.T) {
 // Tests that a NotificationLevel marshaled via NotificationLevel and
 // unmarshalled via UnmarshalNotificationLevel match the original.
 func TestNotificationLevel_Marshal_UnmarshalMessageType(t *testing.T) {
-	tests := []NotificationLevel{NotifyNone, NotifyAll, NotifyBlocked}
+	tests := []NotificationLevel{NotifyNone, NotifyAll}
 
 	for _, l := range tests {
 		data := l.Marshal()

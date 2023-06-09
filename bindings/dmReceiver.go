@@ -194,21 +194,10 @@ type DMReceiver interface {
 	UpdateSentStatus(uuid int64, messageID []byte, timestamp, roundID,
 		status int64)
 
-	// BlockPartner prevents receiving messages and notifications from the partner.
-	//
-	// Parameters:
-	//   - partnerPubKey - The partner's Ed25519 public key to block.
-	BlockPartner(partnerPubKey []byte)
-
-	// UnblockPartner unblocks a blocked partner to allow DM messages.
-	//
-	// Parameters:
-	//   - partnerPubKey - The partner's Ed25519 public key to unblock.
-	UnblockPartner(partnerPubKey []byte)
-
-	// GetConversations returns any conversations held by the
+	// GetConversation returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversation(senderPubKey []byte) []byte
+
 	// GetConversations returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversations() []byte
@@ -301,19 +290,6 @@ func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 	status dm.Status) {
 	dmr.dr.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))
-}
-
-// BlockPartner prevents receiving messages and notifications from the partner.
-func (dmr *dmReceiver) BlockPartner(partnerPubKey ed25519.PublicKey) {
-	dmr.dr.BlockPartner(partnerPubKey)
-}
-
-// UnblockPartner unblocks a blocked partner to allow DM messages.
-//
-// Parameters:
-//   - partnerPubKey - The partner's Ed25519 public key to unblock.
-func (dmr *dmReceiver) UnblockPartner(partnerPubKey ed25519.PublicKey) {
-	dmr.dr.UnblockPartner(partnerPubKey)
 }
 
 // GetConversations returns any conversations held by the

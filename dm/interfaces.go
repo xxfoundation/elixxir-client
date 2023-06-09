@@ -54,6 +54,15 @@ type Client interface {
 	// GetBlockedPartners returns all partners who are blocked by this user.
 	GetBlockedPartners() []ed25519.PublicKey
 
+	// GetNotificationLevel returns the notification level for the given channel.
+	GetNotificationLevel(
+		partnerPubKey ed25519.PublicKey) (NotificationLevel, error)
+
+	// SetMobileNotificationsLevel sets the notification level for the given DM
+	// conversation partner.
+	SetMobileNotificationsLevel(
+		partnerPubKey ed25519.PublicKey, level NotificationLevel) error
+
 	NickNameManager
 }
 

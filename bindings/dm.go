@@ -412,6 +412,30 @@ func (dmc *DMClient) GetBlockedPartners() []byte {
 	return blockedJSON
 }
 
+// GetNotificationLevel returns the notification level for the given channel.
+//
+// Parameters:
+//   - partnerPubKey - The partner's Ed25519 public key.
+//
+// Returns:
+//   - int - The [dm.NotificationLevel] to set for the DM conversation.
+func (dmc *DMClient) GetNotificationLevel(partnerPubKey []byte) (int, error) {
+	level, err := dmc.api.GetNotificationLevel(partnerPubKey)
+	return int(level), err
+}
+
+// SetMobileNotificationsLevel sets the notification level for the given DM
+// conversation partner.
+//
+// Parameters:
+//   - partnerPubKey - The partner's Ed25519 public key.
+//   - level - The [dm.NotificationLevel] to set for the DM conversation.
+func (dmc *DMClient) SetMobileNotificationsLevel(
+	partnerPubKey []byte, level int) error {
+	return dmc.api.SetMobileNotificationsLevel(
+		partnerPubKey, dm.NotificationLevel(level))
+}
+
 // SendText is used to send a formatted direct message to a user.
 //
 // Parameters:

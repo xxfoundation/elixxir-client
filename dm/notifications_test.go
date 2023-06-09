@@ -10,8 +10,6 @@ package dm
 import (
 	"bytes"
 	"crypto/ed25519"
-	"gitlab.com/elixxir/crypto/sih"
-	primNotif "gitlab.com/elixxir/primitives/notifications"
 	"io"
 	"math/rand"
 	"reflect"
@@ -25,7 +23,9 @@ import (
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/dm"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
+	"gitlab.com/elixxir/crypto/sih"
 	"gitlab.com/elixxir/ekv"
+	primNotif "gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -173,6 +173,45 @@ func Test_notifications_updateSihTagsCBUnsafe(t *testing.T) {
 
 }
 
+// Tests that notifications.GetNotificationLevel returns the correct level for
+// all added IDs.
+func Test_notifications_GetNotificationLevel(t *testing.T) {
+	n := newTestNotifications(29817427, nil, t)
+	prng := rand.New(rand.NewSource(63795))
+
+	expected := map[string]NotificationLevel{
+		string(newPubKey(prng)): NotifyNone,
+		string(newPubKey(prng)): NotifyAll,
+		string(newPubKey(prng)): NotifyBlocked,
+	}
+
+	for pubKey, level := range expected {
+		err := n.SetMobileNotificationsLevel(ed25519.PublicKey(pubKey), level)
+		if err != nil {
+			t.Errorf("Failed to set level for partner %X: %+v", pubKey, err)
+		}
+	}
+
+	for pubKey, level := range expected {
+		l, err := n.GetNotificationLevel(ed25519.PublicKey(pubKey))
+		if err != nil {
+			t.Errorf("Failed to get notification level partner %s: %+v",
+				pubKey, err)
+		}
+
+		if level != l {
+			t.Errorf("Incorrect level for %X.\nexpected: %s\nreceived: %s",
+				pubKey, level, l)
+		}
+	}
+
+	_, err := n.GetNotificationLevel(newPubKey(prng))
+	if err == nil {
+		t.Errorf("Did not get error when getting level for a channel that " +
+			"does not exist.")
+	}
+}
+
 // Tests that notifications.SetMobileNotificationsLevel sets the notification
 // level correctly.
 func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
@@ -213,45 +252,6 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 
 	if len(expected) != 0 {
 		t.Errorf("%d partners not found: %v", len(expected), expected)
-	}
-}
-
-// Tests that notifications.GetNotificationLevel returns the correct level for
-// all added IDs.
-func Test_notifications_GetNotificationLevel(t *testing.T) {
-	n := newTestNotifications(29817427, nil, t)
-	prng := rand.New(rand.NewSource(63795))
-
-	expected := map[string]NotificationLevel{
-		string(newPubKey(prng)): NotifyNone,
-		string(newPubKey(prng)): NotifyAll,
-		string(newPubKey(prng)): NotifyBlocked,
-	}
-
-	for pubKey, level := range expected {
-		err := n.SetMobileNotificationsLevel(ed25519.PublicKey(pubKey), level)
-		if err != nil {
-			t.Errorf("Failed to set level for partner %X: %+v", pubKey, err)
-		}
-	}
-
-	for pubKey, level := range expected {
-		l, err := n.GetNotificationLevel(ed25519.PublicKey(pubKey))
-		if err != nil {
-			t.Errorf("Failed to get notification level partner %s: %+v",
-				pubKey, err)
-		}
-
-		if level != l {
-			t.Errorf("Incorrect level for %X.\nexpected: %s\nreceived: %s",
-				pubKey, level, l)
-		}
-	}
-
-	_, err := n.GetNotificationLevel(newPubKey(prng))
-	if err == nil {
-		t.Errorf("Did not get error when getting level for a channel that " +
-			"does not exist.")
 	}
 }
 

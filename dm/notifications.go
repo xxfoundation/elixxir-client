@@ -169,22 +169,7 @@ func (n *notifications) updateSihTagsCBUnsafe(edits []elementEdit) (
 	return nf, changed, deleted
 }
 
-// SetMobileNotificationsLevel sets the notification level for the given DM
-// conversation partner. The [NotificationLevel] dictates the type of
-// notifications received and the status controls weather the notification is
-// push or in-app. If muted, both the level and status must be set to mute.
-// TODO: add to bindings
-func (n *notifications) SetMobileNotificationsLevel(
-	partnerPubKey ed25519.PublicKey, level NotificationLevel) error {
-	jww.INFO.Printf("[CH] Set notification level for DM partner %X to %s",
-		partnerPubKey, level)
-
-	n.ps.set(partnerPubKey, levelToStatus(level))
-	return nil
-}
-
 // GetNotificationLevel returns the notification level for the given channel.
-// TODO: add to bindings
 func (n *notifications) GetNotificationLevel(
 	partnerPubKey ed25519.PublicKey) (NotificationLevel, error) {
 
@@ -195,6 +180,17 @@ func (n *notifications) GetNotificationLevel(
 	}
 
 	return statusToLevel(partner.Status), nil
+}
+
+// SetMobileNotificationsLevel sets the notification level for the given DM
+// conversation partner.
+func (n *notifications) SetMobileNotificationsLevel(
+	partnerPubKey ed25519.PublicKey, level NotificationLevel) error {
+	jww.INFO.Printf("[CH] Set notification level for DM partner %X to %s",
+		partnerPubKey, level)
+
+	n.ps.set(partnerPubKey, levelToStatus(level))
+	return nil
 }
 
 // statusToLevel converts a partnerStatus to its equivalent NotificationLevel.

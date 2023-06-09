@@ -113,7 +113,11 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 	}
 
 	if len(updates) > 0 {
-		m.channelCallback(updates)
+		go func() {
+			time.Sleep(1 * time.Second)
+			m.channelCallback(updates)
+		}()
+
 	} else {
 		jww.WARN.Printf("[CH] Received empty update from remote in " +
 			"join channels")

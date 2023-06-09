@@ -114,7 +114,8 @@ func (n *notifications) updateSihTagsCB(edits []elementEdit) {
 	go n.cb(nf, changed, deleted)
 }
 
-// updateSihTagsCB is a callback registered on the partnerStore to receive updates
+// updateSihTagsCB is a callback registered on the partnerStore to receive
+// updates on changes to partner storage.
 func (n *notifications) updateSihTagsCBUnsafe(edits []elementEdit) (
 	nf NotificationFilter, changed []NotificationState, deleted []ed25519.PublicKey) {
 

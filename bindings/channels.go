@@ -1887,13 +1887,12 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
 //     It can optionally be the entire json return from [NotificationUpdateJson]
-//     Instead of just the needed subsection
+//     Instead of just the needed subsection.
 //   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
-// [
-//
-//	  {
+//  [
+//    {
 //	    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
 //	    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
 //	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],

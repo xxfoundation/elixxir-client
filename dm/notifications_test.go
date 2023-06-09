@@ -333,7 +333,7 @@ func TestGetNotificationReportsForMe(t *testing.T) {
 				MessageHash: msgHash,
 			})
 
-			if level == NotifyAll && nf.AllowedTypes[mt] != struct{}{} {
+			if _, exists := nf.AllowedTypes[mt]; exists && level == NotifyAll {
 				nf.Tags = append(nf.Tags, tag)
 				nf.PublicKeys[tag] = pubKey
 				expected = append(expected, NotificationReport{

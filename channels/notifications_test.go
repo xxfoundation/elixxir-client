@@ -438,12 +438,6 @@ func TestNotificationReport_Slice_JSON(t *testing.T) {
 		}
 	}
 
-	// data, err := json.MarshalIndent(nrs, "//  ", "  ")
-	// if err != nil {
-	// 	t.Fatalf("Failed to JSON marshal %T: %+v", nrs, err)
-	// }
-	// fmt.Printf("\n\n//  %s\n\n", data)
-
 	data, err := json.Marshal(nrs)
 	if err != nil {
 		t.Fatalf("Failed to JSON marshal %T: %+v", nrs, err)
@@ -509,12 +503,6 @@ func TestNotificationFilter_Slice_JSON(t *testing.T) {
 		}
 	}
 
-	// data, err := json.MarshalIndent(nfs, "//  ", "  ")
-	// if err != nil {
-	// 	t.Fatalf("Failed to JSON marshal %T: %+v", nfs, err)
-	// }
-	// fmt.Printf("\n\n//  %s\n\n", data)
-
 	data, err := json.Marshal(nfs)
 	if err != nil {
 		t.Fatalf("Failed to JSON marshal %T: %+v", nfs, err)
@@ -535,7 +523,7 @@ func TestNotificationFilter_Slice_JSON(t *testing.T) {
 // NotificationLevel                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Constancy test of NotificationLevel.String.
+// Consistency test of NotificationLevel.String.
 func TestNotificationLevel_String(t *testing.T) {
 	tests := map[NotificationLevel]string{
 		NotifyNone: "none",

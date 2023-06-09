@@ -309,3 +309,21 @@ func newFilledPartnerStore(numPartners int, seed int64, t testing.TB) (
 
 	return ps, partnerMap, partnerList, kv
 }
+
+// Consistency test of partnerStatus.String.
+func Test_partnerStatus_String(t *testing.T) {
+	tests := map[partnerStatus]string{
+		statusMute:      "mute",
+		statusNotifyAll: "all",
+		statusBlocked:   "blocked",
+		32:              "INVALID STATUS: 32",
+	}
+
+	for s, expected := range tests {
+		str := s.String()
+		if str != expected {
+			t.Errorf("Incorrect string for partnerStatus %d."+
+				"\nexpected: %s\nreceived: %s", s, expected, str)
+		}
+	}
+}

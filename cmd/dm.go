@@ -106,7 +106,6 @@ var dmCmd = &cobra.Command{
 
 		sendTracker := dm.NewSendTracker(ekv)
 
-
 		// Construct notifications manager
 		sig := user.GetStorage().GetTransmissionRegistrationValidationSignature()
 		nm := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,

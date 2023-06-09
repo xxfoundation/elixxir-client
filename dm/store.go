@@ -229,25 +229,6 @@ func (ps *partnerStore) iterate(
 	}
 }
 
-// elementEdit describes a single edit in the partnerStore KV storage.
-type elementEdit struct {
-	old       *dmPartner
-	new       *dmPartner
-	operation versioned.KeyOperation
-}
-
-// String prints the elementEdit in a human-readable form for logging and
-// debugging. This function adheres to the fmt.Stringer interface.
-func (ee elementEdit) String() string {
-	fields := []string{
-		"old:" + fmt.Sprint(ee.old),
-		"new:" + fmt.Sprint(ee.new),
-		"operation:" + ee.operation.String(),
-	}
-
-	return "{" + strings.Join(fields, " ") + "}"
-}
-
 // listen is called when the map or map elements are updated remotely or
 // locally. The public key will never change between an old and new pair in the
 // elementEdit list.
@@ -313,4 +294,38 @@ func marshalElementName(pubKey ed25519.PublicKey) string {
 // info).
 func unmarshalElementName(elementName string) (ed25519.PublicKey, error) {
 	return base64.RawStdEncoding.DecodeString(elementName)
+}
+
+// elementEdit describes a single edit in the partnerStore KV storage.
+type elementEdit struct {
+	old       *dmPartner
+	new       *dmPartner
+	operation versioned.KeyOperation
+}
+
+// String prints the elementEdit in a human-readable form for logging and
+// debugging. This function adheres to the fmt.Stringer interface.
+func (ee elementEdit) String() string {
+	fields := []string{
+		"old:" + fmt.Sprint(ee.old),
+		"new:" + fmt.Sprint(ee.new),
+		"operation:" + ee.operation.String(),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
+}
+
+// String prints a human-readable form of the partnerStatus for logging and
+// debugging. This function adheres to the [fmt.Stringer] interface.
+func (ps partnerStatus) String() string {
+	switch ps {
+	case statusMute:
+		return "mute"
+	case statusNotifyAll:
+		return "all"
+	case statusBlocked:
+		return "blocked"
+	default:
+		return "INVALID STATUS: " + strconv.Itoa(int(ps))
+	}
 }

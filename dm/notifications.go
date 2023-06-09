@@ -32,14 +32,16 @@ import (
 // changed and all that have been deleted. The maxState is the global state set
 // for notifications.
 type NotificationUpdate func(nf NotificationFilter,
-	changedNotificationStates []NotificationState,
-	deletedNotificationStates []ed25519.PublicKey)
+	changed []NotificationState, deleted []ed25519.PublicKey)
 
 // NotificationState contains information about the notifications for a DM
 // conversation.
 type NotificationState struct {
-	PartnerPubKey ed25519.PublicKey `json:"partnerPubKey"`
-	Level         NotificationLevel `json:"level"`
+	// PubKey is the Ed25519 public key of the DM conversation partner.
+	PubKey ed25519.PublicKey `json:"pubKey"`
+
+	// Level is the notification level for the DM conversation.
+	Level NotificationLevel `json:"level"`
 }
 
 // notificationGroup is the name used for to denote DM notifications in the
@@ -63,14 +65,21 @@ type notifications struct {
 
 	// Remotely-synced storage that contains a list of all DM partner's and
 	// their notification level.
-	us *partnerStore
+	ps *partnerStore
 
+	// Interface for notifications.Manager.
 	nm NotificationsManager
 
 	mux sync.Mutex
 }
 
-// newNotifications initializes a new channels notifications manager.
+// newNotifications initializes a new channels notifications manager and enables
+// DM push notifications by default.
+//
+// To use push notifications, a token must be registered with the notification
+// manager. Note, when enabling push notifications, information may be shared
+// with third parties (i.e., Firebase and Google's Palantir) and may represent a
+// security risk to the user.
 func newNotifications(myID *id.ID, pubKey ed25519.PublicKey,
 	privKey ed25519.PrivateKey, cb NotificationUpdate,
 	us *partnerStore, nm NotificationsManager) (*notifications, error) {
@@ -80,12 +89,12 @@ func newNotifications(myID *id.ID, pubKey ed25519.PublicKey,
 		privKey:       privKey,
 		partnerTagMap: make(map[string]string),
 		cb:            cb,
-		us:            us,
+		ps:            us,
 		nm:            nm,
 		mux:           sync.Mutex{},
 	}
 
-	err := n.us.listen(n.updateSihTagsCB)
+	err := n.ps.listen(n.updateSihTagsCB)
 	if err != nil {
 		return nil, err
 	}
@@ -93,23 +102,22 @@ func newNotifications(myID *id.ID, pubKey ed25519.PublicKey,
 	return n, n.nm.Set(myID, notificationGroup, nil, clientNotif.Push)
 }
 
-func statusToLevel(status partnerStatus) NotificationLevel {
-	switch status {
-	case statusMute, statusBlocked:
-		return NotifyNone
-	case statusNotifyAll:
-		return NotifyAll
-	}
-	return 0
+// updateSihTagsCB is a callback registered on the partnerStore to receive
+// updates about partner statuses.
+func (n *notifications) updateSihTagsCB(edits []elementEdit) {
+	n.mux.Lock()
+	nf, changed, deleted := n.updateSihTagsCBUnsafe(edits)
+	n.mux.Unlock()
+
+	go n.cb(nf, changed, deleted)
 }
 
 // updateSihTagsCB is a callback registered on the partnerStore to receive updates
-func (n *notifications) updateSihTagsCB(edits []elementEdit) {
-	n.mux.Lock()
-	defer n.mux.Unlock()
+func (n *notifications) updateSihTagsCBUnsafe(edits []elementEdit) (
+	nf NotificationFilter, changed []NotificationState, deleted []ed25519.PublicKey) {
 
-	var changedNotificationStates []NotificationState
-	var deletedNotificationStates []ed25519.PublicKey
+	changed = []NotificationState{}
+	deleted = []ed25519.PublicKey{}
 	for _, edit := range edits {
 		switch edit.operation {
 		case versioned.Created, versioned.Loaded:
@@ -118,9 +126,9 @@ func (n *notifications) updateSihTagsCB(edits []elementEdit) {
 					dm.MakeReceiverSihTag(edit.new.PublicKey, n.privKey)
 			}
 
-			changedNotificationStates = append(changedNotificationStates, NotificationState{
-				PartnerPubKey: edit.new.PublicKey,
-				Level:         statusToLevel(edit.new.Status),
+			changed = append(changed, NotificationState{
+				PubKey: edit.new.PublicKey,
+				Level:  statusToLevel(edit.new.Status),
 			})
 		case versioned.Updated:
 			if edit.old.Status == statusNotifyAll && edit.new.Status != statusNotifyAll {
@@ -130,15 +138,14 @@ func (n *notifications) updateSihTagsCB(edits []elementEdit) {
 					dm.MakeReceiverSihTag(edit.new.PublicKey, n.privKey)
 			}
 
-			changedNotificationStates = append(changedNotificationStates, NotificationState{
-				PartnerPubKey: edit.new.PublicKey,
-				Level:         statusToLevel(edit.new.Status),
+			changed = append(changed, NotificationState{
+				PubKey: edit.new.PublicKey,
+				Level:  statusToLevel(edit.new.Status),
 			})
 		case versioned.Deleted:
-			delete(n.partnerTagMap, string(edit.new.PublicKey))
+			delete(n.partnerTagMap, string(edit.old.PublicKey))
 
-			deletedNotificationStates = append(
-				deletedNotificationStates, edit.new.PublicKey)
+			deleted = append(deleted, edit.old.PublicKey)
 		}
 	}
 
@@ -149,7 +156,7 @@ func (n *notifications) updateSihTagsCB(edits []elementEdit) {
 		publicKeys[tag] = []byte(pubKey)
 	}
 
-	nf := NotificationFilter{
+	nf = NotificationFilter{
 		Identifier:   n.pubKey,
 		MyID:         n.id,
 		Tags:         tags,
@@ -157,62 +164,63 @@ func (n *notifications) updateSihTagsCB(edits []elementEdit) {
 		AllowedTypes: allowList[NotifyAll],
 	}
 
-	go n.cb(nf, changedNotificationStates, deletedNotificationStates)
-}
-
-// EnableNotifications enables DM notifications.
-//
-// To use push notifications, a token must be registered with the notification
-// manager. Note, when enabling push notifications, information may be shared
-// with third parties (i.e., Firebase and Google's Palantir) and may represent a
-// security risk to the user.
-func (n *notifications) EnableNotifications(myID *id.ID,
-	status clientNotif.NotificationState) error {
-
-	return n.nm.Set(myID, notificationGroup, nil, status)
-}
-
-// GetNotificationLevel returns the notification level for the given channel.
-func (n *notifications) GetNotificationLevel(
-	partnerPubKey ed25519.PublicKey) (NotificationLevel, error) {
-
-	user, exists := n.us.get(partnerPubKey)
-	if !exists {
-		return 0,
-			errors.Errorf("not DM conversation found with %X", partnerPubKey)
-	}
-
-	switch user.Status {
-	case statusMute, statusBlocked:
-		return NotifyNone, nil
-	case statusNotifyAll:
-		return NotifyAll, nil
-	}
-
-	return 0, errors.Errorf("invalid status found: %d", user.Status)
+	return nf, changed, deleted
 }
 
 // SetMobileNotificationsLevel sets the notification level for the given DM
 // conversation partner. The [NotificationLevel] dictates the type of
 // notifications received and the status controls weather the notification is
 // push or in-app. If muted, both the level and status must be set to mute.
-func (n *notifications) SetMobileNotificationsLevel(partnerPubKey ed25519.PublicKey,
-	level NotificationLevel) error {
+// TODO: add to bindings
+func (n *notifications) SetMobileNotificationsLevel(
+	partnerPubKey ed25519.PublicKey, level NotificationLevel) error {
 	jww.INFO.Printf("[CH] Set notification level for DM partner %X to %s",
 		partnerPubKey, level)
 
-	var status partnerStatus
-	switch level {
-	case NotifyNone:
-		status = statusMute
-	case NotifyAll:
-		status = statusNotifyAll
-	default:
-		return errors.Errorf("invalid notification level: %d", level)
+	n.ps.set(partnerPubKey, levelToStatus(level))
+	return nil
+}
+
+// GetNotificationLevel returns the notification level for the given channel.
+// TODO: add to bindings
+func (n *notifications) GetNotificationLevel(
+	partnerPubKey ed25519.PublicKey) (NotificationLevel, error) {
+
+	partner, exists := n.ps.get(partnerPubKey)
+	if !exists {
+		return 0,
+			errors.Errorf("no DM conversation found with %X", partnerPubKey)
 	}
 
-	n.us.set(partnerPubKey, status)
-	return nil
+	return statusToLevel(partner.Status), nil
+}
+
+// statusToLevel converts a partnerStatus to its equivalent NotificationLevel.
+func statusToLevel(status partnerStatus) NotificationLevel {
+	switch status {
+	case statusMute:
+		return NotifyNone
+	case statusNotifyAll:
+		return NotifyAll
+	case statusBlocked:
+		return NotifyBlocked
+	default:
+		return NotifyAll
+	}
+}
+
+// levelToStatus converts a NotificationLevel to its equivalent partnerStatus.
+func levelToStatus(level NotificationLevel) partnerStatus {
+	switch level {
+	case NotifyNone:
+		return statusMute
+	case NotifyAll:
+		return statusNotifyAll
+	case NotifyBlocked:
+		return statusBlocked
+	default:
+		return statusNotifyAll
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -314,8 +322,7 @@ func (nf NotificationFilter) match(
 
 		// Verify that the public key exists (it always should at this point)
 		for tag := range matchedTags {
-			pubKey, exists := nf.PublicKeys[tag]
-			if exists {
+			if pubKey, exists := nf.PublicKeys[tag]; exists {
 				return NotificationReport{
 					Partner: pubKey,
 					Type:    mt,
@@ -336,8 +343,9 @@ func (nf NotificationFilter) match(
 type NotificationLevel uint8
 
 var allowList = map[NotificationLevel]map[MessageType]struct{}{
-	NotifyNone: {},
-	NotifyAll:  {TextType: {}, ReplyType: {}},
+	NotifyNone:    {},
+	NotifyAll:     {TextType: {}, ReplyType: {}},
+	NotifyBlocked: {},
 }
 
 const (
@@ -346,6 +354,10 @@ const (
 
 	// NotifyAll results in notifications from all messages except silent ones.
 	NotifyAll NotificationLevel = 40
+
+	// NotifyBlocked indicates notifications are muted because the partner is
+	// blocked.
+	NotifyBlocked NotificationLevel = 100
 )
 
 // String prints a human-readable form of the [NotificationLevel] for logging
@@ -356,6 +368,8 @@ func (nl NotificationLevel) String() string {
 		return "none"
 	case NotifyAll:
 		return "all"
+	case NotifyBlocked:
+		return "blocked"
 	default:
 		return "INVALID NOTIFICATION LEVEL: " + strconv.Itoa(int(nl))
 	}

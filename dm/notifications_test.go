@@ -10,6 +10,8 @@ package dm
 import (
 	"bytes"
 	"crypto/ed25519"
+	"gitlab.com/elixxir/crypto/sih"
+	primNotif "gitlab.com/elixxir/primitives/notifications"
 	"io"
 	"math/rand"
 	"reflect"
@@ -293,7 +295,62 @@ func Test_levelToStatus(t *testing.T) {
 // For Me / Notification Report                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
+// Tests GetNotificationReportsForMe.
 func TestGetNotificationReportsForMe(t *testing.T) {
+	prng := rand.New(rand.NewSource(38496))
+	me, _ := codename.GenerateIdentity(prng)
+	receptionID := deriveReceptionID(
+		ecdh.ECDHNIKE.DerivePublicKey(
+			ecdh.Edwards2EcdhNikePrivateKey(me.Privkey)).Bytes(), me.GetDMToken())
+	types := []MessageType{TextType, ReplyType, ReactionType, SilentType}
+	levels := []NotificationLevel{NotifyNone, NotifyAll}
+
+	var expected []NotificationReport
+	var notifData []*primNotif.Data
+	nf := NotificationFilter{
+		Identifier:   me.PubKey,
+		MyID:         receptionID,
+		Tags:         []string{},
+		PublicKeys:   make(map[string]ed25519.PublicKey),
+		AllowedTypes: allowList[NotifyAll],
+	}
+	for _, mt := range types {
+		for _, level := range levels {
+			pubKey := newPubKey(prng)
+			tag := dm.MakeReceiverSihTag(pubKey, me.Privkey)
+
+			msgHash := make([]byte, 24)
+			prng.Read(msgHash)
+
+			mtByte := mt.Marshal()
+			cSIH, err := sih.MakeCompressedSIH(
+				receptionID, msgHash, me.PubKey, []string{tag}, mtByte[:])
+			if err != nil {
+				t.Fatalf("Failed to make compressed SIH: %+v", err)
+			}
+
+			notifData = append(notifData, &primNotif.Data{
+				IdentityFP:  cSIH,
+				MessageHash: msgHash,
+			})
+
+			if level == NotifyAll && nf.AllowedTypes[mt] != struct{}{} {
+				nf.Tags = append(nf.Tags, tag)
+				nf.PublicKeys[tag] = pubKey
+				expected = append(expected, NotificationReport{
+					Partner: pubKey,
+					Type:    mt,
+				})
+			}
+		}
+	}
+
+	nrs := GetNotificationReportsForMe(nf, notifData)
+
+	if !reflect.DeepEqual(nrs, expected) {
+		t.Errorf("NotificationReport list does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", expected, nrs)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -9,16 +9,18 @@ package dm
 
 import (
 	"crypto/ed25519"
+	"strconv"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/crypto/dm"
 	"gitlab.com/elixxir/crypto/sih"
 	primNotif "gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
-	"strconv"
-	"sync"
 )
 
 // NotificationUpdate is a callback that is called any time a notification

@@ -48,19 +48,23 @@ const notificationGroup = "channelsDM"
 
 // notifications manages the notification level for each channel.
 type notifications struct {
-
 	// User's ID, public key, and private key
 	id      *id.ID
 	pubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
 
+	// partnerTagMap is a map of DM partner's [ed25519.PublicKey] to their SIH
+	// tag. The key of the map is the [ed25519.PublicKey] cast to a string.
 	partnerTagMap map[string]string
 
 	// User supplied callback to return updated NotificationFilter and channel
 	// notification statuses to.
 	cb NotificationUpdate
 
+	// Remotely-synced storage that contains a list of all DM partner's and
+	// their notification level.
 	us *partnerStore
+
 	nm NotificationsManager
 
 	mux sync.Mutex
@@ -69,7 +73,7 @@ type notifications struct {
 // newNotifications initializes a new channels notifications manager.
 func newNotifications(myID *id.ID, pubKey ed25519.PublicKey,
 	privKey ed25519.PrivateKey, cb NotificationUpdate,
-	us *partnerStore, nm NotificationsManager) *notifications {
+	us *partnerStore, nm NotificationsManager) (*notifications, error) {
 	n := &notifications{
 		id:            myID,
 		pubKey:        pubKey,
@@ -81,11 +85,12 @@ func newNotifications(myID *id.ID, pubKey ed25519.PublicKey,
 		mux:           sync.Mutex{},
 	}
 
-	n.us.listen(n.updateSihTagsCB)
+	err := n.us.listen(n.updateSihTagsCB)
+	if err != nil {
+		return nil, err
+	}
 
-	n.nm.Set(myID, notificationGroup, nil, clientNotif.Push)
-
-	return n
+	return n, n.nm.Set(myID, notificationGroup, nil, clientNotif.Push)
 }
 
 func statusToLevel(status partnerStatus) NotificationLevel {

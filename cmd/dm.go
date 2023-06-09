@@ -17,18 +17,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/dm"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/primitives/id"
-
-	"github.com/spf13/cobra"
-	jww "github.com/spf13/jwalterweatherman"
-	"github.com/spf13/viper"
 )
 
 // DM Specific command line options
@@ -105,8 +106,15 @@ var dmCmd = &cobra.Command{
 
 		sendTracker := dm.NewSendTracker(ekv)
 
+
+		// Construct notifications manager
+		sig := user.GetStorage().GetTransmissionRegistrationValidationSignature()
+		nm := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
+			user.GetStorage().GetKV(), &clientNotif.MockComms{}, user.GetRng())
+
+		nuCB := func(dm.NotificationFilter, []dm.NotificationState, []ed25519.PublicKey) {}
 		dmClient, err := dm.NewDMClient(&dmID, myReceiver, sendTracker,
-			myNickMgr, user.GetCmix(), ekv, user.GetRng())
+			myNickMgr, nm, user.GetCmix(), ekv, user.GetRng(), nuCB)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

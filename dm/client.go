@@ -14,15 +14,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/crypto/codename"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 const (
@@ -38,11 +39,12 @@ type dmClient struct {
 	myToken         uint32
 	receiver        EventModel
 
-	st  SendTracker
-	nm  NickNameManager
+	st SendTracker
+	nm NickNameManager
+	ps *partnerStore
+	*notifications
 	net cMixClient
 	rng *fastRNG.StreamGenerator
-	ps  *partnerStore
 }
 
 // NewDMClient creates a new client for direct messaging. This should
@@ -54,17 +56,20 @@ type dmClient struct {
 // See send.go for implementation of the Sender interface.
 func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
-	nickManager NickNameManager,
+	nickManager NickNameManager, nm NotificationsManager,
 	net cMixClient, kv versioned.KV,
-	rng *fastRNG.StreamGenerator) (Client, error) {
-	return newDmClient(myID, receiver, tracker, nickManager, net, kv, rng)
+	rng *fastRNG.StreamGenerator,
+	nuCB NotificationUpdate) (Client, error) {
+	return newDmClient(
+		myID, receiver, tracker, nickManager, nm, net, kv, rng, nuCB)
 }
 
 func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
-	nickManager NickNameManager,
+	nickManager NickNameManager, nm NotificationsManager,
 	net cMixClient, kv versioned.KV,
-	rng *fastRNG.StreamGenerator) (*dmClient, error) {
+	rng *fastRNG.StreamGenerator,
+	nuCB NotificationUpdate) (*dmClient, error) {
 
 	us, err := newPartnerStore(kv)
 	if err != nil {
@@ -80,19 +85,27 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)
 	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
+	n, err :=
+		newNotifications(receptionID, myID.PubKey, myID.Privkey, nuCB, us, nm)
+	if err != nil {
+		return nil,
+			errors.Wrap(err, "failed to initialize DM notification manager")
+	}
+
 	dmc := &dmClient{
 		me:              myID,
-		receptionID:     receptionID,
 		selfReceptionID: selfReceptionID,
+		receptionID:     receptionID,
 		privateKey:      privateKey,
 		publicKey:       publicKey,
 		myToken:         myIDToken,
+		receiver:        receiver,
 		st:              tracker,
 		nm:              nickManager,
+		ps:              us,
+		notifications:   n,
 		net:             net,
 		rng:             rng,
-		receiver:        receiver,
-		ps:              us,
 	}
 
 	// Register the listener

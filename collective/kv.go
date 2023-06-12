@@ -208,6 +208,10 @@ func (r *internalKV) SetBytes(key string, data []byte) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
+	if err := r.kv.SetBytes(key, data); err != nil {
+		return err
+	}
+
 	if updater, exists := r.keyUpdateListeners[key]; exists && updater.local {
 		jww.DEBUG.Printf("[KV] SetBytes CB: %s", key)
 		var old []byte
@@ -228,11 +232,8 @@ func (r *internalKV) SetBytes(key string, data []byte) error {
 			operation = versioned.Updated
 		}
 		go updater.cb(old, data, operation)
-		return nil
-	} else {
-		jww.DEBUG.Printf("[KV] SetBytes NO CB: %s", key)
-		return r.kv.SetBytes(key, data)
 	}
+	return nil
 }
 
 // GetBytes implements [ekv.KeyValue.GetBytes]
@@ -488,7 +489,11 @@ func (r *internalKV) SetRemote(key string, value []byte) error {
 		return err
 	}
 	_, _, err := r.txLog.Write(key, value)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return r.SetBytes(key, value)
 }
 
 // DeleteRemote will write a mutate to the remote with an instruction to delete

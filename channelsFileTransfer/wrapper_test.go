@@ -167,7 +167,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Send the file to the channel
 	msgID, _, _, err := w1.Send(channelID, fileLink, fileName, fileType,
-		preview, 0, xxdk.GetDefaultCMixParams())
+		preview, 0, xxdk.GetDefaultCMixParams(), nil)
 	require.NoError(t, err)
 
 	var fl FileLink
@@ -341,7 +341,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	fileLink2 := ev1.files[fid].Link
 	msgID, _, _, err = w1.Send(channelID, fileLink2, fileName2, fileType2,
-		preview2, 0, xxdk.GetDefaultCMixParams())
+		preview2, 0, xxdk.GetDefaultCMixParams(), nil)
 	require.NoError(t, err)
 
 	var fileInfo2 []byte
@@ -591,7 +591,7 @@ func Test_FileTransfer_Resend_Smoke(t *testing.T) {
 
 	// Send the file to the channel
 	msgID, _, _, err := w1.Send(channelID, fileLink, fileName, fileType,
-		preview, 0, xxdk.GetDefaultCMixParams())
+		preview, 0, xxdk.GetDefaultCMixParams(), nil)
 	if err != nil {
 		t.Fatalf("Failed to send file: %+v", err)
 	}

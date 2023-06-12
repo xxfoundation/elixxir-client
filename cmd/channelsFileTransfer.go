@@ -153,7 +153,7 @@ var channelsFileTransferCmd = &cobra.Command{
 			msgID, rounds, _, err := em.Send(channel.ReceptionID, f.Link,
 				filePath, viper.GetString(channelsFtTypeFlag),
 				[]byte(viper.GetString(channelsFtPreviewStringFlag)),
-				channels.ValidForever, xxdk.GetDefaultCMixParams())
+				channels.ValidForever, xxdk.GetDefaultCMixParams(), nil)
 			if err != nil {
 				jww.FATAL.Panicf("[FT] Failed to send file %s to channel %s: %+v",
 					fid, channel.ReceptionID, err)

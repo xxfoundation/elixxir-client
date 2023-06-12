@@ -54,7 +54,13 @@ type notifications struct {
 	// notification statuses to.
 	cb NotificationUpdate
 
+	// Returns the channel for the given ID from the manager.
 	channelGetter
+
+	// The list of ExtensionMessageHandler loaded into the channel manager.
+	ext []ExtensionMessageHandler
+
+	// Manages notification statuses for identifies and callback updates.
 	nm NotificationsManager
 }
 
@@ -66,11 +72,13 @@ type channelGetter interface {
 
 // newNotifications initializes a new channels notifications manager.
 func newNotifications(pubKey ed25519.PublicKey, cb NotificationUpdate,
-	cg channelGetter, nm NotificationsManager) *notifications {
+	cg channelGetter, ext []ExtensionMessageHandler,
+	nm NotificationsManager) *notifications {
 	n := &notifications{
 		pubKey:        pubKey,
 		cb:            cb,
 		channelGetter: cg,
+		ext:           ext,
 		nm:            nm,
 	}
 	nm.RegisterUpdateCallback(notificationGroup, n.notificationsUpdateCB)
@@ -233,18 +241,38 @@ func (n *notifications) processesNotificationUpdates(group clientNotif.Group,
 			continue
 		}
 
+		asymmetricList := notificationLevelAllowLists[asymmetric][level]
+		symmetricList := notificationLevelAllowLists[symmetric][level]
+
+		// Append all message types for each extension
+		for _, ext := range n.ext {
+			asymmetricExt, symmetricExt := ext.GetNotificationTags(channelID, level)
+			for mt := range asymmetricExt.AllowWithTags {
+				asymmetricList.AllowWithTags[mt] = struct{}{}
+			}
+			for mt := range asymmetricExt.AllowWithoutTags {
+				asymmetricList.AllowWithTags[mt] = struct{}{}
+			}
+			for mt := range symmetricExt.AllowWithTags {
+				symmetricList.AllowWithTags[mt] = struct{}{}
+			}
+			for mt := range symmetricExt.AllowWithoutTags {
+				symmetricList.AllowWithTags[mt] = struct{}{}
+			}
+		}
+
 		nfs = append(nfs,
 			NotificationFilter{
 				Identifier: ch.broadcast.AsymmetricIdentifier(),
 				ChannelID:  channelID,
 				Tags:       tags,
-				AllowLists: notificationLevelAllowLists[asymmetric][level],
+				AllowLists: asymmetricList,
 			},
 			NotificationFilter{
 				Identifier: ch.broadcast.SymmetricIdentifier(),
 				ChannelID:  channelID,
 				Tags:       tags,
-				AllowLists: notificationLevelAllowLists[symmetric][level],
+				AllowLists: symmetricList,
 			})
 	}
 
@@ -394,12 +422,12 @@ const (
 var notificationLevelAllowLists = map[notificationSourceType]map[NotificationLevel]AllowLists{
 	symmetric: {
 		NotifyPing: {
-			map[MessageType]struct{}{Text: {}, FileTransfer: {}},
+			map[MessageType]struct{}{Text: {}},
 			map[MessageType]struct{}{},
 		},
 		NotifyAll: {
 			map[MessageType]struct{}{},
-			map[MessageType]struct{}{Text: {}, FileTransfer: {}},
+			map[MessageType]struct{}{Text: {}},
 		},
 	},
 	asymmetric: {

@@ -8,6 +8,7 @@
 package channelsFileTransfer
 
 import (
+	"crypto/ed25519"
 	"strconv"
 	"time"
 
@@ -106,9 +107,12 @@ type FileTransfer interface {
 	//   - validUntil - The duration that the file is available in the channel.
 	//     For the maximum amount of time, use channels.ValidForever.
 	//   - params - The xxdk.CMIXParams to send this.
+	//   - pings - A list of Ed25519 public keys that will receive notifications
+	//     for this message. They must be in the channel and have notifications
+	//     enabled.
 	Send(channelID *id.ID, fileLink []byte, fileName, fileType string,
-		preview []byte, validUntil time.Duration, params xxdk.CMIXParams) (
-		message.ID, rounds.Round, ephemeral.Id, error)
+		preview []byte, validUntil time.Duration, params xxdk.CMIXParams,
+		pings []ed25519.PublicKey) (message.ID, rounds.Round, ephemeral.Id, error)
 
 	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual file upload. A SentProgressCallback

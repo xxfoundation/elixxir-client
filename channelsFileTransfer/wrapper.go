@@ -311,7 +311,8 @@ func (w *Wrapper) uploadCompleteCB(fl FileLink) {
 // Send sends the specified file info to the channel.
 func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 	fileType string, preview []byte, validUntil time.Duration,
-	params xxdk.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error) {
+	params xxdk.CMIXParams, pings []ed25519.PublicKey) (
+	message.ID, rounds.Round, ephemeral.Id, error) {
 
 	if err := w.m.verifyFileInfo(fileName, fileType, preview); err != nil {
 		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
@@ -343,7 +344,7 @@ func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 	}
 
 	return w.ch.SendGeneric(channelID, channels.FileTransfer,
-		fileInfo, validUntil, true, params.CMIX, nil)
+		fileInfo, validUntil, true, params.CMIX, pings)
 }
 
 // RegisterSentProgressCallback registers the callback to the given file
@@ -634,4 +635,27 @@ func (w *Wrapper) Handle(channelID *id.ID, messageID cryptoMessage.ID,
 	return w.ev.ReceiveMessage(channelID, messageID, nickname, string(content),
 		pubKey, dmToken, codeset, timestamp, lease, round, messageType,
 		channels.Delivered, hidden)
+}
+
+// GetNotificationTags is called to get the symmetric and asymmetric allow
+// lists for the given channel at the specified level that are appended to
+// the [NotificationFilter].
+func (w *Wrapper) GetNotificationTags(_ *id.ID, level channels.NotificationLevel) (
+	asymmetric, symmetric channels.AllowLists) {
+	switch level {
+	case channels.NotifyPing:
+		return channels.AllowLists{},
+			channels.AllowLists{
+				AllowWithTags: map[channels.MessageType]struct{}{
+					channels.FileTransfer: {}},
+			}
+	case channels.NotifyAll:
+		return channels.AllowLists{},
+			channels.AllowLists{
+				AllowWithoutTags: map[channels.MessageType]struct{}{
+					channels.FileTransfer: {}},
+			}
+	}
+
+	return channels.AllowLists{}, channels.AllowLists{}
 }

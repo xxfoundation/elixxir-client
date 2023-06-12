@@ -209,6 +209,7 @@ func (r *internalKV) SetBytes(key string, data []byte) error {
 		return err
 	}
 	if updater, exists := r.keyUpdateListeners[key]; exists && updater.local {
+		jww.DEBUG.Printf("[KV] SetBytes CB: %s", key)
 		var old []byte
 		var existed bool
 		op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
@@ -229,6 +230,7 @@ func (r *internalKV) SetBytes(key string, data []byte) error {
 		go updater.cb(old, data, operation)
 		return nil
 	} else {
+		jww.DEBUG.Printf("[KV] SetBytes NO CB: %s", key)
 		return r.kv.SetBytes(key, data)
 	}
 }

@@ -34,6 +34,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.0.0 // indirect
 	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20230214175953-5b5a8c33d28a // indirect
+	github.com/Max-Sum/base32768 v0.0.0-20230304063302-18e6ce5945fd // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect

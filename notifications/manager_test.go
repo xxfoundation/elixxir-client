@@ -772,7 +772,8 @@ func buildTestingManager(t *testing.T) (Manager, xxdk.TransmissionIdentity, *com
 		t.Fatalf("failed to generate salt: %+v", err)
 	}
 
-	m := NewOrLoadManager(ti, regSig, kv, comms, rng)
+	m, err := NewOrLoadManager(ti, regSig, kv, comms, rng)
+	require.NoError(t, err)
 
 	return m, ti, comms
 }

@@ -108,8 +108,11 @@ var dmCmd = &cobra.Command{
 
 		// Construct notifications manager
 		sig := user.GetStorage().GetTransmissionRegistrationValidationSignature()
-		nm := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
+		nm, err := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
 			user.GetStorage().GetKV(), &clientNotif.MockComms{}, user.GetRng())
+		if err != nil {
+			jww.FATAL.Panicf("Error getting notification manager: %+v", err)
+		}
 
 		nuCB := func(dm.NotificationFilter, []dm.NotificationState, []ed25519.PublicKey) {}
 		dmClient, err := dm.NewDMClient(&dmID, myReceiver, sendTracker,

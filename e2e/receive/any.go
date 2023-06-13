@@ -15,7 +15,7 @@ import (
 // ID to respond to any message type
 const AnyType = catalog.NoType
 
-//ID to respond to any user
+// ID to respond to any user
 func AnyUser() *id.ID {
 	return &id.ZeroUser
 }

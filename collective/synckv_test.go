@@ -9,14 +9,14 @@ package collective
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	"math/rand"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/randomness"
@@ -27,6 +27,8 @@ import (
 // not in the collective list will not. A separate test should add a prefix
 // mid-way and show that the keys begin to collective after the prefix was
 // added.
+// Verification of correctness is done by checking the RemoteKV patch
+// file and ensuring the keys present there are accessible via the kv
 func TestVersionedKV(t *testing.T) {
 	syncPrefixes := []string{"collective", "a", "abcdefghijklmnop", "b", "c"}
 	nonSyncPrefixes := []string{"hello", "sync1", "1sync", "synd", "ak"}
@@ -37,47 +39,26 @@ func TestVersionedKV(t *testing.T) {
 	testSyncPrefixes, testNoSyncPrefixes := genTestCases(syncPrefixes,
 		nonSyncPrefixes, t)
 
-	t.Logf("SYNCH: %+v", testSyncPrefixes)
-	t.Logf("NOSYNCH: %+v", testNoSyncPrefixes)
+	// t.Logf("SYNCH: %+v", testSyncPrefixes)
+	// t.Logf("NOSYNCH: %+v", testNoSyncPrefixes)
 
 	// Initialize KV
-	// Construct mock update callback
-	remoteCallCnt := 0
-	txs := make(map[string]*versioned.Object)
-	var lck sync.Mutex
-	updateCb := versioned.KeyChangedByRemoteCallback(
-		func(key string, oldVal, newVal *versioned.Object,
-			op versioned.KeyOperation) {
-			lck.Lock()
-			defer lck.Unlock()
-			require.Nil(t, oldVal)
-			t.Logf("KEY: %s", key)
-			remoteCallCnt += 1
-			_, ok := txs[key]
-			require.False(t, ok, key)
-			txs[key] = newVal
-
-		})
 	memKV := ekv.MakeMemstore()
-	remoteStore := newMockRemote()
-	rkv, _ := testingKV(t, memKV, syncPrefixes, remoteStore)
+	remoteStore := NewMockRemote()
+	rkv, _ := testingKV(t, memKV, syncPrefixes, remoteStore,
+		NewCountingReader())
 
-	// Overwrite remote w/ non file IO option
-	rkv.remote.txLog.io = &mockRemote{
-		data: make(map[string][]byte, 0),
-	}
+	rkv.remote.txLog.uploadPeriod = 50 * time.Millisecond
+	stop1, err := rkv.StartProcesses()
+	require.NoError(t, err)
 
-	var err error
 	// There should be 0 activity when working with non tracked prefixes
 	for i := range testNoSyncPrefixes {
 		var tkv versioned.KV
+		tkv = rkv
 		for j := range testNoSyncPrefixes[i] {
 			curP := testNoSyncPrefixes[i][j]
-			if tkv == nil {
-				tkv, err = rkv.Prefix(curP)
-			} else {
-				tkv, err = tkv.Prefix(curP)
-			}
+			tkv, err = tkv.Prefix(curP)
 			require.NoError(t, err, curP)
 		}
 		for j := range syncPrefixes {
@@ -90,30 +71,34 @@ func TestVersionedKV(t *testing.T) {
 				Timestamp: time.Now(),
 				Data:      []byte("WhatsUpDoc?"),
 			}
-			tkv.ListenOnRemoteKey(testKeys[j], 0, updateCb)
 			tkv.Set(testKeys[j], obj)
 
-			data, err := rkv.remote.GetBytes(tkv.GetFullKey(testKeys[j],
-				obj.Version))
+			data, err := rkv.remote.GetBytes(
+				tkv.GetFullKey(testKeys[j],
+					obj.Version))
 			require.NoError(t, err)
 			require.Equal(t, obj.Marshal(), data)
 		}
 	}
-	require.Equal(t, 0, remoteCallCnt)
+
+	err = stop1.Close()
+	require.NoError(t, err)
+	err = stoppable.WaitForStopped(stop1, 2*time.Second)
+	require.NoError(t, err)
+
 	require.Equal(t, 0, len(rkv.remote.txLog.state.keys))
+
+	stop2, err := rkv.StartProcesses()
+	require.NoError(t, err)
 
 	// There should be 1 tx per synchronized key
 	txCnt := 0
-	expTxs := make(map[string][]byte)
 	for i := range testSyncPrefixes {
 		var tkv versioned.KV
+		tkv = rkv
 		for j := range testSyncPrefixes[i] {
 			curP := testSyncPrefixes[i][j]
-			if tkv == nil {
-				tkv, err = rkv.Prefix(curP)
-			} else {
-				tkv, err = tkv.Prefix(curP)
-			}
+			tkv, err = tkv.Prefix(curP)
 			require.NoError(t, err, curP)
 		}
 		for j := range testSyncPrefixes[i] {
@@ -133,18 +118,23 @@ func TestVersionedKV(t *testing.T) {
 			data, err := rkv.remote.GetBytes(k)
 			require.NoError(t, err)
 			require.Equal(t, v, data)
-
-			expTxs[k] = v
 		}
 	}
 
-	for k, v := range expTxs {
-		storedV, ok := txs[k]
-		require.True(t, ok, k)
-		require.Equal(t, v, storedV)
-	}
+	time.Sleep(1 * time.Second)
 
-	require.Equal(t, txCnt, remoteCallCnt)
+	err = stop2.Close()
+	require.NoError(t, err)
+	err = stoppable.WaitForStopped(stop2, 2*time.Second)
+	require.NoError(t, err)
+
+	// Assert that everything in the patch file matches the rkv.
+	require.Equal(t, txCnt, len(rkv.remote.txLog.state.keys))
+	for k, v := range rkv.remote.txLog.state.keys {
+		obj, err := rkv.remote.GetBytes(k)
+		require.NoError(t, err, k)
+		require.Equal(t, v.Value, obj)
+	}
 }
 
 // TestVersionedKVMapFuncs tests getting and setting a map of versioned.Objects
@@ -168,38 +158,12 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 		second[k] = first[k]
 	}
 
-	// Create KV
-	// Construct mock update callback
-	remoteCallCnt := 0
-	var lck sync.Mutex
-	txs := make(map[string]*versioned.Object)
-	updateCb := versioned.MapChangedByRemoteCallback(
-		func(mapName string, edits map[string]versioned.ElementEdit) {
-			lck.Lock()
-			defer lck.Unlock()
-			t.Logf("KEY: %s", mapName)
-			for k := range edits {
-				require.Nil(t, edits[k].OldElement)
-				_, ok := txs[k]
-				require.False(t, ok, k)
-				txs[k] = edits[k].NewElement
-			}
-			remoteCallCnt += 1
-
-		})
 	memKV := ekv.MakeMemstore()
-	remoteStore := newMockRemote()
+	remoteStore := NewMockRemote()
 
-	rkv, _ := testingKV(t, memKV, nil, remoteStore)
-
-	// Overwrite remote w/ non file IO option
-	rkv.remote.txLog.io = &mockRemote{
-		data: make(map[string][]byte, 0),
-	}
+	rkv, _ := testingKV(t, memKV, nil, remoteStore, NewCountingReader())
 
 	mapKey := "mapkey"
-
-	rkv.ListenOnRemoteMap(mapKey, 0, updateCb)
 
 	// An empty map shouldn't return an error
 	_, err := rkv.GetMap(mapKey, 0)
@@ -224,14 +188,20 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 	// Overwrite with second
 	err = rkv.StoreMap(mapKey, second, 0)
 	require.NoError(t, err)
-	for k, v := range second {
+	for k, v := range first {
+		_, ok := second[k]
+		if !ok {
+			_, err := rkv.DeleteMapElement(mapKey, k, 0)
+			require.NoError(t, err)
+			continue
+		}
 		newV, err := rkv.GetMapElement(mapKey, k, 0)
 		require.NoError(t, err)
 		require.Equal(t, v, newV)
 	}
 	newSecond, err := rkv.GetMap(mapKey, 0)
 	require.NoError(t, err)
-	require.Equal(t, second, newSecond)
+	require.Equal(t, second, newSecond, "if larger, delete is broken")
 }
 
 func genTestCases(syncPrefixes, nonSyncPrefixes []string, t *testing.T) (sync,

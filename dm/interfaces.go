@@ -27,12 +27,10 @@ import (
 type Client interface {
 	Sender
 	// Listener
-	// TODO: These unimplemented at this time.
-	// BlockDMs disables DMs from a specific user. Received messages
-	// will be dropped during event processing.
-	// BlockDMs(partnerPubKey *ed25519.PublicKey, dmToken uint32) error
-	// UnblockDMs enables DMs from a specific user.
-	// UnblockDMs(conversationID *id.ID) error
+
+	BlockSender(senderPubKey ed25519.PublicKey)
+
+	UnblockSender(senderPubKey ed25519.PublicKey)
 
 	// GetPublicKey returns the public key of this client.
 	GetPublicKey() nike.PublicKey
@@ -87,6 +85,16 @@ type Sender interface {
 		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
 
+	// SendSilent is used to send to a channel a message with no notifications.
+	// Its primary purpose is to communicate new nicknames without calling
+	// SendMessage.
+	//
+	// It takes no payload intentionally as the message should be very
+	// lightweight.
+	SendSilent(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+		params cmix.CMIXParams) (
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
+
 	// Send is used to send a raw message. In general, it
 	// should be wrapped in a function that defines the wire protocol.
 	//
@@ -94,7 +102,7 @@ type Sender interface {
 	// too long, this will return an error. Due to the underlying
 	// encoding using compression, it is not possible to define
 	// the largest payload that can be sent, but it will always be
-	// possible to send a payload of 802 bytes at minimum.
+	// possible to send a payload of 802 bytes at a minimum.
 	Send(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
 		messageType MessageType, plaintext []byte,
 		params cmix.CMIXParams) (cryptoMessage.ID,
@@ -127,7 +135,7 @@ type EventModel interface {
 	Receive(messageID cryptoMessage.ID,
 		nickname string, text []byte,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32,
+		partnerToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, mType MessageType, status Status) uint64
 
@@ -148,7 +156,7 @@ type EventModel interface {
 	ReceiveText(messageID cryptoMessage.ID,
 		nickname, text string,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32,
+		partnerToken uint32,
 		codeset uint8, timestamp time.Time,
 		round rounds.Round, status Status) uint64
 
@@ -173,7 +181,7 @@ type EventModel interface {
 	ReceiveReply(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, text string,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32, codeset uint8,
+		partnerToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -198,7 +206,7 @@ type EventModel interface {
 	ReceiveReaction(messageID cryptoMessage.ID,
 		reactionTo cryptoMessage.ID, nickname, reaction string,
 		partnerPubKey, senderPubKey ed25519.PublicKey,
-		dmToken uint32, codeset uint8,
+		partnerToken uint32, codeset uint8,
 		timestamp time.Time, round rounds.Round,
 		status Status) uint64
 
@@ -253,7 +261,7 @@ type NickNameManager interface {
 	// GetNickname gets the nickname associated with this DM user.
 	GetNickname() (string, bool)
 	// SetNickname sets the nickname to use for this user.
-	SetNickname(nick string)
+	SetNickname(nick string) error
 }
 
 // SendTracker provides facilities for tracking sent messages
@@ -272,15 +280,15 @@ type SendTracker interface {
 	// FailedSend marks a message failed
 	FailedSend(uuid uint64) error
 
-	//Sent marks a message successfully Sent
+	// Sent marks a message successfully Sent
 	Sent(uuid uint64, msgID cryptoMessage.ID, round rounds.Round) error
 
-	//CheckIfSent checks if the given message was a sent message
+	// CheckIfSent checks if the given message was a sent message
 	CheckIfSent(messageID cryptoMessage.ID, r rounds.Round) bool
 
-	//Delivered marks a message delivered
+	// Delivered marks a message delivered
 	Delivered(msgID cryptoMessage.ID, round rounds.Round) bool
 
-	//StopTracking stops tracking a message
+	// StopTracking stops tracking a message
 	StopTracking(msgID cryptoMessage.ID, round rounds.Round) bool
 }

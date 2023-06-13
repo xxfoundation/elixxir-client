@@ -9,7 +9,6 @@ package channels
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/collective"
 	"math/rand"
 	"os"
 	"reflect"
@@ -17,7 +16,10 @@ import (
 	"testing"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -25,8 +27,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 func TestMain(m *testing.M) {
@@ -46,23 +46,7 @@ var mockAddServiceFn = func(sp xxdk.Service) error {
 }
 
 func TestManager_JoinChannel(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-
-	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 	mem := m.events.model.(*mockEventModel)
 
 	ch, _, err := newTestChannel(
@@ -89,24 +73,7 @@ func TestManager_JoinChannel(t *testing.T) {
 }
 
 func TestManager_LeaveChannel(t *testing.T) {
-
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-
-	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 	mem := m.events.model.(*mockEventModel)
 
 	ch, _, err := newTestChannel(
@@ -235,23 +202,7 @@ func TestManager_GetChannel_BadChannel(t *testing.T) {
 
 // Smoke test for EnableDirectMessageToken.
 func TestManager_EnableDirectMessageToken(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-
-	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), broadcast2.Public)
@@ -269,36 +220,23 @@ func TestManager_EnableDirectMessageToken(t *testing.T) {
 		t.Fatalf("EnableDirectMessageToken error: %+v", err)
 	}
 
-	token := m.getDmToken(ch.ReceptionID)
+	if enabled := m.AreDMsEnabled(ch.ReceptionID); !enabled {
+		t.Fatalf("AreDMsEnabled expected to return true after calling " +
+			"EnableDirectMessages")
+	}
 
-	expected := pi.GetDMToken()
+	token := m.getDmToken(ch.ReceptionID)
+	expected := m.me.GetDMToken()
 	if !reflect.DeepEqual(token, expected) {
 		t.Fatalf("EnableDirectMessageToken did not set token as expected."+
 			"\nExpected: %v"+
 			"\nReceived: %v", expected, token)
 	}
-
 }
 
 // Smoke test.
 func TestManager_DisableDirectMessageToken(t *testing.T) {
-	rng := rand.New(rand.NewSource(64))
-
-	pi, err := cryptoChannel.GenerateIdentity(rng)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	kv := collective.TestingKV(t, ekv.MakeMemstore(), collective.StandardPrefexs)
-
-	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mockEventModelBuilder, nil, mockAddServiceFn, &dummyUICallback{})
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	m := mFace.(*manager)
+	m := newTestManager(t)
 
 	ch, _, err := newTestChannel(
 		"name", "description", m.rng.GetStream(), broadcast2.Public)
@@ -322,10 +260,37 @@ func TestManager_DisableDirectMessageToken(t *testing.T) {
 	}
 
 	// Test that token is 0 when retrieved
+	enabled := m.AreDMsEnabled(ch.ReceptionID)
+	if enabled {
+		t.Fatalf("AreDMsEnabled expected to return false after calling " +
+			"DisableDirectMessages")
+	}
+
 	token := m.getDmToken(ch.ReceptionID)
 	if token != 0 {
 		t.Fatalf("getDmToken expected to return nil after calling " +
-			"DisableDirectMessageToken")
+			"DisableDirectMessages")
+	}
+}
+
+func newTestManager(t testing.TB) *manager {
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf("GenerateIdentity error: %+v", err)
 	}
 
+	kv := collective.TestingKV(
+		t, ekv.MakeMemstore(), collective.StandardPrefexs, collective.NewMockRemote())
+
+	mFace, err := NewManagerBuilder(pi, kv, new(mockBroadcastClient),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		mockEventModelBuilder, nil, mockAddServiceFn, newMockNM(),
+		&dummyUICallback{})
+	if err != nil {
+		t.Errorf("NewManager error: %+v", err)
+	}
+
+	return mFace.(*manager)
 }

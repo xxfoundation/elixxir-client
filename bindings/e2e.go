@@ -143,7 +143,7 @@ func (e *E2e) GetUdCertFromNdf() []byte {
 // within the NDF.
 //
 // Returns
-//  - []byte - A byte marshalled contact.Contact.
+//   - []byte - A byte marshalled contact.Contact.
 func (e *E2e) GetUdContactFromNdf() ([]byte, error) {
 	// Retrieve data from E2e
 	netDef := e.api.GetCmix().GetInstance().GetPartialNdf().Get()

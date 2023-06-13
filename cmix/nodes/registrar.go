@@ -9,7 +9,6 @@ package nodes
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/collective"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -18,8 +17,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"

@@ -21,11 +21,11 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/v4/storage"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -68,7 +68,7 @@ func (mnm *mockNetManager) AddFingerprint(identity *id.ID, fingerprint format.Fi
 }
 func (mnm *mockNetManager) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {}
 func (mnm *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
-	service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
+	service cmix.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{ID: 5}, ephemeral.Id{}, nil
 }

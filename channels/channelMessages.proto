@@ -20,10 +20,6 @@ message ChannelMessage{
     // The round this message was sent on.
     uint64 RoundID = 2;
 
-    // The type the below payload is. This may be some form of channel command,
-    // such as BAN<username1>.
-    uint32 PayloadType = 3;
-
     // Payload is the actual message payload. It will be processed differently
     // based on the PayloadType.
     bytes Payload = 4;

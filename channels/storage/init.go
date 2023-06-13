@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/channels"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/driver/sqlite"
@@ -25,7 +24,7 @@ import (
 // MessageReceivedCallback is called any time a message is received or updated.
 //
 // update is true if the row is old and was edited.
-type MessageReceivedCallback func(uuid uint64, channelID *id.ID, update bool)
+type MessageReceivedCallback func(uuid int64, channelID *id.ID, update bool)
 
 // MuteCallback is a callback provided for the MuteUser method of the impl.
 type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
@@ -36,23 +35,20 @@ type DeletedMessageCallback func(messageID message.ID)
 // impl implements the channels.EventModel interface with an underlying DB.
 type impl struct {
 	db       *gorm.DB // Stored database connection
-	cipher   cryptoChannel.Cipher
 	msgCb    MessageReceivedCallback
 	deleteCb DeletedMessageCallback
 	muteCb   MuteCallback
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption, msgCb, deleteCb, muteCb)
+func NewEventModel(dbFilePath string, msgCb MessageReceivedCallback,
+	deleteCb DeletedMessageCallback, muteCb MuteCallback) (channels.EventModel, error) {
+	model, err := newImpl(dbFilePath, msgCb, deleteCb, muteCb)
 	return channels.EventModel(model), err
 }
 
-func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (*impl, error) {
+func newImpl(dbFilePath string, msgCb MessageReceivedCallback,
+	deleteCb DeletedMessageCallback, muteCb MuteCallback) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -98,7 +94,7 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 
 	// Initialize the database schema
 	// WARNING: Order is important. Do not change without database testing
-	err = db.AutoMigrate(&Channel{}, &Message{})
+	err = db.AutoMigrate(&Channel{}, &Message{}, File{})
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +102,6 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 	// Build the interface
 	di := &impl{
 		db:       db,
-		cipher:   encryption,
 		msgCb:    msgCb,
 		deleteCb: deleteCb,
 		muteCb:   muteCb,

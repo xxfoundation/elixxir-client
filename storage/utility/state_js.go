@@ -5,13 +5,15 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package interfaces
+// state_js.go provides an interface for storing persistent client state
+// and its associated implementations. Exclusively for web clients.
 
-type HealthTracker interface {
-	AddChannel(chan bool) uint64
-	RemoveChannel(uint64)
-	AddFunc(f func(bool)) uint64
-	RemoveFunc(uint64)
-	IsHealthy() bool
-	WasHealthy() bool
-}
+package utility
+
+import (
+	"gitlab.com/elixxir/wasm-utils/storage"
+)
+
+// StateKV is a global that allows switching out the storage backend for
+// certain KV operations. Defaults to backed by local storage.
+var StateKV = storage.GetLocalStorage()

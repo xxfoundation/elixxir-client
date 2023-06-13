@@ -222,6 +222,14 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 
 type mockNetManager struct{}
 
+func (m *mockNetManager) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockNetManager) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (m *mockNetManager) SetTrackNetworkPeriod(d time.Duration) {
 	//TODO implement me
 	panic("implement me")
@@ -241,7 +249,7 @@ func (m *mockNetManager) GetMaxMessageLength() int {
 }
 
 func (m *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
-	service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
+	service cmix.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
@@ -293,6 +301,10 @@ func (m *mockNetManager) DeleteService(clientID *id.ID, toDelete message.Service
 func (m *mockNetManager) DeleteClientService(clientID *id.ID) {}
 
 func (m *mockNetManager) TrackServices(tracker message.ServicesTracker) {}
+
+func (m *mockNetManager) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	return message.ServiceList{}, message.CompressedServiceList{}
+}
 
 func (m *mockNetManager) CheckInProgressMessages() {}
 

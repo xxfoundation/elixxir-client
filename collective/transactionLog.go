@@ -10,13 +10,13 @@ package collective
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -38,6 +38,10 @@ const (
 	toDiskKeyName = "TransactionLog_"
 
 	defaultUploadPeriod = synchronizationEpoch
+
+	// FIXME: It should be: [name]-[deviceid]/[keyid]/txlog
+	// but we don't have access to a name, so: [deviceid]/[keyid]/txlog
+	txLogPathFmt = "%s/%s/state.xx"
 )
 
 // Error messages.
@@ -81,15 +85,19 @@ type remoteWriter struct {
 	// while the collector is running
 	syncLock sync.RWMutex
 
+	uploadPeriod time.Duration
+
 	// tracks if as of the last interaction, we are connected to the
 	// remote
 	remoteUpToDate *uint32
 	*notifier
+
+	mb *mutateBuffer
 }
 
 type transaction struct {
-	Mutate
-	Key string
+	Mutate    map[string]Mutate
+	BuffIndex int
 }
 
 // newRemoteWriter constructs a remoteWriter object that does
@@ -110,21 +118,23 @@ func newRemoteWriter(path string, deviceID InstanceID,
 
 	// Per spec, the path is: [path] + /[deviceID]/[txlog]
 	// we don't use path.join because we aren't relying on OS pathSep.
-	myPath := fmt.Sprintf("%s/%s/%s", path, deviceID, "mystate.xx")
+	logKeyID := encrypt.KeyID(deviceID)
+	myPath := getTxLogPath(path, logKeyID, deviceID)
 
 	connected := uint32(0)
 	// Construct a new mutate log
 	tx := &remoteWriter{
 		path:           myPath,
 		header:         newHeader(deviceID),
-		state:          newPatch(),
-		adds:           make(chan transaction, 1000),
+		state:          newPatch(deviceID),
+		adds:           make(chan transaction, bufferSize),
 		io:             io,
 		encrypt:        encrypt,
 		kv:             kv,
 		localWriteKey:  makeLocalWriteKey(path),
 		remoteUpToDate: &connected,
 		notifier:       &notifier{},
+		uploadPeriod:   defaultUploadPeriod,
 	}
 
 	// Attempt to Read stored mutate log
@@ -139,11 +149,26 @@ func newRemoteWriter(path string, deviceID InstanceID,
 		jww.WARN.Printf("No transaction log found, creating a new one")
 	}
 
+	//attempt to load stored mutateBuffer and handle any extant data
+	mb, remainingMutations := loadBuffer(kv)
+	tx.mb = mb
+	if len(remainingMutations) > 0 {
+		for index := range remainingMutations {
+			tx.syncLock.RLock()
+			mutations := remainingMutations[index]
+			tx.adds <- transaction{
+				Mutate:    mutations,
+				BuffIndex: index,
+			}
+		}
+	}
 	return tx, nil
 }
 
 // Runner pushes updates to the patch file to the remote
 func (rw *remoteWriter) Runner(s *stoppable.Single) {
+	jww.INFO.Printf("[SYNC] started transaction log (remoteWriter) thread")
+
 	//always Write to remote when we start in order to ensure that any
 	//dropped updates are propogated
 	timer := time.NewTimer(time.Nanosecond)
@@ -153,39 +178,15 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 	}
 	running := true
 	var ts time.Time
-	uploadPeriod := defaultUploadPeriod
+	uploadPeriod := rw.uploadPeriod
 	for {
 		select {
 		case t := <-rw.adds:
-			rw.state.AddUnsafe(t.Key, &t.Mutate)
 
-			// batch writes
-			counter := 100 * time.Millisecond
-			timer2 := time.NewTimer(counter)
-			quit := false
-			done := false
-			for !done {
-				select {
-				case t = <-rw.adds:
-					rw.state.AddUnsafe(t.Key, &t.Mutate)
-					rw.syncLock.RUnlock()
-					counter -= 100 * time.Microsecond
-					if counter <= 0 {
-						done = true
-					} else {
-						timer2.Reset(counter)
-					}
-				case <-timer2.C:
-					done = true
-				case <-s.Quit():
-					quit = true
-					done = true
-				}
+			for key, mutate := range t.Mutate {
+				jww.INFO.Printf("Adding change for %s", key)
+				rw.state.AddUnsafe(key, mutate)
 			}
-
-			// once all have been added, unlock allowing the collector
-			// to continue
-			rw.syncLock.RUnlock()
 
 			// Write to disk and queue the remote Write
 			serial, err = rw.state.Serialize()
@@ -198,13 +199,11 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				jww.FATAL.Panicf("failed to Write transaction "+
 					"log to disk: %+v", err)
 			}
+			rw.syncLock.RUnlock()
+			rw.mb.DeleteBufferElement(t.BuffIndex)
 
-			if quit {
-				s.ToStopped()
-				return
-			}
 			if !running {
-				timer.Reset(defaultUploadPeriod)
+				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			}
 
@@ -219,9 +218,11 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 				jww.ERROR.Printf("Failed to update collective state, "+
 					"last update %s, will auto retry in %s: %+v", ts,
 					uploadPeriod, err)
-				timer.Reset(uploadPeriod)
+				timer = time.NewTimer(rw.uploadPeriod)
 				running = true
 			} else {
+				jww.DEBUG.Printf("Wrote patch %s: %d",
+					rw.header.DeviceID, len(rw.state.keys))
 				rw.notify(true)
 				uploadPeriod = defaultUploadPeriod
 				ts = netTime.Now()
@@ -242,7 +243,8 @@ func (rw *remoteWriter) Runner(s *stoppable.Single) {
 // serialized remoteWriter to local and remote storage. The callback for
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
 // this blocks so it cannot be run conncurently with the collector
-func (rw *remoteWriter) Write(key string, value []byte) error {
+func (rw *remoteWriter) Write(key string, value []byte) (
+	oldData []byte, existed bool, err error) {
 	jww.INFO.Printf("[%s] Inserting upsert to remote at %s", logHeader, key)
 	// do not operate while the collector is collecting. this will
 	// be unlocked when the transaction is written to disk
@@ -250,22 +252,33 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 
 	ts := netTime.Now()
 
-	//Write to KV
-	err := rw.kv.SetBytes(key, value)
-	if err != nil {
-		rw.syncLock.RUnlock()
-		return err
+	m := Mutate{
+		Timestamp: ts.UTC().UnixNano(),
+		Value:     value,
+		Deletion:  false,
 	}
 
-	rw.adds <- transaction{
-		Mutate{
-			Timestamp: ts.UTC().UnixNano(),
-			Value:     value,
-			Deletion:  false,
-		},
-		key,
+	op := func(files map[string]ekv.Operable, ext ekv.Extender) error {
+		wFile := files[key]
+		oldData, existed = wFile.Get()
+		wFile.Set(value)
+		return nil
 	}
-	return nil
+
+	mutateMap := msmm(key, m)
+
+	buffIndex, err := rw.mb.DoTransactionAndWriteToBuffer(op, []string{key}, mutateMap)
+	if err != nil {
+		rw.syncLock.RUnlock()
+		return oldData, existed, err
+	}
+
+	jww.INFO.Printf("Sending transaction for %s", key)
+	rw.adds <- transaction{
+		Mutate:    mutateMap,
+		BuffIndex: buffIndex,
+	}
+	return oldData, existed, nil
 }
 
 // WriteMap writes to a map, adding the passed in elements and deleting the
@@ -273,47 +286,38 @@ func (rw *remoteWriter) Write(key string, value []byte) error {
 // inserted and deleted elements
 func (rw *remoteWriter) WriteMap(mapName string,
 	elements map[string][]byte, toDelete map[string]struct{}) (
-	oldE map[string][]byte, deletedE map[string][]byte, err error) {
+	map[string][]byte, error) {
 	jww.INFO.Printf("[%s] Inserting upsert to remote for map %s",
 		logHeader, mapName)
 	// do not operate while the collector is collecting. this will
 	// be unlocked when the transaction is written to disk
+	rw.syncLock.RLock()
 
 	ts := netTime.Now()
 	tsInt := ts.UTC().UnixNano()
 
-	mapKey := versioned.MakeMapKey(mapName)
+	//build handling data
 	keys := make([]string, 0, len(elements)+1)
-	updates := make(map[string]ekv.Value, len(elements)+len(toDelete)+1)
 	mutates := make(map[string]Mutate, len(elements)+len(toDelete))
-	oldE = make(map[string][]byte, len(elements))
-	deletedE = make(map[string][]byte)
-
+	old := make(map[string][]byte, len(elements)+len(toDelete))
 	keyConversions := make(map[string]string, len(elements))
 
+	// construct mutates for upserts
 	for element := range elements {
 		key := versioned.MakeElementKey(mapName, element)
-		rw.syncLock.RLock()
 		keys = append(keys, key)
-		v := elements[element]
-		updates[key] = ekv.Value{
-			Data:   v,
-			Exists: true,
-		}
 		mutates[key] = Mutate{
 			Timestamp: tsInt,
-			Value:     v,
+			Value:     elements[element],
 			Deletion:  false,
 		}
 		keyConversions[key] = element
 	}
+
+	// construct mutates for deletions
 	for element := range toDelete {
 		key := versioned.MakeElementKey(mapName, element)
-		rw.syncLock.RLock()
 		keys = append(keys, key)
-		updates[key] = ekv.Value{
-			Exists: false,
-		}
 		mutates[key] = Mutate{
 			Timestamp: tsInt,
 			Value:     nil,
@@ -321,56 +325,57 @@ func (rw *remoteWriter) WriteMap(mapName string,
 		}
 		keyConversions[key] = element
 	}
+
+	//add the map file to the end of the keys list
+	mapKey := versioned.MakeMapKey(mapName)
 	keys = append(keys, mapKey)
 
-	op := func(old map[string]ekv.Value) (map[string]ekv.Value, error) {
+	op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
 
 		// process key map, will always be the last value due to it being
-		mapFile, err := getMapFile(old[mapKey], len(old)-1)
+		mapFile := files[mapKey]
+		mapFileBytes, _ := mapFile.Get()
+		mapSet, err := getMapFile(mapFileBytes, len(old))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// make edits to the map file and store changes
-		for key, update := range updates {
-			if update.Exists {
-				mapFile.Add(key)
-				oldE[keyConversions[key]] = copyData(old[key].Data)
+		for key, mutate := range mutates {
+			elementName := keyConversions[key]
+			file := files[key]
+			old[elementName], _ = file.Get()
+			if mutate.Deletion {
+				mapSet.Delete(elementName)
+				file.Delete()
 			} else {
-				mapFile.Delete(key)
-				deletedE[keyConversions[key]] = copyData(old[key].Data)
+				mapSet.Add(elementName)
+				file.Set(mutate.Value)
 			}
 		}
 
 		// add the updated map file to updates
-		mapFileValue, err := json.Marshal(mapFile)
+		mapFileBytesNew, err := json.Marshal(mapSet)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		updates[mapKey] = ekv.Value{
-			Data:   mapFileValue,
-			Exists: true,
-		}
+		mapFile.Set(mapFileBytesNew)
 
-		return updates, nil
+		return nil
 	}
 
 	//Write to KV
-	_, _, err = rw.kv.MutualTransaction(keys, op)
-	if err != nil && !strings.Contains(err.Error(), ekv.ErrDeletesFailed) {
-		for i := 0; i < len(elements)+len(toDelete); i++ {
-			rw.syncLock.RUnlock()
-		}
-		return oldE, deletedE, err
+	buffIndex, err := rw.mb.DoTransactionAndWriteToBuffer(op, keys, mutates)
+	if err != nil {
+		rw.syncLock.RUnlock()
+		return nil, err
 	}
 
 	// send signals to collective all transactions
-	for key, m := range mutates {
-		rw.adds <- transaction{m, key}
-	}
+	rw.adds <- transaction{mutates, buffIndex}
 
-	return oldE, deletedE, err
+	return old, err
 }
 
 func copyData(b []byte) []byte {
@@ -387,7 +392,8 @@ func copyData(b []byte) []byte {
 // serialized remoteWriter to local and remote storage. The callback for
 // remote storage will be NewOrLoadTransactionLog or SetRemoteCallback.
 // this blocks so it cannot be run conncurently with the collector
-func (rw *remoteWriter) Delete(key string) error {
+func (rw *remoteWriter) Delete(key string) (
+	oldData []byte, existed bool, err error) {
 	jww.INFO.Printf("[%s] Inserting Delete to remote at %s", logHeader, key)
 	// do not operate while the collector is collecting. this will
 	// be unlocked when the transaction is written to disk
@@ -395,22 +401,33 @@ func (rw *remoteWriter) Delete(key string) error {
 
 	ts := netTime.Now()
 
+	m := Mutate{
+		Timestamp: ts.UTC().UnixNano(),
+		Value:     nil,
+		Deletion:  true,
+	}
+
+	op := func(files map[string]ekv.Operable, ext ekv.Extender) error {
+		wFile := files[key]
+		oldData, existed = wFile.Get()
+		wFile.Delete()
+		return nil
+	}
+
+	mutateMap := msmm(key, m)
+
 	//Write to KV
-	err := rw.kv.Delete(key)
+	buffIndex, err := rw.mb.DoTransactionAndWriteToBuffer(op, []string{key}, mutateMap)
 	if err != nil {
 		rw.syncLock.RUnlock()
-		return err
+		return oldData, existed, err
 	}
 
 	rw.adds <- transaction{
-		Mutate{
-			Timestamp: ts.UTC().UnixNano(),
-			Value:     nil,
-			Deletion:  true,
-		},
-		key,
+		Mutate:    mutateMap,
+		BuffIndex: buffIndex,
 	}
-	return nil
+	return oldData, existed, nil
 }
 
 func (rw *remoteWriter) Read() (patch *Patch, unlock func()) {
@@ -449,4 +466,9 @@ func expBackoff(timeout time.Duration) time.Duration {
 		return 5 * time.Minute
 	}
 	return timeout
+}
+
+func getTxLogPath(syncPath, keyID string, deviceID InstanceID) string {
+	return filepath.Join(syncPath,
+		fmt.Sprintf(txLogPathFmt, deviceID, keyID))
 }

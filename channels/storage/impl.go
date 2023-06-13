@@ -134,7 +134,7 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	parentErr := "failed to UpdateFromUUID"
 
 	msgToUpdate := &Message{
-		Id:     uuid,
+		Id:     int64(uuid),
 		Hidden: hidden,
 		Pinned: pinned,
 	}
@@ -142,7 +142,7 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 		msgToUpdate.MessageId = messageID.Marshal()
 	}
 	if round != nil {
-		msgToUpdate.Round = uint64(round.ID)
+		msgToUpdate.Round = int64(round.ID)
 	}
 	if timestamp != nil {
 		msgToUpdate.Timestamp = *timestamp
@@ -201,7 +201,7 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 		Pinned:    pinned,
 	}
 	if round != nil {
-		msgToUpdate.Round = uint64(round.ID)
+		msgToUpdate.Round = int64(round.ID)
 	}
 	if timestamp != nil {
 		msgToUpdate.Timestamp = *timestamp
@@ -235,7 +235,7 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	copy(channelId[:], currentMessage.ChannelId)
 	go i.msgCb(msgToUpdate.Id, channelId, true)
 
-	return msgToUpdate.Id, nil
+	return uint64(msgToUpdate.Id), nil
 }
 
 // GetMessage returns the [channels.ModelMessage] with the given [message.ID].
@@ -273,7 +273,7 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 	}
 
 	return channels.ModelMessage{
-		UUID:            result.Id,
+		UUID:            uint64(result.Id),
 		Nickname:        result.Nickname,
 		MessageID:       messageID,
 		ChannelID:       channelId,
@@ -307,13 +307,18 @@ func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 // Returns an error if the message cannot be deleted. It must return
 // channels.NoMessageErr if the message does not exist.
 func (i *impl) DeleteMessage(messageID message.ID) error {
+	parentErr := "failed to DeleteMessage: %+v"
+
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Where("message_id = ?",
 		messageID.Bytes()).Delete(&Message{}).Error
 	cancel()
 
 	if err != nil {
-		return errors.Errorf("Unable to delete Message: %+v", err)
+		if errors.Is(gorm.ErrRecordNotFound, err) {
+			return errors.Errorf(parentErr, channels.NoMessageErr)
+		}
+		return errors.Errorf(parentErr, err)
 	}
 
 	if i.deleteCb != nil {
@@ -331,24 +336,14 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 	lease time.Duration, round rounds.Round,
 	messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) (uint64, error) {
-	textBytes := []byte(text)
-	var err error
-
-	// Handle encryption of input text
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt([]byte(text))
-		if err != nil {
-			return 0, errors.Errorf("Failed to encrypt message: %+v", err)
-		}
-	}
 
 	msgToInsert := buildMessage(
 		channelID.Marshal(), messageID.Bytes(), parentMsgId, nickname,
-		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
+		text, pubKey, dmToken, codeset, timestamp, lease, round.ID,
 		messageType, false, hidden, status)
 
 	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Create(msgToInsert).Error
+	err := i.db.WithContext(ctx).Create(msgToInsert).Error
 	cancel()
 
 	if err != nil {
@@ -356,7 +351,7 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 	}
 
 	go i.msgCb(msgToInsert.Id, channelID, false)
-	return msgToInsert.Id, nil
+	return uint64(msgToInsert.Id), nil
 }
 
 // buildMessage is a private helper that converts typical [channels.EventModel]
@@ -365,8 +360,8 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 // NOTE: ID is not set inside this function because we want to use the
 // autoincrement key by default. If you are trying to overwrite an existing
 // message, then you need to set it manually yourself.
-func buildMessage(channelID, messageID, parentID []byte, nickname string,
-	text []byte, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+func buildMessage(channelID, messageID, parentID []byte, nickname,
+	text string, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, lease time.Duration, round id.Round,
 	mType channels.MessageType, pinned, hidden bool,
 	status channels.SentStatus) *Message {
@@ -380,9 +375,9 @@ func buildMessage(channelID, messageID, parentID []byte, nickname string,
 		Status:          uint8(status),
 		Hidden:          &hidden,
 		Pinned:          &pinned,
-		Text:            text,
+		Text:            []byte(text),
 		Type:            uint16(mType),
-		Round:           uint64(round),
+		Round:           int64(round),
 		// User Identity Info
 		Pubkey:         pubKey,
 		DmToken:        dmToken,

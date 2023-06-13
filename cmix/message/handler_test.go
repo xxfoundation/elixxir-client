@@ -13,8 +13,8 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/sih"
 	"gitlab.com/elixxir/ekv"
@@ -26,7 +26,8 @@ import (
 type testProcessor struct {
 }
 
-func (t *testProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+func (t *testProcessor) Process(_ format.Message, _ []string, _ []byte,
+	_ receptionID.EphemeralIdentity, _ rounds.Round) {
 
 }
 
@@ -161,7 +162,11 @@ func Test_handler_handleMessageHelper_Service(t *testing.T) {
 
 	ecrMsg := format.NewMessage(2056)
 	ecrMsg.SetContents(contents)
-	ecrMsg.SetSIH(s.Hash(ecrMsg.GetContents()))
+	SIH, err := s.Hash(nil, ecrMsg.GetContents())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ecrMsg.SetSIH(SIH)
 
 	testRound := rounds.Round{
 		Timestamps:       make(map[states.Round]time.Time),

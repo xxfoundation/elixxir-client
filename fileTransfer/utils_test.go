@@ -23,11 +23,11 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
 	userStorage "gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -147,7 +147,7 @@ type mockCmix struct {
 }
 
 func (m *mockCmix) SetTrackNetworkPeriod(d time.Duration) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -164,6 +164,14 @@ func newMockCmix(
 	}
 }
 
+func (m *mockCmix) UpsertCompressedService(clientID *id.ID, newService message.CompressedService,
+	response message.Processor) {
+}
+func (m *mockCmix) DeleteCompressedService(clientID *id.ID, toDelete message.CompressedService,
+	processor message.Processor) {
+
+}
+
 func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { panic("implement me") }
 
 func (m *mockCmix) GetMaxMessageLength() int {
@@ -171,7 +179,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
+func (m *mockCmix) Send(*id.ID, format.Fingerprint, cmix.Service, []byte,
 	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
@@ -186,15 +194,15 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, params cmix.CMI
 		msg.SetContents(targetedMsg.Payload)
 		msg.SetMac(targetedMsg.Mac)
 		msg.SetKeyFP(targetedMsg.Fingerprint)
-		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg,
-			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
+		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg, []string{},
+			nil, receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
 			rounds.Round{ID: round})
 	}
 	return rounds.Round{ID: round}, []ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) SendManyWithAssembler(recipients []*id.ID, assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
@@ -230,9 +238,12 @@ func (m *mockCmix) IncreaseParallelNodeRegistration(int) func() (stoppable.Stopp
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) { panic("implement me") }
 func (m *mockCmix) DeleteClientService(*id.ID)                               { panic("implement me") }
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    { panic("implement me") }
-func (m *mockCmix) CheckInProgressMessages()                                 {}
-func (m *mockCmix) IsHealthy() bool                                          { return m.health }
-func (m *mockCmix) WasHealthy() bool                                         { return true }
+func (m *mockCmix) GetServices() (message.ServiceList, message.CompressedServiceList) {
+	panic("implement me")
+}
+func (m *mockCmix) CheckInProgressMessages() {}
+func (m *mockCmix) IsHealthy() bool          { return m.health }
+func (m *mockCmix) WasHealthy() bool         { return true }
 
 func (m *mockCmix) AddHealthCallback(f func(bool)) uint64 {
 	m.Lock()
@@ -297,13 +308,15 @@ type mockStorage struct {
 
 func newMockStorage() *mockStorage {
 	b := make([]byte, 768)
-	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG).GetStream()
+	rng := fastRNG.NewStreamGenerator(1000, 10,
+		csprng.NewSystemRNG).GetStream()
 	_, _ = rng.Read(b)
 	rng.Close()
 
 	return &mockStorage{
-		kv:        versioned.NewKV(ekv.MakeMemstore()),
-		cmixGroup: cyclic.NewGroup(large.NewIntFromBytes(b), large.NewInt(2)),
+		kv: versioned.NewKV(ekv.MakeMemstore()),
+		cmixGroup: cyclic.NewGroup(large.NewIntFromBytes(b),
+			large.NewInt(2)),
 	}
 }
 
@@ -311,13 +324,13 @@ func (m *mockStorage) GetClientVersion() version.Version     { panic("implement 
 func (m *mockStorage) Get(string) (*versioned.Object, error) { panic("implement me") }
 func (m *mockStorage) Set(string, *versioned.Object) error   { panic("implement me") }
 func (m *mockStorage) Delete(string) error                   { panic("implement me") }
-func (m *mockStorage) GetKV() versioned.KV                  { return m.kv }
+func (m *mockStorage) GetKV() versioned.KV                   { return m.kv }
 func (m *mockStorage) GetCmixGroup() *cyclic.Group           { return m.cmixGroup }
 func (m *mockStorage) GetE2EGroup() *cyclic.Group            { panic("implement me") }
 func (m *mockStorage) ForwardRegistrationStatus(storage.RegistrationStatus) error {
 	panic("implement me")
 }
-func (m *mockStorage) GetRegistrationStatus() storage.RegistrationStatus      { panic("implement me") }
+func (m *mockStorage) RegStatus() storage.RegistrationStatus                  { panic("implement me") }
 func (m *mockStorage) SetRegCode(string)                                      { panic("implement me") }
 func (m *mockStorage) GetRegCode() (string, error)                            { panic("implement me") }
 func (m *mockStorage) SetNDF(*ndf.NetworkDefinition)                          { panic("implement me") }

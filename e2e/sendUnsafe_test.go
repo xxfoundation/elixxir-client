@@ -9,11 +9,11 @@ package e2e
 
 import (
 	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/parse"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/elixxir/client/v4/e2e/rekey"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"

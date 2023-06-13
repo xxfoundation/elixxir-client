@@ -8,20 +8,21 @@
 package dm
 
 import (
+	"google.golang.org/protobuf/proto"
 	"os"
 	"testing"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// TestMain sets the log level so we see important debug messages
+// TestMain sets the log level so that we see important debug messages.
 func TestMain(m *testing.M) {
 	jww.SetStdoutThreshold(jww.LevelInfo)
 	os.Exit(m.Run())
@@ -91,4 +92,14 @@ func TestE2EDMs(t *testing.T) {
 	rcvA2 := receiverB.Msgs[3]
 	require.Equal(t, replyTo2, rcvA2.ReplyTo)
 	require.Equal(t, "😀", rcvA2.Message)
+
+	// Send a silent message
+	pubKey = rcvB1.PubKey
+	dmToken = rcvB1.DMToken
+	_, _, _, err := clientA.SendSilent(&pubKey, dmToken, params)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(receiverB.Msgs))
+	rcvB3 := receiverB.Msgs[4]
+	silent := &SilentMessage{}
+	require.NoError(t, proto.Unmarshal([]byte(rcvB3.Message), silent))
 }

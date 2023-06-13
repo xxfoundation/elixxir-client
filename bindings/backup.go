@@ -27,13 +27,14 @@ type Backup struct {
 // NewCmixFromBackup.
 //
 // Example BackupReport:
-//  {
-//    "RestoredContacts": [
-//      "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
-//      "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
-//    ],
-//    "Params": ""
-//  }
+//
+//	{
+//	  "RestoredContacts": [
+//	    "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+//	    "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
+//	  ],
+//	  "Params": ""
+//	}
 type BackupReport struct {
 	// The list of restored E2E partner IDs
 	RestoredContacts []*id.ID
@@ -56,14 +57,14 @@ type UpdateBackupFunc interface {
 // Users of this function should call LoadCmix as normal once this call succeeds.
 //
 // Parameters:
-//  - ndfJSON - JSON of the NDF.
-//  - storageDir - directory for the storage files.
-//  - sessionPassword - password to decrypt the data in the storageDir.
-//  - backupPassphrase - backup passphrase provided by the user. Used to decrypt backup.
-//  - backupFileContents - the file contents of the backup.
+//   - ndfJSON - JSON of the NDF.
+//   - storageDir - directory for the storage files.
+//   - sessionPassword - password to decrypt the data in the storageDir.
+//   - backupPassphrase - backup passphrase provided by the user. Used to decrypt backup.
+//   - backupFileContents - the file contents of the backup.
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of the BackupReport object.
+//   - []byte - the JSON marshalled bytes of the BackupReport object.
 func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 	sessionPassword, backupFileContents []byte) ([]byte, error) {
 
@@ -93,11 +94,11 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 // InitializeBackup creates a bindings-layer Backup object.
 //
 // Parameters:
-//  - e2eID - ID of the E2e object in the e2e tracker.
-//  - udID - ID of the UserDiscovery object in the ud tracker.
-//  - backupPassPhrase - backup passphrase provided by the user. Used to decrypt
-//    backup.
-//  - cb - the callback to be called when a backup is triggered.
+//   - e2eID - ID of the E2e object in the e2e tracker.
+//   - udID - ID of the UserDiscovery object in the ud tracker.
+//   - backupPassPhrase - backup passphrase provided by the user. Used to decrypt
+//     backup.
+//   - cb - the callback to be called when a backup is triggered.
 func InitializeBackup(e2eID, udID int, backupPassPhrase string,
 	cb UpdateBackupFunc) (*Backup, error) {
 	// Retrieve the user from the tracker
@@ -131,10 +132,10 @@ func InitializeBackup(e2eID, udID int, backupPassPhrase string,
 // InitializeBackup.
 //
 // Parameters:
-//  - e2eID - ID of the E2e object in the e2e tracker.
-//  - udID - ID of the UserDiscovery object in the ud tracker.
-//  - cb - the callback to be called when a backup is triggered.
-//    This will replace any callback that has been passed into InitializeBackup.
+//   - e2eID - ID of the E2e object in the e2e tracker.
+//   - udID - ID of the UserDiscovery object in the ud tracker.
+//   - cb - the callback to be called when a backup is triggered.
+//     This will replace any callback that has been passed into InitializeBackup.
 func ResumeBackup(e2eID, udID int, cb UpdateBackupFunc) (
 	*Backup, error) {
 
@@ -176,7 +177,7 @@ func (b *Backup) IsBackupRunning() bool {
 // AddJson stores the argument within the Backup structure.
 //
 // Params
-//  - json - JSON string
+//   - json - JSON string
 func (b *Backup) AddJson(json string) {
 	b.b.AddJson(json)
 }

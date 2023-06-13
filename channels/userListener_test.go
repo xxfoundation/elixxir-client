@@ -64,10 +64,9 @@ func Test_userListener_Listen(t *testing.T) {
 	}
 
 	cm := &ChannelMessage{
-		Lease:       int64(time.Hour),
-		RoundID:     uint64(r.ID),
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
+		Lease:   int64(time.Hour),
+		RoundID: uint64(r.ID),
+		Payload: []byte("blarg"),
 	}
 
 	cmSerial, err := proto.Marshal(cm)
@@ -104,7 +103,9 @@ func Test_userListener_Listen(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -147,10 +148,9 @@ func Test_userListener_Listen_BadUserSig(t *testing.T) {
 	}
 
 	cm := &ChannelMessage{
-		Lease:       int64(time.Hour),
-		RoundID:     uint64(r.ID),
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
+		Lease:   int64(time.Hour),
+		RoundID: uint64(r.ID),
+		Payload: []byte("blarg"),
 	}
 
 	cmSerial, err := proto.Marshal(cm)
@@ -190,7 +190,8 @@ func Test_userListener_Listen_BadUserSig(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(), receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -215,10 +216,9 @@ func Test_userListener_Listen_BadRound(t *testing.T) {
 	}
 
 	cm := &ChannelMessage{
-		Lease:       int64(time.Hour),
-		RoundID:     69, // Make the round not match
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
+		Lease:   int64(time.Hour),
+		RoundID: 69, // Make the round not match
+		Payload: []byte("blarg"),
 	}
 
 	cmSerial, err := proto.Marshal(cm)
@@ -253,7 +253,9 @@ func Test_userListener_Listen_BadRound(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -287,7 +289,9 @@ func Test_userListener_Listen_BadMessage(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -311,10 +315,9 @@ func Test_userListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	cm := &ChannelMessage{
-		Lease:       int64(time.Hour),
-		RoundID:     69, // Make the round not match
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
+		Lease:   int64(time.Hour),
+		RoundID: 69, // Make the round not match
+		Payload: []byte("blarg"),
 	}
 
 	cmSerial, err := proto.Marshal(cm)
@@ -352,7 +355,9 @@ func Test_userListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(umSerial, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(umSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {

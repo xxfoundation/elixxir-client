@@ -34,11 +34,11 @@ import (
 // will be auto resent by the cMix client.
 //
 // Parameters:
-//  - partnerContact - the marshalled bytes of the contact.Contact object.
-//  - factsListJson - the JSON marshalled bytes of [fact.FactList].
+//   - partnerContact - the marshalled bytes of the contact.Contact object.
+//   - factsListJson - the JSON marshalled bytes of [fact.FactList].
 //
 // Returns:
-//  - int64 - ID of the round (convert to uint64)
+//   - int64 - ID of the round (convert to uint64)
 func (e *E2e) Request(partnerContact, factsListJson []byte) (int64, error) {
 	var factsList fact.FactList
 	err := json.Unmarshal(factsListJson, &factsList)
@@ -73,10 +73,10 @@ func (e *E2e) Request(partnerContact, factsListJson []byte) (int64, error) {
 // If the confirmation must be resent, use ReplayConfirm.
 //
 // Parameters:
-//  - partnerContact - the marshalled bytes of the contact.Contact object.
+//   - partnerContact - the marshalled bytes of the contact.Contact object.
 //
 // Returns:
-//  - int64 - ID of the round (convert to uint64)
+//   - int64 - ID of the round (convert to uint64)
 func (e *E2e) Confirm(partnerContact []byte) (int64, error) {
 	partner, err := contact.Unmarshal(partnerContact)
 	if err != nil {
@@ -103,10 +103,10 @@ func (e *E2e) Confirm(partnerContact []byte) (int64, error) {
 // who is already a partner.
 //
 // Parameters:
-//  - partnerContact - the marshalled bytes of the contact.Contact object.
+//   - partnerContact - the marshalled bytes of the contact.Contact object.
 //
 // Returns:
-//  - int64 - ID of the round (convert to uint64)
+//   - int64 - ID of the round (convert to uint64)
 func (e *E2e) Reset(partnerContact []byte) (int64, error) {
 	partner, err := contact.Unmarshal(partnerContact)
 	if err != nil {
@@ -127,10 +127,10 @@ func (e *E2e) Reset(partnerContact []byte) (int64, error) {
 // This will not be useful if either side has ratcheted.
 //
 // Parameters:
-//  - partnerID - the marshalled bytes of the id.ID object.
+//   - partnerID - the marshalled bytes of the id.ID object.
 //
 // Returns:
-//  - int64 - ID of the round (convert to uint64)
+//   - int64 - ID of the round (convert to uint64)
 func (e *E2e) ReplayConfirm(partnerID []byte) (int64, error) {
 	partner, err := id.Unmarshal(partnerID)
 	if err != nil {
@@ -151,7 +151,7 @@ func (e *E2e) CallAllReceivedRequests() {
 // DeleteRequest deletes sent or received requests for a specific partner ID.
 //
 // Parameters:
-//  - partnerID - the marshalled bytes of the id.ID object.
+//   - partnerID - the marshalled bytes of the id.ID object.
 func (e *E2e) DeleteRequest(partnerID []byte) error {
 	partner, err := id.Unmarshal(partnerID)
 	if err != nil {
@@ -179,10 +179,10 @@ func (e *E2e) DeleteReceiveRequests() error {
 // GetReceivedRequest returns a contact if there is a received request for it.
 //
 // Parameters:
-//  - partnerID - the marshalled bytes of the id.ID object.
+//   - partnerID - the marshalled bytes of the id.ID object.
 //
 // Returns:
-//  - []byte - the marshalled bytes of the contact.Contact object.
+//   - []byte - the marshalled bytes of the contact.Contact object.
 func (e *E2e) GetReceivedRequest(partnerID []byte) ([]byte, error) {
 	partner, err := id.Unmarshal(partnerID)
 	if err != nil {
@@ -200,9 +200,9 @@ func (e *E2e) GetReceivedRequest(partnerID []byte) ([]byte, error) {
 // VerifyOwnership checks if the received ownership proof is valid.
 //
 // Parameters:
-//  - receivedContact, verifiedContact - the marshalled bytes of the
-//      contact.Contact object.
-//  - e2eId - ID of the e2e handler
+//   - receivedContact, verifiedContact - the marshalled bytes of the
+//     contact.Contact object.
+//   - e2eId - ID of the e2e handler
 func (e *E2e) VerifyOwnership(
 	receivedContact, verifiedContact []byte, e2eId int) (bool, error) {
 	received, err := contact.Unmarshal(receivedContact)
@@ -228,7 +228,7 @@ func (e *E2e) VerifyOwnership(
 // callback for the given partner ID.
 //
 // Parameters:
-//  - partnerID - the marshalled bytes of the id.ID object.
+//   - partnerID - the marshalled bytes of the id.ID object.
 func (e *E2e) AddPartnerCallback(partnerID []byte, cb AuthCallbacks) error {
 	partnerId, err := id.Unmarshal(partnerID)
 	if err != nil {
@@ -244,7 +244,7 @@ func (e *E2e) AddPartnerCallback(partnerID []byte, cb AuthCallbacks) error {
 // auth callback for the given partner ID.
 //
 // Parameters:
-//  - partnerID - the marshalled bytes of the id.ID object.
+//   - partnerID - the marshalled bytes of the id.ID object.
 func (e *E2e) DeletePartnerCallback(partnerID []byte) error {
 	partnerId, err := id.Unmarshal(partnerID)
 	if err != nil {

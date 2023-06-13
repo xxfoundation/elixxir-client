@@ -10,13 +10,16 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/base64"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"gorm.io/gorm"
+	"strings"
 	"time"
 )
 
@@ -39,7 +42,7 @@ func newContext() (context.Context, context.CancelFunc) {
 // NOTE: ID is not set inside this function because we want to use the
 // autoincrement key by default. If you are trying to overwrite an existing
 // message, then you need to set it manually yourself.
-func buildMessage(messageID, parentID, text []byte, partnerKey,
+func buildMessage(messageID, parentID []byte, text string, partnerKey []byte,
 	senderKey ed25519.PublicKey, timestamp time.Time, round id.Round,
 	mType dm.MessageType, codeset uint8, status dm.Status) *Message {
 	return &Message{
@@ -50,22 +53,22 @@ func buildMessage(messageID, parentID, text []byte, partnerKey,
 		SenderPubKey:       senderKey[:],
 		Status:             uint8(status),
 		CodesetVersion:     codeset,
-		Text:               text,
+		Text:               []byte(text),
 		Type:               uint16(mType),
-		Round:              uint64(round),
+		Round:              int64(round),
 	}
 }
 
 func (i *impl) Receive(messageID message.ID, nickname string, text []byte,
 	partnerPubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round, mType dm.MessageType, status dm.Status) uint64 {
-	parentErr := "[DM SQL] failed to Receive"
+	parentErr := "[DM SQL] failed to Receive: %+v"
 	jww.TRACE.Printf("[DM SQL] Receive(%s)", messageID)
 
 	uuid, err := i.receiveWrapper(messageID, nil, nickname, string(text),
 		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round, mType, status)
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		jww.ERROR.Printf(parentErr, err)
 		return 0
 	}
 	return uuid
@@ -74,14 +77,14 @@ func (i *impl) Receive(messageID message.ID, nickname string, text []byte,
 func (i *impl) ReceiveText(messageID message.ID, nickname, text string,
 	partnerPubKey, senderPubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round, status dm.Status) uint64 {
-	parentErr := "[DM SQL] failed to ReceiveText"
+	parentErr := "[DM SQL] failed to ReceiveText: %+v"
 	jww.TRACE.Printf("[DM SQL] ReceiveText(%s)", messageID)
 
 	uuid, err := i.receiveWrapper(messageID, nil, nickname, text,
 		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round,
 		dm.TextType, status)
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		jww.ERROR.Printf(parentErr, err)
 		return 0
 	}
 	return uuid
@@ -90,14 +93,14 @@ func (i *impl) ReceiveText(messageID message.ID, nickname, text string,
 func (i *impl) ReceiveReply(messageID message.ID, reactionTo message.ID, nickname,
 	text string, partnerPubKey, senderPubKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time, round rounds.Round, status dm.Status) uint64 {
-	parentErr := "[DM SQL] failed to ReceiveReply"
+	parentErr := "[DM SQL] failed to ReceiveReply: %+v"
 	jww.TRACE.Printf("[DM SQL] ReceiveReply(%s)", messageID)
 
 	uuid, err := i.receiveWrapper(messageID, &reactionTo, nickname, text,
 		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round,
 		dm.ReplyType, status)
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		jww.ERROR.Printf(parentErr, err)
 		return 0
 	}
 	return uuid
@@ -106,14 +109,14 @@ func (i *impl) ReceiveReply(messageID message.ID, reactionTo message.ID, nicknam
 func (i *impl) ReceiveReaction(messageID message.ID, reactionTo message.ID,
 	nickname, reaction string, partnerPubKey, senderPubKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time, round rounds.Round, status dm.Status) uint64 {
-	parentErr := "[DM SQL] failed to ReceiveReaction"
+	parentErr := "[DM SQL] failed to ReceiveReaction: %+v"
 	jww.TRACE.Printf("[DM SQL] ReceiveReaction(%s)", messageID)
 
 	uuid, err := i.receiveWrapper(messageID, &reactionTo, nickname, reaction,
 		partnerPubKey, senderPubKey, dmToken, codeset, timestamp, round,
 		dm.ReactionType, status)
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessagef(err, parentErr))
+		jww.ERROR.Printf(parentErr, err)
 		return 0
 	}
 	return uuid
@@ -121,18 +124,17 @@ func (i *impl) ReceiveReaction(messageID message.ID, reactionTo message.ID,
 
 func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 	timestamp time.Time, round rounds.Round, status dm.Status) {
-	parentErr := errors.New("[DM SQL] failed to UpdateSentStatus")
+	parentErr := "[DM SQL] failed to UpdateSentStatus: %+v"
 	jww.TRACE.Printf(
 		"[DM SQL] UpdateSentStatus(%d, %s, ...)", uuid, messageID)
 
 	// Use the uuid to get the existing Message
-	currentMessage := &Message{Id: uuid}
+	currentMessage := &Message{Id: int64(uuid)}
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Take(currentMessage).Error
 	cancel()
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessagef(parentErr,
-			"Unable to get message: %+v", err))
+		jww.ERROR.Printf(parentErr, err)
 		return
 	}
 
@@ -142,7 +144,7 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 		currentMessage.MessageId = messageID.Bytes()
 	}
 	if round.ID != 0 {
-		currentMessage.Round = uint64(round.ID)
+		currentMessage.Round = int64(round.ID)
 	}
 	if !timestamp.Equal(time.Time{}) {
 		currentMessage.Timestamp = timestamp
@@ -151,7 +153,7 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 	// Store the updated Message
 	_, err = i.upsertMessage(currentMessage)
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.Wrap(parentErr, err.Error()))
+		jww.ERROR.Printf(parentErr, err)
 		return
 	}
 
@@ -162,7 +164,8 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 }
 
 func (i *impl) BlockSender(senderPubKey ed25519.PublicKey) {
-	parentErr := "failed to BlockSender"
+	parentErr := "Failed to BlockSender: %+v"
+
 	err := i.setBlocked(senderPubKey, true)
 	if err != nil {
 		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
@@ -170,10 +173,10 @@ func (i *impl) BlockSender(senderPubKey ed25519.PublicKey) {
 }
 
 func (i *impl) UnblockSender(senderPubKey ed25519.PublicKey) {
-	parentErr := "failed to UnblockSender"
+	parentErr := "Failed to UnblockSender: %+v"
 	err := i.setBlocked(senderPubKey, false)
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
+		jww.ERROR.Printf(parentErr, err)
 	}
 }
 
@@ -184,36 +187,42 @@ func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error 
 		return err
 	}
 
+	var timeBlocked *time.Time = nil
+	if isBlocked {
+		blockUser := netTime.Now()
+		timeBlocked = &blockUser
+	}
+
 	return i.upsertConversation(resultConvo.Nickname, resultConvo.Pubkey,
-		resultConvo.Token, resultConvo.CodesetVersion, isBlocked)
+		resultConvo.Token, resultConvo.CodesetVersion, timeBlocked)
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
-	parentErr := "failed to GetConversation"
+	parentErr := "Failed to GetConversation: %+v"
 	resultConvo, err := i.getConversation(senderPubKey)
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
+		jww.ERROR.Printf(parentErr, err)
 		return nil
 	}
 
 	return &dm.ModelConversation{
-		Pubkey:         resultConvo.Pubkey,
-		Nickname:       resultConvo.Nickname,
-		Token:          resultConvo.Token,
-		CodesetVersion: resultConvo.CodesetVersion,
-		Blocked:        *resultConvo.Blocked,
+		Pubkey:           resultConvo.Pubkey,
+		Nickname:         resultConvo.Nickname,
+		Token:            resultConvo.Token,
+		CodesetVersion:   resultConvo.CodesetVersion,
+		BlockedTimestamp: resultConvo.BlockedTimestamp,
 	}
 }
 
 func (i *impl) GetConversations() []dm.ModelConversation {
-	parentErr := "failed to GetConversations"
+	parentErr := "Failed to GetConversations: %+v"
 
 	var results []*Conversation
 	ctx, cancel := newContext()
 	err := i.db.WithContext(ctx).Find(&results).Error
 	cancel()
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
+		jww.ERROR.Printf(parentErr, err)
 		return nil
 	}
 
@@ -221,11 +230,11 @@ func (i *impl) GetConversations() []dm.ModelConversation {
 	for i := range results {
 		resultConvo := results[i]
 		conversations[i] = dm.ModelConversation{
-			Pubkey:         resultConvo.Pubkey,
-			Nickname:       resultConvo.Nickname,
-			Token:          resultConvo.Token,
-			CodesetVersion: resultConvo.CodesetVersion,
-			Blocked:        *resultConvo.Blocked,
+			Pubkey:           resultConvo.Pubkey,
+			Nickname:         resultConvo.Nickname,
+			Token:            resultConvo.Token,
+			CodesetVersion:   resultConvo.CodesetVersion,
+			BlockedTimestamp: resultConvo.BlockedTimestamp,
 		}
 	}
 	return conversations
@@ -235,6 +244,7 @@ func (i *impl) GetConversations() []dm.ModelConversation {
 func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickname,
 	data string, partnerKey, senderKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round, mType dm.MessageType, status dm.Status) (uint64, error) {
+	partnerKeyStr := base64.StdEncoding.EncodeToString(partnerKey)
 
 	// Keep track of whether a Conversation was altered
 	var convoToUpdate *Conversation
@@ -242,27 +252,26 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 	// Determine whether Conversation needs to be created
 	result, err := i.getConversation(partnerKey)
 	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
+		if !strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
 			return 0, err
 		} else {
 			// If there is no extant Conversation, create one.
 			jww.DEBUG.Printf(
-				"[DM SQL] Joining conversation with %s", nickname)
-			isBlocked := false
+				"[DM SQL] Joining conversation with %s", partnerKeyStr)
 			convoToUpdate = &Conversation{
-				Pubkey:         senderKey,
-				Nickname:       nickname,
-				Token:          dmToken,
-				CodesetVersion: codeset,
-				Blocked:        &isBlocked,
+				Pubkey:           partnerKey,
+				Nickname:         nickname,
+				Token:            dmToken,
+				CodesetVersion:   codeset,
+				BlockedTimestamp: nil,
 			}
 		}
 	} else {
 		jww.DEBUG.Printf(
-			"[DM SQL] Conversation with %s already joined", nickname)
+			"[DM SQL] Conversation with %s already joined", partnerKeyStr)
 
 		// Update Conversation if nickname was altered
-		isFromPartner := bytes.Equal(result.Pubkey, senderKey)
+		isFromPartner := bytes.Equal(result.Pubkey, partnerKey)
 		nicknameChanged := result.Nickname != nickname
 		if isFromPartner && nicknameChanged {
 			jww.DEBUG.Printf("[DM SQL] Updating from nickname %s to %s",
@@ -284,18 +293,11 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 
 	// Update the conversation in storage, if needed
 	conversationUpdated := convoToUpdate != nil
+
 	if conversationUpdated {
 		err = i.upsertConversation(convoToUpdate.Nickname, convoToUpdate.Pubkey,
-			convoToUpdate.Token, convoToUpdate.CodesetVersion, *convoToUpdate.Blocked)
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	// Handle encryption, if it is present
-	textBytes := []byte(data)
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt(textBytes)
+			convoToUpdate.Token, convoToUpdate.CodesetVersion,
+			convoToUpdate.BlockedTimestamp)
 		if err != nil {
 			return 0, err
 		}
@@ -306,7 +308,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 		parentIdBytes = parentID.Marshal()
 	}
 
-	msgToInsert := buildMessage(messageID.Bytes(), parentIdBytes, textBytes,
+	msgToInsert := buildMessage(messageID.Bytes(), parentIdBytes, data,
 		partnerKey, senderKey, timestamp, round.ID, mType, codeset, status)
 
 	uuid, err := i.upsertMessage(msgToInsert)
@@ -315,7 +317,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 	}
 
 	jww.TRACE.Printf("[DM SQL] Calling ReceiveMessageCB(%v, %v, f, %t)",
-		uuid, partnerKey, conversationUpdated)
+		uuid, partnerKeyStr, conversationUpdated)
 	go i.receivedMessageCB(uuid, partnerKey,
 		false, conversationUpdated)
 	return uuid, nil
@@ -324,16 +326,17 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 // upsertMessage is a helper function that will update an existing record
 // if Message.ID is specified. Otherwise, it will perform an insert.
 func (i *impl) upsertMessage(msg *Message) (uint64, error) {
-	var err error
+	jww.DEBUG.Printf("[DM SQL] Attempting to upsertMessage: %+v", msg)
+
 	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Save(msg).Error
+	err := i.db.WithContext(ctx).Save(msg).Error
 	cancel()
 	if err != nil {
-		return 0, err
+		return 0, errors.Errorf("failed to upsertMessage: %+v", err)
 	}
 
 	jww.DEBUG.Printf("[DM SQL] Successfully stored message %d", msg.Id)
-	return msg.Id, nil
+	return uint64(msg.Id), nil
 }
 
 // getConversation is a helper that returns the Conversation with the given senderPubKey.
@@ -343,20 +346,22 @@ func (i *impl) getConversation(senderPubKey ed25519.PublicKey) (*Conversation, e
 	err := i.db.WithContext(ctx).Take(result).Error
 	cancel()
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("failed to getConversation: %+v", err)
 	}
 	return result, nil
 }
 
 // upsertConversation is used for updating or creating a Conversation with the given fields.
 func (i *impl) upsertConversation(nickname string,
-	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, blocked bool) error {
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timeBlocked *time.Time) error {
+
 	newConvo := Conversation{
-		Pubkey:         pubKey,
-		Nickname:       nickname,
-		Token:          dmToken,
-		CodesetVersion: codeset,
-		Blocked:        &blocked,
+		Pubkey:           pubKey,
+		Nickname:         nickname,
+		Token:            dmToken,
+		CodesetVersion:   codeset,
+		BlockedTimestamp: timeBlocked,
 	}
 	jww.DEBUG.Printf("[DM SQL] Attempting to upsertConversation: %+v", newConvo)
 

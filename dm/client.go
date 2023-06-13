@@ -10,8 +10,9 @@ package dm
 import (
 	"crypto/ed25519"
 	"fmt"
+	"gitlab.com/elixxir/primitives/nicknames"
 	"strings"
-	sync "sync"
+	"sync"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,7 +21,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 )
@@ -142,8 +143,8 @@ func (dc *dmClient) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (dc *dmClient) SetNickname(nick string) {
-	dc.nm.SetNickname(nick)
+func (dc *dmClient) SetNickname(nick string) error {
+	return dc.nm.SetNickname(nick)
 }
 
 // IsBlocked returns if the given sender is blocked
@@ -151,7 +152,7 @@ func (dc *dmClient) SetNickname(nick string) {
 func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
 	conversation := dc.receiver.GetConversation(senderPubKey)
 	if conversation != nil {
-		return conversation.Blocked
+		return conversation.BlockedTimestamp != nil
 	}
 	return false
 }
@@ -163,12 +164,22 @@ func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
 	blocked := make([]ed25519.PublicKey, 0)
 	for i := range allConversations {
 		convo := allConversations[i]
-		if convo.Blocked {
+		if convo.BlockedTimestamp != nil {
 			pub := convo.Pubkey
-			blocked = append(blocked, ed25519.PublicKey(pub))
+			blocked = append(blocked, pub)
 		}
 	}
 	return blocked
+}
+
+// BlockSender blocks DMs from the sender with the passed in public key.
+func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
+	dc.receiver.BlockSender(senderPubKey)
+}
+
+// UnblockSender unblocks DMs from the sender with the passed in public key.
+func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
+	dc.receiver.UnblockSender(senderPubKey)
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
@@ -196,7 +207,10 @@ func (nm *nickMgr) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (nm *nickMgr) SetNickname(nick string) {
+func (nm *nickMgr) SetNickname(nick string) error {
+	if err := nicknames.IsValid(nick); err != nil {
+		return err
+	}
 	nm.Lock()
 	defer nm.Unlock()
 	nm.nick = strings.Clone(nick)
@@ -205,5 +219,5 @@ func (nm *nickMgr) SetNickname(nick string) {
 		Timestamp: time.Now(),
 		Data:      []byte(nick),
 	}
-	nm.ekv.Set(nm.storeKey, nickObj)
+	return nm.ekv.Set(nm.storeKey, nickObj)
 }

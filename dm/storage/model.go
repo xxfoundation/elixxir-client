@@ -15,7 +15,7 @@ import (
 // A Message belongs to one Conversation.
 // A Message may belong to one Message (Parent).
 type Message struct {
-	Id                 uint64 `gorm:"primaryKey;autoIncrement:true"`
+	Id                 int64  `gorm:"primaryKey;autoIncrement:true"`
 	MessageId          []byte `gorm:"uniqueIndex;not null"`
 	ConversationPubKey []byte `gorm:"index;not null"`
 	ParentMessageId    []byte
@@ -25,7 +25,7 @@ type Message struct {
 	Status             uint8     `gorm:"not null"`
 	Text               []byte    `gorm:"not null"`
 	Type               uint16    `gorm:"not null"`
-	Round              uint64    `gorm:"not null"`
+	Round              int64     `gorm:"not null"`
 }
 
 // TableName overrides the table name used by Message.
@@ -35,15 +35,16 @@ func (Message) TableName() string {
 
 // Conversation defines the IndexedDb representation of a single
 // message exchange between two recipients.
-// A Conversation has many Message.
+// A Conversation has many Message objects.
 type Conversation struct {
 	Pubkey         []byte `gorm:"primaryKey;not null;autoIncrement:false"`
 	Nickname       string `gorm:"not null"`
 	Token          uint32 `gorm:"not null"`
 	CodesetVersion uint8  `gorm:"not null"`
 
-	// Pointer to enforce zero-value reading in ORM.
-	Blocked *bool `gorm:"not null"`
+	// Timestamp for when a conversation is blocked. If the conversation has
+	// not been blocked, this will be a zero value.
+	BlockedTimestamp *time.Time `gorm:""`
 
 	// Have to spell out this relationship because irregular PK name
 	Messages []Message `gorm:"foreignKey:ConversationPubKey;references:Pubkey;constraint:OnDelete:CASCADE"`

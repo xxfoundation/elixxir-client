@@ -169,12 +169,23 @@ func (cft *ChannelsFileTransfer) Upload(fileData []byte, retry float32,
 //     in the channel. For the maximum amount of time, use [ValidForever].
 //   - cmixParamsJSON - JSON of [xxdk.CMIXParams]. If left empty,
 //     [GetDefaultCMixParams] will be used internally.
+//   - pingsJSON - JSON of a list of Ed25519 public keys that will receive
+//     notifications for this message. They must be in the channel and have
+//     notifications enabled.
+//
+// Example pingsJSON:
+//
+//	[
+//	  "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
+//	  "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
+//	  "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
+//	]
 //
 // Returns:
 //   - JSON of [ChannelSendReport].
 func (cft *ChannelsFileTransfer) Send(channelIdBytes, fileLinkJSON []byte,
 	fileName, fileType string, preview []byte,
-	validUntilMS int, cmixParamsJSON []byte) ([]byte, error) {
+	validUntilMS int, cmixParamsJSON []byte, pingsJSON []byte) ([]byte, error) {
 	jww.INFO.Printf("[FT] Sending file transfer to channel %s.",
 		base64.StdEncoding.EncodeToString(channelIdBytes))
 
@@ -190,8 +201,13 @@ func (cft *ChannelsFileTransfer) Send(channelIdBytes, fileLinkJSON []byte,
 		return nil, err
 	}
 
-	msgID, round, ephID, err := cft.api.Send(
-		channelID, fileLinkJSON, fileName, fileType, preview, validUntil, params)
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	msgID, round, ephID, err := cft.api.Send(channelID, fileLinkJSON, fileName,
+		fileType, preview, validUntil, params, pings)
 	if err != nil {
 		return nil, err
 	}

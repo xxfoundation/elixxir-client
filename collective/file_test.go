@@ -96,7 +96,7 @@ func TestHeader_Serialize(t *testing.T) {
 	hdrSerial, err := head.serialize()
 	require.NoError(t, err)
 
-	expectedHeaderSerial := "WFhES1RYTE9HSERSZXlKMlpYSnphVzl1SWpvd0xDSmtaWFpwWTJVaU9pSlZOSGhmYkhKR2EzWjRjeUo5"
+	expectedHeaderSerial := "WFhES1RYTE9HSERSeyJ2ZXJzaW9uIjowLCJkZXZpY2UiOiJVNHhfbHJGa3Z4cyJ9"
 
 	// Ensure serialization is consistent
 	require.Equal(t, expectedHeaderSerial,
@@ -122,4 +122,27 @@ func TestHeader_Deserialize(t *testing.T) {
 
 	// Ensure deserialized object matches original object
 	require.Equal(t, head, hdrDeserialize)
+}
+
+// TestFile smoke test file serial/deserialization
+func TestFile(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+	dvcID, err := NewRandomInstanceID(rng)
+	require.NoError(t, err)
+	expectedHeader := newHeader(dvcID)
+
+	// ~5Mib
+	sz := 5123456
+	sz = 25
+	randomBodyData := make([]byte, sz)
+	n, err := rng.Read(randomBodyData)
+	require.NoError(t, err)
+	require.Equal(t, n, sz)
+
+	filedata := buildFile(expectedHeader, randomBodyData)
+
+	readHeader, readBody, err := decodeFile(filedata)
+	require.NoError(t, err)
+	require.Equal(t, expectedHeader, readHeader)
+	require.Equal(t, randomBodyData, readBody)
 }

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/primitives/nicknames"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -15,6 +15,8 @@ import (
 const (
 	nicknameStoreStorageKey     = "nicknameStoreStorageKey"
 	nicknameStoreStorageVersion = 0
+
+	nicknamePrefix = "nickname"
 
 	nicknameMapName    = "nicknameMap"
 	nicknameMapVersion = 0
@@ -29,9 +31,9 @@ type nicknameManager struct {
 
 // loadOrNewNicknameManager returns the stored nickname manager if there is one
 // or returns a new one.
-func loadOrNewNicknameManager(kv versioned.KV, callback func(channelId *id.ID,
+func loadOrNewNicknameManager(remote versioned.KV, callback func(channelId *id.ID,
 	nickname string, exists bool)) *nicknameManager {
-	kvRemote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	kvRemote, err := remote.Prefix(nicknamePrefix)
 	if err != nil {
 		jww.FATAL.Panicf("Nicknames failed to prefix KV (remote)")
 	}
@@ -42,18 +44,12 @@ func loadOrNewNicknameManager(kv versioned.KV, callback func(channelId *id.ID,
 		callback:  callback,
 	}
 
-	nm.mux.Lock()
-	loadedMap, err := nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
-		nm.mapUpdate)
+	err = nm.remote.ListenOnRemoteMap(nicknameMapName, nicknameMapVersion,
+		nm.mapUpdate, false)
 	if err != nil && nm.remote.Exists(err) {
 		jww.FATAL.Panicf("[CH] Failed to load and listen to remote "+
 			"updates on nicknameManager: %+v", err)
 	}
-	err = nm.load(loadedMap)
-	if err != nil {
-		jww.FATAL.Panicf("[CH] Failed to load nicknameManager: %+v", err)
-	}
-	nm.mux.Unlock()
 
 	return nm
 }
@@ -64,11 +60,17 @@ func (nm *nicknameManager) SetNickname(nickname string, channelID *id.ID) error 
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	if err := IsNicknameValid(nickname); err != nil {
+	if err := nicknames.IsValid(nickname); err != nil {
 		return err
 	}
 
-	return nm.setNicknameUnsafe(nickname, channelID)
+	if err := nm.setNicknameUnsafe(nickname, channelID); err != nil {
+		return err
+	}
+
+	go nm.callback(channelID, nickname, true)
+
+	return nil
 }
 
 // DeleteNickname removes the nickname for a given channel. The name will revert
@@ -77,7 +79,13 @@ func (nm *nicknameManager) DeleteNickname(channelID *id.ID) error {
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	return nm.deleteNicknameUnsafe(channelID)
+	if err := nm.deleteNicknameUnsafe(channelID); err != nil {
+		return err
+	}
+
+	go nm.callback(channelID, "", false)
+
+	return nil
 }
 
 // GetNickname returns the nickname for the given channel if it exists.
@@ -129,15 +137,7 @@ func (nc *nicknameUpdates) AddCreatedOrEdit(nickname string, chanId id.ID) {
 
 // mapUpdate handles map updates, handles by versioned.KV's ListenOnRemoteMap
 // method.
-func (nm *nicknameManager) mapUpdate(
-	mapName string, edits map[string]versioned.ElementEdit) {
-
-	// Ensure the user is attempting to modify the correct map
-	if mapName != nicknameMapName {
-		jww.ERROR.Printf("Got an update for the wrong map, "+
-			"expected: %s, got: %s", nicknameMapName, mapName)
-		return
-	}
+func (nm *nicknameManager) mapUpdate(edits map[string]versioned.ElementEdit) {
 
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
@@ -170,7 +170,9 @@ func (nm *nicknameManager) mapUpdate(
 			continue
 		}
 
-		if edit.Operation == versioned.Created || edit.Operation == versioned.Updated {
+		if edit.Operation == versioned.Created ||
+			edit.Operation == versioned.Updated ||
+			edit.Operation == versioned.Loaded {
 			updates.AddCreatedOrEdit(newUpdate, *chanId)
 		} else {
 			jww.WARN.Printf("Failed to handle nickname update %s, "+
@@ -203,29 +205,7 @@ func (nm *nicknameManager) upsertNicknameUnsafeRAM(cID *id.ID, nickname string) 
 	nm.byChannel[*cID] = nickname
 }
 
-// load restores the nickname manager from disk.
-func (nm *nicknameManager) load(loadedMap map[string]*versioned.Object) error {
-
-	for elementName, obj := range loadedMap {
-		chanId, err := unmarshalChID(elementName)
-		if err != nil {
-			jww.WARN.Printf("Failed to unmarshal id in nickname "+
-				"in load of %s, skipping: %+v", elementName, err)
-			continue
-		}
-		var nickname string
-		if err := json.Unmarshal(obj.Data, &nickname); err != nil {
-			jww.WARN.Printf("Failed to unmarshal nickname "+
-				"for %s, skipping: %+v", elementName, err)
-			continue
-		}
-		nm.upsertNicknameUnsafeRAM(chanId, nickname)
-	}
-
-	return nil
-}
-
-// deleteNicknameUnsafe will remote the nickname into the remote kv and into the
+// deleteNicknameUnsafe will remote the nickname into the remote local and into the
 // memoized map.
 func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 	if err := nm.remote.Delete(
@@ -236,7 +216,7 @@ func (nm *nicknameManager) deleteNicknameUnsafe(channelID *id.ID) error {
 	return nil
 }
 
-// setNicknameUnsafe will save the nickname into the remote kv and into the
+// setNicknameUnsafe will save the nickname into the remote local and into the
 // memoized map.
 func (nm *nicknameManager) setNicknameUnsafe(
 	nickname string, channelID *id.ID) error {
@@ -283,26 +263,6 @@ func (nu nicknameUpdate) Equals(nu2 nicknameUpdate) bool {
 	}
 
 	return true
-}
-
-// IsNicknameValid checks if a nickname is valid.
-//
-// Rules:
-//   - A nickname must not be longer than 24 characters.
-//   - A nickname must not be shorter than 1 character.
-//
-// TODO: Add character filtering.
-func IsNicknameValid(nick string) error {
-	runeNick := []rune(nick)
-	if len(runeNick) > 24 {
-		return errors.New("nicknames must be 24 characters in length or less")
-	}
-
-	if len(runeNick) < 1 {
-		return errors.New("nicknames must be at least 1 character in length")
-	}
-
-	return nil
 }
 
 func marshalChID(chID *id.ID) string {

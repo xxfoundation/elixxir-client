@@ -47,7 +47,7 @@ func TestById_Get_Empty(t *testing.T) {
 	}
 }
 
-//tests that getting a set for a specific ID returns that set
+// tests that getting a set for a specific ID returns that set
 func TestById_Get_Selected(t *testing.T) {
 	nbi := newById()
 

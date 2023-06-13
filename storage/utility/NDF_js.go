@@ -8,23 +8,20 @@
 package utility
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/ndf"
-	"os"
-	"syscall/js"
 )
 
+// NdfStorageKeyNamePrefix is the key prefix for NDF storage. Used in WASM repo.
 const NdfStorageKeyNamePrefix = "ndfStorageKey/"
 
-var localStorage = js.Global().Get("localStorage")
-
 func LoadNDF(_ versioned.KV, key string) (*ndf.NetworkDefinition, error) {
-	keyValue := localStorage.Call("getItem", NdfStorageKeyNamePrefix+key)
-	if keyValue.IsNull() {
-		return nil, os.ErrNotExist
+	value, err := StateKV.Get(NdfStorageKeyNamePrefix + key)
+	if err != nil {
+		return nil, err
 	}
 
-	return ndf.Unmarshal([]byte(keyValue.String()))
+	return ndf.Unmarshal(value)
 }
 
 func SaveNDF(_ versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
@@ -33,8 +30,5 @@ func SaveNDF(_ versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 		return err
 	}
 
-	localStorage.Call("setItem",
-		NdfStorageKeyNamePrefix+key, string(marshaled))
-
-	return nil
+	return StateKV.Set(NdfStorageKeyNamePrefix+key, marshaled)
 }

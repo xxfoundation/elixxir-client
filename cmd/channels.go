@@ -13,6 +13,8 @@ import (
 	"os"
 	"time"
 
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -117,11 +119,20 @@ var channelsCmd = &cobra.Command{
 			}
 		}
 
-		cbs := &channelCbs{}
+		// Construct notifications manager
+		sig := user.GetStorage().GetTransmissionRegistrationValidationSignature()
+		nm, err := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
+			user.GetStorage().GetKV(), &clientNotif.MockComms{}, user.GetRng())
+		if err != nil {
+			jww.FATAL.Panicf("[%s] Failed to create notifications manager: %+v",
+				channelsPrintHeader, err)
+		}
+
 		// Construct channels manager
+		cbs := &channelCbs{}
 		chanManager, err := channels.NewManagerBuilder(channelIdentity,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(),
-			mockEventModelBuilder, nil, user.AddService, cbs)
+			mockEventModelBuilder, nil, user.AddService, nm, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[%s] Failed to create channels manager: %+v",
 				channelsPrintHeader, err)
@@ -318,7 +329,7 @@ func sendMessageToChannel(chanManager channels.Manager,
 		channelsPrintHeader, msgBody, channel.Name)
 	chanMsgId, round, _, err := chanManager.SendGeneric(
 		channel.ReceptionID, integrationChannelMessage, msgBody, 5*time.Second,
-		true, cmix.GetDefaultCMIXParams())
+		true, cmix.GetDefaultCMIXParams(), nil)
 	if err != nil {
 		return errors.Errorf("%+v", err)
 	}
@@ -457,6 +468,19 @@ func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
 	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,
 		nickname, exists)
 }
+
+func (c *channelCbs) NotificationUpdate(nfs []channels.NotificationFilter,
+	changedNotificationStates []channels.NotificationState,
+	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
+}
+
+func (c *channelCbs) AdminKeysUpdate(chID *id.ID, isAdmin bool) {}
+
+func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
+
+func (c *channelCbs) DmTokenUpdate(chID *id.ID, sendToken bool) {}
+
+func (c *channelCbs) ChannelUpdate([]channels.ChannelUpdateOperation) {}
 
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",

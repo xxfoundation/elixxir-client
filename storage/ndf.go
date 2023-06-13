@@ -9,6 +9,7 @@ package storage
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/primitives/ndf"
 )
@@ -16,7 +17,7 @@ import (
 const ndfKey = "ndf"
 
 func (s *session) SetNDF(def *ndf.NetworkDefinition) {
-	err := utility.SaveNDF(s.kv, ndfKey, def)
+	err := SaveNDF(s.kv, def)
 	if err != nil {
 		jww.FATAL.Printf("Failed to dave the NDF: %+v", err)
 	}
@@ -34,4 +35,8 @@ func (s *session) GetNDF() *ndf.NetworkDefinition {
 
 	s.ndf = def
 	return def
+}
+
+func SaveNDF(kv versioned.KV, def *ndf.NetworkDefinition) error {
+	return utility.SaveNDF(kv, ndfKey, def)
 }

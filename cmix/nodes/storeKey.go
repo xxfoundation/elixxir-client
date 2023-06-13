@@ -10,6 +10,8 @@ package nodes
 import (
 	"bytes"
 	"encoding/binary"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 )
 

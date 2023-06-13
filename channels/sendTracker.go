@@ -17,7 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
@@ -264,7 +264,7 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 	stream.Close()
 
 	// Submit the message to the UI
-	uuid, err := st.adminTrigger(channelID, cm, encryptedPayload, ts,
+	uuid, err := st.adminTrigger(channelID, cm, 42, encryptedPayload, ts,
 		randMessageID, receptionID.EphemeralIdentity{}, rounds.Round{}, Unsent)
 	if err != nil {
 		return 0, err

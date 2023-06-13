@@ -42,7 +42,7 @@ func (dp *dmProcessor) String() string {
 	return "directMessage-"
 }
 
-func (dp *dmProcessor) Process(msg format.Message,
+func (dp *dmProcessor) Process(msg format.Message, _ []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	ciphertext := reconstructCiphertext(msg)
@@ -78,7 +78,7 @@ func (dp *dmProcessor) Process(msg format.Message,
 	msgID := message.DeriveDirectMessageID(myID, directMsg)
 
 	// Check if we sent the message and ignore triggering if we sent
-	// This will happen when DM'ing with oneself, but the receive self
+	// This will happen when DMing with oneself, but the receive self
 	// processor will update the status to delivered, so we do nothing here.
 	if dp.r.sendTracker.CheckIfSent(msgID, round) {
 		return
@@ -89,8 +89,8 @@ func (dp *dmProcessor) Process(msg format.Message,
 	// Check the round to ensure the message is not a replay
 	if id.Round(directMsg.RoundID) != round.ID &&
 		id.Round(directMsg.SelfRoundID) != round.ID {
-		jww.WARN.Printf("The round DM %s send on %d"+
-			"by %s was not the same as the"+
+		jww.WARN.Printf("The round DM %s send on %d "+
+			"by %s was not the same as the "+
 			"round the message was found on (%d)", msgID,
 			round.ID, partnerPublicKey, directMsg.RoundID)
 		return
@@ -117,12 +117,15 @@ func (dp *dmProcessor) Process(msg format.Message,
 		return
 	}
 
+	// partner Token is the sender Token
+	partnerToken := senderToken
+
 	// Process the receivedMessage. This is already in an instanced event;
 	// no new thread is needed.
-	// Note that in the non-self send case the partner key and sender
+	// Note that in the non-self send case, the partner key and sender
 	// key are the same. This is how the UI differentiates between the two.
 	uuid, err := dp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
-		directMsg.Payload, senderToken,
+		directMsg.Payload, partnerToken,
 		*pubSigningKey, *pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
@@ -131,7 +134,7 @@ func (dp *dmProcessor) Process(msg format.Message,
 	}
 }
 
-// selfProcessor processes a self Encrypted DM message.
+// selfProcessor processes a self-encrypted DM message.
 type selfProcessor struct {
 	r *receiver
 }
@@ -140,7 +143,7 @@ func (sp *selfProcessor) String() string {
 	return "directMessageSelf-"
 }
 
-func (sp *selfProcessor) Process(msg format.Message,
+func (sp *selfProcessor) Process(msg format.Message, _ []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	ciphertext := reconstructCiphertext(msg)
@@ -153,7 +156,6 @@ func (sp *selfProcessor) Process(msg format.Message,
 		return
 	}
 	senderPublicKey := sp.r.c.publicKey
-	senderToken := sp.r.c.myToken
 
 	directMsg := &DirectMessage{}
 	if err := proto.Unmarshal(payload, directMsg); err != nil {
@@ -186,7 +188,7 @@ func (sp *selfProcessor) Process(msg format.Message,
 			}
 			sp.r.sendTracker.StopTracking(msgID, round)
 			if !ok {
-				jww.WARN.Printf("[DM] Coulnd't StopTracking: "+
+				jww.WARN.Printf("[DM] Couldn't StopTracking: "+
 					"%s, %v", msgID, round)
 			}
 		}()
@@ -197,8 +199,8 @@ func (sp *selfProcessor) Process(msg format.Message,
 
 	// Check the round to ensure the message is not a replay
 	if id.Round(directMsg.SelfRoundID) != round.ID {
-		jww.WARN.Printf("The round self DM %s send on %d"+
-			"by %s was not the same as the"+
+		jww.WARN.Printf("The round self DM %s send on %d "+
+			"by %s was not the same as the "+
 			"round the message was found on (%d)", msgID,
 			round.ID, partnerPublicKey, directMsg.RoundID)
 		return
@@ -223,7 +225,7 @@ func (sp *selfProcessor) Process(msg format.Message,
 	// Process the receivedMessage. This is already in an instanced event;
 	// no new thread is needed.
 	uuid, err := sp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
-		directMsg.Payload, senderToken,
+		directMsg.Payload, partnerToken,
 		*partnerPubKey, *pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
@@ -232,12 +234,12 @@ func (sp *selfProcessor) Process(msg format.Message,
 	}
 }
 
-// GetSelfProcessor handles receiving self sent direct messages
+// GetSelfProcessor handles receiving self sent direct messages.
 func (r *receiver) GetSelfProcessor() *selfProcessor {
 	return &selfProcessor{r: r}
 }
 
-// GetSelfProcessor handles receiving direct messages
+// GetProcessor handles receiving direct messages.
 func (r *receiver) GetProcessor() *dmProcessor {
 	return &dmProcessor{r: r}
 }
@@ -245,27 +247,27 @@ func (r *receiver) GetProcessor() *dmProcessor {
 // receiveMessage attempts to parse the message and calls the appropriate
 // receiver function.
 func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
-	nick string, plaintext []byte, dmToken uint32,
+	nick string, plaintext []byte, partnerDMToken uint32,
 	partnerPubKey, senderPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error) {
 	switch messageType {
 	case TextType:
 		return r.receiveTextMessage(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
-			0, ts, round, status)
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	case ReplyType:
 		return r.receiveTextMessage(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
-			0, ts, round, status)
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	case ReactionType:
 		return r.receiveReaction(msgID, messageType,
-			nick, plaintext, dmToken, partnerPubKey, senderPubKey,
-			0, ts, round, status)
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	default:
 		return r.api.Receive(msgID, nick, plaintext,
 			partnerPubKey, senderPubKey,
-			dmToken, 0, ts, round,
+			partnerDMToken, 0, ts, round,
 			messageType, status), nil
 	}
 }
@@ -326,7 +328,7 @@ func (r *receiver) receiveTextMessage(messageID message.ID,
 //
 // It does edge checking to ensure the received reaction is just a single emoji.
 // If the received reaction is not, the reaction is dropped.
-// If the messageID for the message the reaction is to is malformed, the
+// If the messageID for the message the reaction is malformed, then the
 // reaction is dropped.
 func (r *receiver) receiveReaction(messageID message.ID,
 	messageType MessageType, nickname string, content []byte,

@@ -11,22 +11,25 @@ import (
 	"math"
 	"time"
 
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/elixxir/primitives/states"
+
 	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/collective"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/interfaces"
 	"gitlab.com/elixxir/client/v4/registration"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
 	"gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -60,7 +63,7 @@ type Cmix struct {
 
 	// Services system to track running threads
 	followerServices   *services
-	clientErrorChannel chan interfaces.ClientError
+	clientErrorChannel chan ClientError
 
 	// Event reporting in event.go
 	events *event.Manager
@@ -70,8 +73,8 @@ type Cmix struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information at a
 // later date.
-func NewCmix(
-	ndfJSON, storageDir string, password []byte, registrationCode string) error {
+func NewCmix(ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
 	jww.INFO.Printf("NewCmix(dir: %s)", storageDir)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
@@ -103,7 +106,7 @@ func NewCmix(
 // information at a later date.
 func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	registrationCode string, userIdPrefix string) error {
-	jww.INFO.Printf("NewVanityCmix()")
+	jww.INFO.Printf("NewVanityCmix(%s)", storageDir)
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -131,12 +134,52 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
+// NewSynchronizedCmix clones a Cmix from remote storage
+func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
+	remote collective.RemoteStore) error {
+	jww.INFO.Printf("NewSynchronizedCmix(dir: %s)", storageDir)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
+		csprng.NewSystemRNG)
+
+	def, err := ParseNDF(ndfJSON)
+	if err != nil {
+		return errors.Wrapf(err, "ParseNDF")
+	}
+
+	kv, err := ekv.NewFilestore(storageDir, string(password))
+	if err != nil {
+		return errors.Wrapf(err, "NewFilestore")
+	}
+
+	rkv, err := collective.CloneFromRemoteStorage(storageDir, password,
+		remote, kv, rngStreamGen)
+	if err != nil {
+		return errors.Wrapf(err, "CloneFromRemoteStorage")
+	}
+
+	cmixGrp, e2eGrp := DecodeGroups(def)
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.Wrapf(err, "Could not parse version string.")
+	}
+
+	err = storage.InitFromRemote(rkv, def, currentVersion, cmixGrp,
+		e2eGrp)
+	if err != nil {
+		return err
+	}
+
+	// NOTE: UserInfo, RegCode, and Registration State is synchronized,
+	// so we don't need to set it.
+	return err
+}
+
 // OpenCmix creates client storage but does not connect to the network or login.
 // Note that this is a helper function that, in most applications, should not be
 // used on its own. Consider using LoadCmix instead, which calls this function
 // for you.
 func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
-	jww.INFO.Printf("OpenCmix()")
+	jww.INFO.Printf("OpenCmix(%s)", storageDir)
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	storageKV, err := LocalKV(storageDir, password, rngStreamGen)
@@ -149,7 +192,7 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
 	synchedPrefixes []string) (*Cmix, error) {
 
-	jww.INFO.Printf("OpenSynchronizedCmix()")
+	jww.INFO.Printf("OpenSynchronizedCmix(%s)", storageDir)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	storageKV, err := SynchronizedKV(storageDir, password,
 		remote, synchedPrefixes, rngStreamGen)
@@ -178,7 +221,7 @@ func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (
 		comms:              nil,
 		network:            nil,
 		followerServices:   newServices(),
-		clientErrorChannel: make(chan interfaces.ClientError, 1000),
+		clientErrorChannel: make(chan ClientError, 1000),
 		events:             event.NewEventManager(),
 	}
 
@@ -186,6 +229,10 @@ func openCmix(storageKV versioned.KV, rngStreamGen *fastRNG.StreamGenerator) (
 	if err != nil {
 		return nil, err
 	}
+
+	// NOTE: Open is the only place where we have the reference to
+	// add the service
+	c.AddService(storageKV.StartProcesses)
 
 	return c, nil
 }
@@ -239,11 +286,11 @@ func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 // network.
 func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 	*Cmix, error) {
-	jww.INFO.Printf("LoadCmix()")
+	jww.INFO.Printf("LoadCmix(%s)", storageDir)
 
 	c, err := OpenCmix(storageDir, password)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	return loadCmix(c, parameters)
 }
@@ -336,7 +383,8 @@ func (c *Cmix) initPermissioning(def *ndf.NetworkDefinition) error {
 	}
 
 	// Register with registration if necessary
-	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+	regStatus := c.storage.RegStatus()
+	if regStatus == storage.KeyGenComplete {
 		jww.INFO.Printf("Cmix has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
@@ -355,7 +403,7 @@ func (c *Cmix) registerFollower() error {
 	// Build the error callback
 	cer := func(source, message, trace string) {
 		select {
-		case c.clientErrorChannel <- interfaces.ClientError{
+		case c.clientErrorChannel <- ClientError{
 			Source:  source,
 			Message: message,
 			Trace:   trace,
@@ -388,7 +436,7 @@ func (c *Cmix) registerFollower() error {
 
 // GetErrorsChannel returns a channel that passes errors from the long-running
 // threads controlled by StartNetworkFollower and StopNetworkFollower.
-func (c *Cmix) GetErrorsChannel() <-chan interfaces.ClientError {
+func (c *Cmix) GetErrorsChannel() <-chan ClientError {
 	return c.clientErrorChannel
 }
 
@@ -445,6 +493,14 @@ func (c *Cmix) StopNetworkFollower() error {
 
 // SetTrackNetworkPeriod allows changing the frequency that follower threads
 // are started.
+//
+// Note that the frequency of the follower threads affect the power usage
+// of the device following the network.
+//   - Low period -> Higher frequency of polling -> Higher battery usage
+//   - High period -> Lower frequency of polling -> Lower battery usage
+//
+// This may be used to enable a low power (or battery optimization) mode
+// for the end user.
 func (c *Cmix) SetTrackNetworkPeriod(d time.Duration) {
 	c.network.SetTrackNetworkPeriod(d)
 }
@@ -473,8 +529,32 @@ func (c *Cmix) GetRunningProcesses() []string {
 	return c.followerServices.stoppable.GetRunningProcesses()
 }
 
+// The round events interface allows the registration of an event which triggers
+// when a round reaches one or more states
+
+type RoundEvents interface {
+	// AddRoundEvent designates a callback to call on the specified event
+	// rid is the id of the round the event occurs on
+	// callback is the callback the event is triggered on
+	// timeout is the amount of time before an error event is returned
+	// valid states are the states which the event should trigger on
+	AddRoundEvent(rid id.Round, callback ds.RoundEventCallback,
+		timeout time.Duration, validStates ...states.Round) *ds.EventCallback
+
+	// AddRoundEventChan designates a go channel to signal the specified event
+	// rid is the id of the round the event occurs on
+	// eventChan is the channel the event is triggered on
+	// timeout is the amount of time before an error event is returned
+	// valid states are the states which the event should trigger on
+	AddRoundEventChan(rid id.Round, eventChan chan ds.EventReturn,
+		timeout time.Duration, validStates ...states.Round) *ds.EventCallback
+
+	// Remove Allows the un-registration of a round event before it triggers
+	Remove(rid id.Round, e *ds.EventCallback)
+}
+
 // GetRoundEvents registers a callback for round events.
-func (c *Cmix) GetRoundEvents() interfaces.RoundEvents {
+func (c *Cmix) GetRoundEvents() RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
 	jww.WARN.Printf("GetRoundEvents does not handle Cmix Errors edge case!")
 	return c.network.GetInstance().GetRoundEvents()
@@ -684,9 +764,6 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
 
 	// Store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
-
-	rngStream := rng.GetStream()
-	defer rngStream.Close()
 
 	// Move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)

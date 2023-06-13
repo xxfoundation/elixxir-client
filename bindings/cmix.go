@@ -13,7 +13,8 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 )
 
@@ -43,12 +44,21 @@ type Cmix struct {
 // date.
 //
 // Users of this function should delete the storage directory on error.
-func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode string) error {
+func NewCmix(ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
 	err := xxdk.NewCmix(ndfJSON, storageDir, password, registrationCode)
 	if err != nil {
 		return errors.Errorf("Failed to create new cmix: %+v", err)
 	}
 	return nil
+}
+
+// NewSynchronizedCmix clones a Cmix from remote storage
+func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
+	remote RemoteStore) error {
+	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
+	return xxdk.NewSynchronizedCmix(ndfJSON, storageDir, password,
+		wrappedRemote)
 }
 
 // LoadCmix will load an existing user storage from the storageDir using the
@@ -98,6 +108,7 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 	}
 
 	synchedPrefixes := []string{
+		collective.StandardRemoteSyncPrefix,
 		"channels",
 	}
 
@@ -130,8 +141,14 @@ func (c *Cmix) GetReceptionID() []byte {
 // interacted with directly.
 // TODO: force this into a synchronized prefix?
 func (c *Cmix) GetRemoteKV() *RemoteKV {
+	local := c.api.GetStorage().GetKV()
+	remote, err := local.Prefix(collective.StandardRemoteSyncPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("could not get remote KV: %+v", err)
+	}
+
 	return &RemoteKV{
-		rkv: c.api.GetStorage().GetKV(),
+		rkv: remote,
 	}
 }
 
@@ -160,13 +177,13 @@ func (c *Cmix) EKVSet(key string, value []byte) error {
 // cMix Tracker                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-// GetCMixInstance gets a copy of the cMix instance by it's ID number
-func GetCMixInstance(instanceID int) (*Cmix, error) {
+// GetCMixInstance gets the xxdk.Cmix for the given Cmix instanceID.
+func GetCMixInstance(instanceID int) (*xxdk.Cmix, error) {
 	instance, ok := cmixTrackerSingleton.tracked[instanceID]
 	if !ok {
 		return nil, errors.Errorf("no cmix instance id: %d", instanceID)
 	}
-	return instance, nil
+	return instance.api, nil
 }
 
 // cmixTracker is a singleton used to keep track of extant Cmix objects,

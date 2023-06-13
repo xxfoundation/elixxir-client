@@ -142,7 +142,7 @@ type receiveProcessor struct {
 }
 
 func (r *receiveProcessor) Process(decryptedMsg groupChat.MessageReceive,
-	_ format.Message, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+	_ format.Message, _ []string, _ []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	r.recChan <- decryptedMsg
 }
 

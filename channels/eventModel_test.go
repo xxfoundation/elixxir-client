@@ -20,7 +20,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -378,7 +378,7 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
+	_, err = e.triggerAdminEvent(chID, cm, mt, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -414,7 +414,7 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err := e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
+	_, err := e.triggerAdminEvent(chID, cm, mt, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -447,7 +447,7 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err = e.triggerActionEvent(chID, msgID, MessageType(cm.PayloadType),
+	_, err = e.triggerActionEvent(chID, msgID, mt,
 		cm.Nickname, cm.Payload, nil, netTime.Now(), netTime.Now(),
 		time.Duration(cm.Lease), r.ID, r, Delivered, true)
 	if err != nil {
@@ -950,9 +950,9 @@ func Test_events_receiveAdminReplay(t *testing.T) {
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock Event Model                                                           //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type eventReceive struct {
 	channelID   *id.ID
 	messageID   message.ID

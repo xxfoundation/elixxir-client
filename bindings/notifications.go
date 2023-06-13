@@ -9,161 +9,201 @@ package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/cmix/message"
-	"gitlab.com/elixxir/primitives/notifications"
+	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/notifications"
+	"sync"
 )
 
-// NotificationReports is a list of [NotificationReport]s. This will be returned
-// via GetNotificationsReport as a JSON marshalled byte data.
-//
-// Example JSON:
-//
-//	[
-//	  {
-//	    "ForMe": true,                                           // boolean
-//	    "Type": "e2e",                                           // string
-//	    "Source": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD" // bytes of id.ID encoded as base64 string
-//	  },
-//	  {
-//	    "ForMe": true,
-//	    "Type": "e2e",
-//	    "Source": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//	  },
-//	  {
-//	    "ForMe": true,
-//	    "Type": "e2e",
-//	    "Source": "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//	  }
-//	]
-type NotificationReports []NotificationReport
+// notifTrackerSingleton is used to track notifications objects so that they
+// can be referenced by ID back over the bindings.
+var notifTrackerSingleton = &notificationsTracker{
+	tracked: make(map[int]*Notifications),
+	count:   0,
+}
 
-//  TODO: The table in the docstring below needs to be checked for completeness
-//   and/or accuracy to ensure descriptions/sources are still accurate (they are
-//   from the old implementation).
+type Notifications struct {
+	manager notifications.Manager
+	id      int
+}
 
-// NotificationReport is the bindings' representation for notifications for
-// this user.
-//
-// Example NotificationReport JSON:
+// NotificationState indicates the status of notifications for an ID.
+const (
+	// NotificationsMute shows no notifications for the ID.
+	NotificationsMute int64 = int64(notifications.Mute)
+
+	// NotificationsWhenOpen shows notifications for this ID only when the app
+	// is running and open. No registration or privacy leaks occur in this
+	// state.
+	NotificationsWhenOpen int64 = int64(notifications.WhenOpen)
+
+	// NotificationsPush shows notifications for this ID as push notification
+	// on applicable devices. This state has a minor privacy loss.
+	NotificationsPush int64 = int64(notifications.Push)
+)
+
+// AddToken registers the Token with the remote server if this manager is
+// in set to register, otherwise it will return ErrRemoteRegistrationDisabled
+// This will add the token to the list of tokens which are forwarded the messages
+// for connected IDs.
+// the App will tell the server what App to forward the notifications to.
+func (n *Notifications) AddToken(newToken, app string) error {
+	return n.manager.AddToken(newToken, app)
+}
+
+// RemoveToken removes the given Token from the server
+// It will remove all registered identities if it is the last Token
+func (n *Notifications) RemoveToken() error {
+	return n.manager.RemoveToken()
+}
+
+type GetTokenJson struct {
+	Exists bool   `json:"exists"`
+	Token  string `json:"token"`
+	App    string `json:"app"`
+}
+
+// GetToken returns the token if it exists
 //
 //	{
-//	  "ForMe": true,
-//	  "Type": "e2e",
-//	  "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+//	  "exists":true,
+//	  "Token":"Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4HZ",
+//	  "App":"havenIOS"
 //	}
-//
-// Given the Type, the Source value will have specific contextual meanings.
-// Below is a table that will define the contextual meaning of the Source field
-// given all possible Type fields.
-//
-//	 TYPE     |     SOURCE         |    DESCRIPTION
-//	----------+--------------------+--------------------------------------------------------
-//	"default" |  recipient user ID |  A message with no association.
-//	"request" |  sender user ID    |  A channel request has been received, from Source.
-//	"reset"   |  sender user ID    |  A channel reset has been received.
-//	"confirm" |  sender user ID    |  A channel request has been accepted.
-//	"silent"  |  sender user ID    |  A message where the user should not be notified.
-//	"e2e"     |  sender user ID    |  A reception of an E2E message.
-//	"group"   |  group ID          |  A reception of a group chat message.
-//	"endFT"   |  sender user ID    |  The last message sent confirming end of file transfer.
-//	"groupRQ" |  sender user ID    |  A request from Source to join a group chat.
-type NotificationReport struct {
-	// ForMe determines whether this value is for the user. If it is
-	// false, this report may be ignored.
-	ForMe bool
-	// Type is the type of notification. The list can be seen
-	Type string
-	// Source is the source of the notification.
-	Source []byte
+func (n *Notifications) GetToken() ([]byte, error) {
+	exist, token, app := n.manager.GetToken()
+	gtj := &GetTokenJson{
+		Exists: exist,
+		Token:  token,
+		App:    app,
+	}
+	return json.Marshal(gtj)
 }
 
-// GetNotificationsReport parses the received notification data to determine which
-// notifications are for this user. // This returns the JSON-marshalled
-// NotificationReports.
+// SetMaxState sets the maximum functional state of any identity
+// downstream moduals will be told to clamp any state greater than maxState
+// down to maxState. Depending on UX requirements, they may still show the
+// state in an altered manner, for example greying out a description.
+// This is designed so when the state is raised, the old configs are
+// maintained.
+// This will unregister / re-register with the push server when leaving or
+// entering the Push maxState.
+// The default maxState is Push
+// will return an error if the maxState isnt a valid state
 //
-// Parameters:
-//   - notificationCSV - the notification data received from the
-//     notifications' server.
-//   - marshalledServices - the JSON-marshalled list of services the backend
-//     keeps track of. Refer to Cmix.TrackServices or
-//     Cmix.TrackServicesWithIdentity for information about this.
+// MaxState can be:
 //
-// Returns:
-//   - []byte - A JSON marshalled NotificationReports. Some NotificationReport's
-//     within in this structure may have their NotificationReport.ForMe
-//     set to false. These may be ignored.
-func GetNotificationsReport(notificationCSV string,
-	marshalledServices []byte) ([]byte, error) {
+//		Mute shows no notifications for the ID.
+//		- Mute = 0
+//		WhenOpen shows notifications for this ID only when the app is running and
+//		open. No registration or privacy leaks occur in this state.
+//	 - WhenOpen = 1
+//		Push shows notifications for this ID as push notification on applicable
+//		devices. This state has a minor privacy loss.
+//		- Push = 2
+func (n *Notifications) SetMaxState(maxState int64) error {
+	return n.manager.SetMaxState(notifications.NotificationState(maxState))
+}
 
-	// If services are retrieved using TrackServicesWithIdentity, this
-	// should return a single list.
-	serviceList := message.ServiceList{}
-	err := json.Unmarshal(marshalledServices, &serviceList)
+// GetMaxState returns the current MaxState
+func (n *Notifications) GetMaxState() int64 {
+	return int64(n.manager.GetMaxState())
+}
+
+// GetID returns the ID of the notifications object
+func (n *Notifications) GetID() int {
+	return n.id
+}
+
+func LoadNotifications(cmixId int) (*Notifications, error) {
+	mixBind, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+	mix := mixBind.api
+	identity := mix.GetTransmissionIdentity()
+	sig := mix.GetStorage().GetTransmissionRegistrationValidationSignature()
+	kv := mix.GetStorage().GetKV()
+	comms := mix.GetComms()
+	rng := mix.GetRng()
+
+	notif, err := notifications.NewOrLoadManager(identity, sig, kv, comms, rng)
 	if err != nil {
 		return nil, err
 	}
 
-	// Decode notifications' server data
-	notificationList, err := notifications.DecodeNotificationsCSV(notificationCSV)
+	return notifTrackerSingleton.make(notif), nil
+}
+
+func LoadNotificationsDummy(cmixId int) (*Notifications, error) {
+	mixBind, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+	mix := mixBind.api
+	identity := mix.GetTransmissionIdentity()
+	sig := mix.GetStorage().GetTransmissionRegistrationValidationSignature()
+	kv := mix.GetStorage().GetKV()
+	comms := &notifications.MockComms{}
+	rng := mix.GetRng()
+
+	notif, err := notifications.NewOrLoadManager(identity, sig, kv, comms, rng)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct  a report list
-	reportList := make([]*NotificationReport, len(notificationList))
-
-	// Iterate over data provided by server
-	for _, services := range serviceList {
-		for i := range notificationList {
-			notifData := notificationList[i]
-
-			// Iterate over all services
-			for j := range services {
-				// Pull data from services and from notification data
-				service := services[j]
-				messageHash := notifData.MessageHash
-				hash := service.HashFromMessageHash(notifData.MessageHash)
-
-				// Check if this notification data is recognized by
-				// this service, ie "ForMe"
-				if service.ForMeFromMessageHash(messageHash, hash) {
-					// Fill report list with service data
-					reportList[i] = &NotificationReport{
-						ForMe:  true,
-						Type:   service.Tag,
-						Source: service.Identifier,
-					}
-				}
-			}
-		}
-	}
-
-	return json.Marshal(reportList)
+	return notifTrackerSingleton.make(notif), nil
 }
 
-// RegisterForNotifications allows a client to register for push notifications.
-// The token is a firebase messaging token.
-//
-// Parameters:
-//   - e2eId - ID of the E2E object in the E2E tracker
-func RegisterForNotifications(e2eId int, token string) error {
-	user, err := e2eTrackerSingleton.get(e2eId)
-	if err != nil {
-		return err
-	}
+////////////////////////////////////////////////////////////////////////////////
+// Notifications Tracker                                                      //
+////////////////////////////////////////////////////////////////////////////////
 
-	return user.api.RegisterForNotifications(token)
+// notificationsTracker is a singleton used to keep track of extant notifications
+// objects, preventing race conditions created by passing it over the bindings.
+type notificationsTracker struct {
+	// TODO: Key on Identity.ID to prevent duplication
+	tracked map[int]*Notifications
+	count   int
+	mux     sync.RWMutex
 }
 
-// UnregisterForNotifications turns off notifications for this client.
-//
-// Parameters:
-//   - e2eId - ID of the E2E object in the E2E tracker
-func UnregisterForNotifications(e2eId int) error {
-	user, err := e2eTrackerSingleton.get(e2eId)
-	if err != nil {
-		return err
+// make create an E2e from a xxdk.E2e, assigns it a unique ID, and adds it to
+// the e2eTracker.
+func (nt *notificationsTracker) make(nm notifications.Manager) *Notifications {
+	nt.mux.Lock()
+	defer nt.mux.Unlock()
+
+	notifID := nt.count
+	nt.count++
+
+	nw := &Notifications{
+		manager: nm,
+		id:      notifID,
 	}
 
-	return user.api.UnregisterForNotifications()
+	nt.tracked[notifID] = nw
+
+	return nw
+}
+
+// get a notifWrapper from the notificationsTracker given its ID.
+func (nt *notificationsTracker) get(id int) (*Notifications, error) {
+	nt.mux.RLock()
+	defer nt.mux.RUnlock()
+
+	c, exist := nt.tracked[id]
+	if !exist {
+		return nil, errors.Errorf("Cannot get Notifications"+
+			" for ID %d, does not exist", id)
+	}
+
+	return c, nil
+}
+
+// delete a notifWrapper from the notificationsTracker.
+func (nt *notificationsTracker) delete(id int) {
+	nt.mux.Lock()
+	defer nt.mux.Unlock()
+
+	delete(nt.tracked, id)
 }

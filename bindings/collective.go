@@ -9,12 +9,11 @@ package bindings
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -33,14 +32,14 @@ type RemoteStore interface {
 	// support this, FileIO.Write or FileIO.Read should be implemented to either
 	// write a separate timestamp file or add a prefix.
 	//
-	// Returns the JSON of [RemoteStoreReport].
-	GetLastModified(path string) ([]byte, error)
+	// Returns an RFC3339 timestamp string
+	GetLastModified(path string) (string, error)
 
 	// GetLastWrite retrieves the most recent successful write operation that
 	// was received by RemoteStore.
 	//
-	// Returns the JSON of [RemoteStoreReport].
-	GetLastWrite() ([]byte, error)
+	// Returns an RFC3339 timestamp string
+	GetLastWrite() (string, error)
 
 	// ReadDir reads the named directory, returning all its
 	// directory entries sorted by filename as json of a []string
@@ -131,6 +130,7 @@ type RemoteStoreReport struct {
 // Get returns the object stored at the specified version.
 // returns a json of [versioned.Object]
 func (r *RemoteKV) Get(key string, version int64) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] Get(%s, %d)", key, version)
 	obj, err := r.rkv.Get(key, uint64(version))
 	if err != nil {
 		return nil, err
@@ -140,6 +140,7 @@ func (r *RemoteKV) Get(key string, version int64) ([]byte, error) {
 
 // Delete removes a given key from the data store.
 func (r *RemoteKV) Delete(key string, version int64) error {
+	jww.DEBUG.Printf("[RKV] Delete(%s, %d)", key, version)
 	return r.rkv.Delete(key, uint64(version))
 }
 
@@ -150,6 +151,7 @@ func (r *RemoteKV) Delete(key string, version int64) error {
 // The [Object] should contain the versioning if you are
 // maintaining such a functionality.
 func (r *RemoteKV) Set(key string, objectJSON []byte) error {
+	jww.DEBUG.Printf("[RKV] set(%s)", key)
 	obj := versioned.Object{}
 	err := json.Unmarshal(objectJSON, &obj)
 	if err != nil {
@@ -170,6 +172,8 @@ func (r *RemoteKV) HasPrefix(prefix string) bool {
 
 // Prefix returns a new KV with the new prefix appending
 func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
+	jww.DEBUG.Printf("[RKV] Prefix(%s)", prefix)
+
 	newK, err := r.rkv.Prefix(prefix)
 	if err != nil {
 		return nil, err
@@ -182,6 +186,8 @@ func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
 
 // Root returns the KV with no prefixes
 func (r *RemoteKV) Root() (*RemoteKV, error) {
+	jww.DEBUG.Printf("[RKV] Root()")
+
 	newK, err := r.rkv.Root().Prefix("bindings")
 	if err != nil {
 		return nil, err
@@ -202,42 +208,6 @@ func (r *RemoteKV) GetFullKey(key string, version int64) string {
 	return r.rkv.GetFullKey(key, uint64(version))
 }
 
-// Transaction locks a key while it is being mutated then stores the result
-// and returns the old value and if it existed in a JSON object.
-// Transactions cannot be remote operations
-// If the op returns an error, the operation will be aborted.
-func (r *RemoteKV) Transaction(key string, op TransactionOperation,
-	version int64) ([]byte, error) {
-	bindingsOp := func(old *versioned.Object, existed bool) (
-		data *versioned.Object, err error) {
-		oldJSON, err := json.Marshal(old)
-		panicOnErr(err)
-		dataJSON := op.Operation(oldJSON, existed)
-		txOpData := &transactionOperationData{}
-		err = json.Unmarshal(dataJSON, txOpData)
-		// This is from the user's implementation, but if they give us
-		// malformed data we want to panic on that anyway to tell them.
-		panicOnErr(err)
-		if len(txOpData.Error) != 0 {
-			return nil, errors.New(txOpData.Error)
-		}
-		return txOpData.NewObject, nil
-	}
-
-	old, existed, err := r.rkv.Transaction(key, bindingsOp, uint64(version))
-	if err != nil {
-		return nil, err
-	}
-	txOpRes := &transactionResult{
-		OldValue: old,
-		Existed:  existed,
-	}
-
-	resJSON, err := json.Marshal(txOpRes)
-	panicOnErr(err)
-	return resJSON, nil
-}
-
 // StoreMapElement stores a versioned map element into the KV. This relies
 // on the underlying remote [KV.StoreMapElement] function to lock and control
 // updates, but it uses [versioned.Object] values.
@@ -245,6 +215,8 @@ func (r *RemoteKV) Transaction(key string, op TransactionOperation,
 // valueJSON is a json of a versioned.Object
 func (r *RemoteKV) StoreMapElement(mapName, elementKey string,
 	valueJSON []byte, version int64) error {
+	jww.DEBUG.Printf("[RKV] StoreMapElement(%s, %s, %d)", mapName, elementKey,
+		version)
 	obj := versioned.Object{}
 	err := json.Unmarshal(valueJSON, &obj)
 	if err != nil {
@@ -260,6 +232,7 @@ func (r *RemoteKV) StoreMapElement(mapName, elementKey string,
 // valueJSON is a json of map[string]*versioned.Object
 func (r *RemoteKV) StoreMap(mapName string,
 	valueJSON []byte, version int64) error {
+	jww.DEBUG.Printf("[RKV] StoreMap(%s, %d)", mapName, version)
 	obj := make(map[string]*versioned.Object)
 	err := json.Unmarshal(valueJSON, &obj)
 	if err != nil {
@@ -271,6 +244,8 @@ func (r *RemoteKV) StoreMap(mapName string,
 // DeleteMapElement removes a versioned map element from the KV.
 func (r *RemoteKV) DeleteMapElement(mapName, elementName string,
 	mapVersion int64) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] DeleteMapElement(%s, %s, %d)", mapName,
+		elementName, mapVersion)
 	oldVal, err := r.rkv.DeleteMapElement(mapName, elementName,
 		uint64(mapVersion))
 	if err != nil {
@@ -287,6 +262,7 @@ func (r *RemoteKV) DeleteMapElement(mapName, elementName string,
 // on the underlying remote [KV.GetMap] function to lock and control
 // updates, but it uses [versioned.Object] values.
 func (r *RemoteKV) GetMap(mapName string, version int64) ([]byte, error) {
+	jww.DEBUG.Printf("[RKV] GetMap(%s, %d)", mapName, version)
 	mapData, err := r.rkv.GetMap(mapName, uint64(version))
 	if err != nil {
 		return nil, err
@@ -299,6 +275,8 @@ func (r *RemoteKV) GetMap(mapName string, version int64) ([]byte, error) {
 // updates, but it uses [versioned.Object] values.
 func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 	[]byte, error) {
+	jww.DEBUG.Printf("[RKV] GetMapElement(%s, %s, %d)", mapName, element, version)
+
 	obj, err := r.rkv.GetMapElement(mapName, element, uint64(version))
 	if err != nil {
 		return nil, err
@@ -309,12 +287,14 @@ func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 // ListenOnRemoteKey sets up a callback listener for the object specified
 // by the key and version. It returns the current [versioned.Object] JSON
 // of the value.
+// If local events is true, you will get callback when you write to the
+// key as well
 func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
-	callback KeyChangedByRemoteCallback) ([]byte,
-	error) {
+	callback KeyChangedByRemoteCallback, localEvents bool) error {
 
-	bindingsCb := func(key string,
-		old, new *versioned.Object, op versioned.KeyOperation) {
+	jww.DEBUG.Printf("[RKV] ListenOnRemoteKey(%s, %d)", key, version)
+
+	bindingsCb := func(old, new *versioned.Object, op versioned.KeyOperation) {
 		oldJSON, err := json.Marshal(old)
 		panicOnErr(err)
 		newJSON, err := json.Marshal(new)
@@ -322,39 +302,26 @@ func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 		callback.Callback(key, oldJSON, newJSON, int8(op))
 	}
 
-	obj, err := r.rkv.ListenOnRemoteKey(key, uint64(version), bindingsCb)
-	if err != nil {
-		return nil, err
-	}
-
-	objJSON, err := json.Marshal(obj)
-	panicOnErr(err)
-	return objJSON, nil
+	return r.rkv.ListenOnRemoteKey(key, uint64(version), bindingsCb, localEvents)
 }
 
 // ListenOnRemoteMap allows the caller to receive updates when
 // the map or map elements are updated. Returns a JSON of
 // map[string]versioned.Object of the current map value.
+// If local events is true, you will get callback when you write to the
+// key as well
 func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
-	callback MapChangedByRemoteCallback) ([]byte, error) {
+	callback MapChangedByRemoteCallback, localEvents bool) error {
+	jww.DEBUG.Printf("[RKV] ListenOnRemoteMap(%s, %d)", mapName, version)
 
-	bindingsCb := func(mapName string,
-		edits map[string]versioned.ElementEdit) {
+	bindingsCb := func(edits map[string]versioned.ElementEdit) {
 		editsJSON, err := json.Marshal(edits)
 		panicOnErr(err)
 		callback.Callback(mapName, editsJSON)
 	}
 
-	obj, err := r.rkv.ListenOnRemoteMap(mapName, uint64(version),
-		bindingsCb)
-	if err != nil {
-		return nil, err
-	}
-
-	objJSON, err := json.Marshal(obj)
-	panicOnErr(err)
-	return objJSON, nil
-
+	return r.rkv.ListenOnRemoteMap(mapName, uint64(version),
+		bindingsCb, localEvents)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -403,33 +370,23 @@ func (r *remoteStoreWrapper) ReadDir(path string) ([]string, error) {
 // separate timestamp file or add a prefix.
 func (r *remoteStoreWrapper) GetLastModified(
 	path string) (time.Time, error) {
-	reportData, err := r.store.GetLastModified(path)
+	rfc3339, err := r.store.GetLastModified(path)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	rsr := &RemoteStoreReport{}
-	if err = json.Unmarshal(reportData, rsr); err != nil {
-		return time.Time{}, err
-	}
-
-	return time.Unix(0, rsr.LastModified), nil
+	return time.Parse(time.RFC3339, rfc3339)
 }
 
 // GetLastWrite retrieves the most recent successful write operation that was
 // received by RemoteStore.
 func (r *remoteStoreWrapper) GetLastWrite() (time.Time, error) {
-	reportData, err := r.store.GetLastWrite()
+	rfc3339, err := r.store.GetLastWrite()
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	rsr := &RemoteStoreReport{}
-	if err = json.Unmarshal(reportData, rsr); err != nil {
-		return time.Time{}, err
-	}
-
-	return time.Unix(0, rsr.LastWrite), nil
+	return time.Parse(time.RFC3339, rfc3339)
 }
 
 // RemoteStoreFileSystem is a structure adhering to [RemoteStore]. This utilizes
@@ -467,17 +424,14 @@ func (r *RemoteStoreFileSystem) Write(path string, data []byte) error {
 //
 // Returns:
 //   - []byte - JSON of [RemoteStoreReport].
-func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
+func (r *RemoteStoreFileSystem) GetLastModified(path string) (string, error) {
 	ts, err := r.api.GetLastModified(path)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	rsr := &RemoteStoreReport{
-		LastModified: ts.UnixNano(),
-	}
-
-	return json.Marshal(rsr)
+	timeStr := ts.UTC().Format(time.RFC3339)
+	return timeStr, nil
 }
 
 // GetLastWrite retrieves the most recent successful write operation that was
@@ -485,17 +439,13 @@ func (r *RemoteStoreFileSystem) GetLastModified(path string) ([]byte, error) {
 //
 // Returns:
 //   - []byte - JSON of [RemoteStoreReport].
-func (r *RemoteStoreFileSystem) GetLastWrite() ([]byte, error) {
+func (r *RemoteStoreFileSystem) GetLastWrite() (string, error) {
 	ts, err := r.api.GetLastWrite()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	rsr := &RemoteStoreReport{
-		LastWrite: ts.UnixNano(),
-	}
-
-	return json.Marshal(rsr)
+	return ts.UTC().Format(time.RFC3339), nil
 }
 
 type transactionResult struct {

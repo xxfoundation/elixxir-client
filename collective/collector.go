@@ -10,14 +10,13 @@ package collective
 
 import (
 	"encoding/json"
-	"fmt"
-	"path/filepath"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/ekv"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -37,10 +36,6 @@ const synchronizationEpoch = 5 * time.Second
 // Log constants.
 const (
 	collectorLogHeader = "COLLECTOR"
-
-	// FIXME: It should be: [name]-[deviceid]/[keyid]/txlog
-	// but we don't have access to a name, so: [deviceid]/[keyid]/txlog
-	txLogPathFmt = "%s/%s/txlog"
 )
 
 // Error messages.
@@ -142,16 +137,19 @@ func newCollector(myID InstanceID, syncPath string,
 // runner is the long-running thread responsible for collecting changes and
 // synchronizing changes across devices.
 func (c *collector) runner(stop *stoppable.Single) {
-	t := time.NewTicker(c.synchronizationEpoch)
-	select {
-	case <-t.C:
-		c.collect()
-	case <-stop.Quit():
-		stop.ToStopped()
-		jww.DEBUG.Printf(
-			"[%s] Stopping collective collector: stoppable triggered.",
-			collectorLogHeader)
-		return
+	jww.INFO.Printf("[%s] started collector thread", collectorLogHeader)
+
+	for {
+		t := time.NewTicker(c.synchronizationEpoch)
+		select {
+		case <-t.C:
+			c.collect()
+		case <-stop.Quit():
+			stop.ToStopped()
+			jww.DEBUG.Printf("[%s] Stopping collector",
+				collectorLogHeader)
+			return
+		}
 	}
 }
 
@@ -177,7 +175,7 @@ func (c *collector) IsSynched() bool {
 func (c *collector) WaitUntilSynched(timeout time.Duration) bool {
 	start := netTime.Now()
 
-	for time.Now().Sub(start) < timeout {
+	for time.Since(start) < timeout {
 		if c.IsSynched() {
 			return true
 		}
@@ -205,26 +203,31 @@ func (c *collector) notify(state bool) {
 }
 
 // collect will collect, organize and apply all changes across devices.
-func (c *collector) collect() {
-	// note this returns full device paths from the perspective of
-	// the remote
-	devicePaths, err := c.remote.ReadDir(c.syncPath)
+func (c *collector) collect() error {
+	start := netTime.Now()
+	devices, err := getDevices(c.remote, c.syncPath)
 	if err != nil {
 		c.notify(false)
-		jww.WARN.Printf("[%s] Failed to Read devices: %+v",
+		jww.ERROR.Printf("[%s] unable to get devices: %+v",
 			collectorLogHeader, err)
-		return
+		return err
 	}
 
-	start := netTime.Now()
+	if len(devices) == 0 {
+		err = errors.Errorf("[%s] no devices to collect",
+			collectorLogHeader)
+		jww.ERROR.Printf("%+v", err)
+		return err
+	}
 
-	devices := c.initDevices(devicePaths)
-	newUpdates, err := c.collectChanges(devices)
+	jww.DEBUG.Printf("[%s] initDevices: %v", collectorLogHeader,
+		devices)
+	newUpdates, err := c.collectAllChanges(devices)
 	if err != nil {
 		jww.WARN.Printf("[%s] Failed to collect updates: %+v",
 			collectorLogHeader, err)
 		c.notify(false)
-		return
+		return err
 	}
 
 	c.notify(true)
@@ -233,7 +236,7 @@ func (c *collector) collect() {
 	if err = c.applyChanges(); err != nil {
 		jww.WARN.Printf("[%s] Failed to apply updates: %+v",
 			collectorLogHeader, err)
-		return
+		return err
 	}
 
 	atomic.StoreUint32(c.synched, 1)
@@ -242,20 +245,30 @@ func (c *collector) collect() {
 	jww.INFO.Printf("[%s] Applied new updates took %d ms",
 		collectorLogHeader, elapsed)
 
-	c.lastUpdateRead = newUpdates
+	for k, v := range newUpdates {
+		c.lastUpdateRead[k] = v
+	}
 
+	return nil
 }
 
-// collectChanges will collate all changes across all devices.
-func (c *collector) collectChanges(devices []InstanceID) (
+func (c *collector) collectAllChanges(devices []InstanceID) (
 	map[InstanceID]time.Time, error) {
-
 	newUpdates := make(map[InstanceID]time.Time, 0)
-
+	lck := sync.Mutex{}
 	wg := &sync.WaitGroup{}
-	connectionFailed := uint32(0)
-	// Iterate over devices
-	for _, deviceID := range devices {
+	errCh := make(chan error, len(devices))
+	for i := range devices {
+		deviceID := devices[i]
+		// Set defaults for new devices
+		if _, exists := c.lastUpdateRead[deviceID]; !exists {
+			c.lastUpdateRead[deviceID] = time.Unix(0, 0).UTC()
+			c.lastMutationRead[deviceID] = time.Unix(0, 0).UTC()
+			c.devicePatchTracker[deviceID] = newPatch(deviceID)
+			jww.INFO.Printf("[%s] new device detected: %s",
+				collectorLogHeader,
+				deviceID)
+		}
 		wg.Add(1)
 		go func(deviceID InstanceID) {
 			defer wg.Done()
@@ -263,73 +276,79 @@ func (c *collector) collectChanges(devices []InstanceID) (
 			if deviceID == c.myID {
 				return
 			}
-
-			kid := c.encrypt.KeyID(c.myID)
-
-			// Get the last time the device log was written on the remote
-			logPath := filepath.Join(c.syncPath,
-				fmt.Sprintf(txLogPathFmt, deviceID, kid))
-			lastRemoteUpdate, err := c.remote.GetLastModified(logPath)
+			patch, updateTime, err := c.collectChanges(deviceID)
 			if err != nil {
-				atomic.AddUint32(&connectionFailed, 1)
-				jww.WARN.Printf("Failed to get last modified for %s "+
-					"at %s: %+v", deviceID, logPath, err)
+				jww.ERROR.Printf("%+v", err)
+				errCh <- err
 				return
 			}
-
-			// determine the update timestamp we saw from the device
-			lastTrackedUpdate := c.lastUpdateRead[deviceID]
-
-			// If us, Read the local log, otherwise Read the remote log
-			if !lastRemoteUpdate.After(lastTrackedUpdate) {
-				return
-			}
-
-			// Read the remote log
-			patchFile, err := c.readFromDevice(logPath)
-			if err != nil {
-				atomic.AddUint32(&connectionFailed, 1)
-				jww.WARN.Printf("failed to Read the log from %s "+
-					"at %s %+v", deviceID, logPath, err)
-				return
-			}
-
-			_, patch, err := handleIncomingFile(patchFile, c.encrypt)
-			if err != nil {
-				jww.WARN.Printf("failed to handle incoming file for %s "+
-					"at %s: %+v", deviceID, logPath, err)
-				return
-			}
-
-			// preallocated
+			lck.Lock()
 			c.devicePatchTracker[deviceID] = patch
-			newUpdates[deviceID] = lastRemoteUpdate
+			newUpdates[deviceID] = updateTime
+			lck.Unlock()
 		}(deviceID)
-	}
-	wg.Wait()
-
-	if connectionFailed < 0 {
-		err := errors.Errorf("failed to read %d logs, aborting "+
-			"collection", connectionFailed)
-		return nil, err
+		wg.Wait()
 	}
 
+	done := false
+	for !done {
+		select {
+		case e := <-errCh:
+			return nil, errors.Wrapf(e, "error collecting changes")
+		default:
+			done = true
+		}
+	}
 	return newUpdates, nil
 }
 
-// readFromDevice is a helper function which will Read the patch from
-// the DeviceID.
-func (c *collector) readFromDevice(txLogPath string) (
-	txLog []byte, err error) {
+// collectChanges will collate all changes across all devices.
+func (c *collector) collectChanges(deviceID InstanceID) (*Patch,
+	time.Time, error) {
+	kid := c.encrypt.KeyID(deviceID)
 
-	// Retrieve device's mutate log if it is not this device
-	txLog, err = c.remote.Read(txLogPath)
+	// Get the last time the device log was written on the remote
+	logPath := getTxLogPath(c.syncPath, kid, deviceID)
+	lastRemoteUpdate, err := c.remote.GetLastModified(logPath)
 	if err != nil {
-		return nil, errors.Errorf(
-			retrieveTxLogFromDeviceErr, collectorLogHeader, err)
+		return nil, time.Time{},
+			errors.Wrapf(err, "GetLastModified(%s) ", logPath)
 	}
 
-	return txLog, nil
+	// determine the update timestamp we saw from the device
+	lastTrackedUpdate := c.lastUpdateRead[deviceID]
+
+	if !lastRemoteUpdate.After(lastTrackedUpdate) {
+		// FIXME: we warn here, because the
+		// very first thing that is done on
+		// start is to write a txLog, which
+		// means this condition is almost
+		// always true on the first run, and
+		// there may be updates to
+		// collect. Must speak w/ ben on
+		// preferences for how to addres.
+		jww.WARN.Printf("last remote after tracked: "+
+			"%s != %s", lastRemoteUpdate,
+			lastTrackedUpdate)
+	}
+
+	patchFile, err := c.remote.Read(logPath)
+	if err != nil {
+		return nil, time.Time{},
+			errors.Wrapf(err, "path: %s", logPath)
+	}
+
+	_, patch, err := handleIncomingFile(deviceID,
+		patchFile, c.encrypt)
+	if err != nil {
+		return nil, time.Time{},
+			errors.Wrapf(err, "path: %s", logPath)
+	}
+
+	jww.DEBUG.Printf("[%s] collected changes from %s: %d",
+		collectorLogHeader, deviceID, len(patch.keys))
+
+	return patch, lastRemoteUpdate, nil
 }
 
 // applyChanges will order the transactionChanges and apply them to the collector.
@@ -343,13 +362,20 @@ func (c *collector) applyChanges() error {
 	c.lastMutationRead[c.myID] = netTime.Now()
 
 	//prepare the data for the diff
-	devices, patches, ignoreBefore := prepareDiff(c.devicePatchTracker, c.lastMutationRead)
+	devices, patches, ignoreBefore := prepareDiff(c.devicePatchTracker,
+		c.lastMutationRead)
 
 	//execute the diff
 	updates, lastSeen := localPatch.Diff(patches, ignoreBefore)
 
+	jww.INFO.Printf("[%s] Applying updates: %d",
+		collectorLogHeader, len(updates))
+
 	// store the timestamps
 	for i, device := range devices {
+		if device == c.myID {
+			continue
+		}
 		c.lastMutationRead[device] = lastSeen[i]
 	}
 	c.saveLastMutationTime()
@@ -368,7 +394,9 @@ func (c *collector) applyChanges() error {
 			mapObj[key] = updates[key]
 		} else {
 			wg.Add(1)
-			func(key string, m *Mutate) {
+			go func(key string, m *Mutate) {
+				jww.DEBUG.Printf("[%s] Update for %s: %s",
+					collectorLogHeader, key, m)
 				if m.Deletion {
 					err := c.kv.DeleteFromRemote(key)
 					if err != nil {
@@ -382,9 +410,11 @@ func (c *collector) applyChanges() error {
 							"%+v", key, err)
 					}
 				}
+				wg.Done()
 			}(key, updates[key])
 		}
 	}
+	wg.Wait()
 
 	//apply the map updates
 	for mapName := range mapUpdates {
@@ -440,7 +470,10 @@ func (c *collector) loadLastMutationTime() {
 	data, err := c.kv.GetBytes(storageKey)
 	if err != nil {
 		jww.WARN.Printf("Failed to load lastMutationRead from "+
-			"to disk at %s, data may be replayed: %+v", storageKey, err)
+			"to disk at %s, data may be replayed", storageKey)
+		if !ekv.Exists(err) {
+			jww.ERROR.Printf("unexpected error: %+v", err)
+		}
 		return
 	}
 
@@ -448,32 +481,14 @@ func (c *collector) loadLastMutationTime() {
 	err = json.Unmarshal(data, &c.lastMutationRead)
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal lastMutationRead loaded "+
-			"from disk at %s, data may be replayed: %+v", storageKey, err)
+			"from disk at %s, data may be replayed: %+v",
+			storageKey, err)
 		return
 	}
 }
 
-func (c *collector) initDevices(devicePaths []string) []InstanceID {
-	devices := make([]InstanceID, 0, len(devicePaths))
-
-	for i, deviceIDStr := range devicePaths {
-		deviceID, err := NewInstanceIDFromString(deviceIDStr)
-		if err == nil {
-			jww.WARN.Printf("Failed to decode device ID for "+
-				"index %d: %s, skipping", i, deviceIDStr)
-			continue
-		}
-		devices = append(devices, deviceID)
-		if _, exists := c.lastUpdateRead[deviceID]; !exists {
-			c.lastUpdateRead[deviceID] = time.Unix(0, 0).UTC()
-			c.lastMutationRead[deviceID] = time.Unix(0, 0).UTC()
-			c.devicePatchTracker[deviceID] = newPatch()
-		}
-	}
-	return devices
-}
-
-func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, error) {
+func handleIncomingFile(deviceID InstanceID, patchFile []byte,
+	decrypt encryptor) (*header, *Patch, error) {
 	h, ecrPatchBytes, err := decodeFile(patchFile)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to decode the file")
@@ -485,16 +500,38 @@ func handleIncomingFile(patchFile []byte, decrypt encryptor) (*header, *Patch, e
 		err = errors.WithMessagef(err, "failed to decrypt the patch")
 		return h, nil, err
 	}
-	patch := newPatch()
+	patch := newPatch(deviceID)
 	err = patch.Deserialize(patchBytes)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to decode the patch from file")
 		return h, nil, err
 	}
+	jww.DEBUG.Printf("[%s] read patch %s: %d",
+		collectorLogHeader, deviceID, len(patch.keys))
 
 	return h, patch, nil
 }
 
 func makeLastMutationKey(deviceID InstanceID) string {
 	return lastMutationReadStorageKey + deviceID.String()
+}
+
+func getDevices(r RemoteStore, path string) ([]InstanceID, error) {
+	devicePaths, err := r.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	jww.DEBUG.Printf("[%s] device paths: %v", collectorLogHeader,
+		devicePaths)
+
+	devices := make([]InstanceID, len(devicePaths))
+	for i := range devicePaths {
+		deviceID, err := NewInstanceIDFromString(devicePaths[i])
+		if err != nil {
+			jww.WARN.Printf("deviceID decode error: %+v", err)
+		}
+		devices[i] = deviceID
+	}
+
+	return devices, nil
 }

@@ -14,13 +14,13 @@ import (
 	"time"
 )
 
-//verify func listener adheres to the listener interface
+// verify func listener adheres to the listener interface
 var _ Listener = &funcListener{}
 
-//verify chan listener adheres to the listener interface
+// verify chan listener adheres to the listener interface
 var _ Listener = &chanListener{}
 
-//test listenerID returns the userID
+// test listenerID returns the userID
 func TestListenerID_GetUserID(t *testing.T) {
 	lid := ListenerID{
 		userID:      id.NewIdFromUInt(42, id.User, t),
@@ -33,7 +33,7 @@ func TestListenerID_GetUserID(t *testing.T) {
 	}
 }
 
-//test listenerID returns the messageType
+// test listenerID returns the messageType
 func TestListenerID_GetMessageType(t *testing.T) {
 	lid := ListenerID{
 		userID:      id.NewIdFromUInt(42, id.User, t),
@@ -46,7 +46,7 @@ func TestListenerID_GetMessageType(t *testing.T) {
 	}
 }
 
-//test listenerID returns the name
+// test listenerID returns the name
 func TestListenerID_GetName(t *testing.T) {
 	name := "test"
 
@@ -61,7 +61,7 @@ func TestListenerID_GetName(t *testing.T) {
 	}
 }
 
-//tests new function listener creates the funcListener properly
+// tests new function listener creates the funcListener properly
 func TestNewFuncListener(t *testing.T) {
 	f := func(item Message) {}
 	name := "test"
@@ -76,7 +76,7 @@ func TestNewFuncListener(t *testing.T) {
 	}
 }
 
-//tests FuncListener Hear works
+// tests FuncListener Hear works
 func TestFuncListener_Hear(t *testing.T) {
 	m := Message{
 		Payload:     []byte{0, 1, 2, 3},
@@ -114,7 +114,7 @@ func TestFuncListener_Name(t *testing.T) {
 	}
 }
 
-//tests new chan listener creates the chanListener properly
+// tests new chan listener creates the chanListener properly
 func TestNewChanListener(t *testing.T) {
 	c := make(chan Message)
 	name := "test"
@@ -129,7 +129,7 @@ func TestNewChanListener(t *testing.T) {
 	}
 }
 
-//tests ChanListener Hear works
+// tests ChanListener Hear works
 func TestChanListener_Hear(t *testing.T) {
 	m := Message{
 		Payload:     []byte{0, 1, 2, 3},

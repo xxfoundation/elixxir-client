@@ -169,7 +169,7 @@ func TestManager_NewSendSession(t *testing.T) {
 	}
 }
 
-//Tests happy path of Manager.GetKeyForSending.
+// Tests happy path of Manager.GetKeyForSending.
 func TestManager_GetKeyForSending(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)

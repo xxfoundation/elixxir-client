@@ -282,7 +282,7 @@ type NickNameManager interface {
 	// GetNickname gets the nickname associated with this DM user.
 	GetNickname() (string, bool)
 	// SetNickname sets the nickname to use for this user.
-	SetNickname(nick string)
+	SetNickname(nick string) error
 }
 
 // SendTracker provides facilities for tracking sent messages

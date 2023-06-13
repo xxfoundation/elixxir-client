@@ -10,7 +10,7 @@ package nodes
 import (
 	"bytes"
 	"encoding/base64"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
@@ -89,7 +89,7 @@ func TestRegistrar_MapUpdate(t *testing.T) {
 		}
 	}
 
-	r.mapUpdate(storeMapName, edits)
+	r.mapUpdate(edits)
 
 	for nid, expectedKey := range expectedResults {
 

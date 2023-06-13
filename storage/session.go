@@ -18,7 +18,6 @@ import (
 
 	"gitlab.com/elixxir/crypto/diffieHellman"
 
-	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/crypto/large"
 

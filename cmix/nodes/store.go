@@ -23,40 +23,14 @@ const (
 )
 
 func (r *registrar) loadStore() {
-	r.mux.Lock()
-	keyObjs, err := r.remote.ListenOnRemoteMap(storeMapName, currentStoreMapVersion, r.mapUpdate)
+	err := r.remote.ListenOnRemoteMap(storeMapName, currentStoreMapVersion, r.mapUpdate, false)
 
 	if err != nil {
 		jww.FATAL.Panicf("Registration with remote failed: %+v", err)
 	}
-	for elementName, keyObj := range keyObjs {
-		nID := &id.ID{}
-
-		if _, err = base64.StdEncoding.Decode(nID[:], []byte(elementName)); err != nil {
-			jww.WARN.Printf("Failed to unmarshal key name in node key "+
-				"storage on local init, skipping keyName: %s: %+v\n",
-				elementName, err)
-			continue
-		}
-		k := &key{}
-		if err = k.unmarshal(keyObj.Data); err != nil {
-			jww.WARN.Printf("Failed to unmarshal node key "+
-				" in key storage on remote update, skipping keyName: %s: %+v\n",
-				nID, err)
-			continue
-		}
-		r.nodes[*nID] = k
-	}
-	r.mux.Unlock()
 }
 
-func (r *registrar) mapUpdate(mapName string, edits map[string]versioned.ElementEdit) {
-	if mapName != storeMapName {
-		jww.ERROR.Printf("Got an update for the wrong map, "+
-			"expected: %s, got: %s", storeMapName, mapName)
-		return
-	}
-
+func (r *registrar) mapUpdate(edits map[string]versioned.ElementEdit) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 

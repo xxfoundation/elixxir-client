@@ -383,6 +383,7 @@ func (m *manager) loadTokenUnsafe() {
 			// no token has been registered
 			jww.DEBUG.Printf("No token found on disk, assuming we have" +
 				"not registered")
+			return
 		}
 	}
 

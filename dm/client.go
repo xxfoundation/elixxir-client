@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	nickStoreKey   = "dm_nickname_%s"
+	nickStoreKey = "dm_nickname_%s"
 )
 
 type dmClient struct {

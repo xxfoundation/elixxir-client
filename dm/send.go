@@ -37,6 +37,7 @@ const (
 	textVersion     = 0
 	reactionVersion = 0
 	silentVersion   = 0
+	deleteVersion   = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -53,6 +54,10 @@ const (
 	// SendSilentTag is the base tag used when generating a debug tag for
 	// sending a silent message.
 	SendSilentTag = "Silent"
+
+	// DeleteMessageTag is the base tag used when generating a debug tag for
+	// delete message.
+	DeleteMessageTag = "Delete"
 
 	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
@@ -193,6 +198,35 @@ func (dc *dmClient) SendSilent(partnerPubKey ed25519.PublicKey,
 	// Send silent message
 	return dc.Send(partnerPubKey, partnerToken, SilentType,
 		silentMarshaled, params)
+}
+
+// DeleteMessage is used to send a formatted message to another user.
+func (dc *dmClient) DeleteMessage(partnerPubKey ed25519.PublicKey,
+	partnerToken uint32,
+	targetMessage cryptoMessage.ID, params cmix.CMIXParams) (cryptoMessage.ID,
+	rounds.Round, ephemeral.Id, error) {
+	// Delete the message
+	if !dc.receiver.DeleteMessage(targetMessage, dc.pubKey) {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, errors.Errorf(
+			"no message with id %s and public key %X", targetMessage, dc.pubKey)
+	}
+
+	tag := makeDebugTag(partnerPubKey, targetMessage.Marshal(), DeleteMessageTag)
+	jww.INFO.Printf("[DM][%s] DeleteMessage(%s)", tag, targetMessage)
+
+	txt := &DeleteMessage{
+		Version:         deleteVersion,
+		TargetMessageID: targetMessage.Marshal(),
+	}
+
+	params = params.SetDebugTag(tag)
+	deleteMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return dc.Send(
+		partnerPubKey, partnerToken, DeleteType, deleteMarshaled, params)
 }
 
 func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,

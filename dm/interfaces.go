@@ -230,9 +230,16 @@ type EventModel interface {
 	UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status Status)
 
+	// DeleteMessage deletes the message with the given message.ID belonging to
+	// the sender. If the message exists and belongs to the sender, then it is
+	// deleted and DeleteMessage returns true. If it does not exist, it returns
+	// false.
+	DeleteMessage(messageID cryptoMessage.ID, senderPubKey ed25519.PublicKey) bool
+
 	// GetConversation returns any conversations held by the
 	// model (receiver)
 	GetConversation(senderPubKey ed25519.PublicKey) *ModelConversation
+
 	// GetConversations returns any conversations held by the
 	// model (receiver)
 	GetConversations() []ModelConversation

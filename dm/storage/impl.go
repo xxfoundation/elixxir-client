@@ -162,6 +162,15 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 		true, false)
 }
 
+// DeleteMessage deletes the message with the given message.ID belonging to the
+// sender. If the message exists and belongs to the sender, then it is deleted
+// and DeleteMessage returns true. If it does not exist, it returns false.
+func (i *impl) DeleteMessage(
+	messageID message.ID, senderPubKey ed25519.PublicKey) bool {
+	// TODO: Need to be implemented.
+	panic("implement me")
+}
+
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
 	parentErr := "Failed to GetConversation: %+v"
 	resultConvo, err := i.getConversation(senderPubKey)

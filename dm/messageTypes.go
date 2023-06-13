@@ -29,6 +29,10 @@ const (
 	// SilentType denotes that the message is a silent message which should not
 	// notify the user in any way.
 	SilentType MessageType = 4
+
+	// DeleteType denotes that the message contains the ID of a message to
+	// delete.
+	DeleteType MessageType = 5
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -43,6 +47,8 @@ func (mt MessageType) String() string {
 		return "Reaction"
 	case SilentType:
 		return "Silent"
+	case DeleteType:
+		return "Delete"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}

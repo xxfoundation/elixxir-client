@@ -34,6 +34,13 @@ message SilentMessage {
     uint32 version = 1;
 }
 
+// DeleteMessage is the payload for a Delete MessageType. It is used to delete
+// an existing message.
+message DeleteMessage {
+    uint32 version = 1;
+    bytes targetMessageID = 2;
+}
+
 // DirectMessage is a message sent directly from one user to another. It
 // includes the return information (public key and DMToken) for the sender.
 message DirectMessage{

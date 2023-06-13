@@ -422,22 +422,22 @@ const (
 var notificationLevelAllowLists = map[notificationSourceType]map[NotificationLevel]AllowLists{
 	symmetric: {
 		NotifyPing: {
-			map[MessageType]struct{}{Text: {}},
-			map[MessageType]struct{}{},
+			AllowWithTags:    map[MessageType]struct{}{Text: {}},
+			AllowWithoutTags: map[MessageType]struct{}{},
 		},
 		NotifyAll: {
-			map[MessageType]struct{}{},
-			map[MessageType]struct{}{Text: {}},
+			AllowWithTags:    map[MessageType]struct{}{},
+			AllowWithoutTags: map[MessageType]struct{}{Text: {}},
 		},
 	},
 	asymmetric: {
 		NotifyPing: {
-			map[MessageType]struct{}{AdminText: {}},
-			map[MessageType]struct{}{Pinned: {}},
+			AllowWithTags:    map[MessageType]struct{}{AdminText: {}},
+			AllowWithoutTags: map[MessageType]struct{}{Pinned: {}},
 		},
 		NotifyAll: {
-			map[MessageType]struct{}{},
-			map[MessageType]struct{}{AdminText: {}, Pinned: {}},
+			AllowWithTags:    map[MessageType]struct{}{},
+			AllowWithoutTags: map[MessageType]struct{}{AdminText: {}, Pinned: {}},
 		},
 	},
 }

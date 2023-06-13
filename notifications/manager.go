@@ -129,9 +129,11 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		return nil, errors.Errorf("Could not load notifications map: %+v", err)
 	}
 	m.mux.Lock()
-	m.loadTokenUnsafe()
+	defer m.mux.Unlock()
+	if err = m.loadTokenUnsafe(); err != nil {
+		return nil, err
+	}
 	m.initialization = false
-	m.mux.Unlock()
 
 	return m, nil
 }

@@ -321,8 +321,8 @@ func (dmc *DMClient) GetNickname() (string, error) {
 }
 
 // SetNickname sets the nickname to use for this user.
-func (dmc *DMClient) SetNickname(nick string) {
-	dmc.api.SetNickname(nick)
+func (dmc *DMClient) SetNickname(nick string) error {
+	return dmc.api.SetNickname(nick)
 }
 
 // BlockSender silences messages sent by the indicated sender

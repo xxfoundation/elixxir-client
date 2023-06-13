@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -75,14 +76,14 @@ type tokenReg struct {
 // Will not register notifications with the remote if `allowRemoteRegistration`
 // is false, which should be the case for web based instantiations
 func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
-	kv versioned.KV, comms Comms, rng *fastRNG.StreamGenerator) Manager {
+	kv versioned.KV, comms Comms, rng *fastRNG.StreamGenerator) (Manager, error) {
 
 	var nbHost *connect.Host
 
 	var exists bool
 	nbHost, exists = comms.GetHost(&id.NotificationBot)
 	if !exists {
-		jww.FATAL.Panicf("Notification bot not registered, " +
+		return nil, errors.Errorf("Notification bot not registered, " +
 			"notifications cannot be startedL")
 	}
 
@@ -132,7 +133,7 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	m.initialization = false
 	m.mux.Unlock()
 
-	return m
+	return m, nil
 }
 
 func (m *manager) RegisterUpdateCallback(group string, nu Update) {

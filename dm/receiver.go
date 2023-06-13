@@ -253,6 +253,12 @@ func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 	partnerPubKey, senderPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error) {
+
+	// If this message was already deleted, then drop it
+	if r.c.as.CheckSavedActions(msgID) {
+		return 0, nil
+	}
+
 	switch messageType {
 	case TextType:
 		return r.receiveTextMessage(msgID, messageType,
@@ -410,7 +416,18 @@ func (r *receiver) deleteMessage(messageID message.ID, messageType MessageType,
 		tag, targetMessage, senderPubKey)
 
 	// Delete the message
-	r.api.DeleteMessage(targetMessage, senderPubKey)
+	deleted := r.api.DeleteMessage(targetMessage, senderPubKey)
+
+	// If the message was not deleted, save the deletion for later
+	if !deleted {
+		if err = r.c.as.AddAction(targetMessage, timestamp); err != nil {
+			return 0, errors.Wrapf(err, "[%s] Failed to save delete action "+
+				"after target message %s from %X was not found. (message %s, "+
+				"from %X (codeset %d), type: %s, ts: %s, round: %d)",
+				tag, targetMessage, senderPubKey, messageID, partnerPubKey,
+				codeset, messageType, timestamp, round.ID)
+		}
+	}
 
 	return 0, nil
 }

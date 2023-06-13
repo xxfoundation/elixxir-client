@@ -90,14 +90,24 @@ func newNotifications(pubKey ed25519.PublicKey, cb NotificationUpdate,
 //
 // Returns an error if the channel already exists.
 func (n *notifications) addChannel(channelID *id.ID) error {
-	return n.nm.Set(
+	err := n.nm.Set(
 		channelID, notificationGroup, NotifyNone.Marshal(), clientNotif.Mute)
+	if err != nil {
+		jww.WARN.Printf("[CH] Failed to add channel (%s) to notifications manager: %+v", channelID, err)
+	}
+
+	return nil
 }
 
 // addChannel inserts the channel into the notification list with the given
 // level.
 func (n *notifications) removeChannel(channelID *id.ID) error {
-	return n.nm.Delete(channelID)
+	err := n.nm.Delete(channelID)
+	if err != nil {
+		jww.WARN.Printf("[CH] Failed to remove channel (%s) from notifications manager: %+v", channelID, err)
+	}
+
+	return nil
 }
 
 // GetNotificationLevel returns the notification level for the given channel.
@@ -146,7 +156,12 @@ func (n *notifications) SetMobileNotificationsLevel(channelID *id.ID,
 			"muted together")
 	}
 
-	return n.nm.Set(channelID, notificationGroup, level.Marshal(), status)
+	err := n.nm.Set(channelID, notificationGroup, level.Marshal(), status)
+	if err != nil {
+		jww.WARN.Printf("[CH] Failed to add channel (%s) to notifications manager: %+v", channelID, err)
+	}
+
+	return nil
 }
 
 // notificationsUpdateCB gets the list of all services and assembles a list of

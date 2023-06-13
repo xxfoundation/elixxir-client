@@ -23,6 +23,7 @@ const (
 )
 
 func (r *registrar) loadStore() {
+	// data is loaded due to the map update callback being called by ListenOnRemoteMap
 	err := r.remote.ListenOnRemoteMap(storeMapName, currentStoreMapVersion, r.mapUpdate, false)
 
 	if err != nil {

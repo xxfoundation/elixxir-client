@@ -10,6 +10,7 @@ package dm
 import (
 	"crypto/ed25519"
 	"fmt"
+	"gitlab.com/elixxir/primitives/nicknames"
 	"strings"
 	"sync"
 	"time"
@@ -142,8 +143,8 @@ func (dc *dmClient) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (dc *dmClient) SetNickname(nick string) {
-	dc.nm.SetNickname(nick)
+func (dc *dmClient) SetNickname(nick string) error {
+	return dc.nm.SetNickname(nick)
 }
 
 // IsBlocked returns if the given sender is blocked
@@ -206,7 +207,10 @@ func (nm *nickMgr) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (nm *nickMgr) SetNickname(nick string) {
+func (nm *nickMgr) SetNickname(nick string) error {
+	if err := nicknames.IsValid(nick); err != nil {
+		return err
+	}
 	nm.Lock()
 	defer nm.Unlock()
 	nm.nick = strings.Clone(nick)
@@ -215,5 +219,5 @@ func (nm *nickMgr) SetNickname(nick string) {
 		Timestamp: time.Now(),
 		Data:      []byte(nick),
 	}
-	nm.ekv.Set(nm.storeKey, nickObj)
+	return nm.ekv.Set(nm.storeKey, nickObj)
 }

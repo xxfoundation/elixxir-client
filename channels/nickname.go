@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/primitives/nicknames"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -59,7 +60,7 @@ func (nm *nicknameManager) SetNickname(nickname string, channelID *id.ID) error 
 	nm.mux.Lock()
 	defer nm.mux.Unlock()
 
-	if err := IsNicknameValid(nickname); err != nil {
+	if err := nicknames.IsValid(nickname); err != nil {
 		return err
 	}
 
@@ -262,26 +263,6 @@ func (nu nicknameUpdate) Equals(nu2 nicknameUpdate) bool {
 	}
 
 	return true
-}
-
-// IsNicknameValid checks if a nickname is valid.
-//
-// Rules:
-//   - A nickname must not be longer than 24 characters.
-//   - A nickname must not be shorter than 1 character.
-//
-// TODO: Add character filtering.
-func IsNicknameValid(nick string) error {
-	runeNick := []rune(nick)
-	if len(runeNick) > 24 {
-		return errors.New("nicknames must be 24 characters in length or less")
-	}
-
-	if len(runeNick) < 1 {
-		return errors.New("nicknames must be at least 1 character in length")
-	}
-
-	return nil
 }
 
 func marshalChID(chID *id.ID) string {

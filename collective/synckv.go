@@ -204,8 +204,8 @@ func (r *versionedKV) Delete(key string, version uint64) error {
 // The [Object] should contain the versioning if you are
 // maintaining such a functionality.
 func (r *versionedKV) Set(key string, object *versioned.Object) error {
+	k := r.local.GetFullKey(key, object.Version)
 	if r.inSynchronizedPrefix {
-		k := r.local.GetFullKey(key, object.Version)
 		jww.INFO.Printf("Setting Remote: %s", k)
 		return r.remote.SetRemote(k, object.Marshal())
 	}

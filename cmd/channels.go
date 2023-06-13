@@ -121,8 +121,12 @@ var channelsCmd = &cobra.Command{
 
 		// Construct notifications manager
 		sig := user.GetStorage().GetTransmissionRegistrationValidationSignature()
-		nm := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
+		nm, err := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
 			user.GetStorage().GetKV(), &clientNotif.MockComms{}, user.GetRng())
+		if err != nil {
+			jww.FATAL.Panicf("[%s] Failed to create notifications manager: %+v",
+				channelsPrintHeader, err)
+		}
 
 		// Construct channels manager
 		cbs := &channelCbs{}

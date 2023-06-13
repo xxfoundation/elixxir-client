@@ -387,7 +387,7 @@ func (m *manager) loadTokenUnsafe() {
 	}
 
 	if err = json.Unmarshal(tokenObj.Data, &m.token); err != nil {
-		jww.WARN.Printf("Failed to unmarshal token from disk: %+v", err)
+		jww.WARN.Printf("Failed to unmarshal token from disk, operating as if no token is present: %+v", err)
 	}
 
 }

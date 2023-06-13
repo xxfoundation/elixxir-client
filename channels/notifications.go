@@ -89,25 +89,22 @@ func newNotifications(pubKey ed25519.PublicKey, cb NotificationUpdate,
 // notification level set to none.
 //
 // Returns an error if the channel already exists.
-func (n *notifications) addChannel(channelID *id.ID) error {
+func (n *notifications) addChannel(channelID *id.ID) {
 	err := n.nm.Set(
 		channelID, notificationGroup, NotifyNone.Marshal(), clientNotif.Mute)
 	if err != nil {
 		jww.WARN.Printf("[CH] Failed to add channel (%s) to notifications manager: %+v", channelID, err)
 	}
 
-	return nil
 }
 
 // addChannel inserts the channel into the notification list with the given
 // level.
-func (n *notifications) removeChannel(channelID *id.ID) error {
+func (n *notifications) removeChannel(channelID *id.ID) {
 	err := n.nm.Delete(channelID)
 	if err != nil {
 		jww.WARN.Printf("[CH] Failed to remove channel (%s) from notifications manager: %+v", channelID, err)
 	}
-
-	return nil
 }
 
 // GetNotificationLevel returns the notification level for the given channel.

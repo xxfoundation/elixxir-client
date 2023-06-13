@@ -64,10 +64,7 @@ func Test_notifications_addChannel(t *testing.T) {
 	}
 
 	for chanID := range expected {
-		err := n.addChannel(&chanID)
-		if err != nil {
-			t.Errorf("Failed to add channel %s: %+v", &chanID, err)
-		}
+		n.addChannel(&chanID)
 	}
 	if !reflect.DeepEqual(expected, nm.channels[notificationGroup]) {
 		t.Errorf("Notifications did not add expected channels."+
@@ -89,16 +86,11 @@ func Test_notifications_removeChannel(t *testing.T) {
 	}
 
 	for chanID := range channels {
-		if err := n.addChannel(&chanID); err != nil {
-			t.Errorf("Failed to add channel %s: %+v", &chanID, err)
-		}
+		n.addChannel(&chanID)
 	}
 
 	for chanID := range channels {
-		err := n.removeChannel(&chanID)
-		if err != nil {
-			t.Errorf("Errored removing channel %s: %+v", &chanID, err)
-		}
+		n.removeChannel(&chanID)
 
 		if ni, exists := nm.channels[notificationGroup][chanID]; exists {
 			t.Errorf("Channel %s with level %s not deleted",
@@ -191,9 +183,7 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	}
 
 	for chanID := range expected {
-		if err := n.addChannel(&chanID); err != nil {
-			t.Errorf("Failed to add channel %s: %+v", &chanID, err)
-		}
+		n.addChannel(&chanID)
 	}
 
 	for chanID, ni := range expected {

@@ -89,12 +89,12 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 
 	kvLocal, err := kv.Prefix(prefix(identity.RSAPrivate.Public()))
 	if err != nil {
-		jww.FATAL.Panicf("Notifications failed to prefix kv")
+		return nil, errors.Errorf("Notifications failed to prefix kv")
 	}
 
 	kvRemote, err := kvLocal.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
-		jww.FATAL.Panicf("Notifications failed to prefix kv")
+		return nil, errors.Errorf("Notifications failed to prefix kv")
 	}
 
 	m := &manager{
@@ -121,12 +121,12 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	err = m.remote.ListenOnRemoteKey(maxStateKey,
 		maxStateKetVersion, m.maxStateUpdate, false)
 	if err != nil && ekv.Exists(err) {
-		jww.FATAL.Panicf("Could not load notifications state key: %+v", err)
+		return nil, errors.Errorf("Could not load notifications state key: %+v", err)
 	}
 	err = m.remote.ListenOnRemoteMap(notificationsMap,
 		notificationsMapVersion, m.mapUpdate, false)
 	if err != nil {
-		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
+		return nil, errors.Errorf("Could not load notifications map: %+v", err)
 	}
 	m.mux.Lock()
 	m.loadTokenUnsafe()
@@ -374,23 +374,25 @@ func (m *manager) deleteTokenUnsafe() bool {
 // loadTokenUnsafe loads the token from disk, setting it to empty if it cannot be
 // found
 // must be called under the lock
-func (m *manager) loadTokenUnsafe() {
+func (m *manager) loadTokenUnsafe() error {
 	tokenObj, err := m.local.Get(tokenStorageKey, tokenStorageVersion)
 	if err != nil {
 		if ekv.Exists(err) {
-			jww.FATAL.Panicf("Error received from ekv on loading "+
+			return errors.Errorf("Error received from ekv on loading "+
 				"Token: %+v", err)
 		} else {
 			// no token has been registered
 			jww.DEBUG.Printf("No token found on disk, assuming we have" +
 				"not registered")
-			return
+			return nil
 		}
 	}
 
 	if err = json.Unmarshal(tokenObj.Data, &m.token); err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal token from disk: %+v", err)
+		return errors.Errorf("Failed to unmarshal token from disk: %+v", err)
 	}
+
+	return err
 }
 
 // data structure to make map updates cleaner

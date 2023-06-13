@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -76,25 +75,25 @@ type tokenReg struct {
 // Will not register notifications with the remote if `allowRemoteRegistration`
 // is false, which should be the case for web based instantiations
 func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
-	kv versioned.KV, comms Comms, rng *fastRNG.StreamGenerator) (Manager, error) {
+	kv versioned.KV, comms Comms, rng *fastRNG.StreamGenerator) Manager {
 
 	var nbHost *connect.Host
 
 	var exists bool
 	nbHost, exists = comms.GetHost(&id.NotificationBot)
 	if !exists {
-		return nil, errors.Errorf("Notification bot not registered, " +
+		jww.FATAL.Panicf("Notification bot not registered, " +
 			"notifications cannot be startedL")
 	}
 
 	kvLocal, err := kv.Prefix(prefix(identity.RSAPrivate.Public()))
 	if err != nil {
-		return nil, errors.Errorf("Notifications failed to prefix kv")
+		jww.FATAL.Panicf("Notifications failed to prefix kv")
 	}
 
 	kvRemote, err := kvLocal.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
-		return nil, errors.Errorf("Notifications failed to prefix kv")
+		jww.FATAL.Panicf("Notifications failed to prefix kv")
 	}
 
 	m := &manager{
@@ -121,21 +120,19 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 	err = m.remote.ListenOnRemoteKey(maxStateKey,
 		maxStateKetVersion, m.maxStateUpdate, false)
 	if err != nil && ekv.Exists(err) {
-		return nil, errors.Errorf("Could not load notifications state key: %+v", err)
+		jww.FATAL.Panicf("Could not load notifications state key: %+v", err)
 	}
 	err = m.remote.ListenOnRemoteMap(notificationsMap,
 		notificationsMapVersion, m.mapUpdate, false)
 	if err != nil {
-		return nil, errors.Errorf("Could not load notifications map: %+v", err)
+		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
 	}
 	m.mux.Lock()
-	defer m.mux.Unlock()
-	if err = m.loadTokenUnsafe(); err != nil {
-		return nil, err
-	}
+	m.loadTokenUnsafe()
 	m.initialization = false
+	m.mux.Unlock()
 
-	return m, nil
+	return m
 }
 
 func (m *manager) RegisterUpdateCallback(group string, nu Update) {
@@ -376,25 +373,24 @@ func (m *manager) deleteTokenUnsafe() bool {
 // loadTokenUnsafe loads the token from disk, setting it to empty if it cannot be
 // found
 // must be called under the lock
-func (m *manager) loadTokenUnsafe() error {
+func (m *manager) loadTokenUnsafe() {
 	tokenObj, err := m.local.Get(tokenStorageKey, tokenStorageVersion)
 	if err != nil {
 		if ekv.Exists(err) {
-			return errors.Errorf("Error received from ekv on loading "+
+			jww.FATAL.Panicf("Error received from ekv on loading "+
 				"Token: %+v", err)
 		} else {
 			// no token has been registered
 			jww.DEBUG.Printf("No token found on disk, assuming we have" +
 				"not registered")
-			return nil
+			return
 		}
 	}
 
 	if err = json.Unmarshal(tokenObj.Data, &m.token); err != nil {
-		return errors.Errorf("Failed to unmarshal token from disk: %+v", err)
+		jww.WARN.Printf("Failed to unmarshal token from disk, operating as if no token is present: %+v", err)
 	}
 
-	return err
 }
 
 // data structure to make map updates cleaner

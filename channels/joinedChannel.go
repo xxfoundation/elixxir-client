@@ -139,7 +139,8 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel, dmEnabled bool) e
 	if err != nil {
 		return err
 	}
-	return m.notifications.addChannel(channel.ReceptionID)
+	m.notifications.addChannel(channel.ReceptionID)
+	return nil
 }
 
 func (m *manager) saveChannel(jc *joinedChannel) error {
@@ -189,7 +190,8 @@ func (m *manager) removeChannel(channelID *id.ID) error {
 	if err := m.removeChannelUnsafe(channelID); err != nil {
 		return err
 	}
-	return m.notifications.removeChannel(channelID)
+	m.notifications.removeChannel(channelID)
+	return nil
 }
 
 func (m *manager) removeChannelUnsafe(channelID *id.ID) error {

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
+	"gitlab.com/elixxir/primitives/nicknames"
 	"sync"
 	"time"
 
@@ -1777,7 +1778,11 @@ func (cm *ChannelsManager) GetNickname(channelIDBytes []byte) (string, error) {
 // Parameters:
 //   - nickname - Nickname to check.
 func IsNicknameValid(nickname string) error {
-	return channels.IsNicknameValid(nickname)
+	if nickname == "" {
+		return errors.New("an empty nickname is not valid, but will " +
+			"be accepted, it causes the nickname to be deleted")
+	}
+	return nicknames.IsValid(nickname)
 }
 
 // Muted returns true if the user is currently muted in the given channel.
@@ -1926,10 +1931,11 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //   - []byte - JSON of a slice of [channels.NotificationReport].
 //
 // Example return:
-//  [
-//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
-//    {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
-//  ]
+//
+//	[
+//	  {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
+//	  {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
+//	]
 func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
@@ -1937,7 +1943,7 @@ func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 		// Attempt to unmarshal as the entire NotificationUpdateJson
 		var nuj NotificationUpdateJson
 		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
-			return nil, errors.Errorf("failed to JSON unmarshal " +
+			return nil, errors.Errorf("failed to JSON unmarshal "+
 				"notificationFilterJSON:\n%v\n%v", err, err2)
 		}
 		nfs = nuj.NotificationFilters

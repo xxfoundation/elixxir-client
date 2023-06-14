@@ -723,6 +723,25 @@ func DecodePrivateURL(url, password string) (string, error) {
 	return c.PrettyPrint(), nil
 }
 
+// DecodeInviteURL decodes the channel URL, using the password, into a channel
+// pretty print. This function can only be used for URLs from invitations.
+//
+// Parameters:
+//   - url - The channel's invitation URL. Should be received from another user.
+//   - password - The password needed to decrypt the secret data in the URL.
+//
+// Returns:
+//   - The channel pretty print.
+func DecodeInviteURL(url, password string) (string, error) {
+	pwHash := cryptoBroadcast.HashURLPassword(password)
+	c, err := cryptoBroadcast.DecodeInviteURL(url, pwHash)
+	if err != nil {
+		return "", err
+	}
+
+	return c.PrettyPrint(), nil
+}
+
 // GetChannelJSON returns the JSON of the channel for the given pretty print.
 //
 // Parameters:

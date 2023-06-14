@@ -9,6 +9,8 @@ package dm
 
 import (
 	"crypto/ed25519"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/collective"
@@ -18,7 +20,6 @@ import (
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
-	"testing"
 )
 
 // TestNick runs basic smoke testing of the nickname manager.

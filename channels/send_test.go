@@ -10,11 +10,12 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/collective"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective"
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -115,6 +116,8 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -449,6 +452,8 @@ func Test_manager_SendSilent(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	require.NoError(t, err)
 
@@ -514,6 +519,8 @@ func Test_manager_SendInvite(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	require.NoError(t, err)
 
@@ -588,6 +595,8 @@ func Test_manager_DeleteMessage(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
@@ -660,6 +669,8 @@ func Test_manager_PinMessage(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
@@ -733,6 +744,8 @@ func Test_manager_MuteUser(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)

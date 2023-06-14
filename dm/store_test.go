@@ -45,7 +45,8 @@ func Test_partnerStore_set(t *testing.T) {
 
 	for elemName, exp := range expected {
 		var partner dmPartner
-		obj, err := kv.GetMapElement(dmMapName, elemName, dmStoreVersion)
+		obj, err := ps.remote.GetMapElement(dmMapName, elemName,
+			dmStoreVersion)
 		if err != nil {
 			t.Errorf("Failed to get dmPartner %s: %+v", elemName, err)
 		} else if err = json.Unmarshal(obj.Data, &partner); err != nil {
@@ -175,14 +176,14 @@ func Test_partnerStore_listen(t *testing.T) {
 				new:       &dmPartner{pubKey1, statusMute},
 				operation: versioned.Loaded,
 			}, {
-			old:       nil,
-			new:       &dmPartner{pubKey2, statusNotifyAll},
-			operation: versioned.Loaded,
-		}, {
-			old:       nil,
-			new:       &dmPartner{pubKey3, statusBlocked},
-			operation: versioned.Loaded,
-		},
+				old:       nil,
+				new:       &dmPartner{pubKey2, statusNotifyAll},
+				operation: versioned.Loaded,
+			}, {
+				old:       nil,
+				new:       &dmPartner{pubKey3, statusBlocked},
+				operation: versioned.Loaded,
+			},
 		}, {
 			{
 				old:       &dmPartner{pubKey1, statusMute},

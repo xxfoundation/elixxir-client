@@ -216,7 +216,7 @@ func Test_manager_addChannel(t *testing.T) {
 		t.Errorf("Failed to get joinedChannel from local: %+v", err)
 	}
 
-	_, err = m.local.GetMap(joinedChannelsMap, joinedChannelsMapVersion)
+	_, err = m.remote.GetMap(joinedChannelsMap, joinedChannelsMapVersion)
 	if err != nil {
 		t.Errorf("Failed to get channels from local: %+v", err)
 	}

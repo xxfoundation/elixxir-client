@@ -51,7 +51,7 @@ func newPartnerStore(kv versioned.KV) (*partnerStore, error) {
 			"updates on DM partner storage")
 	}
 
-	return &partnerStore{remote: kv}, nil
+	return &partnerStore{remote: remote}, nil
 }
 
 // dmPartner stores information for each partner the current user has a DM

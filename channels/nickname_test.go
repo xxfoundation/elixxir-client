@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -22,6 +23,8 @@ var dummyNicknameUpdate = func(channelId *id.ID, nickname string, exists bool) {
 func TestNicknameManager_SetGetNickname(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -46,6 +49,8 @@ func TestNicknameManager_SetGetNickname(t *testing.T) {
 func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -78,6 +83,8 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 func TestNicknameManager_GetNickname_Error(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	nm := loadOrNewNicknameManager(rkv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -94,6 +101,8 @@ func TestNicknameManager_GetNickname_Error(t *testing.T) {
 func TestNicknameManager_DeleteNickname(t *testing.T) {
 	kv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	kv, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	nm := loadOrNewNicknameManager(kv, dummyNicknameUpdate)
 
 	for i := 0; i < numTests; i++ {
@@ -148,6 +157,8 @@ func TestNicknameManager_mapUpdate(t *testing.T) {
 
 	kv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	kv, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	nm := loadOrNewNicknameManager(kv, func(channelId *id.ID, nickname string, exists bool) {})
 
 	// build the input and output data

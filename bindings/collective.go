@@ -101,6 +101,8 @@ type RemoteKV struct {
 	// mapListeners are the callback functions for ListonOnRemoteMap calls
 	mapListenerLcks map[string]*sync.Mutex
 	mapListeners    map[string]map[int]MapChangedByRemoteCallback
+
+	listenerCnt uint
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -338,16 +340,7 @@ func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 
 	r.keyListenerLcks[key].Lock()
 	defer r.keyListenerLcks[key].Unlock()
-	// NOTE: this is safe, because these lists are small and
-	// adding is not critical path for performance
-	id := 0
-	for {
-		_, exists = r.keyListeners[key][id]
-		if !exists {
-			break
-		}
-		id += 1
-	}
+	id := r.incrementListener()
 	r.keyListeners[key][id] = callback
 	return id, nil
 }
@@ -385,16 +378,7 @@ func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
 	// the id returned is always the last element (just added to the list)
 	r.mapListenerLcks[mapName].Lock()
 	defer r.mapListenerLcks[mapName].Unlock()
-	// NOTE: this is safe, because these lists are small and
-	// adding is not critical path for performance
-	id := 0
-	for {
-		_, exists = r.keyListeners[mapName][id]
-		if !exists {
-			break
-		}
-		id += 1
-	}
+	id := r.incrementListener()
 	r.mapListeners[mapName][id] = callback
 	return id, nil
 }
@@ -633,6 +617,17 @@ func (r *RemoteKV) DeleteRemoteMapListener(key string, id int) error {
 	}
 
 	return errors.Errorf("unknown id: %d", id)
+}
+
+// incrementListener returns a new listener id. It will panic when it
+// runs out of integer space.
+func (r *RemoteKV) incrementListener() int {
+	r.listenerCnt += 1
+	newID := int(r.listenerCnt)
+	if newID < 0 {
+		jww.FATAL.Panicf("out of listener ids")
+	}
+	return newID
 }
 
 type transactionResult struct {

@@ -219,7 +219,7 @@ func (r *versionedKV) Set(key string, object *versioned.Object) error {
 // All Map storage functions update the remote.
 func (r *versionedKV) StoreMapElement(mapName,
 	elementName string, value *versioned.Object, mapVersion uint64) error {
-	if !r.inSynchronizedPrefix && isRemoteKV(r.remote) {
+	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -240,7 +240,7 @@ func (r *versionedKV) StoreMapElement(mapName,
 // All Map storage functions update the remote.
 func (r *versionedKV) StoreMap(mapName string,
 	values map[string]*versioned.Object, mapVersion uint64) error {
-	if !r.inSynchronizedPrefix && isRemoteKV(r.remote) {
+	if !r.inSynchronizedPrefix {
 		return errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -264,7 +264,7 @@ func (r *versionedKV) StoreMap(mapName string,
 // updates, but it uses [versioned.Object] values.
 func (r *versionedKV) GetMap(mapName string, mapVersion uint64) (
 	map[string]*versioned.Object, error) {
-	if !r.inSynchronizedPrefix && isRemoteKV(r.remote) {
+	if !r.inSynchronizedPrefix {
 		return nil, errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -284,7 +284,7 @@ func (r *versionedKV) GetMap(mapName string, mapVersion uint64) (
 // updates, but it uses [versioned.Object] values.
 func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint64) (
 	*versioned.Object, error) {
-	if !r.inSynchronizedPrefix && isRemoteKV(r.remote) {
+	if !r.inSynchronizedPrefix {
 		return nil, errors.New("Map operations must be remote" +
 			"operations")
 	}
@@ -309,7 +309,7 @@ func (r *versionedKV) GetMapElement(mapName, elementName string, mapVersion uint
 // updates, but it uses [versioned.Object] values.
 func (r *versionedKV) DeleteMapElement(mapName, elementName string,
 	mapVersion uint64) (*versioned.Object, error) {
-	if !r.inSynchronizedPrefix && isRemoteKV(r.remote) {
+	if !r.inSynchronizedPrefix {
 		return nil, errors.New("Map operations must be remote" +
 			"operations")
 	}

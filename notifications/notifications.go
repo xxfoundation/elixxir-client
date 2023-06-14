@@ -175,12 +175,16 @@ func (m *manager) registerNotification(nids []*id.ID) error {
 	}
 
 	_, err = m.comms.RegisterTrackedID(m.notificationHost,
-		&pb.RegisterTrackedIdRequest{Request: &pb.TrackedIntermediaryIdRequest{
-			TrackedIntermediaryID: iidLst,
-			TransmissionRsaPem:    m.transmissionRSAPubPem,
-			RequestTimestamp:      ts.UnixNano(),
-			Signature:             sig,
-		}})
+		&pb.RegisterTrackedIdRequest{
+			Request: &pb.TrackedIntermediaryIdRequest{
+				TrackedIntermediaryID: iidLst,
+				TransmissionRsaPem:    m.transmissionRSAPubPem,
+				RequestTimestamp:      ts.UnixNano(),
+				Signature:             sig,
+			},
+			RegistrationTimestamp:       m.registrationTimestampNs,
+			TransmissionRsaRegistrarSig: m.transmissionRegistrationValidationSignature,
+		})
 
 	return err
 }

@@ -3155,7 +3155,7 @@ type AdminKeysUpdateJson struct {
 //      "status":2,
 //      "broadcastDMToken":false
 //   }
-//
+// ]
 
 type ChannelsUpdateJson struct {
 	ChannelId        *id.ID `json:"channelID"`

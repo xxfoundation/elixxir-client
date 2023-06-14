@@ -106,9 +106,9 @@ func TestE2EDMs(t *testing.T) {
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
 	host := "https://internet.speakeasy.tech/"
-	maxUses := 0
+
 	_, _, _, err = clientA.SendInvite(&pubKey, dmToken, "Check this channel out!",
-		broadcastChan.Get(), host, maxUses, params)
+		broadcastChan.Get(), host, params)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(receiverB.Msgs))
 	rcvB2 := receiverB.Msgs[4]

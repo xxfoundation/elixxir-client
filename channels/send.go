@@ -13,6 +13,7 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"fmt"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"time"
 
 	"github.com/pkg/errors"
@@ -424,9 +425,18 @@ func (m *manager) SendSilent(channelID *id.ID, validUntil time.Duration,
 //
 // See [Manager.SendGeneric] for details on payload size limitations and
 // elaboration of pings.
-func (m *manager) SendInvite(channelID *id.ID, msg string, inviteTo *id.ID,
-	host string, maxUses int, validUntil time.Duration, params cmix.CMIXParams,
+func (m *manager) SendInvite(channelID *id.ID, msg string,
+	inviteTo *cryptoBroadcast.Channel,
+	host string, validUntil time.Duration, params cmix.CMIXParams,
 	pings []ed25519.PublicKey) (message.ID, rounds.Round, ephemeral.Id, error) {
+
+	// fixme: As of writing, maxUses is not a functional parameter. It
+	//  is passed down to the lower levels, but requires server side changes to
+	//  enforce, which have not been implemented. Until that is done,
+	//  maxUses will be hard-coded here. Once it is done, this function
+	//  signature and all corresponding interface(s) should be modified
+	//  such that maxUses is a parameter w/ proper documentation.
+	const maxUses = 0
 
 	// Formulate custom tag
 	tag := makeChaDebugTag(
@@ -438,19 +448,10 @@ func (m *manager) SendInvite(channelID *id.ID, msg string, inviteTo *id.ID,
 	jww.INFO.Printf(
 		"[CH] [%s] SendInvite on to channel %s", tag, channelID)
 
-	// Retrieve channel that will be used for the invitation
-	ch, err := m.getChannel(inviteTo)
-	if err != nil {
-		return message.ID{}, rounds.Round{}, ephemeral.Id{},
-			errors.WithMessage(err,
-				"could form invitation for a channel that has not been joined.")
-
-	}
-
 	// Form link for invitation
 	rng := m.rng.GetStream()
 	defer rng.Close()
-	inviteUrl, password, err := ch.broadcast.Get().ShareURL(host, maxUses, rng)
+	inviteUrl, password, err := inviteTo.ShareURL(host, maxUses, rng)
 	if err != nil {
 		return message.ID{}, rounds.Round{}, ephemeral.Id{},
 			errors.WithMessage(err, "could not form URL")

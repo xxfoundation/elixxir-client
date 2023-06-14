@@ -546,7 +546,7 @@ func Test_manager_SendInvite(t *testing.T) {
 	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
 	require.NoError(t, err)
 
-	invitedChannelID, inviteeChannelID := ch.ReceptionID, ch.ReceptionID
+	invitedChannelID, inviteeChannel := ch.ReceptionID, ch
 
 	msg := "Dude check out this channel!"
 	params := new(cmix.CMIXParams)
@@ -558,7 +558,7 @@ func Test_manager_SendInvite(t *testing.T) {
 	host := "https://internet.speakeasy.tech/"
 	maxUses := 0
 	messageID, _, _, err := m.SendInvite(invitedChannelID, msg,
-		inviteeChannelID, host, maxUses, ValidForever, *params, nil)
+		inviteeChannel, host, ValidForever, *params, nil)
 	require.NoError(t, err)
 
 	// Verify the message was handled correctly

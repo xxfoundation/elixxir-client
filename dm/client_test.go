@@ -34,7 +34,7 @@ func TestNick(t *testing.T) {
 	// is why this test is the way it is and why the API
 	// is wonky. For now, we are locking in expected behavior but
 	// expect to change this in the future.
-	myPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&me.PubKey)
+	myPubKey := ecdh.Edwards2EcdhNikePublicKey(me.PubKey)
 	myID := deriveReceptionID(myPubKey.Bytes(),
 		me.GetDMToken())
 

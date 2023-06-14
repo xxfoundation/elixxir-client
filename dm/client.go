@@ -10,10 +10,11 @@ package dm
 import (
 	"crypto/ed25519"
 	"fmt"
-	"gitlab.com/elixxir/primitives/nicknames"
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.com/elixxir/primitives/nicknames"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/codename"
@@ -61,7 +62,7 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	privateEdwardsKey := myID.Privkey
 	myIDToken := myID.GetDMToken()
 
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(privateEdwardsKey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)

@@ -208,7 +208,7 @@ func getDMPartner() (ed25519.PublicKey, uint32, bool) {
 		return nil, 0, false
 	}
 	token := viper.GetUint32(dmPartnerTokenFlag)
-	return *ecdh.ECDHNIKE2EdwardsPublicKey(pubKey), token, true
+	return ecdh.EcdhNike2EdwardsPublicKey(pubKey), token, true
 }
 
 type nickMgr struct{}

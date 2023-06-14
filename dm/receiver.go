@@ -107,13 +107,13 @@ func (dp *dmProcessor) Process(msg format.Message, _ []string, _ []byte,
 	ts := message.VetTimestamp(time.Unix(0, directMsg.LocalTimestamp),
 		round.Timestamps[states.QUEUED], msgID)
 
-	pubSigningKey := ecdh.ECDHNIKE2EdwardsPublicKey(senderPublicKey)
+	pubSigningKey := ecdh.EcdhNike2EdwardsPublicKey(senderPublicKey)
 
 	messageType := MessageType(directMsg.PayloadType)
 
-	if dp.r.c.IsBlocked(*pubSigningKey) {
+	if dp.r.c.IsBlocked(pubSigningKey) {
 		jww.INFO.Printf("Dropping message from blocked user: %s",
-			base64.RawStdEncoding.EncodeToString(*pubSigningKey))
+			base64.RawStdEncoding.EncodeToString(pubSigningKey))
 		return
 	}
 
@@ -126,7 +126,7 @@ func (dp *dmProcessor) Process(msg format.Message, _ []string, _ []byte,
 	// key are the same. This is how the UI differentiates between the two.
 	uuid, err := dp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
 		directMsg.Payload, partnerToken,
-		*pubSigningKey, *pubSigningKey, ts, receptionID,
+		pubSigningKey, pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
 		jww.WARN.Printf("Error processing for "+
@@ -217,8 +217,8 @@ func (sp *selfProcessor) Process(msg format.Message, _ []string, _ []byte,
 	ts := message.VetTimestamp(time.Unix(0, directMsg.LocalTimestamp),
 		round.Timestamps[states.QUEUED], msgID)
 
-	pubSigningKey := ecdh.ECDHNIKE2EdwardsPublicKey(senderPublicKey)
-	partnerPubKey := ecdh.ECDHNIKE2EdwardsPublicKey(partnerPublicKey)
+	pubSigningKey := ecdh.EcdhNike2EdwardsPublicKey(senderPublicKey)
+	partnerPubKey := ecdh.EcdhNike2EdwardsPublicKey(partnerPublicKey)
 
 	messageType := MessageType(directMsg.PayloadType)
 
@@ -226,7 +226,7 @@ func (sp *selfProcessor) Process(msg format.Message, _ []string, _ []byte,
 	// no new thread is needed.
 	uuid, err := sp.r.receiveMessage(msgID, messageType, directMsg.Nickname,
 		directMsg.Payload, partnerToken,
-		*partnerPubKey, *pubSigningKey, ts, receptionID,
+		partnerPubKey, pubSigningKey, ts, receptionID,
 		round, Received)
 	if err != nil {
 		jww.WARN.Printf("Error processing for "+

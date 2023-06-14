@@ -9,12 +9,13 @@ package dm
 
 import (
 	"encoding/base64"
+	"strings"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/crypto/csprng"
-	"strings"
-	"testing"
 )
 
 // Tests that a URL created via dmClient.ShareURL can be decoded using
@@ -25,7 +26,7 @@ func TestDmClient_ShareURL_DecodeShareURL(t *testing.T) {
 
 	// Construct dm Client w/ minimum required values
 	me, _ := codename.GenerateIdentity(rng)
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(me.Privkey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(me.Privkey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	// Construct URL
@@ -56,7 +57,7 @@ func TestDmClient_ShareURL_ParseError(t *testing.T) {
 	// Construct dm Client w/ minimum required values
 	rng := csprng.NewSystemRNG()
 	me, _ := codename.GenerateIdentity(rng)
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(me.Privkey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(me.Privkey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	// Attempt to share with an invalid host URL

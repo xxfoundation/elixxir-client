@@ -224,7 +224,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 				dc.myToken, dc.me.PubKey, partnerEdwardsPubKey, partnerToken)
 	}
 
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(*partnerEdwardsPubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
 
@@ -325,7 +325,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 // to the user. It generates this ID by hashing the public key and
 // an arbitrary idToken together. The ID type is set to "User".
 func DeriveReceptionID(publicKey ed25519.PublicKey, idToken uint32) *id.ID {
-	nikePubKey := ecdh.Edwards2ECDHNIKEPublicKey(&publicKey)
+	nikePubKey := ecdh.Edwards2EcdhNikePublicKey(publicKey)
 	return deriveReceptionID(nikePubKey.Bytes(), idToken)
 }
 

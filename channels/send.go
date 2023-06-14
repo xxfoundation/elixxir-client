@@ -13,6 +13,7 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"fmt"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"time"
 
 	"github.com/pkg/errors"
@@ -29,11 +30,13 @@ import (
 )
 
 const (
-	cmixChannelTextVersion     = 0
-	cmixChannelReactionVersion = 0
-	cmixChannelSilentVersion   = 0
-	cmixChannelDeleteVersion   = 0
-	cmixChannelPinVersion      = 0
+	/* Versions for various message types */
+	cmixChannelTextVersion       = 0
+	cmixChannelReactionVersion   = 0
+	cmixChannelInvitationVersion = 0
+	cmixChannelSilentVersion     = 0
+	cmixChannelDeleteVersion     = 0
+	cmixChannelPinVersion        = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -51,6 +54,10 @@ const (
 	// sending a silent message.
 	SendSilentTag = "ChSilent"
 
+	// SendInviteTag is the base tag used when generating a debug tag for
+	// sending an invitation.
+	SendInviteTag = "ChInvite"
+
 	// SendDeleteTag is the base tag used when generating a debug tag for a
 	// delete message.
 	SendDeleteTag = "ChDelete"
@@ -63,8 +70,8 @@ const (
 	// message.
 	SendMuteTag = "ChMute"
 
-	// SendAdminReplayTag is the base tag used when generating a debug tag for an
-	// admin replay message.
+	// SendAdminReplayTag is the base tag used when generating a debug tag for
+	// an admin replay message.
 	SendAdminReplayTag = "ChAdminReplay"
 
 	// The size of the nonce used in the message ID.
@@ -377,22 +384,6 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		nil)
 }
 
-// replayAdminMessage is used to rebroadcast an admin message asa a norma user.
-func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
-	params cmix.CMIXParams) (message.ID,
-	rounds.Round, ephemeral.Id, error) {
-	tag := makeChaDebugTag(
-		channelID, m.me.PubKey, encryptedPayload, SendAdminReplayTag)
-	jww.INFO.Printf(
-		"[CH] [%s] replayAdminMessage in channel %s", tag, channelID)
-
-	// Set validUntil to 0 since the replay message itself is not registered in
-	// the lease system (only the message its contains)
-	return m.SendGeneric(
-		channelID, AdminReplay, encryptedPayload, 0,
-		false, params, nil)
-}
-
 // SendSilent is used to send to a channel a message with no notifications.
 // Its primary purpose is to communicate new nicknames without calling
 // SendMessage.
@@ -424,6 +415,81 @@ func (m *manager) SendSilent(channelID *id.ID, validUntil time.Duration,
 	// Send silent message
 	return m.SendGeneric(channelID, Silent, silentMarshalled,
 		validUntil, true, params, nil)
+}
+
+// SendInvite is used to send to a channel (invited) an invitation to another
+// channel (invitee).
+//
+// If the channel ID for the invitee channel is not recognized by the Manager,
+// then an error will be returned.
+//
+// See [Manager.SendGeneric] for details on payload size limitations and
+// elaboration of pings.
+func (m *manager) SendInvite(channelID *id.ID, msg string,
+	inviteTo *cryptoBroadcast.Channel,
+	host string, validUntil time.Duration, params cmix.CMIXParams,
+	pings []ed25519.PublicKey) (message.ID, rounds.Round, ephemeral.Id, error) {
+
+	// fixme: As of writing, maxUses is not a functional parameter. It
+	//  is passed down to the lower levels, but requires server side changes to
+	//  enforce, which have not been implemented. Until that is done,
+	//  maxUses will be hard-coded here. Once it is done, this function
+	//  signature and all corresponding interface(s) should be modified
+	//  such that maxUses is a parameter w/ proper documentation.
+	const maxUses = 0
+
+	// Formulate custom tag
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, []byte(msg), SendInviteTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf(
+		"[CH] [%s] SendInvite on to channel %s", tag, channelID)
+
+	// Form link for invitation
+	rng := m.rng.GetStream()
+	defer rng.Close()
+	inviteUrl, password, err := inviteTo.ShareURL(host, maxUses, rng)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.WithMessage(err, "could not form URL")
+	}
+
+	// Construct message
+	invitation := &CMIXChannelInvitation{
+		Version:    cmixChannelInvitationVersion,
+		Text:       msg,
+		InviteLink: inviteUrl,
+		Password:   password,
+	}
+
+	// Marshal message
+	invitationMarshalled, err := proto.Marshal(invitation)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Send invitation
+	return m.SendGeneric(channelID, Invitation, invitationMarshalled,
+		validUntil, true, params, pings)
+}
+
+// replayAdminMessage is used to rebroadcast an admin message asa a norma user.
+func (m *manager) replayAdminMessage(channelID *id.ID, encryptedPayload []byte,
+	params cmix.CMIXParams) (message.ID,
+	rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(
+		channelID, m.me.PubKey, encryptedPayload, SendAdminReplayTag)
+	jww.INFO.Printf(
+		"[CH] [%s] replayAdminMessage in channel %s", tag, channelID)
+
+	// Set validUntil to 0 since the replay message itself is not registered in
+	// the lease system (only the message its contains)
+	return m.SendGeneric(
+		channelID, AdminReplay, encryptedPayload, 0,
+		false, params, nil)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

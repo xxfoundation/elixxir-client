@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"gitlab.com/elixxir/client/v4/dm/storage"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/primitives/notifications"
 	"sync"
 
@@ -402,11 +403,12 @@ func (dmc *DMClient) IsBlocked(partnerPubKey []byte) bool {
 //   - []byte - JSON of of an array of [ed25519.PublicKey].
 //
 // Example return:
-//  [
-//    "TYWuCfyGBjNWDtl/Roa6f/o206yYPpuB6sX2kJZTe98=",
-//    "4JLRzgtW1SZ9c5pE+v0WwrGPj1t19AuU6Gg5IND5ymA=",
-//    "CWDqF1bnhulW2pko+zgmbDZNaKkmNtFdUgY4bTm2DhA="
-//  ]
+//
+//	[
+//	  "TYWuCfyGBjNWDtl/Roa6f/o206yYPpuB6sX2kJZTe98=",
+//	  "4JLRzgtW1SZ9c5pE+v0WwrGPj1t19AuU6Gg5IND5ymA=",
+//	  "CWDqF1bnhulW2pko+zgmbDZNaKkmNtFdUgY4bTm2DhA="
+//	]
 func (dmc *DMClient) GetBlockedPartners() []byte {
 	blockedJSON, err := json.Marshal(dmc.api.GetBlockedPartners())
 	if err != nil {
@@ -449,30 +451,32 @@ func (dmc *DMClient) SetMobileNotificationsLevel(
 //   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [dm.NotificationFilter]:
-//  {
-//    "identifier": "MWL6mvtZ9UUm7jP3ainyI4erbRl+wyVaO5MOWboP0rA=",
-//    "myID": "AqDqg6Tcs359dBNRBCX7XHaotRDhz1ZRQNXIsGaubvID",
-//    "tags": [
-//      "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=",
-//      "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=",
-//      "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8="
-//    ],
-//    "PublicKeys": {
-//      "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=": "b3HygDv8gjteune9wgBm3YtVuAo2foOusRmj0m5nl6E=",
-//      "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8=": "uOLitBZcCh2TEW406jXHJ+Rsi6LybsH8R1u4Mxv/7hA=",
-//      "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=": "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk="
-//    },
-//    "allowedTypes": {"1": {}, "2": {}}
-//  }
+//
+//	{
+//	  "identifier": "MWL6mvtZ9UUm7jP3ainyI4erbRl+wyVaO5MOWboP0rA=",
+//	  "myID": "AqDqg6Tcs359dBNRBCX7XHaotRDhz1ZRQNXIsGaubvID",
+//	  "tags": [
+//	    "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=",
+//	    "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=",
+//	    "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8="
+//	  ],
+//	  "PublicKeys": {
+//	    "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=": "b3HygDv8gjteune9wgBm3YtVuAo2foOusRmj0m5nl6E=",
+//	    "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8=": "uOLitBZcCh2TEW406jXHJ+Rsi6LybsH8R1u4Mxv/7hA=",
+//	    "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=": "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk="
+//	  },
+//	  "allowedTypes": {"1": {}, "2": {}}
+//	}
 //
 // Returns:
 //   - []byte - JSON of a slice of [dm.NotificationReport].
 //
 // Example return:
-//  [
-//    {"partner": "WUSO3trAYeBf4UeJ5TEL+Q4usoyFf0shda0YUmZ3z8k=", "type": 1},
-//    {"partner": "5MY652JsVv5YLE6wGRHIFZBMvLklACnT5UtHxmEOJ4o=", "type": 2}
-//  ]
+//
+//	[
+//	  {"partner": "WUSO3trAYeBf4UeJ5TEL+Q4usoyFf0shda0YUmZ3z8k=", "type": 1},
+//	  {"partner": "5MY652JsVv5YLE6wGRHIFZBMvLklACnT5UtHxmEOJ4o=", "type": 2}
+//	]
 func GetDmNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nf dm.NotificationFilter
@@ -664,6 +668,52 @@ func (dmc *DMClient) SendSilent(partnerPubKeyBytes []byte,
 	return constructDMSendReport(msgID, rnd.ID, ephID)
 }
 
+// SendInvite is used to send to a DM partner an invitation to another
+// channel.
+//
+// Parameters:
+//   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519
+//     signing key.
+//   - partnerToken - The token used to derive the reception ID for the partner.
+//   - inviteToChannelJson - A JSON marshalled channel. This should be the data
+//     of the invitee channel. This can be retrieved from [GetChannelJSON].
+//   - message - The contents of the message. The message should be at most 510
+//     bytes. This is expected to be Unicode, and thus a string data type is
+//     expected.
+//   - host - The URL to append the channel info to.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+func (dmc *DMClient) SendInvite(partnerPubKeyBytes []byte,
+	partnerToken int32, inviteToChannelJson []byte, message string,
+	host string, cmixParamsJSON []byte) ([]byte, error) {
+
+	// Retrieve channel that will be used for the invitation
+	var inviteToChan *cryptoBroadcast.Channel
+	err := json.Unmarshal(inviteToChannelJson, &inviteToChan)
+	if err != nil {
+		return nil,
+			errors.WithMessage(err, "could not unmarshal channel json")
+	}
+
+	// Unmarshal cmix params
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
+
+	// Send invite
+	msgID, rnd, ephID, err := dmc.api.SendInvite(partnerPubKey,
+		uint32(partnerToken), message, inviteToChan, host, params.CMIX)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct send report
+	return constructDMSendReport(msgID, rnd.ID, ephID)
+}
+
 // Send is used to send a raw message. In general, it
 // should be wrapped in a function that defines the wire protocol.
 //
@@ -784,8 +834,6 @@ func (dct *dmClientTracker) delete(id int) {
 	dct.count--
 }
 
-
-
 // DmNotificationUpdate contains a callback that adheres to [NotificationUpdate].
 //
 // Parameters:
@@ -797,34 +845,37 @@ func (dct *dmClientTracker) delete(id int) {
 //     conversation that were deleted.
 //
 // Example nfJSON:
-//  {
-//    "identifier": "MWL6mvtZ9UUm7jP3ainyI4erbRl+wyVaO5MOWboP0rA=",
-//    "myID": "AqDqg6Tcs359dBNRBCX7XHaotRDhz1ZRQNXIsGaubvID",
-//    "tags": [
-//      "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=",
-//      "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=",
-//      "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8="
-//    ],
-//    "PublicKeys": {
-//      "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=": "b3HygDv8gjteune9wgBm3YtVuAo2foOusRmj0m5nl6E=",
-//      "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8=": "uOLitBZcCh2TEW406jXHJ+Rsi6LybsH8R1u4Mxv/7hA=",
-//      "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=": "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk="
-//    },
-//    "allowedTypes": {"1": {}, "2": {}}
-//  }
+//
+//	{
+//	  "identifier": "MWL6mvtZ9UUm7jP3ainyI4erbRl+wyVaO5MOWboP0rA=",
+//	  "myID": "AqDqg6Tcs359dBNRBCX7XHaotRDhz1ZRQNXIsGaubvID",
+//	  "tags": [
+//	    "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=",
+//	    "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=",
+//	    "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8="
+//	  ],
+//	  "PublicKeys": {
+//	    "61334HtH85DPIifvrM+JzRmLqfV5R4AMEmcPelTmFX0=": "b3HygDv8gjteune9wgBm3YtVuAo2foOusRmj0m5nl6E=",
+//	    "FvArzVJ/082UEpMDCWJsopCLeLnxJV6NXINNkJTk3k8=": "uOLitBZcCh2TEW406jXHJ+Rsi6LybsH8R1u4Mxv/7hA=",
+//	    "zc/EPwtx5OKTVdwLcI15bghjJ7suNhu59PcarXE+m9o=": "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk="
+//	  },
+//	  "allowedTypes": {"1": {}, "2": {}}
+//	}
 //
 // Example changedStateListJSON:
-//  [
-//    {"pubKey": "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk=", "level": 40},
-//    {"pubKey": "uOLitBZcCh2TEW406jXHJ+Rsi6LybsH8R1u4Mxv/7hA=", "level": 10},
-//    {"pubKey": "b3HygDv8gjteune9wgBm3YtVuAo2foOusRmj0m5nl6E=", "level": 10}
-//  ]
+//
+//	[
+//	  {"pubKey": "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk=", "level": 40},
+//	  {"pubKey": "uOLitBZcCh2TEW406jXHJ+Rsi6LybsH8R1u4Mxv/7hA=", "level": 10},
+//	  {"pubKey": "b3HygDv8gjteune9wgBm3YtVuAo2foOusRmj0m5nl6E=", "level": 10}
+//	]
 //
 // Example deletedListJSON:
-//  [
-//    "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk=",
-//    "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk="
-//  ]
+//
+//	[
+//	  "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk=",
+//	  "lqLD1EzZBxB8PbILUJIfFq4JI0RKThpUQuNlTNgZAWk="
+//	]
 type DmNotificationUpdate interface {
 	Callback(nfJSON, changedStateListJSON, deletedListJSON []byte)
 }

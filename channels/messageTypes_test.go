@@ -16,11 +16,11 @@ import (
 // Consistency test of MessageType.String.
 func TestMessageType_String_Consistency(t *testing.T) {
 	expectedStrings := map[MessageType]string{
-		Text: "Text", AdminText: "AdminText", Reaction: "Reaction", Silent: "Silent",
+		Text: "Text", AdminText: "AdminText", Reaction: "Reaction", Silent: "Silent", Invitation: "Invitation",
 		Delete: "Delete", Pinned: "Pinned", Mute: "Mute",
 		AdminReplay: "AdminReplay", FileTransfer: "FileTransfer",
-		Silent + 1: fmt.Sprintf("Unknown messageType %d", Silent+1),
-		Silent + 2: fmt.Sprintf("Unknown messageType %d", Silent+2),
+		Invitation + 1: fmt.Sprintf("Unknown messageType %d", Invitation+1),
+		Invitation + 2: fmt.Sprintf("Unknown messageType %d", Invitation+2),
 	}
 
 	for mt, expected := range expectedStrings {

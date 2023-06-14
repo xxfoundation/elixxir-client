@@ -175,6 +175,20 @@ type Manager interface {
 	SendSilent(channelID *id.ID, validUntil time.Duration,
 		params cmix.CMIXParams) (message.ID, rounds.Round, ephemeral.Id, error)
 
+	// SendInvite is used to send to a channel (invited) an invitation to another
+	// channel (invitee).
+	//
+	// If the channel ID for the invitee channel is not recognized by the Manager,
+	// then an error will be returned.
+	//
+	// See [Manager.SendGeneric] for details on payload size limitations and
+	// elaboration of pings.
+	SendInvite(channelID *id.ID, msg string, inviteTo *cryptoBroadcast.Channel,
+		host string,
+		validUntil time.Duration, params cmix.CMIXParams,
+		pings []ed25519.PublicKey) (
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
+
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //
 	////////////////////////////////////////////////////////////////////////////

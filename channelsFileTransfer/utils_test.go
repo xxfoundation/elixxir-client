@@ -586,6 +586,10 @@ func (m *mockChannelsManager) SendSilent(channelID *id.ID, validUntil time.Durat
 	panic("implement me")
 }
 
+func (m *mockChannelsManager) SendInvite(channelID *id.ID, msg string, inviteTo *cryptoBroadcast.Channel, host string, validUntil time.Duration, params cmix.CMIXParams, pings []ed25519.PublicKey) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
 func (m *mockChannelsManager) GetNotificationStatus(channelID *id.ID) (clientNotif.NotificationState, error) {
 	panic("implement me")
 }

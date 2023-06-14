@@ -35,6 +35,9 @@ const (
 	// notify the user in any way.
 	Silent MessageType = 4
 
+	// Invitation denotes that the message is an invitation to another channel.
+	Invitation MessageType = 5
+
 	////////////////////////////////////////////////////////////////////////////
 	// Message Actions                                                        //
 	////////////////////////////////////////////////////////////////////////////
@@ -58,7 +61,7 @@ const (
 	////////////////////////////////////////////////////////////////////////////
 
 	// FileTransfer denotes that a message contains the information about a file
-	// download
+	// download.
 	FileTransfer MessageType = 40000
 )
 
@@ -74,6 +77,8 @@ func (mt MessageType) String() string {
 		return "Reaction"
 	case Silent:
 		return "Silent"
+	case Invitation:
+		return "Invitation"
 	case Delete:
 		return "Delete"
 	case Pinned:

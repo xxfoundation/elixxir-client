@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"io"
 
 	"github.com/pkg/errors"
@@ -34,9 +35,11 @@ import (
 )
 
 const (
-	textVersion     = 0
-	reactionVersion = 0
-	silentVersion   = 0
+	/* Versions for various message types */
+	textVersion       = 0
+	reactionVersion   = 0
+	invitationVersion = 0
+	silentVersion     = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -53,6 +56,10 @@ const (
 	// SendSilentTag is the base tag used when generating a debug tag for
 	// sending a silent message.
 	SendSilentTag = "Silent"
+
+	// SendInviteTag is the base tag used when generating a debug tag for
+	// sending an invitation.
+	SendInviteTag = "Invite"
 
 	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
@@ -195,6 +202,63 @@ func (dc *dmClient) SendSilent(partnerPubKey ed25519.PublicKey,
 		silentMarshaled, params)
 }
 
+// SendInvite is used to send to a DM partner an invitation to another
+// channel.
+func (dc *dmClient) SendInvite(partnerPubKey ed25519.PublicKey,
+	partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
+	host string, params cmix.CMIXParams) (
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// fixme: As of writing, maxUses is not a functional parameter. It
+	//  is passed down to the lower levels, but requires server side changes to
+	//  enforce, which have not been implemented. Until that is done,
+	//  maxUses will be hard-coded here. Once it is done, this function
+	//  signature and all corresponding interface(s) should be modified
+	//  such that maxUses is a parameter w/ proper documentation.
+	const maxUses = 0
+
+	// Formulate custom tag
+	tag := makeDebugTag(
+		partnerPubKey, []byte(msg),
+		SendInviteTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf("[DM][%s] SendInvite(%s, for %s)", tag,
+		base64.RawStdEncoding.EncodeToString(partnerPubKey),
+		inviteTo.ReceptionID)
+
+	rng := dc.rng.GetStream()
+	defer rng.Close()
+	inviteUrl, passsord, err := inviteTo.ShareURL(host, maxUses, rng)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.WithMessage(err, "could not form URL")
+	}
+
+	invitation := &ChannelInvitation{
+		Version:    invitationVersion,
+		Text:       msg,
+		InviteLink: inviteUrl,
+		Password:   passsord,
+	}
+
+	invitationMarshaled, err := proto.Marshal(invitation)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return dc.Send(partnerPubKey, partnerToken, InvitationType,
+		invitationMarshaled, params)
+}
+
+// Send is used to send a raw direct message to a DM partner. In general, it
+// should be wrapped in a function that defines the wire protocol.
+//
+// If the final message, before being sent over the wire, is too long, this will
+// return an error. Due to the underlying encoding using compression, it is not
+// possible to define the largest payload that can be sent, but it will always
+// be possible to send a payload of 802 bytes at minimum.
 func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType, msg []byte,
 	params cmix.CMIXParams) (

@@ -126,10 +126,7 @@ func LoadNotifications(cmixId int) (*Notifications, error) {
 	comms := mix.GetComms()
 	rng := mix.GetRng()
 
-	notif, err := notifications.NewOrLoadManager(identity, sig, kv, comms, rng)
-	if err != nil {
-		return nil, err
-	}
+	notif := notifications.NewOrLoadManager(identity, sig, kv, comms, rng)
 
 	return notifTrackerSingleton.make(notif), nil
 }
@@ -146,10 +143,7 @@ func LoadNotificationsDummy(cmixId int) (*Notifications, error) {
 	comms := &notifications.MockComms{}
 	rng := mix.GetRng()
 
-	notif, err := notifications.NewOrLoadManager(identity, sig, kv, comms, rng)
-	if err != nil {
-		return nil, err
-	}
+	notif := notifications.NewOrLoadManager(identity, sig, kv, comms, rng)
 
 	return notifTrackerSingleton.make(notif), nil
 }

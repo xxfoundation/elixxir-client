@@ -201,7 +201,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			DeriveChannelMessageID(channelID, chMsg.RoundID, chMsgSerial)
 
 		// Sign the message
-		messageSig := ed25519.Sign(*m.me.Privkey, chMsgSerial)
+		messageSig := ed25519.Sign(m.me.Privkey, chMsgSerial)
 
 		usrMsg.Message = chMsgSerial
 		usrMsg.Signature = messageSig

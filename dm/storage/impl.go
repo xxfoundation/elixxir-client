@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"gorm.io/gorm"
 	"strings"
 	"time"
@@ -161,40 +160,6 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 		uuid, currentMessage.ConversationPubKey)
 	go i.receivedMessageCB(uuid, currentMessage.ConversationPubKey,
 		true, false)
-}
-
-func (i *impl) BlockSender(senderPubKey ed25519.PublicKey) {
-	parentErr := "Failed to BlockSender: %+v"
-
-	err := i.setBlocked(senderPubKey, true)
-	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
-	}
-}
-
-func (i *impl) UnblockSender(senderPubKey ed25519.PublicKey) {
-	parentErr := "Failed to UnblockSender: %+v"
-	err := i.setBlocked(senderPubKey, false)
-	if err != nil {
-		jww.ERROR.Printf(parentErr, err)
-	}
-}
-
-// setBlocked is a helper for blocking/unblocking a given Conversation.
-func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error {
-	resultConvo, err := i.getConversation(senderPubKey)
-	if err != nil {
-		return err
-	}
-
-	var timeBlocked *time.Time = nil
-	if isBlocked {
-		blockUser := netTime.Now()
-		timeBlocked = &blockUser
-	}
-
-	return i.upsertConversation(resultConvo.Nickname, resultConvo.Pubkey,
-		resultConvo.Token, resultConvo.CodesetVersion, timeBlocked)
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {

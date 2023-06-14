@@ -318,10 +318,11 @@ func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 		r.keyListeners[key] = make(map[int]KeyChangedByRemoteCallback)
 		r.keyListenerLcks[key] = &sync.Mutex{}
 	}
+
 	r.keyListenerLcks[key].Lock()
-	defer r.keyListenerLcks[key].Unlock()
 	id := r.incrementListener()
 	r.keyListeners[key][id] = callback
+	r.keyListenerLcks[key].Unlock()
 
 	if !exists {
 		bindingsCb := func(old, new *versioned.Object,
@@ -361,9 +362,9 @@ func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
 	}
 
 	r.mapListenerLcks[mapName].Lock()
-	defer r.mapListenerLcks[mapName].Unlock()
 	id := r.incrementListener()
 	r.mapListeners[mapName][id] = callback
+	r.mapListenerLcks[mapName].Unlock()
 
 	if !exists {
 		bindingsCb := func(edits map[string]versioned.ElementEdit) {

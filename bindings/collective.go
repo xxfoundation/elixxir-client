@@ -9,8 +9,10 @@ package bindings
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -91,6 +93,16 @@ type TransactionOperation interface {
 // [Cmix.GetRemoteKV] function. (TODO: write this function)
 type RemoteKV struct {
 	rkv versioned.KV
+
+	// keyListeners are the callback functions for ListenOnRemoteKey calls
+	keyListenerLcks map[string]*sync.Mutex
+	keyListeners    map[string]map[int]KeyChangedByRemoteCallback
+
+	// mapListeners are the callback functions for ListonOnRemoteMap calls
+	mapListenerLcks map[string]*sync.Mutex
+	mapListeners    map[string]map[int]MapChangedByRemoteCallback
+
+	listenerCnt uint
 }
 
 // RemoteStoreReport represents the report from any call to a method of
@@ -179,7 +191,11 @@ func (r *RemoteKV) Prefix(prefix string) (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK,
+		rkv:             newK,
+		keyListenerLcks: r.keyListenerLcks,
+		keyListeners:    r.keyListeners,
+		mapListenerLcks: r.mapListenerLcks,
+		mapListeners:    r.mapListeners,
 	}
 	return newRK, nil
 }
@@ -193,7 +209,11 @@ func (r *RemoteKV) Root() (*RemoteKV, error) {
 		return nil, err
 	}
 	newRK := &RemoteKV{
-		rkv: newK,
+		rkv:             newK,
+		keyListenerLcks: make(map[string]*sync.Mutex),
+		keyListeners:    make(map[string]map[int]KeyChangedByRemoteCallback),
+		mapListenerLcks: make(map[string]*sync.Mutex),
+		mapListeners:    make(map[string]map[int]MapChangedByRemoteCallback),
 	}
 	return newRK, nil
 }
@@ -285,43 +305,82 @@ func (r *RemoteKV) GetMapElement(mapName, element string, version int64) (
 }
 
 // ListenOnRemoteKey sets up a callback listener for the object specified
-// by the key and version. It returns the current [versioned.Object] JSON
-// of the value.
-// If local events is true, you will get callback when you write to the
-// key as well
+// by the key and version. It returns the ID of the callback or -1 and an error.
+// The version and "localEvents" flags are only respected on first call.
 func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
-	callback KeyChangedByRemoteCallback, localEvents bool) error {
+	callback KeyChangedByRemoteCallback, localEvents bool) (int, error) {
 
 	jww.DEBUG.Printf("[RKV] ListenOnRemoteKey(%s, %d)", key, version)
 
-	bindingsCb := func(old, new *versioned.Object, op versioned.KeyOperation) {
-		oldJSON, err := json.Marshal(old)
-		panicOnErr(err)
-		newJSON, err := json.Marshal(new)
-		panicOnErr(err)
-		callback.Callback(key, oldJSON, newJSON, int8(op))
+	_, exists := r.keyListeners[key]
+	// Initialize the callback if this entry is new
+	if !exists {
+		bindingsCb := func(old, new *versioned.Object,
+			op versioned.KeyOperation) {
+			oldJSON, err := json.Marshal(old)
+			panicOnErr(err)
+			newJSON, err := json.Marshal(new)
+			panicOnErr(err)
+			r.keyListenerLcks[key].Lock()
+			defer r.keyListenerLcks[key].Unlock()
+			for _, cb := range r.keyListeners[key] {
+				go cb.Callback(key, oldJSON, newJSON,
+					int8(op))
+			}
+		}
+		err := r.rkv.ListenOnRemoteKey(key, uint64(version),
+			bindingsCb, localEvents)
+		if err != nil {
+			return -1, err
+		}
+
+		r.keyListeners[key] = make(map[int]KeyChangedByRemoteCallback)
+		r.keyListenerLcks[key] = &sync.Mutex{}
 	}
 
-	return r.rkv.ListenOnRemoteKey(key, uint64(version), bindingsCb, localEvents)
+	r.keyListenerLcks[key].Lock()
+	defer r.keyListenerLcks[key].Unlock()
+	id := r.incrementListener()
+	r.keyListeners[key][id] = callback
+	return id, nil
 }
 
-// ListenOnRemoteMap allows the caller to receive updates when
-// the map or map elements are updated. Returns a JSON of
-// map[string]versioned.Object of the current map value.
-// If local events is true, you will get callback when you write to the
-// key as well
+// ListenOnRemoteMap allows the caller to receive updates when the map
+// or map elements are updated. It returns the ID of the callback or
+// -1 and an error. The version and "localEvents" flags are only
+// respected on first call.
 func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
-	callback MapChangedByRemoteCallback, localEvents bool) error {
+	callback MapChangedByRemoteCallback, localEvents bool) (int, error) {
 	jww.DEBUG.Printf("[RKV] ListenOnRemoteMap(%s, %d)", mapName, version)
 
-	bindingsCb := func(edits map[string]versioned.ElementEdit) {
-		editsJSON, err := json.Marshal(edits)
-		panicOnErr(err)
-		callback.Callback(mapName, editsJSON)
+	_, exists := r.mapListeners[mapName]
+	if !exists {
+		bindingsCb := func(edits map[string]versioned.ElementEdit) {
+			editsJSON, err := json.Marshal(edits)
+			panicOnErr(err)
+			r.mapListenerLcks[mapName].Lock()
+			defer r.mapListenerLcks[mapName].Unlock()
+			for i := range r.mapListeners[mapName] {
+				cb := r.mapListeners[mapName][i]
+				go cb.Callback(mapName, editsJSON)
+			}
+		}
+		err := r.rkv.ListenOnRemoteMap(mapName, uint64(version),
+			bindingsCb, localEvents)
+		if err != nil {
+			return -1, err
+		}
+
+		r.mapListenerLcks[mapName] = &sync.Mutex{}
+		r.mapListeners[mapName] = make(map[int]MapChangedByRemoteCallback, 0)
 	}
 
-	return r.rkv.ListenOnRemoteMap(mapName, uint64(version),
-		bindingsCb, localEvents)
+	// the id returned is always the last element (just added to the list)
+	r.mapListenerLcks[mapName].Lock()
+	defer r.mapListenerLcks[mapName].Unlock()
+	id := r.incrementListener()
+	r.mapListeners[mapName][id] = callback
+	return id, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -446,6 +505,129 @@ func (r *RemoteStoreFileSystem) GetLastWrite() (string, error) {
 	}
 
 	return ts.UTC().Format(time.RFC3339), nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Listener callback tracking
+////////////////////////////////////////////////////////////////////////////////
+
+// GetAllRemoteKeyListeners returns a JSON of all the listener keys mapped to
+// a list of ids.
+func (r *RemoteKV) GetAllRemoteKeyListeners() []byte {
+	res := make(map[string][]int)
+	for k, v := range r.keyListeners {
+		r.keyListenerLcks[k].Lock()
+		res[k] = make([]int, len(v))
+		for i, _ := range v {
+			res[k][i] = i
+		}
+		r.keyListenerLcks[k].Unlock()
+	}
+	data, _ := json.Marshal(res)
+	return data
+}
+
+// GetRemoteKeyListeners returns a JSON array of ids for the given key.
+func (r *RemoteKV) GetRemoteKeyListeners(key string) []byte {
+	lck, exists := r.keyListenerLcks[key]
+	if !exists {
+		res := make([]int, 0)
+		data, _ := json.Marshal(res)
+		return data
+	}
+	lck.Lock()
+	defer lck.Unlock()
+
+	res := make([]int, len(r.keyListeners[key]))
+	for i, _ := range r.keyListeners[key] {
+		res[i] = i
+	}
+	data, _ := json.Marshal(res)
+	return data
+}
+
+// DeleteRemoteKeyListener deletes a specific id for a provided key
+func (r *RemoteKV) DeleteRemoteKeyListener(key string, id int) error {
+	lck, exists := r.keyListenerLcks[key]
+	if !exists {
+		return errors.Errorf("uninitialized key listener list for %s",
+			key)
+	}
+	lck.Lock()
+	defer lck.Unlock()
+
+	_, exists = r.keyListeners[key][id]
+	if exists {
+		delete(r.keyListeners[key], id)
+		return nil
+	}
+
+	return errors.Errorf("unknown id: %d", id)
+}
+
+// GetAllRemoteMapListeners returns a JSON of all the listener keys mapped to
+// a list of ids.
+func (r *RemoteKV) GetAllRemoteMapListeners() []byte {
+	res := make(map[string][]int)
+	for k, v := range r.mapListeners {
+		r.keyListenerLcks[k].Lock()
+		res[k] = make([]int, len(v))
+		for i, _ := range v {
+			res[k][i] = i
+		}
+		r.keyListenerLcks[k].Unlock()
+	}
+	data, _ := json.Marshal(res)
+	return data
+}
+
+// GetRemoteMapListeners returns a JSON array of ids for the given key.
+func (r *RemoteKV) GetRemoteMapListeners(key string) []byte {
+	lck, exists := r.keyListenerLcks[key]
+	if !exists {
+		res := make([]int, 0)
+		data, _ := json.Marshal(res)
+		return data
+	}
+	lck.Lock()
+	defer lck.Unlock()
+
+	res := make([]int, len(r.mapListeners[key]))
+	for i, _ := range r.mapListeners[key] {
+		res[i] = i
+	}
+	data, _ := json.Marshal(res)
+	return data
+}
+
+// DeleteRemoteMapListener deletes a specific id for a provided key
+func (r *RemoteKV) DeleteRemoteMapListener(key string, id int) error {
+	lck, exists := r.keyListenerLcks[key]
+	if !exists {
+		return errors.Errorf("uninitialized key listener list for %s",
+			key)
+	}
+	lck.Lock()
+	defer lck.Unlock()
+
+	_, exists = r.mapListeners[key][id]
+	if exists {
+		delete(r.mapListeners[key], id)
+		return nil
+	}
+
+	return errors.Errorf("unknown id: %d", id)
+}
+
+// incrementListener returns a new listener id. It will panic when it
+// runs out of integer space.
+func (r *RemoteKV) incrementListener() int {
+	r.listenerCnt += 1
+	newID := int(r.listenerCnt)
+	if newID < 0 {
+		jww.FATAL.Panicf("out of listener ids")
+	}
+	return newID
 }
 
 type transactionResult struct {

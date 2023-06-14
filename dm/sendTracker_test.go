@@ -120,7 +120,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())
@@ -178,7 +178,7 @@ func TestSendTracker_send(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())
@@ -238,7 +238,7 @@ func TestSendTracker_load_store(t *testing.T) {
 	// me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())
@@ -280,7 +280,7 @@ func TestRoundResult_callback(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())

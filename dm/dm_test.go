@@ -15,7 +15,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
-	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 // interfaces to enable sending and receiving without a cMix
 // connection.
 func TestE2EDMs(t *testing.T) {
-	netA, netB := createLinkedNets()
+	netA, netB := createLinkedNets(t)
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
@@ -44,8 +44,10 @@ func TestE2EDMs(t *testing.T) {
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
 
-	ekvA := versioned.NewKV(ekv.MakeMemstore())
-	ekvB := versioned.NewKV(ekv.MakeMemstore())
+	ekvA := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
+	ekvB := collective.TestingKV(t, ekv.MakeMemstore(),
+		collective.StandardPrefexs, collective.NewMockRemote())
 
 	stA := NewSendTracker(ekvA)
 	stB := NewSendTracker(ekvB)
@@ -62,13 +64,19 @@ func TestE2EDMs(t *testing.T) {
 	nnmA.SetNickname("me")
 	nnmB.SetNickname("partner")
 
-	clientA := NewDMClient(&me, receiverA, stA, nnmA, netA, crng)
-	clientB := NewDMClient(&partner, receiverB, stB, nnmB, netB, crng)
+	clientA, err := NewDMClient(
+		&me, receiverA, stA, nnmA, newMockNM(), netA, ekvA, crng, mockNuCB)
+	require.NoError(t, err)
+	clientB, err := NewDMClient(
+		&partner, receiverB, stB, nnmB, newMockNM(), netB, ekvB, crng, mockNuCB)
+	require.NoError(t, err)
 
 	params := cmix.GetDefaultCMIXParams()
 
 	// Send and receive a text
-	clientA.SendText(&partner.PubKey, partner.GetDMToken(), "Hi", params)
+	_, _, _, err =
+		clientA.SendText(partner.PubKey, partner.GetDMToken(), "Hi", params)
+	require.NoError(t, err)
 	require.Equal(t, 1, len(receiverB.Msgs))
 	rcvA1 := receiverB.Msgs[0]
 	require.Equal(t, "Hi", rcvA1.Message)
@@ -77,7 +85,8 @@ func TestE2EDMs(t *testing.T) {
 	pubKey := rcvA1.PubKey
 	dmToken := rcvA1.DMToken
 	replyTo := rcvA1.MessageID
-	clientB.SendReply(&pubKey, dmToken, "whatup?", replyTo, params)
+	_, _, _, err = clientB.SendReply(pubKey, dmToken, "whatup?", replyTo, params)
+	require.NoError(t, err)
 	require.Equal(t, 3, len(receiverA.Msgs))
 	rcvB1 := receiverA.Msgs[2]
 	replyTo2 := rcvB1.ReplyTo
@@ -87,7 +96,8 @@ func TestE2EDMs(t *testing.T) {
 	// React to the reply
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
-	clientA.SendReaction(&pubKey, dmToken, "😀", replyTo2, params)
+	_, _, _, err = clientA.SendReaction(pubKey, dmToken, "😀", replyTo2, params)
+	require.NoError(t, err)
 	require.Equal(t, 4, len(receiverB.Msgs))
 	rcvA2 := receiverB.Msgs[3]
 	require.Equal(t, replyTo2, rcvA2.ReplyTo)
@@ -96,7 +106,7 @@ func TestE2EDMs(t *testing.T) {
 	// Send a silent message
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
-	_, _, _, err := clientA.SendSilent(&pubKey, dmToken, params)
+	_, _, _, err = clientA.SendSilent(pubKey, dmToken, params)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(receiverB.Msgs))
 	rcvB3 := receiverB.Msgs[4]

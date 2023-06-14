@@ -9,6 +9,7 @@ package dm
 
 import (
 	"crypto/ed25519"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"time"
 
 	"gitlab.com/xx_network/primitives/id"
@@ -94,6 +95,13 @@ type Sender interface {
 		reaction string, reactTo cryptoMessage.ID,
 		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
+
+	// SendInvite is used to send to a DM partner an invitation to another
+	// channel.
+	SendInvite(partnerPubKey ed25519.PublicKey,
+		partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
+		host string, params cmix.CMIXParams) (
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendSilent is used to send to a channel a message with no notifications.
 	// Its primary purpose is to communicate new nicknames without calling

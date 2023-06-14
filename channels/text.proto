@@ -57,3 +57,12 @@ message CMIXChannelMute {
     bytes  pubKey = 2;     // The [ed25519.PublicKey] of the user to mute
     bool   undoAction = 3; // If true, the user is un-muted
 }
+
+// CMIXChannelInvitation is the payload for a Invitation MessageType. It invites
+// members of a channel to a separate channel.
+message CMIXChannelInvitation {
+    uint32 version = 1;
+    string text = 2;
+    string inviteLink = 3;
+    string password = 4;
+}

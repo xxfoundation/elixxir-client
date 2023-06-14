@@ -281,7 +281,7 @@ func (x *SilentMessage) GetVersion() uint32 {
 }
 
 // DirectMessage is a message sent directly from one user to another. It
-// includes the return information (public key and dmtoken) for the sender.
+// includes the return information (public key and DMToken) for the sender.
 type DirectMessage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

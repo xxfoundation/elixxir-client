@@ -194,18 +194,10 @@ type DMReceiver interface {
 	UpdateSentStatus(uuid int64, messageID []byte, timestamp, roundID,
 		status int64)
 
-	// BlockSender silences messages sent by the indicated sender
-	// public key.
-	//  - senderPubKey - The sender's Ed25519 public key to block.
-	BlockSender(senderPubKey []byte)
-	// UnblockSender allows messages sent by the indicated sender
-	// public key.
-	//  - senderPubKey - The sender's Ed25519 public key to unblock.
-	UnblockSender(senderPubKey []byte)
-
-	// GetConversations returns any conversations held by the
+	// GetConversation returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversation(senderPubKey []byte) []byte
+
 	// GetConversations returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversations() []byte
@@ -298,18 +290,6 @@ func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 	status dm.Status) {
 	dmr.dr.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))
-}
-
-// BlockSender silences messages sent by the indicated sender
-// public key.
-func (dmr *dmReceiver) BlockSender(senderPubKey ed25519.PublicKey) {
-	dmr.dr.BlockSender(senderPubKey)
-}
-
-// UnblockSender allows messages sent by the indicated sender
-// public key.
-func (dmr *dmReceiver) UnblockSender(senderPubKey ed25519.PublicKey) {
-	dmr.dr.UnblockSender(senderPubKey)
 }
 
 // GetConversations returns any conversations held by the

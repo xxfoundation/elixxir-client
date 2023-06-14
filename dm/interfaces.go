@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
@@ -27,11 +28,6 @@ import (
 // Client the direct message client implements a Listener and Sender interface.
 type Client interface {
 	Sender
-	// Listener
-
-	BlockSender(senderPubKey ed25519.PublicKey)
-
-	UnblockSender(senderPubKey ed25519.PublicKey)
 
 	// GetPublicKey returns the public key of this client.
 	GetPublicKey() nike.PublicKey
@@ -46,13 +42,27 @@ type Client interface {
 	// portable string.
 	ExportPrivateIdentity(password string) ([]byte, error)
 
-	// IsBlocked indicates if the given sender is blocked.
-	// Blocking is controlled by the receiver/EventModel.
-	IsBlocked(senderPubKey ed25519.PublicKey) bool
+	// BlockPartner prevents receiving messages and notifications from the
+	// partner.
+	BlockPartner(partnerPubKey ed25519.PublicKey)
 
-	// GetBlockedSenders returns all senders who are blocked by this user.
-	// Blocking is controlled by the receiver/EventModel.
-	GetBlockedSenders() []ed25519.PublicKey
+	// UnblockPartner unblocks a blocked sender to allow DM messages.
+	UnblockPartner(partnerPubKey ed25519.PublicKey)
+
+	// IsBlocked indicates if the given partner is blocked.
+	IsBlocked(partnerPubKey ed25519.PublicKey) bool
+
+	// GetBlockedPartners returns all partners who are blocked by this user.
+	GetBlockedPartners() []ed25519.PublicKey
+
+	// GetNotificationLevel returns the notification level for the given channel.
+	GetNotificationLevel(
+		partnerPubKey ed25519.PublicKey) (NotificationLevel, error)
+
+	// SetMobileNotificationsLevel sets the notification level for the given DM
+	// conversation partner.
+	SetMobileNotificationsLevel(
+		partnerPubKey ed25519.PublicKey, level NotificationLevel) error
 
 	NickNameManager
 }
@@ -61,7 +71,7 @@ type Client interface {
 // cMix.
 type Sender interface {
 	// SendText is used to send a formatted message to another user.
-	SendText(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendText(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		msg string, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
@@ -70,7 +80,7 @@ type Sender interface {
 	// If the message ID that the reply is sent to does not exist,
 	// then the other side will post the message as a normal
 	// message and not as a reply.
-	SendReply(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendReply(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		msg string, replyTo cryptoMessage.ID,
 		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
@@ -81,14 +91,14 @@ type Sender interface {
 	//
 	// Clients will drop the reaction if they do not recognize the reactTo
 	// message.
-	SendReaction(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendReaction(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		reaction string, reactTo cryptoMessage.ID,
 		params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 		ephemeral.Id, error)
 
 	// SendInvite is used to send to a DM partner an invitation to another
 	// channel.
-	SendInvite(partnerPubKey *ed25519.PublicKey,
+	SendInvite(partnerPubKey ed25519.PublicKey,
 		partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
 		host string, params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
@@ -99,7 +109,7 @@ type Sender interface {
 	//
 	// It takes no payload intentionally as the message should be very
 	// lightweight.
-	SendSilent(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	SendSilent(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
@@ -110,8 +120,8 @@ type Sender interface {
 	// too long, this will return an error. Due to the underlying
 	// encoding using compression, it is not possible to define
 	// the largest payload that can be sent, but it will always be
-	// possible to send a payload of 802 bytes at minimum.
-	Send(partnerPubKey *ed25519.PublicKey, partnerToken uint32,
+	// possible to send a payload of 802 bytes at a minimum.
+	Send(partnerPubKey ed25519.PublicKey, partnerToken uint32,
 		messageType MessageType, plaintext []byte,
 		params cmix.CMIXParams) (cryptoMessage.ID,
 		rounds.Round, ephemeral.Id, error)
@@ -228,13 +238,6 @@ type EventModel interface {
 	UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status Status)
 
-	// BlockSender silences messages sent by the indicated sender
-	// public key.
-	BlockSender(senderPubKey ed25519.PublicKey)
-	// UnblockSender allows messages sent by the indicated sender
-	// public key.
-	UnblockSender(senderPubKey ed25519.PublicKey)
-
 	// GetConversation returns any conversations held by the
 	// model (receiver)
 	GetConversation(senderPubKey ed25519.PublicKey) *ModelConversation
@@ -263,13 +266,24 @@ type cMixClient interface {
 	RemoveHealthCallback(uint64)
 }
 
+// NotificationsManager contains the methods from [notifications.Manager] that
+// are required by the [Manager].
+type NotificationsManager interface {
+	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
+		status clientNotif.NotificationState) error
+	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationState,
+		metadata []byte, group string, exists bool)
+	Delete(toBeNotifiedOn *id.ID) error
+	RegisterUpdateCallback(group string, nu clientNotif.Update)
+}
+
 // NickNameManager interface is an object that handles the mapping of nicknames
 // to cMix reception IDs.
 type NickNameManager interface {
 	// GetNickname gets the nickname associated with this DM user.
 	GetNickname() (string, bool)
 	// SetNickname sets the nickname to use for this user.
-	SetNickname(nick string)
+	SetNickname(nick string) error
 }
 
 // SendTracker provides facilities for tracking sent messages
@@ -288,15 +302,15 @@ type SendTracker interface {
 	// FailedSend marks a message failed
 	FailedSend(uuid uint64) error
 
-	//Sent marks a message successfully Sent
+	// Sent marks a message successfully Sent
 	Sent(uuid uint64, msgID cryptoMessage.ID, round rounds.Round) error
 
-	//CheckIfSent checks if the given message was a sent message
+	// CheckIfSent checks if the given message was a sent message
 	CheckIfSent(messageID cryptoMessage.ID, r rounds.Round) bool
 
-	//Delivered marks a message delivered
+	// Delivered marks a message delivered
 	Delivered(msgID cryptoMessage.ID, round rounds.Round) bool
 
-	//StopTracking stops tracking a message
+	// StopTracking stops tracking a message
 	StopTracking(msgID cryptoMessage.ID, round rounds.Round) bool
 }

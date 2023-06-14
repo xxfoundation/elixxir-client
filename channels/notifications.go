@@ -54,7 +54,13 @@ type notifications struct {
 	// notification statuses to.
 	cb NotificationUpdate
 
+	// Returns the channel for the given ID from the manager.
 	channelGetter
+
+	// The list of ExtensionMessageHandler loaded into the channel manager.
+	ext []ExtensionMessageHandler
+
+	// Manages notification statuses for identifies and callback updates.
 	nm NotificationsManager
 }
 
@@ -66,11 +72,13 @@ type channelGetter interface {
 
 // newNotifications initializes a new channels notifications manager.
 func newNotifications(pubKey ed25519.PublicKey, cb NotificationUpdate,
-	cg channelGetter, nm NotificationsManager) *notifications {
+	cg channelGetter, ext []ExtensionMessageHandler,
+	nm NotificationsManager) *notifications {
 	n := &notifications{
 		pubKey:        pubKey,
 		cb:            cb,
 		channelGetter: cg,
+		ext:           ext,
 		nm:            nm,
 	}
 	nm.RegisterUpdateCallback(notificationGroup, n.notificationsUpdateCB)
@@ -81,15 +89,22 @@ func newNotifications(pubKey ed25519.PublicKey, cb NotificationUpdate,
 // notification level set to none.
 //
 // Returns an error if the channel already exists.
-func (n *notifications) addChannel(channelID *id.ID) error {
-	return n.nm.Set(
+func (n *notifications) addChannel(channelID *id.ID) {
+	err := n.nm.Set(
 		channelID, notificationGroup, NotifyNone.Marshal(), clientNotif.Mute)
+	if err != nil {
+		jww.WARN.Printf("[CH] Failed to add channel (%s) to notifications manager: %+v", channelID, err)
+	}
+
 }
 
 // addChannel inserts the channel into the notification list with the given
 // level.
-func (n *notifications) removeChannel(channelID *id.ID) error {
-	return n.nm.Delete(channelID)
+func (n *notifications) removeChannel(channelID *id.ID) {
+	err := n.nm.Delete(channelID)
+	if err != nil {
+		jww.WARN.Printf("[CH] Failed to remove channel (%s) from notifications manager: %+v", channelID, err)
+	}
 }
 
 // GetNotificationLevel returns the notification level for the given channel.
@@ -138,7 +153,12 @@ func (n *notifications) SetMobileNotificationsLevel(channelID *id.ID,
 			"muted together")
 	}
 
-	return n.nm.Set(channelID, notificationGroup, level.Marshal(), status)
+	err := n.nm.Set(channelID, notificationGroup, level.Marshal(), status)
+	if err != nil {
+		jww.WARN.Printf("[CH] Failed to add channel (%s) to notifications manager: %+v", channelID, err)
+	}
+
+	return nil
 }
 
 // notificationsUpdateCB gets the list of all services and assembles a list of
@@ -233,18 +253,38 @@ func (n *notifications) processesNotificationUpdates(group clientNotif.Group,
 			continue
 		}
 
+		asymmetricList := notificationLevelAllowLists[asymmetric][level]
+		symmetricList := notificationLevelAllowLists[symmetric][level]
+
+		// Append all message types for each extension
+		for _, ext := range n.ext {
+			asymmetricExt, symmetricExt := ext.GetNotificationTags(channelID, level)
+			for mt := range asymmetricExt.AllowWithTags {
+				asymmetricList.AllowWithTags[mt] = struct{}{}
+			}
+			for mt := range asymmetricExt.AllowWithoutTags {
+				asymmetricList.AllowWithTags[mt] = struct{}{}
+			}
+			for mt := range symmetricExt.AllowWithTags {
+				symmetricList.AllowWithTags[mt] = struct{}{}
+			}
+			for mt := range symmetricExt.AllowWithoutTags {
+				symmetricList.AllowWithTags[mt] = struct{}{}
+			}
+		}
+
 		nfs = append(nfs,
 			NotificationFilter{
 				Identifier: ch.broadcast.AsymmetricIdentifier(),
 				ChannelID:  channelID,
 				Tags:       tags,
-				AllowLists: notificationLevelAllowLists[asymmetric][level],
+				AllowLists: asymmetricList,
 			},
 			NotificationFilter{
 				Identifier: ch.broadcast.SymmetricIdentifier(),
 				ChannelID:  channelID,
 				Tags:       tags,
-				AllowLists: notificationLevelAllowLists[symmetric][level],
+				AllowLists: symmetricList,
 			})
 	}
 
@@ -271,7 +311,9 @@ type NotificationReport struct {
 func GetNotificationReportsForMe(nfs []NotificationFilter,
 	notificationData []*primNotif.Data) []NotificationReport {
 
-	var nr []NotificationReport
+	// Initialize list to an empty slice instead of a nil initializer so the
+	// json.Marshal outputs an empty slice `[]` instead of `null`.
+	nr := make([]NotificationReport, 0)
 
 	for _, data := range notificationData {
 		for _, nf := range nfs {
@@ -392,22 +434,22 @@ const (
 var notificationLevelAllowLists = map[notificationSourceType]map[NotificationLevel]AllowLists{
 	symmetric: {
 		NotifyPing: {
-			map[MessageType]struct{}{Text: {}, FileTransfer: {}},
-			map[MessageType]struct{}{},
+			AllowWithTags:    map[MessageType]struct{}{Text: {}},
+			AllowWithoutTags: map[MessageType]struct{}{},
 		},
 		NotifyAll: {
-			map[MessageType]struct{}{},
-			map[MessageType]struct{}{Text: {}, FileTransfer: {}},
+			AllowWithTags:    map[MessageType]struct{}{},
+			AllowWithoutTags: map[MessageType]struct{}{Text: {}},
 		},
 	},
 	asymmetric: {
 		NotifyPing: {
-			map[MessageType]struct{}{AdminText: {}},
-			map[MessageType]struct{}{Pinned: {}},
+			AllowWithTags:    map[MessageType]struct{}{AdminText: {}},
+			AllowWithoutTags: map[MessageType]struct{}{Pinned: {}},
 		},
 		NotifyAll: {
-			map[MessageType]struct{}{},
-			map[MessageType]struct{}{AdminText: {}, Pinned: {}},
+			AllowWithTags:    map[MessageType]struct{}{},
+			AllowWithoutTags: map[MessageType]struct{}{AdminText: {}, Pinned: {}},
 		},
 	},
 }

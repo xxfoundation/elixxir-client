@@ -148,28 +148,7 @@ func (r *internalKV) Delete(key string) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	if updater, exists := r.keyUpdateListeners[key]; exists && updater.local {
-		var old []byte
-		var existed bool
-		op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
-			file := files[key]
-			old, existed = file.Get()
-			file.Delete()
-			return file.Flush()
-		}
-
-		if err := r.kv.Transaction(op, key); err != nil {
-			return err
-		}
-
-		if existed {
-			go updater.cb(old, nil, versioned.Deleted)
-		}
-
-		return nil
-	} else {
-		return r.kv.Delete(key)
-	}
+	return r.kv.Delete(key)
 }
 
 // SetInterface implements [ekv.KeyValue.SetInterface]. This is a LOCAL ONLY
@@ -208,29 +187,7 @@ func (r *internalKV) SetBytes(key string, data []byte) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	if updater, exists := r.keyUpdateListeners[key]; exists && updater.local {
-		var old []byte
-		var existed bool
-		op := func(files map[string]ekv.Operable, _ ekv.Extender) error {
-			file := files[key]
-			old, existed = file.Get()
-			file.Set(data)
-			return file.Flush()
-		}
-
-		if err := r.kv.Transaction(op, key); err != nil {
-			return err
-		}
-
-		operation := versioned.Created
-		if existed {
-			operation = versioned.Updated
-		}
-		go updater.cb(old, data, operation)
-		return nil
-	} else {
-		return r.kv.SetBytes(key, data)
-	}
+	return r.kv.SetBytes(key, data)
 }
 
 // GetBytes implements [ekv.KeyValue.GetBytes]
@@ -320,7 +277,7 @@ func (r *internalKV) MapTransactionFromRemote(mapName string,
 
 			// get the data about the element
 			elementName := keysToName[elementKey]
-			file := files[elementName]
+			file := files[elementKey]
 			old, exists := file.Get()
 
 			element := elementEdit{OldElement: old}
@@ -485,7 +442,18 @@ func (r *internalKV) SetRemote(key string, value []byte) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	return r.txLog.Write(key, value)
+	old, existed, err := r.txLog.Write(key, value)
+	if err != nil {
+		return err
+	}
+	if updater, exists := r.keyUpdateListeners[key]; exists && updater.local {
+		keyOperation := versioned.Updated
+		if !existed {
+			keyOperation = versioned.Deleted
+		}
+		go updater.cb(old, value, keyOperation)
+	}
+	return nil
 }
 
 // DeleteRemote will write a mutate to the remote with an instruction to delete
@@ -496,7 +464,14 @@ func (r *internalKV) DeleteRemote(key string) error {
 	if err := versioned.IsValidKey(key); err != nil {
 		return err
 	}
-	return r.txLog.Delete(key)
+	old, _, err := r.txLog.Delete(key)
+	if err != nil {
+		return err
+	}
+	if updater, exists := r.keyUpdateListeners[key]; exists && updater.local {
+		go updater.cb(old, nil, versioned.Deleted)
+	}
+	return err
 }
 
 // setIsRemoteKV sets the kvIsRemoteVal for isRemoteKey, making isRemote turn

@@ -8,11 +8,12 @@
 package dm
 
 import (
+	"encoding/binary"
 	"strconv"
 )
 
 // MessageType is the type of message being sent to a channel.
-type MessageType uint32
+type MessageType uint16
 
 const (
 	// TextType is the default type for a message. It denotes that the
@@ -52,3 +53,16 @@ func (mt MessageType) String() string {
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}
 }
+
+// Marshal returns the byte representation of the [MessageType].
+func (mt MessageType) Marshal() [2]byte {
+	var b [2]byte
+	binary.LittleEndian.PutUint16(b[:], uint16(mt))
+	return b
+}
+
+// UnmarshalMessageType returns the MessageType from its byte representation.
+func UnmarshalMessageType(b [2]byte) MessageType {
+	return MessageType(binary.LittleEndian.Uint16(b[:]))
+}
+

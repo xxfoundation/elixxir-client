@@ -9,18 +9,21 @@ package channels
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/json"
 	"math/rand"
 	"reflect"
 	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/crypto/sih"
 	primNotif "gitlab.com/elixxir/primitives/notifications"
@@ -35,10 +38,12 @@ func Test_newNotifications(t *testing.T) {
 		pubKey:        makeEd25519PubKey(rand.New(rand.NewSource(1219)), t),
 		cb:            nil,
 		channelGetter: newMockCG(0, t),
+		ext:           []ExtensionMessageHandler{newMockNotifExtension()},
 		nm:            nm,
 	}
 
-	n := newNotifications(expected.pubKey, nil, newMockCG(0, t), nm)
+	n := newNotifications(
+		expected.pubKey, nil, newMockCG(0, t), expected.ext, nm)
 
 	if !reflect.DeepEqual(expected, n) {
 		t.Errorf("New notifications does not match expected."+
@@ -50,7 +55,7 @@ func Test_newNotifications(t *testing.T) {
 // level NotifyNone.
 func Test_notifications_addChannel(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	expected := clientNotif.Group{
 		*id.NewIdFromString("channel1", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
@@ -59,10 +64,7 @@ func Test_notifications_addChannel(t *testing.T) {
 	}
 
 	for chanID := range expected {
-		err := n.addChannel(&chanID)
-		if err != nil {
-			t.Errorf("Failed to add channel %s: %+v", chanID, err)
-		}
+		n.addChannel(&chanID)
 	}
 	if !reflect.DeepEqual(expected, nm.channels[notificationGroup]) {
 		t.Errorf("Notifications did not add expected channels."+
@@ -75,7 +77,7 @@ func Test_notifications_addChannel(t *testing.T) {
 // notification manager.
 func Test_notifications_removeChannel(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	channels := map[id.ID]NotificationLevel{
 		*id.NewIdFromString("NotifyNone", id.User, t): NotifyNone,
@@ -84,16 +86,11 @@ func Test_notifications_removeChannel(t *testing.T) {
 	}
 
 	for chanID := range channels {
-		if err := n.addChannel(&chanID); err != nil {
-			t.Errorf("Failed to add channel %s: %+v", chanID, err)
-		}
+		n.addChannel(&chanID)
 	}
 
 	for chanID := range channels {
-		err := n.removeChannel(&chanID)
-		if err != nil {
-			t.Errorf("Errored removing channel %s: %+v", &chanID, err)
-		}
+		n.removeChannel(&chanID)
 
 		if ni, exists := nm.channels[notificationGroup][chanID]; exists {
 			t.Errorf("Channel %s with level %s not deleted",
@@ -102,11 +99,12 @@ func Test_notifications_removeChannel(t *testing.T) {
 	}
 }
 
-// Tests that notifications.GetNotificationLevel returns the correct level for
-// all added IDs.
-func TestNotifications_GetNotificationLevel(t *testing.T) {
+// Tests that notifications.GetNotificationLevel returns the correct
+// NotificationLevel and that notifications.GetNotificationStatus return the
+// correct notifications.NotificationState for all added IDs.
+func TestNotifications_GetNotificationLevel_GetNotificationStatus(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	expected := map[id.ID]NotificationState{
 		*id.NewIdFromString("channel1", id.User, t): {nil, NotifyNone, clientNotif.Mute},
@@ -134,7 +132,7 @@ func TestNotifications_GetNotificationLevel(t *testing.T) {
 
 		s, err := n.GetNotificationStatus(&chanID)
 		if err != nil {
-			t.Errorf("Failed to get notification level for %s: %+v", &chanID, err)
+			t.Errorf("Failed to get notification status for %s: %+v", &chanID, err)
 		}
 
 		if state.Status != s {
@@ -150,11 +148,33 @@ func TestNotifications_GetNotificationLevel(t *testing.T) {
 	}
 }
 
+// Error path: Tests that notifications.GetNotificationLevel returns an error
+// when no channel exists.
+func TestNotifications_GetNotificationLevel_NoChannelError(t *testing.T) {
+	n := notifications{nil, nil, nil, nil, newMockNM()}
+	_, err := n.GetNotificationLevel(id.NewIdFromString("chan", id.User, t))
+	if err == nil {
+		t.Errorf("Did not get error when getting level for a channel that " +
+			"does not exist.")
+	}
+}
+
+// Error path: Tests that notifications.GetNotificationStatus returns an error
+// when no channel exists.
+func TestNotifications_GetNotificationStatus_NoChannelError(t *testing.T) {
+	n := notifications{nil, nil, nil, nil, newMockNM()}
+	_, err := n.GetNotificationStatus(id.NewIdFromString("chan", id.User, t))
+	if err == nil {
+		t.Errorf("Did not get error when getting state for a channel that " +
+			"does not exist.")
+	}
+}
+
 // Tests that notifications.SetMobileNotificationsLevel sets the notification
 // level and status correctly.
 func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	nm := newMockNM()
-	n := notifications{nil, nil, nil, nm}
+	n := notifications{nil, nil, nil, nil, nm}
 
 	expected := clientNotif.Group{
 		*id.NewIdFromString("channel1", id.User, t): {NotifyNone.Marshal(), clientNotif.Mute},
@@ -163,15 +183,13 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	}
 
 	for chanID := range expected {
-		if err := n.addChannel(&chanID); err != nil {
-			t.Errorf("Failed to add channel %s: %+v", chanID, err)
-		}
+		n.addChannel(&chanID)
 	}
 
 	for chanID, ni := range expected {
 		err := n.SetMobileNotificationsLevel(&chanID, UnmarshalNotificationLevel(ni.Metadata), ni.Status)
 		if err != nil {
-			t.Errorf("Failed to add channel %s: %+v", chanID, err)
+			t.Errorf("Failed to add channel %s: %+v", &chanID, err)
 		}
 	}
 
@@ -182,15 +200,38 @@ func Test_notifications_SetMobileNotificationsLevel(t *testing.T) {
 	}
 }
 
+// Error Path: Tests that notifications.SetMobileNotificationsLevel returns an
+// error when the level is not NotifyNone and the status notifications.Mute at
+// the same time.
+func Test_notifications_SetMobileNotificationsLevel_StatusStateError(t *testing.T) {
+	nm := newMockNM()
+	n := notifications{nil, nil, nil, nil, nm}
+
+	expected := clientNotif.Group{
+		*id.NewIdFromString("channel1", id.User, t): {NotifyNone.Marshal(), clientNotif.WhenOpen},
+		*id.NewIdFromString("channel2", id.User, t): {NotifyNone.Marshal(), clientNotif.Push},
+		*id.NewIdFromString("channel3", id.User, t): {NotifyPing.Marshal(), clientNotif.Mute},
+		*id.NewIdFromString("channel4", id.User, t): {NotifyAll.Marshal(), clientNotif.Mute},
+	}
+	for chanID, ni := range expected {
+		l := UnmarshalNotificationLevel(ni.Metadata)
+		err := n.SetMobileNotificationsLevel(&chanID, l, ni.Status)
+		if err == nil {
+			t.Errorf("Did not receive an error for an incompatible level (%s) "+
+				"and state (%s)", l, ni.Status)
+		}
+	}
+}
+
 // Tests that notifications.getChannelStatuses properly processes the changed
 // and edited channels into the NotificationState list.
 func Test_notifications_getChannelStatuses(t *testing.T) {
 	rng := rand.New(rand.NewSource(2323))
-	cg, nm := newMockCG(5, t), newMockNM()
-	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nm}
+	cg, nm := newMockCG(12, t), newMockNM()
+	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nil, nm}
 
 	nim := make(clientNotif.Group, len(cg.channels))
-	var created []*id.ID
+	var created, edits []*id.ID
 	var expectedChanged []NotificationState
 	levels := []NotificationLevel{NotifyNone, NotifyPing, NotifyAll}
 	for chanId := range cg.channels {
@@ -204,7 +245,11 @@ func Test_notifications_getChannelStatuses(t *testing.T) {
 			Metadata: level.Marshal(),
 			Status:   state,
 		}
-		created = append(created, channelID)
+		if rng.Intn(2) == 0 {
+			edits = append(edits, channelID)
+		} else {
+			created = append(created, channelID)
+		}
 		expectedChanged = append(expectedChanged, NotificationState{
 			ChannelID: channelID,
 			Level:     level,
@@ -226,7 +271,16 @@ func Test_notifications_getChannelStatuses(t *testing.T) {
 		}
 	}
 
-	changed := n.getChannelStatuses(nim, created, nil)
+	changed := n.getChannelStatuses(nim, created, edits)
+
+	sort.SliceStable(expectedChanged, func(i, j int) bool {
+		return bytes.Compare(expectedChanged[i].ChannelID[:],
+			expectedChanged[j].ChannelID[:]) == -1
+	})
+	sort.SliceStable(changed, func(i, j int) bool {
+		return bytes.Compare(changed[i].ChannelID[:],
+			changed[j].ChannelID[:]) == -1
+	})
 
 	if !reflect.DeepEqual(expectedChanged, changed) {
 		t.Errorf("Unexpected changed list."+
@@ -239,7 +293,8 @@ func Test_notifications_getChannelStatuses(t *testing.T) {
 func Test_notifications_processesNotificationUpdates(t *testing.T) {
 	rng := rand.New(rand.NewSource(2323))
 	cg, nm := newMockCG(5, t), newMockNM()
-	n := notifications{makeEd25519PubKey(rng, t), nil, cg, nm}
+	ext := []ExtensionMessageHandler{newMockNotifExtension()}
+	n := notifications{makeEd25519PubKey(rng, t), nil, cg, ext, nm}
 
 	nim := make(clientNotif.Group, len(cg.channels))
 	created := map[id.ID]struct{}{}
@@ -438,12 +493,6 @@ func TestNotificationReport_Slice_JSON(t *testing.T) {
 		}
 	}
 
-	// data, err := json.MarshalIndent(nrs, "//  ", "  ")
-	// if err != nil {
-	// 	t.Fatalf("Failed to JSON marshal %T: %+v", nrs, err)
-	// }
-	// fmt.Printf("\n\n//  %s\n\n", data)
-
 	data, err := json.Marshal(nrs)
 	if err != nil {
 		t.Fatalf("Failed to JSON marshal %T: %+v", nrs, err)
@@ -509,12 +558,6 @@ func TestNotificationFilter_Slice_JSON(t *testing.T) {
 		}
 	}
 
-	// data, err := json.MarshalIndent(nfs, "//  ", "  ")
-	// if err != nil {
-	// 	t.Fatalf("Failed to JSON marshal %T: %+v", nfs, err)
-	// }
-	// fmt.Printf("\n\n//  %s\n\n", data)
-
 	data, err := json.Marshal(nfs)
 	if err != nil {
 		t.Fatalf("Failed to JSON marshal %T: %+v", nfs, err)
@@ -535,7 +578,7 @@ func TestNotificationFilter_Slice_JSON(t *testing.T) {
 // NotificationLevel                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Constancy test of NotificationLevel.String.
+// Consistency test of NotificationLevel.String.
 func TestNotificationLevel_String(t *testing.T) {
 	tests := map[NotificationLevel]string{
 		NotifyNone: "none",
@@ -718,3 +761,36 @@ func (m *mockChannel) Stop() { panic("implement me") }
 
 func (m *mockChannel) AsymmetricIdentifier() []byte { return m.asymIdentifier }
 func (m *mockChannel) SymmetricIdentifier() []byte  { return m.symIdentifier }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock ExtensionMessageHandler                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+// Tests that mockNotifExtension adheres to the ExtensionMessageHandler interface.
+var _ ExtensionMessageHandler = (*mockNotifExtension)(nil)
+
+// mockNotifExtension is a mock interface of ExtensionMessageHandler for
+// testing.
+type mockNotifExtension struct{}
+
+func newMockNotifExtension() *mockNotifExtension                        { return &mockNotifExtension{} }
+func (m *mockNotifExtension) GetType() MessageType                      { panic("implement me") }
+func (m *mockNotifExtension) GetProperties() (string, bool, bool, bool) { panic("implement me") }
+func (m *mockNotifExtension) Handle(*id.ID, message.ID, MessageType, string,
+	[]byte, []byte, ed25519.PublicKey, uint32, uint8, time.Time, time.Time,
+	time.Duration, id.Round, rounds.Round, SentStatus, bool, bool) uint64 {
+	panic("implement me")
+}
+
+func (m *mockNotifExtension) GetNotificationTags(
+	_ *id.ID, level NotificationLevel) (asymmetric, symmetric AllowLists) {
+	switch level {
+	case NotifyPing:
+		return AllowLists{AllowWithTags: map[MessageType]struct{}{984: {}}},
+			AllowLists{AllowWithTags: map[MessageType]struct{}{53345: {}}}
+	case NotifyAll:
+		return AllowLists{AllowWithoutTags: map[MessageType]struct{}{234: {}}},
+			AllowLists{AllowWithoutTags: map[MessageType]struct{}{53345: {}}}
+	}
+	return AllowLists{}, AllowLists{}
+}

@@ -11,18 +11,21 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"strings"
-	sync "sync"
+	"sync"
 	"time"
 
+	"gitlab.com/elixxir/primitives/nicknames"
+
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/crypto/codename"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 const (
@@ -38,8 +41,10 @@ type dmClient struct {
 	myToken         uint32
 	receiver        EventModel
 
-	st  SendTracker
-	nm  NickNameManager
+	st SendTracker
+	nm NickNameManager
+	ps *partnerStore
+	*notifications
 	net cMixClient
 	rng *fastRNG.StreamGenerator
 }
@@ -53,37 +58,65 @@ type dmClient struct {
 // See send.go for implementation of the Sender interface.
 func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
-	nickManager NickNameManager,
-	net cMixClient,
-	rng *fastRNG.StreamGenerator) Client {
+	nickManager NickNameManager, nm NotificationsManager,
+	net cMixClient, kv versioned.KV,
+	rng *fastRNG.StreamGenerator,
+	nuCB NotificationUpdate) (Client, error) {
+	return newDmClient(
+		myID, receiver, tracker, nickManager, nm, net, kv, rng, nuCB)
+}
+
+func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
+	tracker SendTracker,
+	nickManager NickNameManager, nm NotificationsManager,
+	net cMixClient, kv versioned.KV,
+	rng *fastRNG.StreamGenerator,
+	nuCB NotificationUpdate) (*dmClient, error) {
+
+	us, err := newPartnerStore(kv)
+	if err != nil {
+		return nil, err
+	}
 
 	privateEdwardsKey := myID.Privkey
 	myIDToken := myID.GetDMToken()
 
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(privateEdwardsKey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)
 	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
+	n, err :=
+		newNotifications(receptionID, myID.PubKey, myID.Privkey, nuCB, us, nm)
+	if err != nil {
+		return nil,
+			errors.Wrap(err, "failed to initialize DM notification manager")
+	}
+
 	dmc := &dmClient{
 		me:              myID,
-		receptionID:     receptionID,
 		selfReceptionID: selfReceptionID,
+		receptionID:     receptionID,
 		privateKey:      privateKey,
 		publicKey:       publicKey,
 		myToken:         myIDToken,
+		receiver:        receiver,
 		st:              tracker,
 		nm:              nickManager,
+		ps:              us,
+		notifications:   n,
 		net:             net,
 		rng:             rng,
-		receiver:        receiver,
 	}
 
 	// Register the listener
-	dmc.register(receiver, dmc.st)
+	err = dmc.register(receiver, dmc.st)
+	if err != nil {
+		jww.FATAL.Panicf("[DM] Failed to register listener: %+v", err)
+	}
 
-	return dmc
+	return dmc, nil
 }
 
 // Register registers a listener for direct messages.
@@ -142,43 +175,46 @@ func (dc *dmClient) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (dc *dmClient) SetNickname(nick string) {
-	dc.nm.SetNickname(nick)
+func (dc *dmClient) SetNickname(nick string) error {
+	return dc.nm.SetNickname(nick)
 }
 
-// IsBlocked returns if the given sender is blocked
-// Blocking is controlled by the Receiver / EventModel
-func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
-	conversation := dc.receiver.GetConversation(senderPubKey)
-	if conversation != nil {
-		return conversation.BlockedTimestamp != nil
+// BlockPartner prevents receiving messages and notifications from the partner.
+func (dc *dmClient) BlockPartner(partnerPubKey ed25519.PublicKey) {
+	dc.ps.set(partnerPubKey, statusBlocked)
+}
+
+// UnblockPartner unblocks a blocked partner to allow DM messages.
+func (dc *dmClient) UnblockPartner(partnerPubKey ed25519.PublicKey) {
+	dc.ps.set(partnerPubKey, defaultStatus)
+}
+
+// IsBlocked indicates if the given partner is blocked.
+func (dc *dmClient) IsBlocked(partnerPubKey ed25519.PublicKey) bool {
+	user, exists := dc.ps.get(partnerPubKey)
+	if !exists {
+		return false
 	}
-	return false
+
+	return user.Status == statusBlocked
 }
 
-// GetBlockedSenders returns all senders who are blocked by this user.
-// Blocking is controlled by the Receiver / EventModel
-func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
-	allConversations := dc.receiver.GetConversations()
-	blocked := make([]ed25519.PublicKey, 0)
-	for i := range allConversations {
-		convo := allConversations[i]
-		if convo.BlockedTimestamp != nil {
-			pub := convo.Pubkey
-			blocked = append(blocked, ed25519.PublicKey(pub))
+// GetBlockedPartners returns all partners who are blocked by this user.
+func (dc *dmClient) GetBlockedPartners() []ed25519.PublicKey {
+	var blockedPartners []ed25519.PublicKey
+	init := func(n int) {
+		blockedPartners = make([]ed25519.PublicKey, 0, n)
+	}
+
+	add := func(user *dmPartner) {
+		if user.Status == statusBlocked {
+			blockedPartners = append(blockedPartners, user.PublicKey)
 		}
 	}
-	return blocked
-}
 
-// BlockSender blocks DMs from the sender with the passed in public key.
-func (dc *dmClient) BlockSender(senderPubKey ed25519.PublicKey) {
-	dc.receiver.BlockSender(senderPubKey)
-}
+	dc.ps.iterate(init, add)
 
-// UnblockSender unblocks DMs from the sender with the passed in public key.
-func (dc *dmClient) UnblockSender(senderPubKey ed25519.PublicKey) {
-	dc.receiver.UnblockSender(senderPubKey)
+	return blockedPartners
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
@@ -206,7 +242,10 @@ func (nm *nickMgr) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (nm *nickMgr) SetNickname(nick string) {
+func (nm *nickMgr) SetNickname(nick string) error {
+	if err := nicknames.IsValid(nick); err != nil {
+		return err
+	}
 	nm.Lock()
 	defer nm.Unlock()
 	nm.nick = strings.Clone(nick)
@@ -215,5 +254,5 @@ func (nm *nickMgr) SetNickname(nick string) {
 		Timestamp: time.Now(),
 		Data:      []byte(nick),
 	}
-	nm.ekv.Set(nm.storeKey, nickObj)
+	return nm.ekv.Set(nm.storeKey, nickObj)
 }

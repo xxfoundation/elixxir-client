@@ -48,11 +48,6 @@ type KV interface {
 	Delete(key string, version uint64) error
 
 	// Set upserts new data into the storage
-	// When calling this, you are responsible for prefixing the
-	// key with the correct type optionally unique id! Call
-	// MakeKeyWithPrefix() to do so.
-	// The [Object] should contain the versioning if you are
-	// maintaining such a functionality.
 	Set(key string, object *Object) error
 
 	// StoreMapElement stores a versioned map element into the KV. This relies
@@ -167,6 +162,8 @@ func (ko KeyOperation) String() string {
 		return "Updated"
 	case Deleted:
 		return "Deleted"
+	case Loaded:
+		return "Loaded"
 	default:
 		return "Unknown Key Operation: " + strconv.Itoa(int(ko))
 	}

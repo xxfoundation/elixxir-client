@@ -226,7 +226,8 @@ func (n *notifications) processesNotificationUpdates(group clientNotif.Group,
 	changed := make([]NotificationState, 0, len(created)+len(edits))
 
 	nfs := make([]NotificationFilter, 0, len(group))
-	tags := makeUserPingTags(n.pubKey)
+	tags := makeUserPingTags(map[PingType][]ed25519.PublicKey{
+		ReplyPing: {n.pubKey}, MentionPing: {n.pubKey}})
 	for chanID, notif := range group {
 		channelID := chanID.DeepCopy()
 

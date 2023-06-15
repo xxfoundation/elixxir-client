@@ -1158,22 +1158,26 @@ func ValidForever() int {
 //     to the user should be tracked while all actions should not be.
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and [GetDefaultCMixParams] will be used internally.
-//   - pingsJSON - JSON of a slice of public keys of users that should receive
-//     mobile notifications for the message.
+//   - pingsMapJSON - JSON of a map of slices of [ed25519.PublicKey] of users
+//     that should receive mobile notifications for the message. Each slice keys
+//     on a [channels.PingType] that describes the type of notification it is.
 //
-// Example pingsJSON:
-//
-//	[
-//	  "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
-//	  "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
-//	  "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
-//	]
+// Example pingsMapJSON:
+//  {
+//    "usrMention": [
+//      "CLdKxbe8D2WVOpx1mT63TZ5CP/nesmxHLT5DUUalpe0=",
+//      "S2c6NXjNqgR11SCOaiQUughWaLpWBKNufPt6cbTVHMA="
+//    ],
+//    "usrReply": [
+//      "aaMzSeA6Cu2Aix2MlOwzrAI+NnpKshzvZRT02PZPVec="
+//    ]
+//  }
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
 func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 	message []byte, validUntilMS int64, tracked bool, cmixParamsJSON []byte,
-	pingsJSON []byte) ([]byte, error) {
+	pingsMapJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	channelID, params, err :=
@@ -1190,14 +1194,14 @@ func (cm *ChannelsManager) SendGeneric(channelIdBytes []byte, messageType int,
 		lease = channels.ValidForever
 	}
 
-	pings, err := unmarshalPingsJson(pingsJSON)
+	pingsMap, err := unmarshalPingsMapJson(pingsMapJSON)
 	if err != nil {
 		return nil, err
 	}
 
 	// Send message
 	messageID, rnd, ephID, err := cm.api.SendGeneric(
-		channelID, msgType, message, lease, tracked, params.CMIX, pings)
+		channelID, msgType, message, lease, tracked, params.CMIX, pingsMap)
 	if err != nil {
 		return nil, err
 	}
@@ -3409,4 +3413,12 @@ func unmarshalPingsJson(b []byte) ([]ed25519.PublicKey, error) {
 		return pings, json.Unmarshal(b, &pings)
 	}
 	return pings, nil
+}
+
+func unmarshalPingsMapJson(b []byte) (map[channels.PingType][]ed25519.PublicKey, error) {
+	var pingsMap map[channels.PingType][]ed25519.PublicKey
+	if b != nil && len(b) > 0 {
+		return pingsMap, json.Unmarshal(b, &pingsMap)
+	}
+	return pingsMap, nil
 }

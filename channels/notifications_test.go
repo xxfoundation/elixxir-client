@@ -324,13 +324,15 @@ func Test_notifications_processesNotificationUpdates(t *testing.T) {
 				NotificationFilter{
 					Identifier: ch.broadcast.AsymmetricIdentifier(),
 					ChannelID:  channelID,
-					Tags:       makeUserPingTags(n.pubKey),
+					Tags: makeUserPingTags(map[PingType][]ed25519.PublicKey{
+						ReplyPing: {n.pubKey}, MentionPing: {n.pubKey}}),
 					AllowLists: notificationLevelAllowLists[asymmetric][level],
 				},
 				NotificationFilter{
 					Identifier: ch.broadcast.SymmetricIdentifier(),
 					ChannelID:  channelID,
-					Tags:       makeUserPingTags(n.pubKey),
+					Tags: makeUserPingTags(map[PingType][]ed25519.PublicKey{
+						ReplyPing: {n.pubKey}, MentionPing: {n.pubKey}}),
 					AllowLists: notificationLevelAllowLists[symmetric][level],
 				})
 		}
@@ -386,6 +388,7 @@ func TestGetNotificationReportsForMe(t *testing.T) {
 	types := []MessageType{Text, AdminText, Reaction, Delete, Pinned, Mute,
 		AdminReplay, FileTransfer}
 	levels := []NotificationLevel{NotifyPing, NotifyAll}
+	pingTypes := []PingType{ReplyPing, MentionPing}
 
 	var expected []NotificationReport
 	var notifData []*primNotif.Data
@@ -400,7 +403,8 @@ func TestGetNotificationReportsForMe(t *testing.T) {
 					identifier := append(chanID.Marshal(), []byte("identifier")...)
 					tags := make([]string, 1+rng.Intn(4))
 					for j := range tags {
-						tags[j] = makeUserPingTag(makeEd25519PubKey(rng, t))
+						tags[j] = makeUserPingTag(makeEd25519PubKey(rng, t),
+							pingTypes[rng.Intn(len(pingTypes))])
 					}
 
 					mtByte := mt.Marshal()
@@ -520,7 +524,8 @@ func TestNotificationFilter_JSON(t *testing.T) {
 	nf := NotificationFilter{
 		Identifier: append(chanID.Marshal(), []byte("Identifier")...),
 		ChannelID:  chanID,
-		Tags:       makeUserPingTags(makeEd25519PubKey(rng, t)),
+		Tags:       makeUserPingTags(map[PingType][]ed25519.PublicKey{
+			MentionPing: {makeEd25519PubKey(rng, t)}}),
 		AllowLists: notificationLevelAllowLists[symmetric][NotifyPing],
 	}
 
@@ -553,7 +558,8 @@ func TestNotificationFilter_Slice_JSON(t *testing.T) {
 		nfs[i] = NotificationFilter{
 			Identifier: append(chanID.Marshal(), []byte("Identifier")...),
 			ChannelID:  chanID,
-			Tags:       makeUserPingTags(makeEd25519PubKey(rng, t)),
+			Tags:       makeUserPingTags(map[PingType][]ed25519.PublicKey{
+				MentionPing: {makeEd25519PubKey(rng, t)}}),
 			AllowLists: notificationLevelAllowLists[sourceTypes[i%len(sourceTypes)]][levels[i%len(levels)]],
 		}
 	}

@@ -343,8 +343,11 @@ func (w *Wrapper) Send(channelID *id.ID, fileLink []byte, fileName,
 			errors.Wrap(err, "error JSON marshalling file info")
 	}
 
+	pingMap := map[channels.PingType][]ed25519.PublicKey{
+		channels.MentionPing: pings}
+
 	return w.ch.SendGeneric(channelID, channels.FileTransfer,
-		fileInfo, validUntil, true, params.CMIX, pings)
+		fileInfo, validUntil, true, params.CMIX, pingMap)
 }
 
 // RegisterSentProgressCallback registers the callback to the given file

@@ -321,19 +321,20 @@ func Test_notifications_processesNotificationUpdates(t *testing.T) {
 		})
 
 		if level != NotifyNone {
+			tags := makeUserPingTags(map[PingType][]ed25519.PublicKey{
+				ReplyPing: {n.pubKey}, MentionPing: {n.pubKey}})
+			sort.Strings(tags)
 			ex = append(ex,
 				NotificationFilter{
 					Identifier: ch.broadcast.AsymmetricIdentifier(),
 					ChannelID:  channelID,
-					Tags: makeUserPingTags(map[PingType][]ed25519.PublicKey{
-						ReplyPing: {n.pubKey}, MentionPing: {n.pubKey}}),
+					Tags:       tags,
 					AllowLists: notificationLevelAllowLists[asymmetric][level],
 				},
 				NotificationFilter{
 					Identifier: ch.broadcast.SymmetricIdentifier(),
 					ChannelID:  channelID,
-					Tags: makeUserPingTags(map[PingType][]ed25519.PublicKey{
-						ReplyPing: {n.pubKey}, MentionPing: {n.pubKey}}),
+					Tags:       tags,
 					AllowLists: notificationLevelAllowLists[symmetric][level],
 				})
 		}
@@ -361,6 +362,10 @@ func Test_notifications_processesNotificationUpdates(t *testing.T) {
 	sort.Slice(nf, func(i, j int) bool {
 		return bytes.Compare(nf[i].Identifier, nf[j].Identifier) == -1
 	})
+
+	for i := range nf {
+		sort.Strings(nf[i].Tags)
+	}
 
 	if !reflect.DeepEqual(ex, nf) {
 		t.Errorf("Unexpected filter list."+

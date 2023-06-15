@@ -12,7 +12,6 @@ import (
 	"crypto/ed25519"
 	"crypto/hmac"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -810,35 +809,4 @@ func makeChaDebugTag(
 
 	tripCode := base64.RawStdEncoding.EncodeToString(h.Sum(nil))[:12]
 	return baseTag + "-" + tripCode
-}
-
-// PingType describes a user ping. It is used to describe more information about
-// the ping to the user.
-type PingType string
-
-const (
-	ReplyPing   PingType = "usrReply"
-	MentionPing PingType = "usrMention"
-)
-
-func makeUserPingTags(pings map[PingType][]ed25519.PublicKey) []string {
-	if pings == nil || len(pings) == 0 {
-		return nil
-	}
-	var tags []string
-	for pt, users := range pings {
-		s := make([]string, len(users))
-		for i := range users {
-			s[i] = makeUserPingTag(users[i], pt)
-		}
-		tags = append(tags, s...)
-	}
-
-	return tags
-}
-
-// makeUserPingTag creates a tag from a user's public key and ping type to be
-// used in a tag list in a cmix.Service.
-func makeUserPingTag(user ed25519.PublicKey, pt PingType) string {
-	return hex.EncodeToString(user) + "-" + string(pt)
 }

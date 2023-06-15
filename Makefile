@@ -6,7 +6,7 @@ version:
 	mv version_vars.go xxdk/version_vars.go
 
 clean:
-	go mod tidy
+	rm -rf vendor/
 	go mod vendor -e
 
 update:

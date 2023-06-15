@@ -2029,10 +2029,23 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Example return:
 //
-//	[
-//	  {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":1},
-//	  {"channel":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD","type":2}
-//	]
+//  [
+//    {
+//      "channel": "jOgZopfYj4zrE/AHtKmkf+QEWnfUKv9KfIy/+Bsg0PkD",
+//      "type": 1,
+//      "pingType": "usrMention"
+//    },
+//    {
+//      "channel": "GKmfN/LKXQYM6++TC6DeZYqoxvSUPkh5UAHWODqh9zkD",
+//      "type": 2,
+//      "pingType": "usrReply"
+//    },
+//    {
+//      "channel": "M+28xtj0coHrhDHfojGNcyb2c4maO7ZuheB6egS0Pc4D",
+//      "type": 1,
+//      "pingType": ""
+//    }
+//  ]
 func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter

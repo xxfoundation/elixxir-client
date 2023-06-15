@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -421,8 +422,13 @@ func TestGetNotificationReportsForMe(t *testing.T) {
 
 					if includeChannel {
 						var filterTags []string
+						var pt PingType
 						if includeTags {
 							filterTags = []string{tags[rng.Intn(len(tags))]}
+							pt, err = pingTypeFromTag(filterTags[0])
+							if err != nil {
+								t.Errorf("Failed to get Ping Type: %+v", err)
+							}
 						}
 						nfs = append(nfs, NotificationFilter{
 							Identifier: identifier,
@@ -440,8 +446,9 @@ func TestGetNotificationReportsForMe(t *testing.T) {
 						}
 
 						expected = append(expected, NotificationReport{
-							Channel: chanID,
-							Type:    mt,
+							Channel:  chanID,
+							Type:     mt,
+							PingType: pt,
 						})
 					}
 				}
@@ -450,6 +457,9 @@ func TestGetNotificationReportsForMe(t *testing.T) {
 	}
 
 	nrs := GetNotificationReportsForMe(nfs, notifData)
+
+	data, _ := json.MarshalIndent(nrs, "//  ", "  ")
+	fmt.Printf("//  %s\n", data)
 
 	if !reflect.DeepEqual(nrs, expected) {
 		t.Errorf("NotificationReport list does not match expected."+
@@ -524,7 +534,7 @@ func TestNotificationFilter_JSON(t *testing.T) {
 	nf := NotificationFilter{
 		Identifier: append(chanID.Marshal(), []byte("Identifier")...),
 		ChannelID:  chanID,
-		Tags:       makeUserPingTags(map[PingType][]ed25519.PublicKey{
+		Tags: makeUserPingTags(map[PingType][]ed25519.PublicKey{
 			MentionPing: {makeEd25519PubKey(rng, t)}}),
 		AllowLists: notificationLevelAllowLists[symmetric][NotifyPing],
 	}
@@ -558,7 +568,7 @@ func TestNotificationFilter_Slice_JSON(t *testing.T) {
 		nfs[i] = NotificationFilter{
 			Identifier: append(chanID.Marshal(), []byte("Identifier")...),
 			ChannelID:  chanID,
-			Tags:       makeUserPingTags(map[PingType][]ed25519.PublicKey{
+			Tags: makeUserPingTags(map[PingType][]ed25519.PublicKey{
 				MentionPing: {makeEd25519PubKey(rng, t)}}),
 			AllowLists: notificationLevelAllowLists[sourceTypes[i%len(sourceTypes)]][levels[i%len(levels)]],
 		}

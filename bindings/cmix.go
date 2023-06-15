@@ -148,7 +148,13 @@ func (c *Cmix) GetRemoteKV() *RemoteKV {
 	}
 
 	return &RemoteKV{
-		rkv: remote,
+		rkv:             remote,
+		keyListenerLcks: make(map[string]*sync.Mutex),
+		keyListeners: make(
+			map[string]map[int]KeyChangedByRemoteCallback),
+		mapListenerLcks: make(map[string]*sync.Mutex),
+		mapListeners: make(
+			map[string]map[int]MapChangedByRemoteCallback),
 	}
 }
 

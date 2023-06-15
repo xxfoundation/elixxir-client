@@ -162,11 +162,14 @@ func TestVersionedKVMapFuncs(t *testing.T) {
 	remoteStore := NewMockRemote()
 
 	rkv, _ := testingKV(t, memKV, nil, remoteStore, NewCountingReader())
+	kv, err := rkv.Prefix(StandardRemoteSyncPrefix)
+	rkv = kv.(*versionedKV)
+	require.NoError(t, err)
 
 	mapKey := "mapkey"
 
 	// An empty map shouldn't return an error
-	_, err := rkv.GetMap(mapKey, 0)
+	_, err = rkv.GetMap(mapKey, 0)
 	require.NoError(t, err)
 
 	// A nonexistent map element should

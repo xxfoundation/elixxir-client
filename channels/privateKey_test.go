@@ -8,6 +8,12 @@
 package channels
 
 import (
+	"math/rand"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/collective"
@@ -18,11 +24,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 var dummyAdminKeyUpdate = func(chID *id.ID, isAdmin bool) {}
@@ -30,6 +31,8 @@ var dummyAdminKeyUpdate = func(chID *id.ID, isAdmin bool) {}
 func newPrivKeyTestManager(t *testing.T) *manager {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 	return &manager{
 		channels:         make(map[id.ID]*joinedChannel),
@@ -212,6 +215,8 @@ func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 func Test_saveChannelPrivateKey_loadChannelPrivateKey(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 	c, pk, err := cryptoBroadcast.NewChannel(
 		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
@@ -250,6 +255,8 @@ func Test_loadChannelPrivateKey_StorageError(t *testing.T) {
 func Test_deleteChannelPrivateKey(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 	c, pk, err := cryptoBroadcast.NewChannel(
 		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
@@ -268,6 +275,8 @@ func Test_deleteChannelPrivateKey(t *testing.T) {
 func Test_mapUpdate(t *testing.T) {
 	rkv := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
+	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
 
 	const numTests = 5

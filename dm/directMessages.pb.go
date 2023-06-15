@@ -158,6 +158,79 @@ func (x *Reaction) GetReactionMessageID() []byte {
 	return nil
 }
 
+// ChannelInvitation is the payload for a Invitation MessageType. It the DM
+// partner to a channel.
+type ChannelInvitation struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Version    uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Text       string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	InviteLink string `protobuf:"bytes,3,opt,name=inviteLink,proto3" json:"inviteLink,omitempty"`
+	Password   string `protobuf:"bytes,4,opt,name=Password,proto3" json:"Password,omitempty"`
+}
+
+func (x *ChannelInvitation) Reset() {
+	*x = ChannelInvitation{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_directMessages_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ChannelInvitation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChannelInvitation) ProtoMessage() {}
+
+func (x *ChannelInvitation) ProtoReflect() protoreflect.Message {
+	mi := &file_directMessages_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChannelInvitation.ProtoReflect.Descriptor instead.
+func (*ChannelInvitation) Descriptor() ([]byte, []int) {
+	return file_directMessages_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ChannelInvitation) GetVersion() uint32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *ChannelInvitation) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *ChannelInvitation) GetInviteLink() string {
+	if x != nil {
+		return x.InviteLink
+	}
+	return ""
+}
+
+func (x *ChannelInvitation) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
 // SilentMessage is the payload for a Silent MessageType. Its primary purpose is
 // to communicate new nicknames without sending a Text.
 type SilentMessage struct {
@@ -171,7 +244,7 @@ type SilentMessage struct {
 func (x *SilentMessage) Reset() {
 	*x = SilentMessage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_directMessages_proto_msgTypes[2]
+		mi := &file_directMessages_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -184,7 +257,7 @@ func (x *SilentMessage) String() string {
 func (*SilentMessage) ProtoMessage() {}
 
 func (x *SilentMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_directMessages_proto_msgTypes[2]
+	mi := &file_directMessages_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -197,7 +270,7 @@ func (x *SilentMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SilentMessage.ProtoReflect.Descriptor instead.
 func (*SilentMessage) Descriptor() ([]byte, []int) {
-	return file_directMessages_proto_rawDescGZIP(), []int{2}
+	return file_directMessages_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SilentMessage) GetVersion() uint32 {
@@ -400,10 +473,18 @@ var file_directMessages_proto_rawDesc = []byte{
 	0x52, 0x08, 0x72, 0x65, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2c, 0x0a, 0x11, 0x72, 0x65,
 	0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x49, 0x44, 0x18,
 	0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x11, 0x72, 0x65, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x4d,
-	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x49, 0x44, 0x22, 0x29, 0x0a, 0x0d, 0x53, 0x69, 0x6c, 0x65,
-	0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72,
-	0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73,
-	0x69, 0x6f, 0x6e, 0x22, 0x53, 0x0a, 0x0d, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x4d, 0x65, 0x73,
+	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x49, 0x44, 0x22, 0x7d, 0x0a, 0x11, 0x43, 0x68, 0x61, 0x6e,
+	0x6e, 0x65, 0x6c, 0x49, 0x6e, 0x76, 0x69, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x18, 0x0a,
+	0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07,
+	0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x65, 0x78, 0x74, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x65, 0x78, 0x74, 0x12, 0x1e, 0x0a, 0x0a, 0x69,
+	0x6e, 0x76, 0x69, 0x74, 0x65, 0x4c, 0x69, 0x6e, 0x6b, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x0a, 0x69, 0x6e, 0x76, 0x69, 0x74, 0x65, 0x4c, 0x69, 0x6e, 0x6b, 0x12, 0x1a, 0x0a, 0x08, 0x50,
+	0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x50,
+	0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64, 0x22, 0x29, 0x0a, 0x0d, 0x53, 0x69, 0x6c, 0x65, 0x6e,
+	0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73,
+	0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69,
+	0x6f, 0x6e, 0x22, 0x53, 0x0a, 0x0d, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x4d, 0x65, 0x73,
 	0x73, 0x61, 0x67, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x28,
 	0x0a, 0x0f, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x49,
@@ -443,11 +524,12 @@ func file_directMessages_proto_rawDescGZIP() []byte {
 
 var file_directMessages_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_directMessages_proto_goTypes = []interface{}{
-	(*Text)(nil),          // 0: dm.Text
-	(*Reaction)(nil),      // 1: dm.Reaction
-	(*SilentMessage)(nil), // 2: dm.SilentMessage
+	(*Text)(nil),              // 0: dm.Text
+	(*Reaction)(nil),          // 1: dm.Reaction
+	(*ChannelInvitation)(nil), // 2: dm.ChannelInvitation
+	(*SilentMessage)(nil),     // 3: dm.SilentMessage
 	(*DeleteMessage)(nil), // 3: dm.DeleteMessage
-	(*DirectMessage)(nil), // 4: dm.DirectMessage
+	(*DirectMessage)(nil),     // 4: dm.DirectMessage
 }
 var file_directMessages_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -488,7 +570,7 @@ func file_directMessages_proto_init() {
 			}
 		}
 		file_directMessages_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SilentMessage); i {
+			switch v := v.(*ChannelInvitation); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -500,6 +582,18 @@ func file_directMessages_proto_init() {
 			}
 		}
 		file_directMessages_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SilentMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_directMessages_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteMessage); i {
 			case 0:
 				return &v.state

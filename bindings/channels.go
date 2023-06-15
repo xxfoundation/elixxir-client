@@ -723,6 +723,25 @@ func DecodePrivateURL(url, password string) (string, error) {
 	return c.PrettyPrint(), nil
 }
 
+// DecodeInviteURL decodes the channel URL, using the password, into a channel
+// pretty print. This function can only be used for URLs from invitations.
+//
+// Parameters:
+//   - url - The channel's invitation URL. Should be received from another user.
+//   - password - The password needed to decrypt the secret data in the URL.
+//
+// Returns:
+//   - The channel pretty print.
+func DecodeInviteURL(url, password string) (string, error) {
+	pwHash := cryptoBroadcast.HashURLPassword(password)
+	c, err := cryptoBroadcast.DecodeInviteURL(url, pwHash)
+	if err != nil {
+		return "", err
+	}
+
+	return c.PrettyPrint(), nil
+}
+
 // GetChannelJSON returns the JSON of the channel for the given pretty print.
 //
 // Parameters:
@@ -1059,7 +1078,7 @@ func (cm *ChannelsManager) GetShareURL(cmixID int, host string, maxUses int,
 	return json.Marshal(su)
 }
 
-// GetShareUrlType determines the [broadcast.PrivacyLevel] of the channel URL.
+// GetShareUrlType determines the [broadcast.PrivacyLevel] of the shared URL.
 // If the URL is an invalid channel URL, an error is returned.
 //
 // Parameters:
@@ -1429,7 +1448,81 @@ func (cm *ChannelsManager) SendSilent(channelIdBytes []byte, validUntilMS int64,
 
 	// Construct send report
 	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
+}
 
+// SendInvite is used to send to a channel (invited) an invitation to another
+// channel (invitee).
+//
+// If the channel ID for the invitee channel is not recognized by the Manager,
+// then an error will be returned.
+//
+// Parameters:
+//   - channelIdBytes - Marshalled bytes of the channel's [id.ID]
+//     This is invited channel.
+//   - inviteToChannelJSON - A JSON marshalled channel. This should be the data
+//     of the invitee channel. This can be retrieved from [GetChannelJSON].
+//   - message - The contents of the message. The message should be at most 510
+//     bytes. This is expected to be Unicode, and thus a string data type is
+//     expected.
+//   - host - The URL to append the channel info to.
+//   - validUntilMS - The lease of the message. This will be how long the
+//     message is available from the network, in milliseconds. As per the
+//     [channels.Manager] documentation, this has different meanings depending
+//     on the use case. These use cases may be generic enough that they will not
+//     be enumerated here. Use [channels.ValidForever] to last the max message
+//     life.
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+//   - pingsJSON - JSON of a slice of public keys of users that should receive
+//     mobile notifications for the message.
+//
+// Example pingsJSON:
+//
+//	[
+//	  "FgJMvgSsY4rrKkS/jSe+vFOJOs5qSSyOUSW7UtF9/KU=",
+//	  "fPqcHtrJ398PAC35QyWXEU9PHzz8Z4BKQTCxSvpSygw=",
+//	  "JnjCgh7g/+hNiI9VPKW01aRSxGOFmNulNCymy3ImXAo="
+//	]
+//
+// Returns:
+//   - []byte - JSON of [ChannelSendReport].
+func (cm *ChannelsManager) SendInvite(channelIdBytes,
+	inviteToJson []byte, message string, host string,
+	validUntilMS int64, cmixParamsJSON []byte, pingsJSON []byte) (
+	[]byte, error) {
+
+	// Unmarshal channel ID and parameters
+	channelID, params, err := parseChannelsParameters(
+		channelIdBytes, cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate lease
+	lease := time.Duration(validUntilMS) * time.Millisecond
+	if validUntilMS == ValidForeverBindings {
+		lease = channels.ValidForever
+	}
+
+	pings, err := unmarshalPingsJson(pingsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Retrieve channel that will be used for the invitation
+	var inviteToChan *cryptoBroadcast.Channel
+	err = json.Unmarshal(inviteToJson, &inviteToChan)
+	if err != nil {
+		return nil,
+			errors.WithMessage(err, "could not unmarshal channel json")
+	}
+
+	// Send invite
+	messageID, rnd, ephID, err := cm.api.SendInvite(channelID, message,
+		inviteToChan, host, lease, params.CMIX, pings)
+
+	// Construct send report
+	return constructChannelSendReport(&messageID, rnd.ID, &ephID)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1896,35 +1989,36 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
-//  [
-//    {
-//	    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
-//	    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
-//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//	    "allowLists": {
-//	      "allowWithTags": {},
-//	      "allowWithoutTags": {"102":{}, "2":{}}
-//	    }
-//	  },
-//	  {
-//	    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDc3ltSWRlbnRpZmllcg==",
-//	    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
-//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//	    "allowLists": {
-//	      "allowWithTags": {},
-//	      "allowWithoutTags": {"1":{}, "40000":{}}
-//	    }
-//	  },
-//	  {
-//	    "identifier": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQDYXN5bUlkZW50aWZpZXI=",
-//	    "channelID": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQD",
-//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//	    "allowLists": {
-//	      "allowWithTags": {},
-//	      "allowWithoutTags": {"102":{}, "2":{}}
-//	    }
-//	  }
-//	]
+//
+//	 [
+//	   {
+//		    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
+//		    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//		    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//		    "allowLists": {
+//		      "allowWithTags": {},
+//		      "allowWithoutTags": {"102":{}, "2":{}}
+//		    }
+//		  },
+//		  {
+//		    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDc3ltSWRlbnRpZmllcg==",
+//		    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//		    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//		    "allowLists": {
+//		      "allowWithTags": {},
+//		      "allowWithoutTags": {"1":{}, "40000":{}}
+//		    }
+//		  },
+//		  {
+//		    "identifier": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQDYXN5bUlkZW50aWZpZXI=",
+//		    "channelID": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQD",
+//		    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//		    "allowLists": {
+//		      "allowWithTags": {},
+//		      "allowWithoutTags": {"102":{}, "2":{}}
+//		    }
+//		  }
+//		]
 //
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].

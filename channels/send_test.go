@@ -10,11 +10,12 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/collective"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective"
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -115,6 +116,8 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)
@@ -449,6 +452,8 @@ func Test_manager_SendSilent(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	require.NoError(t, err)
 
@@ -508,11 +513,90 @@ func Test_manager_SendSilent(t *testing.T) {
 
 }
 
+func Test_manager_SendInvite(t *testing.T) {
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+	prng := rand.New(rand.NewSource(64))
+	mem := ekv.MakeMemstore()
+	kv := versioned.NewKV(mem)
+	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	require.NoError(t, err)
+
+	m := &manager{
+		me:               pi,
+		channels:         make(map[id.ID]*joinedChannel),
+		local:            kv,
+		rng:              crng,
+		events:           initEvents(&mockEventModel{}, 512, kv, crng),
+		nicknameManager:  &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
+		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
+		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
+			*userMessageInternal, []byte, time.Time,
+			receptionID.EphemeralIdentity, rounds.Round, SentStatus) (
+			uint64, error) {
+			return 0, nil
+		}, func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
+			message.ID, receptionID.EphemeralIdentity,
+			rounds.Round, SentStatus) (uint64, error) {
+			return 0, nil
+		}, func(uint64, *message.ID, *time.Time, *rounds.Round,
+			*bool, *bool, *SentStatus) error {
+			return nil
+		}, crng),
+	}
+
+	rng := crng.GetStream()
+	defer rng.Close()
+
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
+	require.NoError(t, err)
+
+	invitedChannelID, inviteeChannel := ch.ReceptionID, ch
+
+	msg := "Dude check out this channel!"
+	params := new(cmix.CMIXParams)
+	mbc := &mockBroadcastChannel{
+		crypto: ch,
+	}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+	m.channels[*ch.ReceptionID] = &joinedChannel{broadcast: mbc}
+	host := "https://internet.speakeasy.tech/"
+	maxUses := 0
+	messageID, _, _, err := m.SendInvite(invitedChannelID, msg,
+		inviteeChannel, host, ValidForever, *params, nil)
+	require.NoError(t, err)
+
+	// Verify the message was handled correctly
+
+	// Decode the user message
+	umi, err := unmarshalUserMessageInternal(mbc.payload, invitedChannelID, Invitation)
+	require.NoError(t, err)
+
+	// Do checks of the data
+	require.True(t, umi.GetMessageID().Equals(messageID))
+
+	// Decode the text message
+	txt := &CMIXChannelInvitation{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	require.NoError(t, err)
+
+	// Ensure invite URL matches expected
+	expectedLink, expectedPassword, err := ch.ShareURL(host, maxUses, rng)
+	require.NoError(t, err)
+	require.Equal(t, expectedLink, txt.InviteLink)
+	require.Equal(t, expectedPassword, txt.Password)
+
+}
+
 func Test_manager_DeleteMessage(t *testing.T) {
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
@@ -585,6 +669,8 @@ func Test_manager_PinMessage(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
@@ -658,6 +744,8 @@ func Test_manager_MuteUser(t *testing.T) {
 	mem := ekv.MakeMemstore()
 	kv := versioned.NewKV(mem)
 	remote := collective.TestingKV(t, mem, collective.StandardPrefexs, nil)
+	remote, err := remote.Prefix(collective.StandardRemoteSyncPrefix)
+	require.NoError(t, err)
 	pi, err := cryptoChannel.GenerateIdentity(prng)
 	if err != nil {
 		t.Fatalf("GenerateIdentity error: %+v", err)

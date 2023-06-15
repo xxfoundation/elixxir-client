@@ -20,7 +20,7 @@ const (
 	// message only contains text.
 	TextType MessageType = 1
 
-	// ReplyType denotes that the message is a reaction to another message.
+	// ReplyType denotes that the message is a reply to another message.
 	ReplyType MessageType = 2
 
 	// ReactionType denotes that the message is a reaction to another message.
@@ -30,9 +30,13 @@ const (
 	// notify the user in any way.
 	SilentType MessageType = 4
 
+	// InvitationType denotes that the message is an invitation to another
+	// channel.
+	InvitationType MessageType = 5
+
 	// DeleteType denotes that the message contains the ID of a message to
 	// delete.
-	DeleteType MessageType = 5
+	DeleteType MessageType = 6
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -47,6 +51,8 @@ func (mt MessageType) String() string {
 		return "Reaction"
 	case SilentType:
 		return "Silent"
+	case InvitationType:
+		return "Invitation"
 	case DeleteType:
 		return "Delete"
 	default:

@@ -15,9 +15,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/collective"
@@ -35,7 +33,6 @@ const (
 // partnerStore contains the DM remote KV storage
 type partnerStore struct {
 	remote versioned.KV
-	mux    sync.Mutex
 }
 
 // newPartnerStore initialises a new partnerStore.
@@ -45,13 +42,7 @@ func newPartnerStore(kv versioned.KV) (*partnerStore, error) {
 		return nil, err
 	}
 
-	err = remote.ListenOnRemoteMap(dmMapName, dmMapVersion, nil, false)
-	if err != nil && remote.Exists(err) {
-		return nil, errors.Wrap(err, "failed to load and listen to remote "+
-			"updates on DM partner storage")
-	}
-
-	return &partnerStore{remote: kv}, nil
+	return &partnerStore{remote: remote}, nil
 }
 
 // dmPartner stores information for each partner the current user has a DM
@@ -90,8 +81,6 @@ const (
 
 // set saves the dmPartner info to storage keyed on the Ed25519 public key.
 func (ps *partnerStore) set(pubKey ed25519.PublicKey, status partnerStatus) {
-	ps.mux.Lock()
-	defer ps.mux.Unlock()
 	ps.setUnsafe(pubKey, status)
 }
 
@@ -123,9 +112,7 @@ func (ps *partnerStore) setUnsafe(
 func (ps *partnerStore) get(
 	pubKey ed25519.PublicKey) (partner *dmPartner, exists bool) {
 	elemName := marshalElementName(pubKey)
-	ps.mux.Lock()
 	obj, err := ps.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
-	ps.mux.Unlock()
 	if err != nil {
 		if ps.remote.Exists(err) {
 			jww.FATAL.Panicf("[DM] Failed to load partner %X from storage: %+v",
@@ -149,8 +136,6 @@ func (ps *partnerStore) get(
 // then it is added with the default status and returned.
 func (ps *partnerStore) getOrSet(pubKey ed25519.PublicKey) *dmPartner {
 	elemName := marshalElementName(pubKey)
-	ps.mux.Lock()
-	defer ps.mux.Unlock()
 	obj, err := ps.remote.GetMapElement(dmMapName, elemName, dmMapVersion)
 	if err != nil {
 		if ps.remote.Exists(err) {
@@ -178,9 +163,7 @@ func (ps *partnerStore) getOrSet(pubKey ed25519.PublicKey) *dmPartner {
 // delete removes the dmPartner for the public key from storage.
 func (ps *partnerStore) delete(pubKey ed25519.PublicKey) {
 	elemName := marshalElementName(pubKey)
-	ps.mux.Lock()
 	_, err := ps.remote.DeleteMapElement(dmMapName, elemName, dmMapVersion)
-	ps.mux.Unlock()
 	if err != nil {
 		jww.FATAL.Panicf("[DM] Failed to delete partner %X from storage: %+v",
 			pubKey, err)
@@ -200,9 +183,7 @@ func (ps *partnerStore) getAll() []*dmPartner {
 // the total number of partners storage. Init can be nil.
 func (ps *partnerStore) iterate(
 	init func(n int), add func(partner *dmPartner)) {
-	ps.mux.Lock()
 	partnerMap, err := ps.remote.GetMap(dmMapName, dmMapVersion)
-	ps.mux.Unlock()
 	if err != nil {
 		jww.FATAL.Panicf("[DM] Failed to load map %s from storage: %+v",
 			dmMapName, err)
@@ -233,8 +214,6 @@ func (ps *partnerStore) iterate(
 // locally. The public key will never change between an old and new pair in the
 // elementEdit list.
 func (ps *partnerStore) listen(cb func(edits []elementEdit)) error {
-	ps.mux.Lock()
-	defer ps.mux.Unlock()
 	return ps.remote.ListenOnRemoteMap(dmMapName, dmMapVersion,
 		func(edits map[string]versioned.ElementEdit) {
 			partnerEdits := make([]elementEdit, 0, len(edits))

@@ -9,12 +9,13 @@ package dm
 
 import (
 	"encoding/base64"
+	"strings"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/crypto/csprng"
-	"strings"
-	"testing"
 )
 
 // Tests that a URL created via dmClient.ShareURL can be decoded using

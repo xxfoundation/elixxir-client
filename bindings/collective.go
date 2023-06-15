@@ -315,6 +315,16 @@ func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 	_, exists := r.keyListeners[key]
 	// Initialize the callback if this entry is new
 	if !exists {
+		r.keyListeners[key] = make(map[int]KeyChangedByRemoteCallback)
+		r.keyListenerLcks[key] = &sync.Mutex{}
+	}
+
+	r.keyListenerLcks[key].Lock()
+	id := r.incrementListener()
+	r.keyListeners[key][id] = callback
+	r.keyListenerLcks[key].Unlock()
+
+	if !exists {
 		bindingsCb := func(old, new *versioned.Object,
 			op versioned.KeyOperation) {
 			oldJSON, err := json.Marshal(old)
@@ -333,15 +343,7 @@ func (r *RemoteKV) ListenOnRemoteKey(key string, version int64,
 		if err != nil {
 			return -1, err
 		}
-
-		r.keyListeners[key] = make(map[int]KeyChangedByRemoteCallback)
-		r.keyListenerLcks[key] = &sync.Mutex{}
 	}
-
-	r.keyListenerLcks[key].Lock()
-	defer r.keyListenerLcks[key].Unlock()
-	id := r.incrementListener()
-	r.keyListeners[key][id] = callback
 	return id, nil
 }
 
@@ -354,6 +356,16 @@ func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
 	jww.DEBUG.Printf("[RKV] ListenOnRemoteMap(%s, %d)", mapName, version)
 
 	_, exists := r.mapListeners[mapName]
+	if !exists {
+		r.mapListenerLcks[mapName] = &sync.Mutex{}
+		r.mapListeners[mapName] = make(map[int]MapChangedByRemoteCallback, 0)
+	}
+
+	r.mapListenerLcks[mapName].Lock()
+	id := r.incrementListener()
+	r.mapListeners[mapName][id] = callback
+	r.mapListenerLcks[mapName].Unlock()
+
 	if !exists {
 		bindingsCb := func(edits map[string]versioned.ElementEdit) {
 			editsJSON, err := json.Marshal(edits)
@@ -370,16 +382,7 @@ func (r *RemoteKV) ListenOnRemoteMap(mapName string, version int64,
 		if err != nil {
 			return -1, err
 		}
-
-		r.mapListenerLcks[mapName] = &sync.Mutex{}
-		r.mapListeners[mapName] = make(map[int]MapChangedByRemoteCallback, 0)
 	}
-
-	// the id returned is always the last element (just added to the list)
-	r.mapListenerLcks[mapName].Lock()
-	defer r.mapListenerLcks[mapName].Unlock()
-	id := r.incrementListener()
-	r.mapListeners[mapName][id] = callback
 	return id, nil
 }
 

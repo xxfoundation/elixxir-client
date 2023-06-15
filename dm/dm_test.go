@@ -8,6 +8,8 @@
 package dm
 
 import (
+	"gitlab.com/elixxir/client/v4/broadcast"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"google.golang.org/protobuf/proto"
 	"os"
 	"testing"
@@ -36,13 +38,14 @@ func TestMain(m *testing.M) {
 // interfaces to enable sending and receiving without a cMix
 // connection.
 func TestE2EDMs(t *testing.T) {
+	// Set up for tests
 	netA, netB := createLinkedNets(t)
 
 	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
 	rng := crng.GetStream()
 	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
-	rng.Close()
+	defer rng.Close()
 
 	ekvA := collective.TestingKV(t, ekv.MakeMemstore(),
 		collective.StandardPrefexs, collective.NewMockRemote())
@@ -72,6 +75,12 @@ func TestE2EDMs(t *testing.T) {
 	require.NoError(t, err)
 
 	params := cmix.GetDefaultCMIXParams()
+
+	ch, _, err := cryptoBroadcast.NewChannel(
+		"name", "description", cryptoBroadcast.Public, 2048, rng)
+	require.NoError(t, err)
+	broadcastChan, err := broadcast.NewBroadcastChannel(ch, receiverA, crng)
+	require.NoError(t, err)
 
 	// Send and receive a text
 	_, _, _, err =
@@ -103,12 +112,29 @@ func TestE2EDMs(t *testing.T) {
 	require.Equal(t, replyTo2, rcvA2.ReplyTo)
 	require.Equal(t, "😀", rcvA2.Message)
 
+	// Send an invitation to a channel
+	pubKey = rcvB1.PubKey
+	dmToken = rcvB1.DMToken
+	host := "https://internet.speakeasy.tech/"
+
+	_, _, _, err = clientA.SendInvite(pubKey, dmToken, "Check this channel out!",
+		broadcastChan.Get(), host, params)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(receiverB.Msgs))
+	rcvB2 := receiverB.Msgs[4]
+	invitation := &ChannelInvitation{}
+	require.NoError(t, proto.Unmarshal([]byte(rcvB2.Message), invitation))
+	rcvChannel, err := cryptoBroadcast.DecodeInviteURL(
+		invitation.InviteLink, []byte(invitation.Password))
+	require.NoError(t, err)
+	require.Equal(t, ch, rcvChannel)
+
 	// Send a silent message
 	pubKey = rcvB1.PubKey
 	dmToken = rcvB1.DMToken
 	_, _, _, err = clientA.SendSilent(pubKey, dmToken, params)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(receiverB.Msgs))
+	require.Equal(t, 6, len(receiverB.Msgs))
 	rcvB3 := receiverB.Msgs[4]
 	silent := &SilentMessage{}
 	require.NoError(t, proto.Unmarshal([]byte(rcvB3.Message), silent))

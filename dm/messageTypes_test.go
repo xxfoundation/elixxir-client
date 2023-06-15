@@ -16,7 +16,7 @@ import (
 func TestMessageType_String_Consistency(t *testing.T) {
 	expectedStrings := map[MessageType]string{
 		TextType: "Text", ReplyType: "Reply", ReactionType: "Reaction",
-		SilentType: "Silent", DeleteType: "Delete",
+		SilentType: "Silent", InvitationType: "Invitation", DeleteType: "Delete",
 		DeleteType + 1: fmt.Sprintf("Unknown messageType %d", DeleteType+1),
 		DeleteType + 2: fmt.Sprintf("Unknown messageType %d", DeleteType+2),
 	}
@@ -33,7 +33,7 @@ func TestMessageType_String_Consistency(t *testing.T) {
 // via UnmarshalMessageType matches the original.
 func TestMessageType_Marshal_UnmarshalMessageType(t *testing.T) {
 	tests := []MessageType{
-		TextType, ReplyType, ReactionType, SilentType, DeleteType}
+		TextType, ReplyType, ReactionType, SilentType, InvitationType, DeleteType}
 
 	for _, mt := range tests {
 		data := mt.Marshal()

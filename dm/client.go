@@ -10,10 +10,11 @@ package dm
 import (
 	"crypto/ed25519"
 	"fmt"
-	"gitlab.com/elixxir/primitives/nicknames"
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.com/elixxir/primitives/nicknames"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"

@@ -93,7 +93,8 @@ func (n *notifications) addChannel(channelID *id.ID) {
 	err := n.nm.Set(
 		channelID, notificationGroup, NotifyNone.Marshal(), clientNotif.Mute)
 	if err != nil {
-		jww.WARN.Printf("[CH] Failed to add channel (%s) to notifications manager: %+v", channelID, err)
+		jww.WARN.Printf("[CH] Failed to add channel (%s) to notifications "+
+			"manager: %+v", channelID, err)
 	}
 
 }
@@ -103,7 +104,8 @@ func (n *notifications) addChannel(channelID *id.ID) {
 func (n *notifications) removeChannel(channelID *id.ID) {
 	err := n.nm.Delete(channelID)
 	if err != nil {
-		jww.WARN.Printf("[CH] Failed to remove channel (%s) from notifications manager: %+v", channelID, err)
+		jww.WARN.Printf("[CH] Failed to remove channel (%s) from notifications "+
+			"manager: %+v", channelID, err)
 	}
 }
 
@@ -226,7 +228,8 @@ func (n *notifications) processesNotificationUpdates(group clientNotif.Group,
 	changed := make([]NotificationState, 0, len(created)+len(edits))
 
 	nfs := make([]NotificationFilter, 0, len(group))
-	tags := makeUserPingTags(n.pubKey)
+	tags := makeUserPingTags(map[PingType][]ed25519.PublicKey{
+		ReplyPing: {n.pubKey}, MentionPing: {n.pubKey}})
 	for chanID, notif := range group {
 		channelID := chanID.DeepCopy()
 
@@ -303,6 +306,10 @@ type NotificationReport struct {
 
 	// Type is the MessageType of the message that the notification belongs to.
 	Type MessageType `json:"type"`
+
+	// PingType describes the type of ping. If it is empty, then it is a generic
+	// ping.
+	PingType PingType `json:"pingType,omitempty"`
 }
 
 // GetNotificationReportsForMe checks the notification data against the filter
@@ -331,10 +338,12 @@ func GetNotificationReportsForMe(nfs []NotificationFilter,
 
 			if found {
 				messageType := UnmarshalMessageType(b)
-				if nf.match(matchedTags, messageType) {
+				match, pt := nf.match(matchedTags, messageType)
+				if match {
 					nr = append(nr, NotificationReport{
-						Channel: nf.ChannelID,
-						Type:    messageType,
+						Channel:  nf.ChannelID,
+						Type:     messageType,
+						PingType: pt,
 					})
 				}
 			}
@@ -394,7 +403,9 @@ type AllowLists struct {
 // match determines if the message with the given tags and message type are
 // allowed through the filter.
 func (nf NotificationFilter) match(
-	matchedTags map[string]struct{}, mt MessageType) bool {
+	matchedTags map[string]struct{}, mt MessageType) (bool, PingType) {
+	pt := GenericPing
+
 	// Check if any filter tags match the matched tags
 	for _, tag := range nf.Tags {
 
@@ -402,18 +413,30 @@ func (nf NotificationFilter) match(
 		// with tags list
 		if _, exists := matchedTags[tag]; exists {
 			if _, exists = nf.AllowWithTags[mt]; exists {
-				return true
+				currentPT, err := pingTypeFromTag(tag)
+				if err != nil {
+					jww.WARN.Printf(
+						"[CH] Failed to get ping type for tag %q: %+v", tag, err)
+				}
+
+				pt = getRankingPingType(pt, currentPT)
+			} else {
+				return false, ""
 			}
-			return false
+
 		}
+	}
+
+	if pt != GenericPing {
+		return true, pt
 	}
 
 	// If no tag matches, then check if the message type is in the allowed
 	// without tags list
 	if _, exists := nf.AllowWithoutTags[mt]; exists {
-		return true
+		return true, pt
 	}
-	return false
+	return false, ""
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -438,7 +461,7 @@ var notificationLevelAllowLists = map[notificationSourceType]map[NotificationLev
 			AllowWithoutTags: map[MessageType]struct{}{},
 		},
 		NotifyAll: {
-			AllowWithTags:    map[MessageType]struct{}{},
+			AllowWithTags:    map[MessageType]struct{}{Text: {}},
 			AllowWithoutTags: map[MessageType]struct{}{Text: {}},
 		},
 	},
@@ -448,7 +471,7 @@ var notificationLevelAllowLists = map[notificationSourceType]map[NotificationLev
 			AllowWithoutTags: map[MessageType]struct{}{Pinned: {}},
 		},
 		NotifyAll: {
-			AllowWithTags:    map[MessageType]struct{}{},
+			AllowWithTags:    map[MessageType]struct{}{AdminText: {}, Pinned: {}},
 			AllowWithoutTags: map[MessageType]struct{}{AdminText: {}, Pinned: {}},
 		},
 	},

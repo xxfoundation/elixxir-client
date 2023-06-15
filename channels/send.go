@@ -12,21 +12,23 @@ import (
 	"crypto/ed25519"
 	"crypto/hmac"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"golang.org/x/crypto/blake2b"
+	"google.golang.org/protobuf/proto"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"golang.org/x/crypto/blake2b"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -791,7 +793,7 @@ func makeChaDebugTag(
 	h.Write(id)
 
 	tripCode := base64.RawStdEncoding.EncodeToString(h.Sum(nil))[:12]
-	return fmt.Sprintf("%s-%s", baseTag, tripCode)
+	return baseTag + "-" + tripCode
 }
 
 func makeUserPingTags(users ...ed25519.PublicKey) []string {
@@ -799,13 +801,14 @@ func makeUserPingTags(users ...ed25519.PublicKey) []string {
 		return nil
 	}
 	s := make([]string, len(users))
-	for i := 0; i < len(s); i++ {
+	for i := range users {
 		s[i] = makeUserPingTag(users[i])
 	}
 	return s
 }
 
+// makeUserPingTag creates a tag from a user's public key to be used in a tag
+// list in a cmix.Service.
 func makeUserPingTag(user ed25519.PublicKey) string {
-	return fmt.Sprintf("%x-usrping", user)
-
+	return hex.EncodeToString(user) + "-usrping"
 }

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 
@@ -813,6 +814,63 @@ func Test_manager_MuteUser(t *testing.T) {
 	if !bytes.Equal(muteMsg.PubKey, pi.PubKey) {
 		t.Errorf("Incorrect PubKey.\nexpected: %x\nreceived: %x",
 			pi.PubKey, muteMsg.PubKey)
+	}
+}
+
+// Unit test of makeUserPingTags.
+func Test_makeUserPingTags(t *testing.T) {
+	prng := rand.New(rand.NewSource(579498))
+
+	for i := 0; i < 6; i++ {
+		users := make([]ed25519.PublicKey, i)
+		expected := make([]string, i)
+		for j := 0; j < i; j++ {
+			users[j], _, _ = ed25519.GenerateKey(prng)
+			expected[j] = makeUserPingTag(users[j])
+		}
+		if i == 0 {
+			expected = nil
+		}
+		tags := makeUserPingTags(users...)
+		if !reflect.DeepEqual(expected, tags) {
+			t.Errorf("Unexpected tags (%d).\nexpected: %#v\nreceived: %#v",
+				i, expected, tags)
+		}
+	}
+}
+
+// Consistency test of makeUserPingTag.
+func TestManager_makeUserPingTag_Consistency(t *testing.T) {
+	prng := rand.New(rand.NewSource(579498))
+	expected := []string{
+		"32b15a6bd6db85bf239a7fe6aeb84072c2646b96188c9c4f7dec6d35928436c2-usrping",
+		"8df589059b593b10d122b547347a0aa094a61ff57b0251381b93f367100e02a9-usrping",
+		"1d7f788e45dbdad0b47826341f30b0a7e658d278b8d53e82dce37cfeffcdfc76-usrping",
+		"570a2e96a8bd7b5e13b92657225db9ebca667f63783d2757c899d3df21562204-usrping",
+		"0b5600dcd37ac1a315a07388324833e15247f76372c9c7b21b782c62cf745504-usrping",
+		"0a664b4c37cee1b5e2bbfc115c8924d019a6e0d4ce0eff931ccd842244161335-usrping",
+		"e9d5934f4209191453152887ee1360c30ac55169fae037db126df5df6867578b-usrping",
+		"8c4920d1c25ea95e2d26323e815609726cf09569e7dc82852ae10c67f5bc2430-usrping",
+		"813866d3b1259c0f3fbb105800fa1698fb0e56ee6bcf4e90f7e35738eef3d095-usrping",
+		"aeece043b59935dc6e542b27f7219cb6e010e042042c92df77b03a17f3b7e69e-usrping",
+		"703f71f8bb7c11b16f94600eb8dc0d0517bce5034473c303281fcb528c389052-usrping",
+		"b994e5cda4bfbe4719092930476207492631e40f666529504be16fae664b7f17-usrping",
+		"acb88bae602f53925ce0e9e88434f01105770a3eed3917f29caddfce1fe8240e-usrping",
+		"5a42a856364cfdce25be13eaf798bfda04d7596dca2dbbc5d8bdf265fb429733-usrping",
+		"cfd8156f0704dbb701d176c57bf4156b52fcbe1ffd5c7dc37ddc14d2c43ca76a-usrping",
+		"4ef2bfee92e3e27415204cd380639609607d5d37c55fcdd761eed0125c9d8456-usrping",
+		"2239c1d46fb4ca5ec40046052b49b270bfab515854131bb4fa55da6114759409-usrping",
+		"8698503a86c0d95a651d0e7ed5d65a8b04d66a7e4963f1afc4e70679028fc5f6-usrping",
+		"9a11d47186a06cdcaba0750660e7403662b0715e537315bdbc5c754c649ada11-usrping",
+		"6a5536bb60471e1f1bd4d5b347ecedb0aaa292e2d4500fd0ece3f133853fbf14-usrping",
+	}
+	for i, exp := range expected {
+		pubKey, _, _ := ed25519.GenerateKey(prng)
+		tag := makeUserPingTag(pubKey)
+		if exp != tag {
+			t.Errorf("Unexpected tag for key %X (%d)."+
+				"\nexpected: %s\nexpected: %s", pubKey, i, exp, tag)
+		}
 	}
 }
 

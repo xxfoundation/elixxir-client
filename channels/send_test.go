@@ -287,7 +287,7 @@ func Test_manager_SendReply(t *testing.T) {
 		channels:        make(map[id.ID]*joinedChannel),
 		local:           kv,
 		rng:             crng,
-		events:          initEvents(&mockEventModel{}, 512, kv, crng),
+		events:          initEvents(&MockEvent{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,

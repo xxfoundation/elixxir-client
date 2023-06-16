@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"time"
+
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	notifCrypto "gitlab.com/elixxir/crypto/notifications"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
@@ -19,8 +21,12 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 		return err
 	}
 
+	jww.INFO.Printf("Notifications dummy locking SET")
+
 	m.mux.Lock()
 	defer m.mux.Unlock()
+
+	jww.INFO.Printf("Notifications dummy locked SET")
 
 	currentReg, exists := m.notifications[*toBeNotifiedOn]
 	if exists {
@@ -34,12 +40,18 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 		}
 	}
 
+	jww.INFO.Printf("Notifications dummy currentReg")
+
 	// register with remote
 	if status == Push && (!exists || exists && currentReg.Status != Push) {
+		jww.INFO.Printf("Notifications dummy PUSH")
+
 		if err := m.registerNotification([]*id.ID{toBeNotifiedOn}); err != nil {
 			return err
 		}
 	} else if status != Push {
+		jww.INFO.Printf("Notifications dummy !PUSH")
+
 		if err := m.unregisterNotification([]*id.ID{toBeNotifiedOn}); err != nil {
 			return err
 		}
@@ -54,14 +66,19 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 			Status:   status,
 		},
 	}
+	jww.INFO.Printf("Notifications dummy storeRegistration")
 
 	err := m.storeRegistration(toBeNotifiedOn, reg, ts)
 	if err != nil {
 		return err
 	}
 
+	jww.INFO.Printf("Notifications dummy upsert")
+
 	// update in ram storage
 	m.upsertNotificationUnsafeRAM(toBeNotifiedOn, reg)
+
+	jww.INFO.Printf("Notifications dummy CALLBACKS")
 
 	// call the callback if it exists to notify that an update exists
 	if cb, cbExists := m.callbacks[group]; cbExists {

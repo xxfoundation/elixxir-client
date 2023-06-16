@@ -106,6 +106,25 @@ func (i *impl) ReceiveReply(channelID *id.ID, messageID, reactionTo message.ID,
 	return uuid
 }
 
+// ReceiveInvite is called whenever a message is received on a given channel
+// that represents an invitation to another channel.
+// Creates the Message.
+func (i *impl) ReceiveInvite(channelID *id.ID, messageID message.ID,
+	nickname, text string, pubKey ed25519.PublicKey, dmToken uint32,
+	codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round,
+	messageType channels.MessageType, status channels.SentStatus,
+	hidden bool) uint64 {
+
+	uuid, err := i.receiveHelper(channelID, messageID, nil,
+		nickname, text, pubKey, dmToken, codeset, timestamp, lease,
+		round, messageType, status, hidden)
+	if err != nil {
+		jww.ERROR.Printf("Failed to receive invitation: %+v", err)
+	}
+
+	return uuid
+}
+
 // ReceiveReaction is called whenever a reaction to a message is received on a
 // given channel. Creates the Message.
 func (i *impl) ReceiveReaction(channelID *id.ID, messageID, reactionTo message.ID,

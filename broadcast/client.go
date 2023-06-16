@@ -81,7 +81,8 @@ func (bc *broadcastClient) RegisterRSAtoPublicListener(
 	return p, nil
 }
 
-// RegisterSymmetricListener registers a listener for asymmetric broadcast messages.
+// RegisterSymmetricListener registers a listener for asymmetric broadcast
+// messages.
 // Note: only one Asymmetric Listener can be registered at a time.
 // Registering a new one will overwrite the old one
 func (bc *broadcastClient) RegisterSymmetricListener(

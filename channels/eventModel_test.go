@@ -10,6 +10,7 @@ package channels
 import (
 	"crypto/ed25519"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"reflect"
@@ -94,7 +95,7 @@ func Test_initEvents(t *testing.T) {
 	}
 
 	// check that all the default callbacks are registered
-	if len(e.registered) != 7 {
+	if len(e.registered) != 8 {
 		t.Errorf("The correct number of default handlers are not "+
 			"registered; %d vs %d", len(e.registered), 7)
 		// If this fails, is means the default handlers have changed. edit the
@@ -112,6 +113,9 @@ func Test_initEvents(t *testing.T) {
 	if getFuncName(e.registered[Reaction].listener) != getFuncName(e.receiveReaction) {
 		t.Errorf("Reaction does not have recieveReaction")
 	}
+
+	require.Equal(t,
+		getFuncName(e.registered[Invitation].listener), getFuncName(e.receiveInvitation))
 }
 
 // Unit test of NewReceiveMessageHandler.
@@ -732,6 +736,43 @@ func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 	}
 }
 
+func Test_events_receiveInvitation(t *testing.T) {
+	me := &MockEvent{}
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
+
+	// Craft the input for the event
+	chID := &id.ID{1}
+	textPayload := &CMIXChannelInvitation{
+		Version:    0,
+		InviteLink: "www.google.com",
+	}
+
+	textMarshaled, err := proto.Marshal(textPayload)
+	require.NoError(t, err)
+	msgID := message.DeriveChannelMessageID(chID, 420, textMarshaled)
+	senderUsername := "Alice"
+	ts := netTime.Now()
+	lease := 69 * time.Minute
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
+	require.NoError(t, err)
+	dmToken := uint32(8675309)
+
+	// Call the handler
+	e.receiveInvitation(chID, msgID, Invitation, senderUsername, textMarshaled, nil,
+		pi.PubKey, dmToken, pi.CodesetVersion, ts, ts, lease, r.ID, r,
+		Delivered, false, false)
+
+	// Check the results on the model
+	expected := eventReceive{chID, msgID, message.ID{}, senderUsername,
+		[]byte(textPayload.InviteLink), ts, lease, r, Delivered, false, false,
+		Invitation, dmToken, 0}
+	require.Equal(t, expected, me.eventReceive)
+
+}
+
 // Unit test of events.receiveDelete.
 func Test_events_receiveDelete(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
@@ -1033,6 +1074,29 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID,
 	}
 	return m.getUUID()
 }
+
+func (m *MockEvent) ReceiveInvite(channelID *id.ID, messageID message.ID,
+	nickname, text string, key ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round, messageType MessageType,
+	status SentStatus, hidden bool) uint64 {
+	m.eventReceive = eventReceive{
+		channelID:   channelID,
+		messageID:   messageID,
+		nickname:    nickname,
+		content:     []byte(text),
+		timestamp:   timestamp,
+		lease:       lease,
+		round:       round,
+		status:      status,
+		pinned:      false,
+		hidden:      hidden,
+		messageType: messageType,
+		dmToken:     dmToken,
+		codeset:     codeset,
+	}
+	return m.getUUID()
+}
+
 func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID,
 	reactionTo message.ID, nickname, reaction string,
 	_ ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp time.Time,

@@ -431,6 +431,20 @@ func (m *eventModel) ReceiveReaction(channelID *id.ID, _, _ message.ID, _,
 	return 0
 }
 
+func (m *eventModel) ReceiveInvite(channelID *id.ID, _ message.ID, _, _ string,
+	_ ed25519.PublicKey, _ uint32, _ uint8, _ time.Time, _ time.Duration,
+	_ rounds.Round, _ channels.MessageType, _ channels.SentStatus, _ bool) uint64 {
+	jww.WARN.Printf("ReceiveInvite is unimplemented in the CLI event model!")
+	c, err := m.api.GetChannel(channelID)
+	if err != nil {
+		jww.FATAL.Panicf("[%s] Failed to get channel with ID %s",
+			channelsPrintHeader, channelID)
+	}
+	fmt.Printf("Received invitation for channel %s\n", c.Name)
+	return 0
+
+}
+
 func (m *eventModel) UpdateFromUUID(uint64, *message.ID, *time.Time,
 	*rounds.Round, *bool, *bool, *channels.SentStatus) error {
 	jww.WARN.Printf("UpdateFromUUID is unimplemented in the CLI event model!")

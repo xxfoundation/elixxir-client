@@ -579,6 +579,13 @@ func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoMessage.ID,
 	return 0
 }
 
+func (m *mockEventModel) ReceiveInvite(channelID *id.ID, messageID cryptoMessage.ID,
+	nickname, text string, key ed25519.PublicKey, token uint32, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round, text2 MessageType,
+	status SentStatus, hidden bool) uint64 {
+	return 0
+}
+
 func (m *mockEventModel) UpdateFromUUID(uint64, *cryptoMessage.ID, *time.Time,
 	*rounds.Round, *bool, *bool, *SentStatus) error {
 	panic("implement me")

@@ -120,32 +120,6 @@ type EventModel interface {
 		round rounds.Round, messageType MessageType, status SentStatus,
 		hidden bool) uint64
 
-	// ReceiveInvite is called whenever an Invitation message is received on
-	// a given channel. It may be called multiple times on the same invitation.
-	// It is incumbent on the user of the API to filter such called by message
-	// ID.
-	//
-	// Messages may arrive our of order, so an invitation, in theory, can arrive
-	// before the initial message. As a result, it may be important to buffer
-	// replies.
-	//
-	// The API needs to return a UUID of the message that can be referenced at a
-	// later time.
-	//
-	// messageID, timestamp, and round are all nillable and may be updated based
-	// upon the UUID at a later date. A time of time.Time{} will be passed for a
-	// nilled timestamp.
-	//
-	// nickname may be empty, in which case the UI is expected to display the
-	// codename.
-	//
-	// messageType type is included in the call; it will always be Text (1) for
-	// this call, but it may be required in downstream databases.
-	ReceiveInvite(channelID *id.ID, messageID message.ID, nickname, text string,
-		key ed25519.PublicKey, token uint32, codeset uint8, timestamp time.Time,
-		lease time.Duration, round rounds.Round, text2 MessageType,
-		status SentStatus, hidden bool) uint64
-
 	// UpdateFromUUID is called whenever a message at the UUID is modified.
 	//
 	// messageID, timestamp, round, pinned, hidden, and status are all nillable
@@ -728,7 +702,7 @@ func (e *events) receiveInvitation(channelID *id.ID, messageID message.ID,
 	jww.INFO.Printf("[CH] [%s] Received message from %x on %s",
 		tag, pubKey, channelID)
 
-	return e.model.ReceiveInvite(channelID, messageID, nickname, invite.InviteLink,
+	return e.model.ReceiveMessage(channelID, messageID, nickname, invite.InviteLink,
 		pubKey, dmToken, codeset, timestamp, lease, round, Invitation, status,
 		hidden)
 }

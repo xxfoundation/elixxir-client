@@ -1163,15 +1163,16 @@ func ValidForever() int {
 //     on a [channels.PingType] that describes the type of notification it is.
 //
 // Example pingsMapJSON:
-//  {
-//    "usrMention": [
-//      "CLdKxbe8D2WVOpx1mT63TZ5CP/nesmxHLT5DUUalpe0=",
-//      "S2c6NXjNqgR11SCOaiQUughWaLpWBKNufPt6cbTVHMA="
-//    ],
-//    "usrReply": [
-//      "aaMzSeA6Cu2Aix2MlOwzrAI+NnpKshzvZRT02PZPVec="
-//    ]
-//  }
+//
+//	{
+//	  "usrMention": [
+//	    "CLdKxbe8D2WVOpx1mT63TZ5CP/nesmxHLT5DUUalpe0=",
+//	    "S2c6NXjNqgR11SCOaiQUughWaLpWBKNufPt6cbTVHMA="
+//	  ],
+//	  "usrReply": [
+//	    "aaMzSeA6Cu2Aix2MlOwzrAI+NnpKshzvZRT02PZPVec="
+//	  ]
+//	}
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -2029,23 +2030,23 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Example return:
 //
-//  [
-//    {
-//      "channel": "jOgZopfYj4zrE/AHtKmkf+QEWnfUKv9KfIy/+Bsg0PkD",
-//      "type": 1,
-//      "pingType": "usrMention"
-//    },
-//    {
-//      "channel": "GKmfN/LKXQYM6++TC6DeZYqoxvSUPkh5UAHWODqh9zkD",
-//      "type": 2,
-//      "pingType": "usrReply"
-//    },
-//    {
-//      "channel": "M+28xtj0coHrhDHfojGNcyb2c4maO7ZuheB6egS0Pc4D",
-//      "type": 1,
-//      "pingType": ""
-//    }
-//  ]
+//	[
+//	  {
+//	    "channel": "jOgZopfYj4zrE/AHtKmkf+QEWnfUKv9KfIy/+Bsg0PkD",
+//	    "type": 1,
+//	    "pingType": "usrMention"
+//	  },
+//	  {
+//	    "channel": "GKmfN/LKXQYM6++TC6DeZYqoxvSUPkh5UAHWODqh9zkD",
+//	    "type": 2,
+//	    "pingType": "usrReply"
+//	  },
+//	  {
+//	    "channel": "M+28xtj0coHrhDHfojGNcyb2c4maO7ZuheB6egS0Pc4D",
+//	    "type": 1,
+//	    "pingType": ""
+//	  }
+//	]
 func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
@@ -2462,31 +2463,6 @@ type EventModel interface {
 		invitation string, pubKey []byte, dmToken int32, codeset int, timestamp,
 		lease, roundID, messageType, status int64, hidden bool) int64
 
-	// ReceiveInvite is called whenever an Invitation message is received on
-	// a given channel. It may be called multiple times on the same invitation.
-	// It is incumbent on the user of the API to filter such called by message
-	// ID.
-	//
-	// Messages may arrive our of order, so an invitation, in theory, can arrive
-	// before the initial message. As a result, it may be important to buffer
-	// replies.
-	//
-	// The API needs to return a UUID of the message that can be referenced at a
-	// later time.
-	//
-	// messageID, timestamp, and round are all nillable and may be updated based
-	// upon the UUID at a later date. A time of time.Time{} will be passed for a
-	// nilled timestamp.
-	//
-	// nickname may be empty, in which case the UI is expected to display the
-	// codename.
-	//
-	// messageType type is included in the call; it will always be Text (1) for
-	// this call, but it may be required in downstream databases.
-	ReceiveInvite(channelID, message []byte, nickname,
-		reaction string, pubKey []byte, dmToken int32, codeset int, timestamp,
-		lease, roundID, messageType, status int64, hidden bool) int64
-
 	// UpdateFromUUID is called whenever a message at the UUID is modified.
 	//
 	// MessageID, Timestamp, RoundID, Pinned, Hidden, and Status in the
@@ -2678,39 +2654,6 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID,
 		int64(messageType), int64(status),
 		hidden))
 
-}
-
-// ReceiveInvite is called whenever an Invitation message is received on
-// a given channel. It may be called multiple times on the same invitation.
-// It is incumbent on the user of the API to filter such called by message
-// ID.
-//
-// Messages may arrive our of order, so an invitation, in theory, can arrive
-// before the initial message. As a result, it may be important to buffer
-// replies.
-//
-// The API needs to return a UUID of the message that can be referenced at a
-// later time.
-//
-// messageID, timestamp, and round are all nillable and may be updated based
-// upon the UUID at a later date. A time of time.Time{} will be passed for a
-// nilled timestamp.
-//
-// nickname may be empty, in which case the UI is expected to display the
-// codename.
-//
-// messageType type is included in the call; it will always be Text (1) for
-// this call, but it may be required in downstream databases.
-func (tem *toEventModel) ReceiveInvite(channelID *id.ID,
-	messageID cryptoMessage.ID, nickname, text string, pubKey ed25519.PublicKey,
-	dmToken uint32, codeset uint8, timestamp time.Time, lease time.Duration,
-	round rounds.Round, messageType channels.MessageType,
-	status channels.SentStatus, hidden bool) uint64 {
-	return uint64(tem.em.ReceiveInvite(channelID[:], messageID[:],
-		nickname, text, pubKey, int32(dmToken), int(codeset),
-		timestamp.UnixNano(), int64(lease), int64(round.ID),
-		int64(messageType), int64(status),
-		hidden))
 }
 
 // ReceiveReaction is called whenever a reaction to a message is received on a

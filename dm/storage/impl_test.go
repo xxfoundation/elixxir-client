@@ -14,6 +14,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
@@ -113,4 +114,36 @@ func TestImpl_GetConversations(t *testing.T) {
 				i, convo.CodesetVersion)
 		}
 	}
+}
+
+// Test failed and successful deletes
+func TestWasmModel_DeleteMessage(t *testing.T) {
+	m, err := newImpl("TestWasmModel_DeleteMessage",
+		dummyReceivedMessageCB, true)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Insert test message
+	testBadBytes := []byte("uwu")
+	testString := "test"
+	testBytes := []byte(testString)
+	partnerPubKey := ed25519.PublicKey(testBytes)
+	testRound := id.Round(10)
+
+	// Can use ChannelMessageID for ease, doesn't matter here
+	testMsgId := message.DeriveChannelMessageID(&id.ID{1}, uint64(testRound), testBytes)
+
+	// Receive a test message
+	uuid := m.Receive(testMsgId, testString, testBytes,
+		partnerPubKey, partnerPubKey, 0, 0, time.Now(),
+		rounds.Round{ID: testRound}, dm.TextType, dm.Received)
+	require.Positive(t, uuid)
+	require.NoError(t, err)
+
+	// Non-matching pub key, should fail to delete
+	require.False(t, m.DeleteMessage(testMsgId, testBadBytes))
+
+	// Correct pub key, should have deleted
+	require.True(t, m.DeleteMessage(testMsgId, testBytes))
 }

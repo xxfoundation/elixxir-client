@@ -523,6 +523,9 @@ func (m *mockEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoMessag
 
 	return newID
 }
+func (m *mockEventModel) ReceiveInvite(channelID *id.ID, messageID cryptoMessage.ID, nickname, text string, key ed25519.PublicKey, token uint32, codeset uint8, timestamp time.Time, lease time.Duration, round rounds.Round, text2 channels.MessageType, status channels.SentStatus, hidden bool) uint64 {
+	panic("implement me")
+}
 func (m *mockEventModel) ReceiveReply(*id.ID, cryptoMessage.ID, cryptoMessage.ID, string, string, ed25519.PublicKey, uint32, uint8, time.Time, time.Duration, rounds.Round, channels.MessageType, channels.SentStatus, bool) uint64 {
 	panic("implement me")
 }

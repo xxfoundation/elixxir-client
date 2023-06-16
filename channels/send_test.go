@@ -14,27 +14,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"gitlab.com/elixxir/client/v4/collective"
-
 	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/elixxir/client/v4/broadcast"
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/netTime"
-
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-
-	"gitlab.com/elixxir/client/v4/broadcast"
-	"gitlab.com/elixxir/client/v4/cmix"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 func Test_manager_SendGeneric(t *testing.T) {
@@ -289,7 +287,7 @@ func Test_manager_SendReply(t *testing.T) {
 		channels:        make(map[id.ID]*joinedChannel),
 		local:           kv,
 		rng:             crng,
-		events:          initEvents(&mockEventModel{}, 512, kv, crng),
+		events:          initEvents(&MockEvent{}, 512, kv, crng),
 		nicknameManager: &nicknameManager{byChannel: make(map[id.ID]string), remote: nil},
 		st: loadSendTracker(&mockBroadcastClient{}, kv, func(*id.ID,
 			*userMessageInternal, []byte, time.Time,
@@ -815,6 +813,7 @@ func Test_manager_MuteUser(t *testing.T) {
 			pi.PubKey, muteMsg.PubKey)
 	}
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Interfaces                                                            //

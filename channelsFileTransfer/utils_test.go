@@ -582,21 +582,19 @@ func (m *mockChannelsManager) GetChannels() []*id.ID                      { pani
 func (m *mockChannelsManager) GetChannel(*id.ID) (*cryptoBroadcast.Channel, error) {
 	panic("implement me")
 }
-func (m *mockChannelsManager) SendSilent(channelID *id.ID, validUntil time.Duration, params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+func (m *mockChannelsManager) SendSilent(*id.ID, time.Duration, cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
-
-func (m *mockChannelsManager) SendInvite(channelID *id.ID, msg string, inviteTo *cryptoBroadcast.Channel, host string, validUntil time.Duration, params cmix.CMIXParams, pings []ed25519.PublicKey) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+func (m *mockChannelsManager) SendInvite(*id.ID, string, *cryptoBroadcast.Channel, string, time.Duration, cmix.CMIXParams, []ed25519.PublicKey) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
-
-func (m *mockChannelsManager) GetNotificationStatus(channelID *id.ID) (clientNotif.NotificationState, error) {
+func (m *mockChannelsManager) GetNotificationStatus(*id.ID) (clientNotif.NotificationState, error) {
 	panic("implement me")
 }
 
 func (m *mockChannelsManager) SendGeneric(channelID *id.ID,
 	messageType channels.MessageType, msg []byte, validUntil time.Duration,
-	_ bool, _ cmix.CMIXParams, _ []ed25519.PublicKey) (
+	_ bool, _ cmix.CMIXParams, _ map[channels.PingType][]ed25519.PublicKey) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
 	msgID := cryptoMessage.DeriveChannelMessageID(channelID, 0, msg)
@@ -645,11 +643,10 @@ func (m *mockChannelsManager) GetNickname(*id.ID) (nickname string, exists bool)
 
 func (m *mockChannelsManager) Muted(*id.ID) bool                        { panic("implement me") }
 func (m *mockChannelsManager) GetMutedUsers(*id.ID) []ed25519.PublicKey { panic("implement me") }
-func (m *mockChannelsManager) GetNotificationLevel(channelID *id.ID) (channels.NotificationLevel, error) {
+func (m *mockChannelsManager) GetNotificationLevel(*id.ID) (channels.NotificationLevel, error) {
 	panic("implement me")
 }
-func (m *mockChannelsManager) SetMobileNotificationsLevel(channelID *id.ID, level channels.NotificationLevel,
-	status clientNotif.NotificationState) error {
+func (m *mockChannelsManager) SetMobileNotificationsLevel(*id.ID, channels.NotificationLevel, clientNotif.NotificationState) error {
 	panic("implement me")
 }
 func (m *mockChannelsManager) IsChannelAdmin(*id.ID) bool { panic("implement me") }

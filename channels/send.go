@@ -13,20 +13,21 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"fmt"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"golang.org/x/crypto/blake2b"
+	"google.golang.org/protobuf/proto"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"golang.org/x/crypto/blake2b"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -109,7 +110,7 @@ func timeNow() string { return netTime.Now().Format("15:04:05.9999999") }
 // for this message. They must be in the channel and have notifications enabled
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, tracked bool, params cmix.CMIXParams,
-	pings []ed25519.PublicKey) (
+	pingsMap map[PingType][]ed25519.PublicKey) (
 	message.ID, rounds.Round, ephemeral.Id, error) {
 
 	if hmac.Equal(channelID.Bytes(), emptyChannelID.Bytes()) {
@@ -242,7 +243,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	}
 
 	log += fmt.Sprintf("Broadcasting message at %s. ", timeNow())
-	tags := makeUserPingTags(pings...)
+	tags := makeUserPingTags(pingsMap)
 	mt := messageType.Marshal()
 	r, ephID, err := ch.broadcast.BroadcastWithAssembler(assemble, tags,
 		[2]byte{mt[0], mt[1]}, params)
@@ -301,8 +302,10 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
+	pingMap := map[PingType][]ed25519.PublicKey{MentionPing: pings}
+
 	return m.SendGeneric(
-		channelID, Text, txtMarshaled, validUntil, true, params, pings)
+		channelID, Text, txtMarshaled, validUntil, true, params, pingMap)
 }
 
 // SendReply is used to send a formatted message over a channel.
@@ -339,8 +342,20 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
+	// Get the public key of the sender
+	mm, err := m.events.model.GetMessage(replyTo)
+	if err != nil {
+		return message.ID{}, rounds.Round{}, ephemeral.Id{}, errors.Wrapf(err,
+			"failed getting message %s from event model", replyTo)
+	}
+
+	pingMap := map[PingType][]ed25519.PublicKey{
+		ReplyPing:   {mm.PubKey},
+		MentionPing: pings,
+	}
+
 	return m.SendGeneric(
-		channelID, Text, txtMarshaled, validUntil, true, params, pings)
+		channelID, Text, txtMarshaled, validUntil, true, params, pingMap)
 }
 
 // SendReaction is used to send a reaction to a message over a channel. The
@@ -471,9 +486,11 @@ func (m *manager) SendInvite(channelID *id.ID, msg string,
 		return message.ID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
+	pingMap := map[PingType][]ed25519.PublicKey{MentionPing: pings}
+
 	// Send invitation
 	return m.SendGeneric(channelID, Invitation, invitationMarshalled,
-		validUntil, true, params, pings)
+		validUntil, true, params, pingMap)
 }
 
 // replayAdminMessage is used to rebroadcast an admin message asa a norma user.
@@ -791,21 +808,5 @@ func makeChaDebugTag(
 	h.Write(id)
 
 	tripCode := base64.RawStdEncoding.EncodeToString(h.Sum(nil))[:12]
-	return fmt.Sprintf("%s-%s", baseTag, tripCode)
-}
-
-func makeUserPingTags(users ...ed25519.PublicKey) []string {
-	if users == nil || len(users) == 0 {
-		return nil
-	}
-	s := make([]string, len(users))
-	for i := 0; i < len(s); i++ {
-		s[i] = makeUserPingTag(users[i])
-	}
-	return s
-}
-
-func makeUserPingTag(user ed25519.PublicKey) string {
-	return fmt.Sprintf("%x-usrping", user)
-
+	return baseTag + "-" + tripCode
 }

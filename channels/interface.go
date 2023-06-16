@@ -122,7 +122,7 @@ type Manager interface {
 	// ID (i.e., always returns 0) cannot be tracked, or it will cause errors.
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
 		validUntil time.Duration, tracked bool, params cmix.CMIXParams,
-		pings []ed25519.PublicKey) (
+		pingsMap map[PingType][]ed25519.PublicKey) (
 		message.ID, rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.

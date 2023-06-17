@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"math/rand"
@@ -746,7 +747,11 @@ func Test_events_receiveInvitation(t *testing.T) {
 	textPayload := &CMIXChannelInvitation{
 		Version:    0,
 		InviteLink: "www.google.com",
+		Password:   "hunter2",
+		Text:       "check out this channel!",
 	}
+
+	mar, _ := json.Marshal(textPayload)
 
 	textMarshaled, err := proto.Marshal(textPayload)
 	require.NoError(t, err)
@@ -765,9 +770,12 @@ func Test_events_receiveInvitation(t *testing.T) {
 		pi.PubKey, dmToken, pi.CodesetVersion, ts, ts, lease, r.ID, r,
 		Delivered, false, false)
 
+	mar, err = json.Marshal(textPayload)
+	require.NoError(t, err)
+
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, message.ID{}, senderUsername,
-		[]byte(textPayload.InviteLink), ts, lease, r, Delivered, false, false,
+		mar, ts, lease, r, Delivered, false, false,
 		Invitation, dmToken, 0}
 	require.Equal(t, expected, me.eventReceive)
 

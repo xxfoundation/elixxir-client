@@ -10,6 +10,7 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -702,7 +703,13 @@ func (e *events) receiveInvitation(channelID *id.ID, messageID message.ID,
 	jww.INFO.Printf("[CH] [%s] Received message from %x on %s",
 		tag, pubKey, channelID)
 
-	return e.model.ReceiveMessage(channelID, messageID, nickname, invite.InviteLink,
+	mar, err := json.Marshal(invite)
+	if err != nil {
+		// todo: jww.error.Print
+		return 0
+	}
+
+	return e.model.ReceiveMessage(channelID, messageID, nickname, string(mar),
 		pubKey, dmToken, codeset, timestamp, lease, round, Invitation, status,
 		hidden)
 }

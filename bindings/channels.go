@@ -1163,15 +1163,15 @@ func ValidForever() int {
 //     on a [channels.PingType] that describes the type of notification it is.
 //
 // Example pingsMapJSON:
-//  {
-//    "usrMention": [
-//      "CLdKxbe8D2WVOpx1mT63TZ5CP/nesmxHLT5DUUalpe0=",
-//      "S2c6NXjNqgR11SCOaiQUughWaLpWBKNufPt6cbTVHMA="
-//    ],
-//    "usrReply": [
-//      "aaMzSeA6Cu2Aix2MlOwzrAI+NnpKshzvZRT02PZPVec="
-//    ]
-//  }
+//	{
+//	  "usrMention": [
+//	    "CLdKxbe8D2WVOpx1mT63TZ5CP/nesmxHLT5DUUalpe0=",
+//	    "S2c6NXjNqgR11SCOaiQUughWaLpWBKNufPt6cbTVHMA="
+//	  ],
+//	  "usrReply": [
+//	    "aaMzSeA6Cu2Aix2MlOwzrAI+NnpKshzvZRT02PZPVec="
+//	  ]
+//	}
 //
 // Returns:
 //   - []byte - JSON of [ChannelSendReport].
@@ -1927,10 +1927,10 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 // Notifications options
 const (
 	// ChannelsNotifyNone results in no notifications.
-	ChannelsNotifyNone int64 = int64(channels.NotifyNone)
+	ChannelsNotifyNone = int64(channels.NotifyNone)
 
 	// ChannelsNotifyPing results in notifications from tags, replies, and pins.
-	ChannelsNotifyPing int64 = int64(channels.NotifyPing)
+	ChannelsNotifyPing = int64(channels.NotifyPing)
 
 	// ChannelsNotifyAll results in notifications from all messages except
 	// silent ones and replays.
@@ -2047,23 +2047,23 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Example return:
 //
-//  [
-//    {
-//      "channel": "jOgZopfYj4zrE/AHtKmkf+QEWnfUKv9KfIy/+Bsg0PkD",
-//      "type": 1,
-//      "pingType": "usrMention"
-//    },
-//    {
-//      "channel": "GKmfN/LKXQYM6++TC6DeZYqoxvSUPkh5UAHWODqh9zkD",
-//      "type": 2,
-//      "pingType": "usrReply"
-//    },
-//    {
-//      "channel": "M+28xtj0coHrhDHfojGNcyb2c4maO7ZuheB6egS0Pc4D",
-//      "type": 1,
-//      "pingType": ""
-//    }
-//  ]
+//	[
+//	  {
+//	    "channel": "jOgZopfYj4zrE/AHtKmkf+QEWnfUKv9KfIy/+Bsg0PkD",
+//	    "type": 1,
+//	    "pingType": "usrMention"
+//	  },
+//	  {
+//	    "channel": "GKmfN/LKXQYM6++TC6DeZYqoxvSUPkh5UAHWODqh9zkD",
+//	    "type": 2,
+//	    "pingType": "usrReply"
+//	  },
+//	  {
+//	    "channel": "M+28xtj0coHrhDHfojGNcyb2c4maO7ZuheB6egS0Pc4D",
+//	    "type": 1,
+//	    "pingType": ""
+//	  }
+//	]
 func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
@@ -3244,11 +3244,11 @@ type MessageDeletedJson struct {
 //
 //	{
 //	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
-//	 "hasKeys":true
+//	 "IsAdmin":true
 //	}
 type AdminKeysUpdateJson struct {
 	ChannelId *id.ID `json:"channelID"`
-	isAdmin   bool   `json:"isAdmin"`
+	IsAdmin   bool   `json:"IsAdmin"`
 }
 
 // ChannelsUpdateJson describes when the sending of dm tokens is enabled or
@@ -3341,7 +3341,7 @@ func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bo
 
 	akJson := &AdminKeysUpdateJson{
 		ChannelId: chID,
-		isAdmin:   isAdmin,
+		IsAdmin:   isAdmin,
 	}
 	jsonBytes, err := json.Marshal(akJson)
 	if err != nil {

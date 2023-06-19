@@ -477,7 +477,8 @@ type UiCallbacks interface {
 	NicknameUpdate(channelId *id.ID, nickname string, exists bool)
 
 	// NotificationUpdate is a callback that is called any time a notification
-	// level changes.
+	// level changes. It is also called when loading, adding, and deleting
+	// channels.
 	//
 	// It returns a slice of [NotificationFilter] for all channels with
 	// notifications enabled. The [NotificationFilter] is used to determine

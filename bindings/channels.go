@@ -1956,6 +1956,24 @@ func (cm *ChannelsManager) GetNotificationLevel(
 	return int(level), err
 }
 
+// GetNotificationStatus returns the notification status for the given channel.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - int - The [notifications.NotificationState] for the channel.
+func (cm *ChannelsManager) GetNotificationStatus(
+	channelIDBytes []byte) (int, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return 0, err
+	}
+
+	level, err := cm.api.GetNotificationStatus(channelID)
+	return int(level), err
+}
+
 // SetMobileNotificationsLevel sets the notification level for the given
 // channel. The [channels.NotificationLevel] dictates the type of notifications
 // received and the status controls weather the notification is push or in-app.

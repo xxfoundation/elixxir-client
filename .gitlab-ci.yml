@@ -117,7 +117,7 @@ bindings-ios:
     - cp iOS.zip iOS-$CI_COMMIT_SHA.zip
     - mc alias set elixxir-s3 $ARTIFACT_S3_ENDPOINT $ARTIFACT_S3_KEY $ARTIFACT_S3_SECRET
     - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip
-    - shasum -a 256 iOS-$CI_COMMIT_SHA.zip > iOS-$CI_COMMIT_SHA.zip.checksum && cat iOS-$CI_COMMIT_SHA.zip.checksum
+    - swift package compute-checksum iOS-$CI_COMMIT_SHA.zip > iOS-$CI_COMMIT_SHA.zip.checksum && cat iOS-$CI_COMMIT_SHA.zip.checksum
     - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum
   artifacts:
     paths:

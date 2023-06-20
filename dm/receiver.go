@@ -411,9 +411,9 @@ func (r *receiver) receiveInvitation(messageID message.ID,
 			round.ID, err)
 	}
 
-	return r.api.ReceiveText(messageID, nickname, string(mar),
+	return r.api.Receive(messageID, nickname, mar,
 		partnerPubKey, senderPubKey, dmToken, codeset,
-		timestamp, round, status), nil
+		timestamp, round, InvitationType, status), nil
 }
 
 // This helper does the opposite of "createCMIXFields" in send.go

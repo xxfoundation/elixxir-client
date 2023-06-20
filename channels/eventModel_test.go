@@ -8,10 +8,9 @@
 package channels
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/json"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"reflect"
@@ -20,6 +19,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -746,7 +748,7 @@ func Test_events_receiveInvitation(t *testing.T) {
 	chID := &id.ID{1}
 	textPayload := &CMIXChannelInvitation{
 		Version:    0,
-		InviteLink: "www.google.com",
+		InviteLink: "https://internet.speakeasy.tech/?0Name=abc&1Description=abc&2Level=Public&3Created=1687299263089518800&e=3fsn9CRivD5zx1OnApq72GlWXTx6Bz%2BeRm0K0mKpUFg%3D&k=Pj8n9dMtHUWMdsu%2FF%2B5EgnIA7O8dcEUSS3O9czMTl6c%3D&l=400&m=0&p=1&s=vY8LrVeJI84W8epfmgOHr5eTL9MfC34MH%2FuxNqFnGN4%3D&v=1",
 		Password:   "hunter2",
 		Text:       "check out this channel!",
 	}
@@ -770,8 +772,12 @@ func Test_events_receiveInvitation(t *testing.T) {
 		pi.PubKey, dmToken, pi.CodesetVersion, ts, ts, lease, r.ID, r,
 		Delivered, false, false)
 
-	mar, err = json.Marshal(textPayload)
+	var inviteJson bytes.Buffer
+	enc := json.NewEncoder(&inviteJson)
+	enc.SetEscapeHTML(false)
+	err = enc.Encode(textPayload)
 	require.NoError(t, err)
+	mar = inviteJson.Bytes()
 
 	// Check the results on the model
 	expected := eventReceive{chID, msgID, message.ID{}, senderUsername,
@@ -1084,7 +1090,7 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID,
 }
 
 func (m *MockEvent) ReceiveInvite(channelID *id.ID, messageID message.ID,
-	nickname, text string, key ed25519.PublicKey, dmToken uint32, codeset uint8,
+	nickname, text string, _ ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round, messageType MessageType,
 	status SentStatus, hidden bool) uint64 {
 	m.eventReceive = eventReceive{

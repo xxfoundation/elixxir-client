@@ -703,13 +703,16 @@ func (e *events) receiveInvitation(channelID *id.ID, messageID message.ID,
 	jww.INFO.Printf("[CH] [%s] Received message from %x on %s",
 		tag, pubKey, channelID)
 
-	mar, err := json.Marshal(invite)
+	var inviteJson bytes.Buffer
+	enc := json.NewEncoder(&inviteJson)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(invite)
 	if err != nil {
 		jww.ERROR.Printf("[CH] Failed to JSON marshal invitation: %+v", err)
 		return 0
 	}
 
-	return e.model.ReceiveMessage(channelID, messageID, nickname, string(mar),
+	return e.model.ReceiveMessage(channelID, messageID, nickname, inviteJson.String(),
 		pubKey, dmToken, codeset, timestamp, lease, round, Invitation, status,
 		hidden)
 }

@@ -677,7 +677,7 @@ func (e *events) receiveReaction(channelID *id.ID, messageID message.ID,
 }
 
 // receiveInvitation is the internal function that handles the reception of
-// Invitation's.
+// Invitations.
 //
 // It does edge checking to ensure the received reaction is just a single emoji.
 // If the received reaction is not, the reaction is dropped.
@@ -705,7 +705,7 @@ func (e *events) receiveInvitation(channelID *id.ID, messageID message.ID,
 
 	mar, err := json.Marshal(invite)
 	if err != nil {
-		// todo: jww.error.Print
+		jww.ERROR.Printf("[CH] Failed to JSON marshal invitation: %+v", err)
 		return 0
 	}
 

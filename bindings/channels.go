@@ -2460,7 +2460,7 @@ type EventModel interface {
 	//  - int64 - A non-negative unique UUID for the message that it can be
 	//    referenced by later with [EventModel.UpdateFromUUID].
 	ReceiveReaction(channelID, messageID, reactionTo []byte, nickname,
-		invitation string, pubKey []byte, dmToken int32, codeset int, timestamp,
+		reaction string, pubKey []byte, dmToken int32, codeset int, timestamp,
 		lease, roundID, messageType, status int64, hidden bool) int64
 
 	// UpdateFromUUID is called whenever a message at the UUID is modified.

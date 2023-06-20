@@ -1163,7 +1163,6 @@ func ValidForever() int {
 //     on a [channels.PingType] that describes the type of notification it is.
 //
 // Example pingsMapJSON:
-//
 //	{
 //	  "usrMention": [
 //	    "CLdKxbe8D2WVOpx1mT63TZ5CP/nesmxHLT5DUUalpe0=",
@@ -1928,10 +1927,10 @@ func (cm *ChannelsManager) GetMutedUsers(channelIDBytes []byte) ([]byte, error) 
 // Notifications options
 const (
 	// ChannelsNotifyNone results in no notifications.
-	ChannelsNotifyNone int64 = int64(channels.NotifyNone)
+	ChannelsNotifyNone = int64(channels.NotifyNone)
 
 	// ChannelsNotifyPing results in notifications from tags, replies, and pins.
-	ChannelsNotifyPing int64 = int64(channels.NotifyPing)
+	ChannelsNotifyPing = int64(channels.NotifyPing)
 
 	// ChannelsNotifyAll results in notifications from all messages except
 	// silent ones and replays.
@@ -1954,6 +1953,24 @@ func (cm *ChannelsManager) GetNotificationLevel(
 	}
 
 	level, err := cm.api.GetNotificationLevel(channelID)
+	return int(level), err
+}
+
+// GetNotificationStatus returns the notification status for the given channel.
+//
+// Parameters:
+//   - channelIDBytes - The marshalled bytes of the channel's [id.ID].
+//
+// Returns:
+//   - int - The [notifications.NotificationState] for the channel.
+func (cm *ChannelsManager) GetNotificationStatus(
+	channelIDBytes []byte) (int, error) {
+	channelID, err := id.Unmarshal(channelIDBytes)
+	if err != nil {
+		return 0, err
+	}
+
+	level, err := cm.api.GetNotificationStatus(channelID)
 	return int(level), err
 }
 
@@ -3227,11 +3244,11 @@ type MessageDeletedJson struct {
 //
 //	{
 //	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
-//	 "hasKeys":true
+//	 "IsAdmin":true
 //	}
 type AdminKeysUpdateJson struct {
 	ChannelId *id.ID `json:"channelID"`
-	isAdmin   bool   `json:"isAdmin"`
+	IsAdmin   bool   `json:"IsAdmin"`
 }
 
 // ChannelsUpdateJson describes when the sending of dm tokens is enabled or
@@ -3324,7 +3341,7 @@ func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bo
 
 	akJson := &AdminKeysUpdateJson{
 		ChannelId: chID,
-		isAdmin:   isAdmin,
+		IsAdmin:   isAdmin,
 	}
 	jsonBytes, err := json.Marshal(akJson)
 	if err != nil {

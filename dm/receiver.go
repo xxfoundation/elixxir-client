@@ -10,6 +10,7 @@ package dm
 import (
 	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/json"
 	"time"
 
 	"github.com/pkg/errors"
@@ -266,6 +267,10 @@ func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 		return r.receiveReaction(msgID, messageType,
 			nick, plaintext, partnerDMToken, partnerPubKey,
 			senderPubKey, 0, ts, round, status)
+	case InvitationType:
+		return r.receiveInvitation(msgID, messageType,
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	default:
 		return r.api.Receive(msgID, nick, plaintext,
 			partnerPubKey, senderPubKey,
@@ -377,6 +382,38 @@ func (r *receiver) receiveReaction(messageID message.ID,
 		messageID, partnerPubKey, codeset,
 		messageType, timestamp,
 		round.ID)
+}
+
+// receiveReaction is the internal function that handles the reception of
+// Invitations.
+func (r *receiver) receiveInvitation(messageID message.ID,
+	messageType MessageType, nickname string, content []byte,
+	dmToken uint32, partnerPubKey, senderPubKey ed25519.PublicKey,
+	codeset uint8, timestamp time.Time, round rounds.Round,
+	status Status) (uint64, error) {
+	invite := &ChannelInvitation{}
+	if err := proto.Unmarshal(content, invite); err != nil {
+		return 0, errors.Wrapf(err, "Failed to text unmarshal DM %s "+
+			"with %x, type %s, ts: %s, round: %d",
+			messageID, partnerPubKey, messageType, timestamp,
+			round.ID)
+	}
+
+	tag := makeDebugTag(partnerPubKey, content, SendInviteTag)
+	jww.INFO.Printf("[%s] DM - Received message with partner %s ",
+		tag, base64.StdEncoding.EncodeToString(partnerPubKey))
+
+	mar, err := json.Marshal(invite)
+	if err != nil {
+		return 0, errors.Wrapf(err, "Failed to json marshal DM %s "+
+			"with %x, type %s, ts: %s, round: %d: %+v",
+			messageID, partnerPubKey, messageType, timestamp,
+			round.ID, err)
+	}
+
+	return r.api.ReceiveText(messageID, nickname, string(mar),
+		partnerPubKey, senderPubKey, dmToken, codeset,
+		timestamp, round, status), nil
 }
 
 // This helper does the opposite of "createCMIXFields" in send.go

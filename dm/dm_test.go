@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/v4/broadcast"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"google.golang.org/protobuf/proto"
@@ -123,7 +124,7 @@ func TestE2EDMs(t *testing.T) {
 	require.Equal(t, 5, len(receiverB.Msgs))
 	rcvB2 := receiverB.Msgs[4]
 	invitation := &ChannelInvitation{}
-	require.NoError(t, proto.Unmarshal([]byte(rcvB2.Message), invitation))
+	require.NoError(t, json.Unmarshal([]byte(rcvB2.Message), invitation))
 	rcvChannel, err := cryptoBroadcast.DecodeInviteURL(
 		invitation.InviteLink, []byte(invitation.Password))
 	require.NoError(t, err)
@@ -135,7 +136,7 @@ func TestE2EDMs(t *testing.T) {
 	_, _, _, err = clientA.SendSilent(pubKey, dmToken, params)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(receiverB.Msgs))
-	rcvB3 := receiverB.Msgs[4]
+	rcvB3 := receiverB.Msgs[5]
 	silent := &SilentMessage{}
 	require.NoError(t, proto.Unmarshal([]byte(rcvB3.Message), silent))
 }

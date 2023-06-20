@@ -59,9 +59,9 @@ type savedAction struct {
 	Received time.Time `json:"received,omitempty"`
 
 	// TargetMessage is the message ID of the message that the action applies to.
-	TargetMessage message.ID `json:"targetMessage,omitempty"`
+	TargetMessage message.ID `json:"target,omitempty"`
 
-	CommandMessage `json:"commandMessage,omitempty"`
+	CommandMessage `json:"msg,omitempty"`
 }
 
 // NewActionSaver initialises a new empty ActionSaver.

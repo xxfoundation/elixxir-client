@@ -75,12 +75,12 @@ type manager struct {
 }
 
 type TrackedID struct {
-	NextGeneration time.Time
-	LastGeneration time.Time
-	Source         *id.ID
-	ValidUntil     time.Time
-	Persistent     bool
-	Creation       time.Time
+	NextGeneration time.Time `json:"next"`
+	LastGeneration time.Time `json:"last"`
+	Source         *id.ID    `json:"source,omitempty"`
+	ValidUntil     time.Time `json:"validUntil"`
+	Persistent     bool      `json:"persistent,omitempty"`
+	Creation       time.Time `json:"creation"`
 }
 
 func NewOrLoadTracker(session storage.Session, addrSpace address.Space) Tracker {

@@ -254,9 +254,8 @@ func TestSendTracker_load_store(t *testing.T) {
 	}
 	mid := message.DeriveDirectMessageID(partnerID, directMessage)
 	st.byRound[rid] = trackedList{
-		List: []*tracked{{MsgID: mid,
-			partnerKey: partner.PubKey,
-			RoundID:    rid}},
+		List: []*tracked{
+			{MsgID: mid, RoundID: rid, partnerKey: partner.PubKey}},
 		RoundCompleted: false,
 	}
 	err := st.store()

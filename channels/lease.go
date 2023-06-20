@@ -116,7 +116,7 @@ type leaseMessagePacket struct {
 // leaseMessage contains a message and an associated action.
 type leaseMessage struct {
 	// ChannelID is the ID of the channel that his message is in.
-	ChannelID *id.ID `json:"channelID"`
+	ChannelID *id.ID `json:"chanID"`
 
 	// Action is the action applied to the message (currently only Pinned and
 	// Mute).
@@ -129,7 +129,7 @@ type leaseMessage struct {
 	// actions, this is the same as Timestamp. On a replayed messages, this is
 	// the timestamp of the original message, not the timestamp of the replayed
 	// message.
-	OriginatingTimestamp time.Time `json:"originatingTimestamp"`
+	OriginatingTimestamp time.Time `json:"origTS"`
 
 	// Lease is the duration of the message lease. This is the original lease
 	// set and indicates the duration to wait from the OriginatingTimestamp.

@@ -34,25 +34,30 @@ type EphemeralIdentity struct {
 
 type Identity struct {
 	// Identity
-	EphemeralIdentity
-	AddressSize uint8
+	EphemeralIdentity `json:"ephID"`
+	AddressSize       uint8 `json:"addrSize,omitempty"`
 
-	// Usage variables
-	End         time.Time // Timestamp when active polling will stop
-	ExtraChecks uint      // Number of extra checks executed as active after the
-	// ID exits active
+	/* Usage variables */
+	// End is the timestamp when active polling will stop.
+	End time.Time `json:"end"`
+	// ExtraChecks is the number of extra checks executed as active after the ID
+	// exits active.
+	ExtraChecks uint `json:"extraChecks,omitempty"`
 
-	// Polling parameters
-	StartValid time.Time // Timestamp when the ephID begins being valid
-	EndValid   time.Time // Timestamp when the ephID stops being valid
+	/* Polling parameters */
+	// StartValid is the timestamp when the ephemeral ID begins being valid
+	StartValid time.Time `json:"startValid"`
+	// EndValid is the timestamp when the ephemeral ID stops being valid
+	EndValid time.Time `json:"endValid"`
 
-	// Makes the identity not store on disk
-	Ephemeral bool
+	// Ephemeral makes the identity not stored on disk.
+	Ephemeral bool `json:"ephemeral,omitempty"`
 
-	// When this identity expired, it will auto add processNext to the identity list
-	// to be processed. In practice this is a reverse ordered list and is added whenever
-	// many identities are added at once in order to pick up sequentially
-	ProcessNext *Identity
+	// When this identity expired, it will auto add ProcessNext to the identity
+	// list to be processed. In practice, this is a reverse ordered list and is
+	// added whenever many identities are added at once in order to pick up
+	// sequentially.
+	ProcessNext *Identity `json:"processNext,omitempty"`
 }
 
 func loadIdentity(kv versioned.KV) (Identity, error) {

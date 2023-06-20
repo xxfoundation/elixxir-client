@@ -56,13 +56,13 @@ func saveRegistrationDisk(kv versioned.KV, reg registrationDisk) error {
 // registrationDisk is used to encapsulate the channel user's key pair,
 // lease and lease signature.
 type registrationDisk struct {
-	rwmutex sync.RWMutex
+	rwmutex sync.RWMutex `json:"rwmutex"`
 
-	Registered bool
-	PublicKey  ed25519.PublicKey
-	PrivateKey ed25519.PrivateKey
-	Lease      int64
-	Signature  []byte
+	Registered bool               `json:"registered,omitempty"`
+	PublicKey  ed25519.PublicKey  `json:"publicKey,omitempty"`
+	PrivateKey ed25519.PrivateKey `json:"privateKey,omitempty"`
+	Lease      int64              `json:"lease,omitempty"`
+	Signature  []byte             `json:"signature,omitempty"`
 }
 
 // newRegistrationDisk creates a new newRegistrationDisk.

@@ -128,8 +128,8 @@ func getFingerprint() *format.Fingerprint {
 	return &fp
 }
 
-// compare fields also represented in SessionDisk
-// fields not represented in SessionDisk shouldn't be expected to be populated by Unmarshal
+// compare fields also represented in sessionDisk
+// fields not represented in sessionDisk shouldn't be expected to be populated by Unmarshal
 func cmpSerializedFields(a *Session, b *Session) error {
 	if a.negotiationStatus != b.negotiationStatus {
 		return errors.New("confirmed differed")

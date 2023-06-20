@@ -25,10 +25,10 @@ const currentE2EMessageVersion = 0
 type e2eMessageHandler struct{}
 
 type e2eMessage struct {
-	Recipient   []byte
-	Payload     []byte
-	MessageType uint32
-	Params      Params
+	Recipient   []byte `json:"recipient,omitempty"`
+	Payload     []byte `json:"payload,omitempty"`
+	MessageType uint32 `json:"type,omitempty"`
+	Params      Params `json:"params"`
 }
 
 // SaveMessage saves the e2eMessage as a versioned object at the specified key

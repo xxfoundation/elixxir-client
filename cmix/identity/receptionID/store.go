@@ -42,9 +42,9 @@ type Store struct {
 }
 
 type storedReference struct {
-	Eph        ephemeral.Id
-	Source     *id.ID
-	StartValid time.Time
+	Eph        ephemeral.Id `json:"eph,omitempty"`
+	Source     *id.ID       `json:"source,omitempty"`
+	StartValid time.Time    `json:"startValid"`
 }
 
 type idHash [16]byte

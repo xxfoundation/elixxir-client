@@ -125,13 +125,13 @@ func (cs *CommandStore) DeleteCommand(
 // that will be saved to storage
 type CommandMessage struct {
 	// ChannelID is the ID of the channel.
-	ChannelID *id.ID `json:"channelID,omitempty"`
+	ChannelID *id.ID `json:"chanID,omitempty"`
 
 	// MessageID is the ID of the message.
-	MessageID message.ID `json:"messageID,omitempty"`
+	MessageID message.ID `json:"msgID,omitempty"`
 
 	// MessageType is the Type of channel message.
-	MessageType MessageType `json:"messageType,omitempty"`
+	MessageType MessageType `json:"type,omitempty"`
 
 	// Nickname is the nickname of the sender.
 	Nickname string `json:"nickname,omitempty"`
@@ -144,7 +144,7 @@ type CommandMessage struct {
 	// EncryptedPayload is the encrypted contents of the received format.Message
 	// (with its outer layer of encryption removed). This is the encrypted
 	// channels.ChannelMessage.
-	EncryptedPayload []byte `json:"encryptedPayload,omitempty"`
+	EncryptedPayload []byte `json:"encrPayload,omitempty"`
 
 	// PubKey is the Ed25519 public key of the sender.
 	PubKey ed25519.PublicKey `json:"pubKey,omitempty"`
@@ -158,18 +158,18 @@ type CommandMessage struct {
 	// than OriginatingTimestamp. If the message is a replay, then Timestamp
 	// will
 	// always be the queued time of the round.
-	Timestamp time.Time `json:"timestamp,omitempty"`
+	Timestamp time.Time `json:"ts,omitempty"`
 
 	// OriginatingTimestamp is the time the sender queued the message for
 	// sending on their client.
-	OriginatingTimestamp time.Time `json:"originatingTimestamp,omitempty"`
+	OriginatingTimestamp time.Time `json:"origTS,omitempty"`
 
 	// Lease is how long the message should persist.
 	Lease time.Duration `json:"lease,omitempty"`
 
 	// OriginatingRound is the ID of the round the message was originally sent
 	// on.
-	OriginatingRound id.Round `json:"originatingRound,omitempty"`
+	OriginatingRound id.Round `json:"origRound,omitempty"`
 
 	// Round is the information about the round the message was sent on. For
 	// replay messages, this is the round of the most recent replay, not the
@@ -181,10 +181,10 @@ type CommandMessage struct {
 	Status SentStatus `json:"status,omitempty"`
 
 	// FromAdmin indicates if the message came from the channel admin.
-	FromAdmin bool `json:"fromAdmin,omitempty"`
+	FromAdmin bool `json:"admin,omitempty"`
 
 	// UserMuted indicates if the sender of the message is muted.
-	UserMuted bool `json:"userMuted,omitempty"`
+	UserMuted bool `json:"muted,omitempty"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////

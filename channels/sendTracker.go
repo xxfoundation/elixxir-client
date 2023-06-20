@@ -41,15 +41,15 @@ const (
 )
 
 type tracked struct {
-	MsgID     message.ID
-	ChannelID *id.ID
-	RoundID   id.Round
-	UUID      uint64
+	MsgID     message.ID `json:"msgID,omitempty"`
+	ChannelID *id.ID     `json:"chanID,omitempty"`
+	RoundID   id.Round   `json:"roundID,omitempty"`
+	UUID      uint64     `json:"uuid,omitempty"`
 }
 
 type trackedList struct {
-	List           []*tracked
-	RoundCompleted bool
+	List           []*tracked `json:"list,omitempty"`
+	RoundCompleted bool       `json:"completed,omitempty"`
 }
 
 // sendTracker tracks outbound messages and denotes when they are delivered to

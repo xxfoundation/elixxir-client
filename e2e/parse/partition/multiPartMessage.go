@@ -29,19 +29,19 @@ const (
 )
 
 type multiPartMessage struct {
-	Sender       *id.ID
-	MessageID    uint64
-	NumParts     uint8
-	PresentParts uint8
+	Sender       *id.ID `json:"sender,omitempty"`
+	MessageID    uint64 `json:"msgID,omitempty"`
+	NumParts     uint8  `json:"parts,omitempty"`
+	PresentParts uint8  `json:"present,omitempty"`
 
 	// SenderTimestamp is the timestamp of message from sender.
-	SenderTimestamp time.Time
+	SenderTimestamp time.Time `json:"senderTS"`
 
 	// StorageTimestamp is the timestamp in which message was stored in RAM
-	StorageTimestamp time.Time
-	MessageType      catalog.MessageType
+	StorageTimestamp time.Time           `json:"storageTS"`
+	MessageType      catalog.MessageType `json:"type,omitempty"`
 
-	KeyResidue e2e.KeyResidue
+	KeyResidue e2e.KeyResidue `json:"residue,omitempty"`
 
 	parts [][]byte
 	kv    versioned.KV

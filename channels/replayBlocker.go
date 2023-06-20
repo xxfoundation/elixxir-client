@@ -54,7 +54,7 @@ type triggerLeaseReplay func(
 // on.
 type commandMessage struct {
 	// ChannelID is the ID of the channel that his message is in.
-	ChannelID *id.ID `json:"channelID"`
+	ChannelID *id.ID `json:"chanID"`
 
 	// Action is the action applied to the message (currently only Pinned and
 	// Mute).
@@ -65,7 +65,7 @@ type commandMessage struct {
 
 	// OriginatingRound is the ID of the round the message was originally sent
 	// on.
-	OriginatingRound id.Round `json:"originatingRound"`
+	OriginatingRound id.Round `json:"origRound"`
 
 	// UnsanitizedFP is the first 8 bytes of the commandFingerprint generated
 	// using the unsanitized payload.

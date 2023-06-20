@@ -40,9 +40,9 @@ type Conversation struct {
 
 // conversationDisk stores the public data of Conversation for saving to disk.
 type conversationDisk struct {
-	LastReceivedID         uint32
-	NumReceivedRevolutions uint32
-	NextSendID             uint64
+	LastReceivedID         uint32 `json:"lastID,omitempty"`
+	NumReceivedRevolutions uint32 `json:"receivedRevolutions,omitempty"`
+	NextSendID             uint64 `json:"nextSendID,omitempty"`
 }
 
 // LoadOrMakeConversation returns the Conversation with the given ID, if it can
@@ -186,10 +186,11 @@ func (c *Conversation) unmarshal(b []byte) error {
 }
 
 func (c *Conversation) marshal() ([]byte, error) {
-	cd := conversationDisk{}
-	cd.LastReceivedID = c.lastReceivedID
-	cd.NumReceivedRevolutions = c.numReceivedRevolutions
-	cd.NextSendID = c.nextSentID
+	cd := conversationDisk{
+		LastReceivedID:         c.lastReceivedID,
+		NumReceivedRevolutions: c.numReceivedRevolutions,
+		NextSendID:             c.nextSentID,
+	}
 
 	b, err := json.Marshal(&cd)
 	if err != nil {

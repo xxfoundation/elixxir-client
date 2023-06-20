@@ -84,42 +84,42 @@ type Session struct {
 	rng       *fastRNG.StreamGenerator
 }
 
-// SessionDisk is a utility struct to write part of session data to disk.
+// sessionDisk is a utility struct to write part of session data to disk.
 // As this is serialized by json, any field that should be serialized
 // must be exported
-type SessionDisk struct {
-	E2EParams Params
+type sessionDisk struct {
+	E2EParams Params `json:"params"`
 
-	//session type
-	Type uint8
+	// Session type
+	Type RelationshipType `json:"type,omitempty"`
 
 	// Underlying key
-	BaseKey []byte
+	BaseKey []byte `json:"baseKey,omitempty"`
 	// Own Private Key
-	MyPrivKey []byte
+	MyPrivKey []byte `json:"myPriv,omitempty"`
 	// Partner Public Key
-	PartnerPubKey []byte
+	PartnerPubKey []byte `json:"partnerPub,omitempty"`
 	// Own SIDH Private Key
-	MySIDHPrivKey []byte
+	MySidhPrivKey []byte `json:"mySidhPriv,omitempty"`
 	// Note: only 3 bit patterns: 001, 010, 100
-	MySIDHVariant byte
+	MySidhVariant byte `json:"mySidhVar,omitempty"`
 	// Partner SIDH Public Key
-	PartnerSIDHPubKey []byte
+	PartnerSidhPubKey []byte `json:"partnerSidhPub,omitempty"`
 	// Note: only 3 bit patterns: 001, 010, 100
-	PartnerSIDHVariant byte
+	PartnerSidhVariant byte `json:"partnerSidhVar,omitempty"`
 
-	// ID of the session which triggered this sessions creation.
-	Trigger []byte
-	// relationship fp
-	RelationshipFingerprint []byte
+	// ID of the session which triggered this session's creation.
+	Trigger SessionID `json:"trigger,omitempty"`
+	// Relationship fingerprint
+	RelationshipFingerprint []byte `json:"relationshipFP,omitempty"`
 
-	//denotes if the other party has confirmed this key
-	Confirmation uint8
+	// Denotes if the other party has confirmed this key.
+	Confirmation Negotiation `json:"confirm,omitempty"`
 
-	// Number of keys usable before rekey
-	RekeyThreshold uint32
+	// Number of keys usable before rekey.
+	RekeyThreshold uint32 `json:"rekeyTH,omitempty"`
 
-	Partner []byte
+	Partner *id.ID `json:"partner,omitempty"`
 }
 
 /*CONSTRUCTORS*/
@@ -624,78 +624,95 @@ func (s *Session) getUnusedKeys() []Cypher {
 
 // ekv functions
 func (s *Session) marshal() ([]byte, error) {
-	sd := SessionDisk{}
-
-	sd.E2EParams = s.e2eParams
-	sd.Type = uint8(s.t)
-	sd.BaseKey = s.baseKey.Bytes()
-	sd.MyPrivKey = s.myPrivKey.Bytes()
-	sd.PartnerPubKey = s.partnerPubKey.Bytes()
-	sd.MySIDHPrivKey = make([]byte, s.mySIDHPrivKey.Size())
-	sd.PartnerSIDHPubKey = make([]byte, s.partnerSIDHPubKey.Size())
-
-	s.mySIDHPrivKey.Export(sd.MySIDHPrivKey)
-	sd.MySIDHVariant = byte(s.mySIDHPrivKey.Variant())
-
-	s.partnerSIDHPubKey.Export(sd.PartnerSIDHPubKey)
-	sd.PartnerSIDHVariant = byte(s.partnerSIDHPubKey.Variant())
-
-	sd.Trigger = s.partnerSource[:]
-	sd.RelationshipFingerprint = s.relationshipFingerprint
-	sd.Partner = s.partner.Bytes()
-
-	// assume in progress confirmations and session creations have failed on
-	// reset, therefore do not store their pending progress
-	if s.negotiationStatus == Sending {
-		sd.Confirmation = uint8(Unconfirmed)
-	} else if s.negotiationStatus == NewSessionTriggered {
-		sd.Confirmation = uint8(Confirmed)
-	} else {
-		sd.Confirmation = uint8(s.negotiationStatus)
+	sd := sessionDisk{
+		E2EParams:               s.e2eParams,
+		Type:                    s.t,
+		BaseKey:                 s.baseKey.Bytes(),
+		MyPrivKey:               s.myPrivKey.Bytes(),
+		PartnerPubKey:           s.partnerPubKey.Bytes(),
+		MySidhPrivKey:           make([]byte, s.mySIDHPrivKey.Size()),
+		MySidhVariant:           byte(s.mySIDHPrivKey.Variant()),
+		PartnerSidhPubKey:       make([]byte, s.partnerSIDHPubKey.Size()),
+		PartnerSidhVariant:      byte(s.partnerSIDHPubKey.Variant()),
+		Trigger:                 s.partnerSource,
+		RelationshipFingerprint: s.relationshipFingerprint,
+		RekeyThreshold:          s.rekeyThreshold,
+		Partner:                 s.partner,
 	}
+	s.mySIDHPrivKey.Export(sd.MySidhPrivKey)
+	s.partnerSIDHPubKey.Export(sd.PartnerSidhPubKey)
 
-	sd.RekeyThreshold = s.rekeyThreshold
+	// Assume in progress confirmations and session creations have failed on
+	// reset, therefore do not store their pending progress
+	switch s.negotiationStatus {
+	case Sending:
+		sd.Confirmation = Unconfirmed
+	case NewSessionTriggered:
+		sd.Confirmation = Confirmed
+	default:
+		sd.Confirmation = s.negotiationStatus
+	}
 
 	return json.Marshal(&sd)
 }
 
 func (s *Session) unmarshal(b []byte) error {
 
-	sd := SessionDisk{}
+	var sd sessionDisk
 
 	err := json.Unmarshal(b, &sd)
-
 	if err != nil {
 		return err
 	}
 
 	grp := s.grp
 
+	s = &Session{
+		kv:                      nil,
+		e2eParams:               Params{},
+		sID:                     SessionID{},
+		partner:                 nil,
+		t:                       0,
+		baseKey:                 nil,
+		myPrivKey:               nil,
+		partnerPubKey:           nil,
+		mySIDHPrivKey:           nil,
+		partnerSIDHPubKey:       nil,
+		partnerSource:           SessionID{},
+		relationshipFingerprint: nil,
+		negotiationStatus:       0,
+		rekeyThreshold:          0,
+		keyState:                nil,
+		mux:                     sync.RWMutex{},
+		cyHandler:               nil,
+		grp:                     nil,
+		rng:                     nil,
+	}
+
 	s.e2eParams = sd.E2EParams
-	s.t = RelationshipType(sd.Type)
+	s.t = sd.Type
+	s.partner = sd.Partner
 	s.baseKey = grp.NewIntFromBytes(sd.BaseKey)
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
-
-	mySIDHVariant := sidh.KeyVariant(sd.MySIDHVariant)
+	mySIDHVariant := sidh.KeyVariant(sd.MySidhVariant)
 	s.mySIDHPrivKey = utility.NewSIDHPrivateKey(mySIDHVariant)
-	err = s.mySIDHPrivKey.Import(sd.MySIDHPrivKey)
+	err = s.mySIDHPrivKey.Import(sd.MySidhPrivKey)
 	if err != nil {
 		return err
 	}
 
-	partnerSIDHVariant := sidh.KeyVariant(sd.PartnerSIDHVariant)
+	partnerSIDHVariant := sidh.KeyVariant(sd.PartnerSidhVariant)
 	s.partnerSIDHPubKey = utility.NewSIDHPublicKey(partnerSIDHVariant)
-	err = s.partnerSIDHPubKey.Import(sd.PartnerSIDHPubKey)
+	err = s.partnerSIDHPubKey.Import(sd.PartnerSidhPubKey)
 	if err != nil {
 		return err
 	}
 
-	s.negotiationStatus = Negotiation(sd.Confirmation)
+	s.partnerSource = sd.Trigger
+	s.negotiationStatus = sd.Confirmation
 	s.rekeyThreshold = sd.RekeyThreshold
 	s.relationshipFingerprint = sd.RelationshipFingerprint
-	s.partner, _ = id.Unmarshal(sd.Partner)
-	copy(s.partnerSource[:], sd.Trigger)
 
 	s.keyState, err = utility.LoadStateVector(s.kv, "")
 	if err != nil {

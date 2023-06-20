@@ -42,13 +42,13 @@ type SentRequest struct {
 }
 
 type sentRequestDisk struct {
-	PartnerHistoricalPubKey []byte
-	MyPrivKey               []byte
-	MyPubKey                []byte
-	MySidHPrivKeyA          []byte
-	MySidHPubKeyA           []byte
-	Fingerprint             []byte
-	Reset                   bool
+	PartnerHistoricalPubKey []byte `json:"partnerPubKey,omitempty"`
+	MyPrivKey               []byte `json:"myPrivKey,omitempty"`
+	MyPubKey                []byte `json:"myPubKey,omitempty"`
+	MySidHPrivKeyA          []byte `json:"mySidHPrivKeyA,omitempty"`
+	MySidHPubKeyA           []byte `json:"mySidHPubKeyA,omitempty"`
+	Fingerprint             []byte `json:"fingerprint,omitempty"`
+	Reset                   bool   `json:"reset,omitempty"`
 }
 
 func newSentRequest(kv versioned.KV, partner *id.ID, partnerHistoricalPubKey,

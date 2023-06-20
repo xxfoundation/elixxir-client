@@ -22,9 +22,9 @@ const (
 )
 
 type storedConfirm struct {
-	Payload []byte
-	Mac     []byte
-	Keyfp   []byte
+	Payload []byte `json:"payload,omitempty"`
+	Mac     []byte `json:"mac,omitempty"`
+	KeyFP   []byte `json:"keyFP,omitempty"`
 }
 
 // StoreConfirmation saves the confirmation to storage for the given partner and
@@ -34,7 +34,7 @@ func (s *Store) StoreConfirmation(partner *id.ID,
 	confirm := storedConfirm{
 		Payload: confirmationPayload,
 		Mac:     mac,
-		Keyfp:   fp[:],
+		KeyFP:   fp[:],
 	}
 
 	confirmBytes, err := json.Marshal(&confirm)
@@ -67,7 +67,7 @@ func (s *Store) LoadConfirmation(partner *id.ID) (
 	}
 
 	fp := format.Fingerprint{}
-	copy(fp[:], confirm.Keyfp)
+	copy(fp[:], confirm.KeyFP)
 
 	return confirm.Payload, confirm.Mac, fp, nil
 }

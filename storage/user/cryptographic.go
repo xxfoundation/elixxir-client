@@ -50,15 +50,15 @@ type ciDisk struct {
 }
 
 type ciDiskV1 struct {
-	TransmissionID     *id.ID
-	TransmissionSalt   []byte
-	TransmissionRsaKey *oldRsa.PrivateKey
-	ReceptionID        *id.ID
-	ReceptionSalt      []byte
-	ReceptionRsaKey    *oldRsa.PrivateKey
-	IsPrecanned        bool
-	E2eDhPrivateKey    []byte
-	E2eDhPublicKey     []byte
+	TransmissionID     *id.ID             `json:"transmissionID,omitempty"`
+	TransmissionSalt   []byte             `json:"transmissionSalt,omitempty"`
+	TransmissionRsaKey *oldRsa.PrivateKey `json:"transmissionRsaKey,omitempty"`
+	ReceptionID        *id.ID             `json:"receptionID,omitempty"`
+	ReceptionSalt      []byte             `json:"receptionSalt,omitempty"`
+	ReceptionRsaKey    *oldRsa.PrivateKey `json:"receptionRsaKey,omitempty"`
+	IsPrecanned        bool               `json:"isPrecanned,omitempty"`
+	E2eDhPrivateKey    []byte             `json:"e2EDhPrivateKey,omitempty"`
+	E2eDhPublicKey     []byte             `json:"e2EDhPublicKey,omitempty"`
 }
 
 func newCryptographicIdentity(transmissionID, receptionID *id.ID,

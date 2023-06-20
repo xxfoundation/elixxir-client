@@ -26,9 +26,9 @@ const currentCmixMessageVersion = 0
 type cmixMessageHandler struct{}
 
 type storedMessage struct {
-	Msg       []byte
-	Recipient []byte
-	Params    []byte
+	Msg       []byte `json:"msg,omitempty"`
+	Recipient []byte `json:"recipient,omitempty"`
+	Params    []byte `json:"params,omitempty"`
 }
 
 func (sm storedMessage) Marshal() []byte {

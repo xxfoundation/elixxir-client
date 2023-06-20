@@ -27,18 +27,18 @@ type Params struct {
 	// using the DH as a seed, both sides finalizeKeyNegotation a number
 	// of keys to use before they must rekey because
 	// there are no keys to use.
-	MinKeys uint16
-	MaxKeys uint16
+	MinKeys uint16 `json:"minKeys,omitempty"`
+	MaxKeys uint16 `json:"maxKeys,omitempty"`
 	// the percent of keys before a rekey is attempted. must be <0
-	RekeyThreshold float64
+	RekeyThreshold float64 `json:"threshold,omitempty"`
 	// extra keys generated and reserved for rekey attempts. This
 	// many keys are not allowed to be used for sending messages
 	// in order to ensure there are extras for rekeying.
-	NumRekeys uint16
+	NumRekeys uint16 `json:"rekeys,omitempty"`
 	// Number from 0 to 1, denotes how often when in the unconfirmed state the
 	// system will automatically resend the rekey request on any message send
 	// from the partner the session is associated with
-	UnconfirmedRetryRatio float64
+	UnconfirmedRetryRatio float64 `json:"ratio,omitempty"`
 }
 
 // paramsDisk will be the marshal-able and umarshal-able object.

@@ -509,6 +509,8 @@ gitlab.com/elixxir/ekv v0.3.1-0.20230525213559-f9da13f4fce1 h1:8XBo6QQBXXGCTrgXH
 gitlab.com/elixxir/ekv v0.3.1-0.20230525213559-f9da13f4fce1/go.mod h1:UStTZ9d1UVn9Ahyb49lrbPKyr/Wb8xFWqMXbDgIqQhE=
 gitlab.com/elixxir/ekv v0.3.1-0.20230615223221-5b674608adcf h1:DTbwkxFRLaDD3U+uRN9Ff1V5O+svuHffyp8it5A0lSg=
 gitlab.com/elixxir/ekv v0.3.1-0.20230615223221-5b674608adcf/go.mod h1:xZ7tbYNyaEWk1caUIckyOMI65klnidgwZn7nMURtalY=
+gitlab.com/elixxir/ekv v0.3.1-0.20230620180825-838848b00f19 h1:GZLTKoxr6r5QhG5BvZoQeImeXrpnn03EhG8RTxrLyl0=
+gitlab.com/elixxir/ekv v0.3.1-0.20230620180825-838848b00f19/go.mod h1:8sVMOf3GFQCnd3z8Nnlg8Udno+Lcc1qNXxleblhzXTA=
 gitlab.com/elixxir/primitives v0.0.3-0.20230613193928-8cf8bdd777ef h1:31Uavv2Y1lNnPsxPe8lAsJClf7h6y9c3NrqMIvA9ae8=
 gitlab.com/elixxir/primitives v0.0.3-0.20230613193928-8cf8bdd777ef/go.mod h1:phun4PLkHJA6wcL4JIhhxZztrmCyJHWPNppBP3DUD2Y=
 gitlab.com/elixxir/wasm-utils v0.0.0-20230615222914-185dd3a6fa08 h1:7Uqf6CHEBj/q1CIHEwnWcYLFG5cpMtH8oyVYGikgYWo=

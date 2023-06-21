@@ -25,10 +25,10 @@ const currentE2EMessageVersion = 0
 type e2eMessageHandler struct{}
 
 type e2eMessage struct {
-	Recipient   []byte
-	Payload     []byte
-	MessageType uint32
-	Params      Params
+	Recipient   *id.ID              `json:"recipient"`
+	Payload     []byte              `json:"payload"`
+	MessageType catalog.MessageType `json:"messageType"`
+	Params      Params              `json:"params"`
 }
 
 // SaveMessage saves the e2eMessage as a versioned object at the specified key
@@ -89,10 +89,10 @@ func (emh *e2eMessageHandler) HashMessage(m interface{}) utility.MessageHash {
 	h, _ := blake2b.New256(nil)
 
 	msg := m.(e2eMessage)
-	h.Write(msg.Recipient)
+	h.Write(msg.Recipient.Marshal())
 	h.Write(msg.Payload)
 	mtBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(mtBytes, msg.MessageType)
+	binary.BigEndian.PutUint32(mtBytes, uint32(msg.MessageType))
 	h.Write(mtBytes)
 
 	var messageHash utility.MessageHash
@@ -132,9 +132,9 @@ func LoadE2eMessageBuffer(kv versioned.KV, key string) (
 func (emb *E2eMessageBuffer) Add(mt catalog.MessageType, recipient *id.ID,
 	payload []byte, p Params) {
 	e2eMsg := e2eMessage{
-		Recipient:   recipient[:],
+		Recipient:   recipient,
 		Payload:     payload,
-		MessageType: uint32(mt),
+		MessageType: mt,
 		Params:      p,
 	}
 
@@ -144,9 +144,9 @@ func (emb *E2eMessageBuffer) Add(mt catalog.MessageType, recipient *id.ID,
 func (emb *E2eMessageBuffer) AddProcessing(mt catalog.MessageType,
 	recipient *id.ID, payload []byte, p Params) {
 	e2eMsg := e2eMessage{
-		Recipient:   recipient[:],
+		Recipient:   recipient,
 		Payload:     payload,
-		MessageType: uint32(mt),
+		MessageType: mt,
 		Params:      p,
 	}
 
@@ -161,22 +161,15 @@ func (emb *E2eMessageBuffer) Next() (catalog.MessageType, *id.ID, []byte,
 	}
 
 	msg := m.(e2eMessage)
-	recipient, err := id.Unmarshal(msg.Recipient)
-	if err != nil {
-		jww.FATAL.Panicf("Error unmarshaling Recipient: %v", err)
-	}
-	mt := catalog.MessageType(msg.MessageType)
-	return mt, recipient, msg.Payload, msg.Params, true
+	return msg.MessageType, msg.Recipient, msg.Payload, msg.Params, true
 }
 
 func (emb *E2eMessageBuffer) Succeeded(mt catalog.MessageType,
 	recipient *id.ID, payload []byte) {
-	emb.mb.Succeeded(e2eMessage{recipient.Marshal(),
-		payload, uint32(mt), Params{}})
+	emb.mb.Succeeded(e2eMessage{recipient, payload, mt, Params{}})
 }
 
 func (emb *E2eMessageBuffer) Failed(mt catalog.MessageType,
 	recipient *id.ID, payload []byte) {
-	emb.mb.Failed(e2eMessage{recipient.Marshal(),
-		payload, uint32(mt), Params{}})
+	emb.mb.Failed(e2eMessage{recipient, payload, mt, Params{}})
 }

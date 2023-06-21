@@ -1163,6 +1163,7 @@ func ValidForever() int {
 //     on a [channels.PingType] that describes the type of notification it is.
 //
 // Example pingsMapJSON:
+//
 //	{
 //	  "usrMention": [
 //	    "CLdKxbe8D2WVOpx1mT63TZ5CP/nesmxHLT5DUUalpe0=",
@@ -1459,6 +1460,17 @@ func (cm *ChannelsManager) SendSilent(channelIdBytes []byte, validUntilMS int64,
 //
 // If the channel ID for the invitee channel is not recognized by the Manager,
 // then an error will be returned.
+//
+// The reception of an invitation will be handled by
+// [EventModel.ReceiveMessage], passing in a [channels.MessageType] of
+// value [channels.Invitation]. The message will be JSON encoded.
+// Example invite JSON:
+//
+//	{
+//	   "text": "Check this channel out!",
+//	   "inviteLink": "https://internet.speakeasy.tech/?0Name=name&1Description=description&2Level=Public&3Created=1687359213751145652&e=gnnLqhgsNJE7uFTLRsv1q%2FzgHBesVsezln4mg4mQZ70%3D&k=aOULKJDhSkNOou7CwsybaNTrdfrUS55%2Ffv%2FuHjX2Mc4%3D&l=928&m=0&p=1&s=cN2iHg6b5FdViS4q46QMolQUF0BZt98NEiO6NKrL1d0%3D&v=1",
+//	   "password": "secret"
+//	}
 //
 // Parameters:
 //   - channelIdBytes - Marshalled bytes of the channel's [id.ID]

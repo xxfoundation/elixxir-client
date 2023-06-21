@@ -8,6 +8,7 @@
 package dm
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
@@ -403,7 +404,10 @@ func (r *receiver) receiveInvitation(messageID message.ID,
 	jww.INFO.Printf("[%s] DM - Received message with partner %s ",
 		tag, base64.StdEncoding.EncodeToString(partnerPubKey))
 
-	mar, err := json.Marshal(invite)
+	var inviteJson bytes.Buffer
+	enc := json.NewEncoder(&inviteJson)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(invite)
 	if err != nil {
 		return 0, errors.Wrapf(err, "Failed to json marshal DM %s "+
 			"with %x, type %s, ts: %s, round: %d: %+v",
@@ -411,7 +415,7 @@ func (r *receiver) receiveInvitation(messageID message.ID,
 			round.ID, err)
 	}
 
-	return r.api.Receive(messageID, nickname, mar,
+	return r.api.Receive(messageID, nickname, inviteJson.Bytes(),
 		partnerPubKey, senderPubKey, dmToken, codeset,
 		timestamp, round, InvitationType, status), nil
 }

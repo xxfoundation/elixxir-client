@@ -8,6 +8,7 @@
 package store
 
 import (
+	"encoding/json"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -195,5 +196,40 @@ func Test_makeConfirmationKey_Consistency(t *testing.T) {
 		}
 
 		// fmt.Printf("\"%s\",\n", key)
+	}
+}
+
+func Test_storedConfirm_JSON_Marshal_Unmarshal(t *testing.T) {
+	prng := rand.New(rand.NewSource(5212665))
+	grp := cyclic.NewGroup(large.NewInt(98), large.NewInt(2))
+	_, sidhPubkey := utility.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, prng)
+	fp := format.NewFingerprint(auth.CreateNegotiationFingerprint(
+		diffieHellman.GeneratePublicKey(grp.NewInt(42), grp), sidhPubkey))
+	confirmation := make([]byte, 32)
+	mac := make([]byte, 32)
+	prng.Read(confirmation)
+	prng.Read(mac)
+	mac[0] = 0
+
+	expected := storedConfirm{
+		Payload: confirmation,
+		Mac:     mac,
+		KeyFP:   fp,
+	}
+
+	data, err := json.Marshal(expected)
+	if err != nil {
+		t.Errorf("Failed to marshal %T: %+v", expected, err)
+	}
+
+	var sc storedConfirm
+	err = json.Unmarshal(data, &sc)
+	if err != nil {
+		t.Errorf("Failed to unmarshal %T: %+v", sc, err)
+	}
+
+	if !reflect.DeepEqual(expected, sc) {
+		t.Errorf("Unexpected storedConfirm.\nexected: %+v\nreceived: %+v",
+			expected, sc)
 	}
 }

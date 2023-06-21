@@ -32,8 +32,8 @@ type BucketStore struct {
 // bucketDisk is a JSON-able structure used to store
 // a rateLimiting.Bucket parameters.
 type bucketDisk struct {
-	capacity  uint32
-	timestamp int64
+	Capacity  uint32 `json:"capacity"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 // NewStoredBucket creates a new, empty Bucket and saves it to storage.
@@ -57,8 +57,8 @@ func (s *BucketStore) save(inBucket uint32, timestamp int64) {
 
 	// Create
 	bd := bucketDisk{
-		capacity:  inBucket,
-		timestamp: timestamp,
+		Capacity:  inBucket,
+		Timestamp: timestamp,
 	}
 
 	data, err := json.Marshal(&bd)
@@ -120,6 +120,6 @@ func (s *BucketStore) load() (uint32, int64, error) {
 		return 0, 0, err
 	}
 
-	return bd.capacity, bd.timestamp, err
+	return bd.Capacity, bd.Timestamp, err
 
 }

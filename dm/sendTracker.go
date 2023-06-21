@@ -55,16 +55,18 @@ type updateStatusFunc func(uuid uint64, messageID message.ID,
 	timestamp time.Time, round rounds.Round, status Status)
 
 type tracked struct {
-	MsgID      message.ID
+	MsgID   message.ID `json:"msgID"`
+	RoundID id.Round   `json:"roundID"`
+	UUID    uint64     `json:"UUID"`
+
+	// For logging/debugging purposes
 	partnerKey ed25519.PublicKey
 	senderKey  ed25519.PublicKey
-	RoundID    id.Round
-	UUID       uint64
 }
 
 type trackedList struct {
-	List           []*tracked
-	RoundCompleted bool
+	List           []*tracked `json:"list"`
+	RoundCompleted bool       `json:"roundCompleted"`
 }
 
 // sendTracker tracks outbound messages and denotes when they are delivered to
@@ -203,8 +205,7 @@ func (st *sendTracker) handleDenoteSend(uuid uint64,
 		return
 	}
 
-	st.unsent[uuid] = &tracked{messageID, partnerKey, senderKey,
-		round.ID, uuid}
+	st.unsent[uuid] = &tracked{messageID, round.ID, uuid, partnerKey, senderKey}
 
 	err := st.storeUnsent()
 	if err != nil {

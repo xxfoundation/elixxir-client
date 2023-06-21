@@ -36,10 +36,10 @@ type UnknownRoundsParams struct {
 	Stored bool
 }
 
-// unknownRoundsParamsDisk will be the marshal-able and umarshal-able object.
+// unknownRoundsParamsDisk will be the marshal-able and unmarshal-able object.
 type unknownRoundsParamsDisk struct {
-	MaxChecks uint64
-	Stored    bool
+	MaxChecks uint64 `json:"maxChecks"`
+	Stored    bool   `json:"stored"`
 }
 
 // DefaultUnknownRoundsParams returns a default set of UnknownRoundsParams.

@@ -29,21 +29,21 @@ type Params struct {
 	// Delay between attempting to get kets
 	KeyGeRetryDelay time.Duration
 
-	//Authorizes the message to use a key reserved for rekeying. Do not use
-	//unless sending a rekey
+	// Authorizes the message to use a key reserved for rekeying. Do not use
+	// unless sending a rekey
 	Rekey bool
 
 	cmix.CMIXParams
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	ServiceTag       string
-	LastServiceTag   string
-	KeyGetRetryCount uint
-	KeyGeRetryDelay  time.Duration
-	Rekey            bool
-	cmix.CMIXParams
+	ServiceTag       string        `json:"serviceTag"`
+	LastServiceTag   string        `json:"lastServiceTag"`
+	KeyGetRetryCount uint          `json:"keyGetRetryCount"`
+	KeyGeRetryDelay  time.Duration `json:"keyGeRetryDelay"`
+	Rekey            bool          `json:"rekey"`
+	cmix.CMIXParams  `json:"cmix.CMIXParams"`
 }
 
 // GetDefaultParams returns a default set of Params.

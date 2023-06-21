@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
-	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const (
@@ -30,18 +30,18 @@ var ErrChannelLeaseSignature = errors.New("failure to validate lease signature")
 
 // loadRegistrationDisk loads a registrationDisk from the kv
 // and returns the registrationDisk.
-func loadRegistrationDisk(kv versioned.KV) (registrationDisk, error) {
+func loadRegistrationDisk(kv versioned.KV) (*registrationDisk, error) {
 	obj, err := kv.Get(registrationDiskKey, registrationDiskVersion)
 	if err != nil {
-		return registrationDisk{}, err
+		return nil, err
 	}
-	return UnmarshallRegistrationDisk(obj.Data)
+	return unmarshallRegistrationDisk(obj.Data)
 }
 
 // saveRegistrationDisk saves the given saveRegistrationDisk to
 // the given kv.
-func saveRegistrationDisk(kv versioned.KV, reg registrationDisk) error {
-	regBytes, err := reg.Marshall()
+func saveRegistrationDisk(kv versioned.KV, reg *registrationDisk) error {
+	regBytes, err := reg.marshall()
 	if err != nil {
 		return err
 	}
@@ -56,19 +56,19 @@ func saveRegistrationDisk(kv versioned.KV, reg registrationDisk) error {
 // registrationDisk is used to encapsulate the channel user's key pair,
 // lease and lease signature.
 type registrationDisk struct {
-	rwmutex sync.RWMutex
+	rwMutex sync.RWMutex
 
-	Registered bool
-	PublicKey  ed25519.PublicKey
-	PrivateKey ed25519.PrivateKey
-	Lease      int64
-	Signature  []byte
+	Registered bool               `json:"registered"`
+	PublicKey  ed25519.PublicKey  `json:"publicKey"`
+	PrivateKey ed25519.PrivateKey `json:"privateKey"`
+	Lease      int64              `json:"lease"`
+	Signature  []byte             `json:"signature"`
 }
 
 // newRegistrationDisk creates a new newRegistrationDisk.
 func newRegistrationDisk(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey,
-	lease time.Time, signature []byte) registrationDisk {
-	return registrationDisk{
+	lease time.Time, signature []byte) *registrationDisk {
+	return &registrationDisk{
 		Lease:      lease.UnixNano(),
 		PublicKey:  publicKey,
 		PrivateKey: privateKey,
@@ -76,54 +76,54 @@ func newRegistrationDisk(publicKey ed25519.PublicKey, privateKey ed25519.Private
 	}
 }
 
-func (r registrationDisk) IsRegistered() bool {
-	r.rwmutex.RLock()
-	defer r.rwmutex.RUnlock()
+func (r *registrationDisk) IsRegistered() bool {
+	r.rwMutex.RLock()
+	defer r.rwMutex.RUnlock()
 
 	return r.Registered
 }
 
 // Update updates the registrationDisk that is currently
 // stored on the kv with a new lease and lease signature.
-func (r registrationDisk) Update(lease int64, signature []byte) {
-	r.rwmutex.Lock()
-	defer r.rwmutex.Unlock()
+func (r *registrationDisk) Update(lease int64, signature []byte) {
+	r.rwMutex.Lock()
+	defer r.rwMutex.Unlock()
 
 	r.Registered = true
 	r.Lease = lease
 	r.Signature = signature
 }
 
-// Marshall marshalls the registrationDisk.
-func (r registrationDisk) Marshall() ([]byte, error) {
-	r.rwmutex.RLock()
-	defer r.rwmutex.RUnlock()
+// marshall marshals the registrationDisk.
+func (r *registrationDisk) marshall() ([]byte, error) {
+	r.rwMutex.RLock()
+	defer r.rwMutex.RUnlock()
 
 	return json.Marshal(&r)
 }
 
-// UnmarshallRegistrationDisk unmarshalls a registrationDisk
-func UnmarshallRegistrationDisk(data []byte) (registrationDisk, error) {
+// unmarshallRegistrationDisk unmarshalls a registrationDisk
+func unmarshallRegistrationDisk(data []byte) (*registrationDisk, error) {
 	var r registrationDisk
 	err := json.Unmarshal(data, &r)
 	if err != nil {
-		return registrationDisk{}, err
+		return nil, err
 	}
-	return r, nil
+	return &r, nil
 }
 
 // GetLease returns the current registrationDisk lease.
-func (r registrationDisk) GetLease() time.Time {
-	r.rwmutex.RLock()
-	defer r.rwmutex.RUnlock()
+func (r *registrationDisk) GetLease() time.Time {
+	r.rwMutex.RLock()
+	defer r.rwMutex.RUnlock()
 
 	return time.Unix(0, r.Lease)
 }
 
 // GetPublicKey returns the current public key.
-func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
-	r.rwmutex.RLock()
-	defer r.rwmutex.RUnlock()
+func (r *registrationDisk) GetPublicKey() ed25519.PublicKey {
+	r.rwMutex.RLock()
+	defer r.rwMutex.RUnlock()
 
 	pubkey := make([]byte, ed25519.PublicKeySize)
 	copy(pubkey, r.PublicKey)
@@ -131,17 +131,17 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 }
 
 // GetPrivateKey returns the current private key.
-func (r registrationDisk) getPrivateKey() ed25519.PrivateKey {
-	r.rwmutex.RLock()
-	defer r.rwmutex.RUnlock()
+func (r *registrationDisk) getPrivateKey() ed25519.PrivateKey {
+	r.rwMutex.RLock()
+	defer r.rwMutex.RUnlock()
 
 	return r.PrivateKey
 }
 
-// GetLeaseSignature returns the currentl signature and lease time.
-func (r registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
-	r.rwmutex.RLock()
-	defer r.rwmutex.RUnlock()
+// GetLeaseSignature returns the current signature and lease time.
+func (r *registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
+	r.rwMutex.RLock()
+	defer r.rwMutex.RUnlock()
 
 	return r.Signature, time.Unix(0, r.Lease)
 }
@@ -167,8 +167,8 @@ type clientIDTracker struct {
 // clientIDTracker implements the NameService interface.
 var _ channels.NameService = (*clientIDTracker)(nil)
 
-// newclientIDTracker creates a new clientIDTracker.
-func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv versioned.KV,
+// newClientIDTracker creates a new clientIDTracker.
+func newClientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv versioned.KV,
 	receptionIdentity xxdk.ReceptionIdentity, udPubKey ed25519.PublicKey, rngSource *fastRNG.StreamGenerator) *clientIDTracker {
 
 	reg, err := loadRegistrationDisk(kv)
@@ -181,7 +181,7 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 			jww.FATAL.Panic(err)
 		}
 
-		reg = registrationDisk{
+		reg = &registrationDisk{
 			PublicKey:  publicKey,
 			PrivateKey: privateKey,
 			Lease:      0,
@@ -197,7 +197,7 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 	c := &clientIDTracker{
 		kv:                kv,
 		rngSource:         rngSource,
-		registrationDisk:  &reg,
+		registrationDisk:  reg,
 		receptionIdentity: &receptionIdentity,
 		username:          username,
 		comms:             comms,
@@ -233,7 +233,7 @@ func pow(base, exponent int) int {
 	return result
 }
 
-// registrationWorker is meant to run in it's own goroutine
+// registrationWorker is meant to run in its own goroutine
 // periodically registering, getting a new lease.
 func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 	// start backoff at 32 seconds
@@ -296,9 +296,12 @@ func (c *clientIDTracker) SignChannelMessage(message []byte) ([]byte, error) {
 	return ed25519.Sign(privateKey, message), nil
 }
 
-// ValidateoChannelMessage
-func (c *clientIDTracker) ValidateChannelMessage(username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature []byte) bool {
-	return channel.VerifyChannelLease(authorIDSignature, pubKey, username, lease, c.udPubKey)
+// ValidateChannelMessage validates that a received channel message's
+// username lease is signed by the [channels.NameService].
+func (c *clientIDTracker) ValidateChannelMessage(username string,
+	lease time.Time, pubKey ed25519.PublicKey, authorIDSignature []byte) bool {
+	return channel.VerifyChannelLease(
+		authorIDSignature, pubKey, username, lease, c.udPubKey)
 }
 
 // register causes a request for a new channel lease to be sent to
@@ -365,7 +368,7 @@ func (m *Manager) StartChannelNameService() (channels.NameService, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.nameService = newclientIDTracker(
+		m.nameService = newClientIDTracker(
 			m.comms,
 			m.ud.host,
 			username,

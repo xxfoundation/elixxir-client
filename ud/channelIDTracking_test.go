@@ -3,21 +3,21 @@ package ud
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	mathRand "math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/elixxir/crypto/rsa"
-	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
-
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
 	store "gitlab.com/elixxir/client/v4/ud/store"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 func TestSignChannelMessage(t *testing.T) {
@@ -84,14 +84,14 @@ func TestChannelIDTracking(t *testing.T) {
 	require.NoError(t, err)
 
 	tnm := newTestNetworkManager(t)
-	managerkv := versioned.NewKV(ekv.MakeMemstore())
-	udStore, err := store.NewOrLoadStore(managerkv)
+	managerKV := versioned.NewKV(ekv.MakeMemstore())
+	udStore, err := store.NewOrLoadStore(managerKV)
 	m := &Manager{
 		user: mockE2e{
 			grp:     getGroup(),
 			events:  event.NewEventManager(),
 			rng:     rngGen,
-			kv:      managerkv,
+			kv:      managerKV,
 			network: tnm,
 			t:       t,
 			key:     privKey,
@@ -128,11 +128,35 @@ func TestChannelIDTracking(t *testing.T) {
 	comms.SetUDEd25519PrivateKey(&udPrivKey)
 	comms.SetUsername(username)
 
-	myTestClientIDTracker := newclientIDTracker(
+	myTestClientIDTracker := newClientIDTracker(
 		comms, host, username,
 		kv, m.user.GetReceptionIdentity(),
 		udPubKey, rngGen)
 
 	err = myTestClientIDTracker.register()
 	require.NoError(t, err)
+}
+
+// Test that a registrationDisk marshalled via registrationDisk.marshall and
+// unmarshalled with unmarshallRegistrationDisk matches the original.
+func Test_registrationDisk_marshall_unmarshallRegistrationDisk(t *testing.T) {
+	prng := mathRand.New(mathRand.NewSource(61226))
+	publicKey, privateKey, err := ed25519.GenerateKey(prng)
+	require.NoError(t, err)
+	expected := registrationDisk{
+		Registered: true,
+		PublicKey:  publicKey,
+		PrivateKey: privateKey,
+		Lease:      prng.Int63(),
+		Signature:  make([]byte, 64),
+	}
+	prng.Read(expected.Signature)
+
+	data, err := expected.marshall()
+	require.NoError(t, err)
+
+	r, err := unmarshallRegistrationDisk(data)
+	require.NoError(t, err)
+
+	require.Equal(t, &expected, r)
 }

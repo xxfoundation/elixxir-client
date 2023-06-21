@@ -89,24 +89,24 @@ type Params struct {
 	Historical rounds.Params
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	TrackNetworkPeriod        time.Duration
-	MaxCheckedRounds          uint
-	RegNodesBufferLen         uint
-	NetworkHealthTimeout      time.Duration
-	ParallelNodeRegistrations uint
-	KnownRoundsThreshold      uint
-	FastPolling               bool
-	VerboseRoundTracking      bool
-	RealtimeOnly              bool
-	ReplayRequests            bool
-	Rounds                    rounds.Params
-	Pickup                    pickup.Params
-	Message                   message.Params
-	Historical                rounds.Params
-	MaxParallelIdentityTracks uint
-	EnableImmediateSending    bool
+	TrackNetworkPeriod        time.Duration  `json:"trackNetworkPeriod"`
+	MaxCheckedRounds          uint           `json:"maxCheckedRounds"`
+	RegNodesBufferLen         uint           `json:"regNodesBufferLen"`
+	NetworkHealthTimeout      time.Duration  `json:"networkHealthTimeout"`
+	ParallelNodeRegistrations uint           `json:"parallelNodeRegistrations"`
+	KnownRoundsThreshold      uint           `json:"knownRoundsThreshold"`
+	FastPolling               bool           `json:"fastPolling"`
+	VerboseRoundTracking      bool           `json:"verboseRoundTracking"`
+	RealtimeOnly              bool           `json:"realtimeOnly"`
+	ReplayRequests            bool           `json:"replayRequests"`
+	Rounds                    rounds.Params  `json:"rounds"`
+	Pickup                    pickup.Params  `json:"pickup"`
+	Message                   message.Params `json:"message"`
+	Historical                rounds.Params  `json:"historical"`
+	MaxParallelIdentityTracks uint           `json:"maxParallelIdentityTracks"`
+	EnableImmediateSending    bool           `json:"enableImmediateSending"`
 }
 
 // GetDefaultParams returns a Params object containing the
@@ -236,15 +236,15 @@ type CMIXParams struct {
 	Probe bool
 }
 
-// cMixParamsDisk will be the marshal-able and umarshal-able object.
+// cMixParamsDisk will be the marshal-able and unmarshal-able object.
 type cMixParamsDisk struct {
-	RoundTries       uint
-	Timeout          time.Duration
-	RetryDelay       time.Duration
-	SendTimeout      time.Duration
-	DebugTag         string
-	BlacklistedNodes NodeMap
-	Critical         bool
+	RoundTries       uint          `json:"roundTries"`
+	Timeout          time.Duration `json:"timeout"`
+	RetryDelay       time.Duration `json:"retryDelay"`
+	SendTimeout      time.Duration `json:"sendTimeout"`
+	DebugTag         string        `json:"debugTag"`
+	BlacklistedNodes NodeMap       `json:"blacklistedNodes"`
+	Critical         bool          `json:"critical"`
 }
 
 func GetDefaultCMIXParams() CMIXParams {

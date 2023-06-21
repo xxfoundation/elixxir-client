@@ -28,7 +28,7 @@ func TestParams_MarshalUnmarshal(t *testing.T) {
 		t.Fatalf("Marshal error: %v", err)
 	}
 
-	t.Logf("%s", string(data))
+	// t.Logf("%s", string(data))
 
 	// Unmarshal the params object
 	received := Params{}
@@ -43,7 +43,7 @@ func TestParams_MarshalUnmarshal(t *testing.T) {
 		t.Fatalf("Marshal error: %v", err)
 	}
 
-	t.Logf("%s", string(data2))
+	// t.Logf("%s", string(data2))
 
 	// Check that they match (it is done this way to avoid
 	// false failures with the reflect.DeepEqual function and

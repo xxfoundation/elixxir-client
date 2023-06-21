@@ -264,8 +264,8 @@ type joinedChannel struct {
 
 // joinedChannelDisk is the representation of joinedChannel for storage.
 type joinedChannelDisk struct {
-	Broadcast *cryptoBroadcast.Channel
-	DmEnabled bool
+	Broadcast *cryptoBroadcast.Channel `json:"broadcast"`
+	DmEnabled bool                     `json:"dmEnabled"`
 }
 
 // Marshal marshals a given channel to bytes.

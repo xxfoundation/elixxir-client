@@ -359,10 +359,10 @@ func (st *SentTransfer) save() error {
 // sentTransferDisk structure is used to marshal and unmarshal SentTransfer
 // fields to/from storage.
 type sentTransferDisk struct {
-	FileName  string
-	Recipient *id.ID
-	Status    TransferStatus
-	Parts     [][]byte
+	FileName  string         `json:"fileName"`
+	Recipient *id.ID         `json:"recipient"`
+	Status    TransferStatus `json:"status"`
+	Parts     [][]byte       `json:"parts"`
 }
 
 // marshal serialises the SentTransfer's fileName, recipient, status, and parts

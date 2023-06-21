@@ -40,25 +40,25 @@ type CryptographicIdentity struct {
 }
 
 type ciDisk struct {
-	TransmissionID     *id.ID
-	TransmissionSalt   []byte
-	TransmissionRsaKey *oldRsa.PrivateKey
-	ReceptionID        *id.ID
-	ReceptionSalt      []byte
-	ReceptionRsaKey    *oldRsa.PrivateKey
-	IsPrecanned        bool
+	TransmissionID     *id.ID             `json:"transmissionID"`
+	TransmissionSalt   []byte             `json:"transmissionSalt"`
+	TransmissionRsaKey *oldRsa.PrivateKey `json:"transmissionRsaKey"`
+	ReceptionID        *id.ID             `json:"receptionID"`
+	ReceptionSalt      []byte             `json:"receptionSalt"`
+	ReceptionRsaKey    *oldRsa.PrivateKey `json:"receptionRsaKey"`
+	IsPrecanned        bool               `json:"isPrecanned"`
 }
 
 type ciDiskV1 struct {
-	TransmissionID     *id.ID
-	TransmissionSalt   []byte
-	TransmissionRsaKey *oldRsa.PrivateKey
-	ReceptionID        *id.ID
-	ReceptionSalt      []byte
-	ReceptionRsaKey    *oldRsa.PrivateKey
-	IsPrecanned        bool
-	E2eDhPrivateKey    []byte
-	E2eDhPublicKey     []byte
+	TransmissionID     *id.ID             `json:"transmissionID"`
+	TransmissionSalt   []byte             `json:"transmissionSalt"`
+	TransmissionRsaKey *oldRsa.PrivateKey `json:"transmissionRsaKey"`
+	ReceptionID        *id.ID             `json:"receptionID"`
+	ReceptionSalt      []byte             `json:"receptionSalt"`
+	ReceptionRsaKey    *oldRsa.PrivateKey `json:"receptionRsaKey"`
+	IsPrecanned        bool               `json:"isPrecanned"`
+	E2eDhPrivateKey    *cyclic.Int        `json:"e2EDhPrivateKey"`
+	E2eDhPublicKey     *cyclic.Int        `json:"e2EDhPublicKey"`
 }
 
 func newCryptographicIdentity(transmissionID, receptionID *id.ID,
@@ -149,16 +149,8 @@ func loadCryptographicIdentity(kv versioned.KV) (*CryptographicIdentity, error) 
 	result.receptionID = decodable.ReceptionID
 	result.receptionSalt = decodable.ReceptionSalt
 
-	result.e2eDhPrivateKey = &cyclic.Int{}
-	err = result.e2eDhPrivateKey.UnmarshalJSON(decodable.E2eDhPrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	result.e2eDhPublicKey = &cyclic.Int{}
-	err = result.e2eDhPublicKey.UnmarshalJSON(decodable.E2eDhPublicKey)
-	if err != nil {
-		return nil, err
-	}
+	result.e2eDhPrivateKey = decodable.E2eDhPrivateKey
+	result.e2eDhPublicKey = decodable.E2eDhPublicKey
 
 	return result, nil
 }
@@ -194,15 +186,6 @@ func loadLegacyDHKeys(kv versioned.KV) (pub, priv *cyclic.Int) {
 }
 
 func (ci *CryptographicIdentity) save(kv versioned.KV) error {
-	dhPriv, err := ci.e2eDhPrivateKey.MarshalJSON()
-	if err != nil {
-		return err
-	}
-	dhPub, err := ci.e2eDhPublicKey.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
 	encodable := &ciDiskV1{
 		TransmissionID:     ci.transmissionID,
 		TransmissionSalt:   ci.transmissionSalt,
@@ -211,8 +194,8 @@ func (ci *CryptographicIdentity) save(kv versioned.KV) error {
 		ReceptionSalt:      ci.receptionSalt,
 		ReceptionRsaKey:    &oldRsa.PrivateKey{PrivateKey: *ci.receptionRsaKey.GetGoRSA()},
 		IsPrecanned:        ci.isPrecanned,
-		E2eDhPrivateKey:    dhPriv,
-		E2eDhPublicKey:     dhPub,
+		E2eDhPrivateKey:    ci.e2eDhPrivateKey,
+		E2eDhPublicKey:     ci.e2eDhPublicKey,
 	}
 
 	enc, err := json.Marshal(&encodable)

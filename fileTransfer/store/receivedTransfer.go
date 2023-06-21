@@ -352,10 +352,10 @@ func (rt *ReceivedTransfer) save() error {
 // receivedTransferDisk structure is used to marshal and unmarshal
 // ReceivedTransfer fields to/from storage.
 type receivedTransferDisk struct {
-	FileName    string
-	TransferMAC []byte
-	NumParts    uint16
-	FileSize    uint32
+	FileName    string `json:"fileName"`
+	TransferMAC []byte `json:"transferMAC,"`
+	NumParts    uint16 `json:"numParts"`
+	FileSize    uint32 `json:"fileSize"`
 }
 
 // marshal serialises the ReceivedTransfer's fileName, transferMAC, numParts,

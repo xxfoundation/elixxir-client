@@ -26,9 +26,9 @@ const currentCmixMessageVersion = 0
 type cmixMessageHandler struct{}
 
 type storedMessage struct {
-	Msg       []byte
-	Recipient []byte
-	Params    []byte
+	Msg       []byte     `json:"msg"`
+	Recipient *id.ID     `json:"recipient"`
+	Params    CMIXParams `json:"params"`
 }
 
 func (sm storedMessage) Marshal() []byte {
@@ -89,7 +89,7 @@ func (cmh *cmixMessageHandler) HashMessage(m interface{}) utility.MessageHash {
 	msg := m.(storedMessage)
 
 	h, _ := blake2b.New256(nil)
-	h.Write(msg.Recipient)
+	h.Write(msg.Recipient.Marshal())
 	h.Write(msg.Msg)
 	digest := h.Sum(nil)
 
@@ -136,15 +136,10 @@ func LoadCmixMessageBuffer(kv versioned.KV, key string) (*CmixMessageBuffer, err
 
 func (cmb *CmixMessageBuffer) Add(msg format.Message, recipient *id.ID,
 	params CMIXParams) {
-	paramBytes, err := json.Marshal(params)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal CMIXParams: %+v", err)
-	}
-
 	sm := storedMessage{
 		Msg:       msg.MarshalImmutable(),
-		Recipient: recipient.Marshal(),
-		Params:    paramBytes,
+		Recipient: recipient,
+		Params:    params,
 	}
 
 	cmb.mb.Add(sm)
@@ -152,15 +147,10 @@ func (cmb *CmixMessageBuffer) Add(msg format.Message, recipient *id.ID,
 
 func (cmb *CmixMessageBuffer) AddProcessing(msg format.Message, recipient *id.ID,
 	params CMIXParams) {
-	paramBytes, err := json.Marshal(params)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal CMIXParams: %+v", err)
-	}
-
 	sm := storedMessage{
 		Msg:       msg.MarshalImmutable(),
-		Recipient: recipient.Marshal(),
-		Params:    paramBytes,
+		Recipient: recipient,
+		Params:    params,
 	}
 
 	cmb.mb.AddProcessing(sm)
@@ -179,28 +169,13 @@ func (cmb *CmixMessageBuffer) Next() (format.Message, *id.ID, CMIXParams, bool) 
 			"Could not unmarshal for stored cMix message buffer: %+v", err)
 	}
 
-	recipient, err := id.Unmarshal(sm.Recipient)
-	if err != nil {
-		jww.FATAL.Panicf(
-			"Could not get an ID for stored cMix message buffer: %+v", err)
-	}
-
-	params := CMIXParams{}
-	if sm.Params == nil || len(sm.Params) == 0 {
-		params = GetDefaultCMIXParams()
-	} else {
-		if err = json.Unmarshal(sm.Params, &params); err != nil {
-			jww.FATAL.Panicf("Could not parse the params for stored cMix "+
-				"message buffer: %+v", err)
-		}
-	}
-	return msg, recipient, params, true
+	return msg, sm.Recipient, sm.Params, true
 }
 
 func (cmb *CmixMessageBuffer) Succeeded(msg format.Message, recipient *id.ID) {
 	sm := storedMessage{
 		Msg:       msg.MarshalImmutable(),
-		Recipient: recipient.Marshal(),
+		Recipient: recipient,
 	}
 
 	cmb.mb.Succeeded(sm)
@@ -209,7 +184,7 @@ func (cmb *CmixMessageBuffer) Succeeded(msg format.Message, recipient *id.ID) {
 func (cmb *CmixMessageBuffer) Failed(msg format.Message, recipient *id.ID) {
 	sm := storedMessage{
 		Msg:       msg.MarshalImmutable(),
-		Recipient: recipient.Marshal(),
+		Recipient: recipient,
 	}
 
 	cmb.mb.Failed(sm)

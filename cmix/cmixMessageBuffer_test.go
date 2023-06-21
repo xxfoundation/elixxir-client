@@ -31,7 +31,7 @@ func Test_cmixMessageHandler_SaveMessage(t *testing.T) {
 	for i := range testMsgs {
 		msg := storedMessage{
 			Msg:       testMsgs[i].Marshal(),
-			Recipient: ids[i].Marshal(),
+			Recipient: ids[i],
 		}
 
 		key := utility.MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
@@ -66,7 +66,8 @@ func Test_cmixMessageHandler_LoadMessage(t *testing.T) {
 	for i := range testMsgs {
 		msg := storedMessage{
 			Msg:       testMsgs[i].Marshal(),
-			Recipient: ids[i].Marshal(),
+			Recipient: ids[i],
+			Params:    CMIXParams{BlacklistedNodes: NodeMap{}},
 		}
 		key := utility.MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
@@ -84,7 +85,7 @@ func Test_cmixMessageHandler_LoadMessage(t *testing.T) {
 		// Test if message loaded matches expected
 		if !reflect.DeepEqual(msg, testMsg) {
 			t.Errorf("Failed to load expected message from storage."+
-				"\nexpected: %v\nreceived: %v", msg, testMsg)
+				"\nexpected: %#v\nreceived: %#v", msg, testMsg)
 		}
 	}
 }
@@ -154,7 +155,7 @@ func makeTestCmixMessages(n int) (
 		ids[i] = &rid
 		sm := storedMessage{
 			Msg:       msgs[i].Marshal(),
-			Recipient: ids[i].Marshal(),
+			Recipient: ids[i],
 		}
 		mh[cmh.HashMessage(sm)] = struct{}{}
 	}

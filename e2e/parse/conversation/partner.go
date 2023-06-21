@@ -40,9 +40,9 @@ type Conversation struct {
 
 // conversationDisk stores the public data of Conversation for saving to disk.
 type conversationDisk struct {
-	LastReceivedID         uint32
-	NumReceivedRevolutions uint32
-	NextSendID             uint64
+	LastReceivedID         uint32 `json:"lastReceivedID"`
+	NumReceivedRevolutions uint32 `json:"numReceivedRevolutions"`
+	NextSendID             uint64 `json:"nextSendID"`
 }
 
 // LoadOrMakeConversation returns the Conversation with the given ID, if it can

@@ -8,8 +8,10 @@
 package dm
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/json"
 	"time"
 
 	"github.com/pkg/errors"
@@ -272,6 +274,10 @@ func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 		return r.receiveReaction(msgID, messageType,
 			nick, plaintext, partnerDMToken, partnerPubKey,
 			senderPubKey, 0, ts, round, status)
+	case InvitationType:
+		return r.receiveInvitation(msgID, messageType,
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
 	case DeleteType:
 		return r.deleteMessage(msgID, messageType, plaintext, partnerPubKey,
 			senderPubKey, 0, ts, round)
@@ -386,6 +392,41 @@ func (r *receiver) receiveReaction(messageID message.ID,
 		messageID, partnerPubKey, codeset,
 		messageType, timestamp,
 		round.ID)
+}
+
+// receiveReaction is the internal function that handles the reception of
+// Invitations.
+func (r *receiver) receiveInvitation(messageID message.ID,
+	messageType MessageType, nickname string, content []byte,
+	dmToken uint32, partnerPubKey, senderPubKey ed25519.PublicKey,
+	codeset uint8, timestamp time.Time, round rounds.Round,
+	status Status) (uint64, error) {
+	invite := &ChannelInvitation{}
+	if err := proto.Unmarshal(content, invite); err != nil {
+		return 0, errors.Wrapf(err, "Failed to text unmarshal DM %s "+
+			"with %x, type %s, ts: %s, round: %d",
+			messageID, partnerPubKey, messageType, timestamp,
+			round.ID)
+	}
+
+	tag := makeDebugTag(partnerPubKey, content, SendInviteTag)
+	jww.INFO.Printf("[%s] DM - Received message with partner %s ",
+		tag, base64.StdEncoding.EncodeToString(partnerPubKey))
+
+	var inviteJson bytes.Buffer
+	enc := json.NewEncoder(&inviteJson)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(invite)
+	if err != nil {
+		return 0, errors.Wrapf(err, "Failed to json marshal DM %s "+
+			"with %x, type %s, ts: %s, round: %d: %+v",
+			messageID, partnerPubKey, messageType, timestamp,
+			round.ID, err)
+	}
+
+	return r.api.Receive(messageID, nickname, inviteJson.Bytes(),
+		partnerPubKey, senderPubKey, dmToken, codeset,
+		timestamp, round, InvitationType, status), nil
 }
 
 // deleteMessage processes a request to delete a message. If the target message,

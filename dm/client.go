@@ -45,6 +45,7 @@ type dmClient struct {
 	nm NickNameManager
 	ps *partnerStore
 	*notifications
+	as  *ActionSaver
 	net cMixClient
 	rng *fastRNG.StreamGenerator
 }
@@ -106,6 +107,7 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 		nm:              nickManager,
 		ps:              us,
 		notifications:   n,
+		as:              NewActionSaver(kv),
 		net:             net,
 		rng:             rng,
 	}

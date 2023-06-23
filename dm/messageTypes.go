@@ -33,6 +33,10 @@ const (
 	// InvitationType denotes that the message is an invitation to another
 	// channel.
 	InvitationType MessageType = 5
+
+	// DeleteType denotes that the message contains the ID of a message to
+	// delete.
+	DeleteType MessageType = 6
 )
 
 // String returns a human-readable version of [MessageType], used for debugging
@@ -49,6 +53,8 @@ func (mt MessageType) String() string {
 		return "Silent"
 	case InvitationType:
 		return "Invitation"
+	case DeleteType:
+		return "Delete"
 	default:
 		return "Unknown messageType " + strconv.Itoa(int(mt))
 	}

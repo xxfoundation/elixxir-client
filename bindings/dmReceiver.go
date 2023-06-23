@@ -194,6 +194,16 @@ type DMReceiver interface {
 	UpdateSentStatus(uuid int64, messageID []byte, timestamp, roundID,
 		status int64)
 
+	// DeleteMessage deletes the message with the given message.ID belonging to
+	// the sender. If the message exists and belongs to the sender, then it is
+	// deleted and DeleteMessage returns true. If it does not exist, it returns
+	// false.
+	//
+	// Parameters:
+	//  - messageID - The bytes of the [message.ID] of the message to delete.
+	//  - senderPubKey - The [ed25519.PublicKey] of the sender of the message.
+	DeleteMessage(messageID, senderPubKey []byte) bool
+
 	// GetConversation returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversation(senderPubKey []byte) []byte
@@ -290,6 +300,14 @@ func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 	status dm.Status) {
 	dmr.dr.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))
+}
+
+// DeleteMessage deletes the message with the given message.ID belonging to the
+// sender. If the message exists and belongs to the sender, then it is deleted
+// and DeleteMessage returns true. If it does not exist, it returns false.
+func (dmr *dmReceiver) DeleteMessage(
+	messageID message.ID, senderPubKey ed25519.PublicKey) bool {
+	return dmr.dr.DeleteMessage(messageID.Marshal(), senderPubKey)
 }
 
 // GetConversations returns any conversations held by the

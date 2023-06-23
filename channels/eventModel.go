@@ -10,6 +10,7 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -348,6 +349,7 @@ func initEvents(model EventModel, maxMessageLength int, kv versioned.KV,
 		Text:        {"userTextMessage", e.receiveTextMessage, true, false, false},
 		AdminText:   {"adminTextMessage", e.receiveTextMessage, false, true, false},
 		Reaction:    {"reaction", e.receiveReaction, true, false, false},
+		Invitation:  {"invitation", e.receiveInvitation, true, false, false},
 		Delete:      {"delete", e.receiveDelete, true, true, false},
 		Pinned:      {"pinned", e.receivePinned, false, true, false},
 		Mute:        {"mute", e.receiveMute, false, true, false},
@@ -672,6 +674,47 @@ func (e *events) receiveReaction(channelID *id.ID, messageID message.ID,
 			timestamp, lease, round.ID)
 	}
 	return 0
+}
+
+// receiveInvitation is the internal function that handles the reception of
+// Invitations.
+//
+// It does edge checking to ensure the received reaction is just a single emoji.
+// If the received reaction is not, the reaction is dropped.
+// If the messageID for the message the reaction is to is malformed, the
+// reaction is dropped.
+//
+// This function adheres to the MessageTypeReceiveMessage type.
+func (e *events) receiveInvitation(channelID *id.ID, messageID message.ID,
+	messageType MessageType, nickname string, content, _ []byte,
+	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp,
+	_ time.Time, lease time.Duration, _ id.Round, round rounds.Round,
+	status SentStatus, _, hidden bool) uint64 {
+	invite := &CMIXChannelInvitation{}
+	if err := proto.Unmarshal(content, invite); err != nil {
+		jww.ERROR.Printf("[CH] Failed to text unmarshal message %s from %x on "+
+			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
+			messageID, pubKey, channelID, messageType, timestamp,
+			lease, round.ID, err)
+		return 0
+	}
+
+	tag := makeChaDebugTag(channelID, pubKey, content, SendInviteTag)
+	jww.INFO.Printf("[CH] [%s] Received message from %x on %s",
+		tag, pubKey, channelID)
+
+	var inviteJson bytes.Buffer
+	enc := json.NewEncoder(&inviteJson)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(invite)
+	if err != nil {
+		jww.ERROR.Printf("[CH] Failed to JSON marshal invitation: %+v", err)
+		return 0
+	}
+
+	return e.model.ReceiveMessage(channelID, messageID, nickname, inviteJson.String(),
+		pubKey, dmToken, codeset, timestamp, lease, round, Invitation, status,
+		hidden)
 }
 
 // receiveDelete is the internal function that handles the reception of deleted

@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"io"
 
 	"github.com/pkg/errors"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/dm"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
@@ -35,11 +35,12 @@ import (
 )
 
 const (
-	/* Versions for various message types */
+	// Versions for various message types
 	textVersion       = 0
 	reactionVersion   = 0
 	invitationVersion = 0
 	silentVersion     = 0
+	deleteVersion     = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -60,6 +61,10 @@ const (
 	// SendInviteTag is the base tag used when generating a debug tag for
 	// sending an invitation.
 	SendInviteTag = "Invite"
+
+	// DeleteMessageTag is the base tag used when generating a debug tag for
+	// delete message.
+	DeleteMessageTag = "Delete"
 
 	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
@@ -252,6 +257,35 @@ func (dc *dmClient) SendInvite(partnerPubKey ed25519.PublicKey,
 		invitationMarshaled, params)
 }
 
+// DeleteMessage sends a message to the partner to delete a message this user
+// sent. Also deletes it from the local database.
+func (dc *dmClient) DeleteMessage(partnerPubKey ed25519.PublicKey,
+	partnerToken uint32, targetMessage cryptoMessage.ID,
+	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// Delete the message
+	if !dc.receiver.DeleteMessage(targetMessage, dc.pubKey) {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, errors.Errorf(
+			"no message with id %s and public key %X", targetMessage, dc.pubKey)
+	}
+
+	tag := makeDebugTag(partnerPubKey, targetMessage.Marshal(), DeleteMessageTag)
+	jww.INFO.Printf("[DM][%s] DeleteMessage(%s)", tag, targetMessage)
+
+	txt := &DeleteMessage{
+		Version:         deleteVersion,
+		TargetMessageID: targetMessage.Marshal(),
+	}
+
+	params = params.SetDebugTag(tag)
+	deleteMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return dc.Send(
+		partnerPubKey, partnerToken, DeleteType, deleteMarshaled, params)
+}
+
 // Send is used to send a raw direct message to a DM partner. In general, it
 // should be wrapped in a function that defines the wire protocol.
 //
@@ -259,6 +293,7 @@ func (dc *dmClient) SendInvite(partnerPubKey ed25519.PublicKey,
 // return an error. Due to the underlying encoding using compression, it is not
 // possible to define the largest payload that can be sent, but it will always
 // be possible to send a payload of 802 bytes at minimum.
+// DeleteMessage is used to send a formatted message to another user.
 func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType, msg []byte,
 	params cmix.CMIXParams) (

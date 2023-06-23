@@ -228,6 +228,12 @@ func (mr *mockReceiver) UpdateSentStatus(_ uint64, messageID cryptoMessage.ID,
 	jww.INFO.Printf("UpdateSentStatus: %s", messageID)
 }
 
+func (mr *mockReceiver) DeleteMessage(
+	messageID cryptoMessage.ID, senderPubKey ed25519.PublicKey) bool {
+	jww.INFO.Printf("DeleteMessage: %s, %X", messageID, senderPubKey)
+	return true
+}
+
 func (mr *mockReceiver) GetConversation(pubKey ed25519.PublicKey) *ModelConversation {
 	convo := ModelConversation{}
 	convo.Pubkey = pubKey

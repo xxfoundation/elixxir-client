@@ -8,8 +8,10 @@
 package dm
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/json"
 	"time"
 
 	"github.com/pkg/errors"
@@ -253,6 +255,12 @@ func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 	partnerPubKey, senderPubKey ed25519.PublicKey, ts time.Time,
 	_ receptionID.EphemeralIdentity, round rounds.Round,
 	status Status) (uint64, error) {
+
+	// If this message was already deleted, then drop it
+	if r.c.as.CheckSavedActions(msgID) {
+		return 0, nil
+	}
+
 	switch messageType {
 	case TextType:
 		return r.receiveTextMessage(msgID, messageType,
@@ -266,6 +274,13 @@ func (r *receiver) receiveMessage(msgID message.ID, messageType MessageType,
 		return r.receiveReaction(msgID, messageType,
 			nick, plaintext, partnerDMToken, partnerPubKey,
 			senderPubKey, 0, ts, round, status)
+	case InvitationType:
+		return r.receiveInvitation(msgID, messageType,
+			nick, plaintext, partnerDMToken, partnerPubKey,
+			senderPubKey, 0, ts, round, status)
+	case DeleteType:
+		return r.deleteMessage(msgID, messageType, plaintext, partnerPubKey,
+			senderPubKey, 0, ts, round)
 	default:
 		return r.api.Receive(msgID, nick, plaintext,
 			partnerPubKey, senderPubKey,
@@ -377,6 +392,85 @@ func (r *receiver) receiveReaction(messageID message.ID,
 		messageID, partnerPubKey, codeset,
 		messageType, timestamp,
 		round.ID)
+}
+
+// receiveReaction is the internal function that handles the reception of
+// Invitations.
+func (r *receiver) receiveInvitation(messageID message.ID,
+	messageType MessageType, nickname string, content []byte,
+	dmToken uint32, partnerPubKey, senderPubKey ed25519.PublicKey,
+	codeset uint8, timestamp time.Time, round rounds.Round,
+	status Status) (uint64, error) {
+	invite := &ChannelInvitation{}
+	if err := proto.Unmarshal(content, invite); err != nil {
+		return 0, errors.Wrapf(err, "Failed to text unmarshal DM %s "+
+			"with %x, type %s, ts: %s, round: %d",
+			messageID, partnerPubKey, messageType, timestamp,
+			round.ID)
+	}
+
+	tag := makeDebugTag(partnerPubKey, content, SendInviteTag)
+	jww.INFO.Printf("[%s] DM - Received message with partner %s ",
+		tag, base64.StdEncoding.EncodeToString(partnerPubKey))
+
+	var inviteJson bytes.Buffer
+	enc := json.NewEncoder(&inviteJson)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(invite)
+	if err != nil {
+		return 0, errors.Wrapf(err, "Failed to json marshal DM %s "+
+			"with %x, type %s, ts: %s, round: %d: %+v",
+			messageID, partnerPubKey, messageType, timestamp,
+			round.ID, err)
+	}
+
+	return r.api.Receive(messageID, nickname, inviteJson.Bytes(),
+		partnerPubKey, senderPubKey, dmToken, codeset,
+		timestamp, round, InvitationType, status), nil
+}
+
+// deleteMessage processes a request to delete a message. If the target message,
+// exists, then it is deleted. If it does not exist, then it is added to the
+// action savor.
+//
+// Always returns a 0 UUID.
+func (r *receiver) deleteMessage(messageID message.ID, messageType MessageType,
+	content []byte, partnerPubKey, senderPubKey ed25519.PublicKey, codeset uint8,
+	timestamp time.Time, round rounds.Round) (uint64, error) {
+	var msg DeleteMessage
+	if err := proto.Unmarshal(content, &msg); err != nil {
+		return 0, errors.Wrapf(err,
+			"failed unmarshal DM %s from %x, type %s, ts: %s, round: %d",
+			messageID, partnerPubKey, messageType, timestamp, round.ID)
+	}
+
+	targetMessage, err := message.UnmarshalID(msg.TargetMessageID)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to unmarshal target ID to delete "+
+			"in DM for message %s with partner key %X (codeset %d) on type "+
+			"%s, ts: %s, round: %d",
+			messageID, partnerPubKey, codeset, messageType, timestamp, round.ID)
+	}
+
+	tag := makeDebugTag(partnerPubKey, targetMessage.Marshal(), DeleteMessageTag)
+	jww.INFO.Printf("[%s] DM - Received request to delete message %s from %X",
+		tag, targetMessage, senderPubKey)
+
+	// Delete the message
+	deleted := r.api.DeleteMessage(targetMessage, senderPubKey)
+
+	// If the message was not deleted, save the deletion for later
+	if !deleted {
+		if err = r.c.as.AddAction(targetMessage, timestamp); err != nil {
+			return 0, errors.Wrapf(err, "[%s] Failed to save delete action "+
+				"after target message %s from %X was not found. (message %s, "+
+				"from %X (codeset %d), type: %s, ts: %s, round: %d)",
+				tag, targetMessage, senderPubKey, messageID, partnerPubKey,
+				codeset, messageType, timestamp, round.ID)
+		}
+	}
+
+	return 0, nil
 }
 
 // This helper does the opposite of "createCMIXFields" in send.go

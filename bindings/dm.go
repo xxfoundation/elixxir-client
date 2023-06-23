@@ -671,6 +671,16 @@ func (dmc *DMClient) SendSilent(partnerPubKeyBytes []byte,
 // SendInvite is used to send to a DM partner an invitation to another
 // channel.
 //
+// The reception of an invitation will be handled by [DMReceiver.Receive],
+// passing in a [dm.MessageType] of value [dm.InvitationType]. The message
+// will be JSON encoded. Example invite JSON:
+//
+//	{
+//	   "text": "Check this channel out!",
+//	   "inviteLink": "https://internet.speakeasy.tech/?0Name=name&1Description=description&2Level=Public&3Created=1687359213751145652&e=gnnLqhgsNJE7uFTLRsv1q%2FzgHBesVsezln4mg4mQZ70%3D&k=aOULKJDhSkNOou7CwsybaNTrdfrUS55%2Ffv%2FuHjX2Mc4%3D&l=928&m=0&p=1&s=cN2iHg6b5FdViS4q46QMolQUF0BZt98NEiO6NKrL1d0%3D&v=1",
+//	   "password": "secret"
+//	}
+//
 // Parameters:
 //   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519
 //     signing key.
@@ -706,6 +716,45 @@ func (dmc *DMClient) SendInvite(partnerPubKeyBytes []byte,
 	// Send invite
 	msgID, rnd, ephID, err := dmc.api.SendInvite(partnerPubKey,
 		uint32(partnerToken), message, inviteToChan, host, params.CMIX)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct send report
+	return constructDMSendReport(msgID, rnd.ID, ephID)
+}
+
+// DeleteMessage sends a message to the partner to delete a message this user
+// sent. Also deletes it from the local database.
+//
+// Parameters:
+//   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519
+//     signing key.
+//   - partnerToken - The token used to derive the reception ID for the partner.
+//   - targetMessageIdBytes - The bytes of the [message.ID] of the message to
+//     delete. This may be found in the [ChannelSendReport].
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+func (dmc *DMClient) DeleteMessage(partnerPubKeyBytes []byte, partnerToken int,
+	targetMessageIdBytes []byte, cmixParamsJSON []byte) ([]byte, error) {
+
+	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
+
+	// Unmarshal message ID
+	targetMessage, err := message.UnmarshalID(targetMessageIdBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal cmix params
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send invite
+	msgID, rnd, ephID, err := dmc.api.DeleteMessage(
+		partnerPubKey, uint32(partnerToken), targetMessage, params.CMIX)
 	if err != nil {
 		return nil, err
 	}

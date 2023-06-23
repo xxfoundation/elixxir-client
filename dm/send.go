@@ -257,11 +257,11 @@ func (dc *dmClient) SendInvite(partnerPubKey ed25519.PublicKey,
 		invitationMarshaled, params)
 }
 
-// DeleteMessage is used to send a formatted message to another user.
+// DeleteMessage sends a message to the partner to delete a message this user
+// sent. Also deletes it from the local database.
 func (dc *dmClient) DeleteMessage(partnerPubKey ed25519.PublicKey,
-	partnerToken uint32,
-	targetMessage cryptoMessage.ID, params cmix.CMIXParams) (cryptoMessage.ID,
-	rounds.Round, ephemeral.Id, error) {
+	partnerToken uint32, targetMessage cryptoMessage.ID,
+	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 	// Delete the message
 	if !dc.receiver.DeleteMessage(targetMessage, dc.pubKey) {
 		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, errors.Errorf(

@@ -113,6 +113,12 @@ type Sender interface {
 		params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
+	// DeleteMessage sends a message to the partner to delete a message this
+	// user sent. Also deletes it from the local database.
+	DeleteMessage(partnerPubKey ed25519.PublicKey, partnerToken uint32,
+		targetMessage cryptoMessage.ID, params cmix.CMIXParams) (
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
+
 	// Send is used to send a raw message. In general, it
 	// should be wrapped in a function that defines the wire protocol.
 	//

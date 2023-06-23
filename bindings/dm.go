@@ -724,6 +724,45 @@ func (dmc *DMClient) SendInvite(partnerPubKeyBytes []byte,
 	return constructDMSendReport(msgID, rnd.ID, ephID)
 }
 
+// DeleteMessage sends a message to the partner to delete a message this user
+// sent. Also deletes it from the local database.
+//
+// Parameters:
+//   - partnerPubKeyBytes - The bytes of the public key of the partner's ED25519
+//     signing key.
+//   - partnerToken - The token used to derive the reception ID for the partner.
+//   - targetMessageIdBytes - The bytes of the [message.ID] of the message to
+//     delete. This may be found in the [ChannelSendReport].
+//   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//     and GetDefaultCMixParams will be used internally.
+func (dmc *DMClient) DeleteMessage(partnerPubKeyBytes []byte, partnerToken int,
+	targetMessageIdBytes []byte, cmixParamsJSON []byte) ([]byte, error) {
+
+	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)
+
+	// Unmarshal message ID
+	targetMessage, err := message.UnmarshalID(targetMessageIdBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal cmix params
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send invite
+	msgID, rnd, ephID, err := dmc.api.DeleteMessage(
+		partnerPubKey, uint32(partnerToken), targetMessage, params.CMIX)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct send report
+	return constructDMSendReport(msgID, rnd.ID, ephID)
+}
+
 // Send is used to send a raw message. In general, it
 // should be wrapped in a function that defines the wire protocol.
 //

@@ -44,16 +44,16 @@ type Params struct {
 	BatchPickupTimeout    int
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	NumMessageRetrievalWorkers uint
-	LookupRoundsBufferLen      uint
-	MaxHistoricalRoundsRetries uint
-	UncheckRoundPeriod         time.Duration
-	ForceMessagePickupRetry    bool
-	SendTimeout                time.Duration
-	RealtimeOnly               bool
-	ForceHistoricalRounds      bool
+	NumMessageRetrievalWorkers uint          `json:"numMessageRetrievalWorkers"`
+	LookupRoundsBufferLen      uint          `json:"lookupRoundsBufferLen"`
+	MaxHistoricalRoundsRetries uint          `json:"maxHistoricalRoundsRetries"`
+	UncheckRoundPeriod         time.Duration `json:"uncheckRoundPeriod"`
+	ForceMessagePickupRetry    bool          `json:"forceMessagePickupRetry"`
+	SendTimeout                time.Duration `json:"sendTimeout"`
+	RealtimeOnly               bool          `json:"realtimeOnly"`
+	ForceHistoricalRounds      bool          `json:"forceHistoricalRounds"`
 }
 
 // GetDefaultParams returns a default set of Params.

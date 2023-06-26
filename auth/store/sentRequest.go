@@ -42,13 +42,13 @@ type SentRequest struct {
 }
 
 type sentRequestDisk struct {
-	PartnerHistoricalPubKey []byte `json:"partnerPubKey,omitempty"`
-	MyPrivKey               []byte `json:"myPrivKey,omitempty"`
-	MyPubKey                []byte `json:"myPubKey,omitempty"`
-	MySidHPrivKeyA          []byte `json:"mySidHPrivKeyA,omitempty"`
-	MySidHPubKeyA           []byte `json:"mySidHPubKeyA,omitempty"`
-	Fingerprint             []byte `json:"fingerprint,omitempty"`
-	Reset                   bool   `json:"reset,omitempty"`
+	PartnerHistoricalPubKey []byte             `json:"partnerHistoricalPubKey"`
+	MyPrivKey               []byte             `json:"myPrivKey"`
+	MyPubKey                []byte             `json:"myPubKey"`
+	MySidHPrivKeyA          []byte             `json:"mySidHPrivKeyA"`
+	MySidHPubKeyA           []byte             `json:"mySidHPubKeyA"`
+	Fingerprint             format.Fingerprint `json:"fingerprint"`
+	Reset                   bool               `json:"reset"`
 }
 
 func newSentRequest(kv versioned.KV, partner *id.ID, partnerHistoricalPubKey,
@@ -130,8 +130,7 @@ func loadSentRequest(kv versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentR
 				"key with %s for SentRequest Auth", partner)
 	}
 
-	fp := format.Fingerprint{}
-	copy(fp[:], srd.Fingerprint)
+	fp := srd.Fingerprint
 
 	jww.INFO.Printf("loadSentRequest partner: %s",
 		hex.EncodeToString(partner[:]))
@@ -195,7 +194,7 @@ func (sr *SentRequest) save() error {
 		MyPubKey:                pubKey,
 		MySidHPrivKeyA:          sidHPriv,
 		MySidHPubKeyA:           sidHPub,
-		Fingerprint:             sr.fingerprint[:],
+		Fingerprint:             sr.fingerprint,
 		Reset:                   sr.reset,
 	}
 

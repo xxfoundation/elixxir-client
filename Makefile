@@ -19,7 +19,7 @@ build:
 update_release:
 	GOFLAGS="" go get gitlab.com/elixxir/wasm-utils@release
 	GOFLAGS="" go get gitlab.com/xx_network/primitives@release
-	GOFLAGS="" go get gitlab.com/elixxir/primitives@release
+	GOFLAGS="" go get gitlab.com/elixxir/primitives@XX-4707/tagDiskJson
 	GOFLAGS="" go get gitlab.com/xx_network/crypto@release
 	GOFLAGS="" go get gitlab.com/elixxir/crypto@release
 	GOFLAGS="" go get gitlab.com/xx_network/comms@release

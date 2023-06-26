@@ -30,14 +30,14 @@ type Params struct {
 	StoppableName string              `json:"stoppableName,omitempty"`
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	RoundTimeout  time.Duration
-	TriggerName   string
-	Trigger       catalog.MessageType
-	ConfirmName   string
-	Confirm       catalog.MessageType
-	StoppableName string
+	RoundTimeout  time.Duration       `json:"roundTimeout"`
+	TriggerName   string              `json:"triggerName"`
+	Trigger       catalog.MessageType `json:"trigger"`
+	ConfirmName   string              `json:"confirmName"`
+	Confirm       catalog.MessageType `json:"confirm"`
+	StoppableName string              `json:"stoppableName"`
 }
 
 // GetDefaultParams returns a default set of Params.

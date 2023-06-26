@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/v4/catalog"
 	"math/rand"
 	"sync"
 	"testing"
@@ -34,7 +35,7 @@ import (
 
 func e2eMessagesEqual(received, expected e2eMessage, t *testing.T) bool {
 	equals := true
-	if !bytes.Equal(received.Recipient, expected.Recipient) {
+	if !received.Recipient.Cmp(expected.Recipient) {
 		t.Errorf("Receipient values for messages are not equivalent")
 		equals = false
 	}
@@ -61,11 +62,11 @@ func makeTestE2EMessages(n int, t *testing.T) []e2eMessage {
 	for i := range msgs {
 		rngBytes := make([]byte, 128)
 		prng.Read(rngBytes)
-		msgs[i].Recipient = id.NewIdFromBytes(rngBytes, t).Bytes()
+		msgs[i].Recipient = id.NewIdFromBytes(rngBytes, t)
 		prng.Read(rngBytes)
 		msgs[i].Payload = rngBytes
 		prng.Read(rngBytes)
-		msgs[i].MessageType = uint32(rngBytes[0])
+		msgs[i].MessageType = catalog.MessageType(rngBytes[0])
 	}
 
 	return msgs

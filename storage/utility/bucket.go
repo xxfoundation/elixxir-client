@@ -32,8 +32,8 @@ type BucketStore struct {
 // bucketDisk is a JSON-able structure used to store
 // a rateLimiting.Bucket parameters.
 type bucketDisk struct {
-	Capacity  uint32 `json:"capacity,omitempty"`
-	Timestamp int64  `json:"timestamp,omitempty"`
+	Capacity  uint32 `json:"capacity"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 // NewStoredBucket creates a new, empty Bucket and saves it to storage.

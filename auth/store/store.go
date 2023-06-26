@@ -83,12 +83,8 @@ func NewOrLoadStore(kv versioned.KV, grp *cyclic.Group, srh SentRequestHandler) 
 
 	for _, rDisk := range requestList {
 
-		requestType := RequestType(rDisk.T)
-
-		partner, err := id.Unmarshal(rDisk.ID)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
-		}
+		requestType := rDisk.T
+		partner := rDisk.ID
 
 		switch requestType {
 		case Sent:
@@ -126,16 +122,16 @@ func (s *Store) save() error {
 	requestIDList := make([]requestDisk, 0, len(s.receivedByID)+len(s.sentByID))
 	for _, rr := range s.receivedByID {
 		rDisk := requestDisk{
-			T:  uint(rr.getType()),
-			ID: rr.partner.ID.Marshal(),
+			T:  rr.getType(),
+			ID: rr.partner.ID,
 		}
 		requestIDList = append(requestIDList, rDisk)
 	}
 
 	for _, sr := range s.sentByID {
 		rDisk := requestDisk{
-			T:  uint(sr.getType()),
-			ID: sr.partner.Marshal(),
+			T:  sr.getType(),
+			ID: sr.partner,
 		}
 		requestIDList = append(requestIDList, rDisk)
 	}

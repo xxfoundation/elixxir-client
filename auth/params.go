@@ -21,13 +21,13 @@ type Params struct {
 	ResetConfirmTag string
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	ReplayRequests  bool
-	RequestTag      string
-	ConfirmTag      string
-	ResetRequestTag string
-	ResetConfirmTag string
+	ReplayRequests  bool   `json:"replayRequests"`
+	RequestTag      string `json:"requestTag"`
+	ConfirmTag      string `json:"confirmTag"`
+	ResetRequestTag string `json:"resetRequestTag"`
+	ResetConfirmTag string `json:"resetConfirmTag"`
 }
 
 // GetParameters Obtain default Params, or override with

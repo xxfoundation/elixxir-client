@@ -352,10 +352,10 @@ func (sv *StateVector) String() string {
 // stateVectorDisk is used to save the data from a StateVector so that it can be
 // JSON marshalled.
 type stateVectorDisk struct {
-	Vect           []uint64 `json:"vect,omitempty"`
-	FirstAvailable uint32   `json:"firstAvailable,omitempty"`
-	NumKeys        uint32   `json:"numKeys,omitempty"`
-	NumAvailable   uint32   `json:"numAvailable,omitempty"`
+	Vect           []uint64 `json:"vect"`
+	FirstAvailable uint32   `json:"firstAvailable"`
+	NumKeys        uint32   `json:"numKeys"`
+	NumAvailable   uint32   `json:"numAvailable"`
 }
 
 // LoadStateVector loads a StateVector with the specified key from the given

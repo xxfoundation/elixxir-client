@@ -88,38 +88,38 @@ type Session struct {
 // As this is serialized by json, any field that should be serialized
 // must be exported
 type sessionDisk struct {
-	E2EParams Params `json:"params"`
+	E2EParams Params `json:"e2eParams"`
 
 	// Session type
-	Type RelationshipType `json:"type,omitempty"`
+	Type RelationshipType `json:"type"`
 
 	// Underlying key
-	BaseKey []byte `json:"baseKey,omitempty"`
+	BaseKey []byte `json:"baseKey"`
 	// Own Private Key
-	MyPrivKey []byte `json:"myPriv,omitempty"`
+	MyPrivKey []byte `json:"myPrivKey"`
 	// Partner Public Key
-	PartnerPubKey []byte `json:"partnerPub,omitempty"`
+	PartnerPubKey []byte `json:"partnerPubKey"`
 	// Own SIDH Private Key
-	MySidhPrivKey []byte `json:"mySidhPriv,omitempty"`
+	MySidhPrivKey []byte `json:"mySidhPrivKey"`
 	// Note: only 3 bit patterns: 001, 010, 100
-	MySidhVariant byte `json:"mySidhVar,omitempty"`
+	MySidhVariant byte `json:"mySidhVariant"`
 	// Partner SIDH Public Key
-	PartnerSidhPubKey []byte `json:"partnerSidhPub,omitempty"`
+	PartnerSidhPubKey []byte `json:"partnerSidhPubKey"`
 	// Note: only 3 bit patterns: 001, 010, 100
-	PartnerSidhVariant byte `json:"partnerSidhVar,omitempty"`
+	PartnerSidhVariant byte `json:"partnerSidhVariant"`
 
 	// ID of the session which triggered this session's creation.
-	Trigger SessionID `json:"trigger,omitempty"`
+	Trigger SessionID `json:"trigger"`
 	// Relationship fingerprint
-	RelationshipFingerprint []byte `json:"relationshipFP,omitempty"`
+	RelationshipFingerprint []byte `json:"relationshipFingerprint"`
 
 	// Denotes if the other party has confirmed this key.
-	Confirmation Negotiation `json:"confirm,omitempty"`
+	Confirmation Negotiation `json:"confirmation"`
 
 	// Number of keys usable before rekey.
-	RekeyThreshold uint32 `json:"rekeyTH,omitempty"`
+	RekeyThreshold uint32 `json:"rekeyThreshold"`
 
-	Partner *id.ID `json:"partner,omitempty"`
+	Partner *id.ID `json:"partner"`
 }
 
 /*CONSTRUCTORS*/

@@ -55,18 +55,18 @@ type updateStatusFunc func(uuid uint64, messageID message.ID,
 	timestamp time.Time, round rounds.Round, status Status)
 
 type tracked struct {
-	MsgID   message.ID `json:"msgID,omitempty"`
-	RoundID id.Round   `json:"roundID,omitempty"`
-	UUID    uint64     `json:"uuid,omitempty"`
+	MsgID   message.ID `json:"msgID"`
+	RoundID id.Round   `json:"roundID"`
+	UUID    uint64     `json:"uuid"`
 
-	// For debugging and logging purposes
+	// For logging/debugging purposes
 	partnerKey ed25519.PublicKey
 	senderKey  ed25519.PublicKey
 }
 
 type trackedList struct {
-	List           []*tracked `json:"list,omitempty"`
-	RoundCompleted bool       `json:"completed,omitempty"`
+	List           []*tracked `json:"list"`
+	RoundCompleted bool       `json:"roundCompleted"`
 }
 
 // sendTracker tracks outbound messages and denotes when they are delivered to

@@ -9,7 +9,6 @@ package e2e
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -106,22 +105,12 @@ func TestE2EMessageHandler_Smoke(t *testing.T) {
 
 	// Parse message 0
 	msg0 := testMsgs[0]
-	recipient0, err := id.Unmarshal(msg0.Recipient)
-	if err != nil {
-		t.Fatalf("bad data in test message: %v", err)
-	}
-
 	// Parse message 1
 	msg1 := testMsgs[1]
-	recipient1, err := id.Unmarshal(msg1.Recipient)
-	if err != nil {
-		t.Fatalf("bad data in test message: %v", err)
-	}
+
 	// Add two messages
-	cmb.Add(catalog.MessageType(msg0.MessageType), recipient0,
-		msg0.Payload, msg0.Params)
-	cmb.Add(catalog.MessageType(msg1.MessageType), recipient1,
-		msg1.Payload, msg1.Params)
+	cmb.Add(msg0.MessageType, msg0.Recipient, msg0.Payload, msg0.Params)
+	cmb.Add(msg1.MessageType, msg1.Recipient, msg1.Payload, msg1.Params)
 
 	if len(cmb.mb.GetMessages()) != 2 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
@@ -174,7 +163,7 @@ func TestE2EMessageHandler_Smoke(t *testing.T) {
 
 func TestE2EParamMarshalUnmarshal(t *testing.T) {
 	msg := &e2eMessage{
-		Recipient:   id.DummyUser[:],
+		Recipient:   &id.DummyUser,
 		Payload:     []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
 		MessageType: 42,
 		Params: Params{

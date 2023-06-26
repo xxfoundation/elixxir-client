@@ -7,6 +7,8 @@
 
 package store
 
+import "gitlab.com/xx_network/primitives/id"
+
 type RequestType uint
 
 const (
@@ -15,6 +17,6 @@ const (
 )
 
 type requestDisk struct {
-	T  uint
-	ID []byte
+	T  RequestType `json:"t"`
+	ID *id.ID      `json:"ID"`
 }

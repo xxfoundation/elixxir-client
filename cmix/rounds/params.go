@@ -31,12 +31,12 @@ type Params struct {
 	MaxHistoricalRoundsRetries uint
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	MaxHistoricalRounds        uint
-	HistoricalRoundsPeriod     time.Duration
-	HistoricalRoundsBufferLen  uint
-	MaxHistoricalRoundsRetries uint
+	MaxHistoricalRounds        uint          `json:"maxHistoricalRounds"`
+	HistoricalRoundsPeriod     time.Duration `json:"historicalRoundsPeriod"`
+	HistoricalRoundsBufferLen  uint          `json:"historicalRoundsBufferLen"`
+	MaxHistoricalRoundsRetries uint          `json:"maxHistoricalRoundsRetries"`
 }
 
 // GetDefaultParams returns a default set of Params.

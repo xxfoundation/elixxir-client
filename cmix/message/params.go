@@ -21,13 +21,13 @@ type Params struct {
 	RealtimeOnly                   bool
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	MessageReceptionBuffLen        uint
-	MessageReceptionWorkerPoolSize uint
-	MaxChecksInProcessMessage      uint
-	InProcessMessageWait           time.Duration
-	RealtimeOnly                   bool
+	MessageReceptionBuffLen        uint          `json:"messageReceptionBuffLen"`
+	MessageReceptionWorkerPoolSize uint          `json:"messageReceptionWorkerPoolSize"`
+	MaxChecksInProcessMessage      uint          `json:"maxChecksInProcessMessage"`
+	InProcessMessageWait           time.Duration `json:"inProcessMessageWait"`
+	RealtimeOnly                   bool          `json:"realtimeOnly"`
 }
 
 // GetDefaultParams returns a Params object containing the

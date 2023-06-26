@@ -65,8 +65,8 @@ type registration struct {
 }
 
 type tokenReg struct {
-	Token string `json:"token,omitempty"`
-	App   string `json:"app,omitempty"`
+	Token string `json:"token"`
+	App   string `json:"app"`
 }
 
 // NewOrLoadManager creates a new notifications manager for tracking and

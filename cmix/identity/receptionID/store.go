@@ -42,8 +42,8 @@ type Store struct {
 }
 
 type storedReference struct {
-	Eph        ephemeral.Id `json:"eph,omitempty"`
-	Source     *id.ID       `json:"source,omitempty"`
+	Eph        ephemeral.Id `json:"eph"`
+	Source     *id.ID       `json:"source"`
 	StartValid time.Time    `json:"startValid"`
 }
 

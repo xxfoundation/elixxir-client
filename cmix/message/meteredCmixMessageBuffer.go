@@ -27,11 +27,11 @@ import (
 type meteredCmixMessageHandler struct{}
 
 type meteredCmixMessage struct {
-	M         []byte    `json:"m,omitempty"`
-	Ri        []byte    `json:"ri,omitempty"`
-	Identity  []byte    `json:"id,omitempty"`
-	Count     uint      `json:"count,omitempty"`
-	Timestamp time.Time `json:"ts"`
+	M         []byte    `json:"m"`
+	Ri        []byte    `json:"ri"`
+	Identity  []byte    `json:"identity"`
+	Count     uint      `json:"count"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // SaveMessage saves the message as a versioned object at the specified key in

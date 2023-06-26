@@ -75,11 +75,11 @@ type manager struct {
 }
 
 type TrackedID struct {
-	NextGeneration time.Time `json:"next"`
-	LastGeneration time.Time `json:"last"`
-	Source         *id.ID    `json:"source,omitempty"`
+	NextGeneration time.Time `json:"nextGeneration"`
+	LastGeneration time.Time `json:"lastGeneration"`
+	Source         *id.ID    `json:"source"`
 	ValidUntil     time.Time `json:"validUntil"`
-	Persistent     bool      `json:"persistent,omitempty"`
+	Persistent     bool      `json:"persistent"`
 	Creation       time.Time `json:"creation"`
 }
 

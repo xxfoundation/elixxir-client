@@ -41,13 +41,13 @@ type Params struct {
 	UnconfirmedRetryRatio float64 `json:"ratio,omitempty"`
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshal-able object.
 type paramsDisk struct {
-	MinKeys               uint16
-	MaxKeys               uint16
-	RekeyThreshold        float64
-	NumRekeys             uint16
-	UnconfirmedRetryRatio float64
+	MinKeys               uint16  `json:"minKeys"`
+	MaxKeys               uint16  `json:"maxKeys"`
+	RekeyThreshold        float64 `json:"rekeyThreshold"`
+	NumRekeys             uint16  `json:"numRekeys"`
+	UnconfirmedRetryRatio float64 `json:"unconfirmedRetryRatio"`
 }
 
 // GetDefaultParams returns a default set of Params.

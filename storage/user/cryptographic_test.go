@@ -10,6 +10,9 @@ package user
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
+	oldRsa "gitlab.com/xx_network/crypto/signature/rsa"
+	"reflect"
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -259,4 +262,53 @@ func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
 	if !ci.IsPrecanned() {
 		t.Error("I really don't know how this could happen")
 	}
+}
+
+func Test_ciDiskV1_JSON_Marshal_Unmarshal(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	uid := id.NewIdFromString("zezima", id.User, t)
+	salt := []byte("salt")
+
+	prng := rand.Reader
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	sch := rsa.GetScheme()
+
+	transmission, _ := sch.Generate(prng, 256)
+	reception, _ := sch.Generate(prng, 256)
+
+	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
+		reception, false, dhPrivKey, dhPubKey, kv)
+	
+	expected := ciDiskV1{
+		TransmissionID:     ci.transmissionID,
+		TransmissionSalt:   ci.transmissionSalt,
+		TransmissionRsaKey: &oldRsa.PrivateKey{PrivateKey: *ci.transmissionRsaKey.GetGoRSA()},
+		ReceptionID:        ci.receptionID,
+		ReceptionSalt:      ci.receptionSalt,
+		ReceptionRsaKey:    &oldRsa.PrivateKey{PrivateKey: *ci.receptionRsaKey.GetGoRSA()},
+		IsPrecanned:        ci.isPrecanned,
+		E2eDhPrivateKey:    ci.e2eDhPrivateKey,
+		E2eDhPublicKey:     ci.e2eDhPublicKey,
+	}
+
+	data, err := json.Marshal(expected)
+	if err != nil {
+		t.Errorf("Failed to marshal %T: %+v", expected, err)
+	}
+
+	var cid ciDiskV1
+	err = json.Unmarshal(data, &cid)
+	if err != nil {
+		t.Errorf("Failed to unmarshal %T: %+v", cid, err)
+	}
+
+	if !reflect.DeepEqual(expected, cid) {
+		t.Errorf("Unexpected ciDiskV1.\nexected: %+v\nreceived: %+v",
+			expected, cid)
+	}
+
 }

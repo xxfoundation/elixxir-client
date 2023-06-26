@@ -104,7 +104,7 @@ func Test_loadRegistration(t *testing.T) {
 			"succeeded: %+v", err)
 	}
 
-	_, err = loadRegistration(idu.EphId, idu.Source, idu.StartValid, kv)
+	_, err = loadRegistration(idu.EphID, idu.Source, idu.StartValid, kv)
 	if err != nil {
 		t.Fatalf("Registration loading failed: %+v", err)
 	}

@@ -46,7 +46,7 @@ func (up *UnsafeProcessor) Process(ecrMsg format.Message, tags []string,
 
 	if done {
 		message.RecipientID = receptionID.Source
-		message.EphemeralID = receptionID.EphId
+		message.EphemeralID = receptionID.EphID
 		message.Round = round
 		message.Encrypted = false
 		up.m.Switchboard.Speak(message)

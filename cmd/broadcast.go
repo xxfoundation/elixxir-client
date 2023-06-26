@@ -183,7 +183,7 @@ var broadcastCmd = &cobra.Command{
 			_ [2]byte, receptionID receptionID.EphemeralIdentity,
 			round rounds.Round) {
 			jww.INFO.Printf("Received asymmetric message from %s(eph: %d) over round %d", receptionID.Source,
-				receptionID.EphId.Int64(), round.ID)
+				receptionID.EphID.Int64(), round.ID)
 			asymmetricReceiveChan <- payload
 		}
 		_, err = bcl.RegisterSymmetricListener(acb, []string{})

@@ -43,7 +43,7 @@ func (p *processor) Process(ecrMsg format.Message, tags []string, _ []byte,
 		contents, sess.GetRelationshipFingerprint(), residue)
 	if done {
 		message.RecipientID = receptionID.Source
-		message.EphemeralID = receptionID.EphId
+		message.EphemeralID = receptionID.EphID
 		message.Round = round
 		message.Encrypted = true
 		p.m.Switchboard.Speak(message)

@@ -326,7 +326,7 @@ func makeIDs(payload message.RequestPayload, publicKey *cyclic.Int,
 		rid, ephID.Int64(), publicKey.Text(10), payload)
 
 	return payload, receptionID.EphemeralIdentity{
-		EphId:  ephID,
+		EphID:  ephID,
 		Source: rid,
 	}, nil
 }

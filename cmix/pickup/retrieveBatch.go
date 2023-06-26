@@ -48,7 +48,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 			// Add incoming lookup reqeust to unchecked
 			ri := rl.Round
 			err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
-				rl.Identity.Source, rl.Identity.EphId)
+				rl.Identity.Source, rl.Identity.EphID)
 			if err != nil {
 				jww.FATAL.Panicf(
 					"Failed to denote Unchecked Round for round %d",
@@ -111,7 +111,7 @@ func (m *pickup) processBatchMessageRetrieval(comms MessageRetrievalComms, stop 
 		for _, v := range batch {
 			orderedBatch[index] = v
 			msg.Requests[index] = &pb.GetMessages{
-				ClientID: v.id.EphId[:],
+				ClientID: v.id.EphID[:],
 				RoundID:  uint64(v.round.ID),
 				Target:   v.target.Marshal(),
 			}

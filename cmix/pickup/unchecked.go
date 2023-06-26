@@ -61,7 +61,7 @@ func (m *pickup) processUncheckedRounds(checkInterval time.Duration,
 
 			// Check if it needs to be processed by historical Rounds
 			m.GetMessagesFromRound(rid, receptionID.EphemeralIdentity{
-				EphId:  rnd.EpdId,
+				EphID:  rnd.EpdId,
 				Source: rnd.Source,
 			})
 

@@ -86,8 +86,8 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 		t.Errorf("Failed to signal close to process: %+v", err)
 	}
 
-	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
+	if testBundle.Identity.EphID.Int64() != expectedEphID.Int64() {
 		t.Errorf("Unexpected address ID in bundle.\nexpected: %v\nreceived: %v",
-			expectedEphID, testBundle.Identity.EphId)
+			expectedEphID, testBundle.Identity.EphID)
 	}
 }

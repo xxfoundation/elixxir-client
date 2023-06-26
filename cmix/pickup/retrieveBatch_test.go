@@ -62,7 +62,7 @@ func Test_manager_processBatchMessageRetrieval(t *testing.T) {
 
 		// Construct the round lookup
 		ephIdentity := ephemeral2.EphemeralIdentity{
-			EphId:  expectedEphID,
+			EphID:  expectedEphID,
 			Source: requestGateway,
 		}
 
@@ -97,10 +97,10 @@ func Test_manager_processBatchMessageRetrieval(t *testing.T) {
 		t.Fatal("Did not receive a message bundle over the channel")
 	}
 
-	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
+	if testBundle.Identity.EphID.Int64() != expectedEphID.Int64() {
 		t.Errorf("Unexpected address ID in bundle."+
 			"\n\tExpected: %v"+
-			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
+			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphID)
 	}
 
 	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {

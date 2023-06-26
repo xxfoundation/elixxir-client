@@ -193,7 +193,7 @@ func convertAuthCallbacks(requester contact.Contact,
 
 	contact = requester.Marshal()
 	receptionId = receptionID.Source.Marshal()
-	ephemeralId = int64(receptionID.EphId.UInt64())
+	ephemeralId = int64(receptionID.EphID.UInt64())
 	roundId = int64(round.ID)
 	return
 }

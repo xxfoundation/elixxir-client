@@ -42,7 +42,7 @@ func generateFakeIdentity(rng io.Reader, addressSize uint8,
 	return IdentityUse{
 		Identity: Identity{
 			EphemeralIdentity: EphemeralIdentity{
-				EphId:  ephID,
+				EphID:  ephID,
 				Source: randID,
 			},
 			AddressSize: addressSize,

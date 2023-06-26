@@ -22,12 +22,12 @@ const keyExchangeConfirmEphemeralName = "KeyExchangeConfirmEphemeral"
 const keyExchangeEphemeralMulti = "KeyExchangeEphemeral"
 
 type Params struct {
-	RoundTimeout  time.Duration       `json:"roundTimeout,omitempty"`
-	TriggerName   string              `json:"triggerName,omitempty"`
-	Trigger       catalog.MessageType `json:"trigger,omitempty"`
-	ConfirmName   string              `json:"confirmName,omitempty"`
-	Confirm       catalog.MessageType `json:"confirm,omitempty"`
-	StoppableName string              `json:"stoppableName,omitempty"`
+	RoundTimeout  time.Duration       `json:"roundTimeout"`
+	TriggerName   string              `json:"triggerName"`
+	Trigger       catalog.MessageType `json:"trigger"`
+	ConfirmName   string              `json:"confirmName"`
+	Confirm       catalog.MessageType `json:"confirm"`
+	StoppableName string              `json:"stoppableName"`
 }
 
 // paramsDisk will be the marshal-able and unmarshal-able object.

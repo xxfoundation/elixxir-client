@@ -28,21 +28,21 @@ const identityStorageVersion = 0
 
 type EphemeralIdentity struct {
 	// Identity
-	EphId  ephemeral.Id
-	Source *id.ID
+	EphID  ephemeral.Id `json:"ephID"`
+	Source *id.ID       `json:"source"`
 }
 
 type Identity struct {
 	// Identity
-	EphemeralIdentity `json:"ephID"`
-	AddressSize       uint8 `json:"addrSize,omitempty"`
+	EphemeralIdentity
+	AddressSize uint8 `json:"addressSize"`
 
 	/* Usage variables */
 	// End is the timestamp when active polling will stop.
 	End time.Time `json:"end"`
 	// ExtraChecks is the number of extra checks executed as active after the ID
 	// exits active.
-	ExtraChecks uint `json:"extraChecks,omitempty"`
+	ExtraChecks uint `json:"extraChecks"`
 
 	/* Polling parameters */
 	// StartValid is the timestamp when the ephemeral ID begins being valid
@@ -51,13 +51,13 @@ type Identity struct {
 	EndValid time.Time `json:"endValid"`
 
 	// Ephemeral makes the identity not stored on disk.
-	Ephemeral bool `json:"ephemeral,omitempty"`
+	Ephemeral bool `json:"ephemeral"`
 
 	// When this identity expired, it will auto add ProcessNext to the identity
 	// list to be processed. In practice, this is a reverse ordered list and is
 	// added whenever many identities are added at once in order to pick up
 	// sequentially.
-	ProcessNext *Identity `json:"processNext,omitempty"`
+	ProcessNext *Identity `json:"processNext"`
 }
 
 func loadIdentity(kv versioned.KV) (Identity, error) {
@@ -105,14 +105,14 @@ func (i Identity) delete(kv versioned.KV) error {
 // String returns a string representations of the ephemeral ID and source ID of
 // the Identity. This function adheres to the fmt.Stringer interface.
 func (i Identity) String() string {
-	return strconv.FormatInt(i.EphId.Int64(), 16) + " " + i.Source.String()
+	return strconv.FormatInt(i.EphID.Int64(), 16) + " " + i.Source.String()
 }
 
 // GoString returns a string representations of all the values in the Identity.
 // This function adheres to the fmt.GoStringer interface.
 func (i Identity) GoString() string {
 	str := []string{
-		"EphId:" + strconv.FormatInt(i.EphId.Int64(), 16),
+		"EphID:" + strconv.FormatInt(i.EphID.Int64(), 16),
 		"Source:" + i.Source.String(),
 		"AddressSize:" + strconv.FormatUint(uint64(i.AddressSize), 10),
 		"End:" + i.End.String(),
@@ -126,7 +126,7 @@ func (i Identity) GoString() string {
 }
 
 func (i Identity) Equal(b Identity) bool {
-	return i.EphId == b.EphId &&
+	return i.EphID == b.EphID &&
 		i.Source.Cmp(b.Source) &&
 		i.AddressSize == b.AddressSize &&
 		i.End.Equal(b.End) &&
@@ -146,7 +146,7 @@ func BuildIdentityFromRound(source *id.ID,
 		source, ephID.Int64(), round.AddressSpaceSize,
 		round.Timestamps[states.QUEUED].UnixNano())
 	return EphemeralIdentity{
-		EphId:  ephID,
+		EphID:  ephID,
 		Source: source,
 	}
 }

@@ -27,7 +27,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 		t.Fatalf("Failed to generate ephemeral ID: %+v", err)
 	}
 	ephId := receptionID.EphemeralIdentity{
-		EphId:  eid,
+		EphID:  eid,
 		Source: rid,
 	}
 	payload := make([]byte, 64)
@@ -35,7 +35,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	_, _ = rng.Read(payload)
 	sendReport := SingleUseSendReport{
 		RoundsList:  rl,
-		EphID:       ephId.EphId.Int64(),
+		EphID:       ephId.EphID.Int64(),
 		ReceptionID: ephId.Source,
 	}
 	srm, err := json.Marshal(sendReport)
@@ -49,7 +49,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 		RoundsList:  rl,
 		Payload:     payload,
 		ReceptionID: ephId.Source,
-		EphID:       ephId.EphId.Int64(),
+		EphID:       ephId.EphID.Int64(),
 		Err:         nil,
 	}
 	rrm, err := json.Marshal(responseReport)
@@ -63,7 +63,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 		RoundsList:  rl,
 		Payload:     payload,
 		Partner:     rid,
-		EphID:       ephId.EphId.Int64(),
+		EphID:       ephId.EphID.Int64(),
 		ReceptionID: ephId.Source,
 	}
 	crm, err := json.Marshal(callbackReport)

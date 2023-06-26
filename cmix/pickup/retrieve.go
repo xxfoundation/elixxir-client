@@ -55,7 +55,7 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 			ri := rl.Round
 			jww.DEBUG.Printf("[processMessageRetrieval] Checking for messages in round %d", ri.ID)
 			err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
-				rl.Identity.Source, rl.Identity.EphId)
+				rl.Identity.Source, rl.Identity.EphID)
 			if err != nil {
 				jww.FATAL.Panicf(
 					"Failed to denote Unchecked Round for round %d",
@@ -154,11 +154,11 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 		func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
 			jww.DEBUG.Printf("Trying to get messages for round %d for "+
 				"ephemeralID %d (%s) via Gateway: %s", roundID,
-				identity.EphId.Int64(), identity.Source, host.GetId())
+				identity.EphID.Int64(), identity.Source, host.GetId())
 
 			// send the request
 			msgReq := &pb.GetMessages{
-				ClientID: identity.EphId[:],
+				ClientID: identity.EphID[:],
 				RoundID:  uint64(roundID),
 				Target:   target.Marshal(),
 			}
@@ -194,7 +194,7 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	}
 
 	jww.INFO.Printf("Received %d messages in Round %d for %d (%s) in %s",
-		len(bundle.Messages), roundID, identity.EphId.Int64(), identity.Source,
+		len(bundle.Messages), roundID, identity.EphID.Int64(), identity.Source,
 		netTime.Now().Sub(start))
 
 	return bundle, nil
@@ -211,7 +211,7 @@ func (m *pickup) processBundle(bundle message.Bundle, rid receptionID.EphemeralI
 		// If successful and there are messages, we send them to another
 		// thread
 		bundle.Identity = receptionID.EphemeralIdentity{
-			EphId:  rid.EphId,
+			EphID:  rid.EphID,
 			Source: rid.Source,
 		}
 		bundle.RoundInfo = ri
@@ -219,7 +219,7 @@ func (m *pickup) processBundle(bundle message.Bundle, rid receptionID.EphemeralI
 
 		jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
 		err := m.unchecked.Remove(
-			id.Round(ri.ID), rid.Source, rid.EphId)
+			id.Round(ri.ID), rid.Source, rid.EphID)
 		if err != nil {
 			jww.ERROR.Printf("Could not remove round %d from "+
 				"unchecked rounds store: %v", ri.ID, err)
@@ -239,7 +239,7 @@ func (m *pickup) buildMessageBundle(msgResp *pb.GetMessagesResponse, identity re
 			" but can be indicative of a problem if it is consistent",
 			identity.Source, roundID)
 
-		err := m.unchecked.EndCheck(roundID, identity.Source, identity.EphId)
+		err := m.unchecked.EndCheck(roundID, identity.Source, identity.EphID)
 		if err != nil {
 			jww.ERROR.Printf("Failed to end the check for the round round %d: %+v", roundID, err)
 		}
@@ -286,7 +286,7 @@ func (m *pickup) forceMessagePickupRetry(ri rounds.Round, rl roundLookup,
 // should be skipped to force a retry.
 func (m *pickup) shouldForceMessagePickupRetry(rl roundLookup) bool {
 	rnd, _ := m.unchecked.GetRound(
-		rl.Round.ID, rl.Identity.Source, rl.Identity.EphId)
+		rl.Round.ID, rl.Identity.Source, rl.Identity.EphID)
 	var err error
 	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message

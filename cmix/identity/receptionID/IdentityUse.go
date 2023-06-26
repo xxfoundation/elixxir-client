@@ -15,14 +15,14 @@ import (
 )
 
 type IdentityUse struct {
-	Identity
+	Identity `json:""`
 
 	// Denotes if the identity is fake, in which case we do not process messages
-	Fake bool
+	Fake bool `json:"fake"`
 
-	UR *store.UnknownRounds
-	ER *store.EarliestRound
-	CR *store.CheckedRounds
+	UR *store.UnknownRounds `json:"ur"`
+	ER *store.EarliestRound `json:"er"`
+	CR *store.CheckedRounds `json:"cr"`
 }
 
 // GoString returns a string representations of all the values in the

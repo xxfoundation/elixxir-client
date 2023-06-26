@@ -25,7 +25,7 @@ func (m *pickup) GetMessagesFromRound(
 		// Store the round as an un-retrieved round without a round info
 		// This will silently do nothing if the round is
 		err = m.unchecked.AddRound(roundID, nil,
-			identity.Source, identity.EphId)
+			identity.Source, identity.EphID)
 		if err != nil {
 			jww.FATAL.Panicf(
 				"Failed to denote Unchecked Round for round %d", roundID)
@@ -37,7 +37,7 @@ func (m *pickup) GetMessagesFromRound(
 		}
 
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
-			"up messages via historical lookup", roundID, identity.EphId.Int64(),
+			"up messages via historical lookup", roundID, identity.EphID.Int64(),
 			identity.Source)
 
 		err = m.historical.LookupHistoricalRound(
@@ -55,12 +55,12 @@ func (m *pickup) GetMessagesFromRound(
 	} else {
 		// If we did find it, send it to the round pickup thread
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
-			"up messages via in ram lookup", roundID, identity.EphId.Int64(),
+			"up messages via in ram lookup", roundID, identity.EphID.Int64(),
 			identity.Source)
 
 		// store the round as an un-retrieved round
 		err = m.unchecked.AddRound(roundID, ri,
-			identity.Source, identity.EphId)
+			identity.Source, identity.EphID)
 		if err != nil {
 			jww.FATAL.Panicf(
 				"Failed to denote Unchecked Round for round %d", roundID)

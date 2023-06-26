@@ -25,14 +25,14 @@ func Test_generateFakeIdentity(t *testing.T) {
 	end, _ := json.Marshal(time.Unix(0, 1258494203759765625))
 	startValid, _ := json.Marshal(time.Unix(0, 1258407803759765625))
 	endValid, _ := json.Marshal(time.Unix(0, 1258494203759765625))
-	expected := `{"EphId":[0,0,0,0,0,0,46,197],` +
-		`"Source":"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",` +
-		`"AddressSize":` + strconv.Itoa(int(addressSize)) + `,` +
-		`"End":` + string(end) + `,"ExtraChecks":0,` +
-		`"StartValid":` + string(startValid) + `,` +
-		`"EndValid":` + string(endValid) + `,` +
-		`"Ephemeral":true,"ProcessNext":null,` +
-		`"Fake":true,"UR":null,"ER":null,"CR":null}`
+	expected := `{"ephID":[0,0,0,0,0,0,46,197],` +
+		`"source":"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",` +
+		`"addressSize":` + strconv.Itoa(int(addressSize)) + `,` +
+		`"end":` + string(end) + `,"ExtraChecks":0,` +
+		`"startValid":` + string(startValid) + `,` +
+		`"endValid":` + string(endValid) + `,` +
+		`"ephemeral":true,"ProcessNext":null,` +
+		`"fake":true,"ur":null,"er":null,"cr":null}`
 
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 

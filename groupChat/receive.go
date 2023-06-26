@@ -45,12 +45,12 @@ type receptionProcessor struct {
 func (p *receptionProcessor) Process(message format.Message, _ []string, _ []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	jww.TRACE.Printf("[GC] Received group message from %d (%s) on round %d.",
-		receptionID.EphId.Int64(), receptionID.Source, round.ID)
+		receptionID.EphID.Int64(), receptionID.Source, round.ID)
 
 	// Unmarshal cMix message contents to get public message format
 	pubMsg, err := unmarshalPublicMsg(message.GetContents())
 	if err != nil {
-		jww.ERROR.Printf(unmarshalPublicMsgErr, receptionID.EphId.Int64(),
+		jww.ERROR.Printf(unmarshalPublicMsgErr, receptionID.EphID.Int64(),
 			receptionID.Source, round.ID, err)
 		return
 	}

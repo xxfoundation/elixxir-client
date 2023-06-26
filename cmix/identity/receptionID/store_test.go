@@ -138,7 +138,7 @@ func TestStore_makeStoredReferences(t *testing.T) {
 		if i%2 == 0 {
 			testID.Ephemeral = false
 			expected = append(expected, storedReference{
-				Eph:        testID.EphId,
+				Eph:        testID.EphID,
 				Source:     testID.Source,
 				StartValid: testID.StartValid.Round(0),
 			})
@@ -369,7 +369,7 @@ func TestStore_GetIdentities_BadNum(t *testing.T) {
 
 func getIDFp(identity EphemeralIdentity) uint64 {
 	h, _ := hash.NewCMixHash()
-	h.Write(identity.EphId[:])
+	h.Write(identity.EphID[:])
 	h.Write(identity.Source.Bytes())
 	r := h.Sum(nil)
 	return binary.BigEndian.Uint64(r)
@@ -407,7 +407,7 @@ func TestStore_RemoveIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddIdentity() produced an error: %+v", err)
 	}
-	s.RemoveIdentity(testID.EphId)
+	s.RemoveIdentity(testID.EphID)
 
 	if len(s.active) != 0 {
 		t.Errorf("RemoveIdentity() failed to remove: %+v", s.active)

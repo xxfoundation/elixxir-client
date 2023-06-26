@@ -75,7 +75,7 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 
 		// Construct the round lookup
 		ephIdentity := ephemeral2.EphemeralIdentity{
-			EphId:  expectedEphID,
+			EphID:  expectedEphID,
 			Source: requestGateway,
 		}
 
@@ -110,10 +110,10 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 		t.Fatal("Did not receive a message bundle over the channel")
 	}
 
-	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
+	if testBundle.Identity.EphID.Int64() != expectedEphID.Int64() {
 		t.Errorf("Unexpected address ID in bundle."+
 			"\n\tExpected: %v"+
-			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
+			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphID)
 	}
 
 	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {
@@ -164,7 +164,7 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 	go func() {
 		// Construct the round lookup
 		identity := ephemeral2.EphemeralIdentity{
-			EphId:  expectedEphID,
+			EphID:  expectedEphID,
 			Source: dummyGateway,
 		}
 
@@ -237,7 +237,7 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 	go func() {
 		// Construct the round lookup
 		identity := ephemeral2.EphemeralIdentity{
-			EphId:  expectedEphID,
+			EphID:  expectedEphID,
 			Source: id.NewIdFromString("Source", id.User, t),
 		}
 
@@ -305,7 +305,7 @@ func Test_manager_processMessageRetrieval_Quit(t *testing.T) {
 	go func() {
 		// Construct the round lookup
 		identity := ephemeral2.EphemeralIdentity{
-			EphId: expectedEphID,
+			EphID: expectedEphID,
 		}
 
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
@@ -377,7 +377,7 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 		errorGateway := id.NewIdFromString(ErrorGateway, id.Gateway, t)
 		// Construct the round lookup
 		identity := ephemeral2.EphemeralIdentity{
-			EphId:  expectedEphID,
+			EphID:  expectedEphID,
 			Source: requestGateway,
 		}
 
@@ -416,9 +416,9 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 		t.Fatal("Did not receive a message bundle over the channel.")
 	}
 
-	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
+	if testBundle.Identity.EphID.Int64() != expectedEphID.Int64() {
 		t.Errorf("Unexpected address ID in bundle.\nexpected: %v\nreceived: %v",
-			expectedEphID, testBundle.Identity.EphId)
+			expectedEphID, testBundle.Identity.EphID)
 	}
 
 	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {

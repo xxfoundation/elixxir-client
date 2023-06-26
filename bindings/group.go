@@ -410,7 +410,7 @@ func convertGroupChatProcessor(decryptedMsg gc.MessageReceive, msg format.Messag
 	decryptedMessage, err = json.Marshal(convertMessageReceive(decryptedMsg))
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
-	ephemeralId = receptionID.EphId.Int64()
+	ephemeralId = receptionID.EphID.Int64()
 	roundId = int64(round.ID)
 	roundUrl = getRoundURL(round.ID)
 	return

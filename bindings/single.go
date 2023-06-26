@@ -61,7 +61,7 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 		return nil, err
 	}
 	sr := SingleUseSendReport{
-		EphID:       eid.EphId.Int64(),
+		EphID:       eid.EphID.Int64(),
 		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
 		RoundURL:    getRoundURL(rids[0]),
@@ -220,7 +220,7 @@ func (sl singleUseListener) Callback(
 		RoundsList:  makeRoundsList(rids...),
 		RoundURL:    getRoundURL(rids[0]),
 		Partner:     req.GetPartner(),
-		EphID:       eid.EphId.Int64(),
+		EphID:       eid.EphID.Int64(),
 		ReceptionID: eid.Source,
 	}
 
@@ -259,7 +259,7 @@ func (sr singleUseResponse) Callback(payload []byte,
 		RoundsList:  makeRoundsList(rids...),
 		RoundURL:    getRoundURL(rids[0]),
 		ReceptionID: receptionID.Source,
-		EphID:       receptionID.EphId.Int64(),
+		EphID:       receptionID.EphID.Int64(),
 		Payload:     payload,
 		Err:         err,
 	}

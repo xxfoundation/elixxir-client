@@ -158,7 +158,7 @@ func (s *Store) makeStoredReferences() []storedReference {
 	for _, reg := range s.active {
 		if !reg.Ephemeral {
 			identities[i] = storedReference{
-				Eph:        reg.EphId,
+				Eph:        reg.EphID,
 				Source:     reg.Source,
 				StartValid: reg.StartValid.Round(0),
 			}
@@ -234,12 +234,12 @@ func (s *Store) addIdentity(identity Identity) error {
 }
 
 func (s *Store) addIdentityNoSave(identity Identity) error {
-	idH := makeIdHash(identity.EphId, identity.Source)
+	idH := makeIdHash(identity.EphID, identity.Source)
 
 	// Do not make duplicates of IDs
 	if _, ok := s.present[idH]; ok {
 		jww.DEBUG.Printf("Ignoring duplicate identity for %d (%s)",
-			identity.EphId.Int64(), identity.Source)
+			identity.EphID.Int64(), identity.Source)
 		return nil
 	}
 
@@ -266,9 +266,9 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 
 	for i := 0; i < len(s.active); i++ {
 		inQuestion := s.active[i]
-		if inQuestion.EphId == ephID {
+		if inQuestion.EphID == ephID {
 			s.active = append(s.active[:i], s.active[i+1:]...)
-			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
+			delete(s.present, makeIdHash(inQuestion.EphID, inQuestion.Source))
 			err := inQuestion.Delete()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
@@ -297,9 +297,9 @@ func (s *Store) RemoveIdentities(source *id.ID) {
 		inQuestion := s.active[i]
 		if inQuestion.Source.Cmp(source) {
 			s.active = append(s.active[:i], s.active[i+1:]...)
-			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
+			delete(s.present, makeIdHash(inQuestion.EphID, inQuestion.Source))
 			jww.INFO.Printf("Removing Identity %s:%d from tracker",
-				inQuestion.Source, inQuestion.EphId.Int64())
+				inQuestion.Source, inQuestion.EphID.Int64())
 			err := inQuestion.Delete()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
@@ -344,17 +344,17 @@ func (s *Store) prune(now time.Time) {
 		if now.After(inQuestion.End) && inQuestion.ExtraChecks == 0 {
 			if inQuestion.ProcessNext != nil {
 				toAdd = append(toAdd, *inQuestion.ProcessNext)
-				added = append(added, inQuestion.ProcessNext.EphId.Int64())
+				added = append(added, inQuestion.ProcessNext.EphID.Int64())
 
 			}
 			if err := inQuestion.Delete(); err != nil {
 				jww.ERROR.Printf("Failed to delete Identity for %s: %+v",
 					inQuestion, err)
 			}
-			pruned = append(pruned, inQuestion.EphId.Int64())
+			pruned = append(pruned, inQuestion.EphID.Int64())
 
 			s.active = append(s.active[:i], s.active[i+1:]...)
-			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
+			delete(s.present, makeIdHash(inQuestion.EphID, inQuestion.Source))
 
 			i--
 		}
@@ -364,7 +364,7 @@ func (s *Store) prune(now time.Time) {
 		if err := s.addIdentityNoSave(next); err != nil {
 			jww.ERROR.Printf("Failed to add identity to process next "+
 				"for %d(%s). The identity chain may be lost",
-				next.EphId.Int64(), next.Source)
+				next.EphID.Int64(), next.Source)
 		}
 	}
 
@@ -402,9 +402,9 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		selected = s.active[selectedNum.Uint64()]
 	}
 
-	jww.TRACE.Printf("Selected identity: EphId: %d  ID: %s  End: %s  "+
+	jww.TRACE.Printf("Selected identity: EphID: %d  ID: %s  End: %s  "+
 		"StartValid: %s  EndValid: %s",
-		selected.EphId.Int64(), selected.Source,
+		selected.EphID.Int64(), selected.Source,
 		selected.End.Format("01/02/06 03:04:05 pm"),
 		selected.StartValid.Format("01/02/06 03:04:05 pm"),
 		selected.EndValid.Format("01/02/06 03:04:05 pm"))
@@ -446,9 +446,9 @@ func (s *Store) selectIdentities(n int, rng io.Reader, now time.Time) ([]Identit
 
 	}
 
-	jww.TRACE.Printf("Selected %d identities, first identity: EphId: %d  ID: %s  End: %s  "+
+	jww.TRACE.Printf("Selected %d identities, first identity: EphID: %d  ID: %s  End: %s  "+
 		"StartValid: %s  EndValid: %s", len(selected),
-		selected[0].EphId.Int64(), selected[0].Source,
+		selected[0].EphID.Int64(), selected[0].Source,
 		selected[0].End.Format("01/02/06 03:04:05 pm"),
 		selected[0].StartValid.Format("01/02/06 03:04:05 pm"),
 		selected[0].EndValid.Format("01/02/06 03:04:05 pm"))

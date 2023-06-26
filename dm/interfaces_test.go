@@ -93,7 +93,7 @@ func (mc *mockClient) SendManyWithAssembler(recipients []*id.ID,
 			}
 			msg.SetSIH(SIH)
 			recID := receptionID.EphemeralIdentity{
-				EphId:  ids[i],
+				EphID:  ids[i],
 				Source: recipients[i],
 			}
 			clients[i].processors[*recipients[i]].Process(

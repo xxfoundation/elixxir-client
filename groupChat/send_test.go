@@ -54,7 +54,7 @@ func Test_manager_Send(t *testing.T) {
 	timestamps[states.PRECOMPUTING] = netTime.Now().Round(0)
 	for _, msg := range messages {
 		reception.Process(msg, []string{}, nil, receptionID.EphemeralIdentity{
-			EphId: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},
+			EphID: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},
 		},
 			rounds.Round{ID: roundId.ID, Timestamps: timestamps})
 		select {

@@ -375,7 +375,7 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 		// Expand the grace period for both start and end
 		newIdentity := receptionID.Identity{
 			EphemeralIdentity: receptionID.EphemeralIdentity{
-				EphId:  eid.Id,
+				EphID:  eid.Id,
 				Source: inQuestion.Source,
 			},
 			AddressSize: addressSize,
@@ -430,7 +430,7 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 
 	jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, "+
 		"End: %s, addrSize: %d",
-		NewestIdentity.EphId.Int64(),
+		NewestIdentity.EphID.Int64(),
 		NewestIdentity.Source,
 		NewestIdentity.StartValid,
 		NewestIdentity.EndValid,

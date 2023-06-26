@@ -42,7 +42,7 @@ func newRegistration(reg Identity, kv versioned.KV) (*registration, error) {
 	// }
 
 	// Set the prefix
-	kv, err := kv.Prefix(regPrefix(reg.EphId, reg.Source, reg.StartValid))
+	kv, err := kv.Prefix(regPrefix(reg.EphID, reg.Source, reg.StartValid))
 	if err != nil {
 		return nil, err
 	}

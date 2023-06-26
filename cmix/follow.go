@@ -190,7 +190,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			Hash: c.instance.GetPartialNdf().GetHash(),
 		},
 		LastUpdate:     uint64(c.instance.GetLastUpdateID()),
-		ReceptionID:    identity.EphId[:],
+		ReceptionID:    identity.EphID[:],
 		StartTimestamp: identity.StartValid.UnixNano(),
 		EndTimestamp:   identity.EndValid.UnixNano(),
 		ClientVersion:  []byte(version.String()),
@@ -205,7 +205,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("[Follow] Executing poll for %v(%s) range: %s-%s(%s) from %s",
-			identity.EphId.Int64(), identity.Source, identity.StartValid,
+			identity.EphID.Int64(), identity.Source, identity.StartValid,
 			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
 			host.GetId())
 		var err error
@@ -350,7 +350,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	if len(pollResp.Filters.Filters) == 0 {
 		jww.TRACE.Printf("[Follow] No filters found for the passed ID %d (%s), "+
-			"skipping processing.", identity.EphId.Int64(), identity.Source)
+			"skipping processing.", identity.EphID.Int64(), identity.Source)
 		return
 	}
 
@@ -371,7 +371,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
 		}
-		//jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %v", rid, identity.EphId.Int64(), hasMessage)
+		// jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %v", rid, identity.EphID.Int64(), hasMessage)
 		return hasMessage
 	}
 
@@ -429,7 +429,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	jww.DEBUG.Printf("[Follow] Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
 		"NewEarliestRemaining: %d, NumWithMessages: %d, NumUnknown: %d",
-		identity.EphId.Int64(), updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
+		identity.EphID.Int64(), updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
 		gwRoundsState.GetLastChecked(), c.param.KnownRoundsThreshold,
 		earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
 
@@ -462,7 +462,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	err = identity.CR.SaveCheckedRounds()
 	if err != nil {
 		jww.ERROR.Printf("[Follow] Could not save rounds for identity %d (%s): %+v",
-			identity.EphId.Int64(), identity.Source, err)
+			identity.EphID.Int64(), identity.Source, err)
 	}
 
 	for i := len(roundsWithMessages2) - 1; i >= 0; i-- {

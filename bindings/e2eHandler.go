@@ -240,7 +240,7 @@ func convertProcessor(msg format.Message, tags []string, metadata []byte,
 	tagsOut, _ = json.Marshal(tags)
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
-	ephemeralId = int64(receptionID.EphId.UInt64())
+	ephemeralId = int64(receptionID.EphID.UInt64())
 	roundId = int64(round.ID)
 	metadataOut = metadata[:]
 	return

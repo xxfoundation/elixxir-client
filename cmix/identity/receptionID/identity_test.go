@@ -23,7 +23,7 @@ func TestIdentity_store_loadIdentity(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{
-			EphId:  ephemeral.Id{},
+			EphID:  ephemeral.Id{},
 			Source: &id.Permissioning,
 		},
 		AddressSize: 15,
@@ -54,7 +54,7 @@ func TestIdentity_delete(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{
-			EphId:  ephemeral.Id{},
+			EphID:  ephemeral.Id{},
 			Source: &id.Permissioning,
 		},
 		AddressSize: 15,
@@ -123,7 +123,7 @@ func TestIdentity_store_loadProcessNext(t *testing.T) {
 	copy(ephId[:], []byte{0})
 	first := &Identity{
 		EphemeralIdentity: EphemeralIdentity{
-			EphId:  ephId,
+			EphID:  ephId,
 			Source: &id.Permissioning,
 		},
 		AddressSize: 0,
@@ -147,7 +147,7 @@ func TestIdentity_store_loadProcessNext(t *testing.T) {
 
 		next := &Identity{
 			EphemeralIdentity: EphemeralIdentity{
-				EphId:  ephId,
+				EphID:  ephId,
 				Source: &id.Permissioning,
 			},
 			AddressSize: 25,
@@ -207,10 +207,10 @@ func TestIdentity_store_loadProcessNext(t *testing.T) {
 
 		received := serializedList[i]
 
-		if !reflect.DeepEqual(ephId, received.EphId) {
+		if !reflect.DeepEqual(ephId, received.EphID) {
 			t.Errorf("Identity #%d loaded is not expected."+
 				"\nExpected: %+v"+
-				"\nReceived: %+v", i, ephId, received.EphId)
+				"\nReceived: %+v", i, ephId, received.EphID)
 		}
 
 	}

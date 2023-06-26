@@ -2910,17 +2910,6 @@ func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *ChannelUICallbacksWr
 	return &ChannelUICallbacksWrapper{Cuic: uicb}
 }
 
-// Event Type
-const (
-	NickNameUpdate     int64 = 1000
-	NotificationUpdate int64 = 2000
-	MessageReceived    int64 = 3000
-	UserMuted          int64 = 4000
-	MessageDeleted     int64 = 5000
-	AdminKeyUpdate     int64 = 6000
-	ChannelUpdate      int64 = 7000
-)
-
 // NickNameUpdateJson is describes when your nickname changes due to a change on a
 // remote.
 //
@@ -3215,42 +3204,6 @@ type NotificationUpdateJson struct {
 	MaxState                  clientNotif.NotificationState `json:"maxState"`
 }
 
-// MessageReceivedJson is returned any time a message is received or updated.
-// Update is true if the row is old and was edited.
-//
-//	{
-//	  "uuid":32,
-//	  "channelID":"Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4HZ",
-//	  "update":false
-//	}
-type MessageReceivedJson struct {
-	Uuid      int64  `json:"uuid"`
-	ChannelID *id.ID `json:"channelID"`
-	Update    bool   `json:"update"`
-}
-
-// UserMutedJson is returned for the MuteUser method of the impl.
-//
-//	{
-//	  "channelID":"YSc2bDijXIVhmIsJk2OZQjU9ei2Dn6MS8tOpXlIaUpSV",
-//	  "pubKey":"hClzdWkMI+LM7KDFxC/iuyIc0oiMzcBXBFgH0haZAjc=",
-//	  "unmute":false
-//	}
-type UserMutedJson struct {
-	ChannelID *id.ID            `json:"channelID"`
-	PubKey    ed25519.PublicKey `json:"pubKey"`
-	Unmute    bool              `json:"unmute"`
-}
-
-// MessageDeletedJson is returned any time a message is deleted.
-//
-//	{
-//	  "messageID":"i9b7tL5sUmObxqW1LApC9H/yvnQzsRfq7yc8SCBtlK0="
-//	}
-type MessageDeletedJson struct {
-	MessageID message.ID `json:"messageID"`
-}
-
 // AdminKeysUpdateJson describes when you get or lose keys for a specific
 // channel
 //
@@ -3261,47 +3214,6 @@ type MessageDeletedJson struct {
 type AdminKeysUpdateJson struct {
 	ChannelId *id.ID `json:"channelID"`
 	IsAdmin   bool   `json:"IsAdmin"`
-}
-
-// ChannelsUpdateJson describes when the sending of dm tokens is enabled or
-// disabled on a specific channel
-// Status consts are described by SyncCreated, SyncUpdated, SyncDeleted, and
-// SyncLoaded
-//
-// This is used as a list of these, which looks as follows:
-//
-//	[
-//   {
-//      "channelID":"AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//      "status":0,
-//      "broadcastDMToken":false
-//   },
-//   {
-//      "channelID":"AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//      "status":0,
-//      "broadcastDMToken":true
-//   },
-//   {
-//      "channelID":"AAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//      "status":1,
-//      "broadcastDMToken":true
-//   },
-//   {
-//      "channelID":"AAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//      "status":1,
-//      "broadcastDMToken":false
-//   },
-//   {
-//      "channelID":"AAAAAAAAAAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//      "status":2,
-//      "broadcastDMToken":false
-//   }
-// ]
-
-type ChannelsUpdateJson struct {
-	ChannelId        *id.ID `json:"channelID"`
-	Status           int    `json:"status"`
-	BroadcastDMToken bool   `json:"broadcastDMToken"`
 }
 
 const (
@@ -3318,10 +3230,6 @@ const (
 	// or shut down
 	SyncLoaded = int(versioned.Deleted)
 )
-
-type ChannelUICallbacks interface {
-	EventUpdate(eventType int64, jsonData []byte)
-}
 
 type ChannelUICallbacksWrapper struct {
 	Cuic ChannelUICallbacks

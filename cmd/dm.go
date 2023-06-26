@@ -343,6 +343,10 @@ func (r *receiver) UpdateSentStatus(uuid uint64, messageID message.ID,
 	msg.status = status
 }
 
+func (r *receiver) DeleteMessage(message.ID, ed25519.PublicKey) bool {
+	return true
+}
+
 func (r *receiver) GetConversation(ed25519.PublicKey) *dm.ModelConversation {
 	return nil
 }

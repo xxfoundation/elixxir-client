@@ -113,6 +113,12 @@ type Sender interface {
 		params cmix.CMIXParams) (
 		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
 
+	// DeleteMessage sends a message to the partner to delete a message this
+	// user sent. Also deletes it from the local database.
+	DeleteMessage(partnerPubKey ed25519.PublicKey, partnerToken uint32,
+		targetMessage cryptoMessage.ID, params cmix.CMIXParams) (
+		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
+
 	// Send is used to send a raw message. In general, it
 	// should be wrapped in a function that defines the wire protocol.
 	//
@@ -238,9 +244,16 @@ type EventModel interface {
 	UpdateSentStatus(uuid uint64, messageID cryptoMessage.ID,
 		timestamp time.Time, round rounds.Round, status Status)
 
+	// DeleteMessage deletes the message with the given message.ID belonging to
+	// the sender. If the message exists and belongs to the sender, then it is
+	// deleted and DeleteMessage returns true. If it does not exist, it returns
+	// false.
+	DeleteMessage(messageID cryptoMessage.ID, senderPubKey ed25519.PublicKey) bool
+
 	// GetConversation returns any conversations held by the
 	// model (receiver)
 	GetConversation(senderPubKey ed25519.PublicKey) *ModelConversation
+
 	// GetConversations returns any conversations held by the
 	// model (receiver)
 	GetConversations() []ModelConversation

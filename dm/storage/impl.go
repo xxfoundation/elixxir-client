@@ -162,6 +162,39 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 		true, false)
 }
 
+// DeleteMessage deletes the message with the given message.ID belonging to the
+// sender. If the message exists and belongs to the sender, then it is deleted
+// and DeleteMessage returns true. If it does not exist, it returns false.
+func (i *impl) DeleteMessage(
+	messageID message.ID, senderPubKey ed25519.PublicKey) bool {
+
+	ctx, cancel := newContext()
+	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Get the extant message
+		currentMessage := &Message{MessageId: messageID.Marshal()}
+		err := tx.Take(currentMessage).Error
+		if err != nil {
+			return err
+		}
+
+		// Ensure the public keys match
+		if !bytes.Equal(currentMessage.SenderPubKey, senderPubKey) {
+			return errors.Errorf("Public keys do not match")
+		}
+
+		// Perform the delete
+		return tx.Delete(currentMessage).Error
+	})
+	cancel()
+
+	if err != nil {
+		jww.ERROR.Printf("Failed to DeleteMessage: %+v", err)
+		return false
+	}
+
+	return true
+}
+
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
 	parentErr := "Failed to GetConversation: %+v"
 	resultConvo, err := i.getConversation(senderPubKey)

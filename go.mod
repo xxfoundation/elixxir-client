@@ -16,8 +16,8 @@ require (
 	gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8
 	gitlab.com/elixxir/comms v0.0.4-0.20230613220741-7de1d2ca4a1c
 	gitlab.com/elixxir/crypto v0.0.7-0.20230614183801-387e0cb8e76f
-	gitlab.com/elixxir/ekv v0.3.1-0.20230615223221-5b674608adcf
-	gitlab.com/elixxir/primitives v0.0.3-0.20230621175650-17398d0916b9
+	gitlab.com/elixxir/ekv v0.3.1-0.20230620180825-838848b00f19
+	gitlab.com/elixxir/primitives v0.0.3-0.20230613193928-8cf8bdd777ef
 	gitlab.com/elixxir/wasm-utils v0.0.0-20230615222914-185dd3a6fa08
 	gitlab.com/xx_network/comms v0.0.4-0.20230214180029-5387fb85736d
 	gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd

@@ -21,12 +21,15 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+type dummyCbs struct{}
+
+func (c *dummyCbs) EventUpdate(int64, []byte) {}
+
 // Series of interdependent smoke tests of the impl object and its methods.
 func TestImpl(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
-	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
-	model, err := newImpl("", testCb, nil, nil)
+	model, err := newImpl("", &dummyCbs{})
 	if err != nil {
 		t.Fatal(err)
 	}

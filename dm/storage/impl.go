@@ -172,7 +172,7 @@ func (i *impl) DeleteMessage(
 	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Get the extant message
 		currentMessage := &Message{MessageId: messageID.Marshal()}
-		err := tx.Take(currentMessage).Error
+		err := tx.Where(currentMessage).Take(currentMessage).Error
 		if err != nil {
 			return err
 		}

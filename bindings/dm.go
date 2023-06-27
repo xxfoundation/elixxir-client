@@ -735,7 +735,7 @@ func (dmc *DMClient) SendInvite(partnerPubKeyBytes []byte,
 //     delete. This may be found in the [ChannelSendReport].
 //   - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
 //     and GetDefaultCMixParams will be used internally.
-func (dmc *DMClient) DeleteMessage(partnerPubKeyBytes []byte, partnerToken int,
+func (dmc *DMClient) DeleteMessage(partnerPubKeyBytes []byte, partnerToken int32,
 	targetMessageIdBytes []byte, cmixParamsJSON []byte) ([]byte, error) {
 
 	partnerPubKey := ed25519.PublicKey(partnerPubKeyBytes)

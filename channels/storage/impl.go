@@ -310,8 +310,8 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 	parentErr := "failed to DeleteMessage: %+v"
 
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Where("message_id = ?",
-		messageID.Bytes()).Delete(&Message{}).Error
+	currentMessage := &Message{MessageId: messageID.Marshal()}
+	err := i.db.WithContext(ctx).Where(currentMessage).Delete(currentMessage).Error
 	cancel()
 
 	if err != nil {

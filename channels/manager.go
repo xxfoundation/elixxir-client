@@ -73,7 +73,7 @@ type manager struct {
 	// Notification manager
 	*notifications
 
-	channelCallback func([]ChannelUpdateOperation)
+	dmCallback func(chID *id.ID, sendToken bool)
 }
 
 // Client contains the methods from [cmix.Client] that are required by the
@@ -236,7 +236,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, local, remote versione
 		events:           initEvents(model, 512, local, rng),
 		adminKeysManager: newAdminKeysManager(remote, uiCallbacks.AdminKeysUpdate),
 		broadcastMaker:   broadcast.NewBroadcastChannel,
-		channelCallback:  uiCallbacks.ChannelUpdate,
+		dmCallback:       uiCallbacks.DmTokenUpdate,
 	}
 
 	m.events.leases.RegisterReplayFn(m.adminReplayHandler)
@@ -378,9 +378,7 @@ func (m *manager) EnableDirectMessages(chId *id.ID) error {
 	if err = m.saveChannel(jc); err != nil {
 		return err
 	}
-	go m.channelCallback([]ChannelUpdateOperation{
-		ChannelUpdateOperation{chId, versioned.Updated,
-			true}})
+	go m.dmCallback(chId, true)
 	return nil
 }
 
@@ -400,9 +398,7 @@ func (m *manager) DisableDirectMessages(chId *id.ID) error {
 	if err = m.saveChannel(jc); err != nil {
 		return err
 	}
-	go m.channelCallback([]ChannelUpdateOperation{
-		ChannelUpdateOperation{chId, versioned.Updated,
-			false}})
+	go m.dmCallback(chId, false)
 	return nil
 }
 
@@ -541,9 +537,9 @@ func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
 
 func (duic *dummyUICallback) NotificationUpdate([]NotificationFilter,
 	[]NotificationState, []*id.ID, clientNotif.NotificationState) {
-	jww.DEBUG.Printf("NotificationUpdate unimplemented in dummyUICallback")
+	jww.DEBUG.Printf("NotificationCallback unimplemented in dummyUICallback")
 }
 
-func (duic *dummyUICallback) ChannelUpdate([]ChannelUpdateOperation) {
-	jww.DEBUG.Printf("ChannelUpdate unimplemented in dummyUICallback")
+func (duic *dummyUICallback) DmTokenUpdate(chID *id.ID, sendToken bool) {
+	jww.DEBUG.Printf("DmTokenUpdate unimplemented in dummyUICallback")
 }

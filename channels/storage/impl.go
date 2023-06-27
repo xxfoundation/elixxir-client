@@ -58,6 +58,7 @@ func (i *impl) JoinChannel(channel *cryptoBroadcast.Channel) {
 	jww.DEBUG.Printf("Successfully joined channel: %s", channel.ReceptionID)
 	go i.eventUpdate(channels.ChannelUpdate, channels.ChannelUpdateJson{
 		ChannelID: channel.ReceptionID,
+		Deleted:   false,
 	})
 }
 
@@ -79,6 +80,7 @@ func (i *impl) LeaveChannel(channelID *id.ID) {
 	jww.DEBUG.Printf("Successfully deleted channel: %s", channelID)
 	go i.eventUpdate(channels.ChannelUpdate, channels.ChannelUpdateJson{
 		ChannelID: channelID,
+		Deleted:   true,
 	})
 }
 

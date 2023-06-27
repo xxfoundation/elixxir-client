@@ -2907,6 +2907,9 @@ func newChannelUICallbacksWrapper(uicb channels.ChannelUICallbacks) *ChannelUICa
 	return &ChannelUICallbacksWrapper{Cuic: uicb}
 }
 
+// ChannelUICallbacksWrapper is a simple wrapper for [channels.ChannelUICallbacks].
+// You can find a description of this object as well as event types and
+// example JSON in channels/callbacks.go.
 type ChannelUICallbacksWrapper struct {
 	Cuic channels.ChannelUICallbacks
 }

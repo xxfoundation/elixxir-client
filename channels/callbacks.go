@@ -68,11 +68,13 @@ type MessageDeletedJson struct {
 
 // ChannelUpdateJson is returned any time a Channel is joined/left.
 //
-//	{
-//	   "channelID":"YSc2bDijXIVhmIsJk2OZQjU9ei2Dn6MS8tOpXlIaUpSV"
-//	}
+//		{
+//		   "channelID":"YSc2bDijXIVhmIsJk2OZQjU9ei2Dn6MS8tOpXlIaUpSV",
+//	    "deleted":false"
+//		}
 type ChannelUpdateJson struct {
 	ChannelID *id.ID `json:"channelID"`
+	Deleted   bool   `json:"deleted"`
 }
 
 // NickNameUpdateJson is describes when your nickname changes due to a change on a

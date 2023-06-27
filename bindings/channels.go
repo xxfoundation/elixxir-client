@@ -10,7 +10,6 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/primitives/nicknames"
 	"sync"
@@ -286,7 +285,7 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	dbFilePath string, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -310,8 +309,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 
 	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath,
-		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
+	model, err := storage.NewEventModel(dbFilePath, uiCallbacks)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +356,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	extensionBuilderIDsJSON []byte, notificationsID int,
-	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -372,8 +370,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 
 	wrap := newChannelUICallbacksWrapper(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath,
-		wrap.MessageReceived, wrap.MessageDeleted, wrap.UserMuted)
+	model, err := storage.NewEventModel(dbFilePath, uiCallbacks)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +423,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManager(cmixID int, privateIdentity []byte,
 	eventBuilder EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -497,7 +494,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManager(cmixID int, storageTag string,
 	eventBuilder EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -565,7 +562,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	notificationsID int, callbacks ChannelUICallbacks) (
+	notificationsID int, callbacks channels.ChannelUICallbacks) (
 	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
@@ -630,7 +627,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -2081,7 +2078,7 @@ func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
 		// Attempt to unmarshal as the entire NotificationUpdateJson
-		var nuj NotificationUpdateJson
+		var nuj channels.NotificationUpdateJson
 		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
 			return nil, errors.Errorf("failed to JSON unmarshal "+
 				"notificationFilterJSON:\n%v\n%v", err, err2)
@@ -2903,348 +2900,25 @@ func (ebt *channelsExtensionBuilderTracker) delete(id int) {
 // UI Callbacks                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-func newChannelUICallbacksWrapper(uicb ChannelUICallbacks) *ChannelUICallbacksWrapper {
+func newChannelUICallbacksWrapper(uicb channels.ChannelUICallbacks) *ChannelUICallbacksWrapper {
 	if uicb == nil {
 		return nil
 	}
 	return &ChannelUICallbacksWrapper{Cuic: uicb}
 }
 
-// NickNameUpdateJson is describes when your nickname changes due to a change on a
-// remote.
-//
-//	{
-//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
-//	 "nickname":"billNyeTheScienceGuy",
-//	 "exists":true
-//	}
-type NickNameUpdateJson struct {
-	ChannelId *id.ID `json:"channelID"`
-	Nickname  string `json:"nickname"`
-	Exists    bool   `json:"exists"`
-}
-
-// NotificationUpdateJson describes any time a notification
-// level changes.
-//
-// It contains  a slice of [NotificationFilter] for all channels with
-// notifications enabled. The [NotificationFilter] is used to determine
-// which notifications from the notification server belong to the caller.
-//
-// It also contains  a map of all channel notification states that have
-// changed and all that have been deleted. The maxState is the global state
-// set for notifications.
-//
-// Contains:
-//
-//   - notificationFilters - JSON of a slice of
-//     [channels.NotificationFilter].
-//
-//   - changedNotificationStates - JSON of a slice of
-//     [channels.NotificationState] of added or changed channel notification
-//     statuses.
-//
-//   - deletedNotificationStates - JSON of a slice of [id.ID] of deleted
-//     channel notification statuses.
-//
-//   - maxState - The global notification state.
-//
-//     {
-//     "notificationFilters": [
-//     {
-//     "identifier": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4EDQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4ED",
-//     "tags": [
-//     "af35cdae2159477d79f7ab33bf0bb73ccc1f212bfdc1b3ae78cf398c02878e01-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "2": {}
-//     },
-//     "allowWithoutTags": {
-//     "102": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4EDU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4ED",
-//     "tags": [
-//     "af35cdae2159477d79f7ab33bf0bb73ccc1f212bfdc1b3ae78cf398c02878e01-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "1": {},
-//     "40000": {}
-//     },
-//     "allowWithoutTags": {}
-//     }
-//     },
-//     {
-//     "identifier": "xsrTzBVFS9s0ccPpgSwBRjCFP5ZYUibswfnhLbjrePoDQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "xsrTzBVFS9s0ccPpgSwBRjCFP5ZYUibswfnhLbjrePoD",
-//     "tags": [
-//     "4f4b35a64a3bd7b06614c2f48d0cdda8b2220ca0fcba78cd2ed11ba38afc92f2-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "2": {}
-//     },
-//     "allowWithoutTags": {
-//     "102": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "xsrTzBVFS9s0ccPpgSwBRjCFP5ZYUibswfnhLbjrePoDU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "xsrTzBVFS9s0ccPpgSwBRjCFP5ZYUibswfnhLbjrePoD",
-//     "tags": [
-//     "4f4b35a64a3bd7b06614c2f48d0cdda8b2220ca0fcba78cd2ed11ba38afc92f2-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "1": {},
-//     "40000": {}
-//     },
-//     "allowWithoutTags": {}
-//     }
-//     },
-//     {
-//     "identifier": "buqebq3uk/3GeTPKOuzJJXr+rVKfM+TyHed6jFpJkCQDQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "buqebq3uk/3GeTPKOuzJJXr+rVKfM+TyHed6jFpJkCQD",
-//     "tags": [
-//     "72c73b78133739042a5b15c635853d2617324345f611fb272d1fa894a2adf96a-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "102": {},
-//     "2": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "buqebq3uk/3GeTPKOuzJJXr+rVKfM+TyHed6jFpJkCQDU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "buqebq3uk/3GeTPKOuzJJXr+rVKfM+TyHed6jFpJkCQD",
-//     "tags": [
-//     "72c73b78133739042a5b15c635853d2617324345f611fb272d1fa894a2adf96a-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "1": {},
-//     "40000": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "gZ4uFg/NaSGJVED3hH+PsezGwkZExgPeRxITlfjXZDUDQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "gZ4uFg/NaSGJVED3hH+PsezGwkZExgPeRxITlfjXZDUD",
-//     "tags": [
-//     "0e2aaeacd3cf1d1738cc09f94405b6d1a841af575211cb6f4d39b7d4914d5341-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "102": {},
-//     "2": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "gZ4uFg/NaSGJVED3hH+PsezGwkZExgPeRxITlfjXZDUDU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "gZ4uFg/NaSGJVED3hH+PsezGwkZExgPeRxITlfjXZDUD",
-//     "tags": [
-//     "0e2aaeacd3cf1d1738cc09f94405b6d1a841af575211cb6f4d39b7d4914d5341-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "1": {},
-//     "40000": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "DZ96YMyBhsNQyC0vACeaaYRYBI4gbzArz7jANLIIR/wDQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "DZ96YMyBhsNQyC0vACeaaYRYBI4gbzArz7jANLIIR/wD",
-//     "tags": [
-//     "cbce1940f0102e791d67412328acfa53f9881494e249eb345efac084224187b6-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "2": {}
-//     },
-//     "allowWithoutTags": {
-//     "102": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "DZ96YMyBhsNQyC0vACeaaYRYBI4gbzArz7jANLIIR/wDU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "DZ96YMyBhsNQyC0vACeaaYRYBI4gbzArz7jANLIIR/wD",
-//     "tags": [
-//     "cbce1940f0102e791d67412328acfa53f9881494e249eb345efac084224187b6-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "1": {},
-//     "40000": {}
-//     },
-//     "allowWithoutTags": {}
-//     }
-//     },
-//     {
-//     "identifier": "djq86hTU0WjhpbAccQoPKpKpz7K+yxabpvY4iktphqQDQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "djq86hTU0WjhpbAccQoPKpKpz7K+yxabpvY4iktphqQD",
-//     "tags": [
-//     "ae893892e2b1253bb39fdac5f81b08c5ab69cb06ee79345715972c1af6c5125f-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "2": {}
-//     },
-//     "allowWithoutTags": {
-//     "102": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "djq86hTU0WjhpbAccQoPKpKpz7K+yxabpvY4iktphqQDU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "djq86hTU0WjhpbAccQoPKpKpz7K+yxabpvY4iktphqQD",
-//     "tags": [
-//     "ae893892e2b1253bb39fdac5f81b08c5ab69cb06ee79345715972c1af6c5125f-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {
-//     "1": {},
-//     "40000": {}
-//     },
-//     "allowWithoutTags": {}
-//     }
-//     },
-//     {
-//     "identifier": "raAs2Z9slHQQxwOlnniLl5aq6j+h9U8/q8sn8BIfbJADQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "raAs2Z9slHQQxwOlnniLl5aq6j+h9U8/q8sn8BIfbJAD",
-//     "tags": [
-//     "a164b0f40c21a86e925869e5a9d7c16886891e03f96809f68b8ade57160c7028-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "102": {},
-//     "2": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "raAs2Z9slHQQxwOlnniLl5aq6j+h9U8/q8sn8BIfbJADU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "raAs2Z9slHQQxwOlnniLl5aq6j+h9U8/q8sn8BIfbJAD",
-//     "tags": [
-//     "a164b0f40c21a86e925869e5a9d7c16886891e03f96809f68b8ade57160c7028-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "1": {},
-//     "40000": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "GNnFBbFoP+EtFdChUUEMVEOHSK2jmo+5SfTGFvu4zK4DQXN5bW1Ub1B1YmxpY0JjYXN0",
-//     "channelID": "GNnFBbFoP+EtFdChUUEMVEOHSK2jmo+5SfTGFvu4zK4D",
-//     "tags": [
-//     "4ca23f9d385589fc530680c9e406099c6a34fd74d4002d19608ce6c971cabfa0-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "102": {},
-//     "2": {}
-//     }
-//     }
-//     },
-//     {
-//     "identifier": "GNnFBbFoP+EtFdChUUEMVEOHSK2jmo+5SfTGFvu4zK4DU3ltbWV0cmljQnJvYWRjYXN0",
-//     "channelID": "GNnFBbFoP+EtFdChUUEMVEOHSK2jmo+5SfTGFvu4zK4D",
-//     "tags": [
-//     "4ca23f9d385589fc530680c9e406099c6a34fd74d4002d19608ce6c971cabfa0-usrping"
-//     ],
-//     "allowLists": {
-//     "allowWithTags": {},
-//     "allowWithoutTags": {
-//     "1": {},
-//     "40000": {}
-//     }
-//     }
-//     }
-//     ],
-//     "changedNotificationStates": [
-//     {
-//     "channelID": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4ED",
-//     "level": 20,
-//     "status": 2
-//     },
-//     {
-//     "channelID": "gZ4uFg/NaSGJVED3hH+PsezGwkZExgPeRxITlfjXZDUD",
-//     "level": 40,
-//     "status": 2
-//     }
-//     ],
-//     "deletedNotificationStates": [
-//     "ZGVsZXRlZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//     ],
-//     "maxState": 2
-//     }
-type NotificationUpdateJson struct {
-	NotificationFilters       []channels.NotificationFilter `json:"notificationFilters"`
-	ChangedNotificationStates []channels.NotificationState  `json:"changedNotificationStates"`
-	DeletedNotificationStates []*id.ID                      `json:"deletedNotificationStates"`
-	MaxState                  clientNotif.NotificationState `json:"maxState"`
-}
-
-// AdminKeysUpdateJson describes when you get or lose keys for a specific
-// channel
-//
-//	{
-//	 "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
-//	 "IsAdmin":true
-//	}
-type AdminKeysUpdateJson struct {
-	ChannelId *id.ID `json:"channelID"`
-	IsAdmin   bool   `json:"IsAdmin"`
-}
-
-const (
-	// SyncCreated is the status when the update represents the first creation
-	SyncCreated = int(versioned.Created)
-	// SyncUpdated is the status when the update represents a change to
-	// an already existing value
-	SyncUpdated = int(versioned.Updated)
-	// SyncDeleted is the status when the update represents the removal of
-	// data
-	SyncDeleted = int(versioned.Deleted)
-	// SyncLoaded is called when the data is loaded on a start, may not
-	// represent a mutation, but can if a mutation was missed due to a crash
-	// or shut down
-	SyncLoaded = int(versioned.Deleted)
-)
-
 type ChannelUICallbacksWrapper struct {
-	Cuic ChannelUICallbacks
+	Cuic channels.ChannelUICallbacks
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(cu []channels.ChannelUpdateOperation) {
 
-	cuJson := make([]ChannelsUpdateJson, 0, len(cu))
+	cuJson := make([]channels.ChannelUpdateJson, 0, len(cu))
 
 	for i := range cu {
 		update := cu[i]
-		cuJson = append(cuJson, ChannelsUpdateJson{
-			ChannelId:        update.ChID,
-			Status:           int(update.Status),
-			BroadcastDMToken: update.BroadcastDMToken,
+		cuJson = append(cuJson, channels.ChannelUpdateJson{
+			ChannelID: update.ChID,
 		})
 	}
 
@@ -3254,12 +2928,27 @@ func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(cu []channels.ChannelUpda
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(ChannelUpdate, jsonBytes)
+	cuicbw.Cuic.EventUpdate(channels.ChannelUpdate, jsonBytes)
+}
+
+func (cuicbw *ChannelUICallbacksWrapper) DmTokenUpdate(chID *id.ID, sendToken bool) {
+
+	dmtJson := &channels.DmTokenUpdateJson{
+		ChannelId: chID,
+		SendToken: sendToken,
+	}
+	jsonBytes, err := json.Marshal(dmtJson)
+	if err != nil {
+		jww.ERROR.Printf("Failed to json dm token update "+
+			"event for bindings: %+v", err)
+	}
+
+	cuicbw.Cuic.EventUpdate(channels.DmTokenUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
 
-	akJson := &AdminKeysUpdateJson{
+	akJson := &channels.AdminKeysUpdateJson{
 		ChannelId: chID,
 		IsAdmin:   isAdmin,
 	}
@@ -3269,13 +2958,13 @@ func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bo
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(AdminKeyUpdate, jsonBytes)
+	cuicbw.Cuic.EventUpdate(channels.AdminKeyUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
 	nickname string, exists bool) {
 
-	jsonable := NickNameUpdateJson{
+	jsonable := channels.NickNameUpdateJson{
 		ChannelId: channelId,
 		Nickname:  nickname,
 		Exists:    exists,
@@ -3288,7 +2977,7 @@ func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(NickNameUpdate, jsonBytes)
+	cuicbw.Cuic.EventUpdate(channels.NickNameUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) NotificationUpdate(
@@ -3296,7 +2985,7 @@ func (cuicbw *ChannelUICallbacksWrapper) NotificationUpdate(
 	changedNotificationStates []channels.NotificationState,
 	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
 
-	jsonable := NotificationUpdateJson{
+	jsonable := channels.NotificationUpdateJson{
 		NotificationFilters:       nfs,
 		ChangedNotificationStates: changedNotificationStates,
 		DeletedNotificationStates: deletedNotificationStates,
@@ -3309,13 +2998,13 @@ func (cuicbw *ChannelUICallbacksWrapper) NotificationUpdate(
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(NotificationUpdate, jsonBytes)
+	cuicbw.Cuic.EventUpdate(channels.NotificationUpdate, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) MessageReceived(uuid int64,
 	channelID *id.ID, update bool) {
 
-	jsonable := MessageReceivedJson{
+	jsonable := channels.MessageReceivedJson{
 		Uuid:      uuid,
 		ChannelID: channelID,
 		Update:    update,
@@ -3327,12 +3016,12 @@ func (cuicbw *ChannelUICallbacksWrapper) MessageReceived(uuid int64,
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(MessageReceived, jsonBytes)
+	cuicbw.Cuic.EventUpdate(channels.MessageReceived, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) UserMuted(channelID *id.ID,
 	pubKey ed25519.PublicKey, unmute bool) {
-	jsonable := UserMutedJson{
+	jsonable := channels.UserMutedJson{
 		ChannelID: channelID,
 		PubKey:    pubKey,
 		Unmute:    unmute,
@@ -3344,18 +3033,18 @@ func (cuicbw *ChannelUICallbacksWrapper) UserMuted(channelID *id.ID,
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(UserMuted, jsonBytes)
+	cuicbw.Cuic.EventUpdate(channels.UserMuted, jsonBytes)
 }
 
 func (cuicbw *ChannelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
-	jsonable := MessageDeletedJson{MessageID: messageID}
+	jsonable := channels.MessageDeletedJson{MessageID: messageID}
 	jsonBytes, err := json.Marshal(&jsonable)
 	if err != nil {
 		jww.ERROR.Printf("Failed to json MessageDeleted "+
 			"event for bindings: %+v", err)
 	}
 
-	cuicbw.Cuic.EventUpdate(MessageDeleted, jsonBytes)
+	cuicbw.Cuic.EventUpdate(channels.MessageDeleted, jsonBytes)
 }
 
 func unmarshalPingsJson(b []byte) ([]ed25519.PublicKey, error) {

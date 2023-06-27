@@ -2911,15 +2911,10 @@ type ChannelUICallbacksWrapper struct {
 	Cuic channels.ChannelUICallbacks
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(cu []channels.ChannelUpdateOperation) {
+func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(chID *id.ID) {
 
-	cuJson := make([]channels.ChannelUpdateJson, 0, len(cu))
-
-	for i := range cu {
-		update := cu[i]
-		cuJson = append(cuJson, channels.ChannelUpdateJson{
-			ChannelID: update.ChID,
-		})
+	cuJson := channels.ChannelUpdateJson{
+		ChannelID: chID,
 	}
 
 	jsonBytes, err := json.Marshal(&cuJson)

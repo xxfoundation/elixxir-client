@@ -20,6 +20,8 @@ import (
 	"testing"
 )
 
+// Produces example JSON of DmNotificationUpdateJSON to be used for
+// documentation.
 func Test_DmNotificationUpdateJSON(t *testing.T) {
 	prng := rand.New(rand.NewSource(38496))
 	me, _ := codename.GenerateIdentity(prng)
@@ -50,6 +52,7 @@ func Test_DmNotificationUpdateJSON(t *testing.T) {
 	fmt.Printf("//  %s\n", data)
 }
 
+// Produces example JSON of DmBlockedUsersJSON to be used for documentation.
 func Test_DmBlockedUsersJSON(t *testing.T) {
 	prng := rand.New(rand.NewSource(65622))
 

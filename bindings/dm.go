@@ -901,44 +901,37 @@ const (
 )
 
 type dmCallbacks struct {
-	DmCallbacks
+	eventUpdate func(eventType int64, jsonMarshallable any)
 }
 
 func wrapDmCallbacks(dmc DmCallbacks) *dmCallbacks {
 	if dmc == nil {
 		return nil
 	}
-	return &dmCallbacks{dmc}
+	return &dmCallbacks{func(eventType int64, jsonMarshallable any) {
+		jsonData, err := json.Marshal(jsonMarshallable)
+		if err != nil {
+			jww.FATAL.Panicf(
+				"[CH] Failed to JSON marshal %T: %+v", jsonMarshallable, err)
+		}
+		dmc.EventUpdate(eventType, jsonData)
+	}}
 }
 
 func (dmCBS *dmCallbacks) NotificationUpdate(nf dm.NotificationFilter,
 	changed []dm.NotificationState, deleted []ed25519.PublicKey) {
-
-	data, err := json.Marshal(DmNotificationUpdateJSON{
+	dmCBS.eventUpdate(DmNotificationUpdate, DmNotificationUpdateJSON{
 		NotificationFilter: nf,
 		Changed:            changed,
 		Deleted:            deleted,
 	})
-	if err != nil {
-		jww.FATAL.Panicf(
-			"[DM] Failed to JSON marshal DmNotificationUpdateJSON: %+v", err)
-	}
-
-	dmCBS.EventUpdate(DmNotificationUpdate, data)
 }
 
 func (dmCBS *dmCallbacks) BlockedUsers(blocked, unblocked []ed25519.PublicKey) {
-
-	data, err := json.Marshal(DmBlockedUsersJSON{
+	dmCBS.eventUpdate(DmBlockedUsers, DmBlockedUsersJSON{
 		Blocked:   blocked,
 		Unblocked: unblocked,
 	})
-	if err != nil {
-		jww.FATAL.Panicf(
-			"[DM] Failed to JSON marshal DmBlockedUsersJSON: %+v", err)
-	}
-
-	dmCBS.EventUpdate(DmBlockedUsers, data)
 }
 
 // DmNotificationUpdateJSON contains updates describing DM notifications.

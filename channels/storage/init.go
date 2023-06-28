@@ -9,46 +9,31 @@
 package storage
 
 import (
-	"crypto/ed25519"
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/channels"
-	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"time"
 )
 
-// MessageReceivedCallback is called any time a message is received or updated.
-//
-// update is true if the row is old and was edited.
-type MessageReceivedCallback func(uuid int64, channelID *id.ID, update bool)
-
-// MuteCallback is a callback provided for the MuteUser method of the impl.
-type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
-
-// DeletedMessageCallback is called any time a message is deleted.
-type DeletedMessageCallback func(messageID message.ID)
-
 // impl implements the channels.EventModel interface with an underlying DB.
 type impl struct {
-	db       *gorm.DB // Stored database connection
-	msgCb    MessageReceivedCallback
-	deleteCb DeletedMessageCallback
-	muteCb   MuteCallback
+	db          *gorm.DB // Stored database connection
+	eventUpdate func(eventType int64, jsonMarshallable any)
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string, msgCb MessageReceivedCallback,
-	deleteCb DeletedMessageCallback, muteCb MuteCallback) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, msgCb, deleteCb, muteCb)
+func NewEventModel(dbFilePath string,
+	uiCallbacks channels.ChannelUICallbacks) (channels.EventModel, error) {
+	model, err := newImpl(dbFilePath, uiCallbacks)
 	return channels.EventModel(model), err
 }
 
-func newImpl(dbFilePath string, msgCb MessageReceivedCallback,
-	deleteCb DeletedMessageCallback, muteCb MuteCallback) (*impl, error) {
+func newImpl(dbFilePath string,
+	uiCallbacks channels.ChannelUICallbacks) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -101,10 +86,15 @@ func newImpl(dbFilePath string, msgCb MessageReceivedCallback,
 
 	// Build the interface
 	di := &impl{
-		db:       db,
-		msgCb:    msgCb,
-		deleteCb: deleteCb,
-		muteCb:   muteCb,
+		db: db,
+		eventUpdate: func(eventType int64, jsonMarshallable any) {
+			data, err := json.Marshal(jsonMarshallable)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to JSON marshal %T for EventUpdate "+
+					"callback: %+v", jsonMarshallable, err)
+			}
+			uiCallbacks.EventUpdate(eventType, data)
+		},
 	}
 
 	jww.INFO.Println("Database backend initialized successfully!")

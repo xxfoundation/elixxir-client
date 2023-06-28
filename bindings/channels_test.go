@@ -19,7 +19,7 @@ func Test_buildJsons(t *testing.T) {
 	nickID := &id.ID{}
 	rng.Read(nickID[:])
 
-	nicknameJsonable := NickNameUpdateJson{
+	nicknameJsonable := channels.NickNameUpdateJson{
 		ChannelId: nickID,
 		Nickname:  "billNyeTheScienceGuy",
 		Exists:    true,
@@ -35,7 +35,7 @@ func Test_buildJsons(t *testing.T) {
 	// Notifications update
 	types := []channels.MessageType{channels.Text, channels.Pinned}
 	levels := []channels.NotificationLevel{channels.NotifyPing, channels.NotifyAll}
-	nuj := NotificationUpdateJson{
+	nuj := channels.NotificationUpdateJson{
 		NotificationFilters:       []channels.NotificationFilter{},
 		ChangedNotificationStates: []channels.NotificationState{},
 		DeletedNotificationStates: []*id.ID{},
@@ -132,7 +132,7 @@ func Test_buildJsons(t *testing.T) {
 	msgRcvdID := &id.ID{}
 	rng.Read(msgRcvdID[:])
 
-	messageRecieved := MessageReceivedJson{
+	messageRecieved := channels.MessageReceivedJson{
 		Uuid:      32,
 		ChannelID: msgRcvdID,
 		Update:    false,
@@ -153,7 +153,7 @@ func Test_buildJsons(t *testing.T) {
 		t.Errorf("Failed to generate ed25519pubkey: %+v", err)
 	}
 
-	userMuted := UserMutedJson{
+	userMuted := channels.UserMutedJson{
 		ChannelID: mutedID,
 		PubKey:    pubkey,
 		Unmute:    false,
@@ -170,7 +170,7 @@ func Test_buildJsons(t *testing.T) {
 	deletedID := message.ID{}
 	rng.Read(deletedID[:])
 
-	msgDeleted := MessageDeletedJson{MessageID: deletedID}
+	msgDeleted := channels.MessageDeletedJson{MessageID: deletedID}
 	msgDeletedJson, err := json.Marshal(&msgDeleted)
 	if err != nil {
 		t.Errorf("Failed to json message deleted: %+v", err)
@@ -178,33 +178,7 @@ func Test_buildJsons(t *testing.T) {
 		t.Logf("MessageDeleted Json: %s", string(msgDeletedJson))
 	}
 
-	channelUpdates := make([]ChannelsUpdateJson, 0, 5)
-	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
-		ChannelId:        id.NewIdFromUInt(1, id.User, t),
-		Status:           SyncCreated,
-		BroadcastDMToken: false,
-	})
-	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
-		ChannelId:        id.NewIdFromUInt(2, id.User, t),
-		Status:           SyncCreated,
-		BroadcastDMToken: true,
-	})
-	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
-		ChannelId:        id.NewIdFromUInt(3, id.User, t),
-		Status:           SyncUpdated,
-		BroadcastDMToken: true,
-	})
-	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
-		ChannelId:        id.NewIdFromUInt(4, id.User, t),
-		Status:           SyncUpdated,
-		BroadcastDMToken: false,
-	})
-	channelUpdates = append(channelUpdates, ChannelsUpdateJson{
-		ChannelId:        id.NewIdFromUInt(5, id.User, t),
-		Status:           SyncDeleted,
-		BroadcastDMToken: false,
-	})
-
+	channelUpdates := channels.ChannelUpdateJson{ChannelID: id.NewIdFromUInt(1, id.User, t)}
 	channelUpdatesJson, err := json.Marshal(&channelUpdates)
 	if err != nil {
 		t.Errorf("Failed to json channel update: %+v", err)

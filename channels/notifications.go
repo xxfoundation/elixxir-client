@@ -20,7 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// NotificationUpdate is a callback that is called any time a notification
+// NotificationCallback is a callback that is called any time a notification
 // level changes.
 //
 // It returns a slice of [NotificationFilter] for all channels with
@@ -30,7 +30,7 @@ import (
 // It also returns a map of all channel notification states that have changed
 // and all that have been deleted. The maxState is the global state set for
 // notifications.
-type NotificationUpdate func(nfs []NotificationFilter,
+type NotificationCallback func(nfs []NotificationFilter,
 	changedNotificationStates []NotificationState,
 	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState)
 
@@ -52,7 +52,7 @@ type notifications struct {
 
 	// User supplied callback to return updated NotificationFilter and channel
 	// notification statuses to.
-	cb NotificationUpdate
+	cb NotificationCallback
 
 	// Returns the channel for the given ID from the manager.
 	channelGetter
@@ -71,7 +71,7 @@ type channelGetter interface {
 }
 
 // newNotifications initializes a new channels notifications manager.
-func newNotifications(pubKey ed25519.PublicKey, cb NotificationUpdate,
+func newNotifications(pubKey ed25519.PublicKey, cb NotificationCallback,
 	cg channelGetter, ext []ExtensionMessageHandler,
 	nm NotificationsManager) *notifications {
 	n := &notifications{
@@ -165,7 +165,7 @@ func (n *notifications) SetMobileNotificationsLevel(channelID *id.ID,
 
 // notificationsUpdateCB gets the list of all services and assembles a list of
 // NotificationFilter for each channel that exists in the compressed service
-// list. The results are called on the user-registered NotificationUpdate.
+// list. The results are called on the user-registered NotificationCallback.
 func (n *notifications) notificationsUpdateCB(
 	group clientNotif.Group, created, edits, deletions []*id.ID,
 	maxState clientNotif.NotificationState) {

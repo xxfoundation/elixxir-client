@@ -12,25 +12,29 @@ import (
 	"testing"
 )
 
-func Test_buildJsons(t *testing.T) {
-	rng := rand.New(rand.NewSource(43))
+// Produces example JSON of NickNameUpdateJSON to be used for documentation.
+func Test_BuildJSON_NickNameUpdateJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(204103639))
 
-	// nickname update
-	nickID := &id.ID{}
-	rng.Read(nickID[:])
+	channelID, _ := id.NewRandomID(rng, id.User)
 
-	nicknameJsonable := NickNameUpdateJSON{
-		ChannelId: nickID,
+	jsonable := NickNameUpdateJSON{
+		ChannelId: channelID,
 		Nickname:  "billNyeTheScienceGuy",
 		Exists:    true,
 	}
 
-	nicknameJson, err := json.Marshal(&nicknameJsonable)
+	data, err := json.MarshalIndent(jsonable, "//  ", "  ")
 	if err != nil {
-		t.Errorf("Failed to json nickname: %+v", err)
+		t.Errorf("Failed to JSON %T: %+v", jsonable, err)
 	} else {
-		t.Logf("Nickname Json: %s", string(nicknameJson))
+		fmt.Printf("//  %s\n", data)
 	}
+}
+
+// Produces example JSON of NotificationUpdateJSON to be used for documentation.
+func Test_BuildJSON_NotificationUpdateJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(475107990))
 
 	// Notifications update
 	types := []channels.MessageType{channels.Text, channels.Pinned}
@@ -67,123 +71,171 @@ func Test_buildJsons(t *testing.T) {
 
 	for _, mt := range types {
 		for _, level := range levels {
-			for _, includeTags := range []bool{true, false} {
-				for _, includeChannel := range []bool{true, false} {
-					chanID, _ := id.NewRandomID(rng, id.User)
-					msgHash := make([]byte, 24)
-					rng.Read(msgHash)
-					asymIdentifier := append(chanID.Marshal(), []byte("AsymmToPublicBcast")...)
-					symIdentifier := append(chanID.Marshal(), []byte("SymmetricBroadcast")...)
-					pubKey, _, err := ed25519.GenerateKey(rng)
-					if err != nil {
-						t.Fatalf("Failed to generate Ed25519 keys: %+v", err)
-					}
-					tags := []string{fmt.Sprintf("%x-usrping", pubKey)}
-
-					if includeChannel {
-						nuj.NotificationFilters = append(nuj.NotificationFilters,
-							channels.NotificationFilter{
-								Identifier: asymIdentifier,
-								ChannelID:  chanID,
-								Tags:       tags,
-								AllowLists: notificationLevelAllowLists["asymmetric"][level],
-							},
-							channels.NotificationFilter{
-								Identifier: symIdentifier,
-								ChannelID:  chanID,
-								Tags:       tags,
-								AllowLists: notificationLevelAllowLists["symmetric"][level],
-							})
-
-						if includeTags {
-							if _, exists := notificationLevelAllowLists["symmetric"][level].AllowWithTags[mt]; !exists {
-								break
-							}
-						} else if _, exists := notificationLevelAllowLists["symmetric"][level].AllowWithoutTags[mt]; !exists {
-							break
-						}
-						state := clientNotif.Mute
-						if level != channels.NotifyNone {
-							state = clientNotif.Push
-						}
-
-						nuj.ChangedNotificationStates = append(nuj.ChangedNotificationStates, channels.NotificationState{
-							ChannelID: chanID,
-							Level:     level,
-							Status:    state,
-						})
-					}
-				}
+			chanID, _ := id.NewRandomID(rng, id.User)
+			msgHash := make([]byte, 24)
+			rng.Read(msgHash)
+			asymIdentifier := append(chanID.Marshal(), []byte("AsymmToPublicBcast")...)
+			symIdentifier := append(chanID.Marshal(), []byte("SymmetricBroadcast")...)
+			pubKey, _, err := ed25519.GenerateKey(rng)
+			if err != nil {
+				t.Fatalf("Failed to generate Ed25519 keys: %+v", err)
 			}
+			tags := []string{fmt.Sprintf("%x-usrping", pubKey)}
+
+			nuj.NotificationFilters = append(nuj.NotificationFilters,
+				channels.NotificationFilter{
+					Identifier: asymIdentifier,
+					ChannelID:  chanID,
+					Tags:       tags,
+					AllowLists: notificationLevelAllowLists["asymmetric"][level],
+				},
+				channels.NotificationFilter{
+					Identifier: symIdentifier,
+					ChannelID:  chanID,
+					Tags:       tags,
+					AllowLists: notificationLevelAllowLists["symmetric"][level],
+				})
+
+			if _, exists := notificationLevelAllowLists["symmetric"][level].AllowWithTags[mt]; !exists {
+				break
+			}
+			state := clientNotif.Mute
+			if level != channels.NotifyNone {
+				state = clientNotif.Push
+			}
+
+			nuj.ChangedNotificationStates = append(nuj.ChangedNotificationStates, channels.NotificationState{
+				ChannelID: chanID,
+				Level:     level,
+				Status:    state,
+			})
 		}
 	}
 
 	nuj.DeletedNotificationStates = append(nuj.DeletedNotificationStates, id.NewIdFromString("deleted", id.User, t))
 	nuj.MaxState = clientNotif.Push
 
-	notificationsJson, err := json.MarshalIndent(nuj, "", "\t")
+	data, err := json.MarshalIndent(nuj, "//  ", "  ")
 	if err != nil {
-		t.Errorf("Failed to json Notifications: %+v", err)
+		t.Errorf("Failed to JSON %T: %+v", nuj, err)
 	} else {
-		t.Logf("Notifications Json: %s", string(notificationsJson))
+		fmt.Printf("//  %s\n", data)
+	}
+}
+
+// Produces example JSON of AdminKeysUpdateJSON to be used for documentation.
+func Test_BuildJSON_AdminKeysUpdateJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(67915687))
+
+	channelID, _ := id.NewRandomID(rng, id.User)
+
+	jsonable := AdminKeysUpdateJSON{
+		ChannelId: channelID,
+		IsAdmin:   true,
 	}
 
-	// MessageReceivedJSON
-	msgRcvdID := &id.ID{}
-	rng.Read(msgRcvdID[:])
+	data, err := json.MarshalIndent(jsonable, "//  ", "  ")
+	if err != nil {
+		t.Errorf("Failed to JSON %T: %+v", jsonable, err)
+	} else {
+		fmt.Printf("//  %s\n", data)
+	}
+}
 
-	messageRecieved := MessageReceivedJSON{
-		Uuid:      32,
-		ChannelID: msgRcvdID,
+// Produces example JSON of DmTokenUpdateJSON to be used for documentation.
+func Test_BuildJSON_DmTokenUpdateJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(67915687))
+
+	channelID, _ := id.NewRandomID(rng, id.User)
+
+	jsonable := DmTokenUpdateJSON{
+		ChannelId: channelID,
+		SendToken: true,
+	}
+
+	data, err := json.MarshalIndent(jsonable, "//  ", "  ")
+	if err != nil {
+		t.Errorf("Failed to JSON %T: %+v", jsonable, err)
+	} else {
+		fmt.Printf("//  %s\n", data)
+	}
+}
+
+// Produces example JSON of ChannelUpdateJSON to be used for documentation.
+func Test_BuildJSON_ChannelUpdateJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(72928915))
+
+	channelID, _ := id.NewRandomID(rng, id.User)
+
+	jsonable := ChannelUpdateJSON{
+		ChannelID: channelID,
+		Deleted:   false,
+	}
+
+	data, err := json.MarshalIndent(jsonable, "//  ", "  ")
+	if err != nil {
+		t.Errorf("Failed to JSON %T: %+v", jsonable, err)
+	} else {
+		fmt.Printf("//  %s\n", data)
+	}
+}
+
+// Produces example JSON of MessageReceivedJSON to be used for documentation.
+func Test_BuildJSON_MessageReceivedJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(72928915))
+
+	channelID, _ := id.NewRandomID(rng, id.User)
+
+	jsonable := MessageReceivedJSON{
+		UUID:      rng.Int63(),
+		ChannelID: channelID,
 		Update:    false,
 	}
-	messageRecievedJson, err := json.Marshal(&messageRecieved)
+
+	data, err := json.MarshalIndent(jsonable, "//  ", "  ")
 	if err != nil {
-		t.Errorf("Failed to json message received: %+v", err)
+		t.Errorf("Failed to JSON %T: %+v", jsonable, err)
 	} else {
-		t.Logf("MessageReceived Json: %s", string(messageRecievedJson))
+		fmt.Printf("//  %s\n", data)
 	}
+}
 
-	// User Muted
-	mutedID := &id.ID{}
-	rng.Read(mutedID[:])
+// Produces example JSON of UserMutedJSON to be used for documentation.
+func Test_BuildJSON_UserMutedJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(72928915))
 
-	pubkey, _, err := ed25519.GenerateKey(rng)
-	if err != nil {
-		t.Errorf("Failed to generate ed25519pubkey: %+v", err)
-	}
+	channelID, _ := id.NewRandomID(rng, id.User)
+	pubkey, _, _ := ed25519.GenerateKey(rng)
 
-	userMuted := UserMutedJSON{
-		ChannelID: mutedID,
+	jsonable := UserMutedJSON{
+		ChannelID: channelID,
 		PubKey:    pubkey,
-		Unmute:    false,
+		Unmute:    true,
 	}
 
-	userMutedJson, err := json.Marshal(&userMuted)
+	data, err := json.MarshalIndent(jsonable, "//  ", "  ")
 	if err != nil {
-		t.Errorf("Failed to json user muted: %+v", err)
+		t.Errorf("Failed to JSON %T: %+v", jsonable, err)
 	} else {
-		t.Logf("UserMuted Json: %s", string(userMutedJson))
+		fmt.Printf("//  %s\n", data)
 	}
+}
 
-	// message deleted
+// Produces example JSON of MessageDeletedJSON to be used for documentation.
+func Test_BuildJSON_MessageDeletedJSON(t *testing.T) {
+	rng := rand.New(rand.NewSource(72928915))
+
 	deletedID := message.ID{}
 	rng.Read(deletedID[:])
 
-	msgDeleted := MessageDeletedJSON{MessageID: deletedID}
-	msgDeletedJson, err := json.Marshal(&msgDeleted)
-	if err != nil {
-		t.Errorf("Failed to json message deleted: %+v", err)
-	} else {
-		t.Logf("MessageDeleted Json: %s", string(msgDeletedJson))
+	jsonable := MessageDeletedJSON{
+		MessageID: deletedID,
 	}
 
-	channelUpdates := ChannelUpdateJSON{ChannelID: id.NewIdFromUInt(1, id.User, t)}
-	channelUpdatesJson, err := json.Marshal(&channelUpdates)
+	data, err := json.MarshalIndent(jsonable, "//  ", "  ")
 	if err != nil {
-		t.Errorf("Failed to json channel update: %+v", err)
+		t.Errorf("Failed to JSON %T: %+v", jsonable, err)
 	} else {
-		t.Logf("[]ChannelUpdate Json: %s", string(channelUpdatesJson))
+		fmt.Printf("//  %s\n", data)
 	}
-
 }

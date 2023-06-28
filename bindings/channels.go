@@ -2983,7 +2983,7 @@ func (cuiCB *channelUICallbacks) ChannelUpdate(channelID *id.ID, deleted bool) {
 func (cuiCB *channelUICallbacks) MessageReceived(
 	uuid int64, channelID *id.ID, update bool) {
 	cuiCB.eventUpdate(MessageReceived, MessageReceivedJSON{
-		Uuid:      uuid,
+		UUID:      uuid,
 		ChannelID: channelID,
 		Update:    update,
 	})
@@ -3024,12 +3024,11 @@ func unmarshalPingsMapJson(b []byte) (map[channels.PingType][]ed25519.PublicKey,
 // remote.
 //
 // Example JSON:
-//
-//	 {
-//	   "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
-//	   "nickname":"billNyeTheScienceGuy",
-//	   "exists":true
-//		}
+//  {
+//    "channelID": "JsU7+QYpybOy/xgjYrJW675XRonGRoZj3YGFWzu/SoID",
+//    "nickname": "billNyeTheScienceGuy",
+//    "exists": true
+//  }
 type NickNameUpdateJSON struct {
 	ChannelId *id.ID `json:"channelID"`
 	Nickname  string `json:"nickname"`
@@ -3157,7 +3156,7 @@ type ChannelUpdateJSON struct {
 //	  "update":false
 //	}
 type MessageReceivedJSON struct {
-	Uuid      int64  `json:"uuid"`
+	UUID      int64  `json:"uuid"`
 	ChannelID *id.ID `json:"channelID"`
 	Update    bool   `json:"update"`
 }

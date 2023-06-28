@@ -936,12 +936,12 @@ func wrapDmNotificationUpdate(cb DmNotificationUpdate) dm.NotificationUpdate {
 		if err != nil {
 			jww.FATAL.Panicf("[DM] Failed to JSON marshal %T: %+v", nf, err)
 		}
-		changedStateListJSON, err := json.Marshal(nf)
+		changedStateListJSON, err := json.Marshal(changed)
 		if err != nil {
 			jww.FATAL.Panicf(
 				"[DM] Failed to JSON marshal %T: %+v", changedStateListJSON, err)
 		}
-		deletedListJSON, err := json.Marshal(nf)
+		deletedListJSON, err := json.Marshal(deleted)
 		if err != nil {
 			jww.FATAL.Panicf(
 				"[DM] Failed to JSON marshal %T: %+v", deletedListJSON, err)

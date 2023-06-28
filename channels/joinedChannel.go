@@ -44,8 +44,10 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	updates := make([]ChannelUpdateOperation, 0, len(edits))
 	jww.DEBUG.Printf("[CH] Applying mapUpdate: %d", len(edits))
+
+	// Keep count of Channel changes
+	channelsChanged := 0
 
 	for elementName, edit := range edits {
 		channelID := &id.ID{}
@@ -66,11 +68,7 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 					"%s: %+v", channelID, err)
 			}
 			m.events.model.LeaveChannel(channelID)
-			updates = append(updates, ChannelUpdateOperation{
-				ChID:             channelID,
-				Status:           versioned.Deleted,
-				BroadcastDMToken: false,
-			})
+			channelsChanged += 1
 			continue
 		} else if edit.Operation == versioned.Updated {
 			jc, err := m.getChannelUnsafe(channelID)
@@ -90,11 +88,8 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 				continue
 			}
 			jc.dmEnabled = jcd.DmEnabled
-			updates = append(updates, ChannelUpdateOperation{
-				ChID:             channelID,
-				Status:           versioned.Updated,
-				BroadcastDMToken: jc.dmEnabled,
-			})
+			go m.dmCallback(channelID, jc.dmEnabled)
+			channelsChanged += 1
 		}
 
 		jc, err := m.setUpJoinedChannel(edit.NewElement.Data)
@@ -105,24 +100,13 @@ func (m *manager) mapUpdate(edits map[string]versioned.ElementEdit) {
 			continue
 		}
 		m.events.model.JoinChannel(jc.broadcast.Get())
-		updates = append(updates, ChannelUpdateOperation{
-			ChID:             channelID,
-			Status:           edit.Operation,
-			BroadcastDMToken: jc.dmEnabled,
-		})
+		channelsChanged += 1
 	}
 
-	if len(updates) > 0 {
-		go func() {
-			time.Sleep(1 * time.Second)
-			m.channelCallback(updates)
-		}()
-
-	} else {
+	if channelsChanged == 0 {
 		jww.WARN.Printf("[CH] Received empty update from remote in " +
 			"join channels")
 	}
-
 }
 
 // addChannel adds a channel.

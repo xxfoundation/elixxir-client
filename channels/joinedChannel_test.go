@@ -144,8 +144,8 @@ func Test_manager_loadChannels(t *testing.T) {
 		events: &events{broadcast: newProcessorList(),
 			model: &mockEventModel{},
 		},
-		broadcastMaker:  m.broadcastMaker,
-		channelCallback: cbs.ChannelUpdate,
+		broadcastMaker: m.broadcastMaker,
+		dmCallback:     cbs.DmTokenUpdate,
 	}
 
 	newManager.loadChannels()

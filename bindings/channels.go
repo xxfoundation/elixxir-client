@@ -285,7 +285,7 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	dbFilePath string, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -307,9 +307,9 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath, uiCallbacks)
+	model, err := storage.NewEventModel(dbFilePath, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +356,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	extensionBuilderIDsJSON []byte, notificationsID int,
-	uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -368,9 +368,9 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath, uiCallbacks)
+	model, err := storage.NewEventModel(dbFilePath, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +423,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManager(cmixID int, privateIdentity []byte,
 	eventBuilder EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -449,7 +449,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 		return NewEventModel(eventBuilder.Build(path)), nil
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
@@ -494,7 +494,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManager(cmixID int, storageTag string,
 	eventBuilder EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -516,7 +516,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 		return nil, err
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
@@ -562,7 +562,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	notificationsID int, callbacks channels.ChannelUICallbacks) (
+	notificationsID int, callbacks ChannelUICallbacks) (
 	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
@@ -585,7 +585,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 		return nil, err
 	}
 
-	cbs := newChannelUICallbacksWrapper(callbacks)
+	wrap := wrapChannelUICallbacks(callbacks)
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
@@ -594,7 +594,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	// Construct new channels manager
 	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
 		user.api.GetRng(), goEventBuilder, extensionBuilders,
-		user.api.AddService, notif.manager, cbs)
+		user.api.AddService, notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -627,7 +627,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -639,7 +639,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 		return nil, err
 	}
 
-	cbs := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
@@ -654,7 +654,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
-		extensionBuilders, notif.manager, cbs)
+		extensionBuilders, notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -2015,8 +2015,8 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
-//     It can optionally be the entire json return from [NotificationUpdateJson]
-//     Instead of just the needed subsection.
+//     It can optionally be the entire json return from [NotificationUpdateJSON]
+//     instead of just the needed subsection.
 //   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
@@ -2077,8 +2077,8 @@ func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
-		// Attempt to unmarshal as the entire NotificationUpdateJson
-		var nuj channels.NotificationUpdateJson
+		// Attempt to unmarshal as the entire NotificationUpdateJSON
+		var nuj NotificationUpdateJSON
 		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
 			return nil, errors.Errorf("failed to JSON unmarshal "+
 				"notificationFilterJSON:\n%v\n%v", err, err2)
@@ -2900,149 +2900,108 @@ func (ebt *channelsExtensionBuilderTracker) delete(id int) {
 // UI Callbacks                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-func newChannelUICallbacksWrapper(uicb channels.ChannelUICallbacks) *ChannelUICallbacksWrapper {
-	if uicb == nil {
+// ChannelUICallbacks is used for providing callbacks to the UI from the
+// [EventModel].
+type ChannelUICallbacks interface {
+	EventUpdate(eventType int64, jsonData []byte)
+}
+
+// Event types used by ChannelUICallbacks.
+const (
+	NickNameUpdate     int64 = 1000
+	NotificationUpdate int64 = 2000
+	MessageReceived    int64 = 3000
+	UserMuted          int64 = 4000
+	MessageDeleted     int64 = 5000
+	AdminKeyUpdate     int64 = 6000
+	DmTokenUpdate      int64 = 7000
+	ChannelUpdate      int64 = 8000
+)
+
+// channelUICallbacks is a simple wrapper for [channels.UiCallbacks].
+type channelUICallbacks struct {
+	eventUpdate func(eventType int64, jsonMarshallable any)
+}
+
+func wrapChannelUICallbacks(uiCB ChannelUICallbacks) *channelUICallbacks {
+	if uiCB == nil {
 		return nil
 	}
-	return &ChannelUICallbacksWrapper{Cuic: uicb}
+
+	return &channelUICallbacks{func(eventType int64, jsonMarshallable any) {
+		jsonData, err := json.Marshal(jsonMarshallable)
+		if err != nil {
+			jww.FATAL.Panicf(
+				"[CH] Failed to JSON marshal %T: %+v", jsonMarshallable, err)
+		}
+		uiCB.EventUpdate(eventType, jsonData)
+	}}
 }
 
-// ChannelUICallbacksWrapper is a simple wrapper for [channels.ChannelUICallbacks].
-// You can find a description of this object as well as event types and
-// example JSON in channels/callbacks.go.
-type ChannelUICallbacksWrapper struct {
-	Cuic channels.ChannelUICallbacks
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(chID *id.ID) {
-
-	cuJson := channels.ChannelUpdateJson{
-		ChannelID: chID,
-	}
-
-	jsonBytes, err := json.Marshal(&cuJson)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json Channel Update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.ChannelUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) DmTokenUpdate(chID *id.ID, sendToken bool) {
-
-	dmtJson := &channels.DmTokenUpdateJson{
-		ChannelId: chID,
-		SendToken: sendToken,
-	}
-	jsonBytes, err := json.Marshal(dmtJson)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json dm token update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.DmTokenUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
-
-	akJson := &channels.AdminKeysUpdateJson{
-		ChannelId: chID,
-		IsAdmin:   isAdmin,
-	}
-	jsonBytes, err := json.Marshal(akJson)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json admin keys update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.AdminKeyUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
-	nickname string, exists bool) {
-
-	jsonable := channels.NickNameUpdateJson{
+func (cuiCB *channelUICallbacks) NicknameUpdate(
+	channelId *id.ID, nickname string, exists bool) {
+	cuiCB.eventUpdate(NickNameUpdate, NickNameUpdateJSON{
 		ChannelId: channelId,
 		Nickname:  nickname,
 		Exists:    exists,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-
-	if err != nil {
-		jww.ERROR.Printf("Failed to json nickname update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.NickNameUpdate, jsonBytes)
+	})
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) NotificationUpdate(
+func (cuiCB *channelUICallbacks) NotificationUpdate(
 	nfs []channels.NotificationFilter,
 	changedNotificationStates []channels.NotificationState,
 	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
-
-	jsonable := channels.NotificationUpdateJson{
+	cuiCB.eventUpdate(NotificationUpdate, NotificationUpdateJSON{
 		NotificationFilters:       nfs,
 		ChangedNotificationStates: changedNotificationStates,
 		DeletedNotificationStates: deletedNotificationStates,
 		MaxState:                  maxState,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json notifications update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.NotificationUpdate, jsonBytes)
+	})
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) MessageReceived(uuid int64,
-	channelID *id.ID, update bool) {
+func (cuiCB *channelUICallbacks) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
+	cuiCB.eventUpdate(AdminKeyUpdate, AdminKeysUpdateJSON{
+		ChannelId: chID,
+		IsAdmin:   isAdmin,
+	})
+}
 
-	jsonable := channels.MessageReceivedJson{
+func (cuiCB *channelUICallbacks) DmTokenUpdate(chID *id.ID, sendToken bool) {
+	cuiCB.eventUpdate(DmTokenUpdate, DmTokenUpdateJSON{
+		ChannelId: chID,
+		SendToken: sendToken,
+	})
+}
+
+func (cuiCB *channelUICallbacks) ChannelUpdate(channelID *id.ID, deleted bool) {
+	cuiCB.eventUpdate(ChannelUpdate, ChannelUpdateJSON{
+		ChannelID: channelID,
+		Deleted:   deleted,
+	})
+}
+
+func (cuiCB *channelUICallbacks) MessageReceived(
+	uuid int64, channelID *id.ID, update bool) {
+	cuiCB.eventUpdate(MessageReceived, MessageReceivedJSON{
 		Uuid:      uuid,
 		ChannelID: channelID,
 		Update:    update,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json MessageReceived "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.MessageReceived, jsonBytes)
+	})
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) UserMuted(channelID *id.ID,
-	pubKey ed25519.PublicKey, unmute bool) {
-	jsonable := channels.UserMutedJson{
+func (cuiCB *channelUICallbacks) UserMuted(
+	channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
+	cuiCB.eventUpdate(UserMuted, UserMutedJSON{
 		ChannelID: channelID,
 		PubKey:    pubKey,
 		Unmute:    unmute,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json UserMuted "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.UserMuted, jsonBytes)
+	})
 }
 
-func (cuicbw *ChannelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
-	jsonable := channels.MessageDeletedJson{MessageID: messageID}
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json MessageDeleted "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.MessageDeleted, jsonBytes)
+func (cuiCB *channelUICallbacks) MessageDeleted(messageID message.ID) {
+	cuiCB.eventUpdate(MessageDeleted, MessageDeletedJSON{
+		MessageID: messageID,
+	})
 }
 
 func unmarshalPingsJson(b []byte) ([]ed25519.PublicKey, error) {
@@ -3059,4 +3018,172 @@ func unmarshalPingsMapJson(b []byte) (map[channels.PingType][]ed25519.PublicKey,
 		return pingsMap, json.Unmarshal(b, &pingsMap)
 	}
 	return pingsMap, nil
+}
+
+// NickNameUpdateJSON is describes when your nickname changes due to a change on a
+// remote.
+//
+// Example JSON:
+//
+//	 {
+//	   "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	   "nickname":"billNyeTheScienceGuy",
+//	   "exists":true
+//		}
+type NickNameUpdateJSON struct {
+	ChannelId *id.ID `json:"channelID"`
+	Nickname  string `json:"nickname"`
+	Exists    bool   `json:"exists"`
+}
+
+// NotificationUpdateJSON describes any time a notification
+// level changes.
+//
+// Contains:
+//   - notificationFilters - JSON of slice of [channels.NotificationFilter],
+//     which is passed into [GetChannelNotificationReportsForMe] to filter
+//     channel notifications for the user.
+//   - changedNotificationStates - JSON of slice of [channels.NotificationState]
+//     of added or changed channel notification statuses.
+//   - deletedNotificationStates - JSON of slice of [id.ID] of deleted channel
+//     notification statuses.
+//   - maxState - The global notification state.
+//
+// Example JSON:
+//
+//	{
+//	  "notificationFilters": [
+//	    {
+//	      "identifier": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4EDQXN5bW1Ub1B1YmxpY0JjYXN0",
+//	      "channelID": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4ED",
+//	      "tags": ["af35cdae2159477d79f7ab33bf0bb73ccc1f212bfdc1b3ae78cf398c02878e01-usrping"],
+//	      "allowLists": {
+//	        "allowWithTags": {"2": {}},
+//	        "allowWithoutTags": {"102": {}}
+//	      }
+//	    },
+//	    {
+//	      "identifier": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4EDU3ltbWV0cmljQnJvYWRjYXN0",
+//	      "channelID": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4ED",
+//	      "tags": ["af35cdae2159477d79f7ab33bf0bb73ccc1f212bfdc1b3ae78cf398c02878e01-usrping"],
+//	      "allowLists": {
+//	        "allowWithTags": {"1": {}, "40000": {}},
+//	        "allowWithoutTags": {}
+//	      }
+//	    },
+//	    {
+//	      "identifier": "xsrTzBVFS9s0ccPpgSwBRjCFP5ZYUibswfnhLbjrePoDQXN5bW1Ub1B1YmxpY0JjYXN0",
+//	      "channelID": "xsrTzBVFS9s0ccPpgSwBRjCFP5ZYUibswfnhLbjrePoD",
+//	      "tags": ["4f4b35a64a3bd7b06614c2f48d0cdda8b2220ca0fcba78cd2ed11ba38afc92f2-usrping"],
+//	      "allowLists": {
+//	        "allowWithTags": {"2": {}},
+//	        "allowWithoutTags": {"102": {}}
+//	      }
+//	    }
+//	  ],
+//	  "changedNotificationStates": [
+//	    {
+//	      "channelID": "Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4ED",
+//	      "level": 20,
+//	      "status": 2
+//	    },
+//	    {
+//	      "channelID": "gZ4uFg/NaSGJVED3hH+PsezGwkZExgPeRxITlfjXZDUD",
+//	      "level": 40,
+//	      "status": 2
+//	    }
+//	  ],
+//	  "deletedNotificationStates": [
+//	    "ZGVsZXRlZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//	  ],
+//	  "maxState": 2
+//	}
+type NotificationUpdateJSON struct {
+	NotificationFilters       []channels.NotificationFilter `json:"notificationFilters"`
+	ChangedNotificationStates []channels.NotificationState  `json:"changedNotificationStates"`
+	DeletedNotificationStates []*id.ID                      `json:"deletedNotificationStates"`
+	MaxState                  clientNotif.NotificationState `json:"maxState"`
+}
+
+// AdminKeysUpdateJSON describes when you get or lose keys for a specific
+// channel
+//
+// Example JSON:
+//
+//	{
+//	  "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	  "IsAdmin":true
+//	}
+type AdminKeysUpdateJSON struct {
+	ChannelId *id.ID `json:"channelID"`
+	IsAdmin   bool   `json:"IsAdmin"`
+}
+
+// DmTokenUpdateJSON describes when the sending of dm tokens is enabled or
+// disabled on a specific channel
+//
+// Example JSON:
+//
+//	{
+//	  "channelID":"KdkEjm+OfQuK4AyZGAqh+XPQaLfRhsO5d2NT1EIScyJX",
+//	  "sendToken":true
+//	}
+type DmTokenUpdateJSON struct {
+	ChannelId *id.ID `json:"channelID"`
+	SendToken bool   `json:"sendToken"`
+}
+
+// ChannelUpdateJSON is returned any time a Channel is joined/left.
+//
+// Example JSON:
+//
+//	{
+//	  "channelID":"YSc2bDijXIVhmIsJk2OZQjU9ei2Dn6MS8tOpXlIaUpSV",
+//	  "deleted":false"
+//	}
+type ChannelUpdateJSON struct {
+	ChannelID *id.ID `json:"channelID"`
+	Deleted   bool   `json:"deleted"`
+}
+
+// MessageReceivedJSON is returned any time a message is received or updated.
+// Update is true if the row is old and was edited.
+//
+// Example JSON:
+//
+//	{
+//	  "uuid":32,
+//	  "channelID":"Z1owNo+GvizWshVW/C5IJ1izPD5oqMkCGr+PsA5If4HZ",
+//	  "update":false
+//	}
+type MessageReceivedJSON struct {
+	Uuid      int64  `json:"uuid"`
+	ChannelID *id.ID `json:"channelID"`
+	Update    bool   `json:"update"`
+}
+
+// UserMutedJSON is returned for the MuteUser method of the impl.
+//
+// Example JSON:
+//
+//	{
+//	  "channelID":"YSc2bDijXIVhmIsJk2OZQjU9ei2Dn6MS8tOpXlIaUpSV",
+//	  "pubKey":"hClzdWkMI+LM7KDFxC/iuyIc0oiMzcBXBFgH0haZAjc=",
+//	  "unmute":false
+//	}
+type UserMutedJSON struct {
+	ChannelID *id.ID            `json:"channelID"`
+	PubKey    ed25519.PublicKey `json:"pubKey"`
+	Unmute    bool              `json:"unmute"`
+}
+
+// MessageDeletedJSON is returned any time a message is deleted.
+//
+// Example JSON:
+//
+//	{
+//	  "messageID":"i9b7tL5sUmObxqW1LApC9H/yvnQzsRfq7yc8SCBtlK0="
+//	}
+type MessageDeletedJSON struct {
+	MessageID message.ID `json:"messageID"`
 }

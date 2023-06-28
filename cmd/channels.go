@@ -476,8 +476,6 @@ func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
 
 func (c *channelCbs) DmTokenUpdate(chID *id.ID, sendToken bool) {}
 
-func (c *channelCbs) ChannelUpdate([]channels.ChannelUpdateOperation) {}
-
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",
 		"The name of the new channel to create.")

@@ -10,6 +10,7 @@
 package storage
 
 import (
+	"crypto/ed25519"
 	"testing"
 	"time"
 
@@ -23,7 +24,10 @@ import (
 
 type dummyCbs struct{}
 
-func (c *dummyCbs) EventUpdate(int64, []byte) {}
+func (d *dummyCbs) ChannelUpdate(*id.ID, bool)                {}
+func (d *dummyCbs) MessageReceived(int64, *id.ID, bool)       {}
+func (d *dummyCbs) UserMuted(*id.ID, ed25519.PublicKey, bool) {}
+func (d *dummyCbs) MessageDeleted(message.ID)                 {}
 
 // Series of interdependent smoke tests of the impl object and its methods.
 func TestImpl(t *testing.T) {

@@ -16,15 +16,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
-
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/channels/storage"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/message"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
@@ -285,7 +282,7 @@ func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 	dbFilePath string, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -307,9 +304,9 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath, uiCallbacks)
+	model, err := storage.NewEventModel(dbFilePath, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +353,7 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	extensionBuilderIDsJSON []byte, notificationsID int,
-	uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -368,9 +365,9 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
-	model, err := storage.NewEventModel(dbFilePath, uiCallbacks)
+	model, err := storage.NewEventModel(dbFilePath, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +420,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManager(cmixID int, privateIdentity []byte,
 	eventBuilder EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
 		return nil, err
@@ -449,7 +446,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 		return NewEventModel(eventBuilder.Build(path)), nil
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
@@ -494,7 +491,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManager(cmixID int, storageTag string,
 	eventBuilder EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -516,7 +513,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 		return nil, err
 	}
 
-	wrap := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
@@ -562,7 +559,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //     interface can be nil, but if defined, each method must be implemented.
 func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	extensionBuilderIDsJSON []byte, goEventBuilder channels.EventModelBuilder,
-	notificationsID int, callbacks channels.ChannelUICallbacks) (
+	notificationsID int, callbacks ChannelUICallbacks) (
 	*ChannelsManager, error) {
 	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
 	if err != nil {
@@ -585,7 +582,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 		return nil, err
 	}
 
-	cbs := newChannelUICallbacksWrapper(callbacks)
+	wrap := wrapChannelUICallbacks(callbacks)
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
@@ -594,7 +591,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	// Construct new channels manager
 	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
 		user.api.GetRng(), goEventBuilder, extensionBuilders,
-		user.api.AddService, notif.manager, cbs)
+		user.api.AddService, notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -627,7 +624,7 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 //     interface can be nil, but if defined, each method must be implemented.
 func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	goEventBuilder channels.EventModelBuilder, extensionBuilderIDsJSON []byte,
-	notificationsID int, uiCallbacks channels.ChannelUICallbacks) (*ChannelsManager, error) {
+	notificationsID int, uiCallbacks ChannelUICallbacks) (*ChannelsManager, error) {
 
 	// Get managers from singletons
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -639,7 +636,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 		return nil, err
 	}
 
-	cbs := newChannelUICallbacksWrapper(uiCallbacks)
+	wrap := wrapChannelUICallbacks(uiCallbacks)
 	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
@@ -654,7 +651,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
 		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
-		extensionBuilders, notif.manager, cbs)
+		extensionBuilders, notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -2015,8 +2012,8 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //
 // Parameters:
 //   - notificationFilterJSON - JSON of a slice of [channels.NotificationFilter].
-//     It can optionally be the entire json return from [NotificationUpdateJson]
-//     Instead of just the needed subsection.
+//     It can optionally be the entire json return from [NotificationUpdateJSON]
+//     instead of just the needed subsection.
 //   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
@@ -2077,8 +2074,8 @@ func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
 	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
-		// Attempt to unmarshal as the entire NotificationUpdateJson
-		var nuj channels.NotificationUpdateJson
+		// Attempt to unmarshal as the entire NotificationUpdateJSON
+		var nuj NotificationUpdateJSON
 		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
 			return nil, errors.Errorf("failed to JSON unmarshal "+
 				"notificationFilterJSON:\n%v\n%v", err, err2)
@@ -2894,169 +2891,4 @@ func (ebt *channelsExtensionBuilderTracker) delete(id int) {
 	defer ebt.mux.Unlock()
 
 	delete(ebt.tracked, id)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// UI Callbacks                                                               //
-////////////////////////////////////////////////////////////////////////////////
-
-func newChannelUICallbacksWrapper(uicb channels.ChannelUICallbacks) *ChannelUICallbacksWrapper {
-	if uicb == nil {
-		return nil
-	}
-	return &ChannelUICallbacksWrapper{Cuic: uicb}
-}
-
-// ChannelUICallbacksWrapper is a simple wrapper for [channels.ChannelUICallbacks].
-// You can find a description of this object as well as event types and
-// example JSON in channels/callbacks.go.
-type ChannelUICallbacksWrapper struct {
-	Cuic channels.ChannelUICallbacks
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) ChannelUpdate(chID *id.ID) {
-
-	cuJson := channels.ChannelUpdateJson{
-		ChannelID: chID,
-	}
-
-	jsonBytes, err := json.Marshal(&cuJson)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json Channel Update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.ChannelUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) DmTokenUpdate(chID *id.ID, sendToken bool) {
-
-	dmtJson := &channels.DmTokenUpdateJson{
-		ChannelId: chID,
-		SendToken: sendToken,
-	}
-	jsonBytes, err := json.Marshal(dmtJson)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json dm token update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.DmTokenUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
-
-	akJson := &channels.AdminKeysUpdateJson{
-		ChannelId: chID,
-		IsAdmin:   isAdmin,
-	}
-	jsonBytes, err := json.Marshal(akJson)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json admin keys update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.AdminKeyUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) NicknameUpdate(channelId *id.ID,
-	nickname string, exists bool) {
-
-	jsonable := channels.NickNameUpdateJson{
-		ChannelId: channelId,
-		Nickname:  nickname,
-		Exists:    exists,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-
-	if err != nil {
-		jww.ERROR.Printf("Failed to json nickname update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.NickNameUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) NotificationUpdate(
-	nfs []channels.NotificationFilter,
-	changedNotificationStates []channels.NotificationState,
-	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
-
-	jsonable := channels.NotificationUpdateJson{
-		NotificationFilters:       nfs,
-		ChangedNotificationStates: changedNotificationStates,
-		DeletedNotificationStates: deletedNotificationStates,
-		MaxState:                  maxState,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json notifications update "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.NotificationUpdate, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) MessageReceived(uuid int64,
-	channelID *id.ID, update bool) {
-
-	jsonable := channels.MessageReceivedJson{
-		Uuid:      uuid,
-		ChannelID: channelID,
-		Update:    update,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json MessageReceived "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.MessageReceived, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) UserMuted(channelID *id.ID,
-	pubKey ed25519.PublicKey, unmute bool) {
-	jsonable := channels.UserMutedJson{
-		ChannelID: channelID,
-		PubKey:    pubKey,
-		Unmute:    unmute,
-	}
-
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json UserMuted "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.UserMuted, jsonBytes)
-}
-
-func (cuicbw *ChannelUICallbacksWrapper) MessageDeleted(messageID message.ID) {
-	jsonable := channels.MessageDeletedJson{MessageID: messageID}
-	jsonBytes, err := json.Marshal(&jsonable)
-	if err != nil {
-		jww.ERROR.Printf("Failed to json MessageDeleted "+
-			"event for bindings: %+v", err)
-	}
-
-	cuicbw.Cuic.EventUpdate(channels.MessageDeleted, jsonBytes)
-}
-
-func unmarshalPingsJson(b []byte) ([]ed25519.PublicKey, error) {
-	var pings []ed25519.PublicKey
-	if b != nil && len(b) > 0 {
-		return pings, json.Unmarshal(b, &pings)
-	}
-	return pings, nil
-}
-
-func unmarshalPingsMapJson(b []byte) (map[channels.PingType][]ed25519.PublicKey, error) {
-	var pingsMap map[channels.PingType][]ed25519.PublicKey
-	if b != nil && len(b) > 0 {
-		return pingsMap, json.Unmarshal(b, &pingsMap)
-	}
-	return pingsMap, nil
 }

@@ -69,10 +69,10 @@ func TestE2EDMs(t *testing.T) {
 	nnmB.SetNickname("partner")
 
 	clientA, err := NewDMClient(
-		&me, receiverA, stA, nnmA, newMockNM(), netA, ekvA, crng, mockNuCB)
+		&me, receiverA, stA, nnmA, newMockNM(), netA, ekvA, crng, nil)
 	require.NoError(t, err)
 	clientB, err := NewDMClient(
-		&partner, receiverB, stB, nnmB, newMockNM(), netB, ekvB, crng, mockNuCB)
+		&partner, receiverB, stB, nnmB, newMockNM(), netB, ekvB, crng, nil)
 	require.NoError(t, err)
 
 	params := cmix.GetDefaultCMIXParams()

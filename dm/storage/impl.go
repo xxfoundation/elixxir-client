@@ -158,8 +158,8 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 
 	jww.TRACE.Printf("[DM SQL] Calling ReceiveMessageCB(%v, %v, t, f)",
 		uuid, currentMessage.ConversationPubKey)
-	go i.receivedMessageCB(uuid, currentMessage.ConversationPubKey,
-		true, false)
+	go i.cbs.MessageReceived(
+		uuid, currentMessage.ConversationPubKey, true, false)
 }
 
 // DeleteMessage deletes the message with the given message.ID belonging to the
@@ -191,6 +191,8 @@ func (i *impl) DeleteMessage(
 		jww.ERROR.Printf("Failed to DeleteMessage: %+v", err)
 		return false
 	}
+
+	go i.cbs.MessageDeleted(messageID)
 
 	return true
 }
@@ -316,8 +318,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 
 	jww.TRACE.Printf("[DM SQL] Calling ReceiveMessageCB(%v, %v, f, %t)",
 		uuid, partnerKeyStr, conversationUpdated)
-	go i.receivedMessageCB(uuid, partnerKey,
-		false, conversationUpdated)
+	go i.cbs.MessageReceived(uuid, partnerKey, false, conversationUpdated)
 	return uuid, nil
 }
 

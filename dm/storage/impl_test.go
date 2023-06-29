@@ -24,7 +24,10 @@ import (
 	"time"
 )
 
-func dummyReceivedMessageCB(uint64, ed25519.PublicKey, bool, bool) {}
+type dummyCallbacks struct{}
+
+func (d dummyCallbacks) MessageReceived(uint64, ed25519.PublicKey, bool, bool) {}
+func (d dummyCallbacks) MessageDeleted(message.ID)                             {}
 
 func TestMain(m *testing.M) {
 	jww.SetStdoutThreshold(jww.LevelTrace)
@@ -33,8 +36,7 @@ func TestMain(m *testing.M) {
 
 // Test simple receive of a new message for a new conversation.
 func TestImpl_Receive(t *testing.T) {
-	m, err := newImpl("TestImpl_Receive",
-		dummyReceivedMessageCB, true)
+	m, err := newImpl("TestImpl_Receive", &dummyCallbacks{}, true)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -82,8 +84,7 @@ func TestImpl_Receive(t *testing.T) {
 
 // Test happy path. Insert some conversations and check they exist.
 func TestImpl_GetConversations(t *testing.T) {
-	m, err := newImpl("TestImpl_GetConversations",
-		dummyReceivedMessageCB, true)
+	m, err := newImpl("TestImpl_GetConversations", &dummyCallbacks{}, true)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -118,8 +119,7 @@ func TestImpl_GetConversations(t *testing.T) {
 
 // Test failed and successful deletes
 func TestWasmModel_DeleteMessage(t *testing.T) {
-	m, err := newImpl("TestWasmModel_DeleteMessage",
-		dummyReceivedMessageCB, true)
+	m, err := newImpl("TestWasmModel_DeleteMessage", &dummyCallbacks{}, true)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

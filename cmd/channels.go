@@ -459,22 +459,20 @@ func (m *eventModel) MuteUser(*id.ID, ed25519.PublicKey, bool) {
 
 type channelCbs struct{}
 
+func (c *channelCbs) AdminKeysUpdate(*id.ID, bool) {}
 func (c *channelCbs) NicknameUpdate(channelID *id.ID, nickname string,
 	exists bool) {
-	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID,
-		nickname, exists)
+	jww.INFO.Printf("NickNameUpdate(%s, %s, %v)", channelID, nickname, exists)
 }
 
-func (c *channelCbs) NotificationUpdate(nfs []channels.NotificationFilter,
-	changedNotificationStates []channels.NotificationState,
-	deletedNotificationStates []*id.ID, maxState clientNotif.NotificationState) {
+func (c *channelCbs) NotificationUpdate([]channels.NotificationFilter,
+	[]channels.NotificationState, []*id.ID, clientNotif.NotificationState) {
 }
-
-func (c *channelCbs) AdminKeysUpdate(chID *id.ID, isAdmin bool) {}
-
-func (c *channelCbs) FilterCallback([]channels.NotificationFilter) {}
-
-func (c *channelCbs) DmTokenUpdate(chID *id.ID, sendToken bool) {}
+func (c *channelCbs) DmTokenUpdate(*id.ID, bool)                {}
+func (c *channelCbs) ChannelUpdate(*id.ID, bool)                {}
+func (c *channelCbs) MessageReceived(int64, *id.ID, bool)       {}
+func (c *channelCbs) UserMuted(*id.ID, ed25519.PublicKey, bool) {}
+func (c *channelCbs) MessageDeleted(message.ID)                 {}
 
 func init() {
 	channelsCmd.Flags().String(channelsNameFlag, "ChannelName",

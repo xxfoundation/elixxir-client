@@ -56,10 +56,7 @@ func (i *impl) JoinChannel(channel *cryptoBroadcast.Channel) {
 		return
 	}
 	jww.DEBUG.Printf("Successfully joined channel: %s", channel.ReceptionID)
-	go i.eventUpdate(channels.ChannelUpdate, channels.ChannelUpdateJson{
-		ChannelID: channel.ReceptionID,
-		Deleted:   false,
-	})
+	go i.cbs.ChannelUpdate(channel.ReceptionID, false)
 }
 
 // LeaveChannel is called whenever a channel is left locally.
@@ -78,10 +75,7 @@ func (i *impl) LeaveChannel(channelID *id.ID) {
 		return
 	}
 	jww.DEBUG.Printf("Successfully deleted channel: %s", channelID)
-	go i.eventUpdate(channels.ChannelUpdate, channels.ChannelUpdateJson{
-		ChannelID: channelID,
-		Deleted:   true,
-	})
+	go i.cbs.ChannelUpdate(channelID, true)
 }
 
 // ReceiveMessage is called whenever a message is received on a given channel.
@@ -182,11 +176,7 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	channelId := &id.ID{}
 	copy(channelId[:], currentMessage.ChannelId)
 
-	go i.eventUpdate(channels.MessageReceived, channels.MessageReceivedJson{
-		Uuid:      msgToUpdate.Id,
-		ChannelID: channelId,
-		Update:    true,
-	})
+	go i.cbs.MessageReceived(msgToUpdate.Id, channelId, true)
 
 	return nil
 }
@@ -247,11 +237,7 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	channelId := &id.ID{}
 	copy(channelId[:], currentMessage.ChannelId)
 
-	go i.eventUpdate(channels.MessageReceived, channels.MessageReceivedJson{
-		Uuid:      msgToUpdate.Id,
-		ChannelID: channelId,
-		Update:    true,
-	})
+	go i.cbs.MessageReceived(msgToUpdate.Id, channelId, true)
 	return uint64(msgToUpdate.Id), nil
 }
 
@@ -310,11 +296,7 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 
 // MuteUser is called whenever a user is muted or unmuted.
 func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-	go i.eventUpdate(channels.UserMuted, channels.UserMutedJson{
-		ChannelID: channelID,
-		PubKey:    pubKey,
-		Unmute:    unmute,
-	})
+	go i.cbs.UserMuted(channelID, pubKey, unmute)
 }
 
 // DeleteMessage removes a message with the given messageID from storage.
@@ -336,8 +318,7 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 		return errors.Errorf(parentErr, err)
 	}
 
-	go i.eventUpdate(channels.MessageDeleted,
-		channels.MessageDeletedJson{MessageID: messageID})
+	go i.cbs.MessageDeleted(messageID)
 	return nil
 }
 
@@ -364,11 +345,7 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 		return 0, errors.Errorf("Failed to insert message: %+v", err)
 	}
 
-	go i.eventUpdate(channels.MessageReceived, channels.MessageReceivedJson{
-		Uuid:      msgToInsert.Id,
-		ChannelID: channelID,
-		Update:    false,
-	})
+	go i.cbs.MessageReceived(msgToInsert.Id, channelID, false)
 	return uint64(msgToInsert.Id), nil
 }
 

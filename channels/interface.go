@@ -9,7 +9,6 @@ package channels
 
 import (
 	"crypto/ed25519"
-	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"math"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -498,4 +498,19 @@ type UiCallbacks interface {
 	// DmTokenUpdate is a callback be called when a channel's dm token state is
 	// changed
 	DmTokenUpdate(chID *id.ID, sendToken bool)
+
+	// ChannelUpdate is called any time the user joins or leaves a channel.
+	// deleted is false when joining and true when leaving.
+	ChannelUpdate(channelID *id.ID, deleted bool)
+
+	// MessageReceived is called any time a new message is received or an
+	// existing message is modified. update is ture when the message is
+	// modified. It is false when receiving a new message.
+	MessageReceived(uuid int64, channelID *id.ID, update bool)
+
+	// UserMuted is called every time a user is muted or unmuted.
+	UserMuted(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
+
+	// MessageDeleted is called every time a message is deleted.
+	MessageDeleted(messageID cryptoMessage.ID)
 }

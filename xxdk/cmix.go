@@ -134,7 +134,8 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
-const baseNewSynchronizedCmixErr = "failed to create cmix from Remote"
+// do not change this error
+const baseNewSynchronizedCmixErr = "failed to create cmix from remote"
 
 // NewSynchronizedCmix clones a Cmix from remote storage
 func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,

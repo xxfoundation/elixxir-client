@@ -327,3 +327,25 @@ type SendTracker interface {
 	// StopTracking stops tracking a message
 	StopTracking(msgID cryptoMessage.ID, round rounds.Round) bool
 }
+
+// Callbacks is an interface that a caller can adhere to in order to get updates
+// when sync events occur.
+type Callbacks interface {
+	// NotificationUpdate is a callback that is called any time a notification
+	// level changes.
+	//
+	// It returns a [NotificationFilter], which is passed into
+	// [GetNotificationReportsForMe] to determine which notifications from the
+	// notification server belong to the user.
+	//
+	// It also returns a slice that contains the [NotificationLevel] for all
+	// added and changed DM conversations. The deleted slice contains any
+	// conversations that have been deleted.
+	NotificationUpdate(nf NotificationFilter,
+		changed []NotificationState, deleted []ed25519.PublicKey)
+
+	// BlockedUser is a callback that is called anytime a user is blocked or
+	// unblocked. It is also called on initial registration for every blocked
+	// user.
+	BlockedUser(user ed25519.PublicKey, blocked bool)
+}

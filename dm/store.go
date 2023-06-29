@@ -42,7 +42,7 @@ func newPartnerStore(kv versioned.KV) (*partnerStore, error) {
 		return nil, err
 	}
 
-	return &partnerStore{remote: remote}, nil
+	return &partnerStore{remote}, nil
 }
 
 // dmPartner stores information for each partner the current user has a DM
@@ -81,11 +81,6 @@ const (
 
 // set saves the dmPartner info to storage keyed on the Ed25519 public key.
 func (ps *partnerStore) set(pubKey ed25519.PublicKey, status partnerStatus) {
-	ps.setUnsafe(pubKey, status)
-}
-
-func (ps *partnerStore) setUnsafe(
-	pubKey ed25519.PublicKey, status partnerStatus) {
 	elemName := marshalElementName(pubKey)
 	data, err := json.Marshal(dmPartner{
 		Status: status,
@@ -143,7 +138,7 @@ func (ps *partnerStore) getOrSet(pubKey ed25519.PublicKey) *dmPartner {
 				pubKey, err)
 		}
 
-		ps.setUnsafe(pubKey, defaultStatus)
+		ps.set(pubKey, defaultStatus)
 		return &dmPartner{
 			PublicKey: pubKey,
 			Status:    defaultStatus,
@@ -213,7 +208,7 @@ func (ps *partnerStore) iterate(
 // listen is called when the map or map elements are updated remotely or
 // locally. The public key will never change between an old and new pair in the
 // elementEdit list.
-func (ps *partnerStore) listen(cb func(edits []elementEdit)) error {
+func (ps *partnerStore) listen(cbs ...func(edits []elementEdit)) error {
 	return ps.remote.ListenOnRemoteMap(dmMapName, dmMapVersion,
 		func(edits map[string]versioned.ElementEdit) {
 			partnerEdits := make([]elementEdit, 0, len(edits))
@@ -253,7 +248,9 @@ func (ps *partnerStore) listen(cb func(edits []elementEdit)) error {
 
 				partnerEdits = append(partnerEdits, e)
 			}
-			cb(partnerEdits)
+			for _, cb := range cbs {
+				go cb(partnerEdits)
+			}
 		}, true)
 }
 

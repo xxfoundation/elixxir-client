@@ -134,6 +134,8 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
+const baseNewSynchronizedCmixErr = "failed to create cmix from Remote"
+
 // NewSynchronizedCmix clones a Cmix from remote storage
 func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 	remote collective.RemoteStore) error {
@@ -148,13 +150,15 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 
 	kv, err := ekv.NewFilestore(storageDir, string(password))
 	if err != nil {
-		return errors.Wrapf(err, "NewFilestore")
+		return errors.Wrapf(err, "%s: NewFilestore",
+			baseNewSynchronizedCmixErr)
 	}
 
 	rkv, err := collective.CloneFromRemoteStorage(storageDir, password,
 		remote, kv, rngStreamGen)
 	if err != nil {
-		return errors.Wrapf(err, "CloneFromRemoteStorage")
+		return errors.Wrapf(err, "%s: CloneFromRemoteStorage",
+			baseNewSynchronizedCmixErr)
 	}
 
 	cmixGrp, e2eGrp := DecodeGroups(def)
@@ -166,12 +170,12 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 	err = storage.InitFromRemote(rkv, def, currentVersion, cmixGrp,
 		e2eGrp)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "%s: StorageIntilizlization", baseNewSynchronizedCmixErr)
 	}
 
 	// NOTE: UserInfo, RegCode, and Registration State is synchronized,
 	// so we don't need to set it.
-	return err
+	return nil
 }
 
 // OpenCmix creates client storage but does not connect to the network or login.

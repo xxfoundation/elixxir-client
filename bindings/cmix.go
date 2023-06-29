@@ -171,12 +171,12 @@ func (c *Cmix) EKVGet(key string) ([]byte, error) {
 // EKVSet allows user to set a value inside secure encrypted key value store
 func (c *Cmix) EKVSet(key string, value []byte) error {
 	ekv := c.api.GetStorage().GetKV()
-	versioned := versioned.Object{
+	obj := versioned.Object{
 		Version:   0,
 		Data:      value,
 		Timestamp: time.Now(),
 	}
-	return ekv.Set(key, &versioned)
+	return ekv.Set(key, &obj)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

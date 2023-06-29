@@ -152,7 +152,7 @@ func marshalPreviousNegotiations(partners map[id.ID]bool) []byte {
 
 	b, err := json.Marshal(&toMarshal)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal previous negotations: %+v", err)
+		jww.FATAL.Panicf("Failed to unmarshal previous negotiations: %+v", err)
 	}
 
 	return b
@@ -277,8 +277,8 @@ func upgradePreviousNegotiationsV0(kv versioned.KV) error {
 
 	old := unmarshalPreviousNegotiationsV0(obj.Data)
 	newPrevNegotiations := make(map[id.ID]bool)
-	for id := range old {
-		newPrevNegotiations[id] = true
+	for oldID := range old {
+		newPrevNegotiations[oldID] = true
 	}
 	obj = &versioned.Object{
 		Version:   negotiationPartnersVersion,

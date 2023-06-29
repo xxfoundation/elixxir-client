@@ -33,8 +33,8 @@ const (
 func saveHostList(kv versioned.KV, list []*id.ID) error {
 	obj := &versioned.Object{
 		Version:   hostListVersion,
-		Data:      marshalHostList(list),
 		Timestamp: netTime.Now(),
+		Data:      marshalHostList(list),
 	}
 
 	return kv.Set(hostListKey, obj)

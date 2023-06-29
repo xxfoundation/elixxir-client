@@ -2908,14 +2908,29 @@ type ChannelUICallbacks interface {
 
 // Event types used by ChannelUICallbacks.
 const (
-	NickNameUpdate     int64 = 1000
+	// NickNameUpdate indicates the data is [NickNameUpdateJSON].
+	NickNameUpdate int64 = 1000
+
+	// NotificationUpdate indicates the data is [NotificationUpdateJSON].
 	NotificationUpdate int64 = 2000
-	MessageReceived    int64 = 3000
-	UserMuted          int64 = 4000
-	MessageDeleted     int64 = 5000
-	AdminKeyUpdate     int64 = 6000
-	DmTokenUpdate      int64 = 7000
-	ChannelUpdate      int64 = 8000
+
+	// MessageReceived indicates the data is [MessageReceivedJSON].
+	MessageReceived int64 = 3000
+
+	// UserMuted indicates the data is [UserMutedJSON].
+	UserMuted int64 = 4000
+
+	// MessageDeleted indicates the data is [MessageDeletedJSON].
+	MessageDeleted int64 = 5000
+
+	// AdminKeyUpdate indicates the data is [AdminKeysUpdateJSON].
+	AdminKeyUpdate int64 = 6000
+
+	// DmTokenUpdate indicates the data is [DmTokenUpdateJSON].
+	DmTokenUpdate int64 = 7000
+
+	// ChannelUpdate indicates the data is [ChannelUpdateJSON].
+	ChannelUpdate int64 = 8000
 )
 
 // channelUICallbacks is a simple wrapper for [channels.UiCallbacks].
@@ -3024,11 +3039,12 @@ func unmarshalPingsMapJson(b []byte) (map[channels.PingType][]ed25519.PublicKey,
 // remote.
 //
 // Example JSON:
-//  {
-//    "channelID": "JsU7+QYpybOy/xgjYrJW675XRonGRoZj3YGFWzu/SoID",
-//    "nickname": "billNyeTheScienceGuy",
-//    "exists": true
-//  }
+//
+//	{
+//	  "channelID": "JsU7+QYpybOy/xgjYrJW675XRonGRoZj3YGFWzu/SoID",
+//	  "nickname": "billNyeTheScienceGuy",
+//	  "exists": true
+//	}
 type NickNameUpdateJSON struct {
 	ChannelId *id.ID `json:"channelID"`
 	Nickname  string `json:"nickname"`

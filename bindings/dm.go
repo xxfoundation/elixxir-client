@@ -896,8 +896,11 @@ type DmCallbacks interface {
 
 // DM event types
 const (
+	// DmNotificationUpdate indicates the data is [DmNotificationUpdateJSON].
 	DmNotificationUpdate = 1000
-	DmBlockedUsers       = 2000
+
+	// DmBlockedUser indicates the data is [DmBlockedUserJSON].
+	DmBlockedUser = 2000
 )
 
 type dmCallbacks struct {
@@ -927,10 +930,10 @@ func (dmCBS *dmCallbacks) NotificationUpdate(nf dm.NotificationFilter,
 	})
 }
 
-func (dmCBS *dmCallbacks) BlockedUsers(blocked, unblocked []ed25519.PublicKey) {
-	dmCBS.eventUpdate(DmBlockedUsers, DmBlockedUsersJSON{
-		Blocked:   blocked,
-		Unblocked: unblocked,
+func (dmCBS *dmCallbacks) BlockedUser(user ed25519.PublicKey, blocked bool) {
+	dmCBS.eventUpdate(DmBlockedUser, DmBlockedUserJSON{
+		User:    user,
+		Blocked: blocked,
 	})
 }
 
@@ -982,28 +985,19 @@ type DmNotificationUpdateJSON struct {
 	Deleted            []ed25519.PublicKey    `json:"deleted"`
 }
 
-// DmBlockedUsersJSON contains a list of all newly blocked DM partners and list
-// of newly unblocked DM partners.
+// DmBlockedUserJSON contains a user's public key and if they are blocked or
+// unblocked.
 //
 // Fields:
-//   - Blocked - List of blocked DM conversation partner public keys.
-//   - Unblocked - List of unblocked DM conversation partner public keys.
+//   - User - The DM partner's [ed25519.PublicKey].
+//   - Blocked - True if the user is blocked and false if they are unblocked.
 //
 // Example JSON:
 //  {
-//    "blocked": [
-//      "4joj+Icz5yU57we9jTZwpSkyGtG3r18BD5xHtxDEqxY=",
-//      "spYLJ8gwDNSR/WklMyNDKvu6U65Y6adup6i6eYdohA8=",
-//      "W2bpZDhiQ6FCeVZi1vTOAyMPjEk2cO9OBMEJpbQIvgc=",
-//      "cgtxnZOAoWNWSvPFhPzr2Z70GEI5/l7AdBg+qogz7+8=",
-//      "A57YyPyiF7hBliBunWksdY3yX3k1MRXajpha8XB5HvA="
-//    ],
-//    "unblocked": [
-//      "UJLUOAHiIr1ICvyoWbnE6etnHEPAVOHmyt3PNtuXrQI=",
-//      "FpKgHuyqxOgQemA5RbX9VO+6jxummX4BAK/TPIoQnSk="
-//    ]
+//    "user": "pB87FR7Ci0EDVUEg+aTHl+CJFmzW9qCQEynURJgRBtM=",
+//    "blocked": true
 //  }
-type DmBlockedUsersJSON struct {
-	Blocked   []ed25519.PublicKey `json:"blocked"`
-	Unblocked []ed25519.PublicKey `json:"unblocked"`
+type DmBlockedUserJSON struct {
+	User    ed25519.PublicKey `json:"user"`
+	Blocked bool              `json:"blocked"`
 }

@@ -97,7 +97,7 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	}
 
 	// Set up listeners for notifications and blocked users on the partner store
-	err = n.ps.listen(n.updateSihTagsCB, updateBlockedUsers(cbs.BlockedUsers))
+	err = n.ps.listen(n.updateSihTagsCB, updateBlockedUsers(cbs.BlockedUser))
 	if err != nil {
 		return nil, err
 	}
@@ -128,28 +128,27 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	return dmc, nil
 }
 
-// updateSihTagsCB is a callback registered on the partnerStore to receive
-// updates about partner statuses.
-func updateBlockedUsers(cb func(blocked, unblocked []ed25519.PublicKey)) func(edits []elementEdit) {
+// updateBlockedUsers is a callback registered on the partnerStore to receive
+// updates about blocked and unblocked users.
+func updateBlockedUsers(
+	cb func(user ed25519.PublicKey, blocked bool)) func(edits []elementEdit) {
 	return func(edits []elementEdit) {
-		var blocked, unblocked []ed25519.PublicKey
-		for _, edit := range edits {
-			switch edit.operation {
+		for _, e := range edits {
+			switch e.operation {
 			case versioned.Created, versioned.Loaded:
-				if edit.new.Status == statusBlocked {
-					blocked = append(blocked, edit.new.PublicKey)
+				if e.new.Status == statusBlocked {
+					go cb(e.new.PublicKey, true)
 				}
 			case versioned.Updated:
-				if edit.old.Status == statusBlocked && edit.new.Status != statusBlocked {
-					unblocked = append(unblocked, edit.new.PublicKey)
-				} else if edit.old.Status != statusBlocked && edit.new.Status == statusBlocked {
-					blocked = append(blocked, edit.new.PublicKey)
+				if e.old.Status == statusBlocked && e.new.Status != statusBlocked {
+					go cb(e.new.PublicKey, false)
+				} else if e.old.Status != statusBlocked && e.new.Status == statusBlocked {
+					go cb(e.new.PublicKey, true)
 				}
 			case versioned.Deleted:
-				unblocked = append(unblocked, edit.new.PublicKey)
+				go cb(e.old.PublicKey, false)
 			}
 		}
-		go cb(blocked, unblocked)
 	}
 }
 
@@ -298,6 +297,5 @@ type dummyCallback struct{}
 func (dcb *dummyCallback) NotificationUpdate(
 	NotificationFilter, []NotificationState, []ed25519.PublicKey) {
 }
-func (dcb *dummyCallback) BlockedUsers(
-	[]ed25519.PublicKey, []ed25519.PublicKey) {
+func (dcb *dummyCallback) BlockedUser(ed25519.PublicKey, bool) {
 }

@@ -344,7 +344,8 @@ type Callbacks interface {
 	NotificationUpdate(nf NotificationFilter,
 		changed []NotificationState, deleted []ed25519.PublicKey)
 
-	// BlockedUsers is a callback that is called anytime a user is blocked or
-	// unblocked. It is also called on initial registration.
-	BlockedUsers(blocked, unblocked []ed25519.PublicKey)
+	// BlockedUser is a callback that is called anytime a user is blocked or
+	// unblocked. It is also called on initial registration for every blocked
+	// user.
+	BlockedUser(user ed25519.PublicKey, blocked bool)
 }

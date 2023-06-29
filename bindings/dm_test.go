@@ -52,20 +52,13 @@ func Test_DmNotificationUpdateJSON(t *testing.T) {
 	fmt.Printf("//  %s\n", data)
 }
 
-// Produces example JSON of DmBlockedUsersJSON to be used for documentation.
-func Test_DmBlockedUsersJSON(t *testing.T) {
+// Produces example JSON of DmBlockedUserJSON to be used for documentation.
+func Test_DmBlockedUserJSON(t *testing.T) {
 	prng := rand.New(rand.NewSource(65622))
 
-	buJSON := DmBlockedUsersJSON{
-		Blocked:   make([]ed25519.PublicKey, 1+prng.Intn(5)),
-		Unblocked: make([]ed25519.PublicKey, 1+prng.Intn(5)),
-	}
-
-	for i := range buJSON.Blocked {
-		buJSON.Blocked[i] = newPubKey(prng)
-	}
-	for i := range buJSON.Unblocked {
-		buJSON.Unblocked[i] = newPubKey(prng)
+	buJSON := DmBlockedUserJSON{
+		User:    newPubKey(prng),
+		Blocked: true,
 	}
 
 	data, err := json.MarshalIndent(buJSON, "//  ", "  ")
@@ -74,7 +67,6 @@ func Test_DmBlockedUsersJSON(t *testing.T) {
 	}
 
 	fmt.Printf("//  %s\n", data)
-
 }
 
 func newPubKey(rng io.Reader) ed25519.PublicKey {

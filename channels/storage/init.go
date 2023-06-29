@@ -9,31 +9,42 @@
 package storage
 
 import (
-	"encoding/json"
+	"crypto/ed25519"
 	"github.com/pkg/errors"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/channels"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"time"
+
+	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
 )
+
+// UiCallbacks contains a subset of the methods on [channels.UiCallbacks] that
+// are used by this event model implementation.
+type UiCallbacks interface {
+	ChannelUpdate(channelID *id.ID, delete bool)
+	MessageReceived(uuid int64, channelID *id.ID, update bool)
+	UserMuted(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
+	MessageDeleted(messageID message.ID)
+}
 
 // impl implements the channels.EventModel interface with an underlying DB.
 type impl struct {
-	db          *gorm.DB // Stored database connection
-	eventUpdate func(eventType int64, jsonMarshallable any)
+	db  *gorm.DB // Stored database connection
+	cbs UiCallbacks
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string,
-	uiCallbacks channels.ChannelUICallbacks) (channels.EventModel, error) {
+func NewEventModel(dbFilePath string, uiCallbacks UiCallbacks) (channels.EventModel, error) {
 	model, err := newImpl(dbFilePath, uiCallbacks)
 	return channels.EventModel(model), err
 }
 
-func newImpl(dbFilePath string,
-	uiCallbacks channels.ChannelUICallbacks) (*impl, error) {
+func newImpl(dbFilePath string, uiCallbacks UiCallbacks) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -86,15 +97,8 @@ func newImpl(dbFilePath string,
 
 	// Build the interface
 	di := &impl{
-		db: db,
-		eventUpdate: func(eventType int64, jsonMarshallable any) {
-			data, err := json.Marshal(jsonMarshallable)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to JSON marshal %T for EventUpdate "+
-					"callback: %+v", jsonMarshallable, err)
-			}
-			uiCallbacks.EventUpdate(eventType, data)
-		},
+		db:  db,
+		cbs: uiCallbacks,
 	}
 
 	jww.INFO.Println("Database backend initialized successfully!")

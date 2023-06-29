@@ -14,7 +14,6 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/collective"
 	"sync"
 	"time"
 
@@ -25,11 +24,13 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -526,20 +527,35 @@ func (m *manager) GetMutedUsers(channelID *id.ID) []ed25519.PublicKey {
 // it is used for tests and when nothing is passed in for UI callbacks
 type dummyUICallback struct{}
 
-func (duic *dummyUICallback) AdminKeysUpdate(chID *id.ID, isAdmin bool) {
-	jww.DEBUG.Printf("AdminKeysUpdate unimplemented in dummyUICallback")
+func (duiCB *dummyUICallback) AdminKeysUpdate(*id.ID, bool) {
+	jww.DEBUG.Printf("AdminKeysUpdate unimplemented in %T", duiCB)
 }
 
-func (duic *dummyUICallback) NicknameUpdate(channelId *id.ID, nickname string,
-	exists bool) {
-	jww.DEBUG.Printf("NicknameUpdate unimplemented in dummyUICallback")
+func (duiCB *dummyUICallback) NicknameUpdate(*id.ID, string, bool) {
+	jww.DEBUG.Printf("NicknameUpdate unimplemented in %T", duiCB)
 }
 
-func (duic *dummyUICallback) NotificationUpdate([]NotificationFilter,
+func (duiCB *dummyUICallback) NotificationUpdate([]NotificationFilter,
 	[]NotificationState, []*id.ID, clientNotif.NotificationState) {
-	jww.DEBUG.Printf("NotificationCallback unimplemented in dummyUICallback")
+	jww.DEBUG.Printf("NotificationUpdate unimplemented in %T", duiCB)
 }
 
-func (duic *dummyUICallback) DmTokenUpdate(chID *id.ID, sendToken bool) {
-	jww.DEBUG.Printf("DmTokenUpdate unimplemented in dummyUICallback")
+func (duiCB *dummyUICallback) DmTokenUpdate(*id.ID, bool) {
+	jww.DEBUG.Printf("DmTokenUpdate unimplemented in %T", duiCB)
+}
+
+func (duiCB *dummyUICallback) ChannelUpdate(*id.ID, bool) {
+	jww.DEBUG.Printf("ChannelUpdate unimplemented in %T", duiCB)
+}
+
+func (duiCB *dummyUICallback) MessageReceived(int64, *id.ID, bool) {
+	jww.DEBUG.Printf("MessageReceived unimplemented in %T", duiCB)
+}
+
+func (duiCB *dummyUICallback) UserMuted(*id.ID, ed25519.PublicKey, bool) {
+	jww.DEBUG.Printf("UserMuted unimplemented in %T", duiCB)
+}
+
+func (duiCB *dummyUICallback) MessageDeleted(cryptoMessage.ID) {
+	jww.DEBUG.Printf("MessageDeleted unimplemented in %T", duiCB)
 }

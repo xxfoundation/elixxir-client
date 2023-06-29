@@ -69,6 +69,25 @@ func Test_DmBlockedUserJSON(t *testing.T) {
 	fmt.Printf("//  %s\n", data)
 }
 
+// Produces example JSON of DmMessageReceivedJSON to be used for documentation.
+func Test_DmMessageReceivedJSON(t *testing.T) {
+	prng := rand.New(rand.NewSource(623677))
+
+	buJSON := DmMessageReceivedJSON{
+		UUID:               prng.Uint64(),
+		PubKey:             newPubKey(prng),
+		MessageUpdate:      true,
+		ConversationUpdate: true,
+	}
+
+	data, err := json.MarshalIndent(buJSON, "//  ", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Printf("//  %s\n", data)
+}
+
 func newPubKey(rng io.Reader) ed25519.PublicKey {
 	pubKey, _, _ := ed25519.GenerateKey(rng)
 	return pubKey

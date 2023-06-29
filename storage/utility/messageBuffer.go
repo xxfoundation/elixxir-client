@@ -12,18 +12,47 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
+const messageHashLen = 16
+
 // MessageHash stores the hash of a message, which is used as the key for each
 // message stored in the buffer.
-type MessageHash [16]byte
+type MessageHash [messageHashLen]byte
 
-func (m MessageHash) String() string {
-	return base64.StdEncoding.EncodeToString(m[:])
+func (mh MessageHash) String() string {
+	return base64.StdEncoding.EncodeToString(mh[:])
+}
+
+// MarshalJSON marshals the [MessageHash] into valid JSON. This function adheres
+// to the [json.Marshaler] interface.
+func (mh MessageHash) MarshalJSON() ([]byte, error) {
+	return json.Marshal(mh[:])
+}
+
+// UnmarshalJSON unmarshalls the JSON into the [MessageHash]. This function
+// adheres to the [json.Unmarshaler] interface.
+func (mh *MessageHash) UnmarshalJSON(data []byte) error {
+	var msgHashBytes []byte
+	err := json.Unmarshal(data, &msgHashBytes)
+	if err != nil {
+		return err
+	}
+
+	if messageHashLen != len(msgHashBytes) {
+		return errors.Errorf("expected length of %d; reiceved lenghth %d",
+			messageHashLen, len(msgHashBytes))
+	}
+
+	copy(mh[:], msgHashBytes)
+
+	return nil
 }
 
 // Sub key used in building keys for saving the message to the key value store

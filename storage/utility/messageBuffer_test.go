@@ -377,3 +377,28 @@ func makeTestMessages(n int) ([][]byte, map[MessageHash]struct{}) {
 
 	return msgs, mh
 }
+
+func TestMessageHash_JSONMarshalUnmarshal(t *testing.T) {
+	prng := rand.New(rand.NewSource(34483))
+	h := newTestHandler()
+
+	b := make([]byte, 28)
+	prng.Read(b)
+	expected := h.HashMessage(b)
+
+	data, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var mh MessageHash
+	err = json.Unmarshal(data, &mh)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if expected != mh {
+		t.Errorf("Unexpected MessageHash.\nexpected: %s\nreceived: %s",
+			expected, mh)
+	}
+}

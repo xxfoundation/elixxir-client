@@ -22,8 +22,8 @@ func (s *session) SetRegCode(regCode string) {
 	if err := s.syncKV.Set(regCodeKey,
 		&versioned.Object{
 			Version:   regCodeVersion,
-			Data:      []byte(regCode),
 			Timestamp: netTime.Now(),
+			Data:      []byte(regCode),
 		}); err != nil {
 		jww.FATAL.Panicf("Failed to set the registration code: %s", err)
 	}

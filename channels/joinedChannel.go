@@ -254,8 +254,10 @@ type joinedChannelDisk struct {
 
 // Marshal marshals a given channel to bytes.
 func (jc *joinedChannel) Marshal() ([]byte, error) {
-	jcd := joinedChannelDisk{Broadcast: jc.broadcast.Get(),
-		DmEnabled: jc.dmEnabled}
+	jcd := joinedChannelDisk{
+		Broadcast: jc.broadcast.Get(),
+		DmEnabled: jc.dmEnabled,
+	}
 	return json.Marshal(&jcd)
 }
 

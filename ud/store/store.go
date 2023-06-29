@@ -208,11 +208,11 @@ func (s *Store) loadUnconfirmedFacts() error {
 /////////////////////////////////////////////////////////////////
 
 // unconfirmedFactDisk is an object used to store the data of an unconfirmed fact.
-// It combines the key (ConfirmationId) and fact data (StringifiedFact) into a
+// It combines the key (ConfirmationID) and fact data (StringifiedFact) into a
 // single JSON-able object.
 type unconfirmedFactDisk struct {
-	ConfirmationId  string
-	StringifiedFact string
+	ConfirmationID  string `json:"confirmationID"`
+	StringifiedFact string `json:"stringifiedFact"`
 }
 
 // marshalConfirmedFacts is a marshaller which serializes the data
@@ -232,7 +232,7 @@ func (s *Store) marshalUnconfirmedFacts() ([]byte, error) {
 	ufdList := make([]unconfirmedFactDisk, 0, len(s.unconfirmedFacts))
 	for confirmationId, f := range s.unconfirmedFacts {
 		ufd := unconfirmedFactDisk{
-			ConfirmationId:  confirmationId,
+			ConfirmationID:  confirmationId,
 			StringifiedFact: f.Stringify(),
 		}
 		ufdList = append(ufdList, ufd)
@@ -287,7 +287,7 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 				malformedFactErr, string(data))
 		}
 
-		unconfirmedFacts[ufd.ConfirmationId] = f
+		unconfirmedFacts[ufd.ConfirmationID] = f
 	}
 
 	return unconfirmedFacts, nil

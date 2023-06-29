@@ -60,7 +60,7 @@ type manager struct {
 }
 
 type registration struct {
-	Group string
+	Group string `json:"group"`
 	State
 }
 

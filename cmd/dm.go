@@ -111,9 +111,8 @@ var dmCmd = &cobra.Command{
 		nm := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
 			user.GetStorage().GetKV(), &clientNotif.MockComms{}, user.GetRng())
 
-		nuCB := func(dm.NotificationFilter, []dm.NotificationState, []ed25519.PublicKey) {}
 		dmClient, err := dm.NewDMClient(&dmID, myReceiver, sendTracker,
-			myNickMgr, nm, user.GetCmix(), ekv, user.GetRng(), nuCB)
+			myNickMgr, nm, user.GetCmix(), ekv, user.GetRng(), nil)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

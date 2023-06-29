@@ -26,13 +26,13 @@ import (
 // NotificationUpdate is a callback that is called any time a notification
 // level changes.
 //
-// It returns a slice of [NotificationFilter] for all DM conversations with
-// notifications enabled. The [NotificationFilter] is used to determine which
-// notifications from the notification server belong to the caller.
+// It returns a [NotificationFilter], which is passed into
+// [GetNotificationReportsForMe] to determine which notifications from the
+// notification server belong to the user.
 //
-// It also returns a map of all DM conversation notification states that have
-// changed and all that have been deleted. The maxState is the global state set
-// for notifications.
+// It also returns a slice that contains the [NotificationLevel] for all added
+// and changed DM conversations. The deleted slice contains any conversations
+// that have been deleted.
 type NotificationUpdate func(nf NotificationFilter,
 	changed []NotificationState, deleted []ed25519.PublicKey)
 
@@ -94,11 +94,6 @@ func newNotifications(myID *id.ID, pubKey ed25519.PublicKey,
 		ps:            us,
 		nm:            nm,
 		mux:           sync.Mutex{},
-	}
-
-	err := n.ps.listen(n.updateSihTagsCB)
-	if err != nil {
-		return nil, err
 	}
 
 	return n, n.nm.Set(myID, notificationGroup, nil, clientNotif.Push)
@@ -301,7 +296,7 @@ type NotificationFilter struct {
 
 	// PublicKeys is a map of tags to their public keys. Used to identify the
 	// owner of the message triggering a notification.
-	PublicKeys map[string]ed25519.PublicKey
+	PublicKeys map[string]ed25519.PublicKey `json:"publicKeys"`
 
 	// List of MessageType to notify on.
 	AllowedTypes map[MessageType]struct{} `json:"allowedTypes"`
@@ -338,8 +333,8 @@ func (nf NotificationFilter) match(
 type NotificationLevel uint8
 
 var allowList = map[NotificationLevel]map[MessageType]struct{}{
-	NotifyNone:    {},
-	NotifyAll:     {TextType: {}, ReplyType: {}},
+	NotifyNone: {},
+	NotifyAll:  {TextType: {}, ReplyType: {}},
 }
 
 const (

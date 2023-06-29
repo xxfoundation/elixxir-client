@@ -61,20 +61,21 @@ func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
 	nickManager NickNameManager, nm NotificationsManager,
 	net cMixClient, kv versioned.KV,
-	rng *fastRNG.StreamGenerator,
-	nuCB NotificationUpdate) (Client, error) {
+	rng *fastRNG.StreamGenerator, cbs Callbacks) (Client, error) {
 	return newDmClient(
-		myID, receiver, tracker, nickManager, nm, net, kv, rng, nuCB)
+		myID, receiver, tracker, nickManager, nm, net, kv, rng, cbs)
 }
 
 func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
 	nickManager NickNameManager, nm NotificationsManager,
 	net cMixClient, kv versioned.KV,
-	rng *fastRNG.StreamGenerator,
-	nuCB NotificationUpdate) (*dmClient, error) {
+	rng *fastRNG.StreamGenerator, cbs Callbacks) (*dmClient, error) {
+	if cbs == nil {
+		cbs = &dummyCallback{}
+	}
 
-	us, err := newPartnerStore(kv)
+	ps, err := newPartnerStore(kv)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +89,17 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)
 	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
-	n, err :=
-		newNotifications(receptionID, myID.PubKey, myID.Privkey, nuCB, us, nm)
+	n, err := newNotifications(
+		receptionID, myID.PubKey, myID.Privkey, cbs.NotificationUpdate, ps, nm)
 	if err != nil {
 		return nil,
 			errors.Wrap(err, "failed to initialize DM notification manager")
+	}
+
+	// Set up listeners for notifications and blocked users on the partner store
+	err = n.ps.listen(n.updateSihTagsCB, updateBlockedUsers(cbs.BlockedUser))
+	if err != nil {
+		return nil, err
 	}
 
 	dmc := &dmClient{
@@ -105,7 +112,7 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 		receiver:        receiver,
 		st:              tracker,
 		nm:              nickManager,
-		ps:              us,
+		ps:              ps,
 		notifications:   n,
 		as:              NewActionSaver(kv),
 		net:             net,
@@ -119,6 +126,30 @@ func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
 	}
 
 	return dmc, nil
+}
+
+// updateBlockedUsers is a callback registered on the partnerStore to receive
+// updates about blocked and unblocked users.
+func updateBlockedUsers(
+	cb func(user ed25519.PublicKey, blocked bool)) func(edits []elementEdit) {
+	return func(edits []elementEdit) {
+		for _, e := range edits {
+			switch e.operation {
+			case versioned.Created, versioned.Loaded:
+				if e.new.Status == statusBlocked {
+					go cb(e.new.PublicKey, true)
+				}
+			case versioned.Updated:
+				if e.old.Status == statusBlocked && e.new.Status != statusBlocked {
+					go cb(e.new.PublicKey, false)
+				} else if e.old.Status != statusBlocked && e.new.Status == statusBlocked {
+					go cb(e.new.PublicKey, true)
+				}
+			case versioned.Deleted:
+				go cb(e.old.PublicKey, false)
+			}
+		}
+	}
 }
 
 // Register registers a listener for direct messages.
@@ -257,4 +288,14 @@ func (nm *nickMgr) SetNickname(nick string) error {
 		Data:      []byte(nick),
 	}
 	return nm.ekv.Set(nm.storeKey, nickObj)
+}
+
+// dummyCallback adheres to the Callbacks interface and is used when no
+// callbacks are passed in and for testing.
+type dummyCallback struct{}
+
+func (dcb *dummyCallback) NotificationUpdate(
+	NotificationFilter, []NotificationState, []ed25519.PublicKey) {
+}
+func (dcb *dummyCallback) BlockedUser(ed25519.PublicKey, bool) {
 }

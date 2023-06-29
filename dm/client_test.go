@@ -91,7 +91,7 @@ func TestClient_BlockPartner(t *testing.T) {
 	nnmB.SetNickname("partner")
 
 	clientA, err := NewDMClient(
-		&me, receiverA, stA, nnmA, newMockNM(), netA, ekvA, crng, mockNuCB)
+		&me, receiverA, stA, nnmA, newMockNM(), netA, ekvA, crng, nil)
 	require.NoError(t, err)
 
 	blockKey, _, err := ed25519.GenerateKey(rng)
@@ -133,10 +133,10 @@ func TestBlock(t *testing.T) {
 	nnmB.SetNickname("partner")
 
 	clientA, err := NewDMClient(
-		&me, receiverA, stA, nnmA, newMockNM(), netA, ekvA, crng, mockNuCB)
+		&me, receiverA, stA, nnmA, newMockNM(), netA, ekvA, crng, nil)
 	require.NoError(t, err)
 	clientB, err := NewDMClient(
-		&partner, receiverB, stB, nnmB, newMockNM(), netB, ekvA, crng, mockNuCB)
+		&partner, receiverB, stB, nnmB, newMockNM(), netB, ekvA, crng, nil)
 	require.NoError(t, err)
 
 	// make sure the block list is empty
@@ -206,5 +206,3 @@ func TestBlock(t *testing.T) {
 
 	require.Equal(t, len(clientB.GetBlockedPartners()), 0)
 }
-
-var mockNuCB = func(NotificationFilter, []NotificationState, []ed25519.PublicKey) {}

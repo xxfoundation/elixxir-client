@@ -11,16 +11,17 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/dm/storage"
-	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/elixxir/primitives/notifications"
 	"sync"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/v4/dm"
+	"gitlab.com/elixxir/client/v4/dm/storage"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -469,8 +470,14 @@ func (dmc *DMClient) SetMobileNotificationsLevel(
 func GetDmNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nf dm.NotificationFilter
-	if err := json.Unmarshal(notificationFilterJSON, &nf); err != nil {
-		return nil, err
+	if err := json.Unmarshal(notificationFilterJSON, &nf); err != nil || nf.MyID == nil {
+		// Attempt to unmarshal as the entire NotificationUpdateJSON
+		var nuj DmNotificationUpdateJSON
+		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
+			return nil, errors.Errorf(
+				"failed to JSON unmarshal %T:\n%v\n%v", nf, err, err2)
+		}
+		nf = nuj.NotificationFilter
 	}
 
 	notifData, err := notifications.DecodeNotificationsCSV(notificationDataCSV)

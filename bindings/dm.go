@@ -210,7 +210,7 @@ func NewDmManagerMobile(cmixID, notificationsID int, privateIdentity []byte,
 
 	wrap := wrapDmCallbacks(cbs)
 
-	model, err := storage.NewEventModel(dbFilePath, wrap.MessageReceived)
+	model, err := storage.NewEventModel(dbFilePath, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -890,6 +890,9 @@ const (
 
 	// DmMessageReceived indicates the data is [DmMessageReceivedJSON].
 	DmMessageReceived int64 = 3000
+
+	// DmMessageDeleted indicates the data is [DmMessageDeletedJSON].
+	DmMessageDeleted int64 = 4000
 )
 
 type dmCallbacks struct {
@@ -933,6 +936,12 @@ func (dmCBS *dmCallbacks) MessageReceived(uuid uint64, pubKey ed25519.PublicKey,
 		PubKey:             pubKey,
 		MessageUpdate:      messageUpdate,
 		ConversationUpdate: conversationUpdate,
+	})
+}
+
+func (dmCBS *dmCallbacks) MessageDeleted(messageID message.ID) {
+	dmCBS.eventUpdate(DmMessageDeleted, DmMessageDeletedJSON{
+		MessageID: messageID,
 	})
 }
 
@@ -1022,4 +1031,17 @@ type DmMessageReceivedJSON struct {
 	PubKey             ed25519.PublicKey `json:"pubKey"`
 	MessageUpdate      bool              `json:"messageUpdate"`
 	ConversationUpdate bool              `json:"conversationUpdate"`
+}
+
+// DmMessageDeletedJSON is returned any time a DM message.
+//
+// Fields:
+//   - MessageID - The [message.ID] of the deleted message in the database.
+//
+// Example JSON:
+//  {
+//    "messageID": "yGO7PZsOpEs+A1DgEIAyTXxpOwBEtMpShqV7h5EtJYw="
+//  }
+type DmMessageDeletedJSON struct {
+	MessageID message.ID `json:"messageID"`
 }

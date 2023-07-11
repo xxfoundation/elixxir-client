@@ -296,9 +296,13 @@ func TestManager_loadNotificationsUnsafe(t *testing.T) {
 	numElementsPerGroup := 5
 	numTests := numGroups * numElementsPerGroup
 
+	updateCallbackChan := make(chan struct{}, 5)
 	groups := make([]string, numGroups)
 	for i := 0; i < numGroups; i++ {
 		groups[i] = fmt.Sprintf("group%d", i)
+		m.RegisterUpdateCallback(groups[i], func(group Group, created, edits, deletions []*id.ID, maxState NotificationState) {
+			updateCallbackChan <- struct{}{}
+		})
 	}
 
 	mapObj := make(map[string]*versioned.Object, numTests)
@@ -338,6 +342,16 @@ func TestManager_loadNotificationsUnsafe(t *testing.T) {
 			b, NotificationState(i%3))
 
 		checkElement(mInternal, nid, *regExpected, t)
+	}
+
+	for numReceived := 0; numReceived < numTests; {
+		to := time.NewTimer(10 * time.Second)
+		select {
+		case <-updateCallbackChan:
+			numReceived++
+		case <-to.C:
+			t.Fatalf("Timed out waiting to receive updates from callback")
+		}
 	}
 }
 
@@ -451,6 +465,7 @@ func TestManager_maxStateUpdate(t *testing.T) {
 			m.RegisterUpdateCallback(groupName, cb)
 		}
 		m.Set(nid, groupName, []byte{0}, NotificationState(i%3))
+		time.Sleep(time.Second)
 	}
 	skip = false
 

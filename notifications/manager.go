@@ -16,6 +16,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
 	"sync"
+	"time"
 )
 
 const (
@@ -57,10 +58,19 @@ type manager struct {
 
 	maxState       NotificationState
 	initialization bool
+
+	regChan chan pendingRegistration
+}
+
+type pendingRegistration struct {
+	r   registration
+	nid *id.ID
 }
 
 type registration struct {
-	Group string
+	Group           string
+	Confirmed       bool
+	PendingDeletion bool
 	State
 }
 
@@ -112,11 +122,14 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		group:                                       make(map[string]Group),
 		maxState:                                    Push,
 		initialization:                              true,
+		regChan:                                     make(chan pendingRegistration, 25),
 	}
 
 	// lock so that an update cannot run while we are loading the basic
 	// notifications structure from disk into ram
 
+	// TODO make a shutdown func
+	_ = m.RunHandler("notificationHandler")
 	err = m.remote.ListenOnRemoteKey(maxStateKey,
 		maxStateKetVersion, m.maxStateUpdate, false)
 	if err != nil && ekv.Exists(err) {
@@ -128,6 +141,11 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 		jww.FATAL.Panicf("Could not load notifications map: %+v", err)
 	}
 	m.mux.Lock()
+	remoteNotifMap, err := m.remote.GetMap(notificationsMap, notificationsMapVersion)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get remote notifications map")
+	}
+	m.loadNotificationsUnsafe(remoteNotifMap)
 	m.loadTokenUnsafe()
 	m.initialization = false
 	m.mux.Unlock()
@@ -227,6 +245,18 @@ func (m *manager) loadNotificationsUnsafe(mapObj map[string]*versioned.Object) {
 		}
 
 		m.upsertNotificationUnsafeRAM(nID, reg)
+
+		if !reg.Confirmed {
+			to := time.NewTimer(time.Second * 5)
+			select {
+			case m.regChan <- pendingRegistration{
+				r:   reg,
+				nid: nID,
+			}:
+			case <-to.C:
+				jww.ERROR.Printf("Failed to send registration to handler channel")
+			}
+		}
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	notifCrypto "gitlab.com/elixxir/crypto/notifications"
@@ -34,26 +35,16 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 		}
 	}
 
-	// register with remote
-	if status == Push && (!exists || exists && currentReg.Status != Push) {
-		if err := m.registerNotification([]*id.ID{toBeNotifiedOn}); err != nil {
-			return err
-		}
-	} else if status != Push {
-		if err := m.unregisterNotification([]*id.ID{toBeNotifiedOn}); err != nil {
-			return err
-		}
-	}
-
-	ts := netTime.Now()
-
 	reg := registration{
-		Group: group,
+		Group:     group,
+		Confirmed: false,
 		State: State{
 			Metadata: copyBytes(metadata),
 			Status:   status,
 		},
 	}
+
+	ts := netTime.Now()
 
 	err := m.storeRegistration(toBeNotifiedOn, reg, ts)
 	if err != nil {
@@ -63,19 +54,19 @@ func (m *manager) Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 	// update in ram storage
 	m.upsertNotificationUnsafeRAM(toBeNotifiedOn, reg)
 
-	// call the callback if it exists to notify that an update exists
-	if cb, cbExists := m.callbacks[group]; cbExists {
-		// can be nil if the last element was deleted
-		g, _ := m.group[group]
-		var created, updated []*id.ID
-		if exists {
-			updated = []*id.ID{toBeNotifiedOn}
-		} else {
-			created = []*id.ID{toBeNotifiedOn}
+	// register with remote
+	if status == Push && (!exists || exists && currentReg.Status != Push) || status != Push {
+		to := time.NewTimer(5 * time.Second)
+		select {
+		case m.regChan <- pendingRegistration{
+			r:   reg,
+			nid: toBeNotifiedOn,
+		}:
+			jww.DEBUG.Printf("Sent registration to handler")
+		case <-to.C:
+			return errors.New("timed out sending registration to handler")
 		}
-		go cb(g.DeepCopy(), created, updated, nil, m.maxState)
 	}
-
 	return nil
 }
 
@@ -100,24 +91,27 @@ func (m *manager) Delete(toBeNotifiedOn *id.ID) error {
 		return nil
 	}
 
-	if r.Status == Push {
-		if err := m.unregisterNotification([]*id.ID{toBeNotifiedOn}); err != nil {
-			return err
-		}
+	r.PendingDeletion = true
+
+	ts := netTime.Now()
+
+	err := m.storeRegistration(toBeNotifiedOn, r, ts)
+	if err != nil {
+		return err
 	}
 
-	elementName := makeElementName(toBeNotifiedOn)
-
-	_, err := m.remote.DeleteMapElement(notificationsMap, elementName,
-		notificationsMapVersion)
-	group := m.deleteNotificationUnsafeRAM(toBeNotifiedOn)
-
-	// call the callback if it exists to notify that an update exists
-	if cb, cbExists := m.callbacks[group]; cbExists {
-		// can be nil if the last element was deleted
-		g, _ := m.group[group]
-		go cb(g.DeepCopy(), nil, nil, []*id.ID{toBeNotifiedOn}, m.maxState)
+	// update in ram storage
+	m.upsertNotificationUnsafeRAM(toBeNotifiedOn, r)
+	to := time.NewTimer(5 * time.Second)
+	select {
+	case m.regChan <- pendingRegistration{
+		r:   r,
+		nid: toBeNotifiedOn,
+	}:
+	case <-to.C:
+		return errors.New("timed out sending deletion to channel")
 	}
+
 	return err
 }
 

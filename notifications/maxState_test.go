@@ -5,6 +5,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
+	"time"
 )
 
 func TestManager_SetMaxState(t *testing.T) {
@@ -14,14 +15,28 @@ func TestManager_SetMaxState(t *testing.T) {
 	expectedLen := int(Push) + 1
 
 	comms.reset()
+	cbChan := make(chan struct{})
+	group := "a"
+	m.RegisterUpdateCallback(group, func(group Group, created, edits, deletions []*id.ID, maxState NotificationState) {
+		cbChan <- struct{}{}
+	})
 
 	// add notification registrations
 	for i := Mute; i <= Push; i++ {
 		for x := 0; x < int(i)+1; x++ {
 			nid := id.NewIdFromUInt(uint64(int(i)*100+x), id.User, t)
-			if err := m.Set(nid, "a", []byte{0}, i); err != nil {
+			if err := m.Set(nid, group, []byte{0}, i); err != nil {
 				t.Errorf("errored in set: %+v", err)
 			}
+		}
+	}
+	for receivedUpdates := 0; receivedUpdates < 3; {
+		to := time.NewTimer(time.Second)
+		select {
+		case <-cbChan:
+			receivedUpdates++
+		case <-to.C:
+			t.Fatalf("Failed to receive on cb chan")
 		}
 	}
 

@@ -18,6 +18,11 @@ func TestManager_Set(t *testing.T) {
 
 	groupName := "flexnard"
 
+	cbChan := make(chan struct{})
+	m.RegisterUpdateCallback(groupName, func(group Group, created, edits, deletions []*id.ID, maxState NotificationState) {
+		cbChan <- struct{}{}
+	})
+
 	// Show that nothing happens if your set is the same as the local data
 	nid1 := id.NewIdFromUInt(42, id.User, t)
 
@@ -60,13 +65,19 @@ func TestManager_Set(t *testing.T) {
 	if err := m.Set(nid2, reg2.Group, reg2.Metadata, reg2.Status); err != nil {
 		t.Errorf("Got an error on calling set in a valid way")
 	}
+	to := time.NewTimer(time.Second)
+	select {
+	case <-cbChan:
+	case <-to.C:
+		t.Fatalf("Failed to receive on cb chan")
+	}
 
 	if comms.receivedMessage == nil {
 		t.Errorf("received message should not have been set becasue we " +
 			"are setting a value equal to what is on remote")
 	}
 
-	hasNotif(mInternal, nid2, groupName, t)
+	hasNotif(mInternal, nid2, groupName, true, t)
 
 	// test a set where the local value doesnt exist at all works when
 	// doing a push
@@ -85,13 +96,19 @@ func TestManager_Set(t *testing.T) {
 	if err := m.Set(nid3, reg3.Group, reg3.Metadata, reg3.Status); err != nil {
 		t.Errorf("Got an error on calling set in a valid way")
 	}
+	to.Reset(time.Second)
+	select {
+	case <-cbChan:
+	case <-to.C:
+		t.Fatalf("Failed to receive on cb chan")
+	}
 
 	if comms.receivedMessage == nil {
 		t.Errorf("received message should not have been set becasue we " +
 			"are setting a value equal to what is on remote")
 	}
 
-	hasNotif(mInternal, nid3, groupName, t)
+	hasNotif(mInternal, nid3, groupName, true, t)
 
 	// test a set where the local value does exist at all works when
 	// doing a push, shouldn't do a comm but should update the storage
@@ -119,7 +136,7 @@ func TestManager_Set(t *testing.T) {
 			"are setting a value equal to what is on remote")
 	}
 
-	hasNotif(mInternal, nid3, groupName, t)
+	hasNotif(mInternal, nid3, groupName, true, t)
 
 	if !bytes.Equal(mInternal.notifications[*nid4].Metadata, reg4.Metadata) {
 		t.Errorf("notifications data not updated correctly")
@@ -141,16 +158,16 @@ func TestManager_Set(t *testing.T) {
 		},
 	}
 
-	if err := m.Set(nid5, reg5.Group, reg5.Metadata, reg5.Status); err == nil {
-		t.Errorf("Did not get an error on calling set where comms should " +
-			"error")
+	if err := m.Set(nid5, reg5.Group, reg5.Metadata, reg5.Status); err != nil {
+		t.Errorf("Received error from comms (this should happen in the handler thread, and will not be seen here)")
 	}
+	time.Sleep(time.Second)
 
 	if comms.receivedMessage == nil {
 		t.Errorf("no message received when a push should occur")
 	}
 
-	notHasNotif(mInternal, nid5, groupName, t)
+	hasNotif(mInternal, nid5, groupName, false, t)
 
 	// test a set where the local value doesnt exist and comms returns an error
 	// stoping the insert with a push
@@ -166,10 +183,10 @@ func TestManager_Set(t *testing.T) {
 		},
 	}
 
-	if err := m.Set(nid6, reg6.Group, reg6.Metadata, reg6.Status); err == nil {
-		t.Errorf("Did not get an error on calling set where comms should " +
-			"error")
+	if err := m.Set(nid6, reg6.Group, reg6.Metadata, reg6.Status); err != nil {
+		t.Errorf("Received error from comms (this should happen in the handler thread, and will not be seen here)")
 	}
+	time.Sleep(time.Second)
 
 	if comms.receivedMessage == nil {
 		t.Errorf("no message received when a push should occur")
@@ -286,6 +303,10 @@ func TestManager_Delete(t *testing.T) {
 	}
 
 	groupName := "oogabooga"
+	cbChan := make(chan struct{})
+	m.RegisterUpdateCallback(groupName, func(group Group, created, edits, deletions []*id.ID, maxState NotificationState) {
+		cbChan <- struct{}{}
+	})
 
 	reg := registration{
 		Group: groupName,
@@ -307,6 +328,12 @@ func TestManager_Delete(t *testing.T) {
 	if err := m.Delete(nid); err != nil {
 		t.Fatalf("Got an error when deleting something that exists and "+
 			"shouldnt error: %+v", err)
+	}
+	to := time.NewTimer(time.Second)
+	select {
+	case <-cbChan:
+	case <-to.C:
+		t.Fatalf("Failed to receive on cb chan")
 	}
 
 	if comms.receivedMessage != nil {
@@ -337,6 +364,12 @@ func TestManager_Delete(t *testing.T) {
 		t.Fatalf("Got an error when deleting something that exists and "+
 			"shouldnt error: %+v", err)
 	}
+	to.Reset(time.Second)
+	select {
+	case <-cbChan:
+	case <-to.C:
+		t.Fatalf("Failed to receive on cb chan")
+	}
 
 	if comms.receivedMessage == nil {
 		t.Errorf("Message not sent when it should be sent!")
@@ -363,15 +396,16 @@ func TestManager_Delete(t *testing.T) {
 		t.Errorf("Failed to store registeration, should not happen")
 	}
 
-	if err := m.Delete(nid3); err == nil {
-		t.Fatalf("diud not get an error when comms should have errored")
+	if err := m.Delete(nid3); err != nil {
+		t.Fatalf("Comms failures will occur in the handler thread and should not affect the delete call")
 	}
+	time.Sleep(time.Second)
 
 	if comms.receivedMessage == nil {
 		t.Errorf("Message not sent when it should be sent!")
 	}
 
-	hasNotif(mInternal, nid3, groupName, t)
+	hasNotif(mInternal, nid3, groupName, false, t)
 }
 
 func TestManager_registerNotification(t *testing.T) {
@@ -454,14 +488,17 @@ func notHasNotif(mInternal *manager, nid *id.ID, group string, t *testing.T) {
 	}
 }
 
-func hasNotif(mInternal *manager, nid *id.ID, group string, t *testing.T) {
+func hasNotif(mInternal *manager, nid *id.ID, group string, confirmed bool, t *testing.T) {
 	if _, err := mInternal.remote.GetMapElement(notificationsMap,
 		makeElementName(nid), notificationsMapVersion); err != nil {
 		t.Errorf("did not get an element from remote when it should exist")
 	}
-
-	if _, exists := mInternal.notifications[*nid]; !exists {
+	reg, exists := mInternal.notifications[*nid]
+	if !exists {
 		t.Errorf("notification does not exists when it should")
+	}
+	if reg.Confirmed != confirmed {
+		t.Errorf("Expected registration confirmation status to be %+v, instead it was %+v", confirmed, reg.Confirmed)
 	}
 
 	g, exists := mInternal.group[group]

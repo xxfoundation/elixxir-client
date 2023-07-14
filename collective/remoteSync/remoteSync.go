@@ -1,46 +1,52 @@
 package remoteSync
 
 import (
-	"errors"
-	jww "github.com/spf13/jwalterweatherman"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/collective"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/remoteSync/client"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
-const errNotLoggedIn = "must log in before using remoteSync features"
+var errNotLoggedIn = errors.New("no storage registered for the token")
 
-type Param struct {
-	Username, Password, Path string
-
-	PasswordSalt, RsPub []byte
-
-	RsId   *id.ID
-	RsHost *connect.Host
-}
-
+// manager is an internal struct which implements the RemoteStore interface
+// and stores info surrounding a Remote Sync server.
 type manager struct {
-	params  Param
-	rsComms *client.Comms
-	token   string
+	rsComms Comms
+	rsHost  *connect.Host
+	rng     csprng.Source
+
+	username, password, path string
+
+	token string
 }
 
-func GetRemoteSyncManager(params Param) (collective.RemoteStore, error) {
-	if params.Username == "" || params.Path == "" || params.Password == "" || params.PasswordSalt == nil ||
-		params.RsId == nil || params.RsHost == nil {
-		return nil, errors.New("must fill out all params for remote sync")
+// GetRemoteSyncManager returns a collective.RemoteStore interface which can be used to interact with a remote sync server.
+func GetRemoteSyncManager(username, password, path string, rsCert []byte, rsId *id.ID, rsHost *connect.Host, rng csprng.Source) (collective.RemoteStore, error) {
+	if username == "" || path == "" || password == "" ||
+		rsId == nil || rsHost == nil {
+		return nil, errors.New("Critical input for remote sync missing")
 	}
-	cc, err := client.NewClientComms(params.RsId, params.RsPub, nil, params.PasswordSalt)
+	cc, err := client.NewClientComms(rsId, rsCert, nil, cmix.NewSalt(rng, 32))
 	if err != nil {
 		return nil, err
 	}
 
-	m := &manager{rsComms: cc, params: params}
-	err = m.login(params.Username, params.Password, params.PasswordSalt)
+	m := &manager{
+		rng:      rng,
+		rsComms:  cc,
+		rsHost:   rsHost,
+		username: username,
+		password: password,
+		path:     path,
+	}
+	err = m.login()
 	if err != nil {
 		return nil, err
 	}
@@ -48,88 +54,103 @@ func GetRemoteSyncManager(params Param) (collective.RemoteStore, error) {
 	return m, nil
 }
 
-func (m *manager) login(username, password string, salt []byte) error {
+// login is an internal function which fetches a token on start or if the current one is invalid.
+func (m *manager) login() error {
+	salt := cmix.NewSalt(m.rng, 32)
 	h := hash.CMixHash.New()
-	h.Write([]byte(password))
+	h.Write([]byte(m.password))
 	h.Write(salt)
 	passwordHash := h.Sum(nil)
 
-	resp, err := m.rsComms.Login(m.params.RsHost, &pb.RsAuthenticationRequest{Username: username, PasswordHash: passwordHash, Salt: salt})
+	resp, err := m.rsComms.Login(m.rsHost, &pb.RsAuthenticationRequest{Username: m.username, PasswordHash: passwordHash, Salt: salt})
 	if err != nil {
 		return err
 	}
 	m.token = resp.GetToken()
-	expiresAt := time.Unix(0, resp.GetExpiresAt())
-	go func() {
-		time.Sleep(time.Until(expiresAt))
-		m.token = ""
-		err = m.login(username, password, salt)
-		if err != nil {
-			jww.ERROR.Printf("Failed to log in after token expiry: %+v", err)
-		}
-	}()
 	return nil
 }
 
+// Read a resource from a path on a remote sync server.
 func (m *manager) Read(path string) ([]byte, error) {
-	if m.token == "" {
-		return nil, errors.New(errNotLoggedIn)
-	}
-	resp, err := m.rsComms.Read(m.params.RsHost, &pb.RsReadRequest{Path: path, Token: m.token})
+	resp, err := m.rsComms.Read(m.rsHost, &pb.RsReadRequest{Path: path, Token: m.token})
 	if err != nil {
+		if errors.Is(err, errNotLoggedIn) {
+			loginError := m.login()
+			if loginError != nil {
+				return nil, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+			}
+			return m.Read(path)
+		}
 		return nil, err
 	}
 	return resp.Data, nil
 }
 
+// Write data to a path on a remote sync server
 func (m *manager) Write(path string, data []byte) error {
-	if m.token == "" {
-		return errors.New(errNotLoggedIn)
-	}
-	resp, err := m.rsComms.Write(m.params.RsHost, &pb.RsWriteRequest{
+	_, err := m.rsComms.Write(m.rsHost, &pb.RsWriteRequest{
 		Path:  path,
 		Data:  data,
 		Token: m.token,
 	})
 	if err != nil {
+		if errors.Is(err, errNotLoggedIn) {
+			loginError := m.login()
+			if loginError != nil {
+				return errors.Errorf("Failed to read due to failed login: %+v", loginError)
+			}
+			return m.Write(path, data)
+		}
 		return err
-	} else if resp.Error != "" {
-		return errors.New(resp.Error)
 	}
 	return nil
 }
 
+// GetLastModified time for a path on a remote sync server.
 func (m *manager) GetLastModified(path string) (time.Time, error) {
-	if m.token == "" {
-		return time.Time{}, errors.New(errNotLoggedIn)
-	}
-	resp, err := m.rsComms.GetLastModified(m.params.RsHost, &pb.RsReadRequest{Path: path, Token: m.token})
+	resp, err := m.rsComms.GetLastModified(m.rsHost, &pb.RsReadRequest{Path: path, Token: m.token})
 	if err != nil {
+		if errors.Is(err, errNotLoggedIn) {
+			loginError := m.login()
+			if loginError != nil {
+				return time.Time{}, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+			}
+			return m.GetLastModified(path)
+		}
 		return time.Time{}, err
 	}
 
 	return time.Unix(0, resp.GetTimestamp()), nil
 }
 
+// GetLastWrite time for a remote sync server.
 func (m *manager) GetLastWrite() (time.Time, error) {
-	if m.token == "" {
-		return time.Time{}, errors.New(errNotLoggedIn)
-	}
-	resp, err := m.rsComms.GetLastWrite(m.params.RsHost, &pb.RsLastWriteRequest{Token: m.token})
+	resp, err := m.rsComms.GetLastWrite(m.rsHost, &pb.RsLastWriteRequest{Token: m.token})
 	if err != nil {
+		if errors.Is(err, errNotLoggedIn) {
+			loginError := m.login()
+			if loginError != nil {
+				return time.Time{}, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+			}
+			return m.GetLastWrite()
+		}
 		return time.Time{}, err
 	}
 
 	return time.Unix(0, resp.GetTimestamp()), nil
 }
 
+// ReadDir returns all data for a path on a remote sync server.
 func (m *manager) ReadDir(path string) ([]string, error) {
-	if m.token == "" {
-		return nil, errors.New(errNotLoggedIn)
-	}
-
-	resp, err := m.rsComms.ReadDir(m.params.RsHost, &pb.RsReadRequest{Path: path, Token: m.token})
+	resp, err := m.rsComms.ReadDir(m.rsHost, &pb.RsReadRequest{Path: path, Token: m.token})
 	if err != nil {
+		if errors.Is(err, errNotLoggedIn) {
+			loginError := m.login()
+			if loginError != nil {
+				return nil, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+			}
+			return m.ReadDir(path)
+		}
 		return nil, err
 	}
 

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var errNotLoggedIn = errors.New("no storage registered for the token")
+var errNotLoggedIn = errors.New("Invalid token, log in required")
 
 // manager is an internal struct which implements the RemoteStore interface
 // and stores info surrounding a Remote Sync server.

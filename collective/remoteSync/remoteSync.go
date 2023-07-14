@@ -27,7 +27,10 @@ type manager struct {
 	token string
 }
 
-// GetRemoteSyncManager returns a collective.RemoteStore interface which can be used to interact with a remote sync server.
+// GetRemoteSyncManager returns a collective.RemoteStore interface which can
+// be used to interact with a remote sync server. This accepts a username and
+// password for the remote sync server, the path where resources should be stored
+// on the server, an ID and host for the server connection, and an RNG source.
 func GetRemoteSyncManager(username, password, path string, rsCert []byte, rsId *id.ID, rsHost *connect.Host, rng csprng.Source) (collective.RemoteStore, error) {
 	if username == "" || path == "" || password == "" ||
 		rsId == nil || rsHost == nil {

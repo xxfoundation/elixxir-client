@@ -14,7 +14,7 @@ type mockRemoteSyncComms struct {
 
 func (mrsc *mockRemoteSyncComms) Login(host *connect.Host, msg *pb.RsAuthenticationRequest) (*pb.RsAuthenticationResponse, error) {
 	mrsc.loggedIn = true
-	return &pb.RsAuthenticationResponse{Token: "token", ExpiresAt: 1024}, nil
+	return &pb.RsAuthenticationResponse{Token: []byte("token"), ExpiresAt: 1024}, nil
 }
 func (mrsc *mockRemoteSyncComms) Read(host *connect.Host, msg *pb.RsReadRequest) (*pb.RsReadResponse, error) {
 	if !mrsc.loggedIn {

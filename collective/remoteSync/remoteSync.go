@@ -25,7 +25,7 @@ type manager struct {
 
 	username, password, path string
 
-	token string
+	token []byte
 }
 
 // NewRemoteSyncStore returns a collective.RemoteStore interface which can

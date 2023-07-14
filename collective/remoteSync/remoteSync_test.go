@@ -47,14 +47,73 @@ func (mrsc *mockRemoteSyncComms) ReadDir(host *connect.Host, msg *pb.RsReadReque
 	return &pb.RsReadDirResponse{}, nil
 }
 
-// Basic test to make sure manager will log in when the specified error is received
-func TestManager_Login(t *testing.T) {
+func TestManager_Read(t *testing.T) {
 	m := manager{
 		rng:     csprng.NewSystemRNG(),
 		rsComms: &mockRemoteSyncComms{},
 	}
 
 	_, err := m.Read("/path/to/resource")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.rsComms.(*mockRemoteSyncComms).loggedIn {
+		t.Fatal("Did not log in when error received")
+	}
+}
+
+func TestManager_Write(t *testing.T) {
+	m := manager{
+		rng:     csprng.NewSystemRNG(),
+		rsComms: &mockRemoteSyncComms{},
+	}
+
+	err := m.Write("/path/to/resource", []byte("Data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.rsComms.(*mockRemoteSyncComms).loggedIn {
+		t.Fatal("Did not log in when error received")
+	}
+}
+
+func TestManager_ReadDir(t *testing.T) {
+	m := manager{
+		rng:     csprng.NewSystemRNG(),
+		rsComms: &mockRemoteSyncComms{},
+	}
+
+	_, err := m.ReadDir("/path/to/resource")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.rsComms.(*mockRemoteSyncComms).loggedIn {
+		t.Fatal("Did not log in when error received")
+	}
+}
+
+func TestManager_GetLastModified(t *testing.T) {
+	m := manager{
+		rng:     csprng.NewSystemRNG(),
+		rsComms: &mockRemoteSyncComms{},
+	}
+
+	_, err := m.GetLastModified("/path/to/resource")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.rsComms.(*mockRemoteSyncComms).loggedIn {
+		t.Fatal("Did not log in when error received")
+	}
+}
+
+func TestManager_GetLastWrite(t *testing.T) {
+	m := manager{
+		rng:     csprng.NewSystemRNG(),
+		rsComms: &mockRemoteSyncComms{},
+	}
+
+	_, err := m.GetLastWrite()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,7 +6,7 @@ import (
 	"gitlab.com/xx_network/comms/messages"
 )
 
-// Comms interface for remote sync
+// Comms interface for remote sync, allowing us to mock the comms for testing
 type Comms interface {
 	Login(host *connect.Host, msg *pb.RsAuthenticationRequest) (*pb.RsAuthenticationResponse, error)
 	Read(host *connect.Host, msg *pb.RsReadRequest) (*pb.RsReadResponse, error)

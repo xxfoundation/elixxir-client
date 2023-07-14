@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// This error matches the one returned by the remote sync server repo
 var errNotLoggedIn = errors.New("Invalid token, login required")
 
 // manager is an internal struct which implements the RemoteStore interface
@@ -27,11 +28,11 @@ type manager struct {
 	token string
 }
 
-// GetRemoteSyncManager returns a collective.RemoteStore interface which can
+// NewRemoteSyncStore returns a collective.RemoteStore interface which can
 // be used to interact with a remote sync server. This accepts a username and
 // password for the remote sync server, the path where resources should be stored
 // on the server, an ID and host for the server connection, and an RNG source.
-func GetRemoteSyncManager(username, password, path string, rsCert []byte, rsId *id.ID, rsHost *connect.Host, rng csprng.Source) (collective.RemoteStore, error) {
+func NewRemoteSyncStore(username, password, path string, rsCert []byte, rsId *id.ID, rsHost *connect.Host, rng csprng.Source) (collective.RemoteStore, error) {
 	if username == "" || path == "" || password == "" ||
 		rsId == nil || rsHost == nil {
 		return nil, errors.New("Critical input for remote sync missing")
@@ -100,7 +101,7 @@ func (m *manager) Write(path string, data []byte) error {
 		if errors.Is(err, errNotLoggedIn) {
 			loginError := m.login()
 			if loginError != nil {
-				return errors.Errorf("Failed to read due to failed login: %+v", loginError)
+				return errors.Errorf("Failed to write due to failed login: %+v", loginError)
 			}
 			return m.Write(path, data)
 		}
@@ -116,7 +117,7 @@ func (m *manager) GetLastModified(path string) (time.Time, error) {
 		if errors.Is(err, errNotLoggedIn) {
 			loginError := m.login()
 			if loginError != nil {
-				return time.Time{}, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+				return time.Time{}, errors.Errorf("Failed to get last modified due to failed login: %+v", loginError)
 			}
 			return m.GetLastModified(path)
 		}
@@ -133,7 +134,7 @@ func (m *manager) GetLastWrite() (time.Time, error) {
 		if errors.Is(err, errNotLoggedIn) {
 			loginError := m.login()
 			if loginError != nil {
-				return time.Time{}, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+				return time.Time{}, errors.Errorf("Failed to get last write due to failed login: %+v", loginError)
 			}
 			return m.GetLastWrite()
 		}
@@ -150,7 +151,7 @@ func (m *manager) ReadDir(path string) ([]string, error) {
 		if errors.Is(err, errNotLoggedIn) {
 			loginError := m.login()
 			if loginError != nil {
-				return nil, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+				return nil, errors.Errorf("Failed to read dir due to failed login: %+v", loginError)
 			}
 			return m.ReadDir(path)
 		}

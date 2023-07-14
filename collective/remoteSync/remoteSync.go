@@ -16,9 +16,8 @@ const errNotLoggedIn = "must log in before using remoteSync features"
 
 type Param struct {
 	Username, Password, Path string
-	Salt                     []byte
 
-	CommsPub, CommsPriv []byte
+	PasswordSalt, RsPub []byte
 
 	RsId   *id.ID
 	RsHost *connect.Host
@@ -31,17 +30,17 @@ type manager struct {
 }
 
 func GetRemoteSyncManager(params Param) (collective.RemoteStore, error) {
-	if params.Username == "" || params.Path == "" || params.Password == "" || params.Salt == nil ||
+	if params.Username == "" || params.Path == "" || params.Password == "" || params.PasswordSalt == nil ||
 		params.RsId == nil || params.RsHost == nil {
 		return nil, errors.New("must fill out all params for remote sync")
 	}
-	cc, err := client.NewClientComms(params.RsId, params.CommsPub, params.CommsPriv, params.Salt)
+	cc, err := client.NewClientComms(params.RsId, params.RsPub, nil, params.PasswordSalt)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &manager{rsComms: cc, params: params}
-	err = m.login(params.Username, params.Password, params.Salt)
+	err = m.login(params.Username, params.Password, params.PasswordSalt)
 	if err != nil {
 		return nil, err
 	}

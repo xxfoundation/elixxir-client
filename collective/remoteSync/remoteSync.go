@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/v4/collective"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/remoteSync/client"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -14,8 +15,8 @@ import (
 const errNotLoggedIn = "must log in before using remoteSync features"
 
 type Param struct {
-	Username, Path     string
-	PasswordHash, Salt []byte
+	Username, Password, Path string
+	Salt                     []byte
 
 	CommsPub, CommsPriv []byte
 
@@ -30,7 +31,7 @@ type manager struct {
 }
 
 func GetRemoteSyncManager(params Param) (collective.RemoteStore, error) {
-	if params.Username == "" || params.Path == "" || params.PasswordHash == nil || params.Salt == nil ||
+	if params.Username == "" || params.Path == "" || params.Password == "" || params.Salt == nil ||
 		params.RsId == nil || params.RsHost == nil {
 		return nil, errors.New("must fill out all params for remote sync")
 	}
@@ -40,7 +41,7 @@ func GetRemoteSyncManager(params Param) (collective.RemoteStore, error) {
 	}
 
 	m := &manager{rsComms: cc, params: params}
-	err = m.login(params.Username, params.PasswordHash, params.Salt)
+	err = m.login(params.Username, params.Password, params.Salt)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,12 @@ func GetRemoteSyncManager(params Param) (collective.RemoteStore, error) {
 	return m, nil
 }
 
-func (m *manager) login(username string, passwordHash, salt []byte) error {
+func (m *manager) login(username, password string, salt []byte) error {
+	h := hash.CMixHash.New()
+	h.Write([]byte(password))
+	h.Write(salt)
+	passwordHash := h.Sum(nil)
+
 	resp, err := m.rsComms.Login(m.params.RsHost, &pb.RsAuthenticationRequest{Username: username, PasswordHash: passwordHash, Salt: salt})
 	if err != nil {
 		return err
@@ -58,7 +64,7 @@ func (m *manager) login(username string, passwordHash, salt []byte) error {
 	go func() {
 		time.Sleep(time.Until(expiresAt))
 		m.token = ""
-		err = m.login(username, passwordHash, salt)
+		err = m.login(username, password, salt)
 		if err != nil {
 			jww.ERROR.Printf("Failed to log in after token expiry: %+v", err)
 		}

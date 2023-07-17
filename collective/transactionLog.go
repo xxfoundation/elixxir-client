@@ -104,8 +104,8 @@ type transaction struct {
 // not Write to a remote.
 //
 // Parameters:
-//   - path - the file path that will be used to Write transactions, both locally
-//     and remotely.
+//   - path - the remote storage prefix path that will be used to
+//     write transactions
 //   - localFS - a filesystem [FileIO] adhering object which will be
 //     used to Write the mutate log to file.
 //   - appendCallback - the callback used to report the status of writing to

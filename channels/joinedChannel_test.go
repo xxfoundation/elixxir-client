@@ -256,7 +256,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 	}
 
 	err = m.addChannel(ch, true)
-	if err == nil || err != ChannelAlreadyExistsErr {
+	if err == nil || err.Error() != ChannelAlreadyExistsErr.Error() {
 		t.Errorf("Received incorrect error when adding a channel that already "+
 			"exists.\nexpected: %s\nreceived: %+v", ChannelAlreadyExistsErr, err)
 	}

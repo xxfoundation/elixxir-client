@@ -39,12 +39,15 @@ func TestSynchronized(t *testing.T) {
 	remote := &mockRemote{
 		data: make(map[string][]byte, 0),
 	}
-	_, err = OpenSynchronizedCmix(storageDir, password, remote,
+
+	prefixPath := "thePrefixPath/"
+
+	_, err = OpenSynchronizedCmix(storageDir, prefixPath, password, remote,
 		syncPrefixes)
 	require.NoError(t, err)
 
 	// Initialize once more to show that it can init more than once
-	_, err = OpenSynchronizedCmix(storageDir, password, remote,
+	_, err = OpenSynchronizedCmix(storageDir, prefixPath, password, remote,
 		syncPrefixes)
 	require.NoError(t, err)
 

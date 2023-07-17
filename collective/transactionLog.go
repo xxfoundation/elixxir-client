@@ -162,6 +162,7 @@ func newRemoteWriter(path string, deviceID InstanceID,
 			}
 		}
 	}
+	jww.INFO.Printf("[COL] Transaction Log Writer initialized (%s)", myPath)
 	return tx, nil
 }
 

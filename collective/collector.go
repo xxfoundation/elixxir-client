@@ -130,6 +130,9 @@ func newCollector(myID InstanceID, syncPath string,
 
 	c.loadLastMutationTime()
 
+	jww.INFO.Printf("[COL] Collector Initialized "+
+		"(path: %s, keyID: %s: myID: %s", c.syncPath, c.keyID, c.myID)
+
 	return c
 
 }

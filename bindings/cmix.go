@@ -67,6 +67,9 @@ func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
 	password []byte,
 	remote RemoteStore) error {
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
+	jww.INFO.Printf("[BINDINGS] NewSynchronizedCmix, "+
+		"storageDir: %s, remoteStoragePathPrefix: %s",
+		storageDir, remoteStoragePathPrefix)
 	return xxdk.NewSynchronizedCmix(ndfJSON, storageDir,
 		remoteStoragePathPrefix, password,
 		wrappedRemote)
@@ -124,6 +127,9 @@ func LoadSynchronizedCmix(storageDir, remoteStoragePathPrefix string, password [
 	}
 
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
+	jww.INFO.Printf("[BINDINGS] LoadSynchronizedCmix, "+
+		"storageDir: %s, remoteStoragePathPrefix: %s",
+		storageDir, remoteStoragePathPrefix)
 
 	net, err := xxdk.LoadSynchronizedCmix(storageDir,
 		remoteStoragePathPrefix, password,

@@ -164,8 +164,8 @@ func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
 			baseNewSynchronizedCmixErr)
 	}
 
-	rkv, err := collective.CloneFromRemoteStorage(storageDir, password,
-		remote, kv, rngStreamGen)
+	rkv, err := collective.CloneFromRemoteStorage(remoteStoragePathPrefix,
+		password, remote, kv, rngStreamGen)
 	if err != nil {
 		return errors.Wrapf(err, "%s: CloneFromRemoteStorage",
 			baseNewSynchronizedCmixErr)

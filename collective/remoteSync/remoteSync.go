@@ -1,7 +1,10 @@
 package remoteSync
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
+
 	"gitlab.com/elixxir/client/v4/collective"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/remoteSync/client"
@@ -10,7 +13,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // This error matches the one returned by the remote sync server repo
@@ -23,17 +25,18 @@ type manager struct {
 	rsHost  *connect.Host
 	rng     csprng.Source
 
-	username, password, path string
+	username, password string
 
 	token []byte
 }
 
 // NewRemoteSyncStore returns a collective.RemoteStore interface which can
 // be used to interact with a remote sync server. This accepts a username and
-// password for the remote sync server, the path where resources should be stored
-// on the server, an ID and host for the server connection, and an RNG source.
-func NewRemoteSyncStore(username, password, path string, rsCert []byte, rsId *id.ID, rsHost *connect.Host, rng csprng.Source) (collective.RemoteStore, error) {
-	if username == "" || path == "" || password == "" ||
+// password for the remote sync server, an ID, a host for the server connection,
+// and an RNG source.
+func NewRemoteSyncStore(username, password string, rsCert []byte, rsId *id.ID,
+	rsHost *connect.Host, rng csprng.Source) (collective.RemoteStore, error) {
+	if username == "" || password == "" ||
 		rsId == nil || rsHost == nil {
 		return nil, errors.New("Critical input for remote sync missing")
 	}
@@ -48,7 +51,6 @@ func NewRemoteSyncStore(username, password, path string, rsCert []byte, rsId *id
 		rsHost:   rsHost,
 		username: username,
 		password: password,
-		path:     path,
 	}
 	err = m.login()
 	if err != nil {
@@ -58,7 +60,8 @@ func NewRemoteSyncStore(username, password, path string, rsCert []byte, rsId *id
 	return m, nil
 }
 
-// login is an internal function which fetches a token on start or if the current one is invalid.
+// login is an internal function which fetches a token on start or if the
+// current one is invalid.
 func (m *manager) login() error {
 	salt := cmix.NewSalt(m.rng, 32)
 	h := hash.CMixHash.New()
@@ -66,7 +69,11 @@ func (m *manager) login() error {
 	h.Write(salt)
 	passwordHash := h.Sum(nil)
 
-	resp, err := m.rsComms.Login(m.rsHost, &pb.RsAuthenticationRequest{Username: m.username, PasswordHash: passwordHash, Salt: salt})
+	resp, err := m.rsComms.Login(m.rsHost, &pb.RsAuthenticationRequest{
+		Username:     m.username,
+		PasswordHash: passwordHash,
+		Salt:         salt,
+	})
 	if err != nil {
 		return err
 	}
@@ -74,14 +81,17 @@ func (m *manager) login() error {
 	return nil
 }
 
-// Read a resource from a path on a remote sync server.
+// Read reads a resource from a path on the remote sync server.
 func (m *manager) Read(path string) ([]byte, error) {
-	resp, err := m.rsComms.Read(m.rsHost, &pb.RsReadRequest{Path: path, Token: m.token})
+	resp, err := m.rsComms.Read(m.rsHost, &pb.RsReadRequest{
+		Path:  path,
+		Token: m.token,
+	})
 	if err != nil {
 		if errors.Is(err, errNotLoggedIn) {
-			loginError := m.login()
-			if loginError != nil {
-				return nil, errors.Errorf("Failed to read due to failed login: %+v", loginError)
+			if err = m.login(); err != nil {
+				return nil, errors.Errorf(
+					"Failed to read due to failed login: %+v", err)
 			}
 			return m.Read(path)
 		}
@@ -90,7 +100,7 @@ func (m *manager) Read(path string) ([]byte, error) {
 	return resp.Data, nil
 }
 
-// Write data to a path on a remote sync server
+// Write writes the data to a path on a remote sync server.
 func (m *manager) Write(path string, data []byte) error {
 	_, err := m.rsComms.Write(m.rsHost, &pb.RsWriteRequest{
 		Path:  path,
@@ -99,9 +109,9 @@ func (m *manager) Write(path string, data []byte) error {
 	})
 	if err != nil {
 		if errors.Is(err, errNotLoggedIn) {
-			loginError := m.login()
-			if loginError != nil {
-				return errors.Errorf("Failed to write due to failed login: %+v", loginError)
+			if err = m.login(); err != nil {
+				return errors.Errorf(
+					"Failed to write due to failed login: %+v", err)
 			}
 			return m.Write(path, data)
 		}
@@ -110,14 +120,18 @@ func (m *manager) Write(path string, data []byte) error {
 	return nil
 }
 
-// GetLastModified time for a path on a remote sync server.
+// GetLastModified returns the time that the path on the remote sync server was
+// last modified.
 func (m *manager) GetLastModified(path string) (time.Time, error) {
-	resp, err := m.rsComms.GetLastModified(m.rsHost, &pb.RsReadRequest{Path: path, Token: m.token})
+	resp, err := m.rsComms.GetLastModified(m.rsHost, &pb.RsReadRequest{
+		Path:  path,
+		Token: m.token,
+	})
 	if err != nil {
 		if errors.Is(err, errNotLoggedIn) {
-			loginError := m.login()
-			if loginError != nil {
-				return time.Time{}, errors.Errorf("Failed to get last modified due to failed login: %+v", loginError)
+			if err = m.login(); err != nil {
+				return time.Time{}, errors.Errorf(
+					"Failed to get last modified due to failed login: %+v", err)
 			}
 			return m.GetLastModified(path)
 		}
@@ -129,12 +143,13 @@ func (m *manager) GetLastModified(path string) (time.Time, error) {
 
 // GetLastWrite time for a remote sync server.
 func (m *manager) GetLastWrite() (time.Time, error) {
-	resp, err := m.rsComms.GetLastWrite(m.rsHost, &pb.RsLastWriteRequest{Token: m.token})
+	resp, err := m.rsComms.GetLastWrite(
+		m.rsHost, &pb.RsLastWriteRequest{Token: m.token})
 	if err != nil {
 		if errors.Is(err, errNotLoggedIn) {
-			loginError := m.login()
-			if loginError != nil {
-				return time.Time{}, errors.Errorf("Failed to get last write due to failed login: %+v", loginError)
+			if err = m.login(); err != nil {
+				return time.Time{}, errors.Errorf(
+					"Failed to get last write due to failed login: %+v", err)
 			}
 			return m.GetLastWrite()
 		}
@@ -146,12 +161,15 @@ func (m *manager) GetLastWrite() (time.Time, error) {
 
 // ReadDir returns all data for a path on a remote sync server.
 func (m *manager) ReadDir(path string) ([]string, error) {
-	resp, err := m.rsComms.ReadDir(m.rsHost, &pb.RsReadRequest{Path: path, Token: m.token})
+	resp, err := m.rsComms.ReadDir(m.rsHost, &pb.RsReadRequest{
+		Path:  path,
+		Token: m.token,
+	})
 	if err != nil {
 		if errors.Is(err, errNotLoggedIn) {
-			loginError := m.login()
-			if loginError != nil {
-				return nil, errors.Errorf("Failed to read dir due to failed login: %+v", loginError)
+			if err = m.login(); err != nil {
+				return nil, errors.Errorf(
+					"Failed to read dir due to failed login: %+v", err)
 			}
 			return m.ReadDir(path)
 		}

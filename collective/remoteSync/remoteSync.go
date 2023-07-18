@@ -36,8 +36,7 @@ type manager struct {
 // and an RNG source.
 func NewRemoteSyncStore(username, password string, rsCert []byte, rsId *id.ID,
 	rsHost *connect.Host, rng csprng.Source) (collective.RemoteStore, error) {
-	if username == "" || password == "" ||
-		rsId == nil || rsHost == nil {
+	if username == "" || password == "" || rsId == nil || rsHost == nil {
 		return nil, errors.New("Critical input for remote sync missing")
 	}
 	cc, err := client.NewClientComms(rsId, rsCert, nil, cmix.NewSalt(rng, 32))

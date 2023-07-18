@@ -919,25 +919,25 @@ func initLog(threshold uint, logPath string) {
 		logOutput, err := os.OpenFile(logPath,
 			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			panic(err.Error())
+			panic(err)
 		}
 		jww.SetLogOutput(logOutput)
 	}
 
 	if threshold > 1 {
-		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+		jww.INFO.Printf("log level set to: TRACE")
 	} else if threshold == 1 {
-		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+		jww.INFO.Printf("log level set to: DEBUG")
 	} else {
-		jww.INFO.Printf("log level set to: INFO")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
+		jww.INFO.Printf("log level set to: INFO")
 	}
 
 	if viper.GetBool(verboseRoundTrackingFlag) {

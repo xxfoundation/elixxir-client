@@ -8,7 +8,8 @@
 package cmd
 
 import (
-	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,7 +39,6 @@ var remoteSyncCmd = &cobra.Command{
 		rngGen := fastRNG.NewStreamGenerator(10, 5, csprng.NewSystemRNG)
 
 		secret := parsePassword(viper.GetString(passwordFlag))
-		remotePath := viper.GetString(syncRemotePath)
 		localPath := viper.GetString(sessionFlag)
 		waitTime := time.Duration(viper.GetUint(waitTimeoutFlag)) * time.Second
 		username := viper.GetString(remoteUsernameFlag)
@@ -74,13 +74,13 @@ var remoteSyncCmd = &cobra.Command{
 		}
 		rng.Close()
 		syncKV, err := collective.SynchronizedKV(
-			remotePath, secret, remote, fsKV, synchronizedPrefixes, rngGen)
+			"", secret, remote, fsKV, synchronizedPrefixes, rngGen)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to create new synchronized KV: %+v", err)
 		}
 
-		key := viper.GetString(syncKey)
-		val := viper.GetString(syncVal)
+		key := viper.GetString(remoteSyncKey)
+		val := viper.GetString(remoteSyncVal)
 
 		// Set up the prefix by splitting on /
 		parts := strings.Split(key, "/")
@@ -95,21 +95,25 @@ var remoteSyncCmd = &cobra.Command{
 				jww.FATAL.Printf("Prefix failure for part %s: %+v", part, err)
 			}
 			jww.INFO.Printf("Prefix Set: %s", kv.GetPrefix())
+			fmt.Printf("Prefix Set: %s\n", kv.GetPrefix())
 		}
 		key = parts[len(parts)-1]
 
 		// Listen on the key
-		waitCh := make(chan bool)
+		waitCh := make(chan struct {
+			old, new *versioned.Object
+			op       versioned.KeyOperation
+		})
 		cb := func(old, new *versioned.Object, op versioned.KeyOperation) {
-			oldJSON, _ := json.Marshal(old)
-			newJSON, _ := json.Marshal(new)
-			jww.INFO.Printf("Update received for %s (%d): %s -> %s",
-				key, op, oldJSON, newJSON)
-			waitCh <- false
+			waitCh <- struct {
+				old, new *versioned.Object
+				op       versioned.KeyOperation
+			}{old: old, new: new, op: op}
 		}
 		err = kv.ListenOnRemoteKey(parts[len(parts)-1], 0, cb, false)
 		if err != nil {
-			jww.FATAL.Printf("Failed to listen on remote key: %+v", err)
+			jww.FATAL.Printf("Failed to listen on remote key %q: %+v",
+				parts[len(parts)-1], err)
 		}
 
 		// Begin synchronization
@@ -120,13 +124,17 @@ var remoteSyncCmd = &cobra.Command{
 
 		// Set the actual key if a value exists
 		if val != "" {
-			err = kv.Set(key, &versioned.Object{
+			obj := &versioned.Object{
 				Timestamp: netTime.Now(),
 				Version:   0,
 				Data:      []byte(val),
-			})
+			}
+			err = kv.Set(key, obj)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to set object to key %q: %+v", key, err)
+			} else {
+				jww.INFO.Printf("Set object to key %q: %s", key, voStr(obj))
+				fmt.Printf("Set object to key %q: %s\n", key, voStrNoTS(obj))
 			}
 			time.Sleep(6 * time.Second)
 		}
@@ -142,18 +150,20 @@ var remoteSyncCmd = &cobra.Command{
 			case <-time.After(waitTime):
 				jww.ERROR.Printf(
 					"Timed out after %s waiting for key update.", waitTime)
-			case <-waitCh:
-				jww.INFO.Printf("Got key update")
+			case update := <-waitCh:
+				jww.INFO.Printf("Update received for %q (%s): %s -> %s",
+					key, update.op, voStr(update.old), voStr(update.new))
+				fmt.Printf("Update received for %q (%s): %s -> %s\n",
+					key, update.op, voStrNoTS(update.old), voStrNoTS(update.new))
 			}
 		}
 
 		endVal, err := kv.Get(key, 0)
 		if err != nil {
-			jww.INFO.Printf("Get end value error: %v", err)
+			jww.ERROR.Printf("Get end value error: %+v", err)
 		} else {
-			evJSON, _ := json.Marshal(endVal)
-			jww.INFO.Printf("End Value for %s: %s", key, evJSON)
-			jww.INFO.Printf("Data Decoded: %s", endVal.Data)
+			jww.INFO.Printf("End Value for %q: %s", key, voStr(endVal))
+			fmt.Printf("End Value for %q: %s\n", key, voStrNoTS(endVal))
 		}
 		err = stopSync.Close()
 		if err != nil {
@@ -167,6 +177,9 @@ var remoteSyncCmd = &cobra.Command{
 }
 
 const (
+	remoteSyncKey = "remoteKey"
+	remoteSyncVal = "remoteValue"
+
 	remoteSyncServerAddressFlag = "remoteSyncServerAddress"
 	remoteCertPathFlag          = "remoteCertPath"
 	remoteUsernameFlag          = "remoteUsername"
@@ -175,15 +188,12 @@ const (
 
 func init() {
 	flags := remoteSyncCmd.Flags()
-	flags.StringP(syncRemotePath, "r", "RemoteStore",
-		"Synthetic remote storage path, directory on disk")
-	bindFlagHelper(syncRemotePath, remoteSyncCmd)
 
-	flags.StringP(syncKey, "k", "DefaultKey", "Key to set or get")
-	bindFlagHelper(syncKey, remoteSyncCmd)
+	flags.String(remoteSyncKey, "DefaultKey2", "Key to set or get")
+	bindFlagHelper(remoteSyncKey, remoteSyncCmd)
 
-	flags.String(syncVal, "", "Set to value, otherwise get")
-	bindFlagHelper(syncVal, remoteSyncCmd)
+	flags.String(remoteSyncVal, "", "Set to value, otherwise get")
+	bindFlagHelper(remoteSyncVal, remoteSyncCmd)
 
 	flags.String(remoteSyncServerAddressFlag, "0.0.0.0:22841",
 		"Address to remote sync server.")
@@ -198,4 +208,34 @@ func init() {
 	bindFlagHelper(remotePasswordFlag, remoteSyncCmd)
 
 	rootCmd.AddCommand(remoteSyncCmd)
+}
+
+// voStr returns a printable string of the versioned.Object.
+func voStr(vo *versioned.Object) string {
+	if vo == nil {
+		return "nil"
+	}
+
+	fields := []string{
+		"Version:" + strconv.FormatUint(vo.Version, 10),
+		"Timestamp:" + vo.Timestamp.String(),
+		"Data:" + fmt.Sprintf("%q", vo.Data),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
+}
+
+// voStrNoTS returns a printable string of the versioned.Object without the
+// timestamp
+func voStrNoTS(vo *versioned.Object) string {
+	if vo == nil {
+		return "nil"
+	}
+
+	fields := []string{
+		"Version:" + strconv.FormatUint(vo.Version, 10),
+		"Data:" + fmt.Sprintf("%q", vo.Data),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
 }

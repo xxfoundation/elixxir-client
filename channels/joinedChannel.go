@@ -10,6 +10,7 @@ package channels
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/pkg/errors"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -146,7 +147,7 @@ func (m *manager) saveChannel(jc *joinedChannel) error {
 func (m *manager) addChannelInternal(channel *cryptoBroadcast.Channel,
 	dmEnabled bool) (*joinedChannel, error) {
 	if _, exists := m.channels[*channel.ReceptionID]; exists {
-		return nil, ChannelAlreadyExistsErr
+		return nil, errors.WithStack(ChannelAlreadyExistsErr)
 	}
 
 	b, err := m.broadcastMaker(channel, m.net, m.rng)

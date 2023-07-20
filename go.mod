@@ -14,10 +14,9 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.2
 	gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8
-	gitlab.com/elixxir/comms v0.0.4-0.20230613220741-7de1d2ca4a1c
-	gitlab.com/elixxir/crypto v0.0.7-0.20230629173546-ff07c0c147da
+	gitlab.com/elixxir/crypto v0.0.7-0.20230614183801-387e0cb8e76f
 	gitlab.com/elixxir/ekv v0.3.1-0.20230620180825-838848b00f19
-	gitlab.com/elixxir/primitives v0.0.3-0.20230621175650-17398d0916b9
+	gitlab.com/elixxir/primitives v0.0.3-0.20230613193928-8cf8bdd777ef
 	gitlab.com/elixxir/wasm-utils v0.0.0-20230615222914-185dd3a6fa08
 	gitlab.com/xx_network/comms v0.0.4-0.20230214180029-5387fb85736d
 	gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd
@@ -71,6 +70,7 @@ require (
 	github.com/ttacon/libphonenumber v1.2.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
+	gitlab.com/elixxir/comms v0.0.4-0.20230718154315-08043221466a // indirect
 	gitlab.com/xx_network/ring v0.0.3-0.20220902183151-a7d3b15bc981 // indirect
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
 	gitlab.com/yawning/nyquist.git v0.0.0-20221003103146-de5645224a22 // indirect

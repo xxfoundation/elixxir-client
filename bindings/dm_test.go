@@ -11,13 +11,15 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/dm"
-	"gitlab.com/elixxir/crypto/codename"
-	cryptoDM "gitlab.com/elixxir/crypto/dm"
-	"gitlab.com/xx_network/primitives/id"
 	"io"
 	"math/rand"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/dm"
+	"gitlab.com/elixxir/crypto/codename"
+	cryptoDM "gitlab.com/elixxir/crypto/dm"
+	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Produces example JSON of DmNotificationUpdateJSON to be used for
@@ -59,6 +61,44 @@ func Test_DmBlockedUserJSON(t *testing.T) {
 	buJSON := DmBlockedUserJSON{
 		User:    newPubKey(prng),
 		Blocked: true,
+	}
+
+	data, err := json.MarshalIndent(buJSON, "//  ", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Printf("//  %s\n", data)
+}
+
+// Produces example JSON of DmMessageReceivedJSON to be used for documentation.
+func Test_DmMessageReceivedJSON(t *testing.T) {
+	prng := rand.New(rand.NewSource(623677))
+
+	buJSON := DmMessageReceivedJSON{
+		UUID:               prng.Uint64(),
+		PubKey:             newPubKey(prng),
+		MessageUpdate:      true,
+		ConversationUpdate: true,
+	}
+
+	data, err := json.MarshalIndent(buJSON, "//  ", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Printf("//  %s\n", data)
+}
+
+// Produces example JSON of DmMessageDeletedJSON to be used for documentation.
+func Test_DmMessageDeletedJSON(t *testing.T) {
+	prng := rand.New(rand.NewSource(623677))
+	chID, _ := id.NewRandomID(prng, id.User)
+	msg := make([]byte, 64)
+	prng.Read(msg)
+
+	buJSON := DmMessageDeletedJSON{
+		MessageID: message.DeriveChannelMessageID(chID, prng.Uint64(), msg),
 	}
 
 	data, err := json.MarshalIndent(buJSON, "//  ", "  ")

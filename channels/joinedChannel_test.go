@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	clientCmix "gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -256,7 +258,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 	}
 
 	err = m.addChannel(ch, true)
-	if err == nil || err != ChannelAlreadyExistsErr {
+	if !errors.Is(err, ChannelAlreadyExistsErr) {
 		t.Errorf("Received incorrect error when adding a channel that already "+
 			"exists.\nexpected: %s\nreceived: %+v", ChannelAlreadyExistsErr, err)
 	}

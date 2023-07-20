@@ -443,7 +443,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 	}
 
 	eb := func(path string) (channels.EventModel, error) {
-		return NewEventModel(eventBuilder.Build(path)), nil
+		return newEventModel(eventBuilder.Build(path)), nil
 	}
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
@@ -504,7 +504,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	}
 
 	eb := func(path string) (channels.EventModel, error) {
-		return NewEventModel(eventBuilder.Build(path)), nil
+		return newEventModel(eventBuilder.Build(path)), nil
 	}
 
 	// Load extension builders from singleton
@@ -2017,36 +2017,35 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
-//
-//	 [
-//	   {
-//		    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
-//		    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
-//		    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//		    "allowLists": {
-//		      "allowWithTags": {},
-//		      "allowWithoutTags": {"102":{}, "2":{}}
-//		    }
-//		  },
-//		  {
-//		    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDc3ltSWRlbnRpZmllcg==",
-//		    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
-//		    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//		    "allowLists": {
-//		      "allowWithTags": {},
-//		      "allowWithoutTags": {"1":{}, "40000":{}}
-//		    }
-//		  },
-//		  {
-//		    "identifier": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQDYXN5bUlkZW50aWZpZXI=",
-//		    "channelID": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQD",
-//		    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//		    "allowLists": {
-//		      "allowWithTags": {},
-//		      "allowWithoutTags": {"102":{}, "2":{}}
-//		    }
-//		  }
-//		]
+//  [
+//    {
+//      "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
+//      "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//      "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//      "allowLists": {
+//        "allowWithTags": {},
+//        "allowWithoutTags": {"102": {}, "2": {}}
+//      }
+//    },
+//    {
+//      "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDc3ltSWRlbnRpZmllcg==",
+//      "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//      "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//      "allowLists": {
+//        "allowWithTags": {},
+//        "allowWithoutTags": {"1": {}, "40000": {}}
+//      }
+//    },
+//    {
+//      "identifier": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQDYXN5bUlkZW50aWZpZXI=",
+//      "channelID": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQD",
+//      "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//      "allowLists": {
+//        "allowWithTags": {},
+//        "allowWithoutTags": {"102": {}, "2": {}}
+//      }
+//    }
+//  ]
 //
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].
@@ -2073,12 +2072,12 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 func GetChannelNotificationReportsForMe(notificationFilterJSON []byte,
 	notificationDataCSV string) ([]byte, error) {
 	var nfs []channels.NotificationFilter
-	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil {
+	if err := json.Unmarshal(notificationFilterJSON, &nfs); err != nil || len(nfs) == 0 {
 		// Attempt to unmarshal as the entire NotificationUpdateJSON
 		var nuj NotificationUpdateJSON
 		if err2 := json.Unmarshal(notificationFilterJSON, &nuj); err2 != nil {
-			return nil, errors.Errorf("failed to JSON unmarshal "+
-				"notificationFilterJSON:\n%v\n%v", err, err2)
+			return nil, errors.Errorf(
+				"failed to JSON unmarshal %T:\n%v\n%v", nfs, err, err2)
 		}
 		nfs = nuj.NotificationFilters
 	}
@@ -2602,9 +2601,9 @@ type toEventModel struct {
 	em EventModel
 }
 
-// NewEventModel is a constructor for a toEventModel. This will take in an
+// newEventModel is a constructor for a toEventModel. This will take in an
 // EventModel and wraps it around the toEventModel.
-func NewEventModel(em EventModel) channels.EventModel {
+func newEventModel(em EventModel) channels.EventModel {
 	return &toEventModel{em: em}
 }
 

@@ -85,8 +85,7 @@ var remoteSyncCmd = &cobra.Command{
 		// Set up the prefix by splitting on /
 		parts := strings.Split(key, "/")
 		jww.INFO.Printf("Parts: %s", parts)
-		var kv versioned.KV
-		kv = syncKV
+		var kv versioned.KV = syncKV
 		jww.INFO.Printf("Prefixing: %s", key)
 		for _, part := range parts[:len(parts)-1] {
 			jww.INFO.Printf("Part: %s", part)

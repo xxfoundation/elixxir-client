@@ -110,10 +110,9 @@ var remoteSyncCmd = &cobra.Command{
 				op       versioned.KeyOperation
 			}{old: old, new: new, op: op}
 		}
-		err = kv.ListenOnRemoteKey(parts[len(parts)-1], 0, cb, false)
+		err = kv.ListenOnRemoteKey(key, 0, cb, false)
 		if err != nil {
-			jww.FATAL.Printf("Failed to listen on remote key %q: %+v",
-				parts[len(parts)-1], err)
+			jww.FATAL.Printf("Failed to listen on remote key %q: %+v", key, err)
 		}
 
 		// Begin synchronization

@@ -221,7 +221,7 @@ type dmReceiver struct {
 
 // newDMReceiver is a constructor for a dmReceiver. This will take in an
 // DMReceiver and wraps it around the dmReceiver.
-func newDMReceiver(dr DMReceiver) *dmReceiver {
+func newDMReceiver(dr DMReceiver) dm.EventModel {
 	return &dmReceiver{dr: dr}
 }
 

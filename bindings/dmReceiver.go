@@ -213,22 +213,22 @@ type DMReceiver interface {
 	GetConversations() []byte
 }
 
-// DmReceiver is a wrapper which wraps an existing DMReceiver object and
+// dmReceiver is a wrapper which wraps an existing DMReceiver object and
 // implements [dm.Receiver]
-type DmReceiver struct {
+type dmReceiver struct {
 	dr DMReceiver
 }
 
-// NewDMReceiver is a constructor for a DmReceiver. This will take in an
-// DMReceiver and wraps it around the DmReceiver.
-func NewDMReceiver(dr DMReceiver) *DmReceiver {
-	return &DmReceiver{dr: dr}
+// newDMReceiver is a constructor for a dmReceiver. This will take in an
+// DMReceiver and wraps it around the dmReceiver.
+func newDMReceiver(dr DMReceiver) *dmReceiver {
+	return &dmReceiver{dr: dr}
 }
 
 // Receive is called whenever a direct message is received.
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
-func (dmr *DmReceiver) Receive(messageID message.ID,
+func (dmr *dmReceiver) Receive(messageID message.ID,
 	nickname string, text []byte, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round, mType dm.MessageType,
@@ -243,7 +243,7 @@ func (dmr *DmReceiver) Receive(messageID message.ID,
 // ReceiveText is called whenever a direct message is received.
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
-func (dmr *DmReceiver) ReceiveText(messageID message.ID,
+func (dmr *dmReceiver) ReceiveText(messageID message.ID,
 	nickname, text string, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round,
@@ -261,7 +261,7 @@ func (dmr *DmReceiver) ReceiveText(messageID message.ID,
 //
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer replies.
-func (dmr *DmReceiver) ReceiveReply(messageID message.ID,
+func (dmr *dmReceiver) ReceiveReply(messageID message.ID,
 	reactionTo message.ID, nickname, text string,
 	partnerKey, senderKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time,
@@ -281,7 +281,7 @@ func (dmr *DmReceiver) ReceiveReply(messageID message.ID,
 //
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer reactions.
-func (dmr *DmReceiver) ReceiveReaction(messageID message.ID,
+func (dmr *dmReceiver) ReceiveReaction(messageID message.ID,
 	reactionTo message.ID, nickname, reaction string,
 	partnerKey, senderKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
@@ -295,7 +295,7 @@ func (dmr *DmReceiver) ReceiveReaction(messageID message.ID,
 }
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.
-func (dmr *DmReceiver) UpdateSentStatus(uuid uint64,
+func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 	messageID message.ID, timestamp time.Time, round rounds.Round,
 	status dm.Status) {
 	dmr.dr.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
@@ -305,13 +305,13 @@ func (dmr *DmReceiver) UpdateSentStatus(uuid uint64,
 // DeleteMessage deletes the message with the given message.ID belonging to the
 // sender. If the message exists and belongs to the sender, then it is deleted
 // and DeleteMessage returns true. If it does not exist, it returns false.
-func (dmr *DmReceiver) DeleteMessage(
+func (dmr *dmReceiver) DeleteMessage(
 	messageID message.ID, senderPubKey ed25519.PublicKey) bool {
 	return dmr.dr.DeleteMessage(messageID.Marshal(), senderPubKey)
 }
 
 // GetConversation returns any conversations held by the model (receiver).
-func (dmr *DmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
+func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
 	convoJSON := dmr.dr.GetConversation(senderPubKey)
 	var convo dm.ModelConversation
 	err := json.Unmarshal(convoJSON, &convo)
@@ -323,7 +323,7 @@ func (dmr *DmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.Model
 }
 
 // GetConversations returns any conversations held by the model (receiver).
-func (dmr *DmReceiver) GetConversations() []dm.ModelConversation {
+func (dmr *dmReceiver) GetConversations() []dm.ModelConversation {
 	convoJSON := dmr.dr.GetConversations()
 	var convos []dm.ModelConversation
 	err := json.Unmarshal(convoJSON, &convos)

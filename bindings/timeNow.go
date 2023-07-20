@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// TimeSource is a copy of [netTime.TimeSource]. For some reason, Go bindings
+// only allows this interface, not the one found in netTime.
 type TimeSource interface {
 	NowMs() int64
 }

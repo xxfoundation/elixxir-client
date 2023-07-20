@@ -443,7 +443,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 	}
 
 	eb := func(path string) (channels.EventModel, error) {
-		return NewEventModel(eventBuilder.Build(path)), nil
+		return newEventModel(eventBuilder.Build(path)), nil
 	}
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
@@ -504,7 +504,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	}
 
 	eb := func(path string) (channels.EventModel, error) {
-		return NewEventModel(eventBuilder.Build(path)), nil
+		return newEventModel(eventBuilder.Build(path)), nil
 	}
 
 	// Load extension builders from singleton
@@ -2596,24 +2596,24 @@ type MessageUpdateInfo struct {
 	StatusSet bool
 }
 
-// ToEventModel is a wrapper which wraps an existing channels.EventModel object.
-type ToEventModel struct {
+// toEventModel is a wrapper which wraps an existing channels.EventModel object.
+type toEventModel struct {
 	em EventModel
 }
 
-// NewEventModel is a constructor for a ToEventModel. This will take in an
-// EventModel and wraps it around the ToEventModel.
-func NewEventModel(em EventModel) *ToEventModel {
-	return &ToEventModel{em: em}
+// newEventModel is a constructor for a toEventModel. This will take in an
+// EventModel and wraps it around the toEventModel.
+func newEventModel(em EventModel) *toEventModel {
+	return &toEventModel{em: em}
 }
 
 // JoinChannel is called whenever a channel is joined locally.
-func (tem *ToEventModel) JoinChannel(channel *cryptoBroadcast.Channel) {
+func (tem *toEventModel) JoinChannel(channel *cryptoBroadcast.Channel) {
 	tem.em.JoinChannel(channel.PrettyPrint())
 }
 
 // LeaveChannel is called whenever a channel is left locally.
-func (tem *ToEventModel) LeaveChannel(channelID *id.ID) {
+func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 	tem.em.LeaveChannel(channelID[:])
 }
 
@@ -2633,7 +2633,7 @@ func (tem *ToEventModel) LeaveChannel(channelID *id.ID) {
 //
 // messageType type is included in the call; it will always be [channels.Text]
 // (1) for this call, but it may be required in downstream databases.
-func (tem *ToEventModel) ReceiveMessage(channelID *id.ID,
+func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 	messageID cryptoMessage.ID, nickname, text string, pubKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time, lease time.Duration,
 	round rounds.Round, messageType channels.MessageType,
@@ -2663,7 +2663,7 @@ func (tem *ToEventModel) ReceiveMessage(channelID *id.ID,
 //
 // messageType type is included in the call; it will always be [channels.Text]
 // (1) for this call, but it may be required in downstream databases.
-func (tem *ToEventModel) ReceiveReply(channelID *id.ID, messageID,
+func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID,
 	reactionTo cryptoMessage.ID, nickname, text string,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
@@ -2697,7 +2697,7 @@ func (tem *ToEventModel) ReceiveReply(channelID *id.ID, messageID,
 //
 // messageType type is included in the call; it will always be [channels.Text]
 // (1) for this call, but it may be required in downstream databases.
-func (tem *ToEventModel) ReceiveReaction(channelID *id.ID, messageID,
+func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID,
 	reactionTo cryptoMessage.ID, nickname, reaction string,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
@@ -2718,7 +2718,7 @@ func (tem *ToEventModel) ReceiveReaction(channelID *id.ID, messageID,
 //
 // Returns an error if the message cannot be updated. It must return the error
 // from GetNoMessageErr if the message does not exist.
-func (tem *ToEventModel) UpdateFromUUID(uuid uint64,
+func (tem *toEventModel) UpdateFromUUID(uuid uint64,
 	messageID *cryptoMessage.ID, timestamp *time.Time, round *rounds.Round,
 	pinned, hidden *bool, status *channels.SentStatus) error {
 	var mui MessageUpdateInfo
@@ -2769,7 +2769,7 @@ func (tem *ToEventModel) UpdateFromUUID(uuid uint64,
 //
 // Returns an error if the message cannot be updated. It must return the error
 // from GetNoMessageErr if the message does not exist.
-func (tem *ToEventModel) UpdateFromMessageID(messageID cryptoMessage.ID,
+func (tem *toEventModel) UpdateFromMessageID(messageID cryptoMessage.ID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
 	status *channels.SentStatus) (uint64, error) {
 	var mui MessageUpdateInfo
@@ -2811,7 +2811,7 @@ func (tem *ToEventModel) UpdateFromMessageID(messageID cryptoMessage.ID,
 //
 // Returns an error if the message cannot be gotten. It must return the error
 // from GetNoMessageErr if the message does not exist.
-func (tem *ToEventModel) GetMessage(
+func (tem *toEventModel) GetMessage(
 	messageID cryptoMessage.ID) (channels.ModelMessage, error) {
 	msgJSON, err := tem.em.GetMessage(messageID.Marshal())
 	if err != nil {
@@ -2826,12 +2826,12 @@ func (tem *ToEventModel) GetMessage(
 //
 // Returns an error if the message cannot be deleted. It must return the error
 // from GetNoMessageErr if the message does not exist.
-func (tem *ToEventModel) DeleteMessage(messageID cryptoMessage.ID) error {
+func (tem *toEventModel) DeleteMessage(messageID cryptoMessage.ID) error {
 	return tem.em.DeleteMessage(messageID.Marshal())
 }
 
 // MuteUser is called when the given user is muted or unmuted.
-func (tem *ToEventModel) MuteUser(
+func (tem *toEventModel) MuteUser(
 	channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
 	tem.em.MuteUser(channelID.Marshal(), pubKey, unmute)
 }

@@ -85,7 +85,7 @@ func NewDMClient(cmixID, notificationsID int, privateIdentity []byte,
 	}
 
 	eb := func(path string) (dm.EventModel, error) {
-		return NewDMReceiver(receiverBuilder.Build(path)), nil
+		return newDMReceiver(receiverBuilder.Build(path)), nil
 	}
 
 	// We path to the string of the public key for this user
@@ -334,8 +334,8 @@ func (dmc *DMClient) GetPublicKey() []byte {
 }
 
 // GetToken returns the DM token of this client.
-func (dmc *DMClient) GetToken() uint32 {
-	return dmc.api.GetToken()
+func (dmc *DMClient) GetToken() int64 {
+	return int64(dmc.api.GetToken())
 }
 
 // GetIdentity returns the public identity associated with this client.

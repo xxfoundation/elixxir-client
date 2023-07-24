@@ -139,13 +139,13 @@ const baseNewSynchronizedCmixErr = "failed to create cmix from remote"
 
 // NewSynchronizedCmix clones a Cmix from remote storage
 // Parameters:
-//   - ndfJSON: the NDF file used to connect to the network.
-//   - storageDir: the local directory or path used for the encrypted key value
+//   - ndfJSON - the NDF file used to connect to the network.
+//   - storageDir - the local directory or path used for the encrypted key value
 //     store.
-//   - remoteStoragePathPrefix: the remote "directory" or path prefix used
+//   - remoteStoragePathPrefix - the remote "directory" or path prefix used
 //     by the RemoteStore when reading/writing files.
-//   - password: the pssword used to decrypt the encrypted key value store.
-//   - remote: the RemoteStore implementation to use for multi-device
+//   - password - the pssword used to decrypt the encrypted key value store.
+//   - remote - the RemoteStore implementation to use for multi-device
 //     synchronization.
 func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
 	password []byte, remote collective.RemoteStore) error {

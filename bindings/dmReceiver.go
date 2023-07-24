@@ -219,9 +219,9 @@ type dmReceiver struct {
 	dr DMReceiver
 }
 
-// NewDMReceiver is a constructor for a dmReceiver. This will take in an
+// newDMReceiver is a constructor for a dmReceiver. This will take in an
 // DMReceiver and wraps it around the dmReceiver.
-func NewDMReceiver(dr DMReceiver) dm.EventModel {
+func newDMReceiver(dr DMReceiver) dm.EventModel {
 	return &dmReceiver{dr: dr}
 }
 
@@ -310,8 +310,7 @@ func (dmr *dmReceiver) DeleteMessage(
 	return dmr.dr.DeleteMessage(messageID.Marshal(), senderPubKey)
 }
 
-// GetConversations returns any conversations held by the
-// model (receiver)
+// GetConversation returns any conversations held by the model (receiver).
 func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
 	convoJSON := dmr.dr.GetConversation(senderPubKey)
 	var convo dm.ModelConversation
@@ -323,8 +322,7 @@ func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.Model
 	return &convo
 }
 
-// GetConversations returns any conversations held by the
-// model (receiver)
+// GetConversations returns any conversations held by the model (receiver).
 func (dmr *dmReceiver) GetConversations() []dm.ModelConversation {
 	convoJSON := dmr.dr.GetConversations()
 	var convos []dm.ModelConversation

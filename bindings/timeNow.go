@@ -12,6 +12,12 @@ import (
 	"time"
 )
 
+// TimeSource is a copy of [netTime.TimeSource]. For some reason, Go bindings
+// only allows this interface, not the one found in netTime.
+type TimeSource interface {
+	NowMs() int64
+}
+
 // SetTimeSource will set the time source that will be used when retrieving the
 // current time using [netTime.Now]. This should be called BEFORE Login()
 // and only be called once. Using this after Login is undefined behavior that
@@ -20,7 +26,7 @@ import (
 // Parameters:
 //   - timeNow is an object which adheres to [netTime.TimeSource]. Specifically,
 //     this object should a NowMs() method which return a 64-bit integer value.
-func SetTimeSource(timeNow netTime.TimeSource) {
+func SetTimeSource(timeNow TimeSource) {
 	netTime.SetTimeSource(timeNow)
 }
 

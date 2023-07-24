@@ -443,7 +443,7 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 	}
 
 	eb := func(path string) (channels.EventModel, error) {
-		return NewEventModel(eventBuilder.Build(path)), nil
+		return newEventModel(eventBuilder.Build(path)), nil
 	}
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
@@ -504,7 +504,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	}
 
 	eb := func(path string) (channels.EventModel, error) {
-		return NewEventModel(eventBuilder.Build(path)), nil
+		return newEventModel(eventBuilder.Build(path)), nil
 	}
 
 	// Load extension builders from singleton
@@ -2601,9 +2601,9 @@ type toEventModel struct {
 	em EventModel
 }
 
-// NewEventModel is a constructor for a toEventModel. This will take in an
+// newEventModel is a constructor for a toEventModel. This will take in an
 // EventModel and wraps it around the toEventModel.
-func NewEventModel(em EventModel) channels.EventModel {
+func newEventModel(em EventModel) channels.EventModel {
 	return &toEventModel{em: em}
 }
 

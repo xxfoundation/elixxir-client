@@ -52,11 +52,11 @@ type versionedKV struct {
 
 // CloneFromRemoteStorage copies state from RemoteStore and
 // instantiates a SynchronizedKV
-func CloneFromRemoteStorage(path string, deviceSecret []byte,
+func CloneFromRemoteStorage(remoteStoragePathPrefix string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue,
 	rng *fastRNG.StreamGenerator) (*versionedKV, error) {
 
-	rkv, err := SynchronizedKV(path, deviceSecret, remote, kv,
+	rkv, err := SynchronizedKV(remoteStoragePathPrefix, deviceSecret, remote, kv,
 		nil, rng)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func CloneFromRemoteStorage(path string, deviceSecret []byte,
 // SynchronizedKV loads or creates a synchronized remote KV that uses
 // a remote RemoteStore to store defined synchronization prefixes to the
 // network.
-func SynchronizedKV(path string, deviceSecret []byte,
+func SynchronizedKV(remoteStoragePathPrefix string, deviceSecret []byte,
 	remote RemoteStore, kv ekv.KeyValue, synchedPrefixes []string,
 	rng *fastRNG.StreamGenerator) (*versionedKV, error) {
 
@@ -89,7 +89,7 @@ func SynchronizedKV(path string, deviceSecret []byte,
 		rngGen: rng,
 	}
 
-	txLog, err := newRemoteWriter(path, deviceID, remote,
+	txLog, err := newRemoteWriter(remoteStoragePathPrefix, deviceID, remote,
 		crypt, kv)
 	if err != nil {
 		return nil, err
@@ -106,8 +106,8 @@ func SynchronizedKV(path string, deviceSecret []byte,
 	// collector exists, it just exposes endpoints that it uses to
 	// do it's job. We'll leave it for now but the way this gets
 	// instantiated needs a rework.
-	vkv.remote.col = newCollector(deviceID, path, remote, vkv.remote,
-		crypt, txLog)
+	vkv.remote.col = newCollector(deviceID, remoteStoragePathPrefix,
+		remote, vkv.remote, crypt, txLog)
 
 	return vkv, nil
 }
@@ -115,7 +115,7 @@ func SynchronizedKV(path string, deviceSecret []byte,
 // LocalKV Loads or Creates a synchronized remote KV that uses a local-only
 // mutate log. It panics if the underlying KV has ever been used
 // for remote operations in the past.
-func LocalKV(path string, deviceSecret []byte, kv ekv.KeyValue,
+func LocalKV(deviceSecret []byte, kv ekv.KeyValue,
 	rng *fastRNG.StreamGenerator) (SyncKV, error) {
 
 	if isRemoteKV(kv) {
@@ -136,7 +136,7 @@ func LocalKV(path string, deviceSecret []byte, kv ekv.KeyValue,
 
 	dummy := &dummyIO{}
 
-	txLog, err := newRemoteWriter(path, deviceID, dummy,
+	txLog, err := newRemoteWriter("", deviceID, dummy,
 		crypt, kv)
 	if err != nil {
 		return nil, err

@@ -25,12 +25,12 @@ func LocalKV(storageDir string, password []byte,
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")
 	}
-	return collective.LocalKV(storageDir, password, localKV, rng)
+	return collective.LocalKV(password, localKV, rng)
 }
 
 // SynchronizedKV creates a filesystem based KV that synchronizes
 // with a remote storage system.
-func SynchronizedKV(storageDir string, password []byte,
+func SynchronizedKV(storageDir, remoteStoragePathPrefix string, password []byte,
 	remote collective.RemoteStore,
 	synchedPrefixes []string,
 	rng *fastRNG.StreamGenerator) (versioned.KV, error) {
@@ -41,6 +41,6 @@ func SynchronizedKV(storageDir string, password []byte,
 			"failed to create storage session")
 	}
 
-	return collective.SynchronizedKV(storageDir, password,
+	return collective.SynchronizedKV(remoteStoragePathPrefix, password,
 		remote, localKV, synchedPrefixes, rng)
 }

@@ -9,6 +9,10 @@ package receptionID
 
 import (
 	"encoding/json"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -18,9 +22,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
-	"io"
-	"sync"
-	"time"
 )
 
 const (
@@ -61,16 +62,16 @@ func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
 // NewOrLoadStore creates a new reception store that starts empty.
 func NewOrLoadStore(kv versioned.KV) *Store {
 
+	kv, err := kv.Prefix(receptionPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
+			receptionPrefix, err)
+	}
+
 	s, err := loadStore(kv)
 	if err != nil {
 		jww.WARN.Printf(
 			"ReceptionID store not found, creating a new one: %s", err.Error())
-
-		kv, err = kv.Prefix(receptionPrefix)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
-				receptionPrefix, err)
-		}
 
 		s = &Store{
 			active:  []*registration{},
@@ -88,11 +89,6 @@ func NewOrLoadStore(kv versioned.KV) *Store {
 }
 
 func loadStore(kv versioned.KV) (*Store, error) {
-	kv, err := kv.Prefix(receptionPrefix)
-	if err != nil {
-		return nil, err
-	}
-
 	// Load the versioned object for the reception list
 	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)
 	if err != nil {

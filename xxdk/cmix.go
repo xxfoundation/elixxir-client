@@ -138,8 +138,17 @@ func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 const baseNewSynchronizedCmixErr = "failed to create cmix from remote"
 
 // NewSynchronizedCmix clones a Cmix from remote storage
-func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
-	remote collective.RemoteStore) error {
+// Parameters:
+//   - ndfJSON - the NDF file used to connect to the network.
+//   - storageDir - the local directory or path used for the encrypted key value
+//     store.
+//   - remoteStoragePathPrefix - the remote "directory" or path prefix used
+//     by the RemoteStore when reading/writing files.
+//   - password - the pssword used to decrypt the encrypted key value store.
+//   - remote - the RemoteStore implementation to use for multi-device
+//     synchronization.
+func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
+	password []byte, remote collective.RemoteStore) error {
 	jww.INFO.Printf("NewSynchronizedCmix(dir: %s)", storageDir)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
@@ -155,8 +164,8 @@ func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
 			baseNewSynchronizedCmixErr)
 	}
 
-	rkv, err := collective.CloneFromRemoteStorage(storageDir, password,
-		remote, kv, rngStreamGen)
+	rkv, err := collective.CloneFromRemoteStorage(remoteStoragePathPrefix,
+		password, remote, kv, rngStreamGen)
 	if err != nil {
 		return errors.Wrapf(err, "%s: CloneFromRemoteStorage",
 			baseNewSynchronizedCmixErr)
@@ -194,12 +203,14 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	return openCmix(storageKV, rngStreamGen)
 }
 
-func OpenSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
+func OpenSynchronizedCmix(storageDir, remoteStoragePathPrefix string,
+	password []byte, remote collective.RemoteStore,
 	synchedPrefixes []string) (*Cmix, error) {
 
 	jww.INFO.Printf("OpenSynchronizedCmix(%s)", storageDir)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
-	storageKV, err := SynchronizedKV(storageDir, password,
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
+		csprng.NewSystemRNG)
+	storageKV, err := SynchronizedKV(storageDir, remoteStoragePathPrefix, password,
 		remote, synchedPrefixes, rngStreamGen)
 	if err != nil {
 		return nil, err
@@ -302,12 +313,12 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 
 // LoadSynchronizedCmix initializes a Cmix object from existing storage using
 // a remote synchronization storage object and starts the network.
-func LoadSynchronizedCmix(storageDir string, password []byte, remote collective.RemoteStore,
+func LoadSynchronizedCmix(storageDir, remoteStoragePathPrefix string, password []byte, remote collective.RemoteStore,
 	synchedPrefixes []string, parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("LoadSynchronizedCmix()")
 
-	c, err := OpenSynchronizedCmix(storageDir, password, remote,
-		synchedPrefixes)
+	c, err := OpenSynchronizedCmix(storageDir, remoteStoragePathPrefix,
+		password, remote, synchedPrefixes)
 	if err != nil {
 		return nil, err
 	}

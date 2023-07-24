@@ -53,11 +53,25 @@ func NewCmix(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
-// NewSynchronizedCmix clones a Cmix from remote storage
-func NewSynchronizedCmix(ndfJSON, storageDir string, password []byte,
+// NewSynchronizedCmix clones a Cmix from remote storage.
+// Parameters:
+//   - ndfJSON - the NDF file used to connect to the network.
+//   - storageDir - the local directory or path used for the encrypted key value
+//     store.
+//   - remoteStoragePathPrefix - the remote "directory" or path prefix used
+//     by the RemoteStore when reading/writing files.
+//   - password - the pssword used to decrypt the encrypted key value store.
+//   - remote - the RemoteStore implementation to use for multi-device
+//     synchronization.
+func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
+	password []byte,
 	remote RemoteStore) error {
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
-	return xxdk.NewSynchronizedCmix(ndfJSON, storageDir, password,
+	jww.INFO.Printf("[BINDINGS] NewSynchronizedCmix, "+
+		"storageDir: %s, remoteStoragePathPrefix: %s",
+		storageDir, remoteStoragePathPrefix)
+	return xxdk.NewSynchronizedCmix(ndfJSON, storageDir,
+		remoteStoragePathPrefix, password,
 		wrappedRemote)
 }
 
@@ -99,7 +113,7 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 // starts subprocesses to perform network operations. This can take a
 // while if there are a lot of transactions to replay by other
 // instances.
-func LoadSynchronizedCmix(storageDir string, password []byte,
+func LoadSynchronizedCmix(storageDir, remoteStoragePathPrefix string, password []byte,
 	remote RemoteStore, cmixParamsJSON []byte) (*Cmix, error) {
 
 	params, err := parseCMixParams(cmixParamsJSON)
@@ -113,8 +127,12 @@ func LoadSynchronizedCmix(storageDir string, password []byte,
 	}
 
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
+	jww.INFO.Printf("[BINDINGS] LoadSynchronizedCmix, "+
+		"storageDir: %s, remoteStoragePathPrefix: %s",
+		storageDir, remoteStoragePathPrefix)
 
-	net, err := xxdk.LoadSynchronizedCmix(storageDir, password,
+	net, err := xxdk.LoadSynchronizedCmix(storageDir,
+		remoteStoragePathPrefix, password,
 		wrappedRemote, synchedPrefixes, params)
 	if err != nil {
 		return nil, errors.Errorf("LoadSynchronizedCmix failed: %+v",

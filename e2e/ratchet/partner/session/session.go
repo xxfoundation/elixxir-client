@@ -667,28 +667,6 @@ func (s *Session) unmarshal(b []byte) error {
 
 	grp := s.grp
 
-	s = &Session{
-		kv:                      nil,
-		e2eParams:               Params{},
-		sID:                     SessionID{},
-		partner:                 nil,
-		t:                       0,
-		baseKey:                 nil,
-		myPrivKey:               nil,
-		partnerPubKey:           nil,
-		mySIDHPrivKey:           nil,
-		partnerSIDHPubKey:       nil,
-		partnerSource:           SessionID{},
-		relationshipFingerprint: nil,
-		negotiationStatus:       0,
-		rekeyThreshold:          0,
-		keyState:                nil,
-		mux:                     sync.RWMutex{},
-		cyHandler:               nil,
-		grp:                     nil,
-		rng:                     nil,
-	}
-
 	s.e2eParams = sd.E2EParams
 	s.t = sd.Type
 	s.partner = sd.Partner

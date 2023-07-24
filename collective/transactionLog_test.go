@@ -28,7 +28,11 @@ import (
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	baseDir := ".testDir"
 	logFile := baseDir + "/TestNewOrLoadTransactionLog"
-	os.RemoveAll(baseDir)
+	defer func() {
+		if err := os.RemoveAll(baseDir); err != nil {
+			t.Fatalf("Failed to remove baseDir: %+v", err)
+		}
+	}()
 	password := "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
@@ -89,7 +93,12 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	baseDir := ".testDir_TransactionLog_Loading"
-	os.RemoveAll(baseDir)
+	defer func() {
+		if err := os.RemoveAll(baseDir); err != nil {
+			t.Fatalf("Failed to remove baseDir: %+v", err)
+		}
+	}()
+
 	logFile := baseDir + "/test.txt"
 	password := "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
@@ -120,9 +129,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	require.NoError(t, err)
 
 	ntfyCh := make(chan bool)
-	ntfy := func(state bool) {
-		ntfyCh <- state
-	}
+	ntfy := func(state bool) { ntfyCh <- state }
 	txLog.Register(ntfy)
 
 	stopper := stoppable.NewSingle("txLogRunner")
@@ -132,7 +139,7 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	for cnt := 0; cnt < 10; cnt++ {
 		// Construct mutate
 		key, val := "key"+strconv.Itoa(cnt), "val"+strconv.Itoa(cnt)
-		_, _, err := txLog.Write(key, []byte(val))
+		_, _, err = txLog.Write(key, []byte(val))
 		require.NoError(t, err)
 	}
 
@@ -141,7 +148,8 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 		select {
 		case <-time.After(5 * time.Second):
 			t.Errorf("threads failed to stop")
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+			err = pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+			require.NoError(t, err)
 			done = true
 		case x := <-ntfyCh:
 			done = x
@@ -156,8 +164,6 @@ func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 
 	newTxLog, err := newRemoteWriter(logFile, deviceID,
 		remoteStore, crypt, fs)
-	require.NoError(t, err)
-
 	require.NoError(t, err)
 
 	// Hacks for comparison

@@ -10,6 +10,7 @@ package collective
 import (
 	"encoding/base64"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"strconv"
 	"testing"
@@ -28,11 +29,7 @@ import (
 func TestNewOrLoadTransactionLog(t *testing.T) {
 	baseDir := ".testDir"
 	logFile := baseDir + "/TestNewOrLoadTransactionLog"
-	defer func() {
-		if err := os.RemoveAll(baseDir); err != nil {
-			t.Fatalf("Failed to remove baseDir: %+v", err)
-		}
-	}()
+	defer removeAll(baseDir, t)
 	password := "password"
 	fs, err := ekv.NewFilestore(baseDir, password)
 	require.NoError(t, err)
@@ -93,11 +90,7 @@ func TestNewOrLoadTransactionLog(t *testing.T) {
 // Intentionally constructs remoteWriter manually for testing purposes.
 func TestNewOrLoadTransactionLog_Loading(t *testing.T) {
 	baseDir := ".testDir_TransactionLog_Loading"
-	defer func() {
-		if err := os.RemoveAll(baseDir); err != nil {
-			t.Fatalf("Failed to remove baseDir: %+v", err)
-		}
-	}()
+	defer removeAll(baseDir, t)
 
 	logFile := baseDir + "/test.txt"
 	password := "password"
@@ -253,4 +246,15 @@ func TestTransactionLog_Deserialize(t *testing.T) {
 
 	// Ensure deserialized object matches original object
 	require.Equal(t, txLog.state, newTxLog.state)
+}
+
+// removeAll deletes the file at the given path. This function skips this if
+// running the test in Javascript/WedAssembly because lstat (which os.RemoveAll
+// uses) is not implemented.
+func removeAll(path string, t testing.TB) {
+	if runtime.GOOS != "js" && runtime.GOARCH != "wasm" {
+		if err := os.RemoveAll(path); err != nil {
+			t.Errorf("Failed to remove path: %+v", err)
+		}
+	}
 }

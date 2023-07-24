@@ -86,7 +86,7 @@ def get_args():
     """
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("path", metavar="filePath", type=argparse.FileType('r', encoding="UTF-8"),
-                        help="")
+                        help="Path to the Bindings.objc.h to read")
 
     args = vars(parser.parse_args())
     return args

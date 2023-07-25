@@ -267,11 +267,9 @@ func (ct *cmixTracker) delete(id int) {
 	delete(ct.tracked, id)
 }
 
-// Note: Copy is required because iOS will delete this byte
-// after function returns.
+// Note: Copy is required because iOS will delete byte slices
+// after a function returns.
 func copyAndClear(inputPassword []byte) []byte {
-	// Note: Copy is required because iOS will delete this byte
-	// after function returns.
 	secret := make([]byte, len(inputPassword))
 	copy(secret, inputPassword)
 	// TODO: replace with clear() when moving to go 1.21

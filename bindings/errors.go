@@ -11,9 +11,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // errToUserErr maps backend patterns to user-friendly error messages.
@@ -62,6 +64,9 @@ const (
 func CreateUserFriendlyErrorMessage(errStr string) string {
 	errorMux.RLock()
 	defer errorMux.RUnlock()
+
+	jww.ERROR.Printf("UI Error: %s", errStr)
+
 	// Go through common errors
 	for backendErr, userFriendly := range errToUserErr {
 		// Determine if error contains a common error

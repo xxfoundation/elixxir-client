@@ -10,12 +10,15 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
-	clientNotif "gitlab.com/elixxir/client/v4/notifications"
-	"gitlab.com/elixxir/primitives/nicknames"
+	"path/filepath"
 	"sync"
 	"time"
 
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
+	"gitlab.com/elixxir/primitives/nicknames"
+
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/client/v4/channels/storage"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -26,6 +29,7 @@ import (
 	"gitlab.com/elixxir/primitives/notifications"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/utils"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -306,6 +310,14 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
 
+	// Ensure the directory exists
+	dirPath := filepath.Dir(dbFilePath)
+	err = utils.MakeDirs(dirPath, utils.DirPerms)
+	if err != nil {
+		jww.WARN.Printf("couldn't make directory %s: %+v",
+			dirPath, err)
+	}
+
 	model, err := storage.NewEventModel(dbFilePath, wrap)
 	if err != nil {
 		return nil, err
@@ -366,6 +378,14 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	}
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
+
+	// Ensure the directory exists
+	dirPath := filepath.Dir(dbFilePath)
+	err = utils.MakeDirs(dirPath, utils.DirPerms)
+	if err != nil {
+		jww.WARN.Printf("couldn't make directory %s: %+v",
+			dirPath, err)
+	}
 
 	model, err := storage.NewEventModel(dbFilePath, wrap)
 	if err != nil {
@@ -2017,35 +2037,36 @@ func (cm *ChannelsManager) SetMobileNotificationsLevel(
 //   - notificationDataCSV - CSV containing notification data.
 //
 // Example JSON of a slice of [channels.NotificationFilter]:
-//  [
-//    {
-//      "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
-//      "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
-//      "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//      "allowLists": {
-//        "allowWithTags": {},
-//        "allowWithoutTags": {"102": {}, "2": {}}
-//      }
-//    },
-//    {
-//      "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDc3ltSWRlbnRpZmllcg==",
-//      "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
-//      "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//      "allowLists": {
-//        "allowWithTags": {},
-//        "allowWithoutTags": {"1": {}, "40000": {}}
-//      }
-//    },
-//    {
-//      "identifier": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQDYXN5bUlkZW50aWZpZXI=",
-//      "channelID": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQD",
-//      "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
-//      "allowLists": {
-//        "allowWithTags": {},
-//        "allowWithoutTags": {"102": {}, "2": {}}
-//      }
-//    }
-//  ]
+//
+//	[
+//	  {
+//	    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDYXN5bUlkZW50aWZpZXI=",
+//	    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": {},
+//	      "allowWithoutTags": {"102": {}, "2": {}}
+//	    }
+//	  },
+//	  {
+//	    "identifier": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUDc3ltSWRlbnRpZmllcg==",
+//	    "channelID": "O8NUg0KaDo18ybTKajXM/sgqEYS37+lewPhGV/2sMAUD",
+//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": {},
+//	      "allowWithoutTags": {"1": {}, "40000": {}}
+//	    }
+//	  },
+//	  {
+//	    "identifier": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQDYXN5bUlkZW50aWZpZXI=",
+//	    "channelID": "jCRgFRQvzzKOb8DJ0fqCRLgr9kiHN9LpqHXVhyHhhlQD",
+//	    "tags": ["6de69009a93d53793ee344e8fb48fae194eaf51861d3cc51c7348c337d13aedf-usrping"],
+//	    "allowLists": {
+//	      "allowWithTags": {},
+//	      "allowWithoutTags": {"102": {}, "2": {}}
+//	    }
+//	  }
+//	]
 //
 // Returns:
 //   - []byte - JSON of a slice of [channels.NotificationReport].

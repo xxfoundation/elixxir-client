@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"golang.org/x/crypto/blake2b"
@@ -52,10 +53,17 @@ func encrypt(data, secret []byte, csprng io.Reader) []byte {
 		panic(fmt.Sprintf("Could not generate nonce: %s", err.Error()))
 	}
 	ciphertext := chaCipher.Seal(nonce, nonce, data, nil)
+	jww.INFO.Printf("REMOVEME ENCRYPT Data: %d, %s, Secret: %s, CipherText: %d, %s",
+		len(data), base64.RawStdEncoding.EncodeToString(data),
+		base64.RawStdEncoding.EncodeToString(secret),
+		len(ciphertext), base64.RawStdEncoding.EncodeToString(ciphertext))
 	return ciphertext
 }
 
 func decrypt(data, secret []byte) ([]byte, error) {
+	jww.INFO.Printf("REMOVEME DECRYPT Ciphertext: %d, %s, Secret: %s",
+		len(data), base64.RawStdEncoding.EncodeToString(data),
+		base64.RawStdEncoding.EncodeToString(secret))
 	chaCipher := initChaCha20Poly1305(secret)
 	nonceLen := chaCipher.NonceSize()
 	if (len(data) - nonceLen) <= 0 {

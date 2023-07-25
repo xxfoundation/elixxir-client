@@ -10,6 +10,7 @@ package storage
 
 import (
 	"crypto/ed25519"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -22,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/v4/channels"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/utils"
 )
 
 // UiCallbacks contains a subset of the methods on [channels.UiCallbacks] that
@@ -52,6 +54,14 @@ func newImpl(dbFilePath string, uiCallbacks UiCallbacks) (*impl, error) {
 		dbFilePath = temporaryDbPath
 		jww.WARN.Printf("No database file path specified! " +
 			"Using temporary in-memory database")
+	}
+
+	// Ensure the directory exists
+	dirPath := filepath.Dir(dbFilePath)
+	err := utils.MakeDirs(dirPath, utils.DirPerms)
+	if err != nil {
+		jww.WARN.Printf("couldn't make directory %s: %+v",
+			dirPath, err)
 	}
 
 	// Create the database connection

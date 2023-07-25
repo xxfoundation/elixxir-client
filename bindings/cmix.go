@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	"encoding/base64"
 	"sync"
 	"time"
 
@@ -46,6 +47,7 @@ type Cmix struct {
 // Users of this function should delete the storage directory on error.
 func NewCmix(ndfJSON, storageDir string, password []byte,
 	registrationCode string) error {
+	jww.INFO.Printf("REMOVEME: NewCmix Password: %s", base64.RawStdEncoding.EncodeToString(password))
 	err := xxdk.NewCmix(ndfJSON, storageDir, password, registrationCode)
 	if err != nil {
 		return errors.Errorf("Failed to create new cmix: %+v", err)
@@ -66,6 +68,7 @@ func NewCmix(ndfJSON, storageDir string, password []byte,
 func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
 	password []byte,
 	remote RemoteStore) error {
+	jww.INFO.Printf("REMOVEME: NewSynchronizedCmix Password: %s", base64.RawStdEncoding.EncodeToString(password))
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
 	jww.INFO.Printf("[BINDINGS] NewSynchronizedCmix, "+
 		"storageDir: %s, remoteStoragePathPrefix: %s",
@@ -86,6 +89,7 @@ func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
 // subprocesses to perform network operations.
 func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 	error) {
+	jww.INFO.Printf("REMOVEME: LoadCmix Password: %s", base64.RawStdEncoding.EncodeToString(password))
 
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {
@@ -115,6 +119,8 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 // instances.
 func LoadSynchronizedCmix(storageDir, remoteStoragePathPrefix string, password []byte,
 	remote RemoteStore, cmixParamsJSON []byte) (*Cmix, error) {
+
+	jww.INFO.Printf("REMOVEME: LoadSynchronizedCmix Password: %s", base64.RawStdEncoding.EncodeToString(password))
 
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {

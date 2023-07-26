@@ -10,7 +10,6 @@
 package collective
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -31,6 +30,7 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	data := []byte("Test string.")
 
 	baseDir := "workingDir/"
+	defer removeAll(baseDir, t)
 
 	fsRemote := NewFileSystemRemoteStorage(baseDir)
 
@@ -81,6 +81,4 @@ func TestFileSystemRemoteStorage_Smoke(t *testing.T) {
 	// place.
 	require.True(t, newWriteTimestamp.Sub(newLastWrite) < 2*time.Millisecond ||
 		newWriteTimestamp.Sub(newLastWrite) > 2*time.Millisecond)
-
-	os.RemoveAll(baseDir)
 }

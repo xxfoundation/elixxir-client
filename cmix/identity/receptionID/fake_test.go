@@ -8,44 +8,52 @@
 package receptionID
 
 import (
-	"encoding/json"
 	"math"
 	"math/rand"
-	"strconv"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 // Tests that generateFakeIdentity is consistent and returns a correct result.
 func Test_generateFakeIdentity(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 
-	addressSize := uint8(15)
-	end, _ := json.Marshal(time.Unix(0, 1258494203759765625))
-	startValid, _ := json.Marshal(time.Unix(0, 1258407803759765625))
-	endValid, _ := json.Marshal(time.Unix(0, 1258494203759765625))
-	expected := `{"EphId":[0,0,0,0,0,0,46,197],` +
-		`"Source":"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",` +
-		`"AddressSize":` + strconv.Itoa(int(addressSize)) + `,` +
-		`"End":` + string(end) + `,"ExtraChecks":0,` +
-		`"StartValid":` + string(startValid) + `,` +
-		`"EndValid":` + string(endValid) + `,` +
-		`"Ephemeral":true,"ProcessNext":null,` +
-		`"Fake":true,"UR":null,"ER":null,"CR":null}`
+	expected := IdentityUse{
+		Identity: Identity{
+			EphemeralIdentity: EphemeralIdentity{
+				EphId: ephemeral.Id{0, 0, 0, 0, 0, 0, 46, 197},
+				Source: id.NewIdFromBase64String(
+					"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID", id.User, t),
+			},
+			AddressSize: 15,
+			End:         time.Unix(0, 1258494203759765625),
+			ExtraChecks: 0,
+			StartValid:  time.Unix(0, 1258407803759765625),
+			EndValid:    time.Unix(0, 1258494203759765625),
+			Ephemeral:   true,
+			ProcessNext: nil,
+		},
+		Fake: true,
+		UR:   nil,
+		ER:   nil,
+		CR:   nil,
+	}
 
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 
-	received, err := generateFakeIdentity(rng, addressSize, timestamp)
+	received, err := generateFakeIdentity(rng, expected.AddressSize, timestamp)
 	if err != nil {
-		t.Errorf("generateFakeIdentity() returned an error: %+v", err)
+		t.Errorf("Error generating fake identity: %+v", err)
 	}
 
-	receivedJson, _ := json.Marshal(received)
-
-	if expected != string(receivedJson) {
+	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("The fake identity was generated incorrectly."+
-			"\nexpected: %s\nreceived: %s", expected, receivedJson)
+			"\nexpected: %#v\nreceived: %#v", expected, received)
 	}
 }
 

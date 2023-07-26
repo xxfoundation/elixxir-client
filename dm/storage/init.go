@@ -68,6 +68,7 @@ func newImpl(dbFilePath string, cbs Callbacks, useTemporary bool) (*impl, error)
 	}
 
 	// Create the database connection
+	jww.INFO.Printf("Opening DB file at %s...", dbFilePath)
 	db, err := gorm.Open(sqlite.Open(dbFilePath), &gorm.Config{
 		Logger: logger.New(jww.TRACE, logger.Config{LogLevel: logger.Info}),
 	})

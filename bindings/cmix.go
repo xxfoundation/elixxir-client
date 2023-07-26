@@ -46,7 +46,8 @@ type Cmix struct {
 // Users of this function should delete the storage directory on error.
 func NewCmix(ndfJSON, storageDir string, password []byte,
 	registrationCode string) error {
-	err := xxdk.NewCmix(ndfJSON, storageDir, password, registrationCode)
+	secret := copyAndClear(password)
+	err := xxdk.NewCmix(ndfJSON, storageDir, secret, registrationCode)
 	if err != nil {
 		return errors.Errorf("Failed to create new cmix: %+v", err)
 	}
@@ -66,12 +67,14 @@ func NewCmix(ndfJSON, storageDir string, password []byte,
 func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
 	password []byte,
 	remote RemoteStore) error {
+
+	secret := copyAndClear(password)
 	wrappedRemote := newRemoteStoreFileSystemWrapper(remote)
 	jww.INFO.Printf("[BINDINGS] NewSynchronizedCmix, "+
 		"storageDir: %s, remoteStoragePathPrefix: %s",
 		storageDir, remoteStoragePathPrefix)
 	return xxdk.NewSynchronizedCmix(ndfJSON, storageDir,
-		remoteStoragePathPrefix, password,
+		remoteStoragePathPrefix, secret,
 		wrappedRemote)
 }
 
@@ -87,12 +90,14 @@ func NewSynchronizedCmix(ndfJSON, storageDir, remoteStoragePathPrefix string,
 func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 	error) {
 
+	secret := copyAndClear(password)
+
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	net, err := xxdk.LoadCmix(storageDir, password, params)
+	net, err := xxdk.LoadCmix(storageDir, secret, params)
 	if err != nil {
 		return nil, errors.Errorf("LoadCmix failed: %+v", err)
 	}
@@ -116,6 +121,8 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 func LoadSynchronizedCmix(storageDir, remoteStoragePathPrefix string, password []byte,
 	remote RemoteStore, cmixParamsJSON []byte) (*Cmix, error) {
 
+	secret := copyAndClear(password)
+
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {
 		return nil, err
@@ -132,7 +139,7 @@ func LoadSynchronizedCmix(storageDir, remoteStoragePathPrefix string, password [
 		storageDir, remoteStoragePathPrefix)
 
 	net, err := xxdk.LoadSynchronizedCmix(storageDir,
-		remoteStoragePathPrefix, password,
+		remoteStoragePathPrefix, secret,
 		wrappedRemote, synchedPrefixes, params)
 	if err != nil {
 		return nil, errors.Errorf("LoadSynchronizedCmix failed: %+v",
@@ -258,4 +265,16 @@ func (ct *cmixTracker) delete(id int) {
 	defer ct.mux.Unlock()
 
 	delete(ct.tracked, id)
+}
+
+// Note: Copy is required because iOS will delete byte slices
+// after a function returns.
+func copyAndClear(inputPassword []byte) []byte {
+	secret := make([]byte, len(inputPassword))
+	copy(secret, inputPassword)
+	// TODO: replace with clear() when moving to go 1.21
+	for i := 0; i < len(inputPassword); i++ {
+		inputPassword[i] = 0
+	}
+	return secret
 }

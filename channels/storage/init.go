@@ -10,8 +10,9 @@ package storage
 
 import (
 	"crypto/ed25519"
-	"github.com/pkg/errors"
 	"time"
+
+	"github.com/pkg/errors"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gorm.io/driver/sqlite"
@@ -54,11 +55,13 @@ func newImpl(dbFilePath string, uiCallbacks UiCallbacks) (*impl, error) {
 	}
 
 	// Create the database connection
+	jww.INFO.Printf("Opening DB file at %s...", dbFilePath)
 	db, err := gorm.Open(sqlite.Open(dbFilePath), &gorm.Config{
 		Logger: logger.New(jww.TRACE, logger.Config{LogLevel: logger.Info}),
 	})
 	if err != nil {
-		return nil, errors.Errorf("Unable to initialize database backend: %+v", err)
+		return nil, errors.Errorf("Unable to initialize database "+
+			"backend at %s: %+v", dbFilePath, err)
 	}
 
 	// Enable foreign keys because they are disabled in SQLite by default

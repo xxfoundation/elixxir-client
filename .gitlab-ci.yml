@@ -114,12 +114,21 @@ bindings-ios:
     - gomobile bind -v -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - python3 bindings-checker.py Bindings.xcframework/ios-arm64/Bindings.framework/Versions/A/Headers/Bindings.objc.h
     - ls
+
+    # Package and upload the bindings to S3 for Xcode's package manager
     - zip -r -y iOS.zip Bindings.xcframework
+    - sync # Force disc flush
     - cp iOS.zip iOS-$CI_COMMIT_SHA.zip
+    - sync # Force disc flush
     - mc alias set elixxir-s3 $ARTIFACT_S3_ENDPOINT $ARTIFACT_S3_KEY $ARTIFACT_S3_SECRET
     - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip
-    - shasum -a 256 iOS-$CI_COMMIT_SHA.zip > iOS-$CI_COMMIT_SHA.zip.checksum && cat iOS-$CI_COMMIT_SHA.zip.checksum
+    - swift package compute-checksum iOS-$CI_COMMIT_SHA.zip > iOS-$CI_COMMIT_SHA.zip.checksum && cat iOS-$CI_COMMIT_SHA.zip.checksum
     - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum
+
+    # Verify the uploaded file
+    - curl http://elixxir-bins.s3-us-west-1.amazonaws.com/bindings-ios/iOS-$CI_COMMIT_SHA.zip | shasum -a 256 - | awk '{print $1;}' > aws-sum-dl.txt
+    - curl http://elixxir-bins.s3-us-west-1.amazonaws.com/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum > aws-sum-computed.txt
+    - diff aws-sum-dl.txt aws-sum-computed.txt
   artifacts:
     paths:
       - iOS.zip

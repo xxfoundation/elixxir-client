@@ -12,7 +12,6 @@ package collective
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -25,7 +24,7 @@ import (
 func TestNewCollector(t *testing.T) {
 	baseDir := ".TestNewCollector/"
 	syncPath := "collector/"
-	os.RemoveAll(baseDir)
+	defer removeAll(baseDir, t)
 
 	remoteStore := NewMockRemote()
 
@@ -139,7 +138,7 @@ func TestNewCollector_CollectChanges(t *testing.T) {
 
 func TestCollector_ApplyChanges(t *testing.T) {
 	baseDir := ".TestCollector_ApplyChanges/"
-	os.RemoveAll(baseDir)
+	defer removeAll(baseDir, t)
 
 	// workingDir := baseDir + "remoteFsSmoke/"
 	remoteStore := NewMockRemote()

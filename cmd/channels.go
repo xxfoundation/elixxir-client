@@ -285,8 +285,8 @@ func createNewChannel(chanPath, keyPath, name, desc string, user *xxdk.E2e) (
 
 	// Create a new  channel
 	channel, pk, err := cryptoBroadcast.NewChannel(
-		name, desc, cryptoBroadcast.Public, user.GetCmix().GetMaxMessageLength(),
-		user.GetRng().GetStream())
+		name, desc, cryptoBroadcast.Public, false,
+		user.GetCmix().GetMaxMessageLength(), user.GetRng().GetStream())
 	if err != nil {
 		return nil, errors.Errorf("failed to create new channel: %+v", err)
 	}

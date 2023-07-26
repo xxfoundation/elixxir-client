@@ -44,7 +44,8 @@ func (bc *broadcastClient) Broadcast(payload []byte, tags []string,
 
 // BroadcastWithAssembler broadcasts a payload over a symmetric channel with a
 // payload assembled after the round is selected, allowing the round info to be
-// included in the payload.
+// included in the payload. Returns [AnnouncementRequiresAdminErr] if attempting
+// to broadcast on an announcement channel.
 //
 // The payload must be of the size [Channel.MaxPayloadSize] or smaller.
 //
@@ -52,6 +53,9 @@ func (bc *broadcastClient) Broadcast(payload []byte, tags []string,
 func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler,
 	tags []string, metadata [2]byte, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
+	if bc.Get().Announcement {
+		return rounds.Round{}, ephemeral.Id{}, AnnouncementRequiresAdminErr
+	}
 	if !bc.net.IsHealthy() {
 		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}

@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -82,7 +83,8 @@ var broadcastCmd = &cobra.Command{
 			if viper.GetBool(broadcastNewFlag) {
 				// Create a new broadcast channel
 				channel, pk, err = crypto.NewChannel(name, desc, crypto.Public,
-					user.GetCmix().GetMaxMessageLength(), user.GetRng().GetStream())
+					false, user.GetCmix().GetMaxMessageLength(),
+					user.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}
@@ -173,7 +175,7 @@ var broadcastCmd = &cobra.Command{
 			receiveChan <- payload
 		}
 		_, err = bcl.RegisterSymmetricListener(scb, []string{})
-		if err != nil {
+		if err != nil && !errors.Is(err, broadcast.AnnouncementRequiresAdminErr) {
 			jww.FATAL.Panicf("Failed to register asymmetric listener: %+v", err)
 		}
 
@@ -187,7 +189,7 @@ var broadcastCmd = &cobra.Command{
 			asymmetricReceiveChan <- payload
 		}
 		_, err = bcl.RegisterSymmetricListener(acb, []string{})
-		if err != nil {
+		if err != nil && ! errors.Is(err, broadcast.AnnouncementRequiresAdminErr){
 			jww.FATAL.Panicf("Failed to register asymmetric listener: %+v", err)
 		}
 

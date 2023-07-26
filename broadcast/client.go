@@ -82,11 +82,16 @@ func (bc *broadcastClient) RegisterRSAtoPublicListener(
 }
 
 // RegisterSymmetricListener registers a listener for asymmetric broadcast
-// messages.
+// messages. Returns [AnnouncementRequiresAdminErr] if the channel is for
+// announcements only.
+//
 // Note: only one Asymmetric Listener can be registered at a time.
-// Registering a new one will overwrite the old one
+// Registering a new one will overwrite the old one.
 func (bc *broadcastClient) RegisterSymmetricListener(
 	listenerCb ListenerFunc, tags []string) (Processor, error) {
+	if bc.Get().Announcement {
+		return nil, AnnouncementRequiresAdminErr
+	}
 
 	p := &processor{
 		c:      bc.channel,

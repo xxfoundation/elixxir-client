@@ -10,6 +10,8 @@ package broadcast
 import (
 	"time"
 
+	"github.com/pkg/errors"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -48,7 +50,8 @@ type Channel interface {
 
 	// BroadcastWithAssembler broadcasts a payload over a channel with a payload
 	// assembled after the round is selected, allowing the round info to be
-	// included in the payload.
+	// included in the payload. Returns [AnnouncementRequiresAdminErr] if
+	// attempting to broadcast on an announcement channel.
 	//
 	// The payload must be of the size Channel.MaxPayloadSize or smaller.
 	//
@@ -84,9 +87,12 @@ type Channel interface {
 	RegisterRSAtoPublicListener(listenerCb ListenerFunc, tags []string) (
 		Processor, error)
 
-	// RegisterSymmetricListener registers a listener for asymmetric broadcast messages.
+	// RegisterSymmetricListener registers a listener for asymmetric broadcast
+	// messages. Returns [AnnouncementRequiresAdminErr] if the channel is for
+	// announcements only.
+	//
 	// Note: only one Asymmetric Listener can be registered at a time.
-	// Registering a new one will overwrite the old one
+	// Registering a new one will overwrite the old one.
 	RegisterSymmetricListener(listenerCb ListenerFunc, tags []string) (
 		Processor, error)
 
@@ -129,3 +135,8 @@ type Client interface {
 	RemoveIdentity(id *id.ID)
 	GetMaxMessageLength() int
 }
+
+// AnnouncementRequiresAdminErr is returned when the action is not allowed on
+// an announcement-only channel.
+var AnnouncementRequiresAdminErr = errors.New(
+	"cannot perform action on announcement channel")

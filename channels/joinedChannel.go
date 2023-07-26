@@ -301,9 +301,13 @@ func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 		checkSent: m.st.MessageReceive,
 	}).Listen, nil)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, broadcast.AnnouncementRequiresAdminErr) {
+			return nil, err
+		}
+		jww.DEBUG.Printf("Skipping symmetric listener on announcement channel")
+	} else {
+		m.broadcast.addProcessor(channel.ReceptionID, userProcessor, p)
 	}
-	m.broadcast.addProcessor(channel.ReceptionID, userProcessor, p)
 
 	// Admin message listener
 	p, err = broadcastChan.RegisterRSAtoPublicListener((&adminListener{

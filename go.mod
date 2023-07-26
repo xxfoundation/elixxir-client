@@ -14,13 +14,14 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.2
 	gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8
-	gitlab.com/elixxir/crypto v0.0.7-0.20230614183801-387e0cb8e76f
+	gitlab.com/elixxir/comms v0.0.4-0.20230718154315-08043221466a
+	gitlab.com/elixxir/crypto v0.0.7-0.20230726175510-191a3d2a17ed
 	gitlab.com/elixxir/ekv v0.3.1-0.20230620180825-838848b00f19
-	gitlab.com/elixxir/primitives v0.0.3-0.20230613193928-8cf8bdd777ef
+	gitlab.com/elixxir/primitives v0.0.3-0.20230724190035-efb1f377c08a
 	gitlab.com/elixxir/wasm-utils v0.0.0-20230615222914-185dd3a6fa08
 	gitlab.com/xx_network/comms v0.0.4-0.20230214180029-5387fb85736d
-	gitlab.com/xx_network/crypto v0.0.5-0.20230214003943-8a09396e95dd
-	gitlab.com/xx_network/primitives v0.0.4-0.20230522171102-940cdd68e516
+	gitlab.com/xx_network/crypto v0.0.5-0.20230724190222-a1fd6f70e6cb
+	gitlab.com/xx_network/primitives v0.0.4-0.20230724185812-bc6fc6e5341b
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.5.0
 	golang.org/x/net v0.5.0
@@ -70,13 +71,12 @@ require (
 	github.com/ttacon/libphonenumber v1.2.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
-	gitlab.com/elixxir/comms v0.0.4-0.20230718154315-08043221466a // indirect
 	gitlab.com/xx_network/ring v0.0.3-0.20220902183151-a7d3b15bc981 // indirect
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
 	gitlab.com/yawning/nyquist.git v0.0.0-20221003103146-de5645224a22 // indirect
 	gitlab.com/yawning/x448.git v0.0.0-20221003101044-617eb9b7d9b7 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect

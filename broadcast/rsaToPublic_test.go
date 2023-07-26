@@ -58,8 +58,8 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	cDesc := "This is my channel about stuff."
 	packetPayloadLength := newMockCmix(cMixHandler).GetMaxMessageLength()
 
-	channel, pk, _ := crypto.NewChannel(
-		cName, cDesc, crypto.Public, packetPayloadLength, rngGen.GetStream())
+	channel, pk, _ := crypto.NewChannel(cName, cDesc, crypto.Public, false,
+		packetPayloadLength, rngGen.GetStream())
 	cid := channel.ReceptionID
 
 	// Must mutate cMixHandler such that it's processorMap contains a

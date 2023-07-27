@@ -460,32 +460,3 @@ func (m *mockNM) Set(
 	}
 	return nil
 }
-
-func (m *mockNM) Get(toBeNotifiedOn *id.ID) (clientNotif.NotificationState, []byte, string, bool) {
-	for group, ids := range m.channels {
-		for chanID, ni := range ids {
-			if chanID.Cmp(toBeNotifiedOn) {
-				return ni.Status, ni.Metadata, group, true
-			}
-		}
-	}
-
-	return clientNotif.Mute, nil, "", false
-}
-
-func (m *mockNM) Delete(toBeNotifiedOn *id.ID) error {
-	for group, ids := range m.channels {
-		if _, exists := ids[*toBeNotifiedOn]; exists {
-			delete(m.channels[group], *toBeNotifiedOn)
-			if _, exists = m.cbs[group]; exists {
-				go m.cbs[group](m.channels[group], nil, nil, nil, clientNotif.Push)
-			}
-			return nil
-		}
-	}
-	return nil
-}
-
-func (m *mockNM) RegisterUpdateCallback(group string, nu clientNotif.Update) {
-	m.cbs[group] = nu
-}

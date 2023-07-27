@@ -284,10 +284,6 @@ type cMixClient interface {
 type NotificationsManager interface {
 	Set(toBeNotifiedOn *id.ID, group string, metadata []byte,
 		status clientNotif.NotificationState) error
-	Get(toBeNotifiedOn *id.ID) (status clientNotif.NotificationState,
-		metadata []byte, group string, exists bool)
-	Delete(toBeNotifiedOn *id.ID) error
-	RegisterUpdateCallback(group string, nu clientNotif.Update)
 }
 
 // NickNameManager interface is an object that handles the mapping of nicknames

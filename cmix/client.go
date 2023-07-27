@@ -11,6 +11,7 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"math"
 	"strconv"
 	"sync/atomic"
@@ -183,9 +184,16 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 	poolParams.HostParams.ProxyErrorMetricParams.Cutoff = 0.30
 	poolParams.HostParams.ProxyErrorMetricParams.InitialAverage =
 		0.75 * poolParams.HostParams.ProxyErrorMetricParams.Cutoff
+	if c.param.WhitelistedGateways != nil && len(c.param.WhitelistedGateways) > 0 {
+		poolParams.GatewayFilter = gateway.GatewayWhitelistFilter(c.param.WhitelistedGateways)
+	}
 
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
+
+	// Enable host pool debugging
+	poolParams.DebugPrintPeriod = 30 * time.Second
+
 	sender, err := gateway.NewSender(poolParams, c.rng, ndfile, c.comms,
 		c.session, c.comms, nodeChan)
 	if err != nil {
@@ -200,6 +208,14 @@ func (c *client) initialize(ndfile *ndf.NetworkDefinition) error {
 		})
 	if err != nil {
 		return err
+	}
+
+	if c.param.EnableImmediateSending {
+		jww.INFO.Printf("Enabling ephemeral registration")
+		c.Registrar.SetImmediateSendingEnabled(c.param.EnableImmediateSending)
+	}
+	if c.param.DisableNodeRegistration {
+		c.Registrar.SetNodeRegistrationDisabled(c.param.DisableNodeRegistration)
 	}
 
 	// Set up the historical rounds handler

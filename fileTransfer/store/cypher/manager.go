@@ -62,7 +62,7 @@ func NewManager(key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) (
 	kv = kv.Prefix(cypherManagerPrefix)
 
 	fpVector, err := utility.NewStateVector(
-		kv, cypherManagerFpVectorKey, uint32(numFps))
+		uint32(numFps), false, cypherManagerFpVectorKey, kv)
 	if err != nil {
 		return nil, errors.Errorf(errNewFpVector, err)
 	}

@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
 	"gitlab.com/elixxir/crypto/dm"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
@@ -53,13 +54,36 @@ const (
 	messageNonceSize = 4
 )
 
+var (
+	emptyPubKeyBytes = make([]byte, ed25519.PublicKeySize)
+	emptyPubKey      = ed25519.PublicKey(emptyPubKeyBytes)
+)
+
 // SendText is used to send a formatted message to another user.
 func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 	partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
-	return dc.SendReply(partnerPubKey, partnerToken, msg,
-		cryptoMessage.ID{}, params)
+
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+
+	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
+	jww.INFO.Printf("[DM][%s] SendText(%s)", tag, pubKeyStr)
+	txt := &Text{
+		Version: textVersion,
+		Text:    msg,
+	}
+
+	params = params.SetDebugTag(tag)
+
+	txtMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
+
+	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+		params)
 }
 
 // SendDMReply is used to send a formatted direct message reply.
@@ -72,8 +96,10 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 	ephemeral.Id, error) {
 
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+
 	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
-	jww.INFO.Printf("[DM][%s] SendReply(%s, to %s)", tag, partnerPubKey,
+	jww.INFO.Printf("[DM][%s] SendReply(%s, to %s)", tag, pubKeyStr,
 		replyTo)
 	txt := &Text{
 		Version:        textVersion,
@@ -89,7 +115,7 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 			ephemeral.Id{}, err
 	}
 
-	return dc.Send(partnerPubKey, partnerToken, TextType, txtMarshaled,
+	return dc.Send(partnerPubKey, partnerToken, ReplyType, txtMarshaled,
 		params)
 }
 
@@ -105,7 +131,8 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 	rounds.Round, ephemeral.Id, error) {
 	tag := makeDebugTag(*partnerPubKey, []byte(reaction),
 		SendReactionTag)
-	jww.INFO.Printf("[DM][%s] SendReaction(%s, to %s)", tag, *partnerPubKey,
+	jww.INFO.Printf("[DM][%s] SendReaction(%s, to %s)", tag,
+		base64.RawStdEncoding.EncodeToString(*partnerPubKey),
 		reactTo)
 
 	if err := emoji.ValidateReaction(reaction); err != nil {
@@ -134,20 +161,45 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
+	if partnerToken == 0 {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("invalid dmToken value: %d", partnerToken)
+
+	}
+
+	if partnerEdwardsPubKey == nil ||
+		partnerEdwardsPubKey.Equal(emptyPubKey) {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("invalid public key value: %v",
+				partnerEdwardsPubKey)
+	}
+
+	if dc.myToken == partnerToken &&
+		!dc.me.PubKey.Equal(*partnerEdwardsPubKey) {
+		return cryptoMessage.ID{}, rounds.Round{},
+			ephemeral.Id{},
+			errors.Errorf("can only use myToken on self send: "+
+				"myToken: %d, myKey: %v, partnerKey: %v, partnerToken: %d",
+				dc.myToken, dc.me.PubKey, partnerEdwardsPubKey, partnerToken)
+	}
+
 	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
 
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf("[DM][%s] Sending dm to %s type %d at %s",
-		params.DebugTag, partnerID, messageType, netTime.Now())
+	sendPrint := fmt.Sprintf("[DM][%s] Sending from %s to %s type %d at %s",
+		params.DebugTag, dc.me.PubKey, partnerID, messageType,
+		netTime.Now())
 	defer func() { jww.INFO.Println(sendPrint) }()
 
 	rng := dc.rng.GetStream()
 	defer rng.Close()
 
-	nickname, _ := dc.nm.GetNickname(partnerID)
+	nickname, _ := dc.nm.GetNickname()
 
 	// Generate random nonce to be used for message ID
 	// generation. This makes it so two identical messages sent on
@@ -184,7 +236,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 
 	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
 	uuid, err := dc.st.DenotePendingSend(*partnerEdwardsPubKey,
-		partnerToken, messageType, directMessage)
+		dc.me.PubKey, partnerToken, messageType, directMessage)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s",
 			err.Error())
@@ -198,10 +250,11 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 			ephemeral.Id{}, err
 	}
 
-	partnerRnd, partnerEphID, err := send(dc.net, partnerID, partnerPubKey,
-		dc.privateKey, directMessage, params, rng)
+	rndID, ephIDs, err := send(dc.net, dc.selfReceptionID,
+		partnerID, partnerPubKey, dc.privateKey, partnerToken,
+		directMessage, params, dc.rng)
 	if err != nil {
-		sendPrint += fmt.Sprintf(", err on partner send: %+v", err)
+		sendPrint += fmt.Sprintf(", err on send: %+v", err)
 		errDenote := dc.st.FailedSend(uuid)
 		if errDenote != nil {
 			sendPrint += fmt.Sprintf(
@@ -213,34 +266,19 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	// Now that we have a round ID, derive the msgID
+	jww.INFO.Printf("[DM] DeriveDirectMessage(%s...) Send", partnerID)
 	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
 		directMessage)
 
-	sendPrint += fmt.Sprintf(", partner send eph %v rnd %s MsgID %s",
-		partnerEphID, partnerRnd.ID, msgID)
+	sendPrint += fmt.Sprintf(", send eph %v rnd %s MsgID %s",
+		ephIDs, rndID.ID, msgID)
 
-	myRnd, myEphID, err := sendSelf(dc.net, dc.selfReceptionID,
-		partnerPubKey, partnerToken, dc.privateKey, directMessage,
-		params, rng)
-	if err != nil {
-		sendPrint += fmt.Sprintf(", err on self send: %+v", err)
-		errDenote := dc.st.FailedSend(uuid)
-		if errDenote != nil {
-			sendPrint += fmt.Sprintf(
-				", failed to denote failed dm send: %s",
-				errDenote.Error())
-		}
-		return cryptoMessage.ID{}, rounds.Round{},
-			ephemeral.Id{}, err
-	}
-	sendPrint += fmt.Sprintf(", self send eph %v rnd %s MsgID %s",
-		myEphID, myRnd.ID, msgID)
-	err = dc.st.Sent(uuid, msgID, myRnd)
+	err = dc.st.Sent(uuid, msgID, rndID)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", dm send denote failed: %s ",
 			err.Error())
 	}
-	return msgID, myRnd, myEphID, err
+	return msgID, rndID, ephIDs[1], err
 
 }
 
@@ -270,25 +308,28 @@ func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 	return receptionID
 }
 
-func send(net cMixClient, partnerID *id.ID, partnerPubKey nike.PublicKey,
-	myPrivateKey nike.PrivateKey,
-	msg *DirectMessage, params cmix.CMIXParams, rng io.Reader) (rounds.Round,
-	ephemeral.Id, error) {
+func send(net cMixClient, myID *id.ID, partnerID *id.ID,
+	partnerPubKey nike.PublicKey,
+	myPrivateKey nike.PrivateKey, partnerToken uint32,
+	msg *DirectMessage, params cmix.CMIXParams,
+	rngGenerator *fastRNG.StreamGenerator) (rounds.Round,
+	[]ephemeral.Id, error) {
 
 	// Send to Partner
-	assemble := func(rid id.Round) (fp format.Fingerprint,
-		service message.Service, encryptedPayload, mac []byte,
-		err error) {
+	assemble := func(rid id.Round) ([]cmix.TargetedCmixMessage, error) {
+		rng := rngGenerator.GetStream()
+		defer rng.Close()
 
+		// SEND
 		msg.RoundID = uint64(rid)
 
 		// Serialize the message
 		dmSerial, err := proto.Marshal(msg)
 		if err != nil {
-			return
+			return nil, err
 		}
 
-		service = createRandomService(rng)
+		service := createRandomService(rng)
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -297,26 +338,21 @@ func send(net cMixClient, partnerID *id.ID, partnerPubKey nike.PublicKey,
 
 		fpBytes, encryptedPayload, mac, err := createCMIXFields(
 			ciphertext, payloadLen, rng)
+		if err != nil {
+			return nil, err
+		}
 
-		fp = format.NewFingerprint(fpBytes)
+		fp := format.NewFingerprint(fpBytes)
 
-		return fp, service, encryptedPayload, mac, err
-	}
-	return net.SendWithAssembler(partnerID, assemble, params)
-}
+		sendMsg := cmix.TargetedCmixMessage{
+			Recipient:   partnerID,
+			Payload:     encryptedPayload,
+			Fingerprint: fp,
+			Service:     service,
+			Mac:         mac,
+		}
 
-func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
-	partnerToken uint32, myPrivateKey nike.PrivateKey,
-	msg *DirectMessage, params cmix.CMIXParams, rng io.Reader) (rounds.Round,
-	ephemeral.Id, error) {
-
-	// SELF Send, NOTE: This is the send that returns the message ID
-	// for tracking. We can't track the receipt of the DM because we
-	// never pick it up.
-	selfAssemble := func(rid id.Round) (fp format.Fingerprint,
-		service message.Service, encryptedPayload, mac []byte,
-		err error) {
-
+		// SELF SEND
 		// NOTE: We do not modify the round id already in the
 		//       message object. This enables the same msgID
 		//       on sender and recipient.
@@ -326,34 +362,45 @@ func sendSelf(net cMixClient, myID *id.ID, partnerPubKey nike.PublicKey,
 		msg.DMToken = partnerToken
 
 		// Serialize the message
-		dmSerial, err := proto.Marshal(msg)
+		selfDMSerial, err := proto.Marshal(msg)
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		service = createRandomService(rng)
 
-		payloadLen := calcDMPayloadLen(net)
+		payloadLen = calcDMPayloadLen(net)
 
 		// FIXME: Why does this one return an error when the
 		// other doesn't!?
-		ciphertext, err := dm.Cipher.EncryptSelf(dmSerial, myPrivateKey,
-			partnerPubKey, payloadLen)
+		selfCiphertext, err := dm.Cipher.EncryptSelf(selfDMSerial,
+			myPrivateKey, partnerPubKey, payloadLen)
 		if err != nil {
-			return
+			return nil, err
 		}
 
-		fpBytes, encryptedPayload, mac, err := createCMIXFields(
-			ciphertext, payloadLen, rng)
+		fpBytes, encryptedPayload, mac, err = createCMIXFields(
+			selfCiphertext, payloadLen, rng)
+		if err != nil {
+			return nil, err
+		}
 
 		fp = format.NewFingerprint(fpBytes)
 
-		return fp, service, encryptedPayload, mac, err
+		selfSendMsg := cmix.TargetedCmixMessage{
+			Recipient:   myID,
+			Payload:     encryptedPayload,
+			Fingerprint: fp,
+			Service:     service,
+			Mac:         mac,
+		}
+
+		return []cmix.TargetedCmixMessage{sendMsg, selfSendMsg}, nil
 	}
-	return net.SendWithAssembler(myID, selfAssemble, params)
+	return net.SendManyWithAssembler([]*id.ID{partnerID, myID}, assemble, params)
 }
 
-// makeChaDebugTag is a debug helper that creates non-unique msg identifier.
+// makeDebugTag is a debug helper that creates non-unique msg identifier.
 //
 // This is set as the debug tag on messages and enables some level of tracing a
 // message (if its contents/chan/type are unique).

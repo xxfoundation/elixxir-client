@@ -8,16 +8,17 @@
 package health
 
 import (
-	"gitlab.com/elixxir/comms/network"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/comms/network"
 )
 
 // Happy path smoke test.
 func Test_newTracker(t *testing.T) {
 	// Initialize required variables
-	timeout := 250 * time.Millisecond
+	timeout := 800 * time.Millisecond
 	trkr := newTracker(timeout)
 	counter := int64(2) // First signal is "false/unhealthy"
 	positiveHb := network.Heartbeat{
@@ -61,7 +62,7 @@ func Test_newTracker(t *testing.T) {
 		if trkr.IsHealthy() && atomic.LoadInt64(&counter) == expectedCount {
 			break
 		} else {
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 
@@ -81,23 +82,36 @@ func Test_newTracker(t *testing.T) {
 			expectedCount, atomic.LoadInt64(&counter))
 	}
 
-	// Wait out the timeout
 	expectedCount = 0
-	time.Sleep(timeout)
+	counterChan := make(chan int64)
+	go func() {
+		c := atomic.LoadInt64(&counter)
+		for ; c != expectedCount; c = atomic.LoadInt64(&counter) {
+			time.Sleep(50 * time.Millisecond)
+		}
+		counterChan <- c
+	}()
 
-	// Verify the network was marked as NOT healthy
-	if trkr.IsHealthy() {
-		t.Fatal("tracker should not report healthy.")
-	}
+	// Wait out the timeout
+	select {
+	case c := <-counterChan:
+		// Verify the network was marked as NOT healthy
+		if trkr.IsHealthy() {
+			t.Fatal("tracker should not report healthy.")
+		}
 
-	// Check if the tracker was ever healthy, after setting healthy to false
-	if !trkr.WasHealthy() {
-		t.Fatal("tracker was healthy previously but not reported healthy.")
-	}
+		// Check if the tracker was ever healthy, after setting healthy to false
+		if !trkr.WasHealthy() {
+			t.Fatal("tracker was healthy previously but not reported healthy.")
+		}
 
-	// Verify the timeout triggered the listening chan/func
-	if atomic.LoadInt64(&counter) != expectedCount {
-		t.Errorf("Expected counter to be %d, got %d",
+		// Verify the timeout triggered the listening chan/func
+		if c != expectedCount {
+			t.Errorf("Expected counter to be %d, got %d", expectedCount, c)
+		}
+	case <-time.After(5 * time.Second):
+		t.Errorf("Timed out waiting for counter to be expected value."+
+			"\nexpected: %d\nreceived: %d",
 			expectedCount, atomic.LoadInt64(&counter))
 	}
 }

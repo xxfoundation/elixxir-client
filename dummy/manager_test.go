@@ -9,11 +9,13 @@ package dummy
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/v4/stoppable"
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/stoppable"
 )
 
 // Tests that newManager returns the expected Manager.
@@ -68,11 +70,10 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	var numReceived int
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
 
 	err = stop.Close()
@@ -80,7 +81,18 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	err = stoppable.WaitForStopped(stop, 5*time.Second)
+	if err != nil {
+		t.Errorf("Failed to wait for stoppable to be stopped: %+v", err)
+	}
+
+	// NOTE: this test was a bit bugged originally, as you can't
+	// stop waiting for message received updated, wait for a few
+	// lines, then stop the process, then expect not to have ever
+	// received a new message.
+	// What we do instead is get the len immediately after stopping, then
+	// wait for some time to see if it changes
+	numReceived = m.net.(*mockCmix).GetMsgListLen()
 	if !stop.IsStopped() {
 		t.Error("Stoppable never stopped.")
 	}
@@ -158,9 +170,9 @@ func TestManager_PauseResume(t *testing.T) {
 	}
 
 	select {
-	case <-time.NewTimer(3 * m.avgSendDelta).C:
+	case <-time.NewTimer(75 * m.avgSendDelta).C:
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
-			3*m.avgSendDelta)
+			75*m.avgSendDelta)
 	case <-msgChan:
 		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
@@ -237,19 +249,14 @@ func TestManager_Pause_ChannelError(t *testing.T) {
 // Tests that Manager.GetStatus gets the correct status before the send thread
 // starts, while sending, while paused, and after it is stopped.
 func TestManager_GetStatus(t *testing.T) {
-	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
+	m := newTestManager(10, 250*time.Millisecond, 10*time.Millisecond, t)
 
-	err := m.Pause()
-	if err != nil {
-		t.Errorf("Pause returned an error: %+v", err)
-	}
+	require.NoError(t, m.Pause())
 
 	stop := stoppable.NewSingle("sendThreadTest")
 	go m.sendThread(stop)
 
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
 
 	msgChan := make(chan bool, 10)
 	go func() {
@@ -264,13 +271,9 @@ func TestManager_GetStatus(t *testing.T) {
 	}()
 
 	// Setting status to false should cause the messages to not send
-	err = m.Pause()
-	if err != nil {
-		t.Errorf("Pause returned an error: %+v", err)
-	}
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.NoError(t, m.Pause())
+
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
 
 	var numReceived int
 	select {
@@ -279,14 +282,10 @@ func TestManager_GetStatus(t *testing.T) {
 		t.Errorf("Should not have received messages when thread was pasued.")
 	}
 
-	err = m.Start()
-	if err != nil {
-		t.Errorf("Resume returned an error: %+v", err)
-	}
+	require.NoError(t, m.Start())
+
 	time.Sleep(3 * time.Millisecond)
-	if !m.GetStatus() {
-		t.Errorf("GetStatus reported thread as paused.")
-	}
+	require.True(t, m.GetStatus(), "GetStatus reported thread as paused.")
 
 	select {
 	case <-time.NewTimer(3 * m.avgSendDelta).C:
@@ -298,14 +297,10 @@ func TestManager_GetStatus(t *testing.T) {
 
 	// Setting status to true multiple times does not interrupt sending
 	for i := 0; i < 3; i++ {
-		err = m.Start()
-		if err != nil {
-			t.Errorf("Resume returned an error (%d): %+v", i, err)
-		}
+		require.NoError(t, m.Start())
 	}
-	if !m.GetStatus() {
-		t.Errorf("GetStatus reported thread as paused.")
-	}
+
+	require.False(t, !m.GetStatus(), "GetStatus reported thread as paused.")
 
 	select {
 	case <-time.NewTimer(3 * m.avgSendDelta).C:
@@ -320,25 +315,15 @@ func TestManager_GetStatus(t *testing.T) {
 	}
 
 	// Shows that the stoppable still stops when the thread is paused
-	err = m.Pause()
-	if err != nil {
-		t.Errorf("Pause returned an error: %+v", err)
-	}
-	time.Sleep(3 * time.Millisecond)
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.NoError(t, m.Pause())
 
-	err = stop.Close()
-	if err != nil {
-		t.Errorf("Failed to close stoppable: %+v", err)
-	}
+	time.Sleep(3 * time.Millisecond)
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
+
+	require.NoError(t, stop.Close())
 
 	time.Sleep(10 * time.Millisecond)
-	if !stop.IsStopped() {
-		t.Error("Stoppable never stopped.")
-	}
-	if m.GetStatus() {
-		t.Errorf("GetStatus reported thread as running.")
-	}
+	require.True(t, stop.IsStopped(), "Stoppable never stopped.")
+
+	require.False(t, m.GetStatus(), "GetStatus reported thread as running.")
 }

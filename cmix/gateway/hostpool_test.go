@@ -8,19 +8,24 @@
 package gateway
 
 import (
+	"github.com/stretchr/testify/require"
+	"os"
+	"reflect"
+	"testing"
+	"time"
+
+	"encoding/json"
+	"github.com/golang-collections/collections/set"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"os"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -105,6 +110,25 @@ func Test_newHostPool_HostListStore(t *testing.T) {
 	}
 }
 
+func TestPrint(t *testing.T) {
+	p := pool{
+		hostMap: make(map[id.ID]uint),
+	}
+
+	for i := uint(0); i < 5; i++ {
+		p.hostMap[*id.NewIdFromUInt(uint64(i), id.Gateway, t)] = i
+
+	}
+
+	data, err := json.Marshal(p.hostMap)
+	if err != nil {
+		t.Fatalf("Failed to marshal map: %+v", err)
+	}
+
+	t.Logf("%s", string(data))
+
+}
+
 // Unit test.
 func TestHostPool_ManageHostPool(t *testing.T) {
 	manager := newMockManager()
@@ -181,7 +205,7 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
-	addGwChan := make(chan network.NodeGateway, len(testNdf.Gateways))
+	addGwChan := make(chan network.NodeGateway, 150)
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
@@ -210,16 +234,20 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	stop := stoppable.NewSingle("tester")
 	go testPool.runner(stop)
 	defer func() {
-		stop.Close()
+		if err = stop.Close(); err != nil {
+			t.Fatalf("Failed to close stoppable: %+v", err)
+		}
 	}()
 
 	// Construct a new Ndf different from original one above
 	newNdf := getTestNdf(t)
 	newGateway := ndf.Gateway{
-		ID: id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
+		ID:      id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
+		Address: "0.0.0.3:11420",
 	}
 	newNode := ndf.Node{
-		ID: id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		ID:      id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		Address: "0.0.0.3:11420",
 	}
 	newNdf.Gateways = append(newNdf.Gateways, newGateway)
 	newNdf.Nodes = append(newNdf.Nodes, newNode)
@@ -227,11 +255,127 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	// Update pool with the new Ndf
 	testPool.UpdateNdf(newNdf)
 
-	time.Sleep(1 * time.Second)
+	c := make(chan struct{})
+	go func() {
+		for len(newNdf.Nodes) != len(testPool.ndf.Nodes) ||
+			len(newNdf.Gateways) != len(testPool.ndf.Gateways) ||
+			len(newNdf.Gateways) != len(testPool.ndfMap) {
+			time.Sleep(50 * time.Millisecond)
+		}
+		c <- struct{}{}
+	}()
+
+	select {
+	case <-c:
+	case <-time.After(5 * time.Second):
+		t.Errorf("Timed out waiting for NDF to update. " +
+			"Host pool NDF not updated to new NDF.")
+	}
+}
+
+func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
+	manager := newMockManager()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	testNdf := getTestNdf(t)
+	testStorage := storage.InitTestingSession(t)
+	addGwChan := make(chan network.NodeGateway, 150)
+	params := DefaultPoolParams()
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
+
+	addedIDs := []*id.ID{
+		id.NewIdFromString("testID0", id.Gateway, t),
+		id.NewIdFromString("testID1", id.Gateway, t),
+		id.NewIdFromString("testID2", id.Gateway, t),
+		id.NewIdFromString("testID3", id.Gateway, t),
+	}
+
+	require.NoError(t, saveHostList(
+		testStorage.GetKV().Prefix(hostListPrefix), addedIDs))
+
+	for i, hid := range addedIDs {
+		testNdf.Gateways[i].ID = hid.Marshal()
+	}
+
+	// Call the constructor
+	mccc := &mockCertCheckerComm{}
+	doneCh := make(chan bool, 1)
+	allowedIds := set.New()
+	allowedId := id.NewIdFromUInt(27, id.Gateway, t)
+	allowedIds.Insert(allowedId.String())
+	whitelist := []string{allowedId.String()}
+
+	f := GatewayWhitelistFilter(whitelist)
+	params.GatewayFilter = func(unfiltered map[id.ID]int, ndf *ndf.NetworkDefinition) map[id.ID]int {
+		doneCh <- true
+		filtered := f(unfiltered, ndf)
+		return filtered
+	}
+	testPool, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan, mccc)
+	require.NoError(t, err, "Failed to create mock host pool: %v", err)
+
+	stop := stoppable.NewSingle("tester")
+	go testPool.runner(stop)
+	defer func() {
+		require.NoError(t, stop.Close())
+	}()
+
+	// Construct a new Ndf different from original one above
+	newNdf := getTestNdf(t)
+	newGateway := ndf.Gateway{
+		ID:      allowedId.Bytes(),
+		Address: "0.0.0.3:11420",
+	}
+	newNode := ndf.Node{
+		ID:      id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		Address: "0.0.0.3:11420",
+		Status:  ndf.Active,
+	}
+	newNdf.Gateways = append(newNdf.Gateways, newGateway)
+	newNdf.Nodes = append(newNdf.Nodes, newNode)
+
+	select {
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "Did not run filter before timeout")
+	case <-doneCh:
+	}
+
+	// Update pool with the new Ndf
+	testPool.UpdateNdf(newNdf)
+
+	select {
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "Did not run filter before timeout")
+	case <-doneCh:
+	}
+	time.Sleep(time.Second)
 
 	// Check that the host pool's NDF has been modified properly
-	if len(newNdf.Nodes) != len(testPool.ndf.Nodes) ||
-		len(newNdf.Gateways) != len(testPool.ndf.Gateways) {
-		t.Errorf("Host pool NDF not updated to new NDF.")
+	require.Equal(t, len(newNdf.Nodes), len(testPool.ndf.Nodes))
+	require.Equal(t, len(newNdf.Gateways), len(testPool.ndf.Gateways))
+	require.Equal(t, allowedIds.Len(), len(testPool.ndfMap))
+
+	for gwID := range testPool.ndfMap {
+		require.True(t, allowedIds.Has(gwID.String()), "id in NDF map not in allowed IDs")
 	}
+
+	done := false
+	testCount := 0
+	for !done {
+		select {
+		case <-testPool.testNodes:
+			testCount++
+		case <-time.After(8 * time.Second):
+			done = true
+		}
+	}
+
+	require.Equal(t, testCount, 1, "Did not receive expected test count."+
+		"\nexpected: %d\nreceived: %d", 1, testCount)
+}
+
+type mockCertCheckerComm struct{}
+
+func (mccc *mockCertCheckerComm) GetGatewayTLSCertificate(*connect.Host,
+	*pb.RequestGatewayCert) (*pb.GatewayCertificate, error) {
+	return &pb.GatewayCertificate{}, nil
 }

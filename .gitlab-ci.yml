@@ -46,6 +46,19 @@ test:
       - vendor/
       - testdata/
 
+wasm-test:
+  stage: test
+  image: $DOCKER_IMAGE
+  except:
+    - tags
+  script:
+    - export PATH=/root/go/bin:$PATH
+    - go mod vendor
+    # Remove some environment vars to deal with: https://github.com/agnivade/wasmbrowsertest/issues/40
+    - unset SSH_PRIVATE_KEY
+    - unset $(env | grep '=' | awk -F= '{print $1}' | grep -v PATH | grep -v GO | grep -v HOME)
+    - GOOS=js GOARCH=wasm go test ./... -v
+
 build:
   stage: build
   image: $DOCKER_IMAGE
@@ -100,18 +113,31 @@ bindings-ios:
     - gomobile init
     - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
     - ls
+
+    # Package and upload the bindings to S3 for Xcode's package manager
     - zip -r -y iOS.zip Bindings.xcframework
+    - sync # Force disc flush
+    - cp iOS.zip iOS-$CI_COMMIT_SHA.zip
+    - sync # Force disc flush
+    - mc alias set elixxir-s3 $ARTIFACT_S3_ENDPOINT $ARTIFACT_S3_KEY $ARTIFACT_S3_SECRET
+    - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip
+    - swift package compute-checksum iOS-$CI_COMMIT_SHA.zip > iOS-$CI_COMMIT_SHA.zip.checksum && cat iOS-$CI_COMMIT_SHA.zip.checksum
+    - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum
+
+    # Verify the uploaded file
+    - curl http://elixxir-bins.s3-us-west-1.amazonaws.com/bindings-ios/iOS-$CI_COMMIT_SHA.zip | shasum -a 256 - | awk '{print $1;}' > aws-sum-dl.txt
+    - curl http://elixxir-bins.s3-us-west-1.amazonaws.com/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum > aws-sum-computed.txt
+    - diff aws-sum-dl.txt aws-sum-computed.txt
   artifacts:
     paths:
       - iOS.zip
 
 bindings-android:
   stage: build
+  image: $ANDROID_DOCKER_IMAGE
   dependencies: []
   except:
     - tags
-  tags:
-    - android
   script:
     - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
     - export ANDROID_HOME=/android-sdk

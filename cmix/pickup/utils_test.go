@@ -8,6 +8,9 @@
 package pickup
 
 import (
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/message"
@@ -20,9 +23,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/utils"
-	"testing"
-	"time"
 )
 
 func newManager(t *testing.T) *pickup {
@@ -143,6 +143,25 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	return nil, nil
 }
 
+func (mmrc *mockMessageRetrievalComms) RequestBatchMessages(host *connect.Host, req *pb.GetMessagesBatch) (*pb.GetMessagesResponseBatch, error) {
+	ret := make([]*pb.GetMessagesResponse, len(req.GetRequests()))
+	for i, mreq := range req.GetRequests() {
+		targetId, err := id.Unmarshal(mreq.Target)
+		if err != nil {
+
+		}
+		h, err := connect.NewHost(targetId, "0.0.0.0", nil, connect.GetDefaultHostParams())
+		if err != nil {
+
+		}
+		ret[i], err = mmrc.RequestMessages(h, mreq)
+	}
+	return &pb.GetMessagesResponseBatch{
+		Results: ret,
+		Errors:  make([]string, len(ret)),
+	}, nil
+}
+
 func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {
 	switch face.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
@@ -162,7 +181,7 @@ func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {
 }
 
 func getNDF() *ndf.NetworkDefinition {
-	cert, _ := utils.ReadFile(testkeys.GetNodeCertPath())
+	cert := testkeys.GetNodeCert()
 	nodeID := id.NewIdFromBytes([]byte("gateway"), &testing.T{})
 	return &ndf.NetworkDefinition{
 		Nodes: []ndf.Node{

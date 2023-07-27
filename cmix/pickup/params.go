@@ -37,6 +37,11 @@ type Params struct {
 
 	// Toggles if historical rounds should always be used
 	ForceHistoricalRounds bool
+
+	BatchMessageRetrieval bool
+	MaxBatchSize          int
+	BatchDelay            int
+	BatchPickupTimeout    int
 }
 
 // paramsDisk will be the marshal-able and umarshal-able object.
@@ -60,6 +65,9 @@ func GetDefaultParams() Params {
 		UncheckRoundPeriod:         120 * time.Second,
 		ForceMessagePickupRetry:    false,
 		SendTimeout:                3 * time.Second,
+		MaxBatchSize:               20,
+		BatchPickupTimeout:         250,
+		BatchDelay:                 100,
 	}
 }
 

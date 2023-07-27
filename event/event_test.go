@@ -41,9 +41,19 @@ func TestEventReporting(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if len(evts) != 4 {
-		t.Errorf("TestEventReporting: Got %d events, expected 4",
-			len(evts))
+	c := make(chan struct{})
+	go func() {
+		for len(evts) != 4 {
+			time.Sleep(20 * time.Millisecond)
+		}
+		c <- struct{}{}
+	}()
+
+	select {
+	case <-c:
+	case <-time.After(3 * time.Second):
+		t.Errorf("TestEventReporting: Got %d events, expected %d",
+			len(evts), 4)
 	}
 
 	// Verify events are received
@@ -75,9 +85,22 @@ func TestEventReporting(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify events are not received
-	if len(evts) != 4 {
-		t.Errorf("TestEventReporting: Got %d events, expected 4",
-			len(evts))
+	c = make(chan struct{})
+	go func() {
+		for len(evts) != 4 {
+			time.Sleep(20 * time.Millisecond)
+		}
+		c <- struct{}{}
+	}()
+
+	select {
+	case <-c:
+	case <-time.After(3 * time.Second):
+		t.Errorf("TestEventReporting: Got %d events, expected %d",
+			len(evts), 4)
 	}
-	stop.Close()
+
+	if err = stop.Close(); err != nil {
+		t.Errorf("Failed to close stoppable: %+v", err)
+	}
 }

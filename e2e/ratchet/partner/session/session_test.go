@@ -8,11 +8,12 @@
 package session
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/storage/utility"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
@@ -219,7 +220,7 @@ func TestSession_PopKey_Error(t *testing.T) {
 	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
+	s.keyState, err = utility.NewStateVector(0, false, "", s.kv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +259,7 @@ func TestSession_PopReKey_Err(t *testing.T) {
 	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
+	s.keyState, err = utility.NewStateVector(0, false, "", s.kv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +322,7 @@ func TestSession_IsConfirmed(t *testing.T) {
 func TestSession_Status(t *testing.T) {
 	s, _ := makeTestSession()
 	var err error
-	s.keyState, err = utility.NewStateVector(s.kv, "", 500)
+	s.keyState, err = utility.NewStateVector(500, false, "", s.kv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,7 +354,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	// Use timestamps to determine whether a save has occurred
 	s.negotiationStatus = Sending
 	now := netTime.Now()
-	time.Sleep(time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	s.SetNegotiationStatus(Sent)
 	if s.negotiationStatus != Sent {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
@@ -367,7 +368,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	}
 
 	now = netTime.Now()
-	time.Sleep(time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	s.SetNegotiationStatus(Confirmed)
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
@@ -381,7 +382,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	}
 
 	now = netTime.Now()
-	time.Sleep(time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	s.negotiationStatus = NewSessionTriggered
 	s.SetNegotiationStatus(NewSessionCreated)
 	if s.negotiationStatus != NewSessionCreated {
@@ -396,9 +397,9 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	}
 
 	// Reverting paths: SetNegotiationStatus should not fail, and a save should not take place
-	time.Sleep(time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	now = netTime.Now()
-	time.Sleep(time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	s.negotiationStatus = Sending
 	s.SetNegotiationStatus(Unconfirmed)
 	if s.negotiationStatus != Unconfirmed {

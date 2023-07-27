@@ -5,6 +5,11 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: connect is not supported in WASM at this time.
+// The tests here require a hash that is not SHA and the consistency
+// test requires a different hash ehre.
+//go:build !js || !wasm
+
 package connect
 
 import (
@@ -75,7 +80,7 @@ func TestSignVerify_Consistency(t *testing.T) {
 	salt := make([]byte, 32)
 	copy(salt, "salt")
 
-	partnerId, err := xx.NewID(privKey.Public().GetOldRSA(), salt, id.User)
+	partnerId, err := xx.NewID(privKey.Public(), salt, id.User)
 	if err != nil {
 		t.Fatalf("NewId error: %v", err)
 	}

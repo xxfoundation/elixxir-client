@@ -10,6 +10,10 @@ package single
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -20,9 +24,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestGetMaxRequestSize(t *testing.T) {
@@ -128,7 +129,7 @@ func TestTransmitRequest(t *testing.T) {
 // Tests that waitForTimeout returns and does not call the callback when the
 // kill channel is used.
 func Test_waitForTimeout(t *testing.T) {
-	timeout := 15 * time.Millisecond
+	timeout := 300 * time.Millisecond
 	cbChan := make(chan error, 1)
 	cb := func(
 		_ []byte, _ receptionID.EphemeralIdentity, _ []rounds.Round, err error) {
@@ -170,7 +171,7 @@ func Test_waitForTimeout_TimeoutError(t *testing.T) {
 			t.Errorf("Did not get expected error on callback."+
 				"\nexpected: %s\nreceived: %+v", expectedErr, r)
 		}
-	case <-time.After(timeout * 2):
+	case <-time.After(5 * time.Second):
 		t.Errorf("Timed out waiting on callback.")
 	}
 }
@@ -201,4 +202,48 @@ func Test_partitionPayload(t *testing.T) {
 		t.Errorf("Received unexpected parts.\nexpected: %q\nreceived: %q",
 			expectedParts, parts)
 	}
+}
+
+func testPartitionCase(
+	t *testing.T,
+	payload []byte,
+	firstPartSize, partSize int,
+	expectedFirstPart []byte,
+	expectedParts [][]byte,
+) {
+	firstPart, parts := partitionPayload(firstPartSize, partSize, payload)
+	if !bytes.Equal(expectedFirstPart, firstPart) {
+		t.Errorf("Received unexpected first part.\nexpected: %q\nreceived: %q",
+			expectedFirstPart, firstPart)
+	}
+
+	if !reflect.DeepEqual(expectedParts, parts) {
+		t.Errorf("Received unexpected parts.\nexpected: %q\nreceived: %q",
+			expectedParts, parts)
+	}
+}
+
+// Test payload partition cases
+func Test_partitionPayloadCases(t *testing.T) {
+	// 1. Test payload that fits in first part
+	const firstPartSize = 8
+	const partSize = 10
+	expectedFirstPart := []byte("123456")
+	payload := expectedFirstPart
+	var expectedParts [][]byte = nil
+	testPartitionCase(t, payload, firstPartSize, partSize, expectedFirstPart, expectedParts)
+
+	// 2. Test payload with size equal to firstPart + one part
+	expectedFirstPart = []byte("12345678")
+	expectedParts = make([][]byte, 1)
+	expectedParts[0] = []byte("0123456789")
+	payload = append(expectedFirstPart, expectedParts[0]...)
+	testPartitionCase(t, payload, firstPartSize, partSize, expectedFirstPart, expectedParts)
+
+	// 3. Test payload with size smaller than firstPart + one part
+	expectedFirstPart = []byte("12345678")
+	expectedParts = make([][]byte, 1)
+	expectedParts[0] = []byte("12345678")
+	payload = append(expectedFirstPart, expectedParts[0]...)
+	testPartitionCase(t, payload, firstPartSize, partSize, expectedFirstPart, expectedParts)
 }

@@ -8,6 +8,10 @@
 package user
 
 import (
+	"github.com/stretchr/testify/require"
+	"math/rand"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -15,8 +19,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"testing"
 )
 
 // Test loading user from a KV store
@@ -39,8 +41,11 @@ func TestLoadUser(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey, kv)
@@ -69,8 +74,11 @@ func TestNewUser(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)

@@ -9,7 +9,9 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"github.com/pkg/errors"
 	"math/rand"
+	"os"
 	"reflect"
 	"runtime"
 	"testing"
@@ -37,6 +39,44 @@ const (
 	tenMsInNs     = 10000019
 	halfTenMsInNs = tenMsInNs / 2
 )
+
+// Tests that CheckNoMessageErr can properly detect NoMessageErr when it is
+// formatted in different ways.
+func TestCheckNoMessageErr(t *testing.T) {
+	errorsToCheck := []error{
+		NoMessageErr,
+		errors.WithStack(NoMessageErr),
+		errors.New(NoMessageErr.Error()),
+		errors.Errorf("New error: %+v", NoMessageErr),
+		errors.Wrap(NoMessageErr, "New error"),
+		errors.Wrapf(errors.New("new"), "New error: %+v", NoMessageErr),
+		errors.WithMessage(NoMessageErr, "New error message"),
+		errors.WithMessagef(errors.New("new"), "New error: %+v", NoMessageErr),
+	}
+
+	for i, err := range errorsToCheck {
+		if !CheckNoMessageErr(err) {
+			t.Errorf("Error %d was not recognized: %v", i, err)
+		}
+	}
+}
+
+// Tests that CheckNoMessageErr returns false for errors that do not contain
+// NoMessageErr.
+func TestCheckNoMessageErr_NoError(t *testing.T) {
+	errorsToCheck := []error{
+		errors.New(NoMessageErr.Error()[1:]),
+		errors.Errorf("New error: %+v", "[EV]"),
+		errors.New("some error"),
+		os.ErrNotExist,
+	}
+
+	for i, err := range errorsToCheck {
+		if CheckNoMessageErr(err) {
+			t.Errorf("Error %d was recognized: %v", i, err)
+		}
+	}
+}
 
 func Test_initEvents(t *testing.T) {
 	me := &MockEvent{}
@@ -1019,7 +1059,7 @@ func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID,
 
 func (m *MockEvent) UpdateFromUUID(_ uint64, messageID *message.ID,
 	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-	status *SentStatus) {
+	status *SentStatus) error {
 
 	if messageID != nil {
 		m.eventReceive.messageID = *messageID
@@ -1039,11 +1079,13 @@ func (m *MockEvent) UpdateFromUUID(_ uint64, messageID *message.ID,
 	if hidden != nil {
 		m.eventReceive.hidden = *hidden
 	}
+
+	return nil
 }
 
-func (m *MockEvent) UpdateFromMessageID(_ message.ID,
-	timestamp *time.Time, round *rounds.Round, pinned, hidden *bool,
-	status *SentStatus) uint64 {
+func (m *MockEvent) UpdateFromMessageID(_ message.ID, timestamp *time.Time,
+	round *rounds.Round, pinned, hidden *bool, status *SentStatus) (
+	uint64, error) {
 
 	if timestamp != nil {
 		m.eventReceive.timestamp = *timestamp
@@ -1061,7 +1103,7 @@ func (m *MockEvent) UpdateFromMessageID(_ message.ID,
 		m.eventReceive.hidden = *hidden
 	}
 
-	return m.getUUID()
+	return m.getUUID(), nil
 }
 
 func (m *MockEvent) GetMessage(message.ID) (ModelMessage, error) {
@@ -1084,9 +1126,7 @@ func (m *MockEvent) GetMessage(message.ID) (ModelMessage, error) {
 	}, nil
 }
 
-func (m *MockEvent) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-	return
-}
+func (m *MockEvent) MuteUser(*id.ID, ed25519.PublicKey, bool) {}
 
 func (m *MockEvent) DeleteMessage(message.ID) error {
 	m.eventReceive = eventReceive{}

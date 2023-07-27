@@ -14,6 +14,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
 
@@ -28,8 +29,9 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 
 	inProgress := make(map[id.ID]struct{})
 	toRemoveList := make(map[id.ID]interface{}, 2*cap(hp.writePool.hostList))
+	removedList := make(removedNodes, 2*cap(hp.writePool.hostList))
 	online := newBucket(cap(hp.writePool.hostList))
-
+	debugTicker := time.NewTicker(hp.params.DebugPrintPeriod)
 	for {
 		update := false
 	input:
@@ -42,15 +44,13 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 		// to testing. If no specific node is sent (ie it receive nil),
 		// it  will send a random one
 		case toAdd := <-hp.addRequest:
-
 			var hostList []*connect.Host
 			hostList, inProgress = hp.processAddRequest(toAdd, inProgress)
 			if len(hostList) == 0 {
-				jww.ERROR.Printf("Host list for testing is empty, this " +
-					"error should never occur")
+				jww.ERROR.Printf("Host list for testing is empty; this " +
+					"error should not occur unless an ndf filter was set")
 				break input
 			}
-
 			// Send the signal to the adding pool to add
 			select {
 			case hp.testNodes <- hostList:
@@ -100,17 +100,17 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				break input
 			}
 
-			//
 			online.Reset()
 
 			// Replace a node slated for replacement if required
 			// pop to remove list
 			toRemove := pop(toRemoveList)
 			if toRemove != nil {
-				//if this fails, handle the new host without removing a node
+				// If this fails, handle the new host without removing a node
 				if oldHost, err := hp.writePool.replaceSpecific(toRemove, newHost); err == nil {
 					update = true
 					if oldHost != nil {
+						removedList[*toRemove] = netTime.Now()
 						go func() {
 							oldHost.Disconnect()
 						}()
@@ -121,7 +121,10 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				}
 			} else {
 				stream := hp.rng.GetStream()
-				hp.writePool.addOrReplace(stream, newHost)
+				replaced := hp.writePool.addOrReplace(stream, newHost)
+				if replaced != nil {
+					removedList[*replaced.GetId()] = netTime.Now()
+				}
 				stream.Close()
 
 				update = true
@@ -134,6 +137,16 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 				delete(inProgress, *h.GetId())
 				jww.DEBUG.Printf("[Runner] Deleted %s from inProgress", h.GetId())
 			}
+
+		// This will print the state of the host pool state over a custom time
+		// interval. This interval is to be set by the user using the Params
+		// object (refer to Params.DebugPrintPeriod).
+		// Refer to debug.go for how the prints will be formatted.
+		case <-debugTicker.C:
+			jww.INFO.Printf("%s", hp.GoString()+removedList.GoString())
+
+			// fixme: figure out how to clear removed list properly
+			removedList = make(removedNodes, 2*cap(hp.writePool.hostList))
 		// New NDF updates come in over this channel
 		case newNDF := <-hp.newNdf:
 			hp.ndf = newNDF.DeepCopy()
@@ -179,9 +192,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 			stop.ToStopped()
 			return
 		}
-
 	}
-
 }
 
 // processAddRequest will return the host of the passed in node if it is
@@ -211,7 +222,7 @@ func (hp *hostPool) processAddRequest(toAdd *id.ID,
 			jww.DEBUG.Printf("[ProcessAndRequest] SelectNew returned error: %s", err)
 			jww.WARN.Printf("Failed to select any nodes to test for adding, " +
 				"skipping add. This error may be the result of being disconnected " +
-				"from the internet or very old network credentials")
+				"from the internet, very old network credentials, or a set filter")
 			return nil, inProgress
 		}
 	}
@@ -263,19 +274,16 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 				_, err = hp.manager.AddHost(gwID, gwAddr,
 					cert, hp.params.HostParams)
 			}
-
 			if err != nil {
 				jww.WARN.Printf("Skipped gateway %d: %s, "+
 					"host could not be added, %+v", i,
 					gwID, err)
 				continue
 			}
-
 			hp.addChan <- network.NodeGateway{
 				Node:    newNdf.Nodes[i],
 				Gateway: gw,
 			}
-
 		}
 
 		// Add to the new map
@@ -286,11 +294,11 @@ func (hp *hostPool) processNdf(newNdf *ndf.NetworkDefinition) map[id.ID]int {
 		delete(hp.ndfMap, *gwID)
 	}
 
-	return newNDFMap
+	return hp.filter(newNDFMap, newNdf)
 }
 
 // pop selects an element from the map that tends to be an earlier insert,
-// removes it, and returns it
+// removes it, and returns it.
 func pop(m map[id.ID]interface{}) *id.ID {
 	for tr := range m {
 		delete(m, tr)

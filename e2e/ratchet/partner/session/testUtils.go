@@ -108,8 +108,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 		rng:               fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
 	var err error
-	s.keyState, err = util.NewStateVector(s.kv,
-		"", 1024)
+	s.keyState, err = util.NewStateVector(1024, false, "", s.kv)
 	if err != nil {
 		panic(err)
 	}

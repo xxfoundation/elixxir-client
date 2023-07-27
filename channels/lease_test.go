@@ -12,6 +12,15 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math/rand"
+	"os"
+	"reflect"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -22,14 +31,6 @@ import (
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
-	"math/rand"
-	"os"
-	"reflect"
-	"sort"
-	"strings"
-	"testing"
-	"time"
 )
 
 // Tests that NewOrLoadActionLeaseList initialises a new empty ActionLeaseList
@@ -262,7 +263,7 @@ func TestActionLeaseList_updateLeasesThread(t *testing.T) {
 				break
 			}
 		}
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	select {
@@ -438,7 +439,7 @@ func TestActionLeaseList_updateLeasesThread_AddAndRemove(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatalf("Timed out waiting for message to be removed from message map.")
 	}
 
@@ -446,7 +447,7 @@ func TestActionLeaseList_updateLeasesThread_AddAndRemove(t *testing.T) {
 		t.Errorf("%d messages left in lease list.", all.leases.Len())
 	}
 
-	if err := stop.Close(); err != nil {
+	if err = stop.Close(); err != nil {
 		t.Errorf("Failed to close thread: %+v", err)
 	}
 }
@@ -1121,7 +1122,7 @@ func TestActionLeaseList_RemoveChannel(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		t.Errorf("Timed out waiting for messages to be added to message map.")
 	}
 
@@ -1130,14 +1131,14 @@ func TestActionLeaseList_RemoveChannel(t *testing.T) {
 	done = make(chan struct{})
 	go func() {
 		for len(all.messagesByChannel) > 4 {
-			time.Sleep(time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 		done <- struct{}{}
 	}()
 
 	select {
 	case <-done:
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		t.Errorf("Timed out waiting for message to be removed from message map. "+
 			"%d channels left in the message map when %d expected.",
 			len(all.messagesByChannel), 4)

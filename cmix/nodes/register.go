@@ -32,7 +32,7 @@ import (
 // before an interruption and how many registration attempts have
 // been attempted.
 func registerNodes(r *registrar, s session, stop *stoppable.Single,
-	inProgress, attempts *sync.Map, index int) {
+	inProgress, attempts *sync.Map) {
 
 	atomic.AddInt64(r.numberRunning, 1)
 	for {
@@ -52,6 +52,10 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 			return
 
 		case gw := <-r.c:
+			if r.disableNodeRegistration {
+				jww.WARN.Printf("Node registration has been disabled; ignoring received registration request")
+				continue
+			}
 			rng := r.rng.GetStream()
 
 			// Pull node information from channel
@@ -88,6 +92,11 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 			// Register with this node
 			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
+			if stoppable.CheckErr(err) {
+				jww.ERROR.Printf("Failed to register node: %s", err)
+				stop.ToStopped()
+				return
+			}
 
 			// Remove from in progress immediately (success or failure)
 			inProgress.Delete(nidStr)
@@ -132,16 +141,8 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 						}()
 					}
 				}
-
 			}
 			rng.Close()
-		}
-		if index >= 2 {
-			if float64(r.NumRegisteredNodes()) > (float64(r.numnodesGetter()) * .7) {
-				<-stop.Quit()
-				stop.ToStopped()
-				return
-			}
 		}
 	}
 }
@@ -151,7 +152,6 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, s session, r *registrar,
 	rng csprng.Source, stop *stoppable.Single) error {
-
 	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
 		jww.ERROR.Printf("registerWithNode failed to decode node ID: %v", err)
@@ -172,12 +172,7 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	start := time.Now()
 	// TODO: should move this to a pre-canned user initialization
 	if s.IsPrecanned() {
-		userNum := int(s.GetTransmissionID().Bytes()[7])
-		h := sha256.New()
-		h.Reset()
-		h.Write([]byte(strconv.Itoa(4000 + userNum)))
-
-		transmissionKey = r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
+		transmissionKey = getPrecannedTransmissionKey(s, r)
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
 		// Request key from server
@@ -187,13 +182,23 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		if err != nil {
 			return errors.Errorf("Failed to request key: %v", err)
 		}
-
 	}
 
 	r.add(nodeID, transmissionKey, validUntil, keyId)
 
 	jww.INFO.Printf("Completed registration with node %s,"+
-		" took %d", nodeID, time.Since(start))
+		" took %s", nodeID, time.Since(start))
 
 	return nil
+}
+
+func getPrecannedTransmissionKey(s session, r *registrar) *cyclic.Int {
+	userNum := int(s.GetTransmissionID().Bytes()[7])
+	h := sha256.New()
+	h.Reset()
+	h.Write([]byte(strconv.Itoa(4000 + userNum)))
+	var transmissionKey *cyclic.Int
+	transmissionKey = r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
+	jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
+	return transmissionKey
 }

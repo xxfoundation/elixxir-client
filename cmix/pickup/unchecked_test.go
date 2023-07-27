@@ -8,25 +8,24 @@
 package pickup
 
 import (
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"testing"
-	"time"
 )
 
 // Happy path.
 func TestUncheckedRoundScheduler(t *testing.T) {
 	// General initializations
-	connect.TestingOnlyDisableTLS = true
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
@@ -75,7 +74,7 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	var testBundle message.Bundle
 	select {
 	case testBundle = <-messageBundleChan:
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(800 * time.Millisecond):
 		t.Fatalf("Did not receive a message bundle over the channel")
 	}
 

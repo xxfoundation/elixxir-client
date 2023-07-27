@@ -21,6 +21,10 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// DefaultFollowPeriod is the default period in which the network will be polled
+// for state changes (see [Client.Follow]).
+const DefaultFollowPeriod = 1000 * time.Millisecond
+
 type Params struct {
 	// TrackNetworkPeriod determines how frequently follower threads are started.
 	TrackNetworkPeriod time.Duration
@@ -66,6 +70,19 @@ type Params struct {
 	// ignored and local time is used
 	ClockSkewClamp time.Duration
 
+	// EnableImmediateSending tells the registrar to allow use of ephemeral
+	// ED keys to send to nodes before registration has completed.
+	EnableImmediateSending bool
+
+	// DisableNodeRegistration tells the registrar to disable the registration
+	// subsystem. THIS SHOULD ONLY BE USED IN TESTING.
+	DisableNodeRegistration bool
+
+	// WhitelistedGateways is a list of gateway IDs which, if set, will be used
+	// to create a GatewayFilter for the hostpool, ensuring we only connect to
+	// gateways in this list.
+	WhitelistedGateways []string
+
 	Rounds     rounds.Params
 	Pickup     pickup.Params
 	Message    message.Params
@@ -89,13 +106,14 @@ type paramsDisk struct {
 	Message                   message.Params
 	Historical                rounds.Params
 	MaxParallelIdentityTracks uint
+	EnableImmediateSending    bool
 }
 
 // GetDefaultParams returns a Params object containing the
 // default parameters.
 func GetDefaultParams() Params {
 	n := Params{
-		TrackNetworkPeriod:        1000 * time.Millisecond,
+		TrackNetworkPeriod:        DefaultFollowPeriod,
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
 		NetworkHealthTimeout:      15 * time.Second,
@@ -106,6 +124,7 @@ func GetDefaultParams() Params {
 		ReplayRequests:            true,
 		MaxParallelIdentityTracks: 5,
 		ClockSkewClamp:            50 * time.Millisecond,
+		EnableImmediateSending:    false,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()
@@ -145,6 +164,7 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		Message:                   p.Message,
 		Historical:                p.Historical,
 		MaxParallelIdentityTracks: p.MaxParallelIdentityTracks,
+		EnableImmediateSending:    p.EnableImmediateSending,
 	}
 
 	return json.Marshal(&pDisk)
@@ -173,6 +193,7 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		Message:                   pDisk.Message,
 		Historical:                pDisk.Historical,
 		MaxParallelIdentityTracks: pDisk.MaxParallelIdentityTracks,
+		EnableImmediateSending:    pDisk.EnableImmediateSending,
 	}
 
 	return nil

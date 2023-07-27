@@ -9,7 +9,10 @@ package user
 
 import (
 	"bytes"
-	"crypto/rand"
+	"github.com/stretchr/testify/require"
+	"math/rand"
+	"testing"
+
 	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -17,7 +20,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
 )
 
 // Test for NewCryptographicIdentity function
@@ -26,7 +28,7 @@ func TestNewCryptographicIdentity(t *testing.T) {
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	dhPrivKey := diffieHellman.GeneratePrivateKey(
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
@@ -34,16 +36,17 @@ func TestNewCryptographicIdentity(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	_ = newCryptographicIdentity(uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey, kv)
 
-	_, err := kv.Get(cryptographicIdentityKey, currentCryptographicIdentityVersion)
-	if err != nil {
-		t.Errorf("Did not store cryptographic identity: %+v", err)
-	}
+	_, err = kv.Get(cryptographicIdentityKey, currentCryptographicIdentityVersion)
+	require.NoErrorf(t, err, "Did not store cryptographic identity: %+v", err)
+
 }
 
 // Test loading cryptographic identity from KV store
@@ -52,7 +55,7 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	dhPrivKey := diffieHellman.GeneratePrivateKey(
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
@@ -60,13 +63,15 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey, kv)
 
-	err := ci.save(kv)
+	err = ci.save(kv)
 	if err != nil {
 		t.Errorf("Did not store cryptographic identity: %+v", err)
 	}
@@ -84,15 +89,15 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
 
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
-	pk1, err := sch.Generate(prng, 64)
+	pk1, err := sch.Generate(prng, 512)
 	if err != nil {
 		t.Errorf("Failed to generate pk1")
 	}
-	pk2, err := sch.Generate(prng, 64)
+	pk2, err := sch.Generate(prng, 512)
 	if err != nil {
 		t.Errorf("Failed to generate pk2")
 	}
@@ -113,15 +118,15 @@ func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
 // Happy path for GetTransmissionRSA function
 func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
-	pk1, err := sch.Generate(prng, 64)
+	pk1, err := sch.Generate(prng, 512)
 	if err != nil {
 		t.Errorf("Failed to generate pk1")
 	}
-	pk2, err := sch.Generate(prng, 64)
+	pk2, err := sch.Generate(prng, 512)
 	if err != nil {
 		t.Errorf("Failed to generate pk2")
 	}
@@ -142,10 +147,13 @@ func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
 // Happy path for GetSalt function
 func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -167,10 +175,13 @@ func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
 // Happy path for GetSalt function
 func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -192,10 +203,13 @@ func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 // Happy path for GetUserID function
 func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	rid := id.NewIdFromString("zezima", id.User, t)
@@ -216,10 +230,13 @@ func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
 // Happy path for GetUserID function
 func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	rid := id.NewIdFromString("zezima", id.User, t)
@@ -240,10 +257,13 @@ func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 // Happy path for IsPrecanned functions
 func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
-	transmission, _ := sch.Generate(prng, 64)
-	reception, _ := sch.Generate(prng, 64)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)

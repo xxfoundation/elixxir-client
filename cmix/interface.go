@@ -31,6 +31,13 @@ type Client interface {
 
 	// SetTrackNetworkPeriod allows changing the frequency that follower threads
 	// are started.
+	//
+	// Note that the frequency of the follower threads affect the power usage
+	// of the device following the network.
+	//   - Low period -> Higher frequency of polling -> Higher battery usage
+	//   - High period -> Lower frequency of polling -> Lower battery usage
+	// This may be used to enable a low power (or battery optimization) mode
+	// for the end user.
 	SetTrackNetworkPeriod(d time.Duration)
 
 	/* === Sending ========================================================== */
@@ -139,6 +146,9 @@ type Client interface {
 	// If the fallthrough processor is not nil, it will be used to process
 	// messages for this id in the event there isn't a service or fingerprint
 	// that matches the message.
+	//
+	// validUntil is the time the identity self-destructs. To set for forever,
+	// use identity.Forever.
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool,
 		fallthroughProcessor message.Processor)
 
@@ -321,10 +331,6 @@ type Client interface {
 	// gateway as a proxy if not directly connected.
 	SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc,
 		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
-
-	// SetGatewayFilter sets a function which will be used to filter gateways
-	// before connecting.
-	SetGatewayFilter(f gateway.Filter)
 
 	// GetHostParams returns the host params used when connecting to gateways.
 	GetHostParams() connect.HostParams

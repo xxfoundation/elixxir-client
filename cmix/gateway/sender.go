@@ -33,7 +33,6 @@ type Sender interface {
 	SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
 	UpdateNdf(ndf *ndf.NetworkDefinition)
-	SetGatewayFilter(f Filter)
 	GetHostParams() connect.HostParams
 	StartProcesses() stoppable.Stoppable
 }

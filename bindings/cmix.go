@@ -9,9 +9,11 @@ package bindings
 
 import (
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 )
 
@@ -79,9 +81,46 @@ func (c *Cmix) GetID() int {
 	return c.id
 }
 
+// GetReceptionID returns the Default Reception Identity for this cMix
+// Instance
+func (c *Cmix) GetReceptionID() []byte {
+	rid := *c.api.GetStorage().GetReceptionID()
+	return rid.Bytes()
+}
+
+// EKVGet allows access to a value inside secure encrypted key value store
+func (c *Cmix) EKVGet(key string) ([]byte, error) {
+	ekv := c.api.GetStorage().GetKV()
+	versionedVal, err := ekv.Get(key, 0)
+	if err != nil {
+		return nil, err
+	}
+	return versionedVal.Data, nil
+}
+
+// EKVSet allows user to set a value inside secure encrypted key value store
+func (c *Cmix) EKVSet(key string, value []byte) error {
+	ekv := c.api.GetStorage().GetKV()
+	versioned := versioned.Object{
+		Version:   0,
+		Data:      value,
+		Timestamp: time.Now(),
+	}
+	return ekv.Set(key, &versioned)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // cMix Tracker                                                               //
 ////////////////////////////////////////////////////////////////////////////////
+
+// GetCMixInstance gets a copy of the cMix instance by it's ID number
+func GetCMixInstance(instanceID int) (*Cmix, error) {
+	instance, ok := cmixTrackerSingleton.tracked[instanceID]
+	if !ok {
+		return nil, errors.Errorf("no cmix instance id: %d", instanceID)
+	}
+	return instance, nil
+}
 
 // cmixTracker is a singleton used to keep track of extant Cmix objects,
 // preventing race conditions created by passing it over the bindings.

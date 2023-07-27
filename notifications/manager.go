@@ -138,10 +138,14 @@ func NewOrLoadManager(identity xxdk.TransmissionIdentity, regSig []byte,
 func (m *manager) RegisterUpdateCallback(group string, nu Update) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
-	m.callbacks[group] = nu
 	if g, ok := m.group[group]; ok {
-		nu(g, nil, nil, nil, m.maxState)
+		created := make([]*id.ID, len(g))
+		for gid := range g {
+			created = append(created, &gid)
+		}
+		nu(g.DeepCopy(), created, nil, nil, m.maxState)
 	}
+	m.callbacks[group] = nu
 }
 
 // mapUpdate is the listener function which is called whenever the notifications

@@ -10,6 +10,7 @@ package user
 import (
 	"bytes"
 	"crypto/rand"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -35,16 +36,17 @@ func TestNewCryptographicIdentity(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 256)
+	require.NoError(t, err)
+	reception, err := sch.Generate(prng, 256)
+	require.NoError(t, err)
 
 	_ = newCryptographicIdentity(uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey, kv)
 
-	_, err := kv.Get(cryptographicIdentityKey, currentCryptographicIdentityVersion)
-	if err != nil {
-		t.Errorf("Did not store cryptographic identity: %+v", err)
-	}
+	_, err = kv.Get(cryptographicIdentityKey, currentCryptographicIdentityVersion)
+	require.NoErrorf(t, err, "Did not store cryptographic identity: %+v", err)
+
 }
 
 // Test loading cryptographic identity from KV store

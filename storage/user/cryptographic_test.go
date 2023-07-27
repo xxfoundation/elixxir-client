@@ -35,13 +35,19 @@ func TestNewCryptographicIdentity(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 256)
+	if err != nil {
+		t.Errorf("Failed to generate transmission key: %+v", err)
+	}
+	reception, err := sch.Generate(prng, 256)
+	if err != nil {
+		t.Errorf("Failed to generate reception key: %+v", err)
+	}
 
 	_ = newCryptographicIdentity(uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey, kv)
 
-	_, err := kv.Get(cryptographicIdentityKey, currentCryptographicIdentityVersion)
+	_, err = kv.Get(cryptographicIdentityKey, currentCryptographicIdentityVersion)
 	if err != nil {
 		t.Errorf("Did not store cryptographic identity: %+v", err)
 	}

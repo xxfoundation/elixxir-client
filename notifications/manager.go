@@ -139,7 +139,7 @@ func (m *manager) RegisterUpdateCallback(group string, nu Update) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	if g, ok := m.group[group]; ok {
-		created := make([]*id.ID, len(g))
+		created := make([]*id.ID, 0, len(g))
 		for gid := range g {
 			created = append(created, &gid)
 		}

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/storage/utility"
@@ -198,6 +199,10 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 		return err
 	}
 
+	fmt.Printf("ci: %+v\n", ci)
+	fmt.Printf("ci.transmissionRsaKey: %+v\n", ci.transmissionRsaKey)
+	fmt.Printf("ci.transmissionRsaKey.GetGoRSA(): %+v\n", ci.transmissionRsaKey.GetGoRSA())
+	fmt.Printf("*ci.transmissionRsaKey.GetGoRSA(): %+v\n", *ci.transmissionRsaKey.GetGoRSA())
 	encodable := &ciDiskV1{
 		TransmissionID:     ci.transmissionID,
 		TransmissionSalt:   ci.transmissionSalt,

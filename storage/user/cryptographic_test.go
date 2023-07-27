@@ -177,8 +177,11 @@ func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 	sch := rsa.GetScheme()
 	prng := rand.New(rand.NewSource(3523))
 
-	transmission, _ := sch.Generate(prng, 512)
-	reception, _ := sch.Generate(prng, 512)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)

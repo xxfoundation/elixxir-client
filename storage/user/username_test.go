@@ -8,6 +8,7 @@
 package user
 
 import (
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 
@@ -37,8 +38,11 @@ func TestUser_SetUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -84,8 +88,11 @@ func TestUser_GetUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)
@@ -125,8 +132,11 @@ func TestUser_loadUsername(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	u, err := NewUser(kv, tid, rid, tsalt, rsalt, transmission,
 		reception, false, dhPrivKey, dhPubKey)

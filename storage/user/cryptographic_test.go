@@ -36,9 +36,9 @@ func TestNewCryptographicIdentity(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	transmission, err := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 512)
 	require.NoError(t, err)
-	reception, err := sch.Generate(prng, 256)
+	reception, err := sch.Generate(prng, 512)
 	require.NoError(t, err)
 
 	_ = newCryptographicIdentity(uid, uid, salt, salt, transmission,

@@ -63,13 +63,15 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 256)
+	require.NoError(t, err)
+	reception, err := sch.Generate(prng, 256)
+	require.NoError(t, err)
 
 	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey, kv)
 
-	err := ci.save(kv)
+	err = ci.save(kv)
 	if err != nil {
 		t.Errorf("Did not store cryptographic identity: %+v", err)
 	}

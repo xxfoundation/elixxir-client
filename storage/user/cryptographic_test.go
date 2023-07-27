@@ -232,7 +232,7 @@ func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 	transmission, err := sch.Generate(prng, 512)
 	require.NoError(t, err)
 
-	reception, _ := sch.Generate(prng, 512)
+	reception, err := sch.Generate(prng, 512)
 	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
@@ -259,7 +259,7 @@ func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
 	transmission, err := sch.Generate(prng, 512)
 	require.NoError(t, err)
 
-	reception, _ := sch.Generate(prng, 512)
+	reception, err := sch.Generate(prng, 512)
 	require.NoError(t, err)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())

@@ -9,8 +9,8 @@ package user
 
 import (
 	"bytes"
-	"crypto/rand"
 	"github.com/stretchr/testify/require"
+	"math/rand"
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/storage/versioned"
@@ -28,7 +28,7 @@ func TestNewCryptographicIdentity(t *testing.T) {
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	dhPrivKey := diffieHellman.GeneratePrivateKey(
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
@@ -55,7 +55,7 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	dhPrivKey := diffieHellman.GeneratePrivateKey(
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
@@ -87,7 +87,7 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
 
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -116,7 +116,7 @@ func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
 // Happy path for GetTransmissionRSA function
 func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -145,7 +145,7 @@ func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
 // Happy path for GetSalt function
 func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
@@ -170,7 +170,7 @@ func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
 // Happy path for GetSalt function
 func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
@@ -195,7 +195,7 @@ func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 // Happy path for GetUserID function
 func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
@@ -219,7 +219,7 @@ func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
 // Happy path for GetUserID function
 func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)
@@ -243,7 +243,7 @@ func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 // Happy path for IsPrecanned functions
 func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
 	sch := rsa.GetScheme()
-	prng := rand.Reader
+	prng := rand.New(rand.NewSource(3523))
 
 	transmission, _ := sch.Generate(prng, 256)
 	reception, _ := sch.Generate(prng, 256)

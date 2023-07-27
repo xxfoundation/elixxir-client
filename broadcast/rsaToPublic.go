@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	asymmetricRSAToPublicBroadcastServiceTag = "AsymmToPublicBcast"
-	asymmCMixSendTag                         = "AsymmetricBroadcast"
-	internalPayloadSizeLength                = 2
+	asymmetricRSAToPublicBroadcastServicePostfix = "AsymmToPublicBcast"
+	asymmCMixSendTag                             = "AsymmetricBroadcast"
+	internalPayloadSizeLength                    = 2
 )
 
 // BroadcastRSAtoPublic broadcasts the payload to the channel. Requires a
@@ -34,12 +34,17 @@ const (
 // The payload must be of the size [broadcastClient.MaxRSAToPublicPayloadSize]
 // or smaller and the channel [rsa.PrivateKey] must be passed in.
 //
+// Tags are used to identity properties of the message for notifications
+// For example, message types, senders, ect.
+// The rate of false positives increases exponentially after more than
+// 4 tags are used
+//
 // The network must be healthy to send.
-func (bc *broadcastClient) BroadcastRSAtoPublic(
-	pk rsa.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
+func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
+	payload []byte, tags []string, metadata [2]byte, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
 	assemble := func(rid id.Round) ([]byte, error) { return payload, nil }
-	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, cMixParams)
+	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, tags, metadata, cMixParams)
 }
 
 // BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel
@@ -51,7 +56,7 @@ func (bc *broadcastClient) BroadcastRSAtoPublic(
 //
 // The network must be healthy to send.
 func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
-	pk rsa.PrivateKey, assembler Assembler,
+	pk rsa.PrivateKey, assembler Assembler, tags []string, metadata [2]byte,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
 	if !bc.net.IsHealthy() {
@@ -60,7 +65,7 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 
 	var singleEncryptedPayload []byte
 	assemble := func(rid id.Round) (fp format.Fingerprint,
-		service message.Service, encryptedPayload, mac []byte, err error) {
+		service cmix.Service, encryptedPayload, mac []byte, err error) {
 		payload, err := assembler(rid)
 		if err != nil {
 			return format.Fingerprint{}, message.Service{}, nil,
@@ -92,10 +97,7 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 		// Create service using asymmetric broadcast service tag and channel
 		// reception ID allows anybody with this info to listen for messages on
 		// this channel
-		service = message.Service{
-			Identifier: bc.channel.ReceptionID.Bytes(),
-			Tag:        asymmetricRSAToPublicBroadcastServiceTag,
-		}
+		service = bc.GetRSAToPublicCompressedService(tags, metadata)
 
 		if cMixParams.DebugTag == cmix.DefaultDebugTag {
 			cMixParams.DebugTag = asymmCMixSendTag
@@ -118,4 +120,13 @@ func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 	r, ephID, err :=
 		bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
 	return singleEncryptedPayload, r, ephID, err
+}
+
+func (bc *broadcastClient) GetRSAToPublicCompressedService(
+	tags []string, metadata [2]byte) message.CompressedService {
+	return message.CompressedService{
+		Identifier: bc.asymIdentifier,
+		Tags:       tags,
+		Metadata:   metadata[:],
+	}
 }

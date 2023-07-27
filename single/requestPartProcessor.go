@@ -28,8 +28,8 @@ type requestPartProcessor struct {
 	roundIDs *roundCollector
 }
 
-func (rpp *requestPartProcessor) Process(msg format.Message,
-	_ receptionID.EphemeralIdentity, round rounds.Round) {
+func (rpp *requestPartProcessor) Process(msg format.Message, tags []string,
+	_ []byte, _ receptionID.EphemeralIdentity, round rounds.Round) {
 
 	decrypted, err := rpp.cy.decrypt(msg.GetContents(), msg.GetMac())
 	if err != nil {

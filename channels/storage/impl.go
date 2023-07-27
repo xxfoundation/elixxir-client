@@ -56,6 +56,7 @@ func (i *impl) JoinChannel(channel *cryptoBroadcast.Channel) {
 		return
 	}
 	jww.DEBUG.Printf("Successfully joined channel: %s", channel.ReceptionID)
+	go i.cbs.ChannelUpdate(channel.ReceptionID, false)
 }
 
 // LeaveChannel is called whenever a channel is left locally.
@@ -74,6 +75,7 @@ func (i *impl) LeaveChannel(channelID *id.ID) {
 		return
 	}
 	jww.DEBUG.Printf("Successfully deleted channel: %s", channelID)
+	go i.cbs.ChannelUpdate(channelID, true)
 }
 
 // ReceiveMessage is called whenever a message is received on a given channel.
@@ -173,7 +175,8 @@ func (i *impl) UpdateFromUUID(uuid uint64, messageID *message.ID, timestamp *tim
 	}
 	channelId := &id.ID{}
 	copy(channelId[:], currentMessage.ChannelId)
-	go i.msgCb(msgToUpdate.Id, channelId, true)
+
+	go i.cbs.MessageReceived(msgToUpdate.Id, channelId, true)
 
 	return nil
 }
@@ -233,8 +236,8 @@ func (i *impl) UpdateFromMessageID(messageID message.ID, timestamp *time.Time,
 	}
 	channelId := &id.ID{}
 	copy(channelId[:], currentMessage.ChannelId)
-	go i.msgCb(msgToUpdate.Id, channelId, true)
 
+	go i.cbs.MessageReceived(msgToUpdate.Id, channelId, true)
 	return uint64(msgToUpdate.Id), nil
 }
 
@@ -293,13 +296,7 @@ func (i *impl) GetMessage(messageID message.ID) (channels.ModelMessage, error) {
 
 // MuteUser is called whenever a user is muted or unmuted.
 func (i *impl) MuteUser(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool) {
-	if i.muteCb == nil {
-		jww.WARN.Printf("No MuteUser callback registered!")
-		return
-	}
-	if i.muteCb != nil {
-		go i.muteCb(channelID, pubKey, unmute)
-	}
+	go i.cbs.UserMuted(channelID, pubKey, unmute)
 }
 
 // DeleteMessage removes a message with the given messageID from storage.
@@ -310,8 +307,8 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 	parentErr := "failed to DeleteMessage: %+v"
 
 	ctx, cancel := newContext()
-	err := i.db.WithContext(ctx).Where("message_id = ?",
-		messageID.Bytes()).Delete(&Message{}).Error
+	currentMessage := &Message{MessageId: messageID.Marshal()}
+	err := i.db.WithContext(ctx).Where(currentMessage).Delete(currentMessage).Error
 	cancel()
 
 	if err != nil {
@@ -321,9 +318,7 @@ func (i *impl) DeleteMessage(messageID message.ID) error {
 		return errors.Errorf(parentErr, err)
 	}
 
-	if i.deleteCb != nil {
-		go i.deleteCb(messageID)
-	}
+	go i.cbs.MessageDeleted(messageID)
 	return nil
 }
 
@@ -336,31 +331,21 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 	lease time.Duration, round rounds.Round,
 	messageType channels.MessageType,
 	status channels.SentStatus, hidden bool) (uint64, error) {
-	textBytes := []byte(text)
-	var err error
-
-	// Handle encryption of input text
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt([]byte(text))
-		if err != nil {
-			return 0, errors.Errorf("Failed to encrypt message: %+v", err)
-		}
-	}
 
 	msgToInsert := buildMessage(
 		channelID.Marshal(), messageID.Bytes(), parentMsgId, nickname,
-		textBytes, pubKey, dmToken, codeset, timestamp, lease, round.ID,
+		text, pubKey, dmToken, codeset, timestamp, lease, round.ID,
 		messageType, false, hidden, status)
 
 	ctx, cancel := newContext()
-	err = i.db.WithContext(ctx).Create(msgToInsert).Error
+	err := i.db.WithContext(ctx).Create(msgToInsert).Error
 	cancel()
 
 	if err != nil {
 		return 0, errors.Errorf("Failed to insert message: %+v", err)
 	}
 
-	go i.msgCb(msgToInsert.Id, channelID, false)
+	go i.cbs.MessageReceived(msgToInsert.Id, channelID, false)
 	return uint64(msgToInsert.Id), nil
 }
 
@@ -370,8 +355,8 @@ func (i *impl) receiveHelper(channelID *id.ID, messageID message.ID,
 // NOTE: ID is not set inside this function because we want to use the
 // autoincrement key by default. If you are trying to overwrite an existing
 // message, then you need to set it manually yourself.
-func buildMessage(channelID, messageID, parentID []byte, nickname string,
-	text []byte, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
+func buildMessage(channelID, messageID, parentID []byte, nickname,
+	text string, pubKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, lease time.Duration, round id.Round,
 	mType channels.MessageType, pinned, hidden bool,
 	status channels.SentStatus) *Message {
@@ -385,7 +370,7 @@ func buildMessage(channelID, messageID, parentID []byte, nickname string,
 		Status:          uint8(status),
 		Hidden:          &hidden,
 		Pinned:          &pinned,
-		Text:            text,
+		Text:            []byte(text),
 		Type:            uint16(mType),
 		Round:           int64(round),
 		// User Identity Info

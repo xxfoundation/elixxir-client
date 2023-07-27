@@ -8,7 +8,8 @@
 package utility
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"reflect"
 	"testing"
@@ -35,7 +36,10 @@ func TestNewBucketParamsStore(t *testing.T) {
 			newParams.Capacity, newParams.LeakedTokens, newParams.LeakDuration)
 	}
 
-	vo, err := kv.Prefix(bucketParamsPrefix).Get(bucketParamsKey, bucketParamsVersion)
+	kv, err = kv.Prefix(bucketParamsPrefix)
+	require.NoError(t, err)
+
+	vo, err := kv.Get(bucketParamsKey, bucketParamsVersion)
 	if err != nil {
 		t.Fatalf("Failed to load from KV: %v", err)
 	}

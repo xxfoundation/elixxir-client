@@ -19,9 +19,9 @@ import (
 
 	"gitlab.com/elixxir/client/v4/cmix/address"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -209,7 +209,7 @@ func (t *manager) track(stop *stoppable.Single) {
 
 		if waitPeriod > validityGracePeriod {
 			// Trigger events early. This will cause generations to happen early as
-			// well as message pickup. As a result, if there are time sync issues
+			// well as message pickup. As a result, if there are time collective issues
 			// between clients, and they begin sending to ephemeral IDs early, then
 			// messages will still be picked up.
 			waitPeriod = waitPeriod - validityGracePeriod

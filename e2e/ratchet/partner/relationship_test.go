@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -843,7 +843,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	}
 }
 
-func makeTestRelationshipManager(t *testing.T) (*manager, *versioned.KV) {
+func makeTestRelationshipManager(t *testing.T) (*manager, versioned.KV) {
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
 			"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE"+

@@ -16,10 +16,10 @@ import (
 	"gitlab.com/elixxir/client/v4/auth"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/e2e/rekey"
 	"gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/xx"
@@ -114,7 +114,7 @@ func loginLegacy(net *Cmix, callbacks AuthCallbacks,
 
 // login creates a new xxdk.E2e backed by the given versioned.KV.
 func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
-	kv *versioned.KV, params E2EParams) (m *E2e, err error) {
+	kv versioned.KV, params E2EParams) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
 	privatePem, err := identity.GetRSAPrivateKey()

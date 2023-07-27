@@ -9,7 +9,8 @@ package store
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -22,10 +23,12 @@ import (
 // Unit test
 func TestNewUncheckedStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := kv.Prefix(uncheckedRoundPrefix)
+	require.NoError(t, err)
 
 	testStore := &UncheckedRoundStore{
 		list: make(map[roundIdentity]UncheckedRound),
-		kv:   kv.Prefix(uncheckedRoundPrefix),
+		kv:   expectedKv,
 	}
 
 	store, err := NewUncheckedStore(kv)

@@ -13,8 +13,8 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -43,7 +43,7 @@ func (sm storedMessage) Marshal() []byte {
 // SaveMessage saves the message as a versioned object at the specified key
 // in the key value store.
 func (cmh *cmixMessageHandler) SaveMessage(
-	kv *versioned.KV, m interface{}, key string) error {
+	kv versioned.KV, m interface{}, key string) error {
 	sm := m.(storedMessage)
 
 	// Create versioned object
@@ -60,7 +60,7 @@ func (cmh *cmixMessageHandler) SaveMessage(
 // LoadMessage returns the message with the specified key from the key value
 // store. An empty message and error are returned if the message could not be
 // retrieved.
-func (cmh *cmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (
+func (cmh *cmixMessageHandler) LoadMessage(kv versioned.KV, key string) (
 	interface{}, error) {
 
 	// Load the versioned object
@@ -80,7 +80,7 @@ func (cmh *cmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (
 
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
-func (cmh *cmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
+func (cmh *cmixMessageHandler) DeleteMessage(kv versioned.KV, key string) error {
 	return kv.Delete(key, currentCmixMessageVersion)
 }
 
@@ -109,7 +109,7 @@ type CmixMessageBuffer struct {
 	mb *utility.MessageBuffer
 }
 
-func NewOrLoadCmixMessageBuffer(kv *versioned.KV, key string) (
+func NewOrLoadCmixMessageBuffer(kv versioned.KV, key string) (
 	*CmixMessageBuffer, error) {
 
 	cmb, err := LoadCmixMessageBuffer(kv, key)
@@ -125,7 +125,7 @@ func NewOrLoadCmixMessageBuffer(kv *versioned.KV, key string) (
 	return cmb, nil
 }
 
-func LoadCmixMessageBuffer(kv *versioned.KV, key string) (*CmixMessageBuffer, error) {
+func LoadCmixMessageBuffer(kv versioned.KV, key string) (*CmixMessageBuffer, error) {
 	mb, err := utility.LoadMessageBuffer(kv, &cmixMessageHandler{}, key)
 	if err != nil {
 		return nil, err

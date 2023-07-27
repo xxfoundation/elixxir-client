@@ -8,7 +8,8 @@
 package clientVersion
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -20,9 +21,13 @@ import (
 // Happy path.
 func TestNewStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	expectedKv, err := kv.Prefix(prefix)
+	require.NoError(t, err)
+
 	expected := &Store{
 		version: version.New(42, 43, "44"),
-		kv:      kv.Prefix(prefix),
+		kv:      expectedKv,
 	}
 
 	test, err := NewStore(expected.version, kv)
@@ -39,13 +44,15 @@ func TestNewStore(t *testing.T) {
 // Happy path.
 func TestLoadStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := kv.Prefix(prefix)
+	require.NoError(t, err)
 	ver := version.New(1, 2, "3A")
 
 	expected := &Store{
 		version: ver,
-		kv:      kv.Prefix(prefix),
+		kv:      expectedKv,
 	}
-	err := expected.save()
+	err = expected.save()
 	if err != nil {
 		t.Fatalf("Failed to save Store: %+v", err)
 	}
@@ -71,10 +78,10 @@ func TestLoadStore_ParseVersionError(t *testing.T) {
 		Data:      []byte("invalid version"),
 	}
 
-	err := kv.Prefix(prefix).Set(storeKey, &obj)
-	if err != nil {
-		t.Fatalf("Failed to save Store: %+v", err)
-	}
+	expectedKv, err := kv.Prefix(prefix)
+	require.NoError(t, err)
+
+	require.NoError(t, expectedKv.Set(storeKey, &obj))
 
 	_, err = LoadStore(kv)
 	if err == nil || !strings.Contains(err.Error(), "failed to parse client version") {
@@ -85,12 +92,13 @@ func TestLoadStore_ParseVersionError(t *testing.T) {
 
 // Happy path.
 func TestStore_Get(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv, err := versioned.NewKV(ekv.MakeMemstore()).Prefix(prefix)
+	require.NoError(t, err)
 	expected := version.New(1, 2, "3A")
 
 	s := &Store{
 		version: expected,
-		kv:      kv.Prefix(prefix),
+		kv:      kv,
 	}
 
 	test := s.Get()
@@ -184,16 +192,17 @@ func TestStore_CheckUpdateRequired_NewVersionTooOldError(t *testing.T) {
 
 // Happy path.
 func TestStore_update(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv, err := versioned.NewKV(ekv.MakeMemstore()).Prefix(prefix)
+	require.NoError(t, err)
 	ver1 := version.New(1, 2, "3A")
 	ver2 := version.New(1, 5, "patch5")
 
 	s := &Store{
 		version: ver1,
-		kv:      kv.Prefix(prefix),
+		kv:      kv,
 	}
 
-	err := s.update(ver2)
+	err = s.update(ver2)
 	if err != nil {
 		t.Errorf("Update() returned an error: %+v", err)
 	}
@@ -206,15 +215,16 @@ func TestStore_update(t *testing.T) {
 
 // Happy path.
 func TestStore_save(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+	kv, err := versioned.NewKV(ekv.MakeMemstore()).Prefix(prefix)
+	require.NoError(t, err)
 	ver := version.New(1, 2, "3A")
 
 	s := &Store{
 		version: ver,
-		kv:      kv.Prefix(prefix),
+		kv:      kv,
 	}
 
-	err := s.save()
+	err = s.save()
 	if err != nil {
 		t.Errorf("save() returned an error: %+v", err)
 	}

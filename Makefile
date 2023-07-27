@@ -17,6 +17,7 @@ build:
 	go mod tidy
 
 update_release:
+	GOFLAGS="" go get gitlab.com/elixxir/wasm-utils@release
 	GOFLAGS="" go get gitlab.com/xx_network/primitives@release
 	GOFLAGS="" go get gitlab.com/elixxir/primitives@release
 	GOFLAGS="" go get gitlab.com/xx_network/crypto@release
@@ -26,6 +27,7 @@ update_release:
 	GOFLAGS="" go get gitlab.com/elixxir/ekv@master
 
 update_master:
+	GOFLAGS="" go get gitlab.com/elixxir/wasm-utils@master
 	GOFLAGS="" go get gitlab.com/xx_network/primitives@master
 	GOFLAGS="" go get gitlab.com/elixxir/primitives@master
 	GOFLAGS="" go get gitlab.com/xx_network/crypto@master

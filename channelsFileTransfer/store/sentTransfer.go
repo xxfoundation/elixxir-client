@@ -18,8 +18,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/channelsFileTransfer/store/cypher"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -101,16 +101,20 @@ type SentTransfer struct {
 	lastCallbackFingerprints map[uint64]string
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  versioned.KV
 }
 
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
 // file ID, and parts.
 func newSentTransfer(recipient *id.ID, sentTimestamp time.Time,
 	key *ftCrypto.TransferKey, mac []byte, fid ftCrypto.ID, fileSize uint32,
-	parts [][]byte, numFps uint16, retry float32, kv *versioned.KV) (
+	parts [][]byte, numFps uint16, retry float32, kv versioned.KV) (
 	*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(fid))
+	var err error
+	kv, err = kv.Prefix(makeSentTransferPrefix(fid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Create new cypher manager
 	cypherManager, err := cypher.NewManager(key, numFps, false, kv)
@@ -339,8 +343,12 @@ func generateSentFp(
 
 // loadSentTransfer loads the SentTransfer with the given file ID from storage.
 func loadSentTransfer(
-	fid ftCrypto.ID, parts [][]byte, kv *versioned.KV) (*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(fid))
+	fid ftCrypto.ID, parts [][]byte, kv versioned.KV) (*SentTransfer, error) {
+	var err error
+	kv, err = kv.Prefix(makeSentTransferPrefix(fid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Load cypher manager
 	cypherManager, err := cypher.LoadManager(kv)

@@ -9,8 +9,8 @@ package partner
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	session2 "gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -37,7 +37,7 @@ func makeRelationshipFingerprint(t session2.RelationshipType, grp *cyclic.Group,
 	return nil
 }
 
-func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
+func storeRelationshipFingerprint(fp []byte, kv versioned.KV) error {
 	now := netTime.Now()
 	obj := versioned.Object{
 		Version:   currentRelationshipVersion,
@@ -48,7 +48,7 @@ func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
 	return kv.Set(relationshipFingerprintKey, &obj)
 }
 
-func loadRelationshipFingerprint(kv *versioned.KV) []byte {
+func loadRelationshipFingerprint(kv versioned.KV) []byte {
 	obj, err := kv.Get(relationshipFingerprintKey,
 		currentRelationshipVersion)
 	if err != nil {
@@ -59,7 +59,7 @@ func loadRelationshipFingerprint(kv *versioned.KV) []byte {
 	return obj.Data
 }
 
-func deleteRelationshipFingerprint(kv *versioned.KV) error {
+func deleteRelationshipFingerprint(kv versioned.KV) error {
 	return kv.Delete(relationshipFingerprintKey,
 		currentRelationshipVersion)
 }

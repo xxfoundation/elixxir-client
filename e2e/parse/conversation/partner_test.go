@@ -8,12 +8,13 @@
 package conversation
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
 	"testing"
+
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests happy path of LoadOrMakeConversation when making a new Conversation.
@@ -221,7 +222,7 @@ func TestConversation_marshal_unmarshal(t *testing.T) {
 	}
 }
 
-func makeRandomConv(kv *versioned.KV, partner *id.ID) *Conversation {
+func makeRandomConv(kv versioned.KV, partner *id.ID) *Conversation {
 	c := LoadOrMakeConversation(kv, partner)
 	c.lastReceivedID = rand.Uint32()
 	c.numReceivedRevolutions = rand.Uint32()

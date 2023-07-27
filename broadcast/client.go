@@ -11,10 +11,11 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
+
+var dummyMessageType = [2]byte{255, 255}
 
 // broadcastClient implements the broadcast.Channel interface for sending/
 // receiving asymmetric or symmetric broadcast messages.
@@ -22,6 +23,10 @@ type broadcastClient struct {
 	channel *crypto.Channel
 	net     Client
 	rng     *fastRNG.StreamGenerator
+
+	// memoized to avoid constantly reconstructing
+	asymIdentifier []byte
+	symIdentifier  []byte
 }
 
 // NewBroadcastChannelFunc creates a broadcast Channel. Used so that it can be
@@ -37,6 +42,10 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 		channel: channel,
 		net:     net,
 		rng:     rng,
+		asymIdentifier: append(channel.ReceptionID.Marshal(),
+			[]byte(asymmetricRSAToPublicBroadcastServicePostfix)...),
+		symIdentifier: append(channel.ReceptionID.Marshal(),
+			[]byte(symmetricBroadcastServicePostfix)...),
 	}
 
 	if !channel.Verify() {
@@ -53,32 +62,41 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 	return bc, nil
 }
 
-// RegisterListener registers a listener for broadcast messages.
-func (bc *broadcastClient) RegisterListener(
-	listenerCb ListenerFunc, method Method) (Processor, error) {
-	var tag string
-	switch method {
-	case Symmetric:
-		tag = symmetricBroadcastServiceTag
-	case RSAToPublic:
-		tag = asymmetricRSAToPublicBroadcastServiceTag
-	default:
-		return nil, errors.Errorf(
-			"cannot register listener for broadcast method %s", method)
-	}
+// RegisterRSAtoPublicListener registers a listener for asymmetric broadcast messages.
+// Note: only one Asymmetric Listener can be registered at a time.
+// Registering a new one will overwrite the old one
+func (bc *broadcastClient) RegisterRSAtoPublicListener(
+	listenerCb ListenerFunc, tags []string) (Processor, error) {
 
 	p := &processor{
 		c:      bc.channel,
 		cb:     listenerCb,
-		method: method,
+		method: RSAToPublic,
 	}
 
-	service := message.Service{
-		Identifier: bc.channel.ReceptionID.Bytes(),
-		Tag:        tag,
+	// Metadata is ignored on a registered service, put a dummy
+	service := bc.GetRSAToPublicCompressedService(tags, dummyMessageType)
+
+	bc.net.UpsertCompressedService(bc.channel.ReceptionID, service, p)
+	return p, nil
+}
+
+// RegisterSymmetricListener registers a listener for asymmetric broadcast
+// messages.
+// Note: only one Asymmetric Listener can be registered at a time.
+// Registering a new one will overwrite the old one
+func (bc *broadcastClient) RegisterSymmetricListener(
+	listenerCb ListenerFunc, tags []string) (Processor, error) {
+
+	p := &processor{
+		c:      bc.channel,
+		cb:     listenerCb,
+		method: Symmetric,
 	}
 
-	bc.net.AddService(bc.channel.ReceptionID, service, p)
+	// Metadata is ignored on a registered service, put a dummy
+	service := bc.GetSymmetricCompressedService(tags, dummyMessageType)
+	bc.net.UpsertCompressedService(bc.channel.ReceptionID, service, p)
 	return p, nil
 }
 
@@ -115,4 +133,14 @@ func (bc *broadcastClient) MaxRSAToPublicPayloadSize() int {
 func (bc *broadcastClient) maxRSAToPublicPayloadSizeRaw() int {
 	size, _, _ := bc.channel.GetRSAToPublicMessageLength()
 	return size
+}
+
+// AsymmetricIdentifier returns a copy of the asymmetric identifier.
+func (bc *broadcastClient) AsymmetricIdentifier() []byte {
+	return append([]byte{}, bc.asymIdentifier...)
+}
+
+// SymmetricIdentifier returns a copy of the symmetric identifier.
+func (bc *broadcastClient) SymmetricIdentifier() []byte {
+	return append([]byte{}, bc.symIdentifier...)
 }

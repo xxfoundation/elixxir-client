@@ -10,9 +10,10 @@ package store
 import (
 	"container/list"
 	"encoding/binary"
+
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -36,7 +37,7 @@ type CheckedRounds struct {
 }
 
 // NewCheckedRounds returns a new CheckedRounds with an initialized map.
-func NewCheckedRounds(maxRounds int, kv *versioned.KV) (*CheckedRounds, error) {
+func NewCheckedRounds(maxRounds int, kv versioned.KV) (*CheckedRounds, error) {
 	// Calculate the number of blocks of size itemsPerBlock are needed to store
 	// numRoundsToKeep number of round IDs
 	numBlocks := maxRounds / itemsPerBlock
@@ -67,7 +68,7 @@ func newCheckedRounds(maxRounds int, store *utility.BlockStore) *CheckedRounds {
 }
 
 // LoadCheckedRounds restores the list from storage.
-func LoadCheckedRounds(maxRounds int, kv *versioned.KV) (*CheckedRounds, error) {
+func LoadCheckedRounds(maxRounds int, kv versioned.KV) (*CheckedRounds, error) {
 	// get rounds from storage
 	store, rounds, err := utility.LoadBlockStore(kv)
 	if err != nil {

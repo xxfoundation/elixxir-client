@@ -11,7 +11,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -105,10 +106,11 @@ func TestStore_save(t *testing.T) {
 		t.Errorf("save() produced an error: %+v", err)
 	}
 
-	obj, err := kv.Prefix(receptionPrefix).Get(receptionStoreStorageKey, 0)
-	if err != nil {
-		t.Errorf("get() produced an error: %+v", err)
-	}
+	expectedKv, err := kv.Prefix(receptionPrefix)
+	require.NoError(t, err)
+
+	obj, err := expectedKv.Get(receptionStoreStorageKey, 0)
+	require.NoError(t, err)
 
 	expectedData, err := json.Marshal(expected)
 	if obj.Version != receptionStoreStorageVersion {

@@ -8,14 +8,14 @@
 package utility
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentCyclicVersion = 0
 
-func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
+func StoreCyclicKey(kv versioned.KV, cy *cyclic.Int, key string) error {
 	now := netTime.Now()
 
 	data, err := cy.GobEncode()
@@ -32,7 +32,7 @@ func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
 	return kv.Set(key, &obj)
 }
 
-func LoadCyclicKey(kv *versioned.KV, key string) (*cyclic.Int, error) {
+func LoadCyclicKey(kv versioned.KV, key string) (*cyclic.Int, error) {
 	vo, err := kv.Get(key, currentCyclicVersion)
 	if err != nil {
 		return nil, err
@@ -44,6 +44,6 @@ func LoadCyclicKey(kv *versioned.KV, key string) (*cyclic.Int, error) {
 }
 
 // DeleteCyclicKey deletes a given cyclic key from storage
-func DeleteCyclicKey(kv *versioned.KV, key string) error {
+func DeleteCyclicKey(kv versioned.KV, key string) error {
 	return kv.Delete(key, currentCyclicVersion)
 }

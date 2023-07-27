@@ -9,13 +9,14 @@ package store
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 // Storage keys and versions.
@@ -43,16 +44,20 @@ type Sent struct {
 	transfers map[ftCrypto.TransferID]*SentTransfer
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  versioned.KV
 }
 
 // NewOrLoadSent attempts to load Sent from storage. Or if none exist, then a
 // new Sent is returned. If running transfers were loaded from storage, a list
 // of unsent parts is returned.
-func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
+func NewOrLoadSent(kv versioned.KV) (*Sent, []Part, error) {
+	kv, err := kv.Prefix(sentTransfersStorePrefix)
+	if err != nil {
+		return nil, nil, err
+	}
 	s := &Sent{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentTransfersStorePrefix),
+		kv:        kv,
 	}
 
 	obj, err := s.kv.Get(sentTransfersStoreKey, sentTransfersStoreVersion)

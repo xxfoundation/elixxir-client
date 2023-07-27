@@ -21,7 +21,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/primitives/states"
@@ -68,8 +68,8 @@ type trackedList struct {
 }
 
 // sendTracker tracks outbound messages and denotes when they are delivered to
-// the event model. It also captures incoming messages and in the event they
-// were sent by this user diverts them as status updates on the previously sent
+// the event model. It also captures incoming messages and, in the event they
+// were sent by this user, diverts them as status updates on the previously sent
 // messages.
 type sendTracker struct {
 	byRound map[id.Round]trackedList
@@ -85,14 +85,14 @@ type sendTracker struct {
 
 	net cMixClient
 
-	kv *versioned.KV
+	kv versioned.KV
 
 	rngSrc *fastRNG.StreamGenerator
 }
 
 // NewSendTracker returns an uninitialized SendTracker object. The DM
 // Client will call Init to initialize it.
-func NewSendTracker(kv *versioned.KV) SendTracker {
+func NewSendTracker(kv versioned.KV) SendTracker {
 	return &sendTracker{kv: kv}
 }
 
@@ -230,7 +230,7 @@ func (st *sendTracker) Sent(
 	return nil
 }
 
-// send tracks a generic send message.
+// FailedSend marks the message send as failed.
 func (st *sendTracker) FailedSend(uuid uint64) error {
 	// Update the on disk message status
 	t, err := st.handleSendFailed(uuid)
@@ -320,8 +320,7 @@ func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
 
 // CheckIfSent is used when a message is received to check if the message was
 // sent by this user.
-func (st *sendTracker) CheckIfSent(
-	messageID message.ID, round rounds.Round) bool {
+func (st *sendTracker) CheckIfSent(messageID message.ID, _ rounds.Round) bool {
 	st.mux.RLock()
 	defer st.mux.RUnlock()
 	_, existsMessage := st.byMessageID[messageID]
@@ -350,8 +349,7 @@ func (st *sendTracker) Delivered(messageID message.ID,
 
 // StopTracking deletes this message id/round combination from the
 // send tracking.  returns true if it was removed, false otherwise.
-func (st *sendTracker) StopTracking(messageID message.ID,
-	round rounds.Round) bool {
+func (st *sendTracker) StopTracking(messageID message.ID, _ rounds.Round) bool {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 	msgData, existsMessage := st.byMessageID[messageID]

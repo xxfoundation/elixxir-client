@@ -8,7 +8,7 @@
 package backup
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
@@ -17,7 +17,7 @@ const (
 	jsonStorageKey     = "JsonStorage"
 )
 
-func storeJson(json string, kv *versioned.KV) error {
+func storeJson(json string, kv versioned.KV) error {
 	obj := &versioned.Object{
 		Version:   jsonStorageVersion,
 		Timestamp: netTime.Now(),
@@ -27,7 +27,7 @@ func storeJson(json string, kv *versioned.KV) error {
 	return kv.Set(jsonStorageKey, obj)
 }
 
-func loadJson(kv *versioned.KV) string {
+func loadJson(kv versioned.KV) string {
 	obj, err := kv.Get(jsonStorageKey, jsonStorageVersion)
 	if err != nil {
 		return ""

@@ -140,7 +140,7 @@ type cmixClient interface {
 		mp message.Processor) error
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
+		service cmix.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
 		rounds.Round, ephemeral.Id, error)
 }
 

@@ -8,14 +8,14 @@
 package utility
 
 import (
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentIDVersion = 0
 
-func StoreID(kv *versioned.KV, sid *id.ID, key string) error {
+func StoreID(kv versioned.KV, sid *id.ID, key string) error {
 	now := netTime.Now()
 
 	data, err := sid.MarshalJSON()
@@ -32,7 +32,7 @@ func StoreID(kv *versioned.KV, sid *id.ID, key string) error {
 	return kv.Set(key, &obj)
 }
 
-func LoadID(kv *versioned.KV, key string) (*id.ID, error) {
+func LoadID(kv versioned.KV, key string) (*id.ID, error) {
 	vo, err := kv.Get(key, currentIDVersion)
 	if err != nil {
 		return nil, err
@@ -44,6 +44,6 @@ func LoadID(kv *versioned.KV, key string) (*id.ID, error) {
 }
 
 // DeleteCID deletes a given cyclic key from storage
-func DeleteCID(kv *versioned.KV, key string) error {
+func DeleteCID(kv versioned.KV, key string) error {
 	return kv.Delete(key, currentIDVersion)
 }

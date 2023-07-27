@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-// sqlite requires cgo, which is not available in wasm
+// sqlite requires cgo, which is not available in WASM.
 //go:build !js || !wasm
 
 package storage
@@ -14,6 +14,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
@@ -23,7 +24,10 @@ import (
 	"time"
 )
 
-func dummyReceivedMessageCB(uint64, ed25519.PublicKey, bool, bool) {}
+type dummyCallbacks struct{}
+
+func (d dummyCallbacks) MessageReceived(uint64, ed25519.PublicKey, bool, bool) {}
+func (d dummyCallbacks) MessageDeleted(message.ID)                             {}
 
 func TestMain(m *testing.M) {
 	jww.SetStdoutThreshold(jww.LevelTrace)
@@ -32,8 +36,7 @@ func TestMain(m *testing.M) {
 
 // Test simple receive of a new message for a new conversation.
 func TestImpl_Receive(t *testing.T) {
-	m, err := newImpl("TestImpl_Receive", nil,
-		dummyReceivedMessageCB, true)
+	m, err := newImpl("TestImpl_Receive", &dummyCallbacks{}, true)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -81,8 +84,7 @@ func TestImpl_Receive(t *testing.T) {
 
 // Test happy path. Insert some conversations and check they exist.
 func TestImpl_GetConversations(t *testing.T) {
-	m, err := newImpl("TestImpl_GetConversations", nil,
-		dummyReceivedMessageCB, true)
+	m, err := newImpl("TestImpl_GetConversations", &dummyCallbacks{}, true)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -115,39 +117,33 @@ func TestImpl_GetConversations(t *testing.T) {
 	}
 }
 
-// Test happy path toggling between blocked/unblocked in a Conversation.
-func TestImpl_BlockSender(t *testing.T) {
-	m, err := newImpl("TestImpl_BlockSender", nil,
-		dummyReceivedMessageCB, true)
+// Test failed and successful deletes
+func TestWasmModel_DeleteMessage(t *testing.T) {
+	m, err := newImpl("TestWasmModel_DeleteMessage", &dummyCallbacks{}, true)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	// Insert a test convo
-	testBytes := []byte("test")
-	testPubKey := ed25519.PublicKey(testBytes)
-	err = m.upsertConversation("test", testPubKey, 0, 0, nil)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	// Insert test message
+	testBadBytes := []byte("uwu")
+	testString := "test"
+	testBytes := []byte(testString)
+	partnerPubKey := ed25519.PublicKey(testBytes)
+	testRound := id.Round(10)
 
-	// Default to unblocked
-	result := m.GetConversation(testPubKey)
-	if result.BlockedTimestamp != nil {
-		t.Fatal("Expected blocked to be nil")
-	}
+	// Can use ChannelMessageID for ease, doesn't matter here
+	testMsgId := message.DeriveChannelMessageID(&id.ID{1}, uint64(testRound), testBytes)
 
-	// Now toggle blocked
-	m.BlockSender(testPubKey)
-	result = m.GetConversation(testPubKey)
-	if result.BlockedTimestamp == nil {
-		t.Fatal("Expected blocked to be non-nil")
-	}
+	// Receive a test message
+	uuid := m.Receive(testMsgId, testString, testBytes,
+		partnerPubKey, partnerPubKey, 0, 0, time.Now(),
+		rounds.Round{ID: testRound}, dm.TextType, dm.Received)
+	require.Positive(t, uuid)
+	require.NoError(t, err)
 
-	// Now toggle blocked again
-	m.UnblockSender(testPubKey)
-	result = m.GetConversation(testPubKey)
-	if result.BlockedTimestamp != nil {
-		t.Fatalf("Expected blocked to be nil, got %+v", result)
-	}
+	// Non-matching pub key, should fail to delete
+	require.False(t, m.DeleteMessage(testMsgId, testBadBytes))
+
+	// Correct pub key, should have deleted
+	require.True(t, m.DeleteMessage(testMsgId, testBytes))
 }

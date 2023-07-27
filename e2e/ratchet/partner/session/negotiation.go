@@ -25,7 +25,7 @@ const (
 	NewSessionCreated
 )
 
-//Adherence to stringer interface
+// Adherence to stringer interface
 func (c Negotiation) String() string {
 	switch c {
 	case Unconfirmed:

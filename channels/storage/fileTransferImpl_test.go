@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/client/v4/channels"
 	cft "gitlab.com/elixxir/client/v4/channelsFileTransfer"
 	"gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/xx_network/primitives/id"
 	"testing"
 	"time"
 )
@@ -24,11 +23,9 @@ import (
 // Happy path test for receiving, updating, getting, and deleting a File.
 func TestImpl_ReceiveFile(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
-	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
 	testString := "TestImpl_ReceiveFile"
-	m, err := newImpl("", nil,
-		testCb, nil, nil)
+	m, err := newImpl("", &dummyCbs{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,11 +97,9 @@ func TestImpl_ReceiveFile(t *testing.T) {
 // Test error does not exist path
 func TestImpl_DeleteMessage_Error(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
-	testCb := func(uuid int64, channelID *id.ID, update bool) {}
 
 	testString := "TestImpl_DeleteMessage_Error"
-	m, err := newImpl("", nil,
-		testCb, nil, nil)
+	m, err := newImpl("", &dummyCbs{})
 	if err != nil {
 		t.Fatal(err)
 	}

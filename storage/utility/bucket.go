@@ -9,11 +9,12 @@ package utility
 
 import (
 	"encoding/json"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/rateLimiting"
-	"time"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 // BucketStore stores a leaky bucket into storage. The bucket
 // is saved in a JSON-able format.
 type BucketStore struct {
-	kv *versioned.KV
+	kv versioned.KV
 }
 
 // bucketDisk is a JSON-able structure used to store
@@ -37,9 +38,13 @@ type bucketDisk struct {
 
 // NewStoredBucket creates a new, empty Bucket and saves it to storage.
 func NewStoredBucket(capacity, leaked uint32, leakDuration time.Duration,
-	kv *versioned.KV) *rateLimiting.Bucket {
+	kv versioned.KV) *rateLimiting.Bucket {
+	kv, err := kv.Prefix(bucketStorePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to prefix KV with %s: %+v", bucketStorePrefix, err)
+	}
 	bs := &BucketStore{
-		kv: kv.Prefix(bucketStorePrefix),
+		kv: kv,
 	}
 
 	bs.save(0, netTime.Now().UnixNano())
@@ -82,9 +87,13 @@ func (s *BucketStore) save(inBucket uint32, timestamp int64) {
 
 // LoadBucket is a storage operation which loads a bucket from storage.
 func LoadBucket(capacity, leaked uint32, leakDuration time.Duration,
-	kv *versioned.KV) (*rateLimiting.Bucket, error) {
+	kv versioned.KV) (*rateLimiting.Bucket, error) {
+	kv, err := kv.Prefix(bucketStorePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to prefix KV with %s: %+v", bucketStorePrefix, err)
+	}
 	bs := &BucketStore{
-		kv: kv.Prefix(bucketStorePrefix),
+		kv: kv,
 	}
 	inBucket, ts, err := bs.load()
 	if err != nil {

@@ -27,7 +27,10 @@ type adminListener struct {
 
 // Listen is called when a message is received for the admin listener.
 func (al *adminListener) Listen(payload, encryptedPayload []byte,
+	_ []string, metadata [2]byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	messageType := UnmarshalMessageType(metadata)
+
 	// Get the message ID
 	messageID := message.
 		DeriveChannelMessageID(al.chID, uint64(round.ID), payload)
@@ -46,8 +49,8 @@ func (al *adminListener) Listen(payload, encryptedPayload []byte,
 	ts := time.Unix(0, cm.LocalTimestamp)
 
 	// Submit the message to the event model for listening
-	uuid, err := al.trigger(al.chID, cm, encryptedPayload, ts, messageID,
-		receptionID, round, Delivered)
+	uuid, err := al.trigger(al.chID, cm, messageType, encryptedPayload, ts,
+		messageID, receptionID, round, Delivered)
 	if err != nil {
 		jww.WARN.Printf("[CH] Error in passing off trigger for admin "+
 			"message (UUID: %d): %+v", uuid, err)

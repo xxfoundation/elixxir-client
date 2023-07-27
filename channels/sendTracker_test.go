@@ -8,7 +8,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/ekv"
@@ -21,24 +21,21 @@ import (
 
 type mockClient struct{}
 
-func (mc *mockClient) GetMaxMessageLength() int {
-	return 2048
-}
+func (mc *mockClient) GetMaxMessageLength() int { return 2048 }
 func (mc *mockClient) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (mc *mockClient) IsHealthy() bool {
-	return true
-}
 func (mc *mockClient) AddIdentity(*id.ID, time.Time, bool, message.Processor)                       {}
 func (mc *mockClient) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool, message.Processor) {}
-func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
-func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
 func (mc *mockClient) RemoveIdentity(*id.ID)                                                        {}
-func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
+func (mc *mockClient) AddService(*id.ID, message.Service, message.Processor)                        {}
+func (mc *mockClient) UpsertCompressedService(*id.ID, message.CompressedService, message.Processor) {}
+func (mc *mockClient) DeleteClientService(*id.ID)                                                   {}
+func (mc *mockClient) IsHealthy() bool                                                              { return true }
 func (mc *mockClient) AddHealthCallback(func(bool)) uint64                                          { return 0 }
 func (mc *mockClient) RemoveHealthCallback(uint64)                                                  {}
+func (mc *mockClient) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round)          {}
 
 // Test MessageReceive basic logic.
 func TestSendTracker_MessageReceive(t *testing.T) {
@@ -79,11 +76,11 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       netTime.Now().UnixNano(),
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello"),
-		}})
+			Lease:   netTime.Now().UnixNano(),
+			RoundID: uint64(rid),
+			Payload: []byte("hello"),
+		},
+		messageType: 42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,11 +101,11 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	uuid2, err := st.denotePendingSend(cid2, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       netTime.Now().UnixNano(),
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello again"),
-		}})
+			Lease:   netTime.Now().UnixNano(),
+			RoundID: uint64(rid),
+			Payload: []byte("hello again"),
+		},
+		messageType: 42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +127,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	adminTrigger := func(*id.ID, *ChannelMessage, []byte, time.Time,
+	adminTrigger := func(*id.ID, *ChannelMessage, MessageType, []byte, time.Time,
 		cryptoMessage.ID, receptionID.EphemeralIdentity, rounds.Round,
 		SentStatus) (uint64, error) {
 		return 0, nil
@@ -151,10 +148,9 @@ func TestSendTracker_failedSend(t *testing.T) {
 	mid := cryptoMessage.DeriveChannelMessageID(cid, uint64(rid),
 		[]byte("hello"))
 	cm := &ChannelMessage{
-		Lease:       0,
-		RoundID:     uint64(rid),
-		PayloadType: 0,
-		Payload:     []byte("hello"),
+		Lease:   0,
+		RoundID: uint64(rid),
+		Payload: []byte("hello"),
 	}
 	uuid, err := st.denotePendingAdminSend(cid, cm, nil)
 	if err != nil {
@@ -223,12 +219,12 @@ func TestSendTracker_send(t *testing.T) {
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       0,
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello"),
+			Lease:   0,
+			RoundID: uint64(rid),
+			Payload: []byte("hello"),
 		},
-		messageID: mid,
+		messageID:   mid,
+		messageType: 42,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -318,12 +314,12 @@ func TestRoundResult_callback(t *testing.T) {
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       0,
-			RoundID:     uint64(rid),
-			PayloadType: 0,
-			Payload:     []byte("hello"),
+			Lease:   0,
+			RoundID: uint64(rid),
+			Payload: []byte("hello"),
 		},
-		messageID: mid,
+		messageID:   mid,
+		messageType: 42,
 	})
 	if err != nil {
 		t.Fatal(err)

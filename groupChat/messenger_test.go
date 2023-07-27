@@ -9,10 +9,10 @@ package groupChat
 
 import (
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	clientE2E "gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/storage"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -32,7 +32,7 @@ type mockE2e struct {
 	storage     storage.Session
 }
 
-func newMockE2e(t testing.TB, kv *versioned.KV) groupE2e {
+func newMockE2e(t testing.TB, kv versioned.KV) groupE2e {
 	receptionId := id.NewIdFromString("test", id.User, t)
 	mockCmix := newTestNetworkManager(0)
 	prng := rand.New(rand.NewSource(42))

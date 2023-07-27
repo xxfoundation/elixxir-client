@@ -29,11 +29,11 @@ type userListener struct {
 }
 
 // Listen is called when a message is received for the user listener.
-func (ul *userListener) Listen(payload, encryptedPayload []byte,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-
+func (ul *userListener) Listen(payload, encryptedPayload []byte, tags []string,
+	metadata [2]byte, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	mt := UnmarshalMessageType(metadata)
 	// Decode the message as a user message
-	umi, err := unmarshalUserMessageInternal(payload, ul.chID)
+	umi, err := unmarshalUserMessageInternal(payload, ul.chID, mt)
 	if err != nil {
 		jww.WARN.Printf("[CH] Failed to unmarshal User Message on channel %s "+
 			"in round %d: %+v", ul.chID, round.ID, err)
@@ -73,7 +73,8 @@ func (ul *userListener) Listen(payload, encryptedPayload []byte,
 
 	// Submit the message to the event model for listening
 	uuid, err := ul.trigger(
-		ul.chID, umi, encryptedPayload, ts, receptionID, round, Delivered)
+		ul.chID, umi, encryptedPayload, ts, receptionID,
+		round, Delivered)
 	if err != nil {
 		jww.WARN.Printf(
 			"[CH] Error in passing off trigger for message (UUID: %d): %+v",

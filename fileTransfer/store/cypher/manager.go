@@ -9,8 +9,8 @@ package cypher
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -51,15 +51,18 @@ type Manager struct {
 	// (has its own storage backend)
 	fpVector *utility.StateVector
 
-	kv *versioned.KV
+	kv versioned.KV
 }
 
 // NewManager returns a new cypher Manager initialised with the given number of
 // fingerprints.
-func NewManager(key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) (
+func NewManager(key *ftCrypto.TransferKey, numFps uint16, kv versioned.KV) (
 	*Manager, error) {
 
-	kv = kv.Prefix(cypherManagerPrefix)
+	kv, err := kv.Prefix(cypherManagerPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	fpVector, err := utility.NewStateVector(
 		uint32(numFps), false, cypherManagerFpVectorKey, kv)
@@ -118,8 +121,11 @@ func (m *Manager) GetUnusedCyphers() []Cypher {
 ////////////////////////////////////////////////////////////////////////////////
 
 // LoadManager loads the Manager from storage.
-func LoadManager(kv *versioned.KV) (*Manager, error) {
-	kv = kv.Prefix(cypherManagerPrefix)
+func LoadManager(kv versioned.KV) (*Manager, error) {
+	kv, err := kv.Prefix(cypherManagerPrefix)
+	if err != nil {
+		return nil, err
+	}
 	key, err := loadKey(kv)
 	if err != nil {
 		return nil, errors.Errorf(errLoadKey, err)
@@ -157,7 +163,7 @@ func (m *Manager) Delete() error {
 }
 
 // saveKey saves the transfer key to storage.
-func saveKey(key *ftCrypto.TransferKey, kv *versioned.KV) error {
+func saveKey(key *ftCrypto.TransferKey, kv versioned.KV) error {
 	obj := &versioned.Object{
 		Version:   cypherManagerKeyStoreVersion,
 		Timestamp: netTime.Now(),
@@ -168,7 +174,7 @@ func saveKey(key *ftCrypto.TransferKey, kv *versioned.KV) error {
 }
 
 // loadKey loads the transfer key from storage.
-func loadKey(kv *versioned.KV) (*ftCrypto.TransferKey, error) {
+func loadKey(kv versioned.KV) (*ftCrypto.TransferKey, error) {
 	obj, err := kv.Get(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion)
 	if err != nil {
 		return nil, err

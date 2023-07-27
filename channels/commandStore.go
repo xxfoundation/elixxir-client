@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
@@ -30,14 +30,18 @@ const (
 // CommandStore stores message information about channel commands in storage.
 // Each message
 type CommandStore struct {
-	kv *versioned.KV
+	kv versioned.KV
 }
 
 // NewCommandStore initialises a new message CommandStore object with a prefixed
 // KV.
-func NewCommandStore(kv *versioned.KV) *CommandStore {
+func NewCommandStore(kv versioned.KV) *CommandStore {
+	kv, err := kv.Prefix(commandStorePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("[CH] Failed to add prefix %s to KV: %+v", commandStorePrefix, err)
+	}
 	return &CommandStore{
-		kv: kv.Prefix(commandStorePrefix),
+		kv: kv,
 	}
 }
 

@@ -13,10 +13,10 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
@@ -29,10 +29,13 @@ const (
 )
 
 // Load loads an extant ratchet from disk
-func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
+func Load(kv versioned.KV, myID *id.ID, grp *cyclic.Group,
 	cyHandler session.CypherHandler, services Services, rng *fastRNG.StreamGenerator) (
 	*Ratchet, error) {
-	kv = kv.Prefix(packagePrefix)
+	kv, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to add prefix %s:", packagePrefix)
+	}
 
 	privKey, err := util.LoadCyclicKey(kv, privKeyKey)
 	if err != nil {

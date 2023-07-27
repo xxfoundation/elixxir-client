@@ -22,13 +22,13 @@ import (
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/parse"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/elixxir/client/v4/e2e/rekey"
 	"gitlab.com/elixxir/client/v4/event"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
@@ -45,7 +45,7 @@ type manager struct {
 	grp         *cyclic.Group
 	crit        *critical
 	rekeyParams rekey.Params
-	kv          *versioned.KV
+	kv          versioned.KV
 
 	// Generic Callbacks for all E2E operations; by default this is nil and
 	// ignored until set via RegisterCallbacks
@@ -63,14 +63,18 @@ const e2eRekeyParamsVer = 0
 // Init Creates stores. After calling, use load
 // Passes the ID public key which is used for the relationship
 // uses the passed ID to modify the kv prefix for a unique storage path
-func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+func Init(kv versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	jww.INFO.Printf("Initializing new e2e.Handler for %s", myID.String())
-	kv = kv.Prefix(makeE2ePrefix(myID))
+	kv, err := kv.Prefix(makeE2ePrefix(myID))
+	if err != nil {
+		return err
+	}
+
 	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }
 
-func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+func initE2E(kv versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	rekeyParamsData, err := json.Marshal(rekeyParams)
 	if err != nil {
@@ -92,10 +96,13 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // You can use a memkv for an ephemeral e2e id
 // Can be initialized with a nil cmix.Client, but will crash on start - use when
 // prebuilding e2e identity to be used later
-func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
+func Load(kv versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
-	kv = kv.Prefix(makeE2ePrefix(myID))
+	kv, err := kv.Prefix(makeE2ePrefix(myID))
+	if err != nil {
+		return nil, err
+	}
 	return loadE2E(kv, net, myID, grp, rng, events)
 }
 
@@ -107,7 +114,7 @@ func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 // You can use a memkv for an ephemeral e2e id
 // Can be initialized with a nil cmix.Client, but will crash on start - use when
 // prebuilding e2e identity to be used later
-func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
+func LoadLegacy(kv versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter, params rekey.Params) (Handler, error) {
 
@@ -151,7 +158,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 
 }
 
-func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
+func loadE2E(kv versioned.KV, net cmix.Client, myDefaultID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
 

@@ -11,26 +11,26 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/xxdk"
-	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 
 	"gitlab.com/elixxir/client/v4/channels"
 	channelsFT "gitlab.com/elixxir/client/v4/channelsFileTransfer"
+	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
@@ -99,9 +99,10 @@ var channelsFileTransferCmd = &cobra.Command{
 		}
 
 		// Construct channels manager
+		cbs := &channelCbs{}
 		em.eventModel.api, err = channels.NewManager(chanID,
 			user.GetStorage().GetKV(), user.GetCmix(), user.GetRng(), em,
-			extensions, user.AddService)
+			extensions, user.AddService, nil, cbs)
 		if err != nil {
 			jww.FATAL.Panicf("[FT] Failed to create channels manager: %+v", err)
 		}
@@ -152,7 +153,7 @@ var channelsFileTransferCmd = &cobra.Command{
 			msgID, rounds, _, err := em.Send(channel.ReceptionID, f.Link,
 				filePath, viper.GetString(channelsFtTypeFlag),
 				[]byte(viper.GetString(channelsFtPreviewStringFlag)),
-				channels.ValidForever, xxdk.GetDefaultCMixParams())
+				channels.ValidForever, xxdk.GetDefaultCMixParams(), nil)
 			if err != nil {
 				jww.FATAL.Panicf("[FT] Failed to send file %s to channel %s: %+v",
 					fid, channel.ReceptionID, err)

@@ -9,11 +9,16 @@ package nodes
 
 import (
 	"bytes"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/gateway"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
@@ -21,10 +26,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const InputChanLen = 1000
@@ -42,7 +43,7 @@ var delayTable = [5]time.Duration{
 // registrar is an implementation of the Registrar interface.
 type registrar struct {
 	nodes map[id.ID]*key
-	kv    *versioned.KV
+	kv    versioned.KV
 	mux   sync.RWMutex
 
 	session session
@@ -78,7 +79,10 @@ func LoadRegistrar(session session, sender gateway.Sender,
 
 	running := int64(0)
 
-	kv := session.GetKV().Prefix(prefix)
+	kv, err := session.GetKV().Prefix(prefix)
+	if err != nil {
+		return nil, err
+	}
 	r := &registrar{
 		nodes:          make(map[id.ID]*key),
 		kv:             kv,
@@ -99,7 +103,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 	} else {
 		err = r.unmarshal(obj.Data)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 	}
 

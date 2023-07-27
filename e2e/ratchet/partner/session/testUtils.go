@@ -13,8 +13,8 @@ import (
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -47,7 +47,7 @@ func getGroup() *cyclic.Group {
 
 }
 
-func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Negotiation, t *testing.T) (*Session, *versioned.KV) {
+func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Negotiation, t *testing.T) (*Session, versioned.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}
@@ -68,7 +68,7 @@ func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Neg
 }
 
 // Make a default test session with some things populated
-func makeTestSession() (*Session, *versioned.KV) {
+func makeTestSession() (*Session, versioned.KV) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
@@ -87,8 +87,14 @@ func makeTestSession() (*Session, *versioned.KV) {
 
 	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
 		mySIDHPrivKey, partnerSIDHPubKey)
-	kv := versioned.NewKV(ekv.MakeMemstore())
 	sid := GetSessionIDFromBaseKey(baseKey)
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	newKv, err := kv.Prefix(MakeSessionPrefix(sid))
+	if err != nil {
+		panic(err)
+	}
 
 	s := &Session{
 		baseKey:           baseKey,
@@ -98,7 +104,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 		partnerSIDHPubKey: partnerSIDHPubKey,
 		e2eParams:         GetDefaultParams(),
 		sID:               sid,
-		kv:                kv.Prefix(MakeSessionPrefix(sid)),
+		kv:                newKv,
 		t:                 Receive,
 		negotiationStatus: Confirmed,
 		rekeyThreshold:    5,
@@ -107,7 +113,6 @@ func makeTestSession() (*Session, *versioned.KV) {
 		cyHandler:         &mockCyHandler{},
 		rng:               fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
-	var err error
 	s.keyState, err = util.NewStateVector(1024, false, "", s.kv)
 	if err != nil {
 		panic(err)

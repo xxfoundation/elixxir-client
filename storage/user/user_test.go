@@ -8,11 +8,12 @@
 package user
 
 import (
+	"gitlab.com/elixxir/client/v4/collective"
 	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/rsa"
@@ -47,9 +48,11 @@ func TestLoadUser(t *testing.T) {
 	reception, err := sch.Generate(prng, 512)
 	require.NoError(t, err)
 
+	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
+
 	ci := newCryptographicIdentity(uid, uid, salt, salt, transmission,
-		reception, false, dhPrivKey, dhPubKey, kv)
-	err = ci.save(kv)
+		reception, false, dhPrivKey, dhPubKey, remote)
+	err = ci.save(remote)
 	if err != nil {
 		t.Errorf("Failed to save ci to kv: %+v", err)
 	}

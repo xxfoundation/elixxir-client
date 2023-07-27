@@ -4,21 +4,23 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-// Handles low level database control and interfaces
+// Handles low-level database control and interfaces.
 
 package storage
 
 import (
 	"crypto/ed25519"
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/dm"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"time"
+
+	"gitlab.com/elixxir/client/v4/dm"
+	"gitlab.com/elixxir/crypto/message"
 )
 
 // MessageReceivedCallback is called any time a message is received or updated.
@@ -28,26 +30,36 @@ import (
 type MessageReceivedCallback func(
 	uuid uint64, pubKey ed25519.PublicKey, messageUpdate, conversationUpdate bool)
 
+// Callbacks contains callbacks that are used by this event model implementation.
+type Callbacks interface {
+	// MessageReceived is called any time a message is received or updated.
+	//
+	// messageUpdate is true if the message already exists and was edited.
+	// conversationUpdate is true if the conversation was created or modified.
+	MessageReceived(uuid uint64, pubKey ed25519.PublicKey,
+		messageUpdate, conversationUpdate bool)
+
+	// MessageDeleted is called when a message is deleted.
+	MessageDeleted(messageID message.ID)
+}
+
 // impl implements the dm.EventModel interface with an underlying DB.
 // NOTE: This model is NOT thread safe - it is the responsibility of the
 // caller to ensure that its methods are called sequentially.
 type impl struct {
-	db                *gorm.DB // Stored database connection
-	cipher            cryptoChannel.Cipher
-	receivedMessageCB MessageReceivedCallback
+	db  *gorm.DB // Stored database connection
+	cbs Callbacks
 }
 
 // NewEventModel initializes the [dm.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback) (dm.EventModel, error) {
+func NewEventModel(dbFilePath string, cbs Callbacks) (dm.EventModel, error) {
 	useTemporary := len(dbFilePath) == 0
-	model, err := newImpl(dbFilePath, encryption, msgCb, useTemporary)
+	model, err := newImpl(dbFilePath, cbs, useTemporary)
 	return dm.EventModel(model), err
 }
 
 // If useTemporary is set to true, this will use an in-RAM database.
-func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, useTemporary bool) (*impl, error) {
+func newImpl(dbFilePath string, cbs Callbacks, useTemporary bool) (*impl, error) {
 
 	if useTemporary {
 		dbFilePath = fmt.Sprintf(temporaryDbPath, dbFilePath)
@@ -56,6 +68,7 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 	}
 
 	// Create the database connection
+	jww.INFO.Printf("Opening DB file at %s...", dbFilePath)
 	db, err := gorm.Open(sqlite.Open(dbFilePath), &gorm.Config{
 		Logger: logger.New(jww.TRACE, logger.Config{LogLevel: logger.Info}),
 	})
@@ -99,9 +112,8 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 
 	// Build the interface
 	di := &impl{
-		db:                db,
-		cipher:            encryption,
-		receivedMessageCB: msgCb,
+		db:  db,
+		cbs: cbs,
 	}
 
 	jww.INFO.Println("Database backend initialized successfully!")

@@ -10,49 +10,42 @@ package storage
 
 import (
 	"crypto/ed25519"
+	"time"
+
 	"github.com/pkg/errors"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/channels"
-	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/message"
-	"gitlab.com/xx_network/primitives/id"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"time"
+
+	"gitlab.com/elixxir/client/v4/channels"
+	"gitlab.com/elixxir/crypto/message"
+	"gitlab.com/xx_network/primitives/id"
 )
 
-// MessageReceivedCallback is called any time a message is received or updated.
-//
-// update is true if the row is old and was edited.
-type MessageReceivedCallback func(uuid int64, channelID *id.ID, update bool)
-
-// MuteCallback is a callback provided for the MuteUser method of the impl.
-type MuteCallback func(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
-
-// DeletedMessageCallback is called any time a message is deleted.
-type DeletedMessageCallback func(messageID message.ID)
+// UiCallbacks contains a subset of the methods on [channels.UiCallbacks] that
+// are used by this event model implementation.
+type UiCallbacks interface {
+	ChannelUpdate(channelID *id.ID, delete bool)
+	MessageReceived(uuid int64, channelID *id.ID, update bool)
+	UserMuted(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
+	MessageDeleted(messageID message.ID)
+}
 
 // impl implements the channels.EventModel interface with an underlying DB.
 type impl struct {
-	db       *gorm.DB // Stored database connection
-	cipher   cryptoChannel.Cipher
-	msgCb    MessageReceivedCallback
-	deleteCb DeletedMessageCallback
-	muteCb   MuteCallback
+	db  *gorm.DB // Stored database connection
+	cbs UiCallbacks
 }
 
 // NewEventModel initializes the [channels.EventModel] interface with appropriate backend.
-func NewEventModel(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (channels.EventModel, error) {
-	model, err := newImpl(dbFilePath, encryption, msgCb, deleteCb, muteCb)
+func NewEventModel(dbFilePath string, uiCallbacks UiCallbacks) (channels.EventModel, error) {
+	model, err := newImpl(dbFilePath, uiCallbacks)
 	return channels.EventModel(model), err
 }
 
-func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
-	msgCb MessageReceivedCallback, deleteCb DeletedMessageCallback,
-	muteCb MuteCallback) (*impl, error) {
+func newImpl(dbFilePath string, uiCallbacks UiCallbacks) (*impl, error) {
 
 	// Use a temporary, in-memory database if no path is specified
 	if len(dbFilePath) == 0 {
@@ -62,11 +55,13 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 	}
 
 	// Create the database connection
+	jww.INFO.Printf("Opening DB file at %s...", dbFilePath)
 	db, err := gorm.Open(sqlite.Open(dbFilePath), &gorm.Config{
 		Logger: logger.New(jww.TRACE, logger.Config{LogLevel: logger.Info}),
 	})
 	if err != nil {
-		return nil, errors.Errorf("Unable to initialize database backend: %+v", err)
+		return nil, errors.Errorf("Unable to initialize database "+
+			"backend at %s: %+v", dbFilePath, err)
 	}
 
 	// Enable foreign keys because they are disabled in SQLite by default
@@ -105,11 +100,8 @@ func newImpl(dbFilePath string, encryption cryptoChannel.Cipher,
 
 	// Build the interface
 	di := &impl{
-		db:       db,
-		cipher:   encryption,
-		msgCb:    msgCb,
-		deleteCb: deleteCb,
-		muteCb:   muteCb,
+		db:  db,
+		cbs: uiCallbacks,
 	}
 
 	jww.INFO.Println("Database backend initialized successfully!")

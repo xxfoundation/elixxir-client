@@ -8,8 +8,9 @@
 package channels
 
 import (
+	"bytes"
 	"crypto/ed25519"
-	"github.com/pkg/errors"
+	"encoding/json"
 	"math/rand"
 	"os"
 	"reflect"
@@ -18,9 +19,12 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -94,7 +98,7 @@ func Test_initEvents(t *testing.T) {
 	}
 
 	// check that all the default callbacks are registered
-	if len(e.registered) != 7 {
+	if len(e.registered) != 8 {
 		t.Errorf("The correct number of default handlers are not "+
 			"registered; %d vs %d", len(e.registered), 7)
 		// If this fails, is means the default handlers have changed. edit the
@@ -112,6 +116,9 @@ func Test_initEvents(t *testing.T) {
 	if getFuncName(e.registered[Reaction].listener) != getFuncName(e.receiveReaction) {
 		t.Errorf("Reaction does not have recieveReaction")
 	}
+
+	require.Equal(t,
+		getFuncName(e.registered[Invitation].listener), getFuncName(e.receiveInvitation))
 }
 
 // Unit test of NewReceiveMessageHandler.
@@ -378,7 +385,7 @@ func Test_events_triggerAdminEvents(t *testing.T) {
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
+	_, err = e.triggerAdminEvent(chID, cm, mt, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -414,7 +421,7 @@ func Test_events_triggerAdminEvents_noChannel(t *testing.T) {
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err := e.triggerAdminEvent(chID, cm, nil, netTime.Now(), msgID,
+	_, err := e.triggerAdminEvent(chID, cm, mt, nil, netTime.Now(), msgID,
 		receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatal(err)
@@ -447,7 +454,7 @@ func TestEvents_triggerActionEvent(t *testing.T) {
 		DeriveChannelMessageID(chID, uint64(r.ID), u.userMessage.Message)
 
 	// Call the trigger
-	_, err = e.triggerActionEvent(chID, msgID, MessageType(cm.PayloadType),
+	_, err = e.triggerActionEvent(chID, msgID, mt,
 		cm.Nickname, cm.Payload, nil, netTime.Now(), netTime.Now(),
 		time.Duration(cm.Lease), r.ID, r, Delivered, true)
 	if err != nil {
@@ -732,6 +739,54 @@ func Test_events_receiveReaction_InvalidReactionContent(t *testing.T) {
 	}
 }
 
+func Test_events_receiveInvitation(t *testing.T) {
+	me := &MockEvent{}
+	e := initEvents(me, 512, versioned.NewKV(ekv.MakeMemstore()),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG))
+
+	// Craft the input for the event
+	chID := &id.ID{1}
+	textPayload := &CMIXChannelInvitation{
+		Version:    0,
+		InviteLink: "https://internet.speakeasy.tech/?0Name=abc&1Description=abc&2Level=Public&3Created=1687299263089518800&e=3fsn9CRivD5zx1OnApq72GlWXTx6Bz%2BeRm0K0mKpUFg%3D&k=Pj8n9dMtHUWMdsu%2FF%2B5EgnIA7O8dcEUSS3O9czMTl6c%3D&l=400&m=0&p=1&s=vY8LrVeJI84W8epfmgOHr5eTL9MfC34MH%2FuxNqFnGN4%3D&v=1",
+		Password:   "hunter2",
+		Text:       "check out this channel!",
+	}
+
+	mar, _ := json.Marshal(textPayload)
+
+	textMarshaled, err := proto.Marshal(textPayload)
+	require.NoError(t, err)
+	msgID := message.DeriveChannelMessageID(chID, 420, textMarshaled)
+	senderUsername := "Alice"
+	ts := netTime.Now()
+	lease := 69 * time.Minute
+	r := rounds.Round{ID: 420,
+		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
+	pi, err := cryptoChannel.GenerateIdentity(rand.New(rand.NewSource(64)))
+	require.NoError(t, err)
+	dmToken := uint32(8675309)
+
+	// Call the handler
+	e.receiveInvitation(chID, msgID, Invitation, senderUsername, textMarshaled, nil,
+		pi.PubKey, dmToken, pi.CodesetVersion, ts, ts, lease, r.ID, r,
+		Delivered, false, false)
+
+	var inviteJson bytes.Buffer
+	enc := json.NewEncoder(&inviteJson)
+	enc.SetEscapeHTML(false)
+	err = enc.Encode(textPayload)
+	require.NoError(t, err)
+	mar = inviteJson.Bytes()
+
+	// Check the results on the model
+	expected := eventReceive{chID, msgID, message.ID{}, senderUsername,
+		mar, ts, lease, r, Delivered, false, false,
+		Invitation, dmToken, 0}
+	require.Equal(t, expected, me.eventReceive)
+
+}
+
 // Unit test of events.receiveDelete.
 func Test_events_receiveDelete(t *testing.T) {
 	me, prng := &MockEvent{}, rand.New(rand.NewSource(65))
@@ -950,9 +1005,9 @@ func Test_events_receiveAdminReplay(t *testing.T) {
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Mock Event Model                                                           //
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 type eventReceive struct {
 	channelID   *id.ID
 	messageID   message.ID
@@ -1033,6 +1088,29 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID,
 	}
 	return m.getUUID()
 }
+
+func (m *MockEvent) ReceiveInvite(channelID *id.ID, messageID message.ID,
+	nickname, text string, _ ed25519.PublicKey, dmToken uint32, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round, messageType MessageType,
+	status SentStatus, hidden bool) uint64 {
+	m.eventReceive = eventReceive{
+		channelID:   channelID,
+		messageID:   messageID,
+		nickname:    nickname,
+		content:     []byte(text),
+		timestamp:   timestamp,
+		lease:       lease,
+		round:       round,
+		status:      status,
+		pinned:      false,
+		hidden:      hidden,
+		messageType: messageType,
+		dmToken:     dmToken,
+		codeset:     codeset,
+	}
+	return m.getUUID()
+}
+
 func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID,
 	reactionTo message.ID, nickname, reaction string,
 	_ ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp time.Time,

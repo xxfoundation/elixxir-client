@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"gorm.io/gorm"
 	"strings"
 	"time"
@@ -42,7 +41,7 @@ func newContext() (context.Context, context.CancelFunc) {
 // NOTE: ID is not set inside this function because we want to use the
 // autoincrement key by default. If you are trying to overwrite an existing
 // message, then you need to set it manually yourself.
-func buildMessage(messageID, parentID, text []byte, partnerKey,
+func buildMessage(messageID, parentID []byte, text string, partnerKey []byte,
 	senderKey ed25519.PublicKey, timestamp time.Time, round id.Round,
 	mType dm.MessageType, codeset uint8, status dm.Status) *Message {
 	return &Message{
@@ -53,7 +52,7 @@ func buildMessage(messageID, parentID, text []byte, partnerKey,
 		SenderPubKey:       senderKey[:],
 		Status:             uint8(status),
 		CodesetVersion:     codeset,
-		Text:               text,
+		Text:               []byte(text),
 		Type:               uint16(mType),
 		Round:              int64(round),
 	}
@@ -159,42 +158,43 @@ func (i *impl) UpdateSentStatus(uuid uint64, messageID message.ID,
 
 	jww.TRACE.Printf("[DM SQL] Calling ReceiveMessageCB(%v, %v, t, f)",
 		uuid, currentMessage.ConversationPubKey)
-	go i.receivedMessageCB(uuid, currentMessage.ConversationPubKey,
-		true, false)
+	go i.cbs.MessageReceived(
+		uuid, currentMessage.ConversationPubKey, true, false)
 }
 
-func (i *impl) BlockSender(senderPubKey ed25519.PublicKey) {
-	parentErr := "Failed to BlockSender: %+v"
+// DeleteMessage deletes the message with the given message.ID belonging to the
+// sender. If the message exists and belongs to the sender, then it is deleted
+// and DeleteMessage returns true. If it does not exist, it returns false.
+func (i *impl) DeleteMessage(
+	messageID message.ID, senderPubKey ed25519.PublicKey) bool {
 
-	err := i.setBlocked(senderPubKey, true)
+	ctx, cancel := newContext()
+	err := i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Get the extant message
+		currentMessage := &Message{MessageId: messageID.Marshal()}
+		err := tx.Where(currentMessage).Take(currentMessage).Error
+		if err != nil {
+			return err
+		}
+
+		// Ensure the public keys match
+		if !bytes.Equal(currentMessage.SenderPubKey, senderPubKey) {
+			return errors.Errorf("Public keys do not match")
+		}
+
+		// Perform the delete
+		return tx.Delete(currentMessage).Error
+	})
+	cancel()
+
 	if err != nil {
-		jww.ERROR.Printf("%+v", errors.WithMessage(err, parentErr))
-	}
-}
-
-func (i *impl) UnblockSender(senderPubKey ed25519.PublicKey) {
-	parentErr := "Failed to UnblockSender: %+v"
-	err := i.setBlocked(senderPubKey, false)
-	if err != nil {
-		jww.ERROR.Printf(parentErr, err)
-	}
-}
-
-// setBlocked is a helper for blocking/unblocking a given Conversation.
-func (i *impl) setBlocked(senderPubKey ed25519.PublicKey, isBlocked bool) error {
-	resultConvo, err := i.getConversation(senderPubKey)
-	if err != nil {
-		return err
+		jww.ERROR.Printf("Failed to DeleteMessage: %+v", err)
+		return false
 	}
 
-	var timeBlocked *time.Time = nil
-	if isBlocked {
-		blockUser := netTime.Now()
-		timeBlocked = &blockUser
-	}
+	go i.cbs.MessageDeleted(messageID)
 
-	return i.upsertConversation(resultConvo.Nickname, resultConvo.Pubkey,
-		resultConvo.Token, resultConvo.CodesetVersion, timeBlocked)
+	return true
 }
 
 func (i *impl) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
@@ -303,21 +303,12 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 		}
 	}
 
-	// Handle encryption, if it is present
-	textBytes := []byte(data)
-	if i.cipher != nil {
-		textBytes, err = i.cipher.Encrypt(textBytes)
-		if err != nil {
-			return 0, err
-		}
-	}
-
 	var parentIdBytes []byte
 	if parentID != nil {
 		parentIdBytes = parentID.Marshal()
 	}
 
-	msgToInsert := buildMessage(messageID.Bytes(), parentIdBytes, textBytes,
+	msgToInsert := buildMessage(messageID.Bytes(), parentIdBytes, data,
 		partnerKey, senderKey, timestamp, round.ID, mType, codeset, status)
 
 	uuid, err := i.upsertMessage(msgToInsert)
@@ -327,8 +318,7 @@ func (i *impl) receiveWrapper(messageID message.ID, parentID *message.ID, nickna
 
 	jww.TRACE.Printf("[DM SQL] Calling ReceiveMessageCB(%v, %v, f, %t)",
 		uuid, partnerKeyStr, conversationUpdated)
-	go i.receivedMessageCB(uuid, partnerKey,
-		false, conversationUpdated)
+	go i.cbs.MessageReceived(uuid, partnerKey, false, conversationUpdated)
 	return uuid, nil
 }
 

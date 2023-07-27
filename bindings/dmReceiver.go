@@ -194,18 +194,20 @@ type DMReceiver interface {
 	UpdateSentStatus(uuid int64, messageID []byte, timestamp, roundID,
 		status int64)
 
-	// BlockSender silences messages sent by the indicated sender
-	// public key.
-	//  - senderPubKey - The sender's Ed25519 public key to block.
-	BlockSender(senderPubKey []byte)
-	// UnblockSender allows messages sent by the indicated sender
-	// public key.
-	//  - senderPubKey - The sender's Ed25519 public key to unblock.
-	UnblockSender(senderPubKey []byte)
+	// DeleteMessage deletes the message with the given message.ID belonging to
+	// the sender. If the message exists and belongs to the sender, then it is
+	// deleted and DeleteMessage returns true. If it does not exist, it returns
+	// false.
+	//
+	// Parameters:
+	//  - messageID - The bytes of the [message.ID] of the message to delete.
+	//  - senderPubKey - The [ed25519.PublicKey] of the sender of the message.
+	DeleteMessage(messageID, senderPubKey []byte) bool
 
-	// GetConversations returns any conversations held by the
+	// GetConversation returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversation(senderPubKey []byte) []byte
+
 	// GetConversations returns any conversations held by the
 	// model (receiver). JSON List of dm.ModelConversation object.
 	GetConversations() []byte
@@ -217,9 +219,9 @@ type dmReceiver struct {
 	dr DMReceiver
 }
 
-// NewDMReceiver is a constructor for a dmReceiver. This will take in an
+// newDMReceiver is a constructor for a dmReceiver. This will take in an
 // DMReceiver and wraps it around the dmReceiver.
-func NewDMReceiver(dr DMReceiver) dm.EventModel {
+func newDMReceiver(dr DMReceiver) dm.EventModel {
 	return &dmReceiver{dr: dr}
 }
 
@@ -300,20 +302,15 @@ func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 		int64(round.ID), int64(status))
 }
 
-// BlockSender silences messages sent by the indicated sender
-// public key.
-func (dmr *dmReceiver) BlockSender(senderPubKey ed25519.PublicKey) {
-	dmr.dr.BlockSender(senderPubKey)
+// DeleteMessage deletes the message with the given message.ID belonging to the
+// sender. If the message exists and belongs to the sender, then it is deleted
+// and DeleteMessage returns true. If it does not exist, it returns false.
+func (dmr *dmReceiver) DeleteMessage(
+	messageID message.ID, senderPubKey ed25519.PublicKey) bool {
+	return dmr.dr.DeleteMessage(messageID.Marshal(), senderPubKey)
 }
 
-// UnblockSender allows messages sent by the indicated sender
-// public key.
-func (dmr *dmReceiver) UnblockSender(senderPubKey ed25519.PublicKey) {
-	dmr.dr.UnblockSender(senderPubKey)
-}
-
-// GetConversations returns any conversations held by the
-// model (receiver)
+// GetConversation returns any conversations held by the model (receiver).
 func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
 	convoJSON := dmr.dr.GetConversation(senderPubKey)
 	var convo dm.ModelConversation
@@ -325,8 +322,7 @@ func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.Model
 	return &convo
 }
 
-// GetConversations returns any conversations held by the
-// model (receiver)
+// GetConversations returns any conversations held by the model (receiver).
 func (dmr *dmReceiver) GetConversations() []dm.ModelConversation {
 	convoJSON := dmr.dr.GetConversations()
 	var convos []dm.ModelConversation

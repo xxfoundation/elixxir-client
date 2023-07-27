@@ -16,9 +16,9 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -32,7 +32,7 @@ const relationshipFpLength = 15
 
 // Implements the partner.Manager interface
 type manager struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	myID    *id.ID
 	partner *id.ID
@@ -52,13 +52,17 @@ type manager struct {
 }
 
 // NewManager creates the relationship and its first Send and Receive sessions.
-func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
+func NewManager(kv versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, sendParams,
 	receiveParams session.Params, cyHandler session.CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) Manager {
 
-	kv = kv.Prefix(makeManagerPrefix(partnerID))
+	kv, err := kv.Prefix(makeManagerPrefix(partnerID))
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
+			makeManagerPrefix(partnerID), err)
+	}
 
 	m := &manager{
 		kv:                      kv,
@@ -109,21 +113,24 @@ func (c ConnectionFp) String() string {
 		c.fingerprint)[:relationshipFpLength]
 }
 
-//LoadManager loads a relationship and all buffers and sessions from disk
-func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
+// LoadManager loads a relationship and all buffers and sessions from disk
+func LoadManager(kv versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (Manager, error) {
 
+	kv, err := kv.Prefix(makeManagerPrefix(partnerID))
+	if err != nil {
+		return nil, err
+	}
+
 	m := &manager{
-		kv:        kv.Prefix(makeManagerPrefix(partnerID)),
+		kv:        kv,
 		myID:      myID,
 		partner:   partnerID,
 		cyHandler: cyHandler,
 		grp:       grp,
 		rng:       rng,
 	}
-
-	var err error
 
 	m.originMyPrivKey, err = utility.LoadCyclicKey(m.kv, originMyPrivKeyKey)
 	if err != nil {
@@ -180,7 +187,10 @@ func (m *manager) Delete() error {
 func (m *manager) deleteRelationships() error {
 
 	// Delete the send information
-	sendKv := m.kv.Prefix(session.Send.Prefix())
+	sendKv, err := m.kv.Prefix(session.Send.Prefix())
+	if err != nil {
+		return err
+	}
 	m.send.Delete()
 	if err := deleteRelationshipFingerprint(sendKv); err != nil {
 		return err
@@ -192,7 +202,10 @@ func (m *manager) deleteRelationships() error {
 	}
 
 	// Delete the receive information
-	receiveKv := m.kv.Prefix(session.Receive.Prefix())
+	receiveKv, err := m.kv.Prefix(session.Receive.Prefix())
+	if err != nil {
+		return err
+	}
 	m.receive.Delete()
 	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
 		return err

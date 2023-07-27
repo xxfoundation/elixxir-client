@@ -10,8 +10,8 @@ package ud
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	store "gitlab.com/elixxir/client/v4/ud/store"
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
@@ -57,20 +57,20 @@ type Manager struct {
 // third-party operated server.
 //
 // Params
-//  - user is an interface that adheres to the xxdk.E2e object.
-//  - comms is an interface that adheres to client.Comms object.
-//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
-//  - username is the name of the user as it is registered with UD. This will be what the end user
-//    provides if through the bindings.
-//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
-//    be nil, however UD may return an error in some cases (e.g. in a production level environment).
-//  - cert is the TLS certificate for the UD server this call will connect with.
-//  - contactFile is the data within a marshalled contact.Contact. This represents the
-//    contact file of the server this call will connect with.
-//  - address is the IP address of the UD server this call will connect with.
+//   - user is an interface that adheres to the xxdk.E2e object.
+//   - comms is an interface that adheres to client.Comms object.
+//   - follower is a method off of xxdk.Cmix which returns the network follower's status.
+//   - username is the name of the user as it is registered with UD. This will be what the end user
+//     provides if through the bindings.
+//   - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//     be nil, however UD may return an error in some cases (e.g. in a production level environment).
+//   - cert is the TLS certificate for the UD server this call will connect with.
+//   - contactFile is the data within a marshalled contact.Contact. This represents the
+//     contact file of the server this call will connect with.
+//   - address is the IP address of the UD server this call will connect with.
 //
 // Returns
-//  - A Manager object which is registered to the specified UD service.
+//   - A Manager object which is registered to the specified UD service.
 func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 	username string, networkValidationSig,
 	cert, contactFile []byte, address string) (*Manager, error) {
@@ -126,18 +126,18 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 // already registered facts into store.
 //
 // Params
-//  - user is an interface that adheres to the xxdk.E2e object.
-//  - comms is an interface that adheres to client.Comms object.
-//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
-//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
-//    be nil, however UD may return an error in some cases (e.g. in a production level environment).
-//  - cert is the TLS certificate for the UD server this call will connect with.
-//  - contactFile is the data within a marshalled contact.Contact. This represents the
-//    contact file of the server this call will connect with.
-//  - address is the IP address of the UD server this call will connect with.
+//   - user is an interface that adheres to the xxdk.E2e object.
+//   - comms is an interface that adheres to client.Comms object.
+//   - follower is a method off of xxdk.Cmix which returns the network follower's status.
+//   - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//     be nil, however UD may return an error in some cases (e.g. in a production level environment).
+//   - cert is the TLS certificate for the UD server this call will connect with.
+//   - contactFile is the data within a marshalled contact.Contact. This represents the
+//     contact file of the server this call will connect with.
+//   - address is the IP address of the UD server this call will connect with.
 //
 // Returns
-//  - A Manager object which is registered to the specified UD service.
+//   - A Manager object which is registered to the specified UD service.
 func NewManagerFromBackup(user udE2e, comms Comms,
 	follower udNetworkStatus, cert, contactFile []byte,
 	address string) (*Manager, error) {
@@ -177,7 +177,7 @@ func NewManagerFromBackup(user udE2e, comms Comms,
 }
 
 // InitStoreFromBackup initializes the UD storage from the backup subsystem.
-func InitStoreFromBackup(kv *versioned.KV,
+func InitStoreFromBackup(kv versioned.KV,
 	username, email, phone fact.Fact) error {
 	// Initialize our store
 	udStore, err := store.NewOrLoadStore(kv)
@@ -232,7 +232,7 @@ func (m *Manager) getCmix() udCmix {
 // getKv returns a versioned.KV used for IsRegistered and setRegistered.
 // This is separated from store operations as store's kv
 // has a different prefix which breaks backwards compatibility.
-func (m *Manager) getKv() *versioned.KV {
+func (m *Manager) getKv() versioned.KV {
 	return m.user.GetStorage().GetKV()
 }
 

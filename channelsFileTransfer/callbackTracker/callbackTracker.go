@@ -89,7 +89,7 @@ func (ct *callbackTracker) call(err error) {
 				ct.scheduled = false
 				ct.mux.Unlock()
 			}
-			
+
 			timer := time.NewTimer(ct.period - timeSinceLastCall)
 			select {
 			case <-ct.stop.Quit():

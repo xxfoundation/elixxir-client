@@ -10,12 +10,13 @@ package conversation
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Storage keys and versions.
@@ -43,12 +44,15 @@ type Buff struct {
 	lookup         map[truncatedMessageID]*Message
 	oldest, newest uint32
 	mux            sync.RWMutex
-	kv             *versioned.KV
+	kv             versioned.KV
 }
 
 // NewBuff initializes a new ring buffer with size n.
-func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
-	kv = kv.Prefix(ringBuffPrefix)
+func NewBuff(kv versioned.KV, n int) (*Buff, error) {
+	kv, err := kv.Prefix(ringBuffPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Construct object
 	rb := &Buff{
@@ -170,8 +174,11 @@ func (b *Buff) handleMessageOverwrite() {
 
 // LoadBuff loads the ring buffer from storage. It loads all messages from
 // storage and repopulates the buffer.
-func LoadBuff(kv *versioned.KV) (*Buff, error) {
-	kv = kv.Prefix(ringBuffPrefix)
+func LoadBuff(kv versioned.KV) (*Buff, error) {
+	kv, err := kv.Prefix(ringBuffPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Extract ring buffer from storage
 	vo, err := kv.Get(ringBuffKey, ringBuffVersion)
@@ -298,7 +305,7 @@ func (b *Buff) saveMessage(msg *Message) error {
 }
 
 // loadMessage loads a message given truncatedMessageID from storage.
-func loadMessage(tmID truncatedMessageID, kv *versioned.KV) (*Message, error) {
+func loadMessage(tmID truncatedMessageID, kv versioned.KV) (*Message, error) {
 	// Load message from storage
 	vo, err := kv.Get(makeMessageKey(tmID), messageVersion)
 	if err != nil {

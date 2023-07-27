@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/event"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -41,8 +41,13 @@ type Handler interface {
 	// Services
 	AddService(clientID *id.ID, newService Service, response Processor)
 	DeleteService(clientID *id.ID, toDelete Service, response Processor)
+	UpsertCompressedService(clientID *id.ID, newService CompressedService,
+		response Processor)
+	DeleteCompressedService(clientID *id.ID, toDelete CompressedService,
+		processor Processor)
 	DeleteClientService(clientID *id.ID)
 	TrackServices(triggerTracker ServicesTracker)
+	GetServices() (ServiceList, CompressedServiceList)
 
 	//Fallthrough
 	AddFallthrough(c *id.ID, p Processor)
@@ -64,7 +69,7 @@ type handler struct {
 	FallthroughManager
 }
 
-func NewHandler(param Params, kv *versioned.KV, events event.Reporter,
+func NewHandler(param Params, kv versioned.KV, events event.Reporter,
 	standardID *id.ID) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)
@@ -182,11 +187,11 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 	if proc, exists := h.pop(identity.Source, fingerprint); exists {
 		jww.DEBUG.Printf("handleMessage found fingerprint: %s",
 			ecrMsg.Digest())
-		proc.Process(ecrMsg, identity, round)
+		proc.Process(ecrMsg, nil, nil, identity, round)
 		return true
 	}
 
-	services, exists := h.get(
+	services, tags, metadata, exists := h.get(
 		identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
 	// If the id doesn't exist or there are no services for it, then
 	// we want messages to be reprocessed as garbled.
@@ -194,14 +199,14 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 		for _, t := range services {
 			jww.DEBUG.Printf("handleMessage service found: %s, %s",
 				ecrMsg.Digest(), t)
-			go t.Process(ecrMsg, identity, round)
+			go t.Process(ecrMsg, tags, metadata, identity, round)
 		}
 		return true
 	}
 
 	// handle the fallthrough, if it exists
 	if p, exist := h.getFallthrough(identity.Source); exist {
-		p.Process(ecrMsg, identity, round)
+		p.Process(ecrMsg, nil, nil, identity, round)
 		return true
 	}
 

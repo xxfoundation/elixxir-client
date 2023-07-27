@@ -16,8 +16,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/message"
@@ -99,7 +99,7 @@ type ActionLeaseList struct {
 	rb *replayBlocker
 
 	store *CommandStore
-	kv    *versioned.KV
+	kv    versioned.KV
 	rng   *fastRNG.StreamGenerator
 }
 
@@ -152,7 +152,7 @@ type leaseMessage struct {
 // NewOrLoadActionLeaseList loads an existing ActionLeaseList from storage, if
 // it exists. Otherwise, it initialises a new empty ActionLeaseList.
 func NewOrLoadActionLeaseList(triggerFn triggerActionEventFunc,
-	store *CommandStore, kv *versioned.KV, rng *fastRNG.StreamGenerator) (
+	store *CommandStore, kv versioned.KV, rng *fastRNG.StreamGenerator) (
 	*ActionLeaseList, error) {
 	all := NewActionLeaseList(triggerFn, store, kv, rng)
 
@@ -171,7 +171,7 @@ func NewOrLoadActionLeaseList(triggerFn triggerActionEventFunc,
 
 // NewActionLeaseList initialises a new empty ActionLeaseList.
 func NewActionLeaseList(triggerFn triggerActionEventFunc, store *CommandStore,
-	kv *versioned.KV, rng *fastRNG.StreamGenerator) *ActionLeaseList {
+	kv versioned.KV, rng *fastRNG.StreamGenerator) *ActionLeaseList {
 	all := &ActionLeaseList{
 		leases:             list.New(),
 		messagesByChannel:  make(map[id.ID]map[commandFingerprintKey]*leaseMessage),

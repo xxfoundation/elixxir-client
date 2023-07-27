@@ -11,13 +11,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -27,7 +27,7 @@ import (
 const currentSentRequestVersion = 1
 
 type SentRequest struct {
-	kv *versioned.KV
+	kv versioned.KV
 
 	partner                 *id.ID
 	partnerHistoricalPubKey *cyclic.Int
@@ -51,7 +51,7 @@ type sentRequestDisk struct {
 	Reset                   bool
 }
 
-func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
+func newSentRequest(kv versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 	myPrivKey, myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
 	sidHPubA *sidh.PublicKey, fp format.Fingerprint, reset bool) (*SentRequest, error) {
 
@@ -70,7 +70,7 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 	return sr, sr.save()
 }
 
-func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
+func loadSentRequest(kv versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
 
 	srKey := makeSentRequestKey(partner)
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
@@ -114,7 +114,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.KeyId,
+	mySidHPrivKeyA := sidh.NewPrivateKey(utility.KeyId,
 		sidh.KeyVariantSidhA)
 	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
@@ -122,7 +122,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 				"with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.KeyId,
+	mySidHPubKeyA := sidh.NewPublicKey(utility.KeyId,
 		sidh.KeyVariantSidhA)
 	if err = mySidHPubKeyA.Import(srd.MySidHPubKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
@@ -184,8 +184,8 @@ func (sr *SentRequest) save() error {
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",
 		hex.EncodeToString(sr.fingerprint[:]))
 
-	sidHPriv := make([]byte, sidhinterface.PrivKeyByteSize)
-	sidHPub := make([]byte, sidhinterface.PubKeyByteSize)
+	sidHPriv := make([]byte, utility.PrivKeyByteSize)
+	sidHPub := make([]byte, utility.PubKeyByteSize)
 	sr.mySidHPrivKeyA.Export(sidHPriv)
 	sr.mySidHPubKeyA.Export(sidHPub)
 
@@ -283,7 +283,7 @@ func makeSentRequestKeyV0(partner *id.ID) string {
 
 // upgradeSentRequestKeyV0 upgrads the srKey from version 0 to 1 by
 // changing the version number.
-func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
+func upgradeSentRequestKeyV0(kv versioned.KV, partner *id.ID) error {
 	oldKey := makeSentRequestKeyV0(partner)
 	obj, err := kv.Get(oldKey, 0)
 	if err != nil {

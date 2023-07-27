@@ -3,17 +3,18 @@
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
 // LICENSE file.                                                              //
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////A/////////////////////////////////////////////////////////
 
 package store
 
 import (
 	"encoding/json"
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const (
@@ -23,12 +24,12 @@ const (
 
 type EarliestRound struct {
 	stored bool
-	kv     *versioned.KV
+	kv     versioned.KV
 	rid    id.Round
 	mux    sync.Mutex
 }
 
-func NewEarliestRound(stored bool, kv *versioned.KV) *EarliestRound {
+func NewEarliestRound(stored bool, kv versioned.KV) *EarliestRound {
 	ur := &EarliestRound{
 		stored: stored,
 		kv:     kv,
@@ -39,7 +40,7 @@ func NewEarliestRound(stored bool, kv *versioned.KV) *EarliestRound {
 	return ur
 }
 
-func LoadEarliestRound(kv *versioned.KV) *EarliestRound {
+func LoadEarliestRound(kv versioned.KV) *EarliestRound {
 	ur := &EarliestRound{
 		stored: true,
 		kv:     kv,

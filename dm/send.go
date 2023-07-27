@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/emoji"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/dm"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	cryptoMessage "gitlab.com/elixxir/crypto/message"
@@ -34,8 +35,12 @@ import (
 )
 
 const (
-	textVersion     = 0
-	reactionVersion = 0
+	// Versions for various message types
+	textVersion       = 0
+	reactionVersion   = 0
+	invitationVersion = 0
+	silentVersion     = 0
+	deleteVersion     = 0
 
 	// SendMessageTag is the base tag used when generating a debug tag for
 	// sending a message.
@@ -49,6 +54,18 @@ const (
 	// sending a reaction.
 	SendReactionTag = "Reaction"
 
+	// SendSilentTag is the base tag used when generating a debug tag for
+	// sending a silent message.
+	SendSilentTag = "Silent"
+
+	// SendInviteTag is the base tag used when generating a debug tag for
+	// sending an invitation.
+	SendInviteTag = "Invite"
+
+	// DeleteMessageTag is the base tag used when generating a debug tag for
+	// delete message.
+	DeleteMessageTag = "Delete"
+
 	directMessageDebugTag = "dm"
 	// The size of the nonce used in the message ID.
 	messageNonceSize = 4
@@ -60,14 +77,14 @@ var (
 )
 
 // SendText is used to send a formatted message to another user.
-func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
+func (dc *dmClient) SendText(partnerPubKey ed25519.PublicKey,
 	partnerToken uint32,
 	msg string, params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
 
-	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(partnerPubKey)
 
-	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
+	tag := makeDebugTag(partnerPubKey, []byte(msg), SendReplyTag)
 	jww.INFO.Printf("[DM][%s] SendText(%s)", tag, pubKeyStr)
 	txt := &Text{
 		Version: textVersion,
@@ -86,19 +103,19 @@ func (dc *dmClient) SendText(partnerPubKey *ed25519.PublicKey,
 		params)
 }
 
-// SendDMReply is used to send a formatted direct message reply.
+// SendReply is used to send a formatted direct message reply.
 //
 // If the message ID that the reply is sent to does not exist,
 // then the other side will post the message as a normal
 // message and not as a reply.
-func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
+func (dc *dmClient) SendReply(partnerPubKey ed25519.PublicKey,
 	partnerToken uint32, msg string, replyTo cryptoMessage.ID,
 	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round,
 	ephemeral.Id, error) {
 
-	pubKeyStr := base64.RawStdEncoding.EncodeToString(*partnerPubKey)
+	pubKeyStr := base64.RawStdEncoding.EncodeToString(partnerPubKey)
 
-	tag := makeDebugTag(*partnerPubKey, []byte(msg), SendReplyTag)
+	tag := makeDebugTag(partnerPubKey, []byte(msg), SendReplyTag)
 	jww.INFO.Printf("[DM][%s] SendReply(%s, to %s)", tag, pubKeyStr,
 		replyTo)
 	txt := &Text{
@@ -125,14 +142,14 @@ func (dc *dmClient) SendReply(partnerPubKey *ed25519.PublicKey,
 //
 // Clients will drop the reaction if they do not recognize the reactTo
 // message.
-func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
+func (dc *dmClient) SendReaction(partnerPubKey ed25519.PublicKey,
 	partnerToken uint32, reaction string, reactTo cryptoMessage.ID,
 	params cmix.CMIXParams) (cryptoMessage.ID,
 	rounds.Round, ephemeral.Id, error) {
-	tag := makeDebugTag(*partnerPubKey, []byte(reaction),
+	tag := makeDebugTag(partnerPubKey, []byte(reaction),
 		SendReactionTag)
 	jww.INFO.Printf("[DM][%s] SendReaction(%s, to %s)", tag,
-		base64.RawStdEncoding.EncodeToString(*partnerPubKey),
+		base64.RawStdEncoding.EncodeToString(partnerPubKey),
 		reactTo)
 
 	if err := emoji.ValidateReaction(reaction); err != nil {
@@ -156,7 +173,128 @@ func (dc *dmClient) SendReaction(partnerPubKey *ed25519.PublicKey,
 		reactMarshaled, params)
 }
 
-func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
+// SendSilent is used to send to a channel a message with no notifications.
+// Its primary purpose is to communicate new nicknames without calling
+// SendMessage.
+//
+// It takes no payload intentionally as the message should be very
+// lightweight.
+func (dc *dmClient) SendSilent(partnerPubKey ed25519.PublicKey,
+	partnerToken uint32, params cmix.CMIXParams) (
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// Formulate custom tag
+	tag := makeDebugTag(partnerPubKey, nil, SendSilentTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf("[DM][%s] SendSilent(%s)", tag,
+		base64.RawStdEncoding.EncodeToString(partnerPubKey))
+
+	// Form message
+	silent := &SilentMessage{
+		Version: silentVersion,
+	}
+
+	// Marshal message
+	silentMarshaled, err := proto.Marshal(silent)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	// Send silent message
+	return dc.Send(partnerPubKey, partnerToken, SilentType,
+		silentMarshaled, params)
+}
+
+// SendInvite is used to send to a DM partner an invitation to another
+// channel.
+func (dc *dmClient) SendInvite(partnerPubKey ed25519.PublicKey,
+	partnerToken uint32, msg string, inviteTo *cryptoBroadcast.Channel,
+	host string, params cmix.CMIXParams) (
+	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// fixme: As of writing, maxUses is not a functional parameter. It
+	//  is passed down to the lower levels, but requires server side changes to
+	//  enforce, which have not been implemented. Until that is done,
+	//  maxUses will be hard-coded here. Once it is done, this function
+	//  signature and all corresponding interface(s) should be modified
+	//  such that maxUses is a parameter w/ proper documentation.
+	const maxUses = 0
+
+	// Formulate custom tag
+	tag := makeDebugTag(
+		partnerPubKey, []byte(msg),
+		SendInviteTag)
+
+	// Modify the params for the custom tag
+	params = params.SetDebugTag(tag)
+
+	jww.INFO.Printf("[DM][%s] SendInvite(%s, for %s)", tag,
+		base64.RawStdEncoding.EncodeToString(partnerPubKey),
+		inviteTo.ReceptionID)
+
+	rng := dc.rng.GetStream()
+	defer rng.Close()
+	inviteUrl, passsord, err := inviteTo.ShareURL(host, maxUses, rng)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{},
+			errors.WithMessage(err, "could not form URL")
+	}
+
+	invitation := &ChannelInvitation{
+		Version:    invitationVersion,
+		Text:       msg,
+		InviteLink: inviteUrl,
+		Password:   passsord,
+	}
+
+	invitationMarshaled, err := proto.Marshal(invitation)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return dc.Send(partnerPubKey, partnerToken, InvitationType,
+		invitationMarshaled, params)
+}
+
+// DeleteMessage sends a message to the partner to delete a message this user
+// sent. Also deletes it from the local database.
+func (dc *dmClient) DeleteMessage(partnerPubKey ed25519.PublicKey,
+	partnerToken uint32, targetMessage cryptoMessage.ID,
+	params cmix.CMIXParams) (cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
+	// Delete the message
+	if !dc.receiver.DeleteMessage(targetMessage, dc.pubKey) {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, errors.Errorf(
+			"no message with id %s and public key %X", targetMessage, dc.pubKey)
+	}
+
+	tag := makeDebugTag(partnerPubKey, targetMessage.Marshal(), DeleteMessageTag)
+	jww.INFO.Printf("[DM][%s] DeleteMessage(%s)", tag, targetMessage)
+
+	txt := &DeleteMessage{
+		Version:         deleteVersion,
+		TargetMessageID: targetMessage.Marshal(),
+	}
+
+	params = params.SetDebugTag(tag)
+	deleteMarshaled, err := proto.Marshal(txt)
+	if err != nil {
+		return cryptoMessage.ID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
+	return dc.Send(
+		partnerPubKey, partnerToken, DeleteType, deleteMarshaled, params)
+}
+
+// Send is used to send a raw direct message to a DM partner. In general, it
+// should be wrapped in a function that defines the wire protocol.
+//
+// If the final message, before being sent over the wire, is too long, this will
+// return an error. Due to the underlying encoding using compression, it is not
+// possible to define the largest payload that can be sent, but it will always
+// be possible to send a payload of 802 bytes at minimum.
+// DeleteMessage is used to send a formatted message to another user.
+func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 	partnerToken uint32, messageType MessageType, msg []byte,
 	params cmix.CMIXParams) (
 	cryptoMessage.ID, rounds.Round, ephemeral.Id, error) {
@@ -177,7 +315,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	if dc.myToken == partnerToken &&
-		!dc.me.PubKey.Equal(*partnerEdwardsPubKey) {
+		!dc.me.PubKey.Equal(partnerEdwardsPubKey) {
 		return cryptoMessage.ID{}, rounds.Round{},
 			ephemeral.Id{},
 			errors.Errorf("can only use myToken on self send: "+
@@ -185,14 +323,23 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 				dc.myToken, dc.me.PubKey, partnerEdwardsPubKey, partnerToken)
 	}
 
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(partnerEdwardsPubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partnerEdwardsPubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(), partnerToken)
 
+	sihTag := dm.MakeSenderSihTag(partnerEdwardsPubKey, dc.me.Privkey)
+	mt := messageType.Marshal()
+	service := message.CompressedService{
+		Identifier: partnerEdwardsPubKey,
+		Tags:       []string{sihTag},
+		Metadata:   mt[:],
+	}
+
 	// Note: We log sends on exit, and append what happened to the message
 	// this cuts down on clutter in the log.
-	sendPrint := fmt.Sprintf("[DM][%s] Sending from %s to %s type %d at %s",
-		params.DebugTag, dc.me.PubKey, partnerID, messageType,
+	sendPrint := fmt.Sprintf("[DM][%s] Sending from %s to %s type %s at %s",
+		params.DebugTag, base64.StdEncoding.EncodeToString(dc.me.PubKey),
+		partnerID, messageType,
 		netTime.Now())
 	defer func() { jww.INFO.Println(sendPrint) }()
 
@@ -235,7 +382,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
-	uuid, err := dc.st.DenotePendingSend(*partnerEdwardsPubKey,
+	uuid, err := dc.st.DenotePendingSend(partnerEdwardsPubKey,
 		dc.me.PubKey, partnerToken, messageType, directMessage)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", pending send failed %s",
@@ -251,8 +398,8 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 	}
 
 	rndID, ephIDs, err := send(dc.net, dc.selfReceptionID,
-		partnerID, partnerPubKey, dc.privateKey, partnerToken,
-		directMessage, params, dc.rng)
+		partnerID, partnerPubKey, dc.privateKey, service,
+		partnerToken, directMessage, params, dc.rng)
 	if err != nil {
 		sendPrint += fmt.Sprintf(", err on send: %+v", err)
 		errDenote := dc.st.FailedSend(uuid)
@@ -286,7 +433,7 @@ func (dc *dmClient) Send(partnerEdwardsPubKey *ed25519.PublicKey,
 // to the user. It generates this ID by hashing the public key and
 // an arbitrary idToken together. The ID type is set to "User".
 func DeriveReceptionID(publicKey ed25519.PublicKey, idToken uint32) *id.ID {
-	nikePubKey := ecdh.Edwards2ECDHNIKEPublicKey(&publicKey)
+	nikePubKey := ecdh.Edwards2EcdhNikePublicKey(publicKey)
 	return deriveReceptionID(nikePubKey.Bytes(), idToken)
 }
 
@@ -309,8 +456,8 @@ func deriveReceptionID(keyBytes []byte, idToken uint32) *id.ID {
 }
 
 func send(net cMixClient, myID *id.ID, partnerID *id.ID,
-	partnerPubKey nike.PublicKey,
-	myPrivateKey nike.PrivateKey, partnerToken uint32,
+	partnerPubKey nike.PublicKey, myPrivateKey nike.PrivateKey,
+	service cmix.Service, partnerToken uint32,
 	msg *DirectMessage, params cmix.CMIXParams,
 	rngGenerator *fastRNG.StreamGenerator) (rounds.Round,
 	[]ephemeral.Id, error) {
@@ -328,8 +475,6 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 		if err != nil {
 			return nil, err
 		}
-
-		service := createRandomService(rng)
 
 		payloadLen := calcDMPayloadLen(net)
 
@@ -367,7 +512,7 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 			return nil, err
 		}
 
-		service = createRandomService(rng)
+		selfService := createRandomService(rng)
 
 		payloadLen = calcDMPayloadLen(net)
 
@@ -391,7 +536,7 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 			Recipient:   myID,
 			Payload:     encryptedPayload,
 			Fingerprint: fp,
-			Service:     service,
+			Service:     selfService,
 			Mac:         mac,
 		}
 
@@ -419,8 +564,8 @@ func calcDMPayloadLen(net cMixClient) int {
 	// As we don't use the mac or fp fields, we can extend
 	// our payload size
 	// (-2 to eliminate the first byte of mac and fp)
-	return (net.GetMaxMessageLength() +
-		format.MacLen + format.KeyFPLen - 2)
+	return net.GetMaxMessageLength() +
+		format.MacLen + format.KeyFPLen - 2
 
 }
 

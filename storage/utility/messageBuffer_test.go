@@ -10,7 +10,7 @@ package utility
 import (
 	"bytes"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
@@ -24,13 +24,13 @@ type testHandler struct {
 	messages map[string][]byte
 }
 
-func (th *testHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
+func (th *testHandler) SaveMessage(kv versioned.KV, m interface{}, key string) error {
 	mBytes := m.([]byte)
 	th.messages[key] = mBytes
 	return nil
 }
 
-func (th *testHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
+func (th *testHandler) LoadMessage(kv versioned.KV, key string) (interface{}, error) {
 	m, ok := th.messages[key]
 	if !ok {
 		return nil, os.ErrNotExist
@@ -38,7 +38,7 @@ func (th *testHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, e
 	return m, nil
 }
 
-func (th *testHandler) DeleteMessage(kv *versioned.KV, key string) error {
+func (th *testHandler) DeleteMessage(kv versioned.KV, key string) error {
 	_, ok := th.messages[key]
 	if !ok {
 		return os.ErrNotExist

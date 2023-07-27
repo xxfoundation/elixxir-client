@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -54,7 +54,7 @@ func getGroup() *cyclic.Group {
 }
 
 // newTestManager returns a new relationship for testing.
-func newTestManager(t *testing.T) (manager, *versioned.KV) {
+func newTestManager(t *testing.T) (manager, versioned.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}

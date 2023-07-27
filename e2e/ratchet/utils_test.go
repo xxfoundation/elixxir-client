@@ -18,10 +18,10 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix/message"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -31,7 +31,7 @@ import (
 )
 
 // Constructor for a mock ratchet
-func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
+func makeTestRatchet() (*Ratchet, versioned.KV, error) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(ekv.MakeMemstore())
@@ -142,8 +142,8 @@ type mockProcessor struct {
 	name string
 }
 
-func (m *mockProcessor) Process(message format.Message,
-	receptionID receptionID.EphemeralIdentity,
+func (m *mockProcessor) Process(message format.Message, tags []string,
+	_ []byte, receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
 
 }

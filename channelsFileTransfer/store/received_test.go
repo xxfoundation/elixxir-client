@@ -15,7 +15,8 @@ import (
 	"strconv"
 	"testing"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -26,9 +27,11 @@ import (
 // storage and that the list of incomplete transfers is nil.
 func TestNewOrLoadReceived_New(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	rtkv, err := kv.Prefix(receivedTransfersStorePrefix)
+	require.NoError(t, err)
 	expected := &Received{
 		transfers: make(map[ftCrypto.ID]*ReceivedTransfer),
-		kv:        kv.Prefix(receivedTransfersStorePrefix),
+		kv:        rtkv,
 	}
 
 	r, incompleteTransfers, err := NewOrLoadReceived(false, kv)

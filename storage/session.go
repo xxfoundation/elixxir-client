@@ -17,14 +17,15 @@ import (
 
 	"gitlab.com/elixxir/crypto/diffieHellman"
 
+	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"gitlab.com/xx_network/crypto/large"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/clientVersion"
 	"gitlab.com/elixxir/client/v4/storage/user"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
@@ -46,11 +47,11 @@ type Session interface {
 	Get(key string) (*versioned.Object, error)
 	Set(key string, object *versioned.Object) error
 	Delete(key string) error
-	GetKV() *versioned.KV
+	GetKV() versioned.KV
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	ForwardRegistrationStatus(regStatus RegistrationStatus) error
-	GetRegistrationStatus() RegistrationStatus
+	RegStatus() RegistrationStatus
 	SetRegCode(regCode string)
 	GetRegCode() (string, error)
 	SetNDF(def *ndf.NetworkDefinition)
@@ -74,12 +75,12 @@ type Session interface {
 }
 
 type session struct {
-	kv *versioned.KV
+	kv     versioned.KV
+	syncKV versioned.KV
 
 	// memoized data
-	mux       sync.RWMutex
-	regStatus RegistrationStatus
-	ndf       *ndf.NetworkDefinition
+	mux sync.RWMutex
+	ndf *ndf.NetworkDefinition
 
 	// network parameters
 	cmixGroup *cyclic.Group
@@ -90,30 +91,19 @@ type session struct {
 	clientVersion *clientVersion.Store
 }
 
-// initStore initializes a new Session object
-func initStore(baseDir, password string) (*session, error) {
-	fs, err := ekv.NewFilestore(baseDir, password)
-	var s *session
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to create storage session")
-	}
-
-	s = &session{
-		kv: versioned.NewKV(fs),
-	}
-
-	return s, nil
-}
-
 // New UserData in the session
-func New(baseDir, password string, u user.Info,
+func New(storage versioned.KV, u user.Info,
 	currentVersion version.Version,
 	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
 
-	s, err := initStore(baseDir, password)
+	remote, err := storage.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to create session for %s", baseDir)
+		return nil, errors.Wrapf(err, "create new session")
+	}
+
+	s := &session{
+		kv:     storage,
+		syncKV: remote,
 	}
 
 	err = s.newRegStatus()
@@ -122,13 +112,19 @@ func New(baseDir, password string, u user.Info,
 			"Create new session")
 	}
 
-	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt,
-		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey, u.E2eDhPublicKey)
+	// Note: user does it's own prefixing
+	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID,
+		u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA,
+		u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey,
+		u.E2eDhPublicKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
 
 	s.clientVersion, err = clientVersion.NewStore(currentVersion, s.kv)
+	if err != nil {
+		return nil, err
+	}
 
 	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
 		return nil, err
@@ -143,43 +139,71 @@ func New(baseDir, password string, u user.Info,
 	return s, nil
 }
 
-// Load existing user data into the session
-func Load(baseDir, password string, currentVersion version.Version) (Session, error) {
-
-	s, err := initStore(baseDir, password)
+// InitFromRemote sets local data for a session variable
+func InitFromRemote(storage versioned.KV,
+	def *ndf.NetworkDefinition,
+	currentVersion version.Version,
+	cmixGrp, e2eGrp *cyclic.Group) error {
+	_, err := clientVersion.NewStore(currentVersion, storage)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return err
 	}
 
-	err = s.loadRegStatus()
+	if err = utility.StoreGroup(storage, cmixGrp,
+		cmixGroupKey); err != nil {
+		return err
+	}
+
+	if err = utility.StoreGroup(storage, e2eGrp, e2eGroupKey); err != nil {
+		return err
+	}
+
+	session, err := Load(storage, currentVersion)
+	session.SetNDF(def)
+	return err
+}
+
+// Load existing user data into the session
+func Load(storage versioned.KV,
+	currentVersion version.Version) (Session, error) {
+
+	remote, err := storage.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.Wrapf(err, "create new session")
+	}
+
+	s := &session{
+		kv:     storage,
+		syncKV: remote,
 	}
 
 	s.clientVersion, err = clientVersion.LoadStore(s.kv)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load client version store.")
+		return nil, errors.WithMessage(err,
+			"Failed to load client version store.")
 	}
 
 	// Determine if the storage needs to be updated to the current version
 	_, _, err = s.clientVersion.CheckUpdateRequired(currentVersion)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load client version store.")
+		return nil, errors.WithMessage(err,
+			"Failed to load client version store.")
 	}
 
+	// Note: User does it's own prefixing
 	s.User, err = user.LoadUser(s.kv)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load user")
 	}
 
 	s.cmixGroup, err = utility.LoadGroup(s.kv, cmixGroupKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load group")
 	}
 
 	s.e2eGroup, err = utility.LoadGroup(s.kv, e2eGroupKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load Session")
+		return nil, errors.WithMessage(err, "failed to load e2e group")
 	}
 
 	return s, nil
@@ -207,7 +231,7 @@ func (s *session) Delete(key string) error {
 }
 
 // GetKV returns the Session versioned.KV.
-func (s *session) GetKV() *versioned.KV {
+func (s *session) GetKV() versioned.KV {
 	return s.kv
 }
 

@@ -9,15 +9,16 @@ package ratchet
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"reflect"
 	"sort"
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/v4/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/ekv"
@@ -31,12 +32,14 @@ func TestNewStore(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := kv.Prefix(packagePrefix)
+	require.NoError(t, err)
 	expectedStore := &Ratchet{
 		managers:               make(map[id.ID]partner.Manager),
 		advertisedDHPrivateKey: privKey,
 		advertisedDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
 		grp:                    grp,
-		kv:                     kv.Prefix(packagePrefix),
+		kv:                     expectedKv,
 	}
 	expectedData, err := expectedStore.marshal()
 	if err != nil {

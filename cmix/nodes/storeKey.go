@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -20,14 +20,14 @@ import (
 const currentKeyVersion = 0
 
 type key struct {
-	kv         *versioned.KV
+	kv         versioned.KV
 	k          *cyclic.Int
 	keyId      []byte
 	validUntil uint64
 	storeKey   string
 }
 
-func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64,
+func newKey(kv versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64,
 	keyId []byte) *key {
 	nk := &key{
 		kv:         kv,
@@ -50,7 +50,7 @@ func (k *key) get() *cyclic.Int {
 }
 
 // loadKey loads the key for the given node ID from the versioned keystore.
-func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
+func loadKey(kv versioned.KV, id *id.ID) (*key, error) {
 	k := &key{}
 
 	key := keyKey(id)
@@ -88,7 +88,7 @@ func (k *key) save() error {
 }
 
 // delete deletes the key from the versioned keystore.
-func (k *key) delete(kv *versioned.KV, id *id.ID) {
+func (k *key) delete(kv versioned.KV, id *id.ID) {
 	key := keyKey(id)
 	if err := kv.Delete(key, currentKeyVersion); err != nil {
 		jww.FATAL.Panicf("Failed to delete key %s: %s", k, err)

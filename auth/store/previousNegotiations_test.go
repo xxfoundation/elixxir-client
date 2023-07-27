@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e/auth"
@@ -27,14 +27,14 @@ import (
 
 // Tests the four possible cases of Store.CheckIfNegotationIsNew:
 //  1. If the partner does not exist, add partner with the new fingerprint.
-//		Returns newFingerprint = true, latest = true.
-//	2. If the partner exists and the fingerprint does not, add the fingerprint.
-//		Returns newFingerprint = true, latest = true.
-//	3. If the partner exists and the fingerprint exists, do nothing.
-//		Return newFingerprint = false, latest = false.
-//	4. If the partner exists, the fingerprint exists, and the fingerprint is the
+//     Returns newFingerprint = true, latest = true.
+//  2. If the partner exists and the fingerprint does not, add the fingerprint.
+//     Returns newFingerprint = true, latest = true.
+//  3. If the partner exists and the fingerprint exists, do nothing.
+//     Return newFingerprint = false, latest = false.
+//  4. If the partner exists, the fingerprint exists, and the fingerprint is the
 //     latest, do nothing.
-//      Return newFingerprint = false, latest = true.
+//     Return newFingerprint = false, latest = true.
 func TestStore_AddIfNew(t *testing.T) {
 	s := &Store{
 		kv:                   versioned.NewKV(ekv.MakeMemstore()),

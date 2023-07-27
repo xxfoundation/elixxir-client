@@ -11,18 +11,21 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"strings"
-	sync "sync"
+	"sync"
 	"time"
 
+	"gitlab.com/elixxir/primitives/nicknames"
+
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/crypto/codename"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/v4/cmix/identity"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
+	"gitlab.com/elixxir/crypto/codename"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 const (
@@ -38,8 +41,11 @@ type dmClient struct {
 	myToken         uint32
 	receiver        EventModel
 
-	st  SendTracker
-	nm  NickNameManager
+	st SendTracker
+	nm NickNameManager
+	ps *partnerStore
+	*notifications
+	as  *ActionSaver
 	net cMixClient
 	rng *fastRNG.StreamGenerator
 }
@@ -53,37 +59,97 @@ type dmClient struct {
 // See send.go for implementation of the Sender interface.
 func NewDMClient(myID *codename.PrivateIdentity, receiver EventModel,
 	tracker SendTracker,
-	nickManager NickNameManager,
-	net cMixClient,
-	rng *fastRNG.StreamGenerator) Client {
+	nickManager NickNameManager, nm NotificationsManager,
+	net cMixClient, kv versioned.KV,
+	rng *fastRNG.StreamGenerator, cbs Callbacks) (Client, error) {
+	return newDmClient(
+		myID, receiver, tracker, nickManager, nm, net, kv, rng, cbs)
+}
+
+func newDmClient(myID *codename.PrivateIdentity, receiver EventModel,
+	tracker SendTracker,
+	nickManager NickNameManager, nm NotificationsManager,
+	net cMixClient, kv versioned.KV,
+	rng *fastRNG.StreamGenerator, cbs Callbacks) (*dmClient, error) {
+	if cbs == nil {
+		cbs = &dummyCallback{}
+	}
+
+	ps, err := newPartnerStore(kv)
+	if err != nil {
+		return nil, err
+	}
 
 	privateEdwardsKey := myID.Privkey
 	myIDToken := myID.GetDMToken()
 
-	privateKey := ecdh.Edwards2ECDHNIKEPrivateKey(privateEdwardsKey)
+	privateKey := ecdh.Edwards2EcdhNikePrivateKey(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
 
 	receptionID := deriveReceptionID(publicKey.Bytes(), myIDToken)
 	selfReceptionID := deriveReceptionID(privateKey.Bytes(), myIDToken)
 
+	n, err := newNotifications(
+		receptionID, myID.PubKey, myID.Privkey, cbs.NotificationUpdate, ps, nm)
+	if err != nil {
+		return nil,
+			errors.Wrap(err, "failed to initialize DM notification manager")
+	}
+
+	// Set up listeners for notifications and blocked users on the partner store
+	err = n.ps.listen(n.updateSihTagsCB, updateBlockedUsers(cbs.BlockedUser))
+	if err != nil {
+		return nil, err
+	}
+
 	dmc := &dmClient{
 		me:              myID,
-		receptionID:     receptionID,
 		selfReceptionID: selfReceptionID,
+		receptionID:     receptionID,
 		privateKey:      privateKey,
 		publicKey:       publicKey,
 		myToken:         myIDToken,
+		receiver:        receiver,
 		st:              tracker,
 		nm:              nickManager,
+		ps:              ps,
+		notifications:   n,
+		as:              NewActionSaver(kv),
 		net:             net,
 		rng:             rng,
-		receiver:        receiver,
 	}
 
 	// Register the listener
-	dmc.register(receiver, dmc.st)
+	err = dmc.register(receiver, dmc.st)
+	if err != nil {
+		jww.FATAL.Panicf("[DM] Failed to register listener: %+v", err)
+	}
 
-	return dmc
+	return dmc, nil
+}
+
+// updateBlockedUsers is a callback registered on the partnerStore to receive
+// updates about blocked and unblocked users.
+func updateBlockedUsers(
+	cb func(user ed25519.PublicKey, blocked bool)) func(edits []elementEdit) {
+	return func(edits []elementEdit) {
+		for _, e := range edits {
+			switch e.operation {
+			case versioned.Created, versioned.Loaded:
+				if e.new.Status == statusBlocked {
+					go cb(e.new.PublicKey, true)
+				}
+			case versioned.Updated:
+				if e.old.Status == statusBlocked && e.new.Status != statusBlocked {
+					go cb(e.new.PublicKey, false)
+				} else if e.old.Status != statusBlocked && e.new.Status == statusBlocked {
+					go cb(e.new.PublicKey, true)
+				}
+			case versioned.Deleted:
+				go cb(e.old.PublicKey, false)
+			}
+		}
+	}
 }
 
 // Register registers a listener for direct messages.
@@ -108,7 +174,7 @@ func (dc *dmClient) register(apiReceiver EventModel,
 	return nil
 }
 
-func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
+func NewNicknameManager(id *id.ID, ekv versioned.KV) NickNameManager {
 	return &nickMgr{
 		ekv:      ekv,
 		storeKey: fmt.Sprintf(nickStoreKey, id.String()),
@@ -118,7 +184,7 @@ func NewNicknameManager(id *id.ID, ekv *versioned.KV) NickNameManager {
 
 type nickMgr struct {
 	storeKey string
-	ekv      *versioned.KV
+	ekv      versioned.KV
 	nick     string
 	sync.Mutex
 }
@@ -142,33 +208,46 @@ func (dc *dmClient) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (dc *dmClient) SetNickname(nick string) {
-	dc.nm.SetNickname(nick)
+func (dc *dmClient) SetNickname(nick string) error {
+	return dc.nm.SetNickname(nick)
 }
 
-// IsBlocked returns if the given sender is blocked
-// Blocking is controlled by the Receiver / EventModel
-func (dc *dmClient) IsBlocked(senderPubKey ed25519.PublicKey) bool {
-	conversation := dc.receiver.GetConversation(senderPubKey)
-	if conversation != nil {
-		return conversation.BlockedTimestamp != nil
+// BlockPartner prevents receiving messages and notifications from the partner.
+func (dc *dmClient) BlockPartner(partnerPubKey ed25519.PublicKey) {
+	dc.ps.set(partnerPubKey, statusBlocked)
+}
+
+// UnblockPartner unblocks a blocked partner to allow DM messages.
+func (dc *dmClient) UnblockPartner(partnerPubKey ed25519.PublicKey) {
+	dc.ps.set(partnerPubKey, defaultStatus)
+}
+
+// IsBlocked indicates if the given partner is blocked.
+func (dc *dmClient) IsBlocked(partnerPubKey ed25519.PublicKey) bool {
+	user, exists := dc.ps.get(partnerPubKey)
+	if !exists {
+		return false
 	}
-	return false
+
+	return user.Status == statusBlocked
 }
 
-// GetBlockedSenders returns all senders who are blocked by this user.
-// Blocking is controlled by the Receiver / EventModel
-func (dc *dmClient) GetBlockedSenders() []ed25519.PublicKey {
-	allConversations := dc.receiver.GetConversations()
-	blocked := make([]ed25519.PublicKey, 0)
-	for i := range allConversations {
-		convo := allConversations[i]
-		if convo.BlockedTimestamp != nil {
-			pub := convo.Pubkey
-			blocked = append(blocked, ed25519.PublicKey(pub))
+// GetBlockedPartners returns all partners who are blocked by this user.
+func (dc *dmClient) GetBlockedPartners() []ed25519.PublicKey {
+	var blockedPartners []ed25519.PublicKey
+	init := func(n int) {
+		blockedPartners = make([]ed25519.PublicKey, 0, n)
+	}
+
+	add := func(user *dmPartner) {
+		if user.Status == statusBlocked {
+			blockedPartners = append(blockedPartners, user.PublicKey)
 		}
 	}
-	return blocked
+
+	dc.ps.iterate(init, add)
+
+	return blockedPartners
 }
 
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
@@ -196,7 +275,10 @@ func (nm *nickMgr) GetNickname() (string, bool) {
 }
 
 // SetNickname saves the nickname
-func (nm *nickMgr) SetNickname(nick string) {
+func (nm *nickMgr) SetNickname(nick string) error {
+	if err := nicknames.IsValid(nick); err != nil {
+		return err
+	}
 	nm.Lock()
 	defer nm.Unlock()
 	nm.nick = strings.Clone(nick)
@@ -205,5 +287,15 @@ func (nm *nickMgr) SetNickname(nick string) {
 		Timestamp: time.Now(),
 		Data:      []byte(nick),
 	}
-	nm.ekv.Set(nm.storeKey, nickObj)
+	return nm.ekv.Set(nm.storeKey, nickObj)
+}
+
+// dummyCallback adheres to the Callbacks interface and is used when no
+// callbacks are passed in and for testing.
+type dummyCallback struct{}
+
+func (dcb *dummyCallback) NotificationUpdate(
+	NotificationFilter, []NotificationState, []ed25519.PublicKey) {
+}
+func (dcb *dummyCallback) BlockedUser(ed25519.PublicKey, bool) {
 }

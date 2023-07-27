@@ -17,7 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/message"
@@ -120,7 +120,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())
@@ -151,7 +151,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 	select {
 	case s := <-triggerCh:
 		if s != Failed {
-			t.Fatalf("Did not receive failed from failed message")
+			t.Fatalf("Did not receive failed from a failed message")
 		}
 	case <-timeout.C:
 		t.Fatal("Timed out waiting for trigger chan")
@@ -178,7 +178,7 @@ func TestSendTracker_send(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())
@@ -238,7 +238,7 @@ func TestSendTracker_load_store(t *testing.T) {
 	// me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())
@@ -280,7 +280,7 @@ func TestRoundResult_callback(t *testing.T) {
 	me, _ := codename.GenerateIdentity(rng)
 	partner, _ := codename.GenerateIdentity(rng)
 	rng.Close()
-	partnerPubKey := ecdh.Edwards2ECDHNIKEPublicKey(&partner.PubKey)
+	partnerPubKey := ecdh.Edwards2EcdhNikePublicKey(partner.PubKey)
 
 	partnerID := deriveReceptionID(partnerPubKey.Bytes(),
 		partner.GetDMToken())
@@ -323,10 +323,8 @@ func TestRoundResult_callback(t *testing.T) {
 	}
 }
 
-func emptyTrigger(msgID message.ID, messageType MessageType,
-	nick string, plaintext []byte, dmToken uint32,
-	partnerPubKey, senderKey ed25519.PublicKey, ts time.Time,
-	_ receptionID.EphemeralIdentity, round rounds.Round,
-	status Status) (uint64, error) {
+func emptyTrigger(message.ID, MessageType, string, []byte, uint32,
+	ed25519.PublicKey, ed25519.PublicKey, time.Time,
+	receptionID.EphemeralIdentity, rounds.Round, Status) (uint64, error) {
 	return 0, nil
 }

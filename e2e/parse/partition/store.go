@@ -16,8 +16,8 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -34,15 +34,19 @@ const activePartitionVersion = 0
 type Store struct {
 	multiParts  map[multiPartID]*multiPartMessage
 	activeParts map[*multiPartMessage]bool
-	kv          *versioned.KV
+	kv          versioned.KV
 	mux         sync.Mutex
 }
 
-func NewOrLoad(kv *versioned.KV) *Store {
+func NewOrLoad(kv versioned.KV) *Store {
+	kv, err := kv.Prefix(packagePrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v", packagePrefix, err)
+	}
 	partitionStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
 		activeParts: make(map[*multiPartMessage]bool),
-		kv:          kv.Prefix(packagePrefix),
+		kv:          kv,
 	}
 
 	partitionStore.loadActivePartitions()

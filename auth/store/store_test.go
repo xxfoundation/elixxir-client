@@ -17,9 +17,8 @@ import (
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -236,9 +235,9 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", c, testC)
 	}
 
-	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
+	keyBytes := make([]byte, util.PubKeyByteSize)
 	sidhPubKey.Export(keyBytes)
-	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
+	expKeyBytes := make([]byte, util.PubKeyByteSize)
 	s.receivedByID[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
@@ -868,7 +867,7 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 
 }
 
-func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
+func makeTestStore(t *testing.T) (*Store, versioned.KV) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 

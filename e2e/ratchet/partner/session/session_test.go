@@ -87,7 +87,7 @@ func TestNewSession(t *testing.T) {
 	sessionA, _ := makeTestSession()
 
 	// Make a new session with the variables we got from MakeTestSession
-	sessionB := NewSession(sessionA.kv, sessionA.t, sessionA.partner,
+	sessionB := NewSession(sessionA.kv.Root(), sessionA.t, sessionA.partner,
 		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
 		sessionA.mySIDHPrivKey, sessionA.partnerSIDHPubKey,
 		sessionA.GetID(), []byte(""), sessionA.negotiationStatus,

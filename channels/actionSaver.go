@@ -17,8 +17,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -50,7 +50,7 @@ type ActionSaver struct {
 	// action.
 	triggerFn triggerActionEventFunc
 
-	kv  *versioned.KV
+	kv  versioned.KV
 	mux sync.RWMutex
 }
 
@@ -66,7 +66,7 @@ type savedAction struct {
 
 // NewActionSaver initialises a new empty ActionSaver.
 func NewActionSaver(
-	triggerFn triggerActionEventFunc, kv *versioned.KV) *ActionSaver {
+	triggerFn triggerActionEventFunc, kv versioned.KV) *ActionSaver {
 	as := &ActionSaver{
 		actions:   make(map[id.ID]map[messageIdKey]*savedAction),
 		triggerFn: triggerFn,

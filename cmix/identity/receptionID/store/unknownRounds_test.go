@@ -10,7 +10,8 @@ package store
 import (
 	"bytes"
 	"encoding/json"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -21,9 +22,11 @@ import (
 // Happy path
 func TestNewUnknownRounds(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := kv.Prefix(unknownRoundPrefix)
+	require.NoError(t, err)
 	expectedStore := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
-		kv:     kv.Prefix(unknownRoundPrefix),
+		kv:     expectedKv,
 		params: DefaultUnknownRoundsParams(),
 	}
 

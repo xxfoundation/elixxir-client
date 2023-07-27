@@ -10,14 +10,16 @@ package store
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
-	"reflect"
-	"testing"
 )
 
 // Tests that newReceivedTransfer returns a new ReceivedTransfer with the
@@ -30,7 +32,8 @@ func Test_newReceivedTransfer(t *testing.T) {
 	parts, _ := generateTestParts(16)
 	fileSize := uint32(len(parts) * len(parts[0]))
 	numParts := uint16(len(parts))
-	rtKv := kv.Prefix(makeReceivedTransferPrefix(&tid))
+	rtKv, err := kv.Prefix(makeReceivedTransferPrefix(&tid))
+	require.NoError(t, err)
 
 	cypherManager, err := cypher.NewManager(&key, numFps, rtKv)
 	if err != nil {
@@ -331,7 +334,7 @@ func TestReceivedTransfer_save(t *testing.T) {
 // newTestReceivedTransfer creates a new ReceivedTransfer for testing.
 func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 	rt *ReceivedTransfer, file []byte, key *ftCrypto.TransferKey,
-	numFps uint16, kv *versioned.KV) {
+	numFps uint16, kv versioned.KV) {
 	kv = versioned.NewKV(ekv.MakeMemstore())
 	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())

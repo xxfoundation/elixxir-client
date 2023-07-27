@@ -9,18 +9,19 @@ package receptionID
 
 import (
 	"encoding/json"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/shuffle"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
-	"io"
-	"sync"
-	"time"
 )
 
 const (
@@ -36,7 +37,7 @@ type Store struct {
 	active  []*registration
 	present map[idHash]struct{}
 
-	kv *versioned.KV
+	kv versioned.KV
 
 	mux sync.Mutex
 }
@@ -59,7 +60,13 @@ func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
 }
 
 // NewOrLoadStore creates a new reception store that starts empty.
-func NewOrLoadStore(kv *versioned.KV) *Store {
+func NewOrLoadStore(kv versioned.KV) *Store {
+
+	kv, err := kv.Prefix(receptionPrefix)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add prefix %s to KV: %+v",
+			receptionPrefix, err)
+	}
 
 	s, err := loadStore(kv)
 	if err != nil {
@@ -69,7 +76,7 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 		s = &Store{
 			active:  []*registration{},
 			present: make(map[idHash]struct{}),
-			kv:      kv.Prefix(receptionPrefix),
+			kv:      kv,
 		}
 
 		// Store the empty list
@@ -81,9 +88,7 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 	return s
 }
 
-func loadStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(receptionPrefix)
-
+func loadStore(kv versioned.KV) (*Store, error) {
 	// Load the versioned object for the reception list
 	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)
 	if err != nil {

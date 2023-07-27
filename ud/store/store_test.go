@@ -9,7 +9,8 @@ package ud
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/fact"
 	"reflect"
@@ -42,6 +43,8 @@ func TestNewOrLoadStore_LoadStore(t *testing.T) {
 // Test that it creates a new store if an old one is not in storage.
 func TestNewOrLoadStore_NewStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
+	expectedKv, err := kv.Prefix(prefix)
+	require.NoError(t, err)
 
 	receivedStore, err := NewOrLoadStore(kv)
 	if err != nil {
@@ -51,15 +54,10 @@ func TestNewOrLoadStore_NewStore(t *testing.T) {
 	expectedStore := &Store{
 		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
 		unconfirmedFacts: make(map[string]fact.Fact, 0),
-		kv:               kv.Prefix(prefix),
+		kv:               expectedKv,
 	}
 
-	if !reflect.DeepEqual(expectedStore, receivedStore) {
-		t.Errorf("NewOrLoadStore() returned incorrect Store."+
-			"\nexpected: %#v\nreceived: %#v", expectedStore,
-			receivedStore)
-
-	}
+	require.Equal(t, expectedStore, receivedStore)
 
 }
 

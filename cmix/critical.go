@@ -14,8 +14,8 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/health"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
@@ -48,7 +48,7 @@ type critical struct {
 	send        criticalSender
 }
 
-func newCritical(kv *versioned.KV, hm health.Monitor,
+func newCritical(kv versioned.KV, hm health.Monitor,
 	roundEvents roundEventRegistrar, send criticalSender) *critical {
 	cm, err := NewOrLoadCmixMessageBuffer(kv, criticalRawMessagesKey)
 	if err != nil {

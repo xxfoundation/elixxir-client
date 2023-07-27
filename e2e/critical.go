@@ -14,8 +14,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/stoppable"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
@@ -48,7 +48,7 @@ type critical struct {
 	healthcb    func(f func(bool)) uint64
 }
 
-func newCritical(kv *versioned.KV, hm func(f func(bool)) uint64,
+func newCritical(kv versioned.KV, hm func(f func(bool)) uint64,
 	send criticalSender) *critical {
 	cm, err := NewOrLoadE2eMessageBuffer(kv, e2eCriticalMessagesKey)
 	if err != nil {

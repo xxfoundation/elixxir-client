@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
@@ -1049,7 +1049,7 @@ func Test_makeMultiStateVectorKey(t *testing.T) {
 // newTestFilledMSV produces a new MultiStateVector and sets each key to a
 // random state.
 func newTestFilledMSV(numKeys uint16, numStates uint8, stateMap [][]bool,
-	key string, t *testing.T) (*MultiStateVector, *versioned.KV) {
+	key string, t *testing.T) (*MultiStateVector, versioned.KV) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	msv, err := NewMultiStateVector(numKeys, numStates, stateMap, key, kv)

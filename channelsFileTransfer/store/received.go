@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -44,18 +44,22 @@ type Received struct {
 
 	mux       sync.RWMutex
 	disableKV bool // Toggles use of KV storage
-	kv        *versioned.KV
+	kv        versioned.KV
 }
 
 // NewOrLoadReceived attempts to load a Received from storage. Or if none exist,
 // then a new Received is returned. A list of file IDs for all incomplete
 // receives is also returned.
 func NewOrLoadReceived(
-	disableKV bool, kv *versioned.KV) (*Received, []ftCrypto.ID, error) {
+	disableKV bool, kv versioned.KV) (*Received, []ftCrypto.ID, error) {
+	rtkv, err := kv.Prefix(receivedTransfersStorePrefix)
+	if err != nil {
+		return nil, nil, err
+	}
 	r := &Received{
 		transfers: make(map[ftCrypto.ID]*ReceivedTransfer),
 		disableKV: disableKV,
-		kv:        kv.Prefix(receivedTransfersStorePrefix),
+		kv:        rtkv,
 	}
 
 	if disableKV {
@@ -92,7 +96,7 @@ func (r *Received) LoadTransfers(
 		r.transfers[fid], err = loadReceivedTransfer(fid, r.kv)
 		if err != nil {
 			// TODO: test
-			jww.WARN.Printf("[FT] Failed to load received transfer %d of %d " +
+			jww.WARN.Printf("[FT] Failed to load received transfer %d of %d "+
 				"with ID %s: %+v", i, len(fidList), fid, err)
 			errCount++
 		}

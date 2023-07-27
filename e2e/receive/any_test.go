@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-//tests that AnyUser returns the correct user
+// tests that AnyUser returns the correct user
 func TestAnyUser(t *testing.T) {
 	au := AnyUser()
 	if !au.Cmp(&id.ZeroUser) {

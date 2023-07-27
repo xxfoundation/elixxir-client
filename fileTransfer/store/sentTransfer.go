@@ -10,16 +10,17 @@ package store
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/fileTransfer/store/cypher"
 	"gitlab.com/elixxir/client/v4/storage/utility"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"sync"
 )
 
 // Storage keys and versions.
@@ -89,15 +90,18 @@ type SentTransfer struct {
 	lastCallbackFingerprint string
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  versioned.KV
 }
 
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
 // transfer ID, and parts.
 func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
-	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
+	numFps uint16, kv versioned.KV) (*SentTransfer, error) {
+	kv, err := kv.Prefix(makeSentTransferPrefix(tid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Create new cypher manager
 	cypherManager, err := cypher.NewManager(key, numFps, kv)
@@ -255,9 +259,12 @@ func generateSentFp(completed bool, arrived, total uint16, err error) string {
 
 // loadSentTransfer loads the SentTransfer with the given transfer ID from
 // storage.
-func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
+func loadSentTransfer(tid *ftCrypto.TransferID, kv versioned.KV) (
 	*SentTransfer, error) {
-	kv = kv.Prefix(makeSentTransferPrefix(tid))
+	kv, err := kv.Prefix(makeSentTransferPrefix(tid))
+	if err != nil {
+		return nil, err
+	}
 
 	// Load cypher manager
 	cypherManager, err := cypher.LoadManager(kv)

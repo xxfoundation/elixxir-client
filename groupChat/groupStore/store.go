@@ -9,15 +9,16 @@ package groupStore
 
 import (
 	"bytes"
+	"sync"
+	"testing"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"testing"
 )
 
 // Storage values.
@@ -48,16 +49,20 @@ const MaxGroupChats = 64
 type Store struct {
 	list map[id.ID]Group
 	user group.Member
-	kv   *versioned.KV
+	kv   versioned.KV
 	mux  sync.RWMutex
 }
 
 // NewStore constructs a new Store object for the user and saves it to storage.
-func NewStore(kv *versioned.KV, user group.Member) (*Store, error) {
+func NewStore(kv versioned.KV, user group.Member) (*Store, error) {
+	kv, err := kv.Prefix(groupStoragePrefix)
+	if err != nil {
+		return nil, err
+	}
 	s := &Store{
 		list: make(map[id.ID]Group),
 		user: user.DeepCopy(),
-		kv:   kv.Prefix(groupStoragePrefix),
+		kv:   kv,
 	}
 
 	return s, s.save()
@@ -65,8 +70,11 @@ func NewStore(kv *versioned.KV, user group.Member) (*Store, error) {
 
 // NewOrLoadStore loads the group store from storage or makes a new one if it
 // does not exist.
-func NewOrLoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
-	prefixKv := kv.Prefix(groupStoragePrefix)
+func NewOrLoadStore(kv versioned.KV, user group.Member) (*Store, error) {
+	prefixKv, err := kv.Prefix(groupStoragePrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the list of group IDs from file if they exist
 	vo, err := prefixKv.Get(groupListStorageKey, groupListVersion)
@@ -80,8 +88,11 @@ func NewOrLoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
 
 // LoadStore loads all the Groups from storage into memory and return them in
 // a Store object.
-func LoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
-	kv = kv.Prefix(groupStoragePrefix)
+func LoadStore(kv versioned.KV, user group.Member) (*Store, error) {
+	kv, err := kv.Prefix(groupStoragePrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the list of group IDs from file
 	vo, err := kv.Get(groupListStorageKey, groupListVersion)
@@ -93,7 +104,7 @@ func LoadStore(kv *versioned.KV, user group.Member) (*Store, error) {
 }
 
 // loadStore builds the list of group IDs and loads the groups from storage.
-func loadStore(data []byte, kv *versioned.KV, user group.Member) (*Store, error) {
+func loadStore(data []byte, kv versioned.KV, user group.Member) (*Store, error) {
 	// Deserialize list of group IDs
 	groupIDs := deserializeGroupIdList(data)
 

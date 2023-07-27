@@ -35,7 +35,7 @@ type triggerAdminEventDummy struct {
 }
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
-	cm *ChannelMessage, encryptedPayload []byte, _ time.Time,
+	cm *ChannelMessage, _ MessageType, encryptedPayload []byte, _ time.Time,
 	messageID message.ID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
 	_ SentStatus) (uint64, error) {
@@ -58,10 +58,9 @@ func Test_adminListener_Listen(t *testing.T) {
 	r := rounds.Round{ID: 420,
 		Timestamps: map[states.Round]time.Time{states.QUEUED: netTime.Now()}}
 	cm := &ChannelMessage{
-		Lease:       int64(time.Hour),
-		RoundID:     uint64(r.ID),
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
+		Lease:   int64(time.Hour),
+		RoundID: uint64(r.ID),
+		Payload: []byte("blarg"),
 	}
 	cmSerial, err := proto.Marshal(cm)
 	if err != nil {
@@ -77,7 +76,8 @@ func Test_adminListener_Listen(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(cmSerial, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(cmSerial, nil, nil, mt.Marshal(), receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -124,7 +124,9 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(cmSerial, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(cmSerial, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -150,7 +152,9 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(chMsgSerialSized, nil, receptionID.EphemeralIdentity{}, r)
+	mt := MessageType(42)
+	al.Listen(chMsgSerialSized, nil, nil, mt.Marshal(),
+		receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {

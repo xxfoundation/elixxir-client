@@ -17,18 +17,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
+
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/dm"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	clientNotif "gitlab.com/elixxir/client/v4/notifications"
 	"gitlab.com/elixxir/crypto/codename"
 	"gitlab.com/elixxir/crypto/message"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/primitives/id"
-
-	"github.com/spf13/cobra"
-	jww "github.com/spf13/jwalterweatherman"
-	"github.com/spf13/viper"
 )
 
 // DM Specific command line options
@@ -105,8 +106,16 @@ var dmCmd = &cobra.Command{
 
 		sendTracker := dm.NewSendTracker(ekv)
 
-		dmClient := dm.NewDMClient(&dmID, myReceiver, sendTracker,
-			myNickMgr, user.GetCmix(), user.GetRng())
+		// Construct notifications manager
+		sig := user.GetStorage().GetTransmissionRegistrationValidationSignature()
+		nm := clientNotif.NewOrLoadManager(user.GetTransmissionIdentity(), sig,
+			user.GetStorage().GetKV(), &clientNotif.MockComms{}, user.GetRng())
+
+		dmClient, err := dm.NewDMClient(&dmID, myReceiver, sendTracker,
+			myNickMgr, nm, user.GetCmix(), ekv, user.GetRng(), nil)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 
 		err = user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
@@ -121,7 +130,7 @@ var dmCmd = &cobra.Command{
 		waitUntilConnected(connected)
 		waitForRegistration(user, 0.85)
 
-		msgID, rnd, ephID, err := dmClient.SendText(&partnerPubKey,
+		msgID, rnd, ephID, err := dmClient.SendText(partnerPubKey,
 			partnerDMToken,
 			viper.GetString(messageFlag),
 			cmix.GetDefaultCMIXParams())
@@ -208,7 +217,7 @@ func getDMPartner() (ed25519.PublicKey, uint32, bool) {
 		return nil, 0, false
 	}
 	token := viper.GetUint32(dmPartnerTokenFlag)
-	return *ecdh.ECDHNIKE2EdwardsPublicKey(pubKey), token, true
+	return ecdh.EcdhNike2EdwardsPublicKey(pubKey), token, true
 }
 
 type nickMgr struct{}
@@ -333,13 +342,11 @@ func (r *receiver) UpdateSentStatus(uuid uint64, messageID message.ID,
 	msg.status = status
 }
 
-func (r *receiver) BlockSender(pubKey ed25519.PublicKey) {
+func (r *receiver) DeleteMessage(message.ID, ed25519.PublicKey) bool {
+	return true
 }
 
-func (r *receiver) UnblockSender(pubKey ed25519.PublicKey) {
-}
-
-func (r *receiver) GetConversation(pubKey ed25519.PublicKey) *dm.ModelConversation {
+func (r *receiver) GetConversation(ed25519.PublicKey) *dm.ModelConversation {
 	return nil
 }
 

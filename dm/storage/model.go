@@ -35,7 +35,7 @@ func (Message) TableName() string {
 
 // Conversation defines the IndexedDb representation of a single
 // message exchange between two recipients.
-// A Conversation has many Message.
+// A Conversation has many Message objects.
 type Conversation struct {
 	Pubkey         []byte `gorm:"primaryKey;not null;autoIncrement:false"`
 	Nickname       string `gorm:"not null"`

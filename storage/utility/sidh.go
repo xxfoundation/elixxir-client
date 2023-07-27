@@ -10,13 +10,13 @@ package utility
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
-	sidhinterface "gitlab.com/elixxir/client/v4/interfaces/sidh"
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
 )
 
 const currentSIDHVersion = 0
@@ -24,13 +24,13 @@ const currentSIDHVersion = 0
 // NewSIDHPUblicKey is a helper which returns a proper new SIDH public key
 // Right now this is set to Fp434 but it could change.
 func NewSIDHPublicKey(variant sidh.KeyVariant) *sidh.PublicKey {
-	return sidh.NewPublicKey(sidhinterface.KeyId, variant)
+	return sidh.NewPublicKey(KeyId, variant)
 }
 
 // NewSIDHPUblicKey is a helper which returns a proper new SIDH public key
 // Right now this is set to Fp434 but it could change.
 func NewSIDHPrivateKey(variant sidh.KeyVariant) *sidh.PrivateKey {
-	return sidh.NewPrivateKey(sidhinterface.KeyId, variant)
+	return sidh.NewPrivateKey(KeyId, variant)
 }
 
 // GetSIDHVariant returns the variant opposite the otherVariant
@@ -80,7 +80,7 @@ const currentSIDHPubKeyVersion = 0
 
 // StoreSIDHPubKeyA is a helper to store the requestor public key (which is
 // always of type A)
-func StoreSIDHPublicKey(kv *versioned.KV, sidH *sidh.PublicKey, key string) error {
+func StoreSIDHPublicKey(kv versioned.KV, sidH *sidh.PublicKey, key string) error {
 	now := netTime.Now()
 
 	sidHBytes := make([]byte, sidH.Size()+1)
@@ -97,7 +97,7 @@ func StoreSIDHPublicKey(kv *versioned.KV, sidH *sidh.PublicKey, key string) erro
 }
 
 // LoadSIDHPubKeyA loads a public key from storage.
-func LoadSIDHPublicKey(kv *versioned.KV, key string) (*sidh.PublicKey, error) {
+func LoadSIDHPublicKey(kv versioned.KV, key string) (*sidh.PublicKey, error) {
 	vo, err := kv.Get(key, currentSIDHPubKeyVersion)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func LoadSIDHPublicKey(kv *versioned.KV, key string) (*sidh.PublicKey, error) {
 }
 
 // DeleteSIDHPubKey removes the key from the store
-func DeleteSIDHPublicKey(kv *versioned.KV, key string) error {
+func DeleteSIDHPublicKey(kv versioned.KV, key string) error {
 	return kv.Delete(key, currentSIDHPubKeyVersion)
 }
 
@@ -125,7 +125,7 @@ const currentSIDHPrivKeyVersion = 0
 
 // StoreSIDHPrivateKeyA is a helper to store the requestor public key (which is
 // always of type A)
-func StoreSIDHPrivateKey(kv *versioned.KV, sidH *sidh.PrivateKey, key string) error {
+func StoreSIDHPrivateKey(kv versioned.KV, sidH *sidh.PrivateKey, key string) error {
 	now := netTime.Now()
 
 	sidHBytes := make([]byte, sidH.Size()+1)
@@ -142,7 +142,7 @@ func StoreSIDHPrivateKey(kv *versioned.KV, sidH *sidh.PrivateKey, key string) er
 }
 
 // LoadSIDHPrivateKeyA loads a public key from storage.
-func LoadSIDHPrivateKey(kv *versioned.KV, key string) (*sidh.PrivateKey, error) {
+func LoadSIDHPrivateKey(kv versioned.KV, key string) (*sidh.PrivateKey, error) {
 	vo, err := kv.Get(key, currentSIDHPrivKeyVersion)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func LoadSIDHPrivateKey(kv *versioned.KV, key string) (*sidh.PrivateKey, error) 
 }
 
 // DeleteSIDHPrivateKey removes the key from the store
-func DeleteSIDHPrivateKey(kv *versioned.KV, key string) error {
+func DeleteSIDHPrivateKey(kv versioned.KV, key string) error {
 	return kv.Delete(key, currentSIDHPrivKeyVersion)
 }
 

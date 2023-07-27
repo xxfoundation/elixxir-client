@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"gitlab.com/elixxir/client/v4/storage/versioned"
+	"gitlab.com/elixxir/client/v4/collective/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -43,16 +43,20 @@ type Sent struct {
 	transfers map[ftCrypto.ID]*SentTransfer
 
 	mux sync.RWMutex
-	kv  *versioned.KV
+	kv  versioned.KV
 }
 
 // NewOrLoadSent attempts to load Sent from storage. Or if none exist, then a
 // new Sent is returned. A list of file IDs for all incomplete sends is also
 // returned.
-func NewOrLoadSent(kv *versioned.KV) (*Sent, []ftCrypto.ID, error) {
+func NewOrLoadSent(kv versioned.KV) (*Sent, []ftCrypto.ID, error) {
+	stkv, err := kv.Prefix(sentTransfersStorePrefix)
+	if err != nil {
+		return nil, nil, err
+	}
 	s := &Sent{
 		transfers: make(map[ftCrypto.ID]*SentTransfer),
-		kv:        kv.Prefix(sentTransfersStorePrefix),
+		kv:        stkv,
 	}
 
 	obj, err := s.kv.Get(sentTransfersStoreKey, sentTransfersStoreVersion)

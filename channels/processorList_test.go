@@ -48,7 +48,7 @@ func Test_processorList_addProcessor(t *testing.T) {
 	}
 
 	go p.Process(
-		format.Message{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		format.Message{}, nil, nil, receptionID.EphemeralIdentity{}, rounds.Round{})
 
 	select {
 	case <-c:
@@ -91,7 +91,7 @@ func Test_processorList_getProcessor(t *testing.T) {
 		t.Fatalf("Failed to get processor: %+v", err)
 	}
 	go p.Process(
-		format.Message{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+		format.Message{}, nil, nil, receptionID.EphemeralIdentity{}, rounds.Round{})
 
 	select {
 	case <-c:
@@ -154,11 +154,11 @@ type testProcessor struct {
 }
 
 func (tp *testProcessor) Process(
-	format.Message, receptionID.EphemeralIdentity, rounds.Round) {
+	format.Message, []string, []byte, receptionID.EphemeralIdentity, rounds.Round) {
 	tp.c <- struct{}{}
 }
 func (tp *testProcessor) ProcessAdminMessage(
-	[]byte, receptionID.EphemeralIdentity, rounds.Round) {
+	[]byte, []string, [2]byte, receptionID.EphemeralIdentity, rounds.Round) {
 	tp.c <- struct{}{}
 }
 func (tp *testProcessor) String() string { return "testProcessor" }
@@ -170,11 +170,11 @@ type testAdminProcessor struct {
 }
 
 func (tap *testAdminProcessor) Process(
-	format.Message, receptionID.EphemeralIdentity, rounds.Round) {
+	format.Message, []string, []byte, receptionID.EphemeralIdentity, rounds.Round) {
 	tap.c <- struct{}{}
 }
 func (tap *testAdminProcessor) ProcessAdminMessage(
-	innerCiphertext []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+	innerCiphertext []byte, _ []string, _ [2]byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	tap.adminMsgChan <- innerCiphertext
 }
 func (tap *testAdminProcessor) String() string { return "testProcessor" }

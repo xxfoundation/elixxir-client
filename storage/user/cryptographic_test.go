@@ -44,6 +44,8 @@ func TestNewCryptographicIdentity(t *testing.T) {
 		t.Errorf("Failed to generate reception key: %+v", err)
 	}
 
+	t.Logf("transmission: %+v", transmission)
+
 	_ = newCryptographicIdentity(uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey, kv)
 

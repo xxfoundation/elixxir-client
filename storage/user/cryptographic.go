@@ -67,6 +67,11 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 	isPrecanned bool, e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int,
 	kv *versioned.KV) *CryptographicIdentity {
 
+		
+
+	fmt.Printf("transmissionRsa: %+v\n", transmissionRsa)
+	fmt.Printf("receptionRsa: %+v\n", receptionRsa)
+
 	ci := &CryptographicIdentity{
 		transmissionID:     transmissionID,
 		transmissionSalt:   transmissionSalt,

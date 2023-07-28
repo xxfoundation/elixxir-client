@@ -911,7 +911,7 @@ func getUIDFromString(idStr string) *id.ID {
 	return ID
 }
 
-func initLog(threshold uint, logPath string) {
+func initLog(level uint, logPath string) {
 	if logPath != "-" && logPath != "" {
 		// Disable stdout output
 		jww.SetStdoutOutput(ioutil.Discard)
@@ -924,20 +924,30 @@ func initLog(threshold uint, logPath string) {
 		jww.SetLogOutput(logOutput)
 	}
 
-	if threshold > 1 {
-		jww.SetStdoutThreshold(jww.LevelTrace)
-		jww.SetLogThreshold(jww.LevelTrace)
-		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
-		jww.INFO.Printf("log level set to: TRACE")
-	} else if threshold == 1 {
-		jww.SetStdoutThreshold(jww.LevelDebug)
-		jww.SetLogThreshold(jww.LevelDebug)
-		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
-		jww.INFO.Printf("log level set to: DEBUG")
-	} else {
-		jww.SetStdoutThreshold(jww.LevelInfo)
-		jww.SetLogThreshold(jww.LevelInfo)
-		jww.INFO.Printf("log level set to: INFO")
+	if level < 0 || level > 6 {
+		jww.FATAL.Panicf("log level is not valid: log level: %d", level)
+	}
+
+	threshold := jww.Threshold(level)
+	jww.SetLogThreshold(threshold)
+	jww.SetStdoutThreshold(threshold)
+	jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
+	switch threshold {
+	case jww.LevelTrace:
+		fallthrough
+	case jww.LevelDebug:
+		fallthrough
+	case jww.LevelInfo:
+		jww.INFO.Printf("Log level set to: %s", threshold)
+	case jww.LevelWarn:
+		jww.WARN.Printf("Log level set to: %s", threshold)
+	case jww.LevelError:
+		jww.ERROR.Printf("Log level set to: %s", threshold)
+	case jww.LevelCritical:
+		jww.CRITICAL.Printf("Log level set to: %s", threshold)
+	case jww.LevelFatal:
+		jww.FATAL.Printf("Log level set to: %s", threshold)
 	}
 
 	if viper.GetBool(verboseRoundTrackingFlag) {
@@ -993,7 +1003,8 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	rootCmd.PersistentFlags().UintP(logLevelFlag, "v", 0,
-		"Verbose mode for debugging")
+		"Determine logging threshold, from 0 -> 6.  Starting at 0, "+
+			"the log levels are TRACE, DEBUG, INFO, WARN, ERROR, CRITICAL, FATAL")
 	viper.BindPFlag(logLevelFlag, rootCmd.PersistentFlags().
 		Lookup(logLevelFlag))
 

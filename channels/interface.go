@@ -56,9 +56,10 @@ type Manager interface {
 	//     optional but cannot be longer than 144 characters and can include all
 	//     Unicode characters. It cannot be changed once a channel is created.
 	//   - privacyLevel - The broadcast.PrivacyLevel of the channel.
+	//   - opts - Optional channel options, such as broadcast.SetAdminLevel.
 	GenerateChannel(
-		name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
-		*cryptoBroadcast.Channel, error)
+		name, description string, privacyLevel cryptoBroadcast.PrivacyLevel,
+		opts ...cryptoBroadcast.ChannelOptions) (*cryptoBroadcast.Channel, error)
 
 	// JoinChannel joins the given channel. It will return the error
 	// ChannelAlreadyExistsErr if the channel has already been joined.

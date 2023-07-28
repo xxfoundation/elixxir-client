@@ -569,7 +569,7 @@ func (m *mockChannelsManager) addEMH(emh ...channels.ExtensionMessageHandler) {
 }
 
 func (m *mockChannelsManager) GenerateChannel(string, string,
-	cryptoBroadcast.PrivacyLevel) (*cryptoBroadcast.Channel, error) {
+	cryptoBroadcast.PrivacyLevel, ...cryptoBroadcast.ChannelOptions) (*cryptoBroadcast.Channel, error) {
 	panic("implement me")
 }
 func (m *mockChannelsManager) JoinChannel(*cryptoBroadcast.Channel) error { panic("implement me") }

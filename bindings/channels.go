@@ -857,6 +857,7 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //   - privacyLevel - The [broadcast.PrivacyLevel] of the channel. 0 = public,
 //     1 = private, and 2 = secret. Refer to the comment below for more
 //     information.
+//   - opts - Optional channel options, such as [broadcast.SetAdminLevel].
 //
 // Returns:
 //   - string - The pretty print of the channel.
@@ -871,9 +872,10 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //     description.
 //   - A privacy level of [broadcast.Secret] reveals nothing.
 func (cm *ChannelsManager) GenerateChannel(
-	name, description string, privacyLevel int) (string, error) {
+	name, description string, privacyLevel int,
+	opts ...cryptoBroadcast.ChannelOptions) (string, error) {
 	level := cryptoBroadcast.PrivacyLevel(privacyLevel)
-	ch, err := cm.api.GenerateChannel(name, description, level)
+	ch, err := cm.api.GenerateChannel(name, description, level, opts...)
 	if err != nil {
 		return "", err
 	}

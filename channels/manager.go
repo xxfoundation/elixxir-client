@@ -299,24 +299,25 @@ func (m *manager) adminReplayHandler(channelID *id.ID, encryptedPayload []byte) 
 // The private key is saved to storage and can be accessed with
 // ExportChannelAdminKey.
 func (m *manager) GenerateChannel(
-	name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
-	*cryptoBroadcast.Channel, error) {
+	name, description string, privacyLevel cryptoBroadcast.PrivacyLevel,
+	opts ...cryptoBroadcast.ChannelOptions) (*cryptoBroadcast.Channel, error) {
 	jww.INFO.Printf("[CH] GenerateChannel %q with description %q and privacy "+
 		"level %s", name, description, privacyLevel)
 	ch, _, err := m.generateChannel(
-		name, description, privacyLevel, m.net.GetMaxMessageLength())
+		name, description, privacyLevel, m.net.GetMaxMessageLength(), opts...)
 	return ch, err
 }
 
 // generateChannel generates a new channel with a custom packet payload length.
 func (m *manager) generateChannel(name, description string,
-	privacyLevel cryptoBroadcast.PrivacyLevel, packetPayloadLength int) (
+	privacyLevel cryptoBroadcast.PrivacyLevel, packetPayloadLength int,
+	opts ...cryptoBroadcast.ChannelOptions) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 
 	// Generate channel
 	stream := m.rng.GetStream()
 	ch, pk, err := cryptoBroadcast.NewChannel(
-		name, description, privacyLevel, packetPayloadLength, stream)
+		name, description, privacyLevel, packetPayloadLength, stream, opts...)
 	stream.Close()
 	if err != nil {
 		return nil, nil, err

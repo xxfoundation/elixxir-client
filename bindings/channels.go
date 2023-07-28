@@ -857,7 +857,7 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //   - privacyLevel - The [broadcast.PrivacyLevel] of the channel. 0 = public,
 //     1 = private, and 2 = secret. Refer to the comment below for more
 //     information.
-//   - opts - Optional channel options, such as [broadcast.SetAdminLevel].
+//   - opts - Optional channel options, such as [SetAdminLevel].
 //
 // Returns:
 //   - string - The pretty print of the channel.
@@ -871,16 +871,68 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //   - A privacy level of [broadcast.Private] reveals only the name and
 //     description.
 //   - A privacy level of [broadcast.Secret] reveals nothing.
-func (cm *ChannelsManager) GenerateChannel(
-	name, description string, privacyLevel int,
-	opts ...cryptoBroadcast.ChannelOptions) (string, error) {
+func (cm *ChannelsManager) GenerateChannel(name, description string,
+	privacyLevel int, opts []ChannelOptions) (string, error) {
 	level := cryptoBroadcast.PrivacyLevel(privacyLevel)
-	ch, err := cm.api.GenerateChannel(name, description, level, opts...)
+
+	options := make([]cryptoBroadcast.ChannelOptions, len(opts))
+	for i, opt := range opts {
+		options[i] = func(o *cryptoBroadcast.Options) {
+			data, err := json.Marshal(o)
+			if err != nil {
+				jww.FATAL.Panicf("[CH] Failed to JSON unmarshal %T: %+v", o, err)
+			}
+			opt.Option(data)
+		}
+	}
+	ch, err := cm.api.GenerateChannel(name, description, level, options...)
 	if err != nil {
 		return "", err
 	}
 
 	return ch.PrettyPrint(), nil
+}
+
+// ChannelOptions represents a modifier for a channel option that is passed into
+// [ChannelsManager.GenerateChannel] to set optional parameters when creating a
+// channel.
+//
+// Parameters:
+//   - optionsJSON - JSON of [broadcast.Options] object.
+type ChannelOptions interface {
+	Option(optionsJSON []byte)
+}
+
+// Is a wrapper for broadcast.ChannelOptions to make them compatible with
+// ChannelOptions.
+type channelOptions struct {
+	option cryptoBroadcast.ChannelOptions
+}
+
+func (ch *channelOptions) Option(optionsJSON []byte) {
+	var opts cryptoBroadcast.Options
+	err := json.Unmarshal(optionsJSON, &opts)
+	if err != nil {
+		jww.FATAL.Panicf("[CH] Failed to JSON unmarshal %T: %+v", opts, err)
+	}
+	ch.option(&opts)
+}
+
+// SetAdminLevel sets the admin level for the channel. It dictates the level of
+// control an admin has over a channel.
+//
+// Parameters:
+//   - al - The admin level.
+//
+// Possible admin levels.
+//   - 0 = Normal; users have normal access to read and post and the admin has
+//     the ability to use admin tools such as muting and deleting.
+//   - 1 = Announcement; only admin messages are allowed to be posted to the
+//     channel. Users can only read.
+//   - 2 = Free; users can post freely; however, admins cannot use any admin
+//     controls.
+func SetAdminLevel(al cryptoBroadcast.AdminLevel) ChannelOptions {
+	return &channelOptions{cryptoBroadcast.SetAdminLevel(al)}
 }
 
 // JoinChannel joins the given channel. It will return the error

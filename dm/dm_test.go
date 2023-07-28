@@ -78,7 +78,7 @@ func TestE2EDMs(t *testing.T) {
 	params := cmix.GetDefaultCMIXParams()
 
 	ch, _, err := cryptoBroadcast.NewChannel(
-		"name", "description", cryptoBroadcast.Public, false, 2048, rng)
+		"name", "description", cryptoBroadcast.Public, 2048, rng)
 	require.NoError(t, err)
 	broadcastChan, err := broadcast.NewBroadcastChannel(ch, receiverA, crng)
 	require.NoError(t, err)

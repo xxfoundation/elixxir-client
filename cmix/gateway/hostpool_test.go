@@ -8,9 +8,10 @@
 package gateway
 
 import (
+	"fmt"
 	"os"
 	"reflect"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -331,28 +332,25 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	stop := stoppable.NewSingle("tester")
 	go testPool.runner(stop)
 
-	testCount := 0
-	lck := sync.Mutex{}
+	var testCount atomic.Int64
 	go func() {
+		fmt.Printf("*** testPool.testNodes waiting\n")
 		<-testPool.testNodes
-		lck.Lock()
-		defer lck.Unlock()
-		testCount++
+		fmt.Printf("*** testPool.testNodes received\n")
+		testCount.Add(1)
 	}()
 
 	// Construct a new Ndf different from original one above
 	newNdf := getTestNdf(t)
-	newGateway := ndf.Gateway{
+	newNdf.Gateways = append(newNdf.Gateways, ndf.Gateway{
 		ID:      allowedId.Bytes(),
 		Address: "0.0.0.3:11420",
-	}
-	newNode := ndf.Node{
+	})
+	newNdf.Nodes = append(newNdf.Nodes, ndf.Node{
 		ID:      id.NewIdFromUInt(27, id.Node, t).Bytes(),
 		Address: "0.0.0.3:11420",
 		Status:  ndf.Active,
-	}
-	newNdf.Gateways = append(newNdf.Gateways, newGateway)
-	newNdf.Nodes = append(newNdf.Nodes, newNode)
+	})
 
 	select {
 	case <-time.After(2 * time.Second):
@@ -384,9 +382,7 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		require.True(t, allowedIds.Has(gwID.String()), "id in NDF map not in allowed IDs")
 	}
 
-	lck.Lock()
-	defer lck.Unlock()
-	require.Equal(t, 1, testCount)
+	require.Equal(t, 1, int(testCount.Load()))
 }
 
 type mockCertCheckerComm struct{}

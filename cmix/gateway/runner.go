@@ -55,6 +55,7 @@ func (hp *hostPool) runner(stop *stoppable.Single) {
 			// Send the signal to the adding pool to add
 			select {
 			case hp.testNodes <- hostList:
+				jww.INFO.Printf("Sent on testNodes")
 			default:
 				jww.ERROR.Printf("Failed to send add message")
 			}

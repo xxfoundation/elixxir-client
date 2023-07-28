@@ -9,6 +9,7 @@ package user
 
 import (
 	"gitlab.com/elixxir/client/v4/collective"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 
@@ -41,8 +42,11 @@ func TestLoadUser(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	remote, err := kv.Prefix(collective.StandardRemoteSyncPrefix)
 
@@ -73,8 +77,11 @@ func TestNewUser(t *testing.T) {
 		diffieHellman.DefaultPrivateKeyLength, grp, prng)
 	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
 
-	transmission, _ := sch.Generate(prng, 256)
-	reception, _ := sch.Generate(prng, 256)
+	transmission, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
+
+	reception, err := sch.Generate(prng, 512)
+	require.NoError(t, err)
 
 	u, err := NewUser(kv, uid, uid, salt, salt, transmission,
 		reception, false, dhPrivKey, dhPubKey)

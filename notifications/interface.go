@@ -104,7 +104,8 @@ type Manager interface {
 	// to changes in notifications. Because this is being called after
 	// initialization, a poll of state via the get function will be necessary
 	// because notifications can be missed. You must rely on the data in the
-	// callback for the update and not poll the interface.
+	// callback for the update and not poll the interface. On registration, the
+	// callback will be called immediately with all saved IDs as created.
 	RegisterUpdateCallback(group string, nu Update)
 }
 

@@ -25,8 +25,7 @@ func Test_processor_Process(t *testing.T) {
 	name := "MyChannel"
 	desc := "This is my channel that I channel stuff on."
 	msg := format.NewMessage(4096 / 8)
-	s, _, err := crypto.NewChannel(
-		name, desc, crypto.Public, false, msg.ContentsSize(), rng)
+	s, _, err := crypto.NewChannel(name, desc, crypto.Public, msg.ContentsSize(), rng)
 	if err != nil {
 		t.Fatalf("could not generate channel: %+v", err)
 	}

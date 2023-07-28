@@ -38,8 +38,9 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	cname := "MyChannel"
 	cdesc := "This is my channel about stuff."
 	mCmix := newMockCmix(cMixHandler)
-	channel, _, _ := crypto.NewChannel(cname, cdesc, crypto.Public, false,
-		mCmix.GetMaxMessageLength(), rngGen.GetStream())
+	channel, _, _ := crypto.NewChannel(cname, cdesc, crypto.Public,
+		mCmix.GetMaxMessageLength(),
+		rngGen.GetStream())
 
 	// Set up callbacks, callback channels, and the symmetric clients
 	const n = 5

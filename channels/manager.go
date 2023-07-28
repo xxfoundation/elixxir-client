@@ -304,31 +304,19 @@ func (m *manager) GenerateChannel(
 	jww.INFO.Printf("[CH] GenerateChannel %q with description %q and privacy "+
 		"level %s", name, description, privacyLevel)
 	ch, _, err := m.generateChannel(
-		name, description, privacyLevel, false, m.net.GetMaxMessageLength())
-	return ch, err
-}
-
-// GenerateAnnouncementChannel creates a new announcement-only channel that
-//  only the admin can post to. Saves the private key to storage.
-func (m *manager) GenerateAnnouncementChannel(
-	name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
-	*cryptoBroadcast.Channel, error) {
-	jww.INFO.Printf("[CH] GenerateAnnouncementChannel %q with description %q "+
-		"and privacy level %s", name, description, privacyLevel)
-	ch, _, err := m.generateChannel(
-		name, description, privacyLevel, true, m.net.GetMaxMessageLength())
+		name, description, privacyLevel, m.net.GetMaxMessageLength())
 	return ch, err
 }
 
 // generateChannel generates a new channel with a custom packet payload length.
 func (m *manager) generateChannel(name, description string,
-	privacyLevel cryptoBroadcast.PrivacyLevel, announcement bool,
-	packetPayloadLength int) (*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
+	privacyLevel cryptoBroadcast.PrivacyLevel, packetPayloadLength int) (
+	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 
 	// Generate channel
 	stream := m.rng.GetStream()
-	ch, pk, err := cryptoBroadcast.NewChannel(name, description, privacyLevel,
-		announcement, packetPayloadLength, stream)
+	ch, pk, err := cryptoBroadcast.NewChannel(
+		name, description, privacyLevel, packetPayloadLength, stream)
 	stream.Close()
 	if err != nil {
 		return nil, nil, err

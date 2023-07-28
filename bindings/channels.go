@@ -766,19 +766,21 @@ func DecodeInviteURL(url, password string) (string, error) {
 //
 // Example JSON of [broadcast.Channel]:
 //
-//	{
-//	  "ReceptionID": "Ja/+Jh+1IXZYUOn+IzE3Fw/VqHOscomD0Q35p4Ai//kD",
-//	  "Name": "My_Channel",
-//	  "Description": "Here is information about my channel.",
-//	  "Level": 0,
-//    "Created": "0001-01-01T00:00:00Z",
-//    "Announcement": false,
-//	  "Salt": "+tlrU/htO6rrV3UFDfpQALUiuelFZ+Cw9eZCwqRHk+g=",
-//	  "RsaPubKeyHash": "PViT1mYkGBj6AYmE803O2RpA7BX24EjgBdldu3pIm4o=",
-//	  "RsaPubKeyLength": 5,
-//	  "RSASubPayloads": 1,
-//	  "Secret": "JxZt/wPx2luoPdHY6jwbXqNlKnixVU/oa9DgypZOuyI="
-//	}
+//  {
+//    "ReceptionID": "Ja/+Jh+1IXZYUOn+IzE3Fw/VqHOscomD0Q35p4Ai//kD",
+//    "Name": "My_Channel",
+//    "Description": "Here is information about my channel.",
+//    "Level": 0,
+//    "options": {
+//      "adminLevel": 0
+//    },
+//    "Created": "2023-07-28T11:37:39.0699319-07:00",
+//    "Salt": "+tlrU/htO6rrV3UFDfpQALUiuelFZ+Cw9eZCwqRHk+g=",
+//    "RsaPubKeyHash": "PViT1mYkGBj6AYmE803O2RpA7BX24EjgBdldu3pIm4o=",
+//    "RsaPubKeyLength": 3840,
+//    "RSASubPayloads": 1,
+//    "Secret": "JxZt/wPx2luoPdHY6jwbXqNlKnixVU/oa9DgypZOuyI=",
+//  }
 func GetChannelJSON(prettyPrint string) ([]byte, error) {
 	c, err := cryptoBroadcast.NewChannelFromPrettyPrint(prettyPrint)
 	if err != nil {
@@ -810,7 +812,7 @@ type ChannelInfo struct {
 //
 // The pretty print will be of the format:
 //
-//	<Speakeasy-v4:Test_Channel|description:Channel description.|level:Public|created:1666718081766741100|announcement:false|secrets:+oHcqDbJPZaT3xD5NcdLY8OjOMtSQNKdKgLPmr7ugdU=|rCI0wr01dHFStjSFMvsBzFZClvDIrHLL5xbCOPaUOJ0=|493|1|7cBhJxVfQxWo+DypOISRpeWdQBhuQpAZtUbQHjBm8NQ=>
+//	<haven-v4:Test_Channel|description:Channel description.|level:Public|options:[adminLevel:normal]|created:1666718081766741100|secrets:+oHcqDbJPZaT3xD5NcdLY8OjOMtSQNKdKgLPmr7ugdU=|rCI0wr01dHFStjSFMvsBzFZClvDIrHLL5xbCOPaUOJ0=|493|1|7cBhJxVfQxWo+DypOISRpeWdQBhuQpAZtUbQHjBm8NQ=>
 //
 // Returns:
 //   - []byte - JSON of [ChannelInfo], which describes all relevant channel
@@ -879,50 +881,6 @@ func (cm *ChannelsManager) GenerateChannel(
 	return ch.PrettyPrint(), nil
 }
 
-// GenerateAnnouncementChannel creates a new announcement-only channel with the
-// user as the admin and returns the [broadcast.Channel] object. This function
-// only create a channel and does not join it.
-//
-// Only admins are allowed to post to an announcement channel.
-//
-// The private key is saved to storage and can be accessed with
-// [ExportChannelAdminKey].
-//
-// Parameters:
-//   - name - The name of the new channel. The name must be between 3 and 24
-//     characters inclusive. It can only include upper and lowercase Unicode
-//     letters, digits 0 through 9, and underscores (_). It cannot be
-//     changed once a channel is created.
-//   - description - The description of a channel. The description is optional
-//     but cannot be longer than 144 characters and can include all Unicode
-//     characters. It cannot be changed once a channel is created.
-//   - privacyLevel - The [broadcast.PrivacyLevel] of the channel. 0 = public,
-//     1 = private, and 2 = secret. Refer to the comment below for more
-//     information.
-//
-// Returns:
-//   - string - The pretty print of the channel.
-//
-// The [broadcast.PrivacyLevel] of a channel indicates the level of channel
-// information revealed when sharing it via URL. For any channel besides public
-// channels, the secret information is encrypted and a password is required to
-// share and join a channel.
-//   - A privacy level of [broadcast.Public] reveals all the information
-//     including the name, description, privacy level, public key and salt.
-//   - A privacy level of [broadcast.Private] reveals only the name and
-//     description.
-//   - A privacy level of [broadcast.Secret] reveals nothing.
-func (cm *ChannelsManager) GenerateAnnouncementChannel(
-	name, description string, privacyLevel int) (string, error) {
-	level := cryptoBroadcast.PrivacyLevel(privacyLevel)
-	ch, err := cm.api.GenerateAnnouncementChannel(name, description, level)
-	if err != nil {
-		return "", err
-	}
-
-	return ch.PrettyPrint(), nil
-}
-
 // JoinChannel joins the given channel. It will return the error
 // [channels.ChannelAlreadyExistsErr] if the channel has already been joined.
 //
@@ -932,7 +890,7 @@ func (cm *ChannelsManager) GenerateAnnouncementChannel(
 //
 // The pretty print will be of the format:
 //
-//	<Speakeasy-v4:Test_Channel|description:Channel description.|level:Public|created:1666718081766741100|announcement:false|secrets:+oHcqDbJPZaT3xD5NcdLY8OjOMtSQNKdKgLPmr7ugdU=|rCI0wr01dHFStjSFMvsBzFZClvDIrHLL5xbCOPaUOJ0=|493|1|7cBhJxVfQxWo+DypOISRpeWdQBhuQpAZtUbQHjBm8NQ=>
+//	<haven-v4:Test_Channel|description:Channel description.|level:Public|options:[adminLevel:normal]|created:1666718081766741100|secrets:+oHcqDbJPZaT3xD5NcdLY8OjOMtSQNKdKgLPmr7ugdU=|rCI0wr01dHFStjSFMvsBzFZClvDIrHLL5xbCOPaUOJ0=|493|1|7cBhJxVfQxWo+DypOISRpeWdQBhuQpAZtUbQHjBm8NQ=>
 //
 // Returns:
 //   - []byte - JSON of [ChannelInfo], which describes all relevant channel

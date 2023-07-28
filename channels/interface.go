@@ -60,28 +60,6 @@ type Manager interface {
 		name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
 		*cryptoBroadcast.Channel, error)
 
-	// GenerateAnnouncementChannel creates a new announcement-only channel with
-	// the user as the admin and returns the broadcast.Channel object. This
-	// function only create a channel and does not join it.
-	//
-	// Only admins are allowed to post to an announcement channel.
-	//
-	// The private key is saved to storage and can be accessed with
-	// ExportChannelAdminKey.
-	//
-	// Parameters:
-	//   - name - The name of the new channel. The name must be between 3 and 24
-	//     characters inclusive. It can only include upper and lowercase Unicode
-	//     letters, digits 0 through 9, and underscores (_). It cannot be
-	//     changed once a channel is created.
-	//   - description - The description of a channel. The description is
-	//     optional but cannot be longer than 144 characters and can include all
-	//     Unicode characters. It cannot be changed once a channel is created.
-	//   - privacyLevel - The broadcast.PrivacyLevel of the channel.
-	GenerateAnnouncementChannel(
-		name, description string, privacyLevel cryptoBroadcast.PrivacyLevel) (
-		*cryptoBroadcast.Channel, error)
-
 	// JoinChannel joins the given channel. It will return the error
 	// ChannelAlreadyExistsErr if the channel has already been joined.
 	JoinChannel(channel *cryptoBroadcast.Channel) error

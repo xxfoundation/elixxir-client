@@ -315,9 +315,13 @@ func (m *manager) registerListeners(broadcastChan broadcast.Channel,
 		trigger: m.events.triggerAdminEvent,
 	}).Listen, nil)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, broadcast.FreeNoAdminErr) {
+			return nil, err
+		}
+		jww.DEBUG.Printf("Skipping asymmetric listener on free channel")
+	} else {
+		m.broadcast.addProcessor(channel.ReceptionID, adminProcessor, p)
 	}
-	m.broadcast.addProcessor(channel.ReceptionID, adminProcessor, p)
 
 	return broadcastChan, nil
 }

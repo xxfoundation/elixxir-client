@@ -45,8 +45,7 @@ func newPrivKeyTestManager(t *testing.T) *manager {
 // in storage and returns false to one that is not.
 func Test_manager_IsChannelAdmin(t *testing.T) {
 	m := newPrivKeyTestManager(t)
-	c, _, err :=
-		m.generateChannel("name", "desc", cryptoBroadcast.Public, false, 512)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
 	if err != nil {
 		t.Fatalf("Failed to generate new channel: %+v", err)
 	}
@@ -67,8 +66,7 @@ func Test_manager_Export_Verify_Import_ChannelAdminKey(t *testing.T) {
 	password := "hunter2"
 	m1 := newPrivKeyTestManager(t)
 	m2 := newPrivKeyTestManager(t)
-	c, pk, err :=
-		m1.generateChannel("name", "desc", cryptoBroadcast.Public, false, 512)
+	c, pk, err := m1.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
 	require.NoError(t, err, "Failed to generate new channel: %+v", err)
 
 	pkPacket, err := m1.ExportChannelAdminKey(c.ReceptionID, password)
@@ -130,8 +128,7 @@ func Test_manager_ExportChannelAdminKey_NoPrivateKeyError(t *testing.T) {
 // manager.ImportChannelAdminKey returns an error.
 func Test_manager_ImportChannelAdminKey_WrongPasswordError(t *testing.T) {
 	m := newPrivKeyTestManager(t)
-	c, _, err :=
-		m.generateChannel("name", "desc", cryptoBroadcast.Public, false, 512)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
 	require.NoError(t, err, "Failed to generate new channel: %+v", err)
 
 	pkPacket, err := m.ExportChannelAdminKey(c.ReceptionID, "hunter2")
@@ -146,8 +143,7 @@ func Test_manager_ImportChannelAdminKey_WrongPasswordError(t *testing.T) {
 // manager.ImportChannelAdminKey returns an error.
 func Test_manager_ImportChannelAdminKey_WrongChannelIdError(t *testing.T) {
 	m := newPrivKeyTestManager(t)
-	c, _, err :=
-		m.generateChannel("name", "desc", cryptoBroadcast.Public, false, 512)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
 	require.NoError(t, err, "Failed to generate new channel: %+v", err)
 
 	password := "hunter2"
@@ -164,8 +160,7 @@ func Test_manager_ImportChannelAdminKey_WrongChannelIdError(t *testing.T) {
 // manager.VerifyChannelAdminKey returns an error.
 func Test_manager_VerifyChannelAdminKey_WrongPasswordError(t *testing.T) {
 	m := newPrivKeyTestManager(t)
-	c, _, err :=
-		m.generateChannel("name", "desc", cryptoBroadcast.Public, false, 512)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
 	require.NoError(t, err,
 		"Failed to generate new channel: %+v", err)
 
@@ -180,8 +175,7 @@ func Test_manager_VerifyChannelAdminKey_WrongPasswordError(t *testing.T) {
 // manager.VerifyChannelAdminKey returns false.
 func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
 	m := newPrivKeyTestManager(t)
-	c, _, err :=
-		m.generateChannel("name", "desc", cryptoBroadcast.Public, false, 512)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
 	require.NoError(t, err,
 		"Failed to generate new channel: %+v", err)
 
@@ -201,8 +195,7 @@ func Test_manager_VerifyChannelAdminKey_WrongChannelIdError(t *testing.T) {
 // manager.ExportChannelAdminKey returns an error.
 func Test_manager_DeleteChannelAdminKey(t *testing.T) {
 	m := newPrivKeyTestManager(t)
-	c, _, err :=
-		m.generateChannel("name", "desc", cryptoBroadcast.Public, false, 512)
+	c, _, err := m.generateChannel("name", "desc", cryptoBroadcast.Public, 512)
 	require.NoError(t, err,
 		"Failed to generate new channel: %+v", err)
 
@@ -225,8 +218,8 @@ func Test_saveChannelPrivateKey_loadChannelPrivateKey(t *testing.T) {
 	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
 	require.NoError(t, err)
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
-	c, pk, err := cryptoBroadcast.NewChannel("name", "description",
-		cryptoBroadcast.Public, false, 512, &csprng.SystemRNG{})
+	c, pk, err := cryptoBroadcast.NewChannel(
+		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
 	require.NoError(t, err, "Failed to generate new channel: %+v", err)
 
 	require.NoError(t, akm.saveChannelPrivateKey(c.ReceptionID, pk),
@@ -265,8 +258,8 @@ func Test_deleteChannelPrivateKey(t *testing.T) {
 	rkv, err := rkv.Prefix(collective.StandardRemoteSyncPrefix)
 	require.NoError(t, err)
 	akm := newAdminKeysManager(rkv, dummyAdminKeyUpdate)
-	c, pk, err := cryptoBroadcast.NewChannel("name", "description",
-		cryptoBroadcast.Public, false, 512, &csprng.SystemRNG{})
+	c, pk, err := cryptoBroadcast.NewChannel(
+		"name", "description", cryptoBroadcast.Public, 512, &csprng.SystemRNG{})
 	require.NoError(t, err, "Failed to generate new channel: %+v", err)
 
 	require.NoError(t, akm.saveChannelPrivateKey(c.ReceptionID, pk),

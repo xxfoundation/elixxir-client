@@ -8,14 +8,16 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+
 	"gitlab.com/elixxir/client/v4/broadcast"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -23,7 +25,6 @@ import (
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	rsa2 "gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/utils"
-	"sync"
 )
 
 // singleCmd is the single-use subcommand that allows for sening and responding
@@ -83,8 +84,7 @@ var broadcastCmd = &cobra.Command{
 			if viper.GetBool(broadcastNewFlag) {
 				// Create a new broadcast channel
 				channel, pk, err = crypto.NewChannel(name, desc, crypto.Public,
-					false, user.GetCmix().GetMaxMessageLength(),
-					user.GetRng().GetStream())
+					user.GetCmix().GetMaxMessageLength(), user.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}

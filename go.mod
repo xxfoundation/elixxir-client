@@ -15,7 +15,7 @@ require (
 	github.com/stretchr/testify v1.8.2
 	gitlab.com/elixxir/bloomfilter v0.0.0-20230322223210-fa84f6842de8
 	gitlab.com/elixxir/comms v0.0.4-0.20230718154315-08043221466a
-	gitlab.com/elixxir/crypto v0.0.7-0.20230726175510-191a3d2a17ed
+	gitlab.com/elixxir/crypto v0.0.7-0.20230728183641-7cb37ea02ecc
 	gitlab.com/elixxir/ekv v0.3.1-0.20230620180825-838848b00f19
 	gitlab.com/elixxir/primitives v0.0.3-0.20230724190035-efb1f377c08a
 	gitlab.com/elixxir/wasm-utils v0.0.0-20230615222914-185dd3a6fa08

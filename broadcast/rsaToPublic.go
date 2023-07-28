@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -39,7 +40,8 @@ const (
 // The rate of false positives increases exponentially after more than
 // 4 tags are used
 //
-// The network must be healthy to send.
+// The network must be healthy to send. Returns [FreeNoAdminErr] if the
+// channel disallows admin commands.
 func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 	payload []byte, tags []string, metadata [2]byte, cMixParams cmix.CMIXParams) (
 	[]byte, rounds.Round, ephemeral.Id, error) {
@@ -54,10 +56,15 @@ func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 // The payload must be of the size [broadcastClient.MaxRSAToPublicPayloadSize]
 // or smaller and the channel [rsa.PrivateKey] must be passed in.
 //
-// The network must be healthy to send.
+// The network must be healthy to send. Returns [FreeNoAdminErr] if the
+// channel disallows admin commands.
 func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 	pk rsa.PrivateKey, assembler Assembler, tags []string, metadata [2]byte,
 	cMixParams cmix.CMIXParams) ([]byte, rounds.Round, ephemeral.Id, error) {
+	if bc.Get().Options.AdminLevel == cryptoBroadcast.Announcement {
+		return nil, rounds.Round{}, ephemeral.Id{}, FreeNoAdminErr
+	}
+
 	// Confirm network health
 	if !bc.net.IsHealthy() {
 		return nil, rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)

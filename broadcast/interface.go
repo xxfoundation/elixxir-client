@@ -44,18 +44,21 @@ type Channel interface {
 	// Broadcast broadcasts a payload to the channel. The payload must be of the
 	// size Channel.MaxPayloadSize or smaller.
 	//
-	// The network must be healthy to send.
+	// The network must be healthy to send. Returns
+	// [AnnouncementRequiresAdminErr] if attempting to broadcast on an
+	// announcement channel.
 	Broadcast(payload []byte, tags []string, metadata [2]byte,
 		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	// BroadcastWithAssembler broadcasts a payload over a channel with a payload
 	// assembled after the round is selected, allowing the round info to be
-	// included in the payload. Returns [AnnouncementRequiresAdminErr] if
-	// attempting to broadcast on an announcement channel.
+	// included in the payload.
 	//
 	// The payload must be of the size Channel.MaxPayloadSize or smaller.
 	//
-	// The network must be healthy to send.
+	// The network must be healthy to send. Returns
+	// [AnnouncementRequiresAdminErr] if attempting to broadcast on an
+	// announcement channel.
 	BroadcastWithAssembler(assembler Assembler, tags []string, metadata [2]byte,
 		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
@@ -64,7 +67,8 @@ type Channel interface {
 	// The payload must be of the size Channel.MaxRSAToPublicPayloadSize or
 	// smaller and the channel rsa.PrivateKey must be passed in.
 	//
-	// The network must be healthy to send.
+	// The network must be healthy to send. Returns [FreeNoAdminErr] if the
+	// channel disallows admin commands.
 	BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte, tags []string,
 		metadata [2]byte, cMixParams cmix.CMIXParams) (
 		[]byte, rounds.Round, ephemeral.Id, error)
@@ -76,23 +80,24 @@ type Channel interface {
 	// The payload must be of the size Channel.MaxRSAToPublicPayloadSize or
 	// smaller and the channel rsa.PrivateKey must be passed in.
 	//
-	// The network must be healthy to send.
+	// The network must be healthy to send. Returns [FreeNoAdminErr] if the
+	// channel disallows admin commands.
 	BroadcastRSAToPublicWithAssembler(pk rsa.PrivateKey, assembler Assembler,
 		tags []string, metadata [2]byte, cMixParams cmix.CMIXParams) (
 		[]byte, rounds.Round, ephemeral.Id, error)
 
-	// RegisterRSAtoPublicListener registers a listener for asymmetric broadcast messages.
-	// Note: only one Asymmetric Listener can be registered at a time.
-	// Registering a new one will overwrite the old one
+	// RegisterRSAtoPublicListener registers a listener for asymmetric broadcast
+	// messages. Only one asymmetric listener can be registered at a time.
+	// Registering a new one will overwrite the old one.
+	// Returns [FreeNoAdminErr] the channel disallows admin commands.
 	RegisterRSAtoPublicListener(listenerCb ListenerFunc, tags []string) (
 		Processor, error)
 
 	// RegisterSymmetricListener registers a listener for asymmetric broadcast
-	// messages. Returns [AnnouncementRequiresAdminErr] if the channel is for
-	// announcements only.
-	//
-	// Note: only one Asymmetric Listener can be registered at a time.
+	// messages. Only one symmetric listener can be registered at a time.
 	// Registering a new one will overwrite the old one.
+	// Returns [AnnouncementRequiresAdminErr] if the channel is for
+	// announcements only.
 	RegisterSymmetricListener(listenerCb ListenerFunc, tags []string) (
 		Processor, error)
 
@@ -140,3 +145,8 @@ type Client interface {
 // an announcement-only channel.
 var AnnouncementRequiresAdminErr = errors.New(
 	"cannot perform action on announcement channel")
+
+// FreeNoAdminErr is returned when attempting to do admin actions on a free
+// channel.
+var FreeNoAdminErr = errors.New(
+	"cannot perform admin action on free channel")

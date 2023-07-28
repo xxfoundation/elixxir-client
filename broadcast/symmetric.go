@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -53,7 +54,7 @@ func (bc *broadcastClient) Broadcast(payload []byte, tags []string,
 func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler,
 	tags []string, metadata [2]byte, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
-	if bc.Get().Announcement {
+	if bc.Get().Options.AdminLevel == cryptoBroadcast.Announcement {
 		return rounds.Round{}, ephemeral.Id{}, AnnouncementRequiresAdminErr
 	}
 	if !bc.net.IsHealthy() {

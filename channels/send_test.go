@@ -147,8 +147,7 @@ func Test_manager_SendAdminGeneric(t *testing.T) {
 	msg := []byte("hello world")
 	validUntil := time.Hour
 
-	ch, _, err :=
-		m.generateChannel("abc", "abc", cryptoBroadcast.Public, false, 1000)
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
 	if err != nil {
 		t.Fatalf("Failed to generate channel: %+v", err)
 	}
@@ -482,8 +481,7 @@ func Test_manager_SendSilent(t *testing.T) {
 	rng := crng.GetStream()
 	defer rng.Close()
 
-	ch, _, err :=
-		m.generateChannel("abc", "abc", cryptoBroadcast.Public, false, 1000)
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
 	require.NoError(t, err)
 
 	params := new(cmix.CMIXParams)
@@ -550,8 +548,7 @@ func Test_manager_SendInvite(t *testing.T) {
 	rng := crng.GetStream()
 	defer rng.Close()
 
-	ch, _, err :=
-		m.generateChannel("abc", "abc", cryptoBroadcast.Public, false, 1000)
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
 	require.NoError(t, err)
 
 	invitedChannelID, inviteeChannel := ch.ReceptionID, ch
@@ -619,8 +616,7 @@ func Test_manager_DeleteMessage(t *testing.T) {
 		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
-	ch, _, err :=
-		m.generateChannel("abc", "abc", cryptoBroadcast.Public, false, 1000)
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
 	if err != nil {
 		t.Fatalf("Failed to generate channel: %+v", err)
 	}
@@ -694,8 +690,7 @@ func Test_manager_PinMessage(t *testing.T) {
 		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
-	ch, _, err :=
-		m.generateChannel("abc", "abc", cryptoBroadcast.Public, false, 1000)
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
 	if err != nil {
 		t.Fatalf("Failed to generate channel: %+v", err)
 	}
@@ -774,8 +769,7 @@ func Test_manager_MuteUser(t *testing.T) {
 		adminKeysManager: newAdminKeysManager(remote, func(ch *id.ID, isAdmin bool) {}),
 	}
 
-	ch, _, err :=
-		m.generateChannel("abc", "abc", cryptoBroadcast.Public, false, 1000)
+	ch, _, err := m.generateChannel("abc", "abc", cryptoBroadcast.Public, 1000)
 	if err != nil {
 		t.Fatalf("Failed to generate channel: %+v", err)
 	}

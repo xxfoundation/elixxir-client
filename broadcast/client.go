@@ -62,11 +62,15 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 	return bc, nil
 }
 
-// RegisterRSAtoPublicListener registers a listener for asymmetric broadcast messages.
-// Note: only one Asymmetric Listener can be registered at a time.
-// Registering a new one will overwrite the old one
+// RegisterRSAtoPublicListener registers a listener for asymmetric broadcast
+// messages. Only one asymmetric listener can be registered at a time.
+// Registering a new one will overwrite the old one.
+// Returns [FreeNoAdminErr] the channel disallows admin commands.
 func (bc *broadcastClient) RegisterRSAtoPublicListener(
 	listenerCb ListenerFunc, tags []string) (Processor, error) {
+	if bc.Get().Options.AdminLevel == crypto.Free {
+		return nil, FreeNoAdminErr
+	}
 
 	p := &processor{
 		c:      bc.channel,
@@ -82,14 +86,13 @@ func (bc *broadcastClient) RegisterRSAtoPublicListener(
 }
 
 // RegisterSymmetricListener registers a listener for asymmetric broadcast
-// messages. Returns [AnnouncementRequiresAdminErr] if the channel is for
-// announcements only.
-//
-// Note: only one Asymmetric Listener can be registered at a time.
+// messages. Only one symmetric listener can be registered at a time.
 // Registering a new one will overwrite the old one.
+// Returns [AnnouncementRequiresAdminErr] if the channel is for
+// announcements only.
 func (bc *broadcastClient) RegisterSymmetricListener(
 	listenerCb ListenerFunc, tags []string) (Processor, error) {
-	if bc.Get().Announcement {
+	if bc.Get().Options.AdminLevel == crypto.Announcement {
 		return nil, AnnouncementRequiresAdminErr
 	}
 

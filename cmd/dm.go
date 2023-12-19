@@ -10,8 +10,8 @@
 package cmd
 
 import (
-	"bytes"
 	"crypto/ed25519"
+	"crypto/hmac"
 	"encoding/base64"
 	"fmt"
 	"sync"
@@ -154,13 +154,9 @@ var dmCmd = &cobra.Command{
 			case m := <-recvCh:
 				msg := myReceiver.msgData[m]
 				selfStr := "Partner"
-				if dmID.GetDMToken() == msg.dmToken {
+				if hmac.Equal(msg.senderKey[:],
+					dmID.PubKey[:]) {
 					selfStr = "Self"
-					if !bytes.Equal(dmID.PubKey[:],
-						msg.partnerKey[:]) {
-						jww.FATAL.Panicf(
-							"pubkey mismatch!\n")
-					}
 				}
 				fmt.Printf("Message received (%s, %s): %s\n",
 					selfStr, msg.mType, msg.content)

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/xxdk"
 
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -175,7 +176,26 @@ func TestBackup_TriggerBackup(t *testing.T) {
 		err := receivedCollatedBackup.Decrypt(password, r)
 		if err != nil {
 			t.Errorf("Failed to decrypt collated backup: %+v", err)
-		} else if !reflect.DeepEqual(collatedBackup, receivedCollatedBackup) {
+		}
+		// Because of the pointers, a direct DeepEqual doesn't work, so
+		// we will check by encrypting with the same RNG and key instead
+		rng := NewCountingReader()
+		key := make([]byte, keyLen)
+		salt := make([]byte, saltLen)
+		rng.Read(key)
+		rng.Read(salt)
+
+		p := backup.DefaultParams()
+
+		expected, err := collatedBackup.Encrypt(NewCountingReader(),
+			key, salt, p)
+		require.NoError(t, err)
+		received, err := receivedCollatedBackup.Encrypt(
+			NewCountingReader(),
+			key, salt, p)
+		require.NoError(t, err)
+
+		if !reflect.DeepEqual(expected, received) {
 			t.Errorf("Unexpected decrypted collated backup."+
 				"\nexpected: %#v\nreceived: %#v",
 				collatedBackup, receivedCollatedBackup)
@@ -423,4 +443,27 @@ func Benchmark_InitializeBackup(t *testing.B) {
 			t.Errorf("InitializeBackup returned an error: %+v", err)
 		}
 	}
+}
+
+// CountingReader is a platform-independent deterministic RNG that adheres to
+// io.Reader.
+type CountingReader struct {
+	count uint8
+}
+
+func NewCountingReader() csprng.Source {
+	return &CountingReader{count: 0}
+}
+
+// Read just counts until 254 then starts over again
+func (c *CountingReader) Read(b []byte) (int, error) {
+	for i := 0; i < len(b); i++ {
+		c.count = (c.count + 1) % 255
+		b[i] = c.count
+	}
+	return len(b), nil
+}
+
+func (c *CountingReader) SetSeed(s []byte) error {
+	return nil
 }

@@ -159,8 +159,8 @@ func TestCollector_ApplyChanges(t *testing.T) {
 			value := []byte(fmt.Sprintf("Value%d%d", i, j))
 			mutation := NewMutate(timestamps[tsIdx],
 				value, false)
-			// t.Logf("%s: %s -> %s @ ts: %s", txLog.state.myID,
-			// 	key, string(value), timestamps[tsIdx])
+			t.Logf("%s: %s -> %s @ ts: %s", txLog.state.myID,
+				key, string(value), timestamps[tsIdx])
 			txLog.state.AddUnsafe(key, mutation)
 		}
 		serial, err := txLog.state.Serialize()
@@ -204,13 +204,13 @@ func TestCollector_ApplyChanges(t *testing.T) {
 
 	// These are generated from a previous run, they're always the same due
 	// to the entropy source
-	expectedVals := []int{20, 11, 12, 33, 14, 15}
+	expectedVals := []int{30, 11, 12, 23, 24, 15}
 	for i := 0; i < 6; i++ {
 		key := fmt.Sprintf("Key%d", i)
 		val, err := remoteKv.remote.GetBytes(key)
 		require.NoError(t, err, key)
 		expectedVal := fmt.Sprintf("Value%d", expectedVals[i])
-		// t.Logf("Change: %s -> %s", key, string(val))
+		t.Logf("Change: %s -> %s", key, string(val))
 		require.Equal(t, expectedVal, string(val))
 	}
 

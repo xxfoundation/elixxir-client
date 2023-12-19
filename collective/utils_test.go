@@ -87,7 +87,7 @@ func constructTimestamps(t require.TestingT, numRandomTimestamps int) []time.Tim
 	require.NoError(t, err)
 	for i := 0; i < numRandomTimestamps; i++ {
 		curTime = curTime.Add(1 * time.Second)
-		for f := rand.Float32(); f < 0.5; f = rng.Float32() {
+		for f := rng.Float32(); f < 0.5; f = rng.Float32() {
 			curTime = curTime.Add(-900 * time.Millisecond)
 		}
 		res = append(res, curTime)

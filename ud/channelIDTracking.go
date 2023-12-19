@@ -4,9 +4,10 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
-	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	jww "github.com/spf13/jwalterweatherman"
 
@@ -56,7 +57,7 @@ func saveRegistrationDisk(kv versioned.KV, reg registrationDisk) error {
 // registrationDisk is used to encapsulate the channel user's key pair,
 // lease and lease signature.
 type registrationDisk struct {
-	rwmutex sync.RWMutex
+	rwmutex *sync.RWMutex
 
 	Registered bool
 	PublicKey  ed25519.PublicKey
@@ -85,7 +86,7 @@ func (r registrationDisk) IsRegistered() bool {
 
 // Update updates the registrationDisk that is currently
 // stored on the kv with a new lease and lease signature.
-func (r registrationDisk) Update(lease int64, signature []byte) {
+func (r *registrationDisk) Update(lease int64, signature []byte) {
 	r.rwmutex.Lock()
 	defer r.rwmutex.Unlock()
 

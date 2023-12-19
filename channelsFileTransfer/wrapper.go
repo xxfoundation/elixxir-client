@@ -23,7 +23,6 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/message"
-	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -617,7 +616,7 @@ func (w *Wrapper) GetProperties() (
 }
 
 // Handle handles the file transfer file info message.
-func (w *Wrapper) Handle(channelID *id.ID, messageID cryptoMessage.ID,
+func (w *Wrapper) Handle(channelID *id.ID, messageID message.ID,
 	messageType channels.MessageType, nickname string, content, _ []byte,
 	pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp,
 	_ time.Time, lease time.Duration, _ id.Round, round rounds.Round,

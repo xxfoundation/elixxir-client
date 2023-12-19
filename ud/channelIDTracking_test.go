@@ -62,14 +62,15 @@ func TestLoadSaveRegistration(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	registrationDisk, err := loadRegistrationDisk(kv)
+	// Check if it exists first
+	_, err = loadRegistrationDisk(kv)
 	require.Error(t, err)
 	require.False(t, kv.Exists(err))
 
 	err = saveRegistrationDisk(kv, reg)
 	require.NoError(t, err)
 
-	registrationDisk, err = loadRegistrationDisk(kv)
+	registrationDisk, err := loadRegistrationDisk(kv)
 	require.NoError(t, err)
 	require.Equal(t, registrationDisk, reg)
 }

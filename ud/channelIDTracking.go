@@ -31,17 +31,17 @@ var ErrChannelLeaseSignature = errors.New("failure to validate lease signature")
 
 // loadRegistrationDisk loads a registrationDisk from the kv
 // and returns the registrationDisk.
-func loadRegistrationDisk(kv versioned.KV) (registrationDisk, error) {
+func loadRegistrationDisk(kv versioned.KV) (*registrationDisk, error) {
 	obj, err := kv.Get(registrationDiskKey, registrationDiskVersion)
 	if err != nil {
-		return registrationDisk{}, err
+		return &registrationDisk{}, err
 	}
 	return UnmarshallRegistrationDisk(obj.Data)
 }
 
 // saveRegistrationDisk saves the given saveRegistrationDisk to
 // the given kv.
-func saveRegistrationDisk(kv versioned.KV, reg registrationDisk) error {
+func saveRegistrationDisk(kv versioned.KV, reg *registrationDisk) error {
 	regBytes, err := reg.Marshall()
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func saveRegistrationDisk(kv versioned.KV, reg registrationDisk) error {
 // registrationDisk is used to encapsulate the channel user's key pair,
 // lease and lease signature.
 type registrationDisk struct {
-	rwmutex *sync.RWMutex
+	rwmutex sync.RWMutex
 
 	Registered bool
 	PublicKey  ed25519.PublicKey
@@ -68,8 +68,8 @@ type registrationDisk struct {
 
 // newRegistrationDisk creates a new newRegistrationDisk.
 func newRegistrationDisk(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey,
-	lease time.Time, signature []byte) registrationDisk {
-	return registrationDisk{
+	lease time.Time, signature []byte) *registrationDisk {
+	return &registrationDisk{
 		Lease:      lease.UnixNano(),
 		PublicKey:  publicKey,
 		PrivateKey: privateKey,
@@ -77,7 +77,7 @@ func newRegistrationDisk(publicKey ed25519.PublicKey, privateKey ed25519.Private
 	}
 }
 
-func (r registrationDisk) IsRegistered() bool {
+func (r *registrationDisk) IsRegistered() bool {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -96,7 +96,7 @@ func (r *registrationDisk) Update(lease int64, signature []byte) {
 }
 
 // Marshall marshalls the registrationDisk.
-func (r registrationDisk) Marshall() ([]byte, error) {
+func (r *registrationDisk) Marshall() ([]byte, error) {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -104,17 +104,17 @@ func (r registrationDisk) Marshall() ([]byte, error) {
 }
 
 // UnmarshallRegistrationDisk unmarshalls a registrationDisk
-func UnmarshallRegistrationDisk(data []byte) (registrationDisk, error) {
+func UnmarshallRegistrationDisk(data []byte) (*registrationDisk, error) {
 	var r registrationDisk
 	err := json.Unmarshal(data, &r)
 	if err != nil {
-		return registrationDisk{}, err
+		return &registrationDisk{}, err
 	}
-	return r, nil
+	return &r, nil
 }
 
 // GetLease returns the current registrationDisk lease.
-func (r registrationDisk) GetLease() time.Time {
+func (r *registrationDisk) GetLease() time.Time {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -122,7 +122,7 @@ func (r registrationDisk) GetLease() time.Time {
 }
 
 // GetPublicKey returns the current public key.
-func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
+func (r *registrationDisk) GetPublicKey() ed25519.PublicKey {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -132,7 +132,7 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 }
 
 // GetPrivateKey returns the current private key.
-func (r registrationDisk) getPrivateKey() ed25519.PrivateKey {
+func (r *registrationDisk) getPrivateKey() ed25519.PrivateKey {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -140,7 +140,7 @@ func (r registrationDisk) getPrivateKey() ed25519.PrivateKey {
 }
 
 // GetLeaseSignature returns the currentl signature and lease time.
-func (r registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
+func (r *registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -182,7 +182,7 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 			jww.FATAL.Panic(err)
 		}
 
-		reg = registrationDisk{
+		reg = &registrationDisk{
 			PublicKey:  publicKey,
 			PrivateKey: privateKey,
 			Lease:      0,
@@ -198,7 +198,7 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 	c := &clientIDTracker{
 		kv:                kv,
 		rngSource:         rngSource,
-		registrationDisk:  &reg,
+		registrationDisk:  reg,
 		receptionIdentity: &receptionIdentity,
 		username:          username,
 		comms:             comms,

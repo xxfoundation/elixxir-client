@@ -9,6 +9,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -17,10 +22,6 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e"
 	"gitlab.com/elixxir/client/v4/e2e/receive"
 	"gitlab.com/elixxir/client/v4/xxdk"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 // connectionCmd handles the operation of connection operations within the CLI.
@@ -168,7 +169,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	// Keep app running to receive messages------------------------------------
 
 	// Wait until the user terminates the program
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 10)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 
@@ -284,7 +285,7 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 	// Keep app running to receive messages------------------------------------
 
 	// Wait until the user terminates the program
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 10)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 

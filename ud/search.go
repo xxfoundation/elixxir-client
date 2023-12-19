@@ -9,6 +9,7 @@ package ud
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -166,7 +167,9 @@ func parseContacts(grp *cyclic.Group, response []*Contact,
 		}
 		var facts []fact.Fact
 		if c.Username != "" {
-			facts = []fact.Fact{{c.Username, fact.Username}}
+			facts = []fact.Fact{
+				{Fact: c.Username, T: fact.Username},
+			}
 		}
 		// Create new Contact
 		contacts[i] = contact.Contact{

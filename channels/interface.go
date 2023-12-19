@@ -21,7 +21,6 @@ import (
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/message"
-	cryptoMessage "gitlab.com/elixxir/crypto/message"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -186,7 +185,7 @@ type Manager interface {
 		host string,
 		validUntil time.Duration, params cmix.CMIXParams,
 		pings []ed25519.PublicKey) (
-		cryptoMessage.ID, rounds.Round, ephemeral.Id, error)
+		message.ID, rounds.Round, ephemeral.Id, error)
 
 	////////////////////////////////////////////////////////////////////////////
 	// Admin Sending                                                          //
@@ -433,7 +432,7 @@ type ExtensionMessageHandler interface {
 	//     the sender, it will always be Delivered.
 	//   - fromAdmin - Indicates if the message came from the channel admin.
 	//   - hidden - Designation that the message should not be shown.
-	Handle(channelID *id.ID, messageID cryptoMessage.ID, messageType MessageType,
+	Handle(channelID *id.ID, messageID message.ID, messageType MessageType,
 		nickname string, content, encryptedPayload []byte,
 		pubKey ed25519.PublicKey, dmToken uint32, codeset uint8, timestamp,
 		originatingTimestamp time.Time, lease time.Duration,
@@ -512,5 +511,5 @@ type UiCallbacks interface {
 	UserMuted(channelID *id.ID, pubKey ed25519.PublicKey, unmute bool)
 
 	// MessageDeleted is called every time a message is deleted.
-	MessageDeleted(messageID cryptoMessage.ID)
+	MessageDeleted(messageID message.ID)
 }

@@ -104,7 +104,8 @@ bindings-ios:
   tags:
     - ios
   script:
-    - export PATH=$PATH:$HOME/go/bin
+    - export PATH=/opt/homebrew/bin:$PATH:$HOME/go/bin
+    - mc --version
     - go mod tidy
     - rm -rf vendor/
     - go build ./...

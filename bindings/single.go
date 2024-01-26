@@ -255,9 +255,15 @@ func (sr singleUseResponse) Callback(payload []byte,
 	for _, r := range rounds {
 		rids = append(rids, r.ID)
 	}
+	// If the callback get's called on a timed out request, the rounds list will be
+	// empty. In this case, roundURL should be empty as well.
+	roundURL := ""
+	if len(rids) > 0 {
+		roundURL = getRoundURL(rids[0])
+	}
 	sendReport := SingleUseResponseReport{
 		RoundsList:  makeRoundsList(rids...),
-		RoundURL:    getRoundURL(rids[0]),
+		RoundURL:    roundURL,
 		ReceptionID: receptionID.Source,
 		EphID:       receptionID.EphId.Int64(),
 		Payload:     payload,

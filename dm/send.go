@@ -507,7 +507,7 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 		// Copy msg to selfMsg, which leaves the original
 		// message data alone for resend purposes.
 		// (deep copy isn't necessary because we only
-		// change the rid)
+		// change the rid and token which are basic types)
 		selfMsg := *msg
 		// NOTE: We use the same RoundID as in the dmMsg
 		//       object. This enables the same msgID on sender

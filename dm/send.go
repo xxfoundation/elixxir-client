@@ -413,6 +413,9 @@ func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 	}
 
 	// Now that we have a round ID, derive the msgID
+	// FIXME: cryptoMesage.DeriveDirectMessageID should take a round ID,
+	// and the callee shouldn't have been modifying the data we sent.
+	directMessage.RoundID = uint64(rndID.ID)
 	jww.INFO.Printf("[DM] DeriveDirectMessage(%s...) Send", partnerID)
 	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
 		directMessage)

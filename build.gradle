@@ -1,0 +1,60 @@
+apply plugin: 'maven-publish'
+apply plugin: 'signing'
+
+tasks.register('generateRepo', Zip) {
+  def publishTask = tasks.named('publishReleasePublicationToLocalrepoRepository')
+  from publishTask.map { it.getRepository().getUrl() }
+  exclude '**/maven-metadata**'
+  into '.'
+  archiveFileName.set('xxdk.zip')
+}
+
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId 'network.xx'
+            artifactId 'android.xxdk'
+            version '4.7.2'
+            artifact("bindings.aar")
+            artifact(source: "bindings-sources.jar",
+                             classifier: 'sources',
+                             extension: 'jar')
+
+            pom {
+                name = 'xxdk'
+                description = 'xx network client library for Android'
+                url = 'https://git.xx.network/elixxir/client'
+                licenses {
+                    license {
+                        name = 'BSD-2-Clause'
+                        url = 'https://git.xx.network/elixxir/client/-/blob/release/LICENSE?ref_type=heads'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'carback1'
+                        name = 'Richard Carback'
+                        email = 'rick@xx.network'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://git.xx.network/elixxir/client.git'
+                    developerConnection = 'scm:git:ssh://git@gitlab.com:elixxir/client.git'
+                    url = 'https://git.xx.network/elixxir/client'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+              name = 'localrepo'
+              url = layout.buildDirectory.dir('repo')
+        }
+    }
+}
+
+ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+signing {
+        required { isReleaseVersion && gradle.taskGraph.hasTask("publish") }
+        sign publishing.publications.release
+}

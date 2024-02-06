@@ -413,6 +413,9 @@ func (dc *dmClient) Send(partnerEdwardsPubKey ed25519.PublicKey,
 	}
 
 	// Now that we have a round ID, derive the msgID
+	// FIXME: cryptoMesage.DeriveDirectMessageID should take a round ID,
+	// and the callee shouldn't have been modifying the data we sent.
+	directMessage.RoundID = uint64(rndID.ID)
 	jww.INFO.Printf("[DM] DeriveDirectMessage(%s...) Send", partnerID)
 	msgID := cryptoMessage.DeriveDirectMessageID(partnerID,
 		directMessage)
@@ -467,11 +470,17 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 		rng := rngGenerator.GetStream()
 		defer rng.Close()
 
+		// Copy msg to dmMsg, which leaves the original
+		// message data alone for resend purposes.
+		// (deep copy isn't necessary because we only
+		// change the rid)
+		dmMsg := *msg
+
 		// SEND
-		msg.RoundID = uint64(rid)
+		dmMsg.RoundID = uint64(rid)
 
 		// Serialize the message
-		dmSerial, err := proto.Marshal(msg)
+		dmSerial, err := proto.Marshal(&dmMsg)
 		if err != nil {
 			return nil, err
 		}
@@ -498,16 +507,22 @@ func send(net cMixClient, myID *id.ID, partnerID *id.ID,
 		}
 
 		// SELF SEND
-		// NOTE: We do not modify the round id already in the
-		//       message object. This enables the same msgID
-		//       on sender and recipient.
-		msg.SelfRoundID = uint64(rid)
+		// Copy msg to selfMsg, which leaves the original
+		// message data alone for resend purposes.
+		// (deep copy isn't necessary because we only
+		// change the rid and token which are basic types)
+		selfMsg := *msg
+		// NOTE: We use the same RoundID as in the dmMsg
+		//       object. This enables the same msgID on sender
+		//       and recipient.
+		selfMsg.RoundID = uint64(rid)
+		selfMsg.SelfRoundID = uint64(rid)
 		// NOTE: Very important to overwrite these fields
 		// for self sending!
-		msg.DMToken = partnerToken
+		selfMsg.DMToken = partnerToken
 
 		// Serialize the message
-		selfDMSerial, err := proto.Marshal(msg)
+		selfDMSerial, err := proto.Marshal(&selfMsg)
 		if err != nil {
 			return nil, err
 		}

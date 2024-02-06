@@ -421,6 +421,29 @@ Every time you make a change to the client or bindings, you must rebuild the cli
 to propagate those changes to the app. There's a script that runs gomobile for you in the `bindings-integration`
 repository.
 
+#### Android Maven Library
+
+You can use the library published at the maven central repositories:
+
+https://central.sonatype.com/search?q=xxdk
+
+A gradle version 8.6 compatible `build.gradle` file is included that
+allows you to build a maven-style library locally which you can
+include in your package. This is used by us to sign and deploy to the
+maven central repositories. You can use it as follows:
+
+```shell
+...
+gomobile bind -v -target android -androidapi 21 gitlab.com/elixxir/client/v4/bindings
+gradle publish && gradle genRepo
+```
+
+This will produce a local repository layout in the `build/repo` folder
+and a zip file in the `build/distributions` folder. If you would like
+to sign with your gpg key, you need to configure `gradle.properties` in
+your user's `~/.gradle` folder, then change the version not to include
+`-SNAPSHOT` at the end.
+
 
 ## Regenerate Protobuf File
 

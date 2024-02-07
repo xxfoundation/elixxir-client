@@ -122,8 +122,8 @@ bindings-ios:
     - cp iOS.zip iOS-$CI_COMMIT_SHA.zip
     - sync # Force disc flush
     - mc alias set elixxir-s3 $ARTIFACT_S3_ENDPOINT $ARTIFACT_S3_KEY $ARTIFACT_S3_SECRET
-    - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip
     - swift package compute-checksum iOS-$CI_COMMIT_SHA.zip > iOS-$CI_COMMIT_SHA.zip.checksum && cat iOS-$CI_COMMIT_SHA.zip.checksum
+    - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip
     - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum
 
     # Verify the uploaded file
@@ -131,9 +131,12 @@ bindings-ios:
     - curl http://elixxir-bins.s3-us-west-1.amazonaws.com/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum > aws-sum-computed.txt
     - diff aws-sum-dl.txt aws-sum-computed.txt
 
-    # Release package folder (used for Cocoapods)
+    # Release package folder (used for Cocoapods) - NEEDS CLEANUP
     - mkdir -p ios-release
     - cp iOS.zip ios-release/XXDK-4.7.2.zip
+    - cp iOS-$CI_COMMIT_SHA.zip.checksum ios-release/XXDK-4.7.2.zip.checksum
+    - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/release-ios/XXDK-4.7.2.zip
+    - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/release-ios/XXDK-4.7.2.zip.checksum
   artifacts:
     paths:
       - iOS.zip

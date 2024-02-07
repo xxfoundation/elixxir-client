@@ -90,7 +90,7 @@ Learn more at https://xx.network/
   #
 
   # spec.source       = { :git => "https://git.xx.network/elixxir/client.git", :tag => "#{spec.version}" }
-  spec.source = { :http => "https://git.xx.network/elixxir/client/-/jobs/551550/artifacts/file/ios-release/XXDK-4.7.2.zip" }
+  spec.source = { :http => "https://elixxir-bins.s3.us-west-1.amazonaws.com/release-ios/XXDK-4.7.2.zip" }
 
 
   # ――― Source Code ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #

@@ -130,9 +130,15 @@ bindings-ios:
     - curl http://elixxir-bins.s3-us-west-1.amazonaws.com/bindings-ios/iOS-$CI_COMMIT_SHA.zip | shasum -a 256 - | awk '{print $1;}' > aws-sum-dl.txt
     - curl http://elixxir-bins.s3-us-west-1.amazonaws.com/bindings-ios/iOS-$CI_COMMIT_SHA.zip.checksum > aws-sum-computed.txt
     - diff aws-sum-dl.txt aws-sum-computed.txt
+
+    # Release package folder (used for Cocoapods)
+    - mkdir -p ios-release
+    - cp iOS.zip ios-release/XXDK-4.7.2.zip
   artifacts:
     paths:
       - iOS.zip
+      - ios-release
+    expire_in: never
 
 bindings-android:
   stage: build

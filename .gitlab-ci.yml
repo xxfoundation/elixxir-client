@@ -117,6 +117,7 @@ bindings-ios:
     - ls
 
     # Package and upload the bindings to S3 for Xcode's package manager
+    - cp LICENSE Bindings.xcframework/
     - zip -r -y iOS.zip Bindings.xcframework
     - sync # Force disc flush
     - cp iOS.zip iOS-$CI_COMMIT_SHA.zip

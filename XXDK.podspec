@@ -89,7 +89,8 @@ Learn more at https://xx.network/
   #  Supports git, hg, bzr, svn and HTTP.
   #
 
-  spec.source       = { :git => "https://git.xx.network/elixxir/client.git", :tag => "#{spec.version}" }
+  # spec.source       = { :git => "https://git.xx.network/elixxir/client.git", :tag => "#{spec.version}" }
+  spec.source = { :http => "https://git.xx.network/elixxir/client/-/jobs/551550/artifacts/file/ios-release/XXDK-4.7.2.zip" }
 
 
   # ――― Source Code ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #

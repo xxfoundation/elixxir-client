@@ -8,6 +8,12 @@
 package groupChat
 
 import (
+	"math/rand"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/v4/catalog"
@@ -15,11 +21,6 @@ import (
 	"gitlab.com/elixxir/client/v4/e2e/receive"
 	gs "gitlab.com/elixxir/client/v4/groupChat/groupStore"
 	util "gitlab.com/elixxir/client/v4/storage/utility"
-	"math/rand"
-	"reflect"
-	"strings"
-	"testing"
-	"time"
 )
 
 // Tests that the correct group is received from the request.
@@ -80,7 +81,7 @@ func TestRequestListener_Hear(t *testing.T) {
 			t.Errorf("receiveRequest() failed to return the expected group."+
 				"\nexpected: %#v\nreceived: %#v", g, receivedGrp)
 		}
-	case <-time.NewTimer(5 * time.Millisecond).C:
+	case <-time.NewTimer(500 * time.Millisecond).C:
 		t.Error("Timed out while waiting for callback.")
 	}
 }

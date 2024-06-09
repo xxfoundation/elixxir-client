@@ -113,7 +113,7 @@ bindings-ios:
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - gomobile init
     - gomobile bind -v -target ios,iossimulator,macos gitlab.com/elixxir/client/v4/bindings
-    - python3 bindings-checker.py Bindings.xcframework/ios-arm64/Bindings.framework/Versions/A/Headers/Bindings.objc.h
+    - python3 bindings-checker.py Bindings.xcframework/ios-arm64/Bindings.framework/Headers/Bindings.objc.h
     - ls
 
     # Package and upload the bindings to S3 for Xcode's package manager

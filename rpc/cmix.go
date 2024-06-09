@@ -50,7 +50,7 @@ func send(net cMixClient, recipient *id.ID, msg []byte,
 		rng := net.RNGStreamGenerator().GetStream()
 		defer rng.Close()
 
-		payloadLen := calcDMPayloadLen(net)
+		payloadLen := maxPayloadLen(net)
 
 		fpBytes, encryptedPayload, mac, err := createCMIXFields(
 			msg, payloadLen, rng)
@@ -181,7 +181,7 @@ func generateRandomID(rng io.Reader) (*id.ID, error) {
 	return newID, nil
 }
 
-func calcDMPayloadLen(net cMixClient) int {
+func maxPayloadLen(net cMixClient) int {
 	// As we don't use the mac or fp fields, we can extend
 	// our payload size
 	// (-2 to eliminate the first byte of mac and fp)

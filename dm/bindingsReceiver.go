@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package bindings
+package dm
 
 import (
 	"crypto/ed25519"
@@ -14,7 +14,6 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
-	"gitlab.com/elixxir/client/v4/dm"
 	"gitlab.com/elixxir/crypto/message"
 )
 
@@ -31,7 +30,7 @@ type DMReceiver interface {
 	// their own message parsing.
 	//
 	// Parameters:
-	//  - messageID - The bytes of the [dm.MessageID] of the received
+	//  - messageID - The bytes of the [MessageID] of the received
 	//    message.
 	//  - nickname - The nickname of the sender of the message.
 	//  - text - The bytes content of the message.
@@ -46,7 +45,7 @@ type DMReceiver interface {
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
 	//  - mType - the type of the message, always 1 for this call
-	//  - status - the [dm.SentStatus] of the message.
+	//  - status - the [SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
@@ -70,7 +69,7 @@ type DMReceiver interface {
 	// important to buffer replies.
 	//
 	// Parameters:
-	//  - messageID - The bytes of the [dm.MessageID] of the received
+	//  - messageID - The bytes of the [MessageID] of the received
 	//    message.
 	//  - nickname - The nickname of the sender of the message.
 	//  - text - The content of the message.
@@ -84,7 +83,7 @@ type DMReceiver interface {
 	//    as nanoseconds since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
-	//  - status - the [dm.SentStatus] of the message.
+	//  - status - the [SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
@@ -108,9 +107,9 @@ type DMReceiver interface {
 	// important to buffer replies.
 	//
 	// Parameters:
-	//  - messageID - The bytes of the [dm.MessageID] of the received
+	//  - messageID - The bytes of the [MessageID] of the received
 	//    message.
-	//  - reactionTo - The [dm.MessageID] for the message
+	//  - reactionTo - The [MessageID] for the message
 	//    that received a reply.
 	//  - nickname - The nickname of the sender of the message.
 	//  - text - The content of the message.
@@ -124,7 +123,7 @@ type DMReceiver interface {
 	//    as nanoseconds since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
-	//  - status - the [dm.SentStatus] of the message.
+	//  - status - the [SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
@@ -148,9 +147,9 @@ type DMReceiver interface {
 	// important to buffer reactions.
 	//
 	// Parameters:
-	//  - messageID - The bytes of the [dm.MessageID] of the received
+	//  - messageID - The bytes of the [MessageID] of the received
 	//    message.
-	//  - reactionTo - The [dm.MessageID] for the message
+	//  - reactionTo - The [MessageID] for the message
 	//    that received a reply.
 	//  - nickname - The nickname of the sender of the message.
 	//  - reaction - The contents of the reaction message.
@@ -164,7 +163,7 @@ type DMReceiver interface {
 	//    as nanoseconds since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
-	//  - status - the [dm.SentStatus] of the message.
+	//  - status - the [SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
@@ -183,9 +182,9 @@ type DMReceiver interface {
 	// changed.
 	//
 	// Parameters:
-	//  - messageID - The bytes of the [dm.MessageID] of the received
+	//  - messageID - The bytes of the [MessageID] of the received
 	//    message.
-	//  - status - the [dm.SentStatus] of the message.
+	//  - status - the [SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
@@ -205,23 +204,23 @@ type DMReceiver interface {
 	DeleteMessage(messageID, senderPubKey []byte) bool
 
 	// GetConversation returns any conversations held by the
-	// model (receiver). JSON List of dm.ModelConversation object.
+	// model (receiver). JSON List of ModelConversation object.
 	GetConversation(senderPubKey []byte) []byte
 
 	// GetConversations returns any conversations held by the
-	// model (receiver). JSON List of dm.ModelConversation object.
+	// model (receiver). JSON List of ModelConversation object.
 	GetConversations() []byte
 }
 
-// dmReceiver is a wrapper which wraps an existing DMReceiver object and
-// implements [dm.Receiver]
+// dmReceiver is a wrapper which wraps an existing bindings DMReceiver
+// object and implements [Receiver]
 type dmReceiver struct {
 	dr DMReceiver
 }
 
 // newDMReceiver is a constructor for a dmReceiver. This will take in an
 // DMReceiver and wraps it around the dmReceiver.
-func NewDMReceiver(dr DMReceiver) dm.EventModel {
+func NewDMReceiver(dr DMReceiver) EventModel {
 	return &dmReceiver{dr: dr}
 }
 
@@ -231,8 +230,8 @@ func NewDMReceiver(dr DMReceiver) dm.EventModel {
 func (dmr *dmReceiver) Receive(messageID message.ID,
 	nickname string, text []byte, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
-	round rounds.Round, mType dm.MessageType,
-	status dm.Status) uint64 {
+	round rounds.Round, mType MessageType,
+	status Status) uint64 {
 
 	return uint64(dmr.dr.Receive(messageID[:], nickname,
 		text, partnerKey, senderKey, int32(dmToken), int(codeset),
@@ -247,7 +246,7 @@ func (dmr *dmReceiver) ReceiveText(messageID message.ID,
 	nickname, text string, partnerKey, senderKey ed25519.PublicKey,
 	dmToken uint32, codeset uint8, timestamp time.Time,
 	round rounds.Round,
-	status dm.Status) uint64 {
+	status Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveText(messageID[:], nickname,
 		text, partnerKey, senderKey, int32(dmToken), int(codeset),
@@ -265,7 +264,7 @@ func (dmr *dmReceiver) ReceiveReply(messageID message.ID,
 	reactionTo message.ID, nickname, text string,
 	partnerKey, senderKey ed25519.PublicKey, dmToken uint32,
 	codeset uint8, timestamp time.Time,
-	round rounds.Round, status dm.Status) uint64 {
+	round rounds.Round, status Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveReply(messageID[:], reactionTo[:],
 		nickname, text, partnerKey, senderKey, int32(dmToken),
@@ -285,7 +284,7 @@ func (dmr *dmReceiver) ReceiveReaction(messageID message.ID,
 	reactionTo message.ID, nickname, reaction string,
 	partnerKey, senderKey ed25519.PublicKey, dmToken uint32, codeset uint8,
 	timestamp time.Time, round rounds.Round,
-	status dm.Status) uint64 {
+	status Status) uint64 {
 
 	return uint64(dmr.dr.ReceiveReaction(messageID[:],
 		reactionTo[:], nickname, reaction, partnerKey, senderKey,
@@ -297,7 +296,7 @@ func (dmr *dmReceiver) ReceiveReaction(messageID message.ID,
 // UpdateSentStatus is called whenever the sent status of a message has changed.
 func (dmr *dmReceiver) UpdateSentStatus(uuid uint64,
 	messageID message.ID, timestamp time.Time, round rounds.Round,
-	status dm.Status) {
+	status Status) {
 	dmr.dr.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))
 }
@@ -311,9 +310,9 @@ func (dmr *dmReceiver) DeleteMessage(
 }
 
 // GetConversation returns any conversations held by the model (receiver).
-func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.ModelConversation {
+func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *ModelConversation {
 	convoJSON := dmr.dr.GetConversation(senderPubKey)
-	var convo dm.ModelConversation
+	var convo ModelConversation
 	err := json.Unmarshal(convoJSON, &convo)
 	if err != nil {
 		jww.ERROR.Printf("Cannot unmarshal conversations for %s: %+v",
@@ -323,9 +322,9 @@ func (dmr *dmReceiver) GetConversation(senderPubKey ed25519.PublicKey) *dm.Model
 }
 
 // GetConversations returns any conversations held by the model (receiver).
-func (dmr *dmReceiver) GetConversations() []dm.ModelConversation {
+func (dmr *dmReceiver) GetConversations() []ModelConversation {
 	convoJSON := dmr.dr.GetConversations()
-	var convos []dm.ModelConversation
+	var convos []ModelConversation
 	err := json.Unmarshal(convoJSON, &convos)
 	if err != nil {
 		jww.ERROR.Printf("Cannot unmarshal conversations: %+v", err)

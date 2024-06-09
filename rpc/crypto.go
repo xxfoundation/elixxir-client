@@ -8,23 +8,152 @@
 package rpc
 
 import (
-	"io"
+	"bytes"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/yawning/nyquist.git"
 	"gitlab.com/yawning/nyquist.git/dh"
+)
+
+var (
+	handshakeCiphertextOverhead uint64
+	channelCiphertextOverhead   uint64
 )
 
 func init() {
 	var err error
 	protocol, err = nyquist.NewProtocol("Noise_NK_25519_ChaChaPoly_BLAKE2s")
 	panicOnError(err)
+
+	// We need to calculate ciphertext overhead so we can
+	// partition our packets.
+	rng := csprng.NewSystemRNG()
+	priv1, pub1 := ecdh.ECDHNIKE.NewKeypair(rng)
+	priv2, pub2 := ecdh.ECDHNIKE.NewKeypair(rng)
+
+	client := startNoiseClient(priv1, pub2)
+	server, err := startNoiseServer(priv2, pub1)
+	panicOnError(err)
+
+	plaintext := []byte("Hello, World!")
+
+	// Handshake Overhead
+	cipher1 := client.WriteMessage(plaintext)
+	plaintextOut, err := server.ReadMessage(cipher1)
+	panicOnError(err)
+	if !bytes.Equal(plaintext, plaintextOut) {
+		jww.FATAL.Panicf("encrypt init failure")
+	}
+	cipher2 := server.WriteMessage(plaintext)
+	plaintextOut, err = client.ReadMessage(cipher2)
+	panicOnError(err)
+	if !bytes.Equal(plaintext, plaintextOut) {
+		jww.FATAL.Panicf("encrypt init failure")
+	}
+	handshakeCiphertextOverhead = uint64(len(cipher1) - len(plaintext))
+
+	// Channel overhead
+	cipher3 := client.WriteMessage(plaintext)
+	plaintextOut, err = server.ReadMessage(cipher3)
+	panicOnError(err)
+	if !bytes.Equal(plaintext, plaintextOut) {
+		jww.FATAL.Panicf("encrypt init failure")
+	}
+	channelCiphertextOverhead = uint64(len(cipher3) - len(plaintext))
+
+	jww.INFO.Printf("[RPC] CiphertextOverheads: %d, %d",
+		handshakeCiphertextOverhead,
+		channelCiphertextOverhead)
 }
 
+// noise holds the handshake state, notes when the handshake is complete,
+// and uses the individual cipher states as appropriate after the handshake.
+// The structure itself wraps the handshake Read/Write interface to provide
+// a channel like interface.
+//
+// This has a limitation in that the initiator (client) can only send one
+// message first, then it has to wait for the server to respond to continue
+// sending messages. We need to do more research to see if this is OK to do
+// inside the noise framework (it should be) before we drop this limitation.
+//
+// For now, clients should send an initial message, then wait for a
+// server response until sending additional data for the handshake to
+// complete on the server side.
+type noise struct {
+	hs         *nyquist.HandshakeState
+	hsDone     bool
+	sendCipher *nyquist.CipherState
+	recvCipher *nyquist.CipherState
+}
+
+func newNoise(hs *nyquist.HandshakeState) *noise {
+	return &noise{
+		hs:         hs,
+		hsDone:     false,
+		sendCipher: nil,
+		recvCipher: nil,
+	}
+}
+
+// ReadMessage from the remote sender
+func (n *noise) ReadMessage(ciphertext []byte) ([]byte, error) {
+	if !n.hsDone {
+		pt, err := n.hs.ReadMessage(nil, ciphertext)
+		if err == nyquist.ErrDone {
+			n.hsDone = true
+			// NOTE: If we finish when reading, the
+			// send/recv ciphers are backwards from Write
+			// side
+			n.sendCipher = n.hs.GetStatus().CipherStates[1]
+			n.recvCipher = n.hs.GetStatus().CipherStates[0]
+			return pt, nil
+		}
+		return pt, err
+	}
+
+	// NOTE: we could use associated data from previous message
+	// plaintext, for now we will not for simplicity.
+	return n.recvCipher.DecryptWithAd(nil, nil, ciphertext)
+}
+
+// WriteMessage to a remote receiver
+func (n *noise) WriteMessage(plaintext []byte) []byte {
+	if !n.hsDone {
+		ct, err := n.hs.WriteMessage(nil, plaintext)
+		if err == nyquist.ErrDone {
+			n.hsDone = true
+			n.sendCipher = n.hs.GetStatus().CipherStates[0]
+			n.recvCipher = n.hs.GetStatus().CipherStates[1]
+		} else {
+			// NOTE: The most likely scenario is a message
+			// query too big to fit into a single packet, causing
+			// an out of order error here. We leave this as a
+			// limitation for now, but we could potentially
+			// fix this by splitting the cipher state after
+			// first read/write and setting the appropriate field
+			// on the noise object.
+			panicOnError(err)
+		}
+		return ct
+	}
+
+	ct, err := n.sendCipher.EncryptWithAd(nil, nil, plaintext)
+	panicOnError(err)
+	return ct
+}
+
+// Ready is true when the handshake is completed
+func (n *noise) Ready() bool {
+	return n.hsDone
+}
+
+// A noise client has a local ephemeral key and a remote static key
+// It is the initiator of the handshake
 func startNoiseClient(ephPrivKey nike.PrivateKey,
-	serverStaticPubKey nike.PublicKey) *nyquist.HandshakeState {
+	serverStaticPubKey nike.PublicKey) *noise {
 	privKey := privateToNyquist(ephPrivKey)
 	theirPubKey := publicToNyquist(serverStaticPubKey)
 
@@ -37,12 +166,13 @@ func startNoiseClient(ephPrivKey nike.PrivateKey,
 	}
 	hs, err := nyquist.NewHandshake(cfg)
 	panicOnError(err)
-	return hs
+	return newNoise(hs)
 }
 
+// A noise server has a static private key and a remote ephemeral key
+// It does not initiate a handshake
 func startNoiseServer(serverStaticPrivKey nike.PrivateKey,
-	ephPubKey nike.PublicKey) (
-	*nyquist.HandshakeState, error) {
+	ephPubKey nike.PublicKey) (*noise, error) {
 	privKey := privateToNyquist(serverStaticPrivKey)
 	theirPubKey := publicToNyquist(ephPubKey)
 
@@ -53,68 +183,14 @@ func startNoiseServer(serverStaticPrivKey nike.PrivateKey,
 		RemoteEphemeral: theirPubKey,
 		IsInitiator:     false,
 	}
-	return nyquist.NewHandshake(cfg)
-}
-
-func clientHandshake(serverStaticPubKey nike.PublicKey,
-	rng io.Reader) *nyquist.HandshakeState {
-	// Per spec, the NK pattern in Noise relies on an ephemeral key. We
-	// generate that here and prepend the public form to the message.
-	private, public := ecdh.ECDHNIKE.NewKeypair(rng)
-
-	privKey := privateToNyquist(private)
-	theirPubKey := publicToNyquist(serverStaticPubKey)
-
-	cfg := &nyquist.HandshakeConfig{
-		Protocol:     protocol,
-		Prologue:     version,
-		LocalStatic:  privKey,
-		RemoteStatic: theirPubKey,
-		IsInitiator:  true,
-	}
 	hs, err := nyquist.NewHandshake(cfg)
-	panicOnError(err)
-	return hs
-	// defer hs.Reset()
-	// ciphertext, err := hs.WriteMessage(nil, plaintext)
-	// panicOnNoiseError(hs, err)
-	// return createNoisePayload(ciphertext, public), private
-}
-
-// decrypt decrypts the given ciphertext as a Noise X message.
-func serverHandshake(ciphertext []byte, serverStaticPrivateKey nike.PrivateKey) (
-	[]byte, []byte, error) {
-
-	encrypted, requestorPubKey, err := parseNoisePayload(ciphertext)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	privKey := privateToNyquist(serverStaticPrivateKey)
-	theirPubKey := publicToNyquist(requestorPubKey)
-
-	cfg := &nyquist.HandshakeConfig{
-		Protocol:     protocol,
-		Prologue:     version,
-		LocalStatic:  privKey,
-		RemoteStatic: theirPubKey,
-		IsInitiator:  false,
-	}
-
-	return nyquist.NewHandshake(cfg)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-	// defer hs.Reset()
-
-	// plaintext, err := hs.ReadMessage(nil, encrypted)
-	// hs.
-	// 	err = recoverErrorOnNoise(hs, err)
-
-	// sharedKey := serverStaticPrivateKey.DeriveSecret(requestorPubKey)
-
-	// return plaintext, sharedKey, err
+	return newNoise(hs), nil
 }
+
+// Key conversions with nyquist
 
 func privateToNyquist(privKey nike.PrivateKey) dh.Keypair {
 	p, ok := privKey.(*ecdh.PrivateKey)
@@ -136,38 +212,7 @@ func publicToNyquist(pubKey nike.PublicKey) dh.PublicKey {
 	return myPubKey
 }
 
-// createNoisePayload is a helper function which will take the ciphertext
-// and format it to fit Noise's specifications. The returned byte data should
-// be formatted as such:
-// Public Key | Ciphertext
-func createNoisePayload(ciphertext []byte, ecdhPublic nike.PublicKey) []byte {
-	publicKeySize := len(ecdhPublic.Bytes())
-	ciphertextSize := len(ciphertext)
-	res := make([]byte, publicKeySize+ciphertextSize)
-
-	copy(res[0:publicKeySize], ecdhPublic.Bytes())
-	copy(res[publicKeySize:], ciphertext)
-	return res
-}
-
-// parseNoisePayload is a helper function which parses the
-// ciphertext. This should be the inverse of createNoisePayload,
-// returning to the user the encrypted data and the parsed public key.
-func parseNoisePayload(payload []byte) ([]byte, nike.PublicKey, error) {
-	// Extract the public key from the payload
-	publicKeySize := ecdh.ECDHNIKE.PublicKeySize()
-	publicKeyBytes := payload[:publicKeySize]
-	publicKey, err := ecdh.ECDHNIKE.
-		UnmarshalBinaryPublicKey(publicKeyBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Extract encrypted data from payload
-	ciphertext := payload[publicKeySize:]
-
-	return ciphertext, publicKey, nil
-}
+// Error handling functions
 
 func panicOnFailureToCast(ok bool, keyType string) {
 	if !ok {

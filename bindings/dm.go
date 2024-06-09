@@ -26,6 +26,9 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
+type DMReceiver dm.DMReceiver
+
+
 // DMReceiverBuilder builds an event model.
 type DMReceiverBuilder interface {
 	Build(path string) DMReceiver
@@ -85,7 +88,7 @@ func NewDMClient(cmixID, notificationsID int, privateIdentity []byte,
 	}
 
 	eb := func(path string) (dm.EventModel, error) {
-		return NewDMReceiver(receiverBuilder.Build(path)), nil
+		return dm.NewDMReceiver(receiverBuilder.Build(path)), nil
 	}
 
 	// We path to the string of the public key for this user
@@ -667,7 +670,7 @@ func (dmc *DMClient) SendSilent(partnerPubKeyBytes []byte,
 // SendInvite is used to send to a DM partner an invitation to another
 // channel.
 //
-// The reception of an invitation will be handled by [DMReceiver.Receive],
+// The reception of an invitation will be handled by [dm.DMReceiver.Receive],
 // passing in a [dm.MessageType] of value [dm.InvitationType]. The message
 // will be JSON encoded. Example invite JSON:
 //

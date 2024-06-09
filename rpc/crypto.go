@@ -9,6 +9,7 @@ package rpc
 
 import (
 	"bytes"
+	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/nike"
@@ -87,6 +88,7 @@ type noise struct {
 	hsDone     bool
 	sendCipher *nyquist.CipherState
 	recvCipher *nyquist.CipherState
+	sync.Mutex
 }
 
 func newNoise(hs *nyquist.HandshakeState) *noise {
@@ -100,6 +102,8 @@ func newNoise(hs *nyquist.HandshakeState) *noise {
 
 // ReadMessage from the remote sender
 func (n *noise) ReadMessage(ciphertext []byte) ([]byte, error) {
+	n.Lock()
+	defer n.Unlock()
 	if !n.hsDone {
 		pt, err := n.hs.ReadMessage(nil, ciphertext)
 		if err == nyquist.ErrDone {
@@ -121,6 +125,8 @@ func (n *noise) ReadMessage(ciphertext []byte) ([]byte, error) {
 
 // WriteMessage to a remote receiver
 func (n *noise) WriteMessage(plaintext []byte) []byte {
+	n.Lock()
+	defer n.Unlock()
 	if !n.hsDone {
 		ct, err := n.hs.WriteMessage(nil, plaintext)
 		if err == nyquist.ErrDone {
@@ -147,7 +153,18 @@ func (n *noise) WriteMessage(plaintext []byte) []byte {
 
 // Ready is true when the handshake is completed
 func (n *noise) Ready() bool {
+	n.Lock()
+	defer n.Unlock()
 	return n.hsDone
+}
+
+func (n *noise) Reset() {
+	n.Lock()
+	defer n.Unlock()
+	n.hsDone = false
+	n.hs.Reset()
+	n.sendCipher = nil
+	n.recvCipher = nil
 }
 
 // A noise client has a local ephemeral key and a remote static key

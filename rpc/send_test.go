@@ -9,7 +9,9 @@ package rpc
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -134,6 +136,12 @@ func TestSend(t *testing.T) {
 			rounds.Round{ID: 8675310})
 	}
 
+	d := r.Wait()
+	require.Equal(t, reply, d)
+
+	// Wait for our receiver func to record it properly
+	time.Sleep(100 * time.Millisecond)
+
 	rTypes := []string{"SentMessage", "RoundResults", "QueryResponse"}
 	objs := make(map[string]interface{})
 	for i := 0; i < len(responses); i++ {
@@ -146,10 +154,17 @@ func TestSend(t *testing.T) {
 
 	// Check that the results include all the expected types
 	for i := 0; i < len(rTypes); i++ {
-
+		o, ok := objs[rTypes[i]]
+		require.True(t, ok, fmt.Sprintf("missing %s: %v",
+			rTypes[i], o))
+		if rTypes[i] == "QueryResponse" {
+			qr := o.(map[string]interface{})
+			r, err := base64.RawStdEncoding.DecodeString(
+				qr["message"].(string))
+			require.NoError(t, err)
+			require.Equal(t, reply, r)
+		}
 	}
-
-	r.Wait()
 
 }
 
@@ -183,7 +198,6 @@ func (c *mockCmixServer) RemoveIdentity(id *id.ID) {
 func (c *mockCmixServer) GetRoundResults(timeout time.Duration,
 	roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 	go func() {
-		time.Sleep(time.Second * 1)
 		result := make(map[id.Round]cmix.RoundResult)
 		result[roundList[0]] = cmix.RoundResult{
 			Status: cmix.Succeeded,

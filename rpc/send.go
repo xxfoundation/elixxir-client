@@ -244,6 +244,8 @@ func (r *response) Process(cMixMsg format.Message, _ []string, _ []byte,
 		return
 	}
 
+	r.reply = msg
+
 	json, err := json.Marshal(map[string]interface{}{
 		"type": "QueryResponse",
 		"response": QueryResponse{

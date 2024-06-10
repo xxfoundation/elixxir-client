@@ -31,6 +31,7 @@ type msgId [msgIdSz]byte
 func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 	request []byte, params cmix.CMIXParams) Response {
 	res := newResponse(net, serverKey)
+	res.wg.Add(1)
 	// helper to return errors as part of the response
 	responseErr := func(err error) Response {
 		go errEvent(res, err)
@@ -155,16 +156,18 @@ type response struct {
 	parts   [][]byte
 	reply   []byte
 	sync.Mutex
+	wg sync.WaitGroup
 }
 
 // Close closes the listener channel so that the callback
 // listeners complete.
 func (r *response) Close() {
 	close(r.listener)
+	r.wg.Done()
 }
 
 func (r *response) Callback(respFn func(response []byte),
-	errFn func(err error)) {
+	errFn func(err error)) Response {
 	go func() {
 		// read until channel closes
 		for r := range r.listener {
@@ -185,6 +188,12 @@ func (r *response) Callback(respFn func(response []byte),
 			r.cipher.Reset()
 		}
 	}()
+	return r
+}
+
+func (r *response) Wait() []byte {
+	r.wg.Wait()
+	return r.reply
 }
 
 // //
@@ -249,6 +258,7 @@ func (r *response) Process(cMixMsg format.Message, _ []string, _ []byte,
 
 	// send the raw response to the callback listener
 	r.listener <- json
+	r.Close()
 }
 
 // NOTE: unbuffered for now, which means we block on send until the

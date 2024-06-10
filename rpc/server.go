@@ -84,13 +84,3 @@ func (r *rpcServer) Process(msg format.Message, _ []string, _ []byte,
 	// Iterate over callbacks, creating a goroutine for each.
 	// When all goroutines exit, then exit this function.
 }
-
-// This helper does the opposite of "createCMIXFields" in send.go
-func reconstructCiphertext(msg format.Message) []byte {
-	var res []byte
-	fp := msg.GetKeyFP()
-	res = append(res, fp[1:]...)
-	res = append(res, msg.GetMac()[1:]...)
-	res = append(res, msg.GetContents()...)
-	return res
-}

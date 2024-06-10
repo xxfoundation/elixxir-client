@@ -124,6 +124,17 @@ func createCMIXFields(ciphertext []byte, payloadSize int,
 	return fpBytes, encryptedPayload, mac, nil
 }
 
+// This helper does the opposite of "createCMIXFields" and
+// reconstructs the original ciphertext
+func reconstructCiphertext(msg format.Message) []byte {
+	var res []byte
+	fp := msg.GetKeyFP()
+	res = append(res, fp[1:]...)
+	res = append(res, msg.GetMac()[1:]...)
+	res = append(res, msg.GetContents()...)
+	return res
+}
+
 func createRandomService(rng io.Reader) message.Service {
 	// NOTE: 64 is entirely arbitrary, 33 bytes are used for the ID
 	// and the rest will be base64'd into a string for the tag.

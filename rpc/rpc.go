@@ -42,7 +42,11 @@ type Response interface {
 	// found in other languages.
 	// RPC will call respFn 3 times: sent, round finished, and
 	// response received.
-	Callback(respFn func(response []byte), errFn func(err error))
+	Callback(respFn func(response []byte), errFn func(err error)) Response
+
+	// Wait waits until the response is complete returns the final
+	// response bytes
+	Wait() []byte
 }
 
 // Callback is the type of the callback function for the RPC server,

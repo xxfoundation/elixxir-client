@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 var ErrMissingParts = errors.Errorf("need more parts")
@@ -68,6 +69,10 @@ func partitionMessage(msg []byte, headerMsgSize, otherMsgSize uint64) [][]byte {
 // reconstructPartitions recreates the original message sent to
 // partitionMessage.
 func reconstructPartitions(parts [][]byte) ([]byte, error) {
+	if len(parts) == 0 {
+		return nil, ErrMissingParts
+	}
+
 	headerReader := bytes.NewReader(parts[0])
 
 	// read the size
@@ -82,6 +87,8 @@ func reconstructPartitions(parts [][]byte) ([]byte, error) {
 		curSize += len(parts[1]) * (len(parts) - 1)
 	}
 	if mSz > uint64(curSize) {
+		jww.ERROR.Printf("still missing parts: %d > %d",
+			mSz, curSize)
 		return nil, ErrMissingParts
 	}
 

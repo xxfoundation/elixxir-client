@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -70,6 +71,19 @@ func init() {
 		channelCiphertextOverhead)
 }
 
+// This is used to tag messages on cMix send so we can reconstruct them.
+// This should be a plaintext message or message part.
+func genResponseMsgID(msg, key []byte) msgId {
+	var m msgId
+	h, _ := hash.NewCMixHash()
+	h.Write(key)
+	h.Write(msg)
+	h.Write([]byte("msgId"))
+	idBytes := h.Sum(nil)
+	copy(m[:], idBytes[:msgIdSz])
+	return m
+}
+
 // noise holds the handshake state, notes when the handshake is complete,
 // and uses the individual cipher states as appropriate after the handshake.
 // The structure itself wraps the handshake Read/Write interface to provide
@@ -88,6 +102,7 @@ type noise struct {
 	hsDone     bool
 	sendCipher *nyquist.CipherState
 	recvCipher *nyquist.CipherState
+	SharedKey  []byte
 	sync.Mutex
 }
 
@@ -115,6 +130,7 @@ func (n *noise) ReadMessage(ciphertext []byte) ([]byte, error) {
 			n.recvCipher = n.hs.GetStatus().CipherStates[0]
 			return pt, nil
 		}
+		err = recoverErrorOnNoise(n.hs, err)
 		return pt, err
 	}
 
@@ -183,7 +199,9 @@ func startNoiseClient(ephPrivKey nike.PrivateKey,
 	}
 	hs, err := nyquist.NewHandshake(cfg)
 	panicOnError(err)
-	return newNoise(hs)
+	n := newNoise(hs)
+	n.SharedKey = ephPrivKey.DeriveSecret(serverStaticPubKey)
+	return n
 }
 
 // A noise server has a static private key and a remote ephemeral key
@@ -204,7 +222,9 @@ func startNoiseServer(serverStaticPrivKey nike.PrivateKey,
 	if err != nil {
 		return nil, err
 	}
-	return newNoise(hs), nil
+	n := newNoise(hs)
+	n.SharedKey = serverStaticPrivKey.DeriveSecret(ephPubKey)
+	return n, nil
 }
 
 // Key conversions with nyquist

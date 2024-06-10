@@ -68,8 +68,8 @@ func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 	headerSz := maxPayloadSz - handshakeCiphertextOverhead - ephKeySz
 	otherSz := maxPayloadSz - channelCiphertextOverhead - msgIdSz
 
-	// The message at the plaintext network layer is the ephemeral reception
-	// ID + the request
+	// The message at the plaintext network layer is the one time
+	// use reception ID + the request
 	msg := make([]byte, len(myID.Bytes())+len(request))
 	copy(msg, myID.Bytes())
 	copy(msg[len(myID.Bytes()):], request)

@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"time"
 
+	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -53,12 +54,19 @@ type Request struct {
 	contents []byte
 }
 
-type SentResponse struct {
+type SentMessage struct {
 	Round        rounds.Round   `json:"round"`
 	EphemeralIDs []ephemeral.Id `json:"ephemeralIDs"`
 }
 
-type RoundCompletedResponse struct {
+type RoundResults struct {
+	Success  bool                          `json:"success"`
+	TimedOut bool                          `json:"timedOut"`
+	Results  map[id.Round]cmix.RoundResult `json:"results"`
+}
+
+type QueryResponse struct {
+	Message []byte `json:"message"`
 }
 
 // Server is the interface for the RPC server, users should

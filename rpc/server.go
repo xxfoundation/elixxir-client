@@ -78,7 +78,7 @@ func (r *rpcServer) String() string {
 
 func (r *rpcServer) Process(msg format.Message, _ []string, _ []byte,
 	ephID receptionID.EphemeralIdentity, round rounds.Round) {
-	ciphertext := reconstructCiphertext(msg)
+	//ciphertext := reconstructCiphertext(msg)
 	// Decrypt with r.privateKey
 	// Construct request
 	// Iterate over callbacks, creating a goroutine for each.

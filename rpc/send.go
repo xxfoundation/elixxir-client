@@ -9,7 +9,10 @@ package rpc
 
 import (
 	"encoding/json"
+	"sync"
 
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
@@ -19,8 +22,11 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/yawning/nyquist.git"
 )
+
+const msgIdSz = 4
+
+type msgId [msgIdSz]byte
 
 func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 	request []byte, params cmix.CMIXParams) Response {
@@ -40,10 +46,10 @@ func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 		return responseErr(err)
 	}
 
-	// Generate keys and setup our decryptor
+	// Generate keys and setup our encryptor/decryptor
 	private, public := ecdh.ECDHNIKE.NewKeypair(rng)
-	hs := startNoiseClient(private, serverKey)
-	res.cipher = hs
+	noise := startNoiseClient(private, serverKey)
+	res.cipher = noise
 
 	// Register a listener on that identity
 	res.myID = myID
@@ -51,15 +57,39 @@ func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 	// NOTE: this identity is removed when the channels are closed in the
 	// Callback call.
 
+	// Calculate partition sizes, note that the ephKeySz is
+	// subtracted from the header. When we update to send
+	// multi-part queries, the hash of the plaintext of the
+	// previous message is used to discover partition order like
+	// in the server response code, which is why msgIdSz is
+	// subtracted.
+	maxPayloadSz := uint64(maxPayloadLen(net))
+	ephKeySz := uint64(len(public.Bytes()))
+	headerSz := maxPayloadSz - handshakeCiphertextOverhead - ephKeySz
+	otherSz := maxPayloadSz - channelCiphertextOverhead - msgIdSz
+
+	// The message at the plaintext network layer is the ephemeral reception
+	// ID + the request
+	msg := make([]byte, len(myID.Bytes())+len(request))
+	copy(msg, myID.Bytes())
+	copy(msg[len(myID.Bytes()):], request)
+
+	// set the initial id for processing the response.
+	res.nextId = genResponseMsgID(msg, noise.SharedKey)
+
 	// plaintext is the message part that is encrypted and sent to server
-	plaintext := createMessage(myID, request)
+	plaintexts := partitionMessage(msg, headerSz, otherSz)
+	// FIXME: we should probably eliminate this restriction
+	if len(plaintexts) != 1 {
+		return responseErr(errors.Errorf("[RPC] Query too big, %d > %d",
+			len(request), int(headerSz)-2-len(myID.Bytes())))
+	}
 	// ciphertext is the encrypted part of the message
-	ciphertext, err := hs.WriteMessage(nil, plaintext)
-	panicOnNoiseError(hs, err)
-	// msg prepends the public key to the ciphertext
-	msg := createNoisePayload(ciphertext, public)
+	msgToSend := make([]byte, maxPayloadSz)
+	copy(msgToSend, public.Bytes())
+	copy(msgToSend[ephKeySz:], noise.WriteMessage(plaintexts[0]))
 	go func() {
-		rnd, ids, err := send(net, serverID, msg, params)
+		rnd, ids, err := send(net, serverID, msgToSend, params)
 		if err != nil {
 			errEvent(res, err)
 		}
@@ -72,37 +102,44 @@ func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 
 func errEvent(res *response, err error) {
 	res.errs <- err
-	close(res.errs)
-	close(res.listener)
+	res.Close()
 }
 
 func sentEvent(res *response, rnd rounds.Round, ids []ephemeral.Id) {
 	json, err := json.Marshal(map[string]interface{}{
-		"type": "SentResponse",
-		"response": SentResponse{
+		"type": "SentMessage",
+		"response": SentMessage{
 			Round:        rnd,
 			EphemeralIDs: ids,
 		},
 	})
 	if err != nil {
 		res.errs <- err
+		res.Close()
 	}
 	res.listener <- json
 }
 
 func trackRound(net cMixClient, res *response, rnd rounds.Round) {
+	cb := func(allRoundsSucceeded, timedOut bool,
+		rounds map[id.Round]cmix.RoundResult) {
+		json, err := json.Marshal(map[string]interface{}{
+			"type": "RoundResults",
+			"response": RoundResults{
+				Success:  allRoundsSucceeded,
+				TimedOut: timedOut,
+				Results:  rounds,
+			},
+		})
+		if err != nil {
+			res.errs <- err
+			res.Close()
+		} else {
+			res.listener <- json
+		}
+	}
 
-}
-
-// createMessage creates a combined message, in the spec this can be
-// partitioned but for v0 here we just attach the reception id to the
-// beginning.
-func createMessage(responderID *id.ID, data []byte) []byte {
-	idBytes := responderID.Bytes()
-	newData := make([]byte, len(data)+len(idBytes))
-	copy(newData, idBytes)
-	copy(newData[len(idBytes):], data)
-	return newData
+	net.GetRoundResults(maxRoundWaitTime, cb, rnd.ID)
 }
 
 type response struct {
@@ -111,7 +148,19 @@ type response struct {
 	net       cMixClient
 	serverKey nike.PublicKey
 	myID      *id.ID
-	cipher    *nyquist.HandshakeState
+	cipher    *noise
+	// Used for message reception to reconstruct partitioned message
+	nextId  msgId
+	replies map[msgId][]byte
+	parts   [][]byte
+	reply   []byte
+	sync.Mutex
+}
+
+// Close closes the listener channel so that the callback
+// listeners complete.
+func (r *response) Close() {
+	close(r.listener)
 }
 
 func (r *response) Callback(respFn func(response []byte),
@@ -147,18 +196,59 @@ func (r *response) String() string {
 	return "rpcResponse"
 }
 
-func (r *response) Process(msg format.Message, _ []string, _ []byte,
+func (r *response) Process(cMixMsg format.Message, _ []string, _ []byte,
 	ephID receptionID.EphemeralIdentity, round rounds.Round) {
-	// parse the cmix into our message format
-	ciphertext := reconstructCiphertext(msg)
-	// decrypt
-	plaintext, err := r.cipher.ReadMessage(nil, ciphertext)
-	err = recoverErrorOnNoise(r.cipher, err)
-	if err != nil {
-		r.errs <- err
+	r.Lock()
+	defer r.Unlock()
+
+	// parse the received cmix message into our message format
+	msg := reconstructCiphertext(cMixMsg)
+	var curId msgId
+	copy(curId[:], msg[:msgIdSz])
+
+	ciphertext := msg[msgIdSz:]
+	r.replies[curId] = ciphertext
+
+	// Attempt to decrypt as much as we can
+	ciphertext, ok := r.replies[r.nextId]
+	for ok {
+		plaintext, err := r.cipher.ReadMessage(ciphertext)
+		if err != nil {
+			r.errs <- err
+			r.Close()
+			return
+		}
+		r.parts = append(r.parts, plaintext)
+		r.nextId = genResponseMsgID(plaintext, r.cipher.SharedKey)
+		ciphertext, ok = r.replies[r.nextId]
 	}
+
+	// Attempt reconstruction
+	msg, err := reconstructPartitions(r.parts)
+	if err != nil && err != ErrMissingParts {
+		r.errs <- err
+		r.Close()
+		return
+	}
+	if err != nil && err == ErrMissingParts {
+		jww.INFO.Printf("[RPC] missing parts for reconstruction")
+		return
+	}
+
+	json, err := json.Marshal(map[string]interface{}{
+		"type": "QueryResponse",
+		"response": QueryResponse{
+			Message: msg,
+		},
+	})
+	if err != nil && err != ErrMissingParts {
+		r.errs <- err
+		r.Close()
+		return
+	}
+
 	// send the raw response to the callback listener
-	r.listener <- plaintext
+	r.listener <- json
 }
 
 // NOTE: unbuffered for now, which means we block on send until the
@@ -166,8 +256,14 @@ func (r *response) Process(msg format.Message, _ []string, _ []byte,
 func newResponse(net cMixClient, serverKey nike.PublicKey) *response {
 	return &response{
 		listener:  make(chan []byte),
-		errs:      make(chan error),
+		errs:      make(chan error, 10),
 		serverKey: serverKey,
-		net:       net,
+		myID:      nil,
+		cipher:    nil,
+
+		net:     net,
+		replies: make(map[msgId][]byte),
+		parts:   make([][]byte, 0),
+		reply:   make([]byte, 0),
 	}
 }

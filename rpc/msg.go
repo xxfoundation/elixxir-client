@@ -10,7 +10,11 @@ package rpc
 import (
 	"bytes"
 	"encoding/binary"
+
+	"github.com/pkg/errors"
 )
+
+var ErrMissingParts = errors.Errorf("need more parts")
 
 // partitionMessage creates an ordered partition of messages based on the
 // specified sizes. This function is intended to be used with plaintext, so
@@ -70,6 +74,15 @@ func reconstructPartitions(parts [][]byte) ([]byte, error) {
 	mSz, err := binary.ReadUvarint(headerReader)
 	if err != nil {
 		return nil, err
+	}
+
+	// Do we have the whole message yet?
+	curSize := headerReader.Len()
+	if len(parts) != 1 {
+		curSize += len(parts[1]) * (len(parts) - 1)
+	}
+	if mSz > uint64(curSize) {
+		return nil, ErrMissingParts
 	}
 
 	msg := make([]byte, mSz)

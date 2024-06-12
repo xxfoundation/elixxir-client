@@ -51,7 +51,7 @@ type Response interface {
 
 // Callback is the type of the callback function for the RPC server,
 // which is simply the return ID and the request data.
-type Callback func(id *id.ID, request []byte)
+type Callback func(id *id.ID, request []byte) []byte
 
 type Request struct {
 	id       *id.ID
@@ -82,11 +82,8 @@ type Server interface {
 	// Note: if you want to stop all network traffic, do
 	// so with the cMix network client.
 	Stop()
-	// Add a Callback to process messages. This is not thread safe
-	// and should be called before the server starts listening.
-	AddCallback(cbFn Callback) int
-	// Delete a callback for processing messages. This is
-	// present for testing but generally you should not use it.
-	// Not thread safe.
-	DeleteCallback(i int) bool
+	// SetCallback allows you to change the callback after
+	// initialization. This must be called before starting
+	// the server.
+	SetCallback(cbFn Callback)
 }

@@ -40,7 +40,7 @@ type cMixClient interface {
 		params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error)
 }
 
-func send(net cMixClient, recipient *id.ID, msg []byte,
+func send(net cMixClient, recipient *id.ID, msgs [][]byte,
 	params cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if params.DebugTag == cmix.DefaultDebugTag {
 		params.DebugTag = messageDebugTag
@@ -52,25 +52,30 @@ func send(net cMixClient, recipient *id.ID, msg []byte,
 
 		payloadLen := maxPayloadLen(net)
 
-		fpBytes, encryptedPayload, mac, err := createCMIXFields(
-			msg, payloadLen, rng)
-		if err != nil {
-			return nil, err
+		msgsToSend := make([]cmix.TargetedCmixMessage, len(msgs))
+		for i := 0; i < len(msgs); i++ {
+			msg := msgs[i]
+			fpBytes, encryptedPayload, mac, err := createCMIXFields(
+				msg, payloadLen, rng)
+			if err != nil {
+				return nil, err
+			}
+
+			fp := format.NewFingerprint(fpBytes)
+
+			service := createRandomService(rng)
+
+			sendMsg := cmix.TargetedCmixMessage{
+				Recipient:   recipient,
+				Payload:     encryptedPayload,
+				Fingerprint: fp,
+				Service:     service,
+				Mac:         mac,
+			}
+			msgsToSend[i] = sendMsg
 		}
 
-		fp := format.NewFingerprint(fpBytes)
-
-		service := createRandomService(rng)
-
-		sendMsg := cmix.TargetedCmixMessage{
-			Recipient:   recipient,
-			Payload:     encryptedPayload,
-			Fingerprint: fp,
-			Service:     service,
-			Mac:         mac,
-		}
-
-		return []cmix.TargetedCmixMessage{sendMsg}, nil
+		return msgsToSend, nil
 	}
 	return net.SendManyWithAssembler([]*id.ID{recipient}, assemble, params)
 }

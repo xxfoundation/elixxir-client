@@ -90,7 +90,8 @@ func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 	copy(msgToSend, public.Bytes())
 	copy(msgToSend[ephKeySz:], noise.WriteMessage(plaintexts[0]))
 	go func() {
-		rnd, ids, err := send(net, serverID, msgToSend, params)
+		rnd, ids, err := send(net, serverID, [][]byte{msgToSend},
+			params)
 		if err != nil {
 			errEvent(res, err)
 		}

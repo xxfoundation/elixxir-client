@@ -45,6 +45,7 @@ func TestSend(t *testing.T) {
 
 	r := Send(net, serverID, serverPub, expMsg,
 		cmix.GetDefaultCMIXParams())
+	rObj := r.(*response)
 	require.NotNil(t, net.processor)
 
 	responses := make([][]byte, 0)
@@ -132,7 +133,7 @@ func TestSend(t *testing.T) {
 			EphId:  eID,
 			Source: rID,
 		}
-		net.processor.Process(fmsg, nil, nil, recID,
+		net.processor[*rObj.myID].Process(fmsg, nil, nil, recID,
 			rounds.Round{ID: 8675310})
 	}
 
@@ -170,25 +171,27 @@ func TestSend(t *testing.T) {
 
 func MockCmix(t *testing.T, msgs chan format.Message) *mockCmixServer {
 	return &mockCmixServer{
-		processor: nil,
+		processor: make(map[id.ID]message.Processor),
 		msgs:      msgs,
+		curRnd:    8675309,
 	}
 }
 
 type mockCmixServer struct {
-	processor message.Processor
+	processor map[id.ID]message.Processor
 	msgs      chan format.Message
+	curRnd    int
 }
 
 func (c *mockCmixServer) AddIdentityWithHistory(id *id.ID, validUntil,
 	beginning time.Time, persistent bool,
 	fallthroughProcessor message.Processor) {
-	c.processor = fallthroughProcessor
+	c.processor[*id] = fallthroughProcessor
 }
 
 func (c *mockCmixServer) AddIdentity(id *id.ID, validUntil time.Time,
 	persistent bool, fallthroughProcessor message.Processor) {
-	c.processor = fallthroughProcessor
+	c.processor[*id] = fallthroughProcessor
 }
 
 func (c *mockCmixServer) RemoveIdentity(id *id.ID) {
@@ -223,11 +226,12 @@ func (c *mockCmixServer) GetMaxMessageLength() int {
 func (c *mockCmixServer) SendManyWithAssembler(recipients []*id.ID,
 	assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (
 	rounds.Round, []ephemeral.Id, error) {
+	defer func() { c.curRnd += 1 }()
 
 	rng := c.RNGStreamGenerator().GetStream()
 	defer rng.Close()
 
-	rnd := id.Round(8675309)
+	rnd := id.Round(c.curRnd)
 	msgs, err := assembler(rnd)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)

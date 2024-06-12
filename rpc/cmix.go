@@ -77,7 +77,15 @@ func send(net cMixClient, recipient *id.ID, msgs [][]byte,
 
 		return msgsToSend, nil
 	}
-	return net.SendManyWithAssembler([]*id.ID{recipient}, assemble, params)
+	// NOTE: I don't think the underlying code really uses this list outside
+	// debug printing (recipient gets put into the messge, see line 69 above
+	// where TargetedCmixMessage is generated), but we fill it out here
+	// just in case.
+	recipients := make([]*id.ID, len(msgs))
+	for i := 0; i < len(recipients); i++ {
+		recipients[i] = recipient
+	}
+	return net.SendManyWithAssembler(recipients, assemble, params)
 }
 
 // Helper function that splits up the ciphertext into the appropriate cmix

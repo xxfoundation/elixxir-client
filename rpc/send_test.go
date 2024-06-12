@@ -228,6 +228,7 @@ func (c *mockCmixServer) GetMaxMessageLength() int {
 func (c *mockCmixServer) SendManyWithAssembler(recipients []*id.ID,
 	assembler cmix.ManyMessageAssembler, params cmix.CMIXParams) (
 	rounds.Round, []ephemeral.Id, error) {
+
 	defer func() { c.curRnd += 1 }()
 
 	rng := c.RNGStreamGenerator().GetStream()
@@ -237,6 +238,10 @@ func (c *mockCmixServer) SendManyWithAssembler(recipients []*id.ID,
 	msgs, err := assembler(rnd)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
+	}
+	if len(recipients) != len(msgs) {
+		jww.FATAL.Panicf("len(msgs) != len(receipients): %d != %d)",
+			len(msgs), len(recipients))
 	}
 
 	ephIds := make([]ephemeral.Id, len(msgs))

@@ -54,6 +54,7 @@ func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 
 	// Register a listener on that identity
 	res.myID = myID
+	jww.ERROR.Printf("MyID: %s", myID)
 	net.AddIdentity(myID, identity.Forever, false, res)
 	// NOTE: this identity is removed when the channels are closed in the
 	// Callback call.
@@ -241,7 +242,7 @@ func (r *response) Process(cMixMsg format.Message, _ []string, _ []byte,
 		return
 	}
 	if err != nil && err == ErrMissingParts {
-		jww.INFO.Printf("[RPC] missing parts for reconstruction")
+		jww.DEBUG.Printf("[RPC] missing parts for reconstruction")
 		return
 	}
 

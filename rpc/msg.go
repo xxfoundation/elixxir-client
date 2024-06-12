@@ -87,7 +87,7 @@ func reconstructPartitions(parts [][]byte) ([]byte, error) {
 		curSize += len(parts[1]) * (len(parts) - 1)
 	}
 	if mSz > uint64(curSize) {
-		jww.ERROR.Printf("still missing parts: %d > %d",
+		jww.DEBUG.Printf("[RPC] still missing parts: %d > %d",
 			mSz, curSize)
 		return nil, ErrMissingParts
 	}

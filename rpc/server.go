@@ -10,6 +10,7 @@ package rpc
 import (
 	"encoding/base64"
 
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/cmix/identity"
@@ -129,9 +130,13 @@ func (r *rpcServer) Process(cMixMsg format.Message, _ []string, _ []byte,
 	idBytes := msg[:id.ArrIDLen]
 	request := msg[id.ArrIDLen:]
 
-	replyMsgId := genResponseMsgID(pt, cipher.SharedKey)
-	var ephCmixId id.ID
-	copy(ephCmixId[:], idBytes)
+	replyMsgId := genResponseMsgID(msg, cipher.SharedKey)
+	ephCmixId, err := id.Unmarshal(idBytes)
+	if len(msg) <= id.ArrIDLen {
+		jww.ERROR.Printf("[RPC] unable to decode sender id: %s, %+v",
+			cMixMsg.GetKeyFP(), err)
+		return
+	}
 
 	maxPayloadSz := uint64(maxPayloadLen(r.net))
 	// NOTE: The server does not prepend the ephemeral pubkey,
@@ -155,14 +160,14 @@ func (r *rpcServer) Process(cMixMsg format.Message, _ []string, _ []byte,
 				ct = append(replyMsgId[:], ct...)
 				ciphertexts[i] = ct
 			}
-			rnd, ids, err := send(r.net, &ephCmixId, ciphertexts,
+			rnd, ids, err := send(r.net, ephCmixId, ciphertexts,
 				cmix.GetDefaultCMIXParams())
 			if err != nil {
-				jww.ERROR.Printf("[RPC] bad reply to %s: %+v",
-					cMixMsg.GetKeyFP(), err)
+				jww.ERROR.Printf("[RPC] bad reply to %s,%s: %+v",
+					ephCmixId, cMixMsg.GetKeyFP(), err)
 			}
-			jww.DEBUG.Printf("[RPC] reply to %s sent: %v, %v",
-				cMixMsg.GetKeyFP(), rnd, ids)
+			jww.INFO.Printf("[RPC] reply to %s,%s sent: %v, %v",
+				ephCmixId, cMixMsg.GetKeyFP(), rnd, ids)
 		}
 
 		// Response with Internal Server Error on crash
@@ -171,13 +176,14 @@ func (r *rpcServer) Process(cMixMsg format.Message, _ []string, _ []byte,
 				jww.ERROR.Printf("[RPC] crash with request: "+
 					"%s, %s, %+v", cMixMsg.GetKeyFP(),
 					base64.RawStdEncoding.EncodeToString(
-						request), r)
+						request),
+					errors.Errorf("%+v", r))
 				sendResp([]byte("Internal Server Error"))
 			}
 		}()
 
 		// Otherwise send the response
-		response := r.cb(&ephCmixId, request)
+		response := r.cb(ephCmixId, request)
 		sendResp(response)
 	}()
 }

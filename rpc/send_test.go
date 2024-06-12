@@ -20,6 +20,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix"
+	"gitlab.com/elixxir/client/v4/cmix/identity"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
@@ -39,7 +40,10 @@ func TestSend(t *testing.T) {
 	serverPriv, serverPub := ecdh.ECDHNIKE.NewKeypair(rng)
 
 	msgs := make(chan format.Message, 10)
-	net := MockCmix(t, msgs)
+	net := MockCmix(t)
+
+	net.AddIdentityWithHistory(serverID, identity.Forever,
+		beginningOfTime, true, &mockRPCServer{msgs: msgs})
 
 	expMsg := []byte("Hello, World!")
 
@@ -169,17 +173,15 @@ func TestSend(t *testing.T) {
 
 }
 
-func MockCmix(t *testing.T, msgs chan format.Message) *mockCmixServer {
+func MockCmix(t *testing.T) *mockCmixServer {
 	return &mockCmixServer{
 		processor: make(map[id.ID]message.Processor),
-		msgs:      msgs,
 		curRnd:    8675309,
 	}
 }
 
 type mockCmixServer struct {
 	processor map[id.ID]message.Processor
-	msgs      chan format.Message
 	curRnd    int
 }
 
@@ -249,7 +251,12 @@ func (c *mockCmixServer) SendManyWithAssembler(recipients []*id.ID,
 			fmsg.SetKeyFP(msgs[i].Fingerprint)
 			fmsg.SetMac(msgs[i].Mac)
 			fmsg.SetContents(msgs[i].Payload)
-			c.msgs <- fmsg
+			eId := receptionID.EphemeralIdentity{
+				EphId:  ephIds[i],
+				Source: recipients[i],
+			}
+			c.processor[*recipients[i]].Process(fmsg, nil, nil,
+				eId, rounds.Round{ID: rnd})
 		}
 	}()
 
@@ -261,4 +268,17 @@ func (c *mockCmixServer) SendManyWithAssembler(recipients []*id.ID,
 	}
 
 	return r, ephIds, nil
+}
+
+type mockRPCServer struct {
+	msgs chan format.Message
+}
+
+func (m *mockRPCServer) String() string {
+	return "mockRPCServer"
+}
+
+func (m *mockRPCServer) Process(cMixMsg format.Message, _ []string, _ []byte,
+	ephID receptionID.EphemeralIdentity, round rounds.Round) {
+	m.msgs <- cMixMsg
 }

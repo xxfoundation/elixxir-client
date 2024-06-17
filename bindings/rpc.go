@@ -39,9 +39,9 @@ type RPCResponse interface {
 	// RPC will call respFn 3 times: sent, round finished, and
 	// response received.
 	Callback(cbs RPCResponseCallbacks) RPCResponse
-	// Wait waits until the response is complete returns the final
+	// Await waits until the response is complete returns the final
 	// response bytes
-	Wait() ([]byte, error)
+	Await() []byte
 }
 
 // RPCServer is the interface for the RPC server, users should
@@ -101,8 +101,8 @@ func (r *rpcResponse) Callback(cbs RPCResponseCallbacks) RPCResponse {
 	return r
 }
 
-func (r *rpcResponse) Wait() ([]byte, error) {
-	return r.response.Wait(), nil
+func (r *rpcResponse) Await() []byte {
+	return r.response.Wait()
 }
 
 // NewRPCServer returns a new RPC server with the specified

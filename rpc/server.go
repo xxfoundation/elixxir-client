@@ -24,8 +24,8 @@ import (
 )
 
 func NewServer(net cMixClient,
+	callback func(id *id.ID, request []byte) []byte,
 	receptionID *id.ID,
-	callback Callback,
 	privateKey nike.PrivateKey) Server {
 	rpc := &rpcServer{
 		me:         receptionID,
@@ -54,7 +54,7 @@ func (r *rpcServer) Stop() {
 	r.net.RemoveIdentity(r.me)
 }
 
-func (r *rpcServer) SetCallback(cbFn Callback) {
+func (r *rpcServer) SetCallback(cbFn func(id *id.ID, request []byte) []byte) {
 	r.cb = cbFn
 }
 
@@ -66,7 +66,7 @@ type rpcServer struct {
 	net      cMixClient
 	rng      *fastRNG.StreamGenerator
 	listener chan Request
-	cb       Callback
+	cb       func(id *id.ID, request []byte) []byte
 	ctr      int
 }
 

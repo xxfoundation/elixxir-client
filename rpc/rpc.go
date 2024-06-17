@@ -49,10 +49,6 @@ type Response interface {
 	Wait() []byte
 }
 
-// Callback is the type of the callback function for the RPC server,
-// which is simply the return ID and the request data.
-type Callback func(id *id.ID, request []byte) []byte
-
 type Request struct {
 	id       *id.ID
 	contents []byte
@@ -85,5 +81,5 @@ type Server interface {
 	// SetCallback allows you to change the callback after
 	// initialization. This must be called before starting
 	// the server.
-	SetCallback(cbFn Callback)
+	SetCallback(cbFn func(id *id.ID, request []byte) []byte)
 }

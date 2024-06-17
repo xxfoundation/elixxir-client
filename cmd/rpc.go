@@ -209,7 +209,7 @@ func rpcEchoServer(net *xxdk.Cmix) {
 	// 		err)
 	// }
 
-	server := rpc.NewServer(net.GetCmix(), srvID, echoFn,
+	server := rpc.NewServer(net.GetCmix(), echoFn, srvID,
 		srvPriv)
 	server.Start()
 	select {}

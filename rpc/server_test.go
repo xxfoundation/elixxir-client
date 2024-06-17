@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 		return reply
 	}
 
-	server := NewServer(net, serverID, cbFn, serverPriv)
+	server := NewServer(net, cbFn, serverID, serverPriv)
 	server.Start()
 
 	expMsg := []byte("Hello, World!")

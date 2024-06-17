@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/stoppable"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -388,6 +389,8 @@ type Client interface {
 
 	// GetVerboseRounds returns stringification of verbose round info.
 	GetVerboseRounds() string
+
+	RNGStreamGenerator() *fastRNG.StreamGenerator
 }
 
 type ClientErrorReport func(source, message, trace string)

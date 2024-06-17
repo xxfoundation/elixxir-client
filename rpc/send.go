@@ -86,6 +86,7 @@ func Send(net cMixClient, serverID *id.ID, serverKey nike.PublicKey,
 		return responseErr(errors.Errorf("[RPC] Query too big, %d > %d",
 			len(request), int(headerSz)-2-len(myID.Bytes())))
 	}
+
 	// ciphertext is the encrypted part of the message
 	msgToSend := make([]byte, maxPayloadSz)
 	copy(msgToSend, public.Bytes())
@@ -165,7 +166,6 @@ type response struct {
 // listeners complete.
 func (r *response) Close() {
 	close(r.listener)
-	r.wg.Done()
 }
 
 func (r *response) Callback(respFn func(response []byte),
@@ -189,6 +189,7 @@ func (r *response) Callback(respFn func(response []byte),
 		if r.cipher != nil {
 			r.cipher.Reset()
 		}
+		r.wg.Done()
 	}()
 	return r
 }

@@ -19,11 +19,16 @@ import (
 	"gitlab.com/elixxir/client/v4/cmix/message"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
+
+func GenerateRandomID(net cMixClient) (*id.ID, error) {
+	rng := net.RNGStreamGenerator().GetStream()
+	defer rng.Close()
+	return generateRandomID(rng)
+}
 
 // cMix functions required for this module.
 type cMixClient interface {
@@ -164,29 +169,6 @@ func createRandomService(rng io.Reader) message.Service {
 		Identifier: data[:33],
 		Tag:        base64.RawStdEncoding.EncodeToString(data[33:]),
 	}
-}
-
-func generateRandomKeys(scheme nike.Nike, rng io.Reader) (nike.PrivateKey,
-	nike.PublicKey, error) {
-	// Create compatible keypair
-	privateKeyBytes := make([]byte, scheme.PrivateKeySize())
-	n, err := rng.Read(privateKeyBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	if n != len(privateKeyBytes) {
-		return nil, nil, errors.Errorf("short read: %d < %d", n,
-			len(privateKeyBytes))
-	}
-
-	privateKey := scheme.NewEmptyPrivateKey()
-	err = privateKey.FromBytes(privateKeyBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	publicKey := scheme.DerivePublicKey(privateKey)
-
-	return privateKey, publicKey, nil
 }
 
 func generateRandomID(rng io.Reader) (*id.ID, error) {

@@ -107,6 +107,7 @@ func (r *rpcServer) Process(cMixMsg format.Message, _ []string, _ []byte,
 	if err != nil {
 		jww.ERROR.Printf("[RPC] couldn't decrypt msg: %s, %+v",
 			cMixMsg.GetKeyFP(), err)
+		jww.ERROR.Printf("[RPC] GARBLED: %v, %v", ct[:pkSz], ct[pkSz:])
 		return
 	}
 
@@ -160,14 +161,22 @@ func (r *rpcServer) Process(cMixMsg format.Message, _ []string, _ []byte,
 				ct = append(replyMsgId[:], ct...)
 				ciphertexts[i] = ct
 			}
-			rnd, ids, err := send(r.net, ephCmixId, ciphertexts,
-				cmix.GetDefaultCMIXParams())
-			if err != nil {
-				jww.ERROR.Printf("[RPC] bad reply to %s,%s: %+v",
-					ephCmixId, cMixMsg.GetKeyFP(), err)
+			for {
+				rnd, _, err := send(r.net, ephCmixId,
+					ciphertexts,
+					cmix.GetDefaultCMIXParams())
+				if err != nil {
+					jww.ERROR.Printf(
+						"[RPC] bad reply to %s,%s: %+v",
+						ephCmixId, cMixMsg.GetKeyFP(),
+						err)
+					continue
+				}
+				jww.INFO.Printf("[RPC] reply to %s,%s "+
+					"sent: %s",
+					ephCmixId, cMixMsg.GetKeyFP(), rnd.ID)
+				return
 			}
-			jww.INFO.Printf("[RPC] reply to %s,%s sent: %v, %v",
-				ephCmixId, cMixMsg.GetKeyFP(), rnd, ids)
 		}
 
 		// Response with Internal Server Error on crash

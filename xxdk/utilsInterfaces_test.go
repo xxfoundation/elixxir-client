@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/v4/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
@@ -245,4 +246,7 @@ func (t *testNetworkManagerGeneric) UnregisterAddressSpaceNotification(
 func (t *testNetworkManagerGeneric) PauseNodeRegistrations(timeout time.Duration) error { return nil }
 func (t *testNetworkManagerGeneric) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
 	return nil
+}
+func (m *testNetworkManagerGeneric) RNGStreamGenerator() *fastRNG.StreamGenerator {
+	panic("implement me")
 }

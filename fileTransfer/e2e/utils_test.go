@@ -247,6 +247,7 @@ func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error { return 
 func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
 	return nil
 }
+func (m *mockCmix) RNGStreamGenerator() *fastRNG.StreamGenerator { panic("implement me") }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock E2E Handler                                                           //

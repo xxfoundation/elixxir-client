@@ -16,6 +16,19 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// RPCResponseCallbacks implements the callback functions for an RPCResponse
+// This is required because of gomobile restrictions.
+type RPCResponseCallbacks interface {
+	Response(response []byte)
+	Error(errorStr string)
+}
+
+// RPCServerCallback implements the server callback function
+// This is required due to gomobile restrictions.
+type RPCServerCallback interface {
+	Callback(sender, request []byte) []byte
+}
+
 // Response interface for RPC responses from the [Send]
 // function. Provides for the ability to call a callback on error or
 // success or to listen on the channels directly.
@@ -25,8 +38,7 @@ type RPCResponse interface {
 	// found in other languages.
 	// RPC will call respFn 3 times: sent, round finished, and
 	// response received.
-	Callback(responseFn func(response []byte),
-		errorFn func(errorStr string)) RPCResponse
+	Callback(cbs RPCResponseCallbacks) RPCResponse
 	// Wait waits until the response is complete returns the final
 	// response bytes
 	Wait() []byte
@@ -77,15 +89,14 @@ type rpcResponse struct {
 	err      error
 }
 
-func (r *rpcResponse) Callback(responseFn func(response []byte),
-	errorFn func(errorStr string)) RPCResponse {
+func (r *rpcResponse) Callback(cbs RPCResponseCallbacks) RPCResponse {
 	if r.err != nil {
-		errorFn(fmt.Sprintf("%+v", r.err))
+		cbs.Error(fmt.Sprintf("%+v", r.err))
 		return r
 	}
-	r.response.Callback(responseFn,
+	r.response.Callback(cbs.Response,
 		func(err error) {
-			errorFn(fmt.Sprintf("%+v", err))
+			cbs.Error(fmt.Sprintf("%+v", err))
 		})
 	return r
 }
@@ -96,7 +107,7 @@ func (r *rpcResponse) Wait() []byte {
 
 // NewRPCServer returns a new RPC server with the specified
 // reception ID and private Key
-func NewRPCServer(cMixID int, callbackFn func(sender, request []byte) []byte,
+func NewRPCServer(cMixID int, callback RPCServerCallback,
 	receptionID, privateKey []byte) (RPCServer, error) {
 	net, err := cmixTrackerSingleton.get(cMixID)
 	if err != nil {
@@ -116,7 +127,7 @@ func NewRPCServer(cMixID int, callbackFn func(sender, request []byte) []byte,
 
 	cbFn := func(id *id.ID, request []byte) []byte {
 		idBytes := id.Marshal()
-		return callbackFn(idBytes, request)
+		return callback.Callback(idBytes, request)
 	}
 
 	net.EKVSet("rpcServerID", receptionID)
@@ -153,7 +164,7 @@ func GenerateRandomRPCKey(cMixID int) ([]byte, error) {
 }
 
 // LoadRPCServer load key and id from disk and return an RPC server
-func LoadRPCServer(cMixID int, callbackFn func(sender, request []byte) []byte) (
+func LoadRPCServer(cMixID int, callback RPCServerCallback) (
 	RPCServer, error) {
 	net, err := cmixTrackerSingleton.get(cMixID)
 	if err != nil {
@@ -169,5 +180,5 @@ func LoadRPCServer(cMixID int, callbackFn func(sender, request []byte) []byte) (
 		return nil, err
 	}
 
-	return NewRPCServer(cMixID, callbackFn, serverID, serverKey)
+	return NewRPCServer(cMixID, callback, serverID, serverKey)
 }

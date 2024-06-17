@@ -8,10 +8,11 @@
 package cmix
 
 import (
-	"gitlab.com/elixxir/client/v4/cmix/gateway"
 	"strconv"
 	"strings"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/cmix/gateway"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -42,7 +43,7 @@ type SendCmixCommsInterface interface {
 }
 
 // How much in the future a round needs to be to send to it
-const sendTimeBuffer = 150 * time.Millisecond
+const sendTimeBuffer = 10 * time.Millisecond
 const unrecoverableError = "failed with an unrecoverable error"
 
 // handlePutMessageError handles errors received from a PutMessage or a

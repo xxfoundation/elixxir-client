@@ -163,6 +163,16 @@ func GenerateRandomRPCKey(cMixID int) ([]byte, error) {
 	return prk.Bytes(), nil
 }
 
+// DeriveRPCPublicKey derives the public key from the given private key
+func DeriveRPCPublicKey(privateKey []byte) ([]byte, error) {
+	prk := ecdh.ECDHNIKE.NewEmptyPrivateKey()
+	err := prk.FromBytes(privateKey)
+	if err != nil {
+		return nil, err
+	}
+	return ecdh.ECDHNIKE.DerivePublicKey(prk).Bytes(), nil
+}
+
 // LoadRPCServer load key and id from disk and return an RPC server
 func LoadRPCServer(cMixID int, callback RPCServerCallback) (
 	RPCServer, error) {

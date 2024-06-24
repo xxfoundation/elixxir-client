@@ -33,30 +33,30 @@ func partitionMessage(msg []byte, headerMsgSize, otherMsgSize uint64) [][]byte {
 
 	numSzBytes := uint64(len(mSzBuf))
 	numMsgBytes := uint64(len(msg))
-	actualHeaderSize := headerMsgSize - numSzBytes
+	firstPartSize := headerMsgSize - numSzBytes
 	parts := make([][]byte, 1)
 
 	// Msg fits into header
-	if actualHeaderSize >= numMsgBytes {
+	if firstPartSize >= numMsgBytes {
 		copy(headerMsg[numSzBytes:], msg)
 		parts[0] = headerMsg
 		return parts
 	}
 
 	// Msg does not fit into header
-	copy(headerMsg[numSzBytes:], msg[:actualHeaderSize])
+	copy(headerMsg[numSzBytes:], msg[:firstPartSize])
 	parts[0] = headerMsg
-	msgBytesLeft := numMsgBytes - actualHeaderSize
+	msgBytesLeft := numMsgBytes - firstPartSize
 
 	// Add the rest of the parts
-	numParts := msgBytesLeft / otherMsgSize
-	offset := actualHeaderSize
-	for i := uint64(0); i < numParts; i++ {
+	numFullPartsLeft := msgBytesLeft / otherMsgSize
+	offset := firstPartSize
+	for i := uint64(0); i < numFullPartsLeft; i++ {
 		parts = append(parts, msg[offset:offset+otherMsgSize])
 		offset += otherMsgSize
 	}
 
-	// Partial part
+	// Last part (if necessary)
 	if (msgBytesLeft % otherMsgSize) != 0 {
 		p := make([]byte, otherMsgSize)
 		copy(p, msg[offset:])
@@ -82,9 +82,9 @@ func reconstructPartitions(parts [][]byte) ([]byte, error) {
 	}
 
 	// Do we have the whole message yet?
-	curSize := headerReader.Len()
-	if len(parts) != 1 {
-		curSize += len(parts[1]) * (len(parts) - 1)
+	curSize := 0
+	for i := 0; i < len(parts); i++ {
+		curSize += len(parts[i])
 	}
 	if mSz > uint64(curSize) {
 		jww.DEBUG.Printf("[RPC] still missing parts: %d > %d",
@@ -92,22 +92,16 @@ func reconstructPartitions(parts [][]byte) ([]byte, error) {
 		return nil, ErrMissingParts
 	}
 
-	msg := make([]byte, mSz)
+	msg := make([]byte, curSize)
 	offset, err := headerReader.Read(msg)
 	if err != nil {
 		return nil, err
 	}
 
 	for i := 1; i < len(parts); i++ {
-		if uint64(offset+len(parts[i])) <= mSz {
-			copy(msg[offset:], parts[i])
-			offset += len(parts[i])
-		} else {
-			stop := uint64(len(parts[i])) - (mSz - uint64(offset))
-			copy(msg[offset:], parts[i][:stop])
-			offset += len(parts[i])
-		}
+		copy(msg[offset:], parts[i])
+		offset += len(parts[i])
 	}
 
-	return msg, nil
+	return msg[:mSz], nil
 }

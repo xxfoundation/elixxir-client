@@ -66,14 +66,14 @@ def main():
     for line in args["path"].readlines():
         # An example line is "// skipped field AdminKeysUpdateJSON.ChannelId with unsupported type: *gitlab.com/xx_network/primitives/id.ID"
         if line.startswith("// skipped "):
-            execption = False
+            skip = False
             for e in exceptions:
                 if e in line:
-                    exception = True
+                    skip = True
                     break
-
-            if exception:
+            if skip:
                 continue
+
             parts = line.split(" ", 4)
 
             type = parts[2]

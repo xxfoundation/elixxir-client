@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/v4/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -50,7 +51,7 @@ func StoreReceptionIdentity(key string, identity []byte, cmixId int) error {
 	if err != nil {
 		return err
 	}
-	return xxdk.StoreReceptionIdentity(key, receptionIdentity, cmix.api)
+	return xxdk.StoreReceptionIdentity(key, receptionIdentity, cmix.Api)
 }
 
 // LoadReceptionIdentity loads the given identity in Cmix storage with the given
@@ -60,7 +61,7 @@ func LoadReceptionIdentity(key string, cmixId int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	storageObj, err := cmix.api.GetStorage().Get(key)
+	storageObj, err := cmix.Api.GetStorage().Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func LoadReceptionIdentity(key string, cmixId int) ([]byte, error) {
 // MakeReceptionIdentity generates a new cryptographic identity for receiving
 // messages.
 func (c *Cmix) MakeReceptionIdentity() ([]byte, error) {
-	ident, err := xxdk.MakeReceptionIdentity(c.api)
+	ident, err := xxdk.MakeReceptionIdentity(c.Api)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +84,7 @@ func (c *Cmix) MakeReceptionIdentity() ([]byte, error) {
 // messages. As with all legacy calls, this should primarily be used
 // for the xx messenger team.
 func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
-	ident, err := xxdk.MakeLegacyReceptionIdentity(c.api)
+	ident, err := xxdk.MakeLegacyReceptionIdentity(c.Api)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +95,7 @@ func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
 // GetReceptionRegistrationValidationSignature returns the signature provided by
 // the xx network.
 func (c *Cmix) GetReceptionRegistrationValidationSignature() []byte {
-	regSig := c.api.GetStorage().GetReceptionRegistrationValidationSignature()
+	regSig := c.Api.GetStorage().GetReceptionRegistrationValidationSignature()
 	return regSig
 }
 

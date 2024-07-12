@@ -10,9 +10,10 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/message"
-	"time"
 
 	"github.com/pkg/errors"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -52,7 +53,7 @@ import (
 //     handles both auth confirm and requests.
 func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	return c.api.StartNetworkFollower(timeout)
+	return c.Api.StartNetworkFollower(timeout)
 }
 
 // StopNetworkFollower stops the network follower if it is running. It returns
@@ -62,7 +63,7 @@ func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 // If the network follower is running and this fails, the Cmix object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Cmix) StopNetworkFollower() error {
-	if err := c.api.StopNetworkFollower(); err != nil {
+	if err := c.Api.StopNetworkFollower(); err != nil {
 		return errors.New(fmt.Sprintf("Failed to stop the "+
 			"network follower: %+v", err))
 	}
@@ -91,7 +92,7 @@ func (c *Cmix) StopNetworkFollower() error {
 //   - periodMS - The duration of the period, in milliseconds.
 func (c *Cmix) SetTrackNetworkPeriod(periodMS int) {
 	period := time.Duration(periodMS) * time.Millisecond
-	c.api.SetTrackNetworkPeriod(period)
+	c.Api.SetTrackNetworkPeriod(period)
 }
 
 // WaitForNetwork will block until either the network is healthy or the passed
@@ -100,7 +101,7 @@ func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 	start := netTime.Now()
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	for netTime.Since(start) < timeout {
-		if c.api.GetCmix().IsHealthy() {
+		if c.Api.GetCmix().IsHealthy() {
 			return true
 		}
 		time.Sleep(250 * time.Millisecond)
@@ -113,13 +114,13 @@ func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 // at least 70% of the nodes. Returns false otherwise.
 func (c *Cmix) ReadyToSend() bool {
 	// Check if the network is currently healthy
-	if !c.api.GetCmix().IsHealthy() {
+	if !c.Api.GetCmix().IsHealthy() {
 		return false
 	}
 
 	// If the network is healthy, then check the number of nodes that the client
 	// is currently registered with
-	numReg, total, err := c.api.GetNodeRegistrationStatus()
+	numReg, total, err := c.Api.GetNodeRegistrationStatus()
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
 	}
@@ -148,7 +149,7 @@ type IsReadyInfo struct {
 //	Running  - 2000
 //	Stopping - 3000
 func (c *Cmix) NetworkFollowerStatus() int {
-	return int(c.api.NetworkFollowerStatus())
+	return int(c.Api.NetworkFollowerStatus())
 }
 
 // NodeRegistrationReport is the report structure which
@@ -167,7 +168,7 @@ type NodeRegistrationReport struct {
 //   - An error if it cannot get the node registration status. The most likely
 //     cause is that the network is unhealthy.
 func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
-	numNodesRegistered, numNodes, err := c.api.GetNodeRegistrationStatus()
+	numNodesRegistered, numNodes, err := c.Api.GetNodeRegistrationStatus()
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +192,7 @@ func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 // Returns:
 //   - JSON of [IsReadyInfo].
 func (c *Cmix) IsReady(percentReady float64) ([]byte, error) {
-	isReady, howClose := c.api.IsReady(percentReady)
+	isReady, howClose := c.Api.IsReady(percentReady)
 	return json.Marshal(&IsReadyInfo{isReady, howClose})
 }
 
@@ -203,7 +204,7 @@ func (c *Cmix) IsReady(percentReady float64) ([]byte, error) {
 //     before failing.
 func (c *Cmix) PauseNodeRegistrations(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	return c.api.PauseNodeRegistrations(timeout)
+	return c.Api.PauseNodeRegistrations(timeout)
 }
 
 // ChangeNumberOfNodeRegistrations changes the number of parallel node
@@ -215,7 +216,7 @@ func (c *Cmix) PauseNodeRegistrations(timeoutMS int) error {
 //     registrations before failing.
 func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun, timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	return c.api.ChangeNumberOfNodeRegistrations(toRun, timeout)
+	return c.Api.ChangeNumberOfNodeRegistrations(toRun, timeout)
 }
 
 // HasRunningProcessies checks if any background threads are running and returns
@@ -225,13 +226,13 @@ func (c *Cmix) ChangeNumberOfNodeRegistrations(toRun, timeoutMS int) error {
 // Due to the handling of comms on iOS, where the OS can block indefinitely, it
 // may not enter the stopped state appropriately. This can be used instead.
 func (c *Cmix) HasRunningProcessies() bool {
-	return c.api.HasRunningProcessies()
+	return c.Api.HasRunningProcessies()
 }
 
 // IsHealthy returns true if the network is read to be in a healthy state where
 // messages can be sent.
 func (c *Cmix) IsHealthy() bool {
-	return c.api.GetCmix().IsHealthy()
+	return c.Api.GetCmix().IsHealthy()
 }
 
 // GetRunningProcesses returns the names of all running processes at the time
@@ -248,7 +249,7 @@ func (c *Cmix) IsHealthy() bool {
 //	  "MessageReception Worker 0"
 //	}
 func (c *Cmix) GetRunningProcesses() ([]byte, error) {
-	return json.Marshal(c.api.GetRunningProcesses())
+	return json.Marshal(c.Api.GetRunningProcesses())
 }
 
 // NetworkHealthCallback contains a callback that is used to receive
@@ -260,12 +261,12 @@ type NetworkHealthCallback interface {
 // AddHealthCallback adds a callback that gets called whenever the network
 // health changes. Returns a registration ID that can be used to unregister.
 func (c *Cmix) AddHealthCallback(nhc NetworkHealthCallback) int64 {
-	return int64(c.api.GetCmix().AddHealthCallback(nhc.Callback))
+	return int64(c.Api.GetCmix().AddHealthCallback(nhc.Callback))
 }
 
 // RemoveHealthCallback removes a health callback using its registration ID.
 func (c *Cmix) RemoveHealthCallback(funcID int64) {
-	c.api.GetCmix().RemoveHealthCallback(uint64(funcID))
+	c.Api.GetCmix().RemoveHealthCallback(uint64(funcID))
 }
 
 type ClientError interface {
@@ -276,7 +277,7 @@ type ClientError interface {
 // long-running threads controlled by StartNetworkFollower and
 // StopNetworkFollower.
 func (c *Cmix) RegisterClientErrorCallback(clientError ClientError) {
-	errChan := c.api.GetErrorsChannel()
+	errChan := c.Api.GetErrorsChannel()
 	go func() {
 		for report := range errChan {
 			go clientError.Report(report.Source, report.Message, report.Trace)
@@ -380,7 +381,7 @@ func (c *Cmix) TrackServicesWithIdentity(e2eId int, cb TrackServicesCallback,
 	}
 
 	receptionId := user.api.GetReceptionIdentity().ID
-	c.api.GetCmix().TrackServices(func(
+	c.Api.GetCmix().TrackServices(func(
 		list message.ServiceList, compressedList message.CompressedServiceList) {
 		// Pass along normal services
 		res := make(message.ServiceList)
@@ -406,7 +407,7 @@ func (c *Cmix) TrackServicesWithIdentity(e2eId int, cb TrackServicesCallback,
 //   - cb - A [TrackServicesCallback], which will be passed the JSON of
 //     [message.ServiceList].
 func (c *Cmix) TrackServices(cb TrackServicesCallback) {
-	c.api.GetCmix().TrackServices(func(
+	c.Api.GetCmix().TrackServices(func(
 		list message.ServiceList, compressedList message.CompressedServiceList) {
 		cb.Callback(json.Marshal(list))
 	})

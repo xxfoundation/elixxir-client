@@ -75,7 +75,7 @@ func RestlikeRequest(
 
 	c := connect.Request{
 		Net:    conn.connection,
-		Rng:    cl.api.GetRng().GetStream(),
+		Rng:    cl.Api.GetRng().GetStream(),
 		E2eGrp: nil,
 	}
 
@@ -136,7 +136,7 @@ func RestlikeRequestAuth(cmixId, authConnectionID int, request,
 
 	c := connect.Request{
 		Net:    auth.connection,
-		Rng:    cl.api.GetRng().GetStream(),
+		Rng:    cl.Api.GetRng().GetStream(),
 		E2eGrp: nil,
 	}
 

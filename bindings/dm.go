@@ -28,7 +28,6 @@ import (
 
 type DMReceiver dm.DMReceiver
 
-
 // DMReceiverBuilder builds an event model.
 type DMReceiverBuilder interface {
 	Build(path string) DMReceiver
@@ -101,17 +100,17 @@ func NewDMClient(cmixID, notificationsID int, privateIdentity []byte,
 	receptionID := dm.DeriveReceptionID(pi.PubKey, pi.GetDMToken())
 
 	nickMgr := dm.NewNicknameManager(receptionID,
-		user.api.GetStorage().GetKV())
+		user.Api.GetStorage().GetKV())
 
-	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
+	sendTracker := dm.NewSendTracker(user.Api.GetStorage().GetKV())
 
-	dmKV, err := user.api.GetStorage().GetKV().Prefix("dm")
+	dmKV, err := user.Api.GetStorage().GetKV().Prefix("dm")
 	if err != nil {
 		return nil, err
 	}
 
 	m, err := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr, nm.manager,
-		user.api.GetCmix(), dmKV, user.api.GetRng(), wrapDmCallbacks(cbs))
+		user.Api.GetCmix(), dmKV, user.Api.GetRng(), wrapDmCallbacks(cbs))
 	if err != nil {
 		return nil, err
 	}
@@ -163,17 +162,17 @@ func NewDMClientWithGoEventModel(cmixID, notificationsID int,
 	receptionID := dm.DeriveReceptionID(pi.PubKey, pi.GetDMToken())
 
 	nickMgr := dm.NewNicknameManager(receptionID,
-		user.api.GetStorage().GetKV())
+		user.Api.GetStorage().GetKV())
 
-	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
+	sendTracker := dm.NewSendTracker(user.Api.GetStorage().GetKV())
 
-	dmKV, err := user.api.GetStorage().GetKV().Prefix("dm")
+	dmKV, err := user.Api.GetStorage().GetKV().Prefix("dm")
 	if err != nil {
 		return nil, err
 	}
 
 	m, err := dm.NewDMClient(&pi, receiver, sendTracker, nickMgr, nm.manager,
-		user.api.GetCmix(), dmKV, user.api.GetRng(), wrapDmCallbacks(cbs))
+		user.Api.GetCmix(), dmKV, user.Api.GetRng(), wrapDmCallbacks(cbs))
 	if err != nil {
 		return nil, err
 	}
@@ -227,17 +226,17 @@ func NewDmManagerMobile(cmixID, notificationsID int, privateIdentity []byte,
 	receptionID := dm.DeriveReceptionID(pi.PubKey, pi.GetDMToken())
 
 	nickMgr := dm.NewNicknameManager(receptionID,
-		user.api.GetStorage().GetKV())
+		user.Api.GetStorage().GetKV())
 
-	sendTracker := dm.NewSendTracker(user.api.GetStorage().GetKV())
+	sendTracker := dm.NewSendTracker(user.Api.GetStorage().GetKV())
 
-	dmKV, err := user.api.GetStorage().GetKV().Prefix("dm")
+	dmKV, err := user.Api.GetStorage().GetKV().Prefix("dm")
 	if err != nil {
 		return nil, err
 	}
 
 	m, err := dm.NewDMClient(&pi, model, sendTracker, nickMgr, nm.manager,
-		user.api.GetCmix(), dmKV, user.api.GetRng(), wrapDmCallbacks(cbs))
+		user.Api.GetCmix(), dmKV, user.Api.GetRng(), wrapDmCallbacks(cbs))
 	if err != nil {
 		return nil, err
 	}

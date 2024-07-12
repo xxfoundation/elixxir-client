@@ -76,7 +76,7 @@ func RPCSend(cMixID int, recipient, pubkey, request []byte) RPCResponse {
 
 	params := cmix.GetDefaultCMIXParams()
 
-	res := rpc.Send(net.api.GetCmix(), serverID, serverKey, request, params)
+	res := rpc.Send(net.Api.GetCmix(), serverID, serverKey, request, params)
 	return &rpcResponse{response: res}
 }
 
@@ -133,7 +133,7 @@ func NewRPCServer(cMixID int, callback RPCServerCallback,
 	net.EKVSet("rpcServerID", receptionID)
 	net.EKVSet("rpcServerKey", privateKey)
 
-	server := rpc.NewServer(net.api.GetCmix(), cbFn, serverID, serverKey)
+	server := rpc.NewServer(net.Api.GetCmix(), cbFn, serverID, serverKey)
 	return server, nil
 }
 
@@ -143,7 +143,7 @@ func GenerateRandomReceptionID(cMixID int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	newID, err := rpc.GenerateRandomID(net.api.GetCmix())
+	newID, err := rpc.GenerateRandomID(net.Api.GetCmix())
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func GenerateRandomRPCKey(cMixID int) ([]byte, error) {
 		return nil, err
 	}
 
-	rng := net.api.GetRng().GetStream()
+	rng := net.Api.GetRng().GetStream()
 	defer rng.Close()
 	prk, _ := ecdh.ECDHNIKE.NewKeypair(rng)
 	return prk.Bytes(), nil

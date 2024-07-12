@@ -182,7 +182,7 @@ func GenerateChannelIdentity(cmixID int) ([]byte, error) {
 		return nil, err
 	}
 
-	rng := user.api.GetRng().GetStream()
+	rng := user.Api.GetRng().GetStream()
 	defer rng.Close()
 	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
@@ -323,14 +323,14 @@ func NewChannelsManagerMobile(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	channelsKV, err := user.Api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManager(pi, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), model, extensionBuilders, user.api.AddService,
+	m, err := channels.NewManager(pi, channelsKV, user.Api.GetCmix(),
+		user.Api.GetRng(), model, extensionBuilders, user.Api.AddService,
 		notif.manager, wrap)
 	if err != nil {
 		return nil, err
@@ -392,7 +392,7 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 		return nil, err
 	}
 
-	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	channelsKV, err := user.Api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
@@ -404,8 +404,8 @@ func LoadChannelsManagerMobile(cmixID int, storageTag, dbFilePath string,
 	}
 
 	// Construct new channels manager
-	m, err := channels.LoadManager(storageTag, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), model, extensionBuilders, notif.manager, wrap)
+	m, err := channels.LoadManager(storageTag, channelsKV, user.Api.GetCmix(),
+		user.Api.GetRng(), model, extensionBuilders, notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -468,14 +468,14 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
 
-	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	channelsKV, err := user.Api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), eb, extensionBuilders, user.api.AddService,
+	m, err := channels.NewManagerBuilder(pi, channelsKV, user.Api.GetCmix(),
+		user.Api.GetRng(), eb, extensionBuilders, user.Api.AddService,
 		notif.manager, wrap)
 	if err != nil {
 		return nil, err
@@ -535,14 +535,14 @@ func LoadChannelsManager(cmixID int, storageTag string,
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
 
-	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	channelsKV, err := user.Api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(), eb, extensionBuilders,
+		user.Api.GetCmix(), user.Api.GetRng(), eb, extensionBuilders,
 		notif.manager, wrap)
 	if err != nil {
 		return nil, err
@@ -603,15 +603,15 @@ func NewChannelsManagerGoEventModel(cmixID int, privateIdentity,
 	}
 
 	wrap := wrapChannelUICallbacks(callbacks)
-	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	channelsKV, err := user.Api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct new channels manager
-	m, err := channels.NewManagerBuilder(pi, channelsKV, user.api.GetCmix(),
-		user.api.GetRng(), goEventBuilder, extensionBuilders,
-		user.api.AddService, notif.manager, wrap)
+	m, err := channels.NewManagerBuilder(pi, channelsKV, user.Api.GetCmix(),
+		user.Api.GetRng(), goEventBuilder, extensionBuilders,
+		user.Api.AddService, notif.manager, wrap)
 	if err != nil {
 		return nil, err
 	}
@@ -657,7 +657,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 	}
 
 	wrap := wrapChannelUICallbacks(uiCallbacks)
-	channelsKV, err := user.api.GetStorage().GetKV().Prefix("channels")
+	channelsKV, err := user.Api.GetStorage().GetKV().Prefix("channels")
 	if err != nil {
 		return nil, err
 	}
@@ -670,7 +670,7 @@ func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
 
 	// Construct new channels manager
 	m, err := channels.LoadManagerBuilder(storageTag, channelsKV,
-		user.api.GetCmix(), user.api.GetRng(), goEventBuilder,
+		user.Api.GetCmix(), user.Api.GetRng(), goEventBuilder,
 		extensionBuilders, notif.manager, wrap)
 	if err != nil {
 		return nil, err
@@ -1077,7 +1077,7 @@ func (cm *ChannelsManager) GetShareURL(cmixID int, host string, maxUses int,
 	}
 
 	// Generate share URL and password
-	rng := user.api.GetRng().GetStream()
+	rng := user.Api.GetRng().GetStream()
 	url, password, err := ch.ShareURL(host, maxUses, rng)
 	rng.Close()
 	if err != nil {

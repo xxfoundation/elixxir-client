@@ -9,9 +9,10 @@ package bindings
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/notifications"
-	"sync"
 )
 
 // notifTrackerSingleton is used to track notifications objects so that they
@@ -119,7 +120,7 @@ func LoadNotifications(cmixId int) (*Notifications, error) {
 	if err != nil {
 		return nil, err
 	}
-	mix := mixBind.api
+	mix := mixBind.Api
 	identity := mix.GetTransmissionIdentity()
 	sig := mix.GetStorage().GetTransmissionRegistrationValidationSignature()
 	kv := mix.GetStorage().GetKV()
@@ -136,7 +137,7 @@ func LoadNotificationsDummy(cmixId int) (*Notifications, error) {
 	if err != nil {
 		return nil, err
 	}
-	mix := mixBind.api
+	mix := mixBind.Api
 	identity := mix.GetTransmissionIdentity()
 	sig := mix.GetStorage().GetTransmissionRegistrationValidationSignature()
 	kv := mix.GetStorage().GetKV()

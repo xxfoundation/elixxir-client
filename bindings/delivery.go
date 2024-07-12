@@ -141,7 +141,7 @@ func (c *Cmix) WaitForRoundResult(
 
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
-	c.api.GetCmix().GetRoundResults(timeout, f, rl...)
+	c.Api.GetCmix().GetRoundResults(timeout, f, rl...)
 
 	return nil
 }

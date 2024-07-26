@@ -48,6 +48,8 @@ whitelist = {
                  "NewDMClientWithGoEventModel"]
 }
 
+exceptions = [ "Cmix.Api" ]
+
 
 def main():
     log.basicConfig(format='[%(levelname)s] %(asctime)s: %(message)s',
@@ -64,8 +66,16 @@ def main():
     for line in args["path"].readlines():
         # An example line is "// skipped field AdminKeysUpdateJSON.ChannelId with unsupported type: *gitlab.com/xx_network/primitives/id.ID"
         if line.startswith("// skipped "):
+            skip = False
+            for e in exceptions:
+                if e in line:
+                    skip = True
+                    break
+            if skip:
+                continue
+
             parts = line.split(" ", 4)
-            
+
             type = parts[2]
             object = parts[3]
             reason = parts[4]

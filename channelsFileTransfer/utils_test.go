@@ -337,9 +337,10 @@ func (m *mockCmix) GetAddressSpace() uint8            { panic("implement me") }
 func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) {
 	panic("implement me")
 }
-func (m *mockCmix) UnregisterAddressSpaceNotification(string) { panic("implement me") }
-func (m *mockCmix) GetInstance() *network.Instance            { panic("implement me") }
-func (m *mockCmix) GetVerboseRounds() string                  { panic("implement me") }
+func (m *mockCmix) UnregisterAddressSpaceNotification(string)    { panic("implement me") }
+func (m *mockCmix) GetInstance() *network.Instance               { panic("implement me") }
+func (m *mockCmix) GetVerboseRounds() string                     { panic("implement me") }
+func (m *mockCmix) RNGStreamGenerator() *fastRNG.StreamGenerator { panic("implement me") }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Storage Session                                                       //

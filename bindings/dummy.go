@@ -8,8 +8,9 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/v4/dummy"
 	"time"
+
+	"gitlab.com/elixxir/client/v4/dummy"
 )
 
 // DummyTraffic is the bindings-layer dummy (or "cover") traffic manager. T
@@ -48,9 +49,9 @@ func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 	randomRange := time.Duration(randomRangeMS) * time.Millisecond
 
 	m := dummy.NewManager(
-		maxNumMessages, avgSendDelta, randomRange, net.api)
+		maxNumMessages, avgSendDelta, randomRange, net.Api)
 
-	return &DummyTraffic{m}, net.api.AddService(m.StartDummyTraffic)
+	return &DummyTraffic{m}, net.Api.AddService(m.StartDummyTraffic)
 }
 
 // Pause will pause the Manager's sending thread, meaning messages will no

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
@@ -379,3 +380,4 @@ func (m *mockNetManager) PauseNodeRegistrations(timeout time.Duration) error { r
 func (m *mockNetManager) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
 	return nil
 }
+func (m *mockNetManager) RNGStreamGenerator() *fastRNG.StreamGenerator { panic("implement me") }

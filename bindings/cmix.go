@@ -34,7 +34,7 @@ var cmixTrackerSingleton = &cmixTracker{
 // Cmix wraps the xxdk.Cmix struct, implementing additional functions to support
 // the bindings Cmix interface.
 type Cmix struct {
-	api *xxdk.Cmix
+	Api *xxdk.Cmix
 	id  int
 }
 
@@ -158,7 +158,7 @@ func (c *Cmix) GetID() int {
 // GetReceptionID returns the Default Reception Identity for this cMix
 // Instance
 func (c *Cmix) GetReceptionID() []byte {
-	rid := *c.api.GetStorage().GetReceptionID()
+	rid := *c.Api.GetStorage().GetReceptionID()
 	return rid.Bytes()
 }
 
@@ -166,7 +166,7 @@ func (c *Cmix) GetReceptionID() []byte {
 // interacted with directly.
 // TODO: force this into a synchronized prefix?
 func (c *Cmix) GetRemoteKV() *RemoteKV {
-	local := c.api.GetStorage().GetKV()
+	local := c.Api.GetStorage().GetKV()
 	remote, err := local.Prefix(collective.StandardRemoteSyncPrefix)
 	if err != nil {
 		jww.FATAL.Panicf("could not get remote KV: %+v", err)
@@ -185,7 +185,7 @@ func (c *Cmix) GetRemoteKV() *RemoteKV {
 
 // EKVGet allows access to a value inside secure encrypted key value store
 func (c *Cmix) EKVGet(key string) ([]byte, error) {
-	ekv := c.api.GetStorage().GetKV()
+	ekv := c.Api.GetStorage().GetKV()
 	versionedVal, err := ekv.Get(key, 0)
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func (c *Cmix) EKVGet(key string) ([]byte, error) {
 
 // EKVSet allows user to set a value inside secure encrypted key value store
 func (c *Cmix) EKVSet(key string, value []byte) error {
-	ekv := c.api.GetStorage().GetKV()
+	ekv := c.Api.GetStorage().GetKV()
 	versioned := versioned.Object{
 		Version:   0,
 		Data:      value,
@@ -238,7 +238,7 @@ func (ct *cmixTracker) make(c *xxdk.Cmix) *Cmix {
 	ct.count++
 
 	ct.tracked[id] = &Cmix{
-		api: c,
+		Api: c,
 		id:  id,
 	}
 

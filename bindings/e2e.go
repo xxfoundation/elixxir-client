@@ -8,8 +8,9 @@
 package bindings
 
 import (
-	"gitlab.com/xx_network/primitives/id"
 	"sync"
+
+	"gitlab.com/xx_network/primitives/id"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -71,7 +72,7 @@ func Login(cmixId int, callbacks AuthCallbacks, identity,
 		return nil, err
 	}
 
-	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity, params)
+	newE2e, err := xxdk.Login(cmix.Api, authCallbacks, newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func LoginEphemeral(cmixId int, callbacks AuthCallbacks, identity,
 		return nil, err
 	}
 
-	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks,
+	newE2e, err := xxdk.LoginEphemeral(cmix.Api, authCallbacks,
 		newIdentity, params)
 	if err != nil {
 		return nil, err

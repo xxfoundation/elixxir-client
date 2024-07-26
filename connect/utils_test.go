@@ -26,6 +26,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
@@ -239,6 +240,7 @@ func (m *mockCmix) PauseNodeRegistrations(timeout time.Duration) error          
 func (m *mockCmix) ChangeNumberOfNodeRegistrations(toRun int, timeout time.Duration) error {
 	return nil
 }
+func (m *mockCmix) RNGStreamGenerator() *fastRNG.StreamGenerator { panic("implement me") }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Misc set-up utils                                                          //

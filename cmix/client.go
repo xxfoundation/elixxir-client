@@ -11,11 +11,12 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"math"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/v4/cmix/attempts"
 	"gitlab.com/elixxir/client/v4/cmix/clockSkew"
@@ -375,4 +376,9 @@ func (c *client) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Ti
 func (c *client) RemoveIdentity(id *id.ID) {
 	c.RemoveIdentityInternal(id)
 	c.Handler.RemoveFallthrough(id)
+}
+
+// RNGStreamGenerator returns the RNG stream generator for this cMix instance
+func (c *client) RNGStreamGenerator() *fastRNG.StreamGenerator {
+	return c.rng
 }

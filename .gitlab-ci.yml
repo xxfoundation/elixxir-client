@@ -108,6 +108,7 @@ bindings-ios:
     - mc --version
     - go mod tidy
     - rm -rf vendor/
+    - export PODVERSION=$(go run main.go version | head -1 | awk '{print $3}' | sed 's/v//g')
     - go build ./...
     - go get golang.org/x/mobile/bind
     - go install golang.org/x/mobile/cmd/gomobile@latest
@@ -134,10 +135,10 @@ bindings-ios:
 
     # Release package folder (used for Cocoapods) - NEEDS CLEANUP
     - mkdir -p ios-release
-    - cp iOS.zip ios-release/XXDK-4.7.2.zip
-    - cp iOS-$CI_COMMIT_SHA.zip.checksum ios-release/XXDK-4.7.2.zip.checksum
-    - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/release-ios/XXDK-4.7.2.zip
-    - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/release-ios/XXDK-4.7.2.zip.checksum
+    - cp iOS.zip ios-release/XXDK-$PODVERSION.zip
+    - cp iOS-$CI_COMMIT_SHA.zip.checksum ios-release/XXDK-$PODVERSION.zip.checksum
+    - mc cp iOS-$CI_COMMIT_SHA.zip elixxir-s3/$ARTIFACT_S3_BUCKET/release-ios/XXDK-$PODVERSION.zip
+    - mc cp iOS-$CI_COMMIT_SHA.zip.checksum elixxir-s3/$ARTIFACT_S3_BUCKET/release-ios/XXDK-$PODVERSION.zip.checksum
   artifacts:
     paths:
       - iOS.zip

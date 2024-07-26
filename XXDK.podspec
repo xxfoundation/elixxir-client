@@ -48,7 +48,7 @@ Learn more at https://xx.network/
   #
 
   spec.license      = "BSD 2-Clause"
-  # spec.license      = { :type => "MIT", :file => "FILE_LICENSE" }
+  #spec.license      = { :type => "BSD 2-Clause", :file => "LICENSE" }
 
 
   # ――― Author Metadata  ――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #

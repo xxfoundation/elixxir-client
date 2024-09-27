@@ -220,6 +220,15 @@ func GetCMixInstance(instanceID int) (*Cmix, error) {
 	return instance, nil
 }
 
+func DeleteCmixInstance(instanceID int) error {
+	_, ok := cmixTrackerSingleton.tracked[instanceID]
+	if !ok {
+		return errors.Errorf("no cmix instance id: %d", instanceID)
+	}
+	cmixTrackerSingleton.delete(instanceID)
+	return nil
+}
+
 // cmixTracker is a singleton used to keep track of extant Cmix objects,
 // preventing race conditions created by passing it over the bindings.
 type cmixTracker struct {

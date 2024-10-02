@@ -135,7 +135,7 @@ type SingleUseResponseReport struct {
 	Payload     []byte
 	ReceptionID *id.ID
 	EphID       int64
-	Err         error
+	Err         string
 }
 
 // SingleUseCallbackReport is the bindings-layer struct used to represent
@@ -261,13 +261,17 @@ func (sr singleUseResponse) Callback(payload []byte,
 	if len(rids) > 0 {
 		roundURL = getRoundURL(rids[0])
 	}
+	errString := ""
+	if err != nil {
+		errString = err.Error()
+	}
 	sendReport := SingleUseResponseReport{
 		RoundsList:  makeRoundsList(rids...),
 		RoundURL:    roundURL,
 		ReceptionID: receptionID.Source,
 		EphID:       receptionID.EphId.Int64(),
 		Payload:     payload,
-		Err:         err,
+		Err:         errString,
 	}
 	sr.response.Callback(json.Marshal(&sendReport))
 }

@@ -50,7 +50,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 		Payload:     payload,
 		ReceptionID: ephId.Source,
 		EphID:       ephId.EphId.Int64(),
-		Err:         nil,
+		Err:         "",
 	}
 	rrm, err := json.Marshal(responseReport)
 	if err != nil {

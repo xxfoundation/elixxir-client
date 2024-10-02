@@ -221,10 +221,11 @@ func GetCMixInstance(instanceID int) (*Cmix, error) {
 }
 
 func DeleteCmixInstance(instanceID int) error {
-	_, ok := cmixTrackerSingleton.tracked[instanceID]
+	cmix, ok := cmixTrackerSingleton.tracked[instanceID]
 	if !ok {
 		return errors.Errorf("no cmix instance id: %d", instanceID)
 	}
+	cmix.StopNetworkFollower()
 	cmixTrackerSingleton.delete(instanceID)
 	return nil
 }

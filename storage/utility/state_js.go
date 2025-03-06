@@ -15,5 +15,5 @@ import (
 )
 
 // StateKV is a global that allows switching out the storage backend for
-// certain KV operations. Defaults to backed by local storage.
-var StateKV = storage.GetLocalStorage()
+// certain KV operations. Defaults to backed by external storage.
+var StateKV = storage.GetExternalStorage()

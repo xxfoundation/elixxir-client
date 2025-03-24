@@ -1,8 +1,6 @@
 module gitlab.com/elixxir/client/v4
 
-go 1.21
-
-toolchain go1.21.13
+go 1.19
 
 require (
 	github.com/cloudflare/circl v1.3.6

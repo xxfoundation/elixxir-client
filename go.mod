@@ -1,6 +1,8 @@
 module gitlab.com/elixxir/client/v4
 
-go 1.19
+go 1.21
+
+toolchain go1.21.13
 
 require (
 	github.com/cloudflare/circl v1.3.6
@@ -18,7 +20,7 @@ require (
 	gitlab.com/elixxir/crypto v0.0.9
 	gitlab.com/elixxir/ekv v0.4.0
 	gitlab.com/elixxir/primitives v0.0.4
-	gitlab.com/elixxir/wasm-utils v0.0.1
+	gitlab.com/elixxir/wasm-utils v0.0.4-0.20250312230449-40a61644c53a
 	gitlab.com/xx_network/comms v0.0.6
 	gitlab.com/xx_network/crypto v0.0.6
 	gitlab.com/xx_network/primitives v0.0.5

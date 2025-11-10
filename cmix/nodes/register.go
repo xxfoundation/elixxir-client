@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"gitlab.com/xx_network/crypto/csprng"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -120,6 +121,20 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 						return
 					}
 				} else {
+					// Check if this is a permanent failure (no grpc-web support)
+					isPermanentFailure := strings.Contains(err.Error(), "Failed to fetch") ||
+						strings.Contains(err.Error(), "NetworkError when attempting to fetch")
+
+					if isPermanentFailure {
+						gwIDStr := hex.EncodeToString(gw.Gateway.ID)
+						gwAddr := gw.Gateway.Address
+						jww.WARN.Printf("Gateway %s (%s) does not support gRPC-web or has invalid TLS cert - skipping retries: %s",
+							gwIDStr, gwAddr, err.Error())
+						// Mark as max attempts to prevent retries
+						attempts.Store(nidStr, uint(maxAttempts))
+						continue
+					}
+
 					jww.ERROR.Printf("Failed to register node: %s", err.Error())
 
 					// Keep track of how many times registering with this node

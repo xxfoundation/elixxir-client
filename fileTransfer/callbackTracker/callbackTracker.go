@@ -80,6 +80,7 @@ func (ct *callbackTracker) call(err error) {
 		// If a callback did occur, then schedule a new callback to occur at the
 		// start of the next period
 		ct.scheduled = true
+		scheduledErr := err // Capture the error value for this scheduled call
 		go func() {
 			timer := time.NewTimer(ct.period - timeSinceLastCall)
 			select {
@@ -89,7 +90,7 @@ func (ct *callbackTracker) call(err error) {
 				return
 			case <-timer.C:
 				ct.mux.Lock()
-				ct.cb(err)
+				ct.cb(scheduledErr)
 				ct.lastCall = netTime.Now()
 				ct.scheduled = false
 				ct.mux.Unlock()

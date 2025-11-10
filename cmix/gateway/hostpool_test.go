@@ -328,17 +328,18 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	stop := stoppable.NewSingle("tester")
-	go testPool.runner(stop)
-
 	testCount := 0
 	lck := sync.Mutex{}
+	// Start the listener goroutine BEFORE starting the runner to avoid race condition
 	go func() {
 		<-testPool.testNodes
 		lck.Lock()
 		defer lck.Unlock()
 		testCount++
 	}()
+
+	stop := stoppable.NewSingle("tester")
+	go testPool.runner(stop)
 
 	// Construct a new Ndf different from original one above
 	newNdf := getTestNdf(t)

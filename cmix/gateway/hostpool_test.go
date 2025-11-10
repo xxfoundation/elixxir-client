@@ -341,6 +341,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 	stop := stoppable.NewSingle("tester")
 	go testPool.runner(stop)
 
+	// Give runner time to initialize and settle before updating NDF
+	time.Sleep(50 * time.Millisecond)
+
 	// Construct a new Ndf different from original one above
 	newNdf := getTestNdf(t)
 	newGateway := ndf.Gateway{
@@ -369,6 +372,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		require.Fail(t, "Did not run filter before timeout")
 	case <-doneCh:
 	}
+
+	// Trigger an add request to test the new filtered NDF
+	testPool.addRequest <- nil
 
 	err = stop.Close()
 	require.NoError(t, err)

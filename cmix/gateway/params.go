@@ -127,8 +127,8 @@ func GetDefaultHostPoolHostParams() connect.HostParams {
 	hp.EnableCoolOff = false
 	hp.NumSendsBeforeCoolOff = 1
 	hp.CoolOffTimeout = 5 * time.Minute
-	hp.SendTimeout = 1000 * time.Millisecond
-	hp.PingTimeout = 1000 * time.Millisecond
+	hp.SendTimeout = 5000 * time.Millisecond
+	hp.PingTimeout = 3000 * time.Millisecond
 	hp.DisableAutoConnect = true
 	return hp
 }

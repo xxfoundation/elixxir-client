@@ -239,6 +239,9 @@ func TestSingle_Close(t *testing.T) {
 		}
 	}()
 
+	// Give goroutine time to start listening on quit channel before Close() sends
+	time.Sleep(5 * time.Millisecond)
+
 	err := single.Close()
 	if err != nil {
 		t.Errorf("Close returned an error: %v", err)

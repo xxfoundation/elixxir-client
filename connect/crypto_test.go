@@ -64,10 +64,18 @@ func TestSignVerify_Consistency(t *testing.T) {
 
 	sch := rsa.GetScheme()
 
-	privKey, err := sch.Generate(notRand, 1024)
+	var privKey rsa.PrivateKey
+	var err error
+	// Retry key generation if p == q (can happen with counting reader)
+	for i := 0; i < 10; i++ {
+		privKey, err = sch.Generate(notRand, 1024)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		t.Fatalf("SignVerify error: "+
-			"Could not generate key: %v", err.Error())
+			"Could not generate key after retries: %v", err.Error())
 	}
 
 	connFp := []byte("connFp")

@@ -75,9 +75,9 @@ func TestManager_Call(t *testing.T) {
 	cbChans := make([]chan error, n)
 	cbs := make([]func(err error), n)
 	for i := range cbChans {
-		cbChan := make(chan error, 10)
+		cbChans[i] = make(chan error, 10)
+		cbChan := cbChans[i] // Capture the channel for this iteration
 		cbs[i] = func(err error) { cbChan <- err }
-		cbChans[i] = cbChan
 	}
 
 	// Add callbacks

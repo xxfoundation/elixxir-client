@@ -44,7 +44,7 @@ func Test_callbackTracker_call(t *testing.T) {
 	cbChan := make(chan error, 10)
 	cb := func(err error) { cbChan <- err }
 	stop := stoppable.NewSingle("Test_callbackTracker_call")
-	ct := newCallbackTracker(cb, 250*time.Millisecond, stop)
+	ct := newCallbackTracker(cb, 500*time.Millisecond, stop)
 
 	// Test that the initial call is unscheduled and is called before the period
 	go ct.call(nil)
@@ -62,14 +62,29 @@ func Test_callbackTracker_call(t *testing.T) {
 	// is reached
 	go ct.call(nil)
 
-	// Give the goroutine time to execute and set scheduled flag
-	time.Sleep(5 * time.Millisecond)
+	// Wait for the scheduled flag to be set (with timeout)
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for {
+		ct.mux.RLock()
+		isScheduled := ct.scheduled
+		ct.mux.RUnlock()
+
+		if isScheduled {
+			break
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatal("Timed out waiting for callback to be scheduled")
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
 
 	select {
 	case <-cbChan:
 		t.Error("Callback called too soon.")
 
-	case <-time.After(30 * time.Millisecond):
+	case <-time.After(100 * time.Millisecond):
 		ct.mux.RLock()
 		if !ct.scheduled {
 			t.Error("Callback is not scheduled when it should be.")
@@ -92,6 +107,9 @@ func Test_callbackTracker_call(t *testing.T) {
 	// Test that calling with an error sets the callback to complete
 	expectedErr := errors.New("test error")
 	go ct.call(expectedErr)
+
+	// Give the goroutine time to execute
+	time.Sleep(10 * time.Millisecond)
 
 	select {
 	case r := <-cbChan:

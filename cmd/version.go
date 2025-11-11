@@ -18,7 +18,7 @@ import (
 )
 
 // Change this value to set the version for this build
-const currentVersion = "4.7.8"
+const currentVersion = "4.7.9"
 
 func Version() string {
 	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", xxdk.SEMVER,

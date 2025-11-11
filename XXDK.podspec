@@ -16,7 +16,7 @@ Pod::Spec.new do |spec|
   #
 
   spec.name         = "XXDK"
-  spec.version      = "4.7.8"
+  spec.version      = "4.7.9"
   spec.summary      = "xx network client library for iOS"
 
   # This description is used to generate tags and improve search results.

@@ -5,7 +5,7 @@
 package xxdk
 
 const GITVERSION = `0c3e5a3c Stop the network follower when deleting a cMix instance`
-const SEMVER = "4.7.5"
+const SEMVER = "4.7.6"
 const DEPENDENCIES = `module gitlab.com/elixxir/client/v4
 
 go 1.19

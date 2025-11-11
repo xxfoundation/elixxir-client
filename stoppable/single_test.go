@@ -223,9 +223,11 @@ func TestSingle_Quit(t *testing.T) {
 // Test happy path of Single.Close().
 func TestSingle_Close(t *testing.T) {
 	single := NewSingle("threadName")
-	timeout := 10 * time.Millisecond
+	timeout := 100 * time.Millisecond
 
+	ready := make(chan struct{})
 	go func() {
+		ready <- struct{}{}
 		select {
 		case <-time.NewTimer(timeout).C:
 			t.Errorf("Timed out waiting to receive on quit channel after %s.",
@@ -239,7 +241,9 @@ func TestSingle_Close(t *testing.T) {
 		}
 	}()
 
-	// Give goroutine time to start listening on quit channel before Close() sends
+	// Wait for goroutine to be ready before calling Close()
+	<-ready
+	// Small sleep to ensure goroutine has entered the select statement
 	time.Sleep(5 * time.Millisecond)
 
 	err := single.Close()

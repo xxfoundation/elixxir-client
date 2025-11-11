@@ -16,7 +16,7 @@ require (
 	gitlab.com/elixxir/bloomfilter v0.0.1
 	gitlab.com/elixxir/comms v0.0.5
 	gitlab.com/elixxir/crypto v0.0.10
-	gitlab.com/elixxir/ekv v0.4.0
+	gitlab.com/elixxir/ekv v0.4.2
 	gitlab.com/elixxir/primitives v0.0.4
 	gitlab.com/elixxir/wasm-utils v0.1.0
 	gitlab.com/xx_network/comms v0.0.6

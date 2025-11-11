@@ -15,10 +15,10 @@ require (
 	github.com/stretchr/testify v1.8.4
 	gitlab.com/elixxir/bloomfilter v0.0.1
 	gitlab.com/elixxir/comms v0.0.5
-	gitlab.com/elixxir/crypto v0.0.10
-	gitlab.com/elixxir/ekv v0.4.2
+	gitlab.com/elixxir/crypto v0.0.11
+	gitlab.com/elixxir/ekv v0.4.3
 	gitlab.com/elixxir/primitives v0.0.4
-	gitlab.com/elixxir/wasm-utils v0.1.0
+	gitlab.com/elixxir/wasm-utils v0.1.1
 	gitlab.com/xx_network/comms v0.0.6
 	gitlab.com/xx_network/crypto v0.0.7
 	gitlab.com/xx_network/primitives v0.0.5

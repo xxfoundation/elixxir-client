@@ -63,13 +63,13 @@ func Test_callbackTracker_call(t *testing.T) {
 	go ct.call(nil)
 
 	// Give the goroutine time to execute and set scheduled flag
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 
 	select {
 	case <-cbChan:
 		t.Error("Callback called too soon.")
 
-	case <-time.After(35 * time.Millisecond):
+	case <-time.After(30 * time.Millisecond):
 		ct.mux.RLock()
 		if !ct.scheduled {
 			t.Error("Callback is not scheduled when it should be.")

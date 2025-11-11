@@ -1,6 +1,6 @@
 module gitlab.com/elixxir/client/v4
 
-go 1.19
+go 1.21
 
 require (
 	github.com/cloudflare/circl v1.3.6
@@ -14,11 +14,11 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.8.4
 	gitlab.com/elixxir/bloomfilter v0.0.1
-	gitlab.com/elixxir/comms v0.0.4
-	gitlab.com/elixxir/crypto v0.0.9
+	gitlab.com/elixxir/comms v0.0.5
+	gitlab.com/elixxir/crypto v0.0.10
 	gitlab.com/elixxir/ekv v0.4.0
 	gitlab.com/elixxir/primitives v0.0.4
-	gitlab.com/elixxir/wasm-utils v0.0.1
+	gitlab.com/elixxir/wasm-utils v0.1.0
 	gitlab.com/xx_network/comms v0.0.6
 	gitlab.com/xx_network/crypto v0.0.7
 	gitlab.com/xx_network/primitives v0.0.5
@@ -99,3 +99,7 @@ require (
 	nhooyr.io/websocket v1.8.7 // indirect
 	src.agwa.name/tlshacks v0.0.0-20220518131152-d2c6f4e2b780 // indirect
 )
+
+replace nhooyr.io/websocket v1.8.6 => nhooyr.io/websocket v1.8.7
+
+replace github.com/lyft/protoc-gen-validate => github.com/envoyproxy/protoc-gen-validate v0.1.0

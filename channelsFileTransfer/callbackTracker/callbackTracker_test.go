@@ -63,6 +63,9 @@ func Test_callbackTracker_call(t *testing.T) {
 	// is reached
 	go ct.call(nil)
 
+	// Give the goroutine time to execute and set scheduled flag
+	time.Sleep(10 * time.Millisecond)
+
 	select {
 	case <-cbChan:
 		t.Error("Callback called too soon.")

@@ -14,7 +14,7 @@ publishing {
         release(MavenPublication) {
             groupId 'network.xx'
             artifactId 'android.xxdk'
-            version '4.7.7'
+            version '4.7.8'
             artifact("bindings.aar")
             artifact(source: "bindings-sources.jar",
                              classifier: 'sources',

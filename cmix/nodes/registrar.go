@@ -32,12 +32,14 @@ const InputChanLen = 1000
 const maxAttempts = 5
 
 // Backoff for attempting to register with a cMix node.
+// Reduced delays for fail-fast behavior - misconfigured gateways won't resolve
+// with time, so aggressive retries allow quicker discovery of working gateways.
 var delayTable = [5]time.Duration{
 	0,
-	30 * time.Second,
-	60 * time.Second,
-	120 * time.Second,
-	240 * time.Second,
+	2 * time.Second,
+	5 * time.Second,
+	10 * time.Second,
+	15 * time.Second,
 }
 
 // registrar is an implementation of the Registrar interface.

@@ -266,11 +266,11 @@ func (r *response) Process(cMixMsg format.Message, _ []string, _ []byte,
 	r.Close()
 }
 
-// NOTE: unbuffered for now, which means we block on send until the
-// caller/receiver reads from the channel.
+// NOTE: buffered channel to prevent deadlock when multiple events
+// are sent before the callback goroutine processes them.
 func newResponse(net cMixClient, serverKey nike.PublicKey) *response {
 	return &response{
-		listener:  make(chan []byte),
+		listener:  make(chan []byte, 10),
 		errs:      make(chan error, 10),
 		serverKey: serverKey,
 		myID:      nil,

@@ -328,17 +328,21 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	stop := stoppable.NewSingle("tester")
-	go testPool.runner(stop)
-
 	testCount := 0
 	lck := sync.Mutex{}
+	// Start the listener goroutine BEFORE starting the runner to avoid race condition
 	go func() {
 		<-testPool.testNodes
 		lck.Lock()
 		defer lck.Unlock()
 		testCount++
 	}()
+
+	stop := stoppable.NewSingle("tester")
+	go testPool.runner(stop)
+
+	// Give runner time to initialize and settle before updating NDF
+	time.Sleep(50 * time.Millisecond)
 
 	// Construct a new Ndf different from original one above
 	newNdf := getTestNdf(t)
@@ -368,6 +372,9 @@ func TestHostPool_UpdateNdf_AddFilter(t *testing.T) {
 		require.Fail(t, "Did not run filter before timeout")
 	case <-doneCh:
 	}
+
+	// Trigger an add request to test the new filtered NDF
+	testPool.addRequest <- nil
 
 	err = stop.Close()
 	require.NoError(t, err)

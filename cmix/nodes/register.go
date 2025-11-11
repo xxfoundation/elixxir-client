@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"gitlab.com/xx_network/crypto/csprng"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -93,7 +94,10 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 			// Register with this node
 			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
 			if stoppable.CheckErr(err) {
-				jww.ERROR.Printf("Failed to register node: %s", err)
+				gwIDStr := hex.EncodeToString(gw.Gateway.ID)
+				gwAddr := gw.Gateway.Address
+				jww.ERROR.Printf("Failed to register node %s via gateway %s (%s): %s",
+					nidStr, gwIDStr, gwAddr, err)
 				stop.ToStopped()
 				return
 			}
@@ -103,9 +107,12 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 			// Process the result
 			if err != nil {
+				gwIDStr := hex.EncodeToString(gw.Gateway.ID)
+				gwAddr := gw.Gateway.Address
+
 				if gateway.IsHostPoolNotReadyError(err) {
-					jww.WARN.Printf("Failed to register node due to non ready host "+
-						"pool: %s", err.Error())
+					jww.WARN.Printf("Failed to register node %s via gateway %s (%s): host pool not ready - %s",
+						nidStr, gwIDStr, gwAddr, err.Error())
 
 					// retry registering without counting it against the node
 					go func() {
@@ -120,7 +127,20 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 						return
 					}
 				} else {
-					jww.ERROR.Printf("Failed to register node: %s", err.Error())
+					// Check if this is a permanent failure (no grpc-web support)
+					isPermanentFailure := strings.Contains(err.Error(), "Failed to fetch") ||
+						strings.Contains(err.Error(), "NetworkError when attempting to fetch")
+
+					if isPermanentFailure {
+						jww.WARN.Printf("Gateway %s (%s) does not support gRPC-web or has invalid TLS cert - skipping retries for node %s: %s",
+							gwIDStr, gwAddr, nidStr, err.Error())
+						// Mark as max attempts to prevent retries
+						attempts.Store(nidStr, uint(maxAttempts))
+						continue
+					}
+
+					jww.ERROR.Printf("Failed to register node %s via gateway %s (%s): %s",
+						nidStr, gwIDStr, gwAddr, err.Error())
 
 					// Keep track of how many times registering with this node
 					// has been attempted

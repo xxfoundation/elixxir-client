@@ -58,7 +58,13 @@ func TestSend(t *testing.T) {
 		var prettyJSON bytes.Buffer
 		err := json.Indent(&prettyJSON, data, "", "\t")
 		require.NoError(t, err)
-		t.Logf("%s", prettyJSON.String())
+		// Truncate large responses to avoid GitLab log processing issues
+		logOutput := prettyJSON.String()
+		if len(logOutput) > 1000 {
+			t.Logf("%s... [truncated %d bytes]", logOutput[:1000], len(logOutput)-1000)
+		} else {
+			t.Logf("%s", logOutput)
+		}
 		responses = append(responses, data)
 	}
 	fail := func(err error) {

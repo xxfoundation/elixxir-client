@@ -16,9 +16,8 @@ require (
 	gitlab.com/elixxir/bloomfilter v0.0.1
 	gitlab.com/elixxir/comms v0.0.5
 	gitlab.com/elixxir/crypto v0.0.11
-	gitlab.com/elixxir/ekv v0.4.3
+	gitlab.com/elixxir/ekv v0.5.1
 	gitlab.com/elixxir/primitives v0.0.4
-	gitlab.com/elixxir/wasm-utils v0.1.1
 	gitlab.com/xx_network/comms v0.0.6
 	gitlab.com/xx_network/crypto v0.0.7
 	gitlab.com/xx_network/primitives v0.0.5
@@ -76,6 +75,7 @@ require (
 	github.com/ttacon/builder v0.0.0-20170518171403-c099f663e1c2 // indirect
 	github.com/ttacon/libphonenumber v1.2.1 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
+	gitlab.com/elixxir/wasm-utils v0.1.1 // indirect
 	gitlab.com/xx_network/ring v0.0.3 // indirect
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
 	gitlab.com/yawning/x448.git v0.0.0-20221003101044-617eb9b7d9b7 // indirect

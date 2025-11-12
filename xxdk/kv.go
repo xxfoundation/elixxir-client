@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/ekv/portable"
 )
 
 // LocalKV creates a filesystem based KV that doesn't
@@ -21,6 +22,19 @@ func LocalKV(storageDir string, password []byte,
 	rng *fastRNG.StreamGenerator) (versioned.KV, error) {
 	passwordStr := string(password)
 	localKV, err := ekv.NewFilestore(storageDir, passwordStr)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"failed to create storage session")
+	}
+	return collective.LocalKV(password, localKV, rng)
+}
+
+// LocalKVWithKV creates a filesystem based KV backed by a custom key-value
+// store that doesn't synchronize with a remote storage system.
+func LocalKVWithKV(kv portable.GenericKeyValue, storageDir string, password []byte,
+	rng *fastRNG.StreamGenerator) (versioned.KV, error) {
+	passwordStr := string(password)
+	localKV, err := ekv.NewKeyValueFilestore(kv, storageDir, passwordStr)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"failed to create storage session")

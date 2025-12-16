@@ -8,7 +8,7 @@
 package message
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"time"
 
 	"github.com/golang/protobuf/proto"

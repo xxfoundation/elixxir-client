@@ -11,7 +11,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"strconv"
 	"strings"

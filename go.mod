@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/cloudflare/circl v1.3.6
+	github.com/goccy/go-json v0.10.5
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.3
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
@@ -15,12 +16,12 @@ require (
 	github.com/stretchr/testify v1.8.4
 	gitlab.com/elixxir/bloomfilter v0.0.1
 	gitlab.com/elixxir/comms v0.0.5
-	gitlab.com/elixxir/crypto v0.0.11
-	gitlab.com/elixxir/ekv v0.5.1
+	gitlab.com/elixxir/crypto v0.0.14
+	gitlab.com/elixxir/ekv v0.5.2
 	gitlab.com/elixxir/primitives v0.0.4
 	gitlab.com/xx_network/comms v0.0.6
-	gitlab.com/xx_network/crypto v0.0.7
-	gitlab.com/xx_network/primitives v0.0.5
+	gitlab.com/xx_network/crypto v0.0.11
+	gitlab.com/xx_network/primitives v0.0.6
 	gitlab.com/yawning/nyquist.git v0.0.0-20221003103146-de5645224a22
 	go.uber.org/ratelimit v0.3.0
 	golang.org/x/crypto v0.18.0
@@ -75,7 +76,7 @@ require (
 	github.com/ttacon/builder v0.0.0-20170518171403-c099f663e1c2 // indirect
 	github.com/ttacon/libphonenumber v1.2.1 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
-	gitlab.com/elixxir/wasm-utils v0.1.1 // indirect
+	gitlab.com/elixxir/wasm-utils v0.1.3 // indirect
 	gitlab.com/xx_network/ring v0.0.3 // indirect
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
 	gitlab.com/yawning/x448.git v0.0.0-20221003101044-617eb9b7d9b7 // indirect

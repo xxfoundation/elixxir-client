@@ -10,7 +10,7 @@ package channels
 import (
 	"crypto/ed25519"
 	"encoding/hex"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/collective/versioned"

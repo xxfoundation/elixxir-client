@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"time"
 
 	"github.com/pkg/errors"

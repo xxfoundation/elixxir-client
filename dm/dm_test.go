@@ -8,7 +8,7 @@
 package dm
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"gitlab.com/elixxir/client/v4/broadcast"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"google.golang.org/protobuf/proto"

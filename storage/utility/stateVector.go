@@ -8,7 +8,7 @@
 package utility
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"strconv"
 	"strings"

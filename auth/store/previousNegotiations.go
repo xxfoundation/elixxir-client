@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"encoding/binary"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"

@@ -8,7 +8,7 @@
 package bindings
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 
 	"gitlab.com/elixxir/client/v4/restlike"
 	"gitlab.com/elixxir/client/v4/restlike/single"

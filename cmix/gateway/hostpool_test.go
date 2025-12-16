@@ -16,7 +16,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"encoding/json"
+	json "github.com/goccy/go-json"
 
 	"github.com/golang-collections/collections/set"
 	jww "github.com/spf13/jwalterweatherman"

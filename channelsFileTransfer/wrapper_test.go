@@ -8,7 +8,7 @@
 package channelsFileTransfer
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"github.com/stretchr/testify/require"
 	"math/rand"
 	"reflect"

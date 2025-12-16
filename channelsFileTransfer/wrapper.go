@@ -9,7 +9,7 @@ package channelsFileTransfer
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"time"
 
 	"github.com/pkg/errors"

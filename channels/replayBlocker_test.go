@@ -10,7 +10,7 @@ package channels
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"

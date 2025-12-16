@@ -8,7 +8,7 @@
 package channelsFileTransfer
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"time"
 
 	"gitlab.com/elixxir/client/v4/cmix"

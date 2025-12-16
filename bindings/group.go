@@ -8,7 +8,7 @@
 package bindings
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/v4/cmix/identity/receptionID"

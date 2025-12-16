@@ -8,7 +8,7 @@
 package xxmutils
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/single"

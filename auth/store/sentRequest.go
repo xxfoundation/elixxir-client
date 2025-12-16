@@ -9,7 +9,7 @@ package store
 
 import (
 	"encoding/hex"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/storage/utility"
 	"sync"

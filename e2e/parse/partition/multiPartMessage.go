@@ -8,7 +8,7 @@
 package partition
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"strconv"
 	"sync"
 	"time"

@@ -9,7 +9,7 @@
 package collective
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sort"
 	"sync"
 	"sync/atomic"

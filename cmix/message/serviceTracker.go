@@ -8,7 +8,7 @@
 package message
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 
 	"gitlab.com/elixxir/crypto/sih"
 	"gitlab.com/xx_network/primitives/id"

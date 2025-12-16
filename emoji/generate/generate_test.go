@@ -12,7 +12,7 @@ package main
 
 import (
 	_ "embed"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"

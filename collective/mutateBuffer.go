@@ -1,7 +1,7 @@
 package collective
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"strconv"
 	"sync/atomic"
 

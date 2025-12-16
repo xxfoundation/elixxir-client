@@ -10,7 +10,7 @@ package partition
 import (
 	"crypto/hmac"
 	"encoding/binary"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sync"
 	"time"
 

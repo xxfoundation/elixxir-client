@@ -9,7 +9,7 @@ package cmix
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"time"
 
@@ -298,6 +298,13 @@ func (p *CMIXParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	// Normalize empty map to nil for consistent JSON round-tripping
+	// (goccy/go-json converts null to empty map during unmarshal)
+	blacklistedNodes := pDisk.BlacklistedNodes
+	if len(blacklistedNodes) == 0 {
+		blacklistedNodes = nil
+	}
+
 	*p = CMIXParams{
 		RoundTries:       pDisk.RoundTries,
 		Timeout:          pDisk.Timeout,
@@ -305,7 +312,7 @@ func (p *CMIXParams) UnmarshalJSON(data []byte) error {
 		SendTimeout:      pDisk.SendTimeout,
 		DebugTag:         pDisk.DebugTag,
 		Critical:         pDisk.Critical,
-		BlacklistedNodes: pDisk.BlacklistedNodes,
+		BlacklistedNodes: blacklistedNodes,
 	}
 
 	return nil

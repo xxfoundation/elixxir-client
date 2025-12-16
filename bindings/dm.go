@@ -10,7 +10,7 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/base64"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sync"
 
 	"github.com/pkg/errors"

@@ -10,7 +10,7 @@ package dm
 import (
 	"bytes"
 	"crypto/ed25519"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"math/rand"
 	"reflect"

@@ -9,7 +9,7 @@ package connect
 
 import (
 	"bytes"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"testing"
 
 	"gitlab.com/elixxir/client/v4/xxdk"

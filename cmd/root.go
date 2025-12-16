@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"io/ioutil"
 	"log"

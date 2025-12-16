@@ -8,7 +8,7 @@
 package xxdk
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"time"
 
 	"github.com/pkg/errors"

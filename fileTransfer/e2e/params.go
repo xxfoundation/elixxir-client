@@ -7,7 +7,7 @@
 
 package e2e
 
-import "encoding/json"
+import json "github.com/goccy/go-json"
 
 const (
 	defaultNotifyUponCompletion = true

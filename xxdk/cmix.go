@@ -705,23 +705,26 @@ func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 // IsReady returns true if at least percentReady of node registrations has
 // completed. If not all have completed, then it returns false and howClose will
 // be a percent (0-1) of node registrations completed.
+// Note: howClose is always returned based on node registration progress,
+// regardless of network health status.
 func (c *Cmix) IsReady(percentReady float64) (isReady bool, howClose float64) {
-	// Check if the network is currently healthy
-	if !c.network.IsHealthy() {
-		return false, 0
-	}
-
+	// Calculate progress regardless of health status
 	numReg, numNodes, err := c.GetNodeRegistrationStatus()
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
 	}
 
-	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
 	howClose = float64(numReg) / (float64(numNodes) * percentReady)
 	if howClose > 1 {
 		howClose = 1
 	}
 
+	// Only report ready if network is healthy AND enough nodes registered
+	if !c.network.IsHealthy() {
+		return false, howClose // Return progress even when not healthy
+	}
+
+	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
 	return isReady, howClose
 }
 

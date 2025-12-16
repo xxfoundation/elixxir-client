@@ -239,6 +239,9 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 	pollResp := result.(*pb.GatewayPollResponse)
 
+	jww.DEBUG.Printf("[Follow] Poll succeeded from %s, Updates=%v (count=%d)",
+		sendTo, pollResp.Updates != nil, len(pollResp.Updates))
+
 	//execute clock skew update
 	c.skewTracker.Add(sendTo, startTime,
 		time.Unix(0, pollResp.ReceivedTs),

@@ -90,25 +90,22 @@ func (t *tracker) getLastWaitingRoundTimestamp() time.Time {
 }
 
 // IsHealthy returns true if the network is healthy, which is
-// defined as the client having knowledge of both valid queued rounds
-// and completed rounds within the last tracker.timeout seconds
+// defined as:
+// 1. Having rounds available to send messages (waiting rounds exist)
+// 2. A round has completed within the last 30s (more forgiving timeout)
 func (t *tracker) IsHealthy() bool {
 	// use the system time instead of netTime.Now() which can
 	// include an offset because local monotonicity is what
 	// matters here, not correctness relative to absolute time
 	now := time.Now()
 
-	completedRecently := false
-	if now.Sub(t.getLastCompletedRoundTimestamp()) < t.timeout {
-		completedRecently = true
-	}
+	// We have rounds available to send messages
+	hasWaitingRounds := now.Sub(t.getLastWaitingRoundTimestamp()) < t.timeout
 
-	waitingRecently := false
-	if now.Sub(t.getLastWaitingRoundTimestamp()) < t.timeout {
-		waitingRecently = true
-	}
+	// A round has completed within the last 30s (longer, more forgiving)
+	completedRecently := now.Sub(t.getLastCompletedRoundTimestamp()) < 30*time.Second
 
-	return completedRecently && waitingRecently
+	return hasWaitingRounds && completedRecently
 }
 
 // updateHealth atomically updates the internal
@@ -188,6 +185,8 @@ func (t *tracker) start(stop *stoppable.Single) {
 			quit = true
 
 		case heartbeat := <-t.heartbeat:
+			jww.DEBUG.Printf("[Health] Received heartbeat: waiting=%v, complete=%v",
+				heartbeat.HasWaitingRound, heartbeat.IsRoundComplete)
 			t.updateHealth(heartbeat.HasWaitingRound, heartbeat.IsRoundComplete)
 			timedOut = false
 		case <-time.After(t.timeout):

@@ -10,7 +10,7 @@ package user
 import (
 	"bytes"
 	"encoding/gob"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"

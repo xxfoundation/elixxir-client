@@ -8,7 +8,7 @@
 package channels
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"
 	"gitlab.com/elixxir/client/v4/collective/versioned"

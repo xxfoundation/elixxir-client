@@ -98,12 +98,10 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 				gwAddr := gw.Gateway.Address
 				jww.ERROR.Printf("Failed to register node %s via gateway %s (%s): %s",
 					nidStr, gwIDStr, gwAddr, err)
+				inProgress.Delete(nidStr)
 				stop.ToStopped()
 				return
 			}
-
-			// Remove from in progress immediately (success or failure)
-			inProgress.Delete(nidStr)
 
 			// Process the result
 			if err != nil {
@@ -114,18 +112,18 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 					jww.WARN.Printf("Failed to register node %s via gateway %s (%s): host pool not ready - %s",
 						nidStr, gwIDStr, gwAddr, err.Error())
 
-					// retry registering without counting it against the node
-					go func() {
-						r.c <- gw
-					}()
-
-					//wait 5 seconds to give the host pool a chance to resolve
+					// Wait 5 seconds to give the host pool a chance to resolve
 					select {
 					case <-time.NewTimer(5 * time.Second).C:
 					case <-stop.Quit():
+						inProgress.Delete(nidStr)
 						stop.ToStopped()
 						return
 					}
+
+					// Now delete from in-progress and re-enqueue for retry
+					inProgress.Delete(nidStr)
+					r.c <- gw
 				} else {
 					// Check if this is a permanent failure (no grpc-web support)
 					isPermanentFailure := strings.Contains(err.Error(), "Failed to fetch") ||
@@ -136,6 +134,7 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 							gwIDStr, gwAddr, nidStr, err.Error())
 						// Mark as max attempts to prevent retries
 						attempts.Store(nidStr, uint(maxAttempts))
+						inProgress.Delete(nidStr)
 						continue
 					}
 
@@ -154,13 +153,21 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 					// If we have not reached the attempt limit for this gateway,
 					// then send it back into the channel to retry
 					if numAttempts < maxAttempts {
-						go func() {
+						go func(nodeIdStr string, gateway network.NodeGateway, delay time.Duration) {
 							// Delay the send operation for a backoff
-							time.Sleep(delayTable[numAttempts-1])
-							r.c <- gw
-						}()
+							time.Sleep(delay)
+							// Delete from in-progress right before re-enqueueing
+							inProgress.Delete(nodeIdStr)
+							r.c <- gateway
+						}(nidStr, gw, delayTable[numAttempts-1])
+					} else {
+						// Max attempts reached, not retrying
+						inProgress.Delete(nidStr)
 					}
 				}
+			} else {
+				// Success case - remove from in-progress
+				inProgress.Delete(nidStr)
 			}
 			rng.Close()
 		}

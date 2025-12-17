@@ -10,7 +10,7 @@ package utility
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"strconv"
 
 	"github.com/pkg/errors"

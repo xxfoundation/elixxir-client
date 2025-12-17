@@ -2,7 +2,7 @@ package notifications
 
 import (
 	"bytes"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"errors"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"

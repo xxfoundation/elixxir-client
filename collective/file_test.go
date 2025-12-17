@@ -9,7 +9,7 @@ package collective
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"math/rand"
 	"testing"
 

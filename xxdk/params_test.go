@@ -9,7 +9,7 @@ package xxdk
 
 import (
 	"bytes"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"testing"
 )
 

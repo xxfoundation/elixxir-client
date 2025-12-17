@@ -11,7 +11,7 @@ import (
 	"container/list"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"

@@ -8,7 +8,7 @@
 package rounds
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"

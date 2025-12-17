@@ -8,7 +8,7 @@
 package store
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sync"
 
 	"github.com/pkg/errors"

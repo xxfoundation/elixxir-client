@@ -9,7 +9,7 @@ package e2e
 
 import (
 	"encoding/binary"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/catalog"

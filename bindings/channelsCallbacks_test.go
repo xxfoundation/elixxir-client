@@ -2,7 +2,7 @@ package bindings
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"gitlab.com/elixxir/client/v4/channels"
 	clientNotif "gitlab.com/elixxir/client/v4/notifications"

@@ -8,7 +8,7 @@
 package session
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 )
 

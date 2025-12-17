@@ -8,7 +8,7 @@
 package e2e
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"reflect"
 	"testing"
 )

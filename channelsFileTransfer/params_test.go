@@ -8,7 +8,7 @@
 package channelsFileTransfer
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"reflect"
 	"testing"
 
@@ -45,7 +45,7 @@ func TestGetParameters(t *testing.T) {
 			SendTimeout:      8,
 			DebugTag:         "9",
 			Stop:             nil,
-			BlacklistedNodes: cmix.NodeMap{},
+			BlacklistedNodes: nil,
 			Critical:         true,
 		},
 	}
@@ -97,7 +97,7 @@ func TestGetParameters_InvalidParamsStringError(t *testing.T) {
 func TestParams_JsonMarshalUnmarshal(t *testing.T) {
 	// Construct a set of params
 	expected := DefaultParams()
-	expected.Cmix.BlacklistedNodes = cmix.NodeMap{}
+	expected.Cmix.BlacklistedNodes = nil
 
 	// Marshal the params
 	data, err := json.Marshal(&expected)

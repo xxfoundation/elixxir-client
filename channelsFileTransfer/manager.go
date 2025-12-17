@@ -9,7 +9,7 @@ package channelsFileTransfer
 
 import (
 	"bytes"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"strconv"
 	"strings"

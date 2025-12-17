@@ -10,7 +10,7 @@ package e2e
 import (
 	"crypto/hmac"
 	"encoding/base64"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sync"
 
 	jww "github.com/spf13/jwalterweatherman"

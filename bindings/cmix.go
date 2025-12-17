@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	json "github.com/goccy/go-json"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/v4/collective"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/client/v4/xxdk"
+	"gitlab.com/elixxir/ekv/portable"
 )
 
 // init sets the log level to INFO.
@@ -38,6 +40,27 @@ type Cmix struct {
 	id  int
 }
 
+// GenericKeyValue is a simple key-value storage interface that can be used to
+// back the ekv Storage interface. This allows ekv to work with any key-value
+// store including browser localStorage, IndexedDB, etc.
+//
+// Bindings clients must implement this interface to use NewCmixWithKV and
+// LoadCmixWithKV functions.
+type GenericKeyValue interface {
+	// Get retrieves the value for the given key.
+	// Returns an error if the key does not exist.
+	Get(key string) ([]byte, error)
+
+	// Set stores the value for the given key.
+	Set(key string, value []byte) error
+
+	// Delete removes the key and its value.
+	Delete(key string) error
+
+	// Keys returns all keys in the store as a JSON array of strings.
+	Keys() ([]byte, error)
+}
+
 // NewCmix creates user storage, generates keys, connects, and registers with
 // the network. Note that this does not register a username/identity, but merely
 // creates a new cryptographic identity for adding such information at a later
@@ -50,6 +73,23 @@ func NewCmix(ndfJSON, storageDir string, password []byte,
 	err := xxdk.NewCmix(ndfJSON, storageDir, secret, registrationCode)
 	if err != nil {
 		return errors.Errorf("Failed to create new cmix: %+v", err)
+	}
+	return nil
+}
+
+// NewCmixWithKV creates user storage backed by a key-value store, generates
+// keys, connects, and registers with the network. Note that this does not
+// register a username/identity, but merely creates a new cryptographic identity
+// for adding such information at a later date.
+//
+// Users of this function should delete the storage directory on error.
+func NewCmixWithKV(kv GenericKeyValue, ndfJSON, storageDir string,
+	password []byte, registrationCode string) error {
+	secret := copyAndClear(password)
+	wrappedKV := newGenericKeyValueWrapper(kv)
+	err := xxdk.NewCmixWithKV(wrappedKV, ndfJSON, storageDir, secret, registrationCode)
+	if err != nil {
+		return errors.Errorf("Failed to create new cmix with KV: %+v", err)
 	}
 	return nil
 }
@@ -100,6 +140,34 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 	net, err := xxdk.LoadCmix(storageDir, secret, params)
 	if err != nil {
 		return nil, errors.Errorf("LoadCmix failed: %+v", err)
+	}
+
+	return cmixTrackerSingleton.make(net), nil
+}
+
+// LoadCmixWithKV will load an existing user storage backed by a key-value store
+// from the storageDir using the password. This will fail if the user storage
+// does not exist or the password is incorrect.
+//
+// The password is passed as a byte array so that it can be cleared from memory
+// and stored as securely as possible using the MemGuard library.
+//
+// LoadCmixWithKV does not block on network connection and instead loads and
+// starts subprocesses to perform network operations.
+func LoadCmixWithKV(kv GenericKeyValue, storageDir string, password []byte,
+	cmixParamsJSON []byte) (*Cmix, error) {
+
+	secret := copyAndClear(password)
+
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	wrappedKV := newGenericKeyValueWrapper(kv)
+	net, err := xxdk.LoadCmixWithKV(wrappedKV, storageDir, secret, params)
+	if err != nil {
+		return nil, errors.Errorf("LoadCmixWithKV failed: %+v", err)
 	}
 
 	return cmixTrackerSingleton.make(net), nil
@@ -288,3 +356,47 @@ func copyAndClear(inputPassword []byte) []byte {
 	}
 	return secret
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// GenericKeyValue Wrapper                                                   //
+////////////////////////////////////////////////////////////////////////////////
+
+// genericKeyValueWrapper is an internal Go wrapper for GenericKeyValue that
+// adheres to the portable.GenericKeyValue interface. It is used to wrap the
+// GenericKeyValue given by the bindings user for use in the xxdk system.
+type genericKeyValueWrapper struct {
+	kv GenericKeyValue
+}
+
+// newGenericKeyValueWrapper constructs a genericKeyValueWrapper.
+func newGenericKeyValueWrapper(bindingsKV GenericKeyValue) *genericKeyValueWrapper {
+	return &genericKeyValueWrapper{kv: bindingsKV}
+}
+
+// Get retrieves the value for the given key.
+func (g *genericKeyValueWrapper) Get(key string) ([]byte, error) {
+	return g.kv.Get(key)
+}
+
+// Set stores the value for the given key.
+func (g *genericKeyValueWrapper) Set(key string, value []byte) error {
+	return g.kv.Set(key, value)
+}
+
+// Delete removes the key and its value.
+func (g *genericKeyValueWrapper) Delete(key string) error {
+	return g.kv.Delete(key)
+}
+
+// Keys returns all keys in the store.
+func (g *genericKeyValueWrapper) Keys() ([]string, error) {
+	keysJSON, err := g.kv.Keys()
+	if err != nil {
+		return nil, err
+	}
+	var keys []string
+	err = json.Unmarshal(keysJSON, &keys)
+	return keys, err
+}
+
+var _ portable.GenericKeyValue = (*genericKeyValueWrapper)(nil)

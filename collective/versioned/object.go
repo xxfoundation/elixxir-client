@@ -8,7 +8,7 @@
 package versioned
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"time"
 )

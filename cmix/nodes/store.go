@@ -8,7 +8,7 @@
 package nodes
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/collective/versioned"

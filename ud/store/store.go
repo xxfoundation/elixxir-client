@@ -10,7 +10,7 @@ package ud
 // This file handles the storage operations on facts.
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sync"
 
 	"github.com/pkg/errors"

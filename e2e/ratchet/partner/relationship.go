@@ -8,7 +8,7 @@
 package partner
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"

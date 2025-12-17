@@ -21,6 +21,7 @@ var errorsList = []string{
 	context.DeadlineExceeded.Error(),
 	"connection refused",
 	"host disconnected",
+	"Cannot send to a disconnected", // WASM: host disconnected with AutoConnect disabled
 	"transport is closing",
 	balancer.ErrTransientFailure.Error(),
 	"Last try to connect",

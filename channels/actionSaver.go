@@ -9,7 +9,7 @@ package channels
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"sync"
 	"time"
 

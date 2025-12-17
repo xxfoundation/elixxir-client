@@ -2,7 +2,7 @@ package ud
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"errors"
 	"sync"
 	"time"

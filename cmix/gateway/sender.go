@@ -103,6 +103,8 @@ func (s *sender) SendToAny(sendFunc func(*connect.Host) (interface{}, error),
 			// allowed error
 			if IsGuilty(err) {
 				s.Remove(proxyHost)
+				// Try next host instead of returning error immediately
+				continue
 			}
 
 			// If the send function denotes the error are recoverable,

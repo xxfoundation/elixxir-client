@@ -1,7 +1,7 @@
 package notifications
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"

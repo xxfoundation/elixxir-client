@@ -8,7 +8,7 @@
 package receptionID
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"io"
 	"sync"
 	"time"

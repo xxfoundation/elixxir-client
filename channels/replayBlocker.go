@@ -10,7 +10,7 @@ package channels
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/v4/cmix/rounds"

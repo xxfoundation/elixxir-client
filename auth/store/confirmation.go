@@ -9,7 +9,7 @@ package store
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"

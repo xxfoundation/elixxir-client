@@ -8,7 +8,7 @@
 package conversation
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"math"
 	"sync"
 

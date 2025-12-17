@@ -10,7 +10,7 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"math/rand"
 	"os"
 	"reflect"

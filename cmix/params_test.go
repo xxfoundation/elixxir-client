@@ -9,7 +9,7 @@ package cmix
 
 import (
 	"bytes"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"

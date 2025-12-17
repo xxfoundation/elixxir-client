@@ -8,7 +8,7 @@
 package e2e
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"gitlab.com/elixxir/client/v4/cmix"
 	"gitlab.com/elixxir/client/v4/collective/versioned"
@@ -182,7 +182,7 @@ func TestE2EParamMarshalUnmarshal(t *testing.T) {
 				RoundTries:       6,
 				Timeout:          99,
 				RetryDelay:       -4,
-				BlacklistedNodes: map[id.ID]bool{},
+				BlacklistedNodes: nil,
 			},
 		},
 	}

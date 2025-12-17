@@ -8,7 +8,7 @@
 package collective
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"path/filepath"
 	"sync"

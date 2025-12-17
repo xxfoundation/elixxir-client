@@ -8,7 +8,7 @@
 package gateway
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"gitlab.com/xx_network/comms/connect"
 	"time"
 )

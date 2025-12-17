@@ -8,7 +8,7 @@
 package bindings
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"reflect"
 	"testing"
 	"time"

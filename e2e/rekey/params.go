@@ -8,7 +8,7 @@
 package rekey
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"gitlab.com/elixxir/client/v4/catalog"
 	"time"
 )

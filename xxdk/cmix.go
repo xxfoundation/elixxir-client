@@ -30,6 +30,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/ekv/portable"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -95,6 +96,36 @@ func NewCmix(ndfJSON, storageDir string, password []byte,
 		"PortableUserInfo generation took: %s", netTime.Now().Sub(start))
 
 	_, err = CheckVersionAndSetupStorage(def, kv,
+		userInfo, cmixGrp, e2eGrp, registrationCode, rngStreamGen)
+	return err
+}
+
+// NewCmixWithKV creates client storage backed by a key-value store, generates
+// keys, and connects and registers with the network. Note that this does not
+// register a username/identity, but merely creates a new cryptographic identity
+// for adding such information at a later date.
+func NewCmixWithKV(kv portable.GenericKeyValue, ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
+	jww.INFO.Printf("NewCmixWithKV(dir: %s)", storageDir)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
+
+	def, err := ParseNDF(ndfJSON)
+	if err != nil {
+		return err
+	}
+
+	kvStore, err := LocalKVWithKV(kv, storageDir, password, rngStreamGen)
+	if err != nil {
+		return err
+	}
+
+	cmixGrp, e2eGrp := DecodeGroups(def)
+	start := netTime.Now()
+	userInfo := createNewUser(rngStreamGen, e2eGrp)
+	jww.DEBUG.Printf(
+		"PortableUserInfo generation took: %s", netTime.Now().Sub(start))
+
+	_, err = CheckVersionAndSetupStorage(def, kvStore,
 		userInfo, cmixGrp, e2eGrp, registrationCode, rngStreamGen)
 	return err
 }
@@ -203,6 +234,21 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	return openCmix(storageKV, rngStreamGen)
 }
 
+// OpenCmixWithKV creates client storage backed by a key-value store but does
+// not connect to the network or login. Note that this is a helper function
+// that, in most applications, should not be used on its own. Consider using
+// LoadCmixWithKV instead, which calls this function for you.
+func OpenCmixWithKV(kv portable.GenericKeyValue, storageDir string, password []byte) (*Cmix, error) {
+	jww.INFO.Printf("OpenCmixWithKV(%s)", storageDir)
+
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
+	storageKV, err := LocalKVWithKV(kv, storageDir, password, rngStreamGen)
+	if err != nil {
+		return nil, err
+	}
+	return openCmix(storageKV, rngStreamGen)
+}
+
 func OpenSynchronizedCmix(storageDir, remoteStoragePathPrefix string,
 	password []byte, remote collective.RemoteStore,
 	synchedPrefixes []string) (*Cmix, error) {
@@ -305,6 +351,19 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 	jww.INFO.Printf("LoadCmix(%s)", storageDir)
 
 	c, err := OpenCmix(storageDir, password)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return loadCmix(c, parameters)
+}
+
+// LoadCmixWithKV initializes a Cmix object from existing storage backed by a
+// key-value store and starts the network.
+func LoadCmixWithKV(kv portable.GenericKeyValue, storageDir string, password []byte,
+	parameters CMIXParams) (*Cmix, error) {
+	jww.INFO.Printf("LoadCmixWithKV(%s)", storageDir)
+
+	c, err := OpenCmixWithKV(kv, storageDir, password)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -646,23 +705,26 @@ func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 // IsReady returns true if at least percentReady of node registrations has
 // completed. If not all have completed, then it returns false and howClose will
 // be a percent (0-1) of node registrations completed.
+// Note: howClose is always returned based on node registration progress,
+// regardless of network health status.
 func (c *Cmix) IsReady(percentReady float64) (isReady bool, howClose float64) {
-	// Check if the network is currently healthy
-	if !c.network.IsHealthy() {
-		return false, 0
-	}
-
+	// Calculate progress regardless of health status
 	numReg, numNodes, err := c.GetNodeRegistrationStatus()
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
 	}
 
-	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
 	howClose = float64(numReg) / (float64(numNodes) * percentReady)
 	if howClose > 1 {
 		howClose = 1
 	}
 
+	// Only report ready if network is healthy AND enough nodes registered
+	if !c.network.IsHealthy() {
+		return false, howClose // Return progress even when not healthy
+	}
+
+	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
 	return isReady, howClose
 }
 

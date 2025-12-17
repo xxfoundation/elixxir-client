@@ -8,7 +8,7 @@
 package cmd
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"io/fs"
 	"io/ioutil"
 	"os"

@@ -10,7 +10,7 @@ package channels
 import (
 	"bytes"
 	"container/list"
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"io"
 	"math/rand"

@@ -8,7 +8,7 @@
 package channels
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"errors"
 	"sync"
 	"time"

@@ -73,13 +73,16 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
 		if err2 != nil {
 			return nil, errors.WithMessagef(err2,
-				"Register: Failed requesting client key from gateway %s", gatewayID.String())
+				"Register: Failed requesting client key from gateway %s via host %s",
+				gatewayID.String(), host.GetId())
 		}
 		if keyResponse.Error != "" {
-			return nil, errors.WithMessage(err2,
-				"requestKey: clientKeyResponse error")
+			return nil, errors.WithMessagef(err2,
+				"requestKey: clientKeyResponse error from gateway %s via host %s",
+				gatewayID.String(), host.GetId())
 		}
-		jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
+		jww.TRACE.Printf("Register: client key request to gateway %s via host %s took %s",
+			gatewayID, host.GetId(), time.Since(startInternal))
 
 		return keyResponse, nil
 	}, stop)
